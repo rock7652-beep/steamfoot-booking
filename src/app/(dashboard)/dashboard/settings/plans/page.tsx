@@ -190,7 +190,7 @@ export default async function PlansCenterPage() {
   if (!(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();
 
   return (
-    <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
+    <PageShell className="flex w-full min-w-0 flex-col gap-4 py-4">
       <PageHeader
         title="成長方案中心"
         subtitle="依門市成長階段選擇方案，看懂目前狀態與功能差異"

@@ -208,6 +208,17 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
 .course-workspace button { touch-action: manipulation; }
 .course-workspace input:focus, .course-workspace select:focus, .course-workspace textarea:focus { outline: 2px solid var(--color-primary-300); outline-offset: 1px; }
 
+/* Course pages can keep their own tablet layout while using all desktop space.
+   This also covers course screens under active feature branches without editing them. */
+@media (min-width: 1024px) {
+  [data-dashboard-content] > [data-page-shell].course-workspace,
+  [data-dashboard-content] > [data-page-shell].course-home {
+    width: 100%;
+    max-width: none;
+    padding-inline: 0;
+  }
+}
+
 /* Expanded course cash forms need the full content width beside the sidebar. */
 .course-home [data-cash-layout]:has(details[open]) { grid-template-columns: minmax(0, 1fr); }
 .course-home [data-cash-layout]:has(details[open]) > div { grid-column: auto; grid-row: auto; position: static; }

@@ -1,3 +1,5 @@
+import { analysisExportRows } from "@/server/queries/analysis-export";
+import { isAnalysisDate } from "@/lib/date-utils";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -71,6 +73,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = req.nextUrl;
+  if (searchParams.has("startDate") || searchParams.has("endDate")) {
+    const start = searchParams.get("startDate") ?? undefined;
+    const end = searchParams.get("endDate") ?? undefined;
+    if (!isAnalysisDate(start) || !isAnalysisDate(end) || end < start) return new NextResponse("日期範圍無效", { status: 400 });
+    if (!activeStoreId) return new NextResponse("請先選擇店舖", { status: 400 });
+    const rows = await analysisExportRows(activeStoreId, searchParams, true);
+    return new NextResponse("\uFEFF" + toCsv(rows), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="staff-analysis-${start}-${end}.csv"`, "Cache-Control": "no-store" } });
+  }
   const month = searchParams.get("month") ?? toLocalMonthStr();
 
   const { start: monthStart, end: monthEnd } = monthRange(month);

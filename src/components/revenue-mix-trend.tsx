@@ -21,7 +21,7 @@ export function RevenueMixTrend({ points }: { points: RevenueMixPoint[] }) {
   return (
     <div className="mt-4 border-t border-earth-100 pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div><p className="text-xs font-medium text-earth-700">近 6 個月趨勢</p><p className="text-[11px] text-earth-500">本月統計至今日；上方日期篩選僅影響摘要。</p></div>
+        <div><p className="text-xs font-medium text-earth-700">近 6 個月趨勢</p><p className="text-[11px] text-earth-500">本月統計至今日；此趨勢固定顯示最近六個月，不隨上方日期切換。</p></div>
         <div className="flex flex-wrap gap-1.5" aria-label="切換收支趨勢">
           {OPTIONS.map((item) => (
             <button

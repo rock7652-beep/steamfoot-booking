@@ -2195,6 +2195,7 @@ export function CourseWorkspace({
                       "未指定教室"}
                   </p>
                 </div>
+
                 <div className="flex shrink-0 items-center gap-2">
                   {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && dialogSession.rescheduledFromStartsAt && (
                     <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
@@ -2213,6 +2214,7 @@ export function CourseWorkspace({
                   )}
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); setCourseDialog(null); }}>關閉</button>
                 </div>
+
               </header>
               {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canCreate && dialogSession.bookings.length < dialogSession.capacity && (
                 <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-earth-200 bg-white px-4 py-2 text-sm">

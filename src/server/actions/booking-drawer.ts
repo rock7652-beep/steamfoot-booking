@@ -99,6 +99,7 @@ export interface BookingDrawerPayload {
     expectedAmount: number | null;
     // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
     attendedPeople: number | null;
+    noShowMakeupGranted?: boolean | null;
   };
   customerSummary: {
     totalBookings: number;
@@ -447,6 +448,7 @@ export async function fetchBookingDetail(
       expectedAmount:
         booking.expectedAmount == null ? null : Number(booking.expectedAmount),
       attendedPeople: booking.attendedPeople,
+      noShowMakeupGranted: booking.noShowMakeupGranted,
     },
     customerSummary: {
       totalBookings: completedAgg,

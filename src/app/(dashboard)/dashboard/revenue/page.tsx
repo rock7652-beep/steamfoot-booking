@@ -1,4 +1,6 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { SpaRevenue } from "./_components/spa-revenue";
 import { RevenueTabs } from "./_components/revenue-tabs";
 import { CourseRevenue } from "./_components/course-revenue";
@@ -129,6 +131,13 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
       canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
       canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
+  const showMonthly = Boolean(
+    revenueStoreId &&
+    (user.role === "OWNER" || user.role === "ADMIN") &&
+    await getStoreIndustryModule(revenueStoreId) === "steamfoot" &&
+    await checkPermission(user.role, user.staffId, "report.read") &&
+    await hasStoreFeature(revenueStoreId, FEATURES.SERVICE_FEE_CALCULATOR)
+  );
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
   const firstDayOfMonth = `${month}-01`;
@@ -366,7 +375,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         }
       />
 
-      <RevenueTabs readOnly={isViewMode} />
+      <RevenueTabs readOnly={isViewMode} showMonthly={showMonthly} />
 
       {canDataExport ? (
         <Link

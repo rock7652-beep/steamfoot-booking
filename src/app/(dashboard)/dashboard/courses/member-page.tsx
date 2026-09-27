@@ -1,3 +1,4 @@
+import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -57,7 +58,7 @@ export async function CourseMemberPage({
       canReadPeople
         ? prisma.customer.findMany({
             where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds } },
-            select: { id: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
+            select: { id: true, updatedAt: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
         : [],
@@ -103,7 +104,7 @@ export async function CourseMemberPage({
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} actions={canExport ? <a href="/api/export/customers" download className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-700">匯出全部顧客 CSV</a> : undefined} />
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace canDelete={user.role==="OWNER"}
+      <CourseMemberWorkspace profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"}
         canMerge={(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
         customerPage={customerPage}
@@ -116,7 +117,7 @@ export async function CourseMemberPage({
         view={view}
         canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
-        people={people.map((p) => ({ id:p.id,name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
+        people={people.map((p) => ({ id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
         cards={[]}
         canEdit={canEdit}

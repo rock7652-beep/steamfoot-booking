@@ -88,6 +88,7 @@ const inputClass =
 
 export function StaffWorkspace({
   courseBasicOnly = false,
+  showSteamfootRent = false,
   people: initialPeople,
   today,
   canManage,
@@ -98,6 +99,7 @@ export function StaffWorkspace({
   today: string;
   canManage: boolean;
   courseBasicOnly?: boolean;
+  showSteamfootRent?: boolean;
   showSpaCompensation: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
 }) {
@@ -619,6 +621,7 @@ export function StaffWorkspace({
         <PersonDrawer
           courseBasicOnly={courseBasicOnly}
           person={selected}
+          showSteamfootRent={showSteamfootRent}
           showSpaCompensation={showSpaCompensation}
           onClose={() => setEditor(null)}
           onSpecialties={() =>
@@ -1360,6 +1363,7 @@ function ExceptionDrawer({
 
 function PersonDrawer({
   courseBasicOnly = false,
+  showSteamfootRent = false,
   person,
   showSpaCompensation,
   onClose,
@@ -1368,6 +1372,7 @@ function PersonDrawer({
   onCompensation,
 }: {
   courseBasicOnly?: boolean;
+  showSteamfootRent?: boolean;
   person: StaffWorkspacePerson;
   showSpaCompensation: boolean;
   onClose: () => void;
@@ -1544,6 +1549,7 @@ function PersonDrawer({
             設定抽成
           </button>
         ) : null}
+        {person.canEdit && showSteamfootRent && <Link href={`/dashboard/staff/${person.id}/rent`} className="inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm text-primary-700">空間租金</Link>}
         {person.canEdit ? (
           <Link
             href={`/dashboard/staff/${person.id}/edit`}

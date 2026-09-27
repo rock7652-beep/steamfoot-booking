@@ -63,7 +63,7 @@ export default async function BrandOverviewPage({ searchParams }: PageProps) {
   const overview = await getBrandOverviewFoundation(period, storeSort);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="w-full min-w-0 space-y-4 py-5">
       <BrandFootprintHero
         activePeriod={overview.period}
         footprint={overview.footprint}

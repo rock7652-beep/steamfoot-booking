@@ -1,0 +1,58 @@
+import { beforeEach,describe,expect,it,vi } from 'vitest';
+import { noticeRetryState,notificationId,recipientHash,monthlyNotificationBody,type NoticeRecord } from '@/lib/course-monthly-notification';
+const m=vi.hoisted(()=>({report:vi.fn(),query:vi.fn(),exec:vi.fn(),transaction:vi.fn(),link:vi.fn(),member:vi.fn(),customer:vi.fn(),central:vi.fn(),route:vi.fn(),push:vi.fn(),preview:vi.fn(),quota:vi.fn(),manager:vi.fn(),feature:vi.fn(),writable:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{staffMemberLink:{findFirst:m.link},customer:{findFirst:m.customer},store:{findUniqueOrThrow:async()=>({name:'驗收店',slug:'qa-course'})}}}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({}),$queryRaw:m.query}}));
+vi.mock('@/server/services/course-monthly-settlement',()=>({readCourseMonthlySettlement:m.report}));
+vi.mock('@/server/services/course-access',()=>({courseTransaction:m.transaction,courseManager:m.manager}));
+vi.mock('@/server/services/central-member-resolver',()=>({resolveCentralMemberCustomerForStore:m.member}));
+vi.mock('@/server/services/central-line-recipient-loader',()=>({resolveCentralLineRecipientForCustomer:m.central}));
+vi.mock('@/server/services/verified-reminder-line-route',()=>({resolveVerifiedReminderLineRoute:m.route}));
+vi.mock('@/server/services/course-delivery-links',()=>({deriveCourseBaseUrl:()=> 'https://www.steamfoot.com'}));
+vi.mock('@/lib/runtime-env',()=>({isPreviewExternalIntegrationBlocked:m.preview}));
+vi.mock('@/lib/store-plan',()=>({getStoreForPlanByStoreId:async()=>({})}));
+vi.mock('@/lib/usage-gate',()=>({checkReminderSendLimit:m.quota}));
+vi.mock('@/lib/line',()=>({pushMessage:m.push,pushSteamButlerMessage:m.push}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('@/lib/subscription-guard',()=>({assertStoreSubscriptionWritable:m.writable}));
+import { sendCourseMonthlyNotice,courseMonthlyNoticeSummary } from '@/server/services/course-monthly-notification';
+import { notifyCourseMonthlyPerson } from '@/server/actions/course-monthly-notification';
+const actor={storeId:'store',userId:'owner'};
+let old:NoticeRecord|undefined;
+const report=()=>({settings:{personalIncomeEnabled:true},fingerprint:'fp',revisions:[{id:'settlement',revision:1,fingerprint:'fp',snapshot:[{staffId:'staff',name:'林教練'}]}]});
+beforeEach(()=>{
+ vi.clearAllMocks();old=undefined;
+ m.preview.mockReturnValue(false);m.quota.mockReturnValue({allowed:true});
+ m.report.mockImplementation(async()=>report());m.link.mockResolvedValue({userId:'user'});m.member.mockResolvedValue({customerId:'customer'});m.customer.mockResolvedValue({id:'customer',lineUserId:null,lineLinkStatus:'UNLINKED'});
+ m.central.mockResolvedValue({centralUserId:'user',deliverable:true,recipientLineUserId:'line-user'});m.route.mockResolvedValue({status:'READY',channel:'CENTRAL',recipientLineUserId:'line-user'});m.push.mockResolvedValue({success:true});
+ m.manager.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER'}});m.feature.mockResolvedValue(undefined);m.writable.mockResolvedValue(undefined);
+ m.query.mockImplementation(async(strings:TemplateStringsArray)=>{
+  const sql=strings.join('?');
+  if(sql.includes('StaffMemberLink'))return [{userId:'user'}];
+  if(sql.includes('count(*)'))return [{count:BigInt(0)}];
+  return old?[old]:[];
+ });
+ m.exec.mockResolvedValue(1);
+ m.transaction.mockImplementation(async(_store:string,fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.query,$executeRaw:m.exec}));
+});
+function record(status='FAILED'):NoticeRecord{return {id:notificationId('store','settlement','staff'),userId:'user',customerId:'customer',recipientHash:recipientHash('CENTRAL','line-user'),channel:'CENTRAL',body:'原通知',retryKey:'00000000-0000-4000-a000-000000000001',status,firstAttemptAt:new Date(),leaseUntil:new Date(0)};}
+describe('manual monthly notice safety',()=>{
+ it('only includes month and authenticated link, never amounts or payment claims',()=>{expect(monthlyNotificationBody('門市','2026-09','https://example.com')).toBe('門市\n2026-09 收入明細已確認，可登入查看。\n此通知不代表款項已入帳。\nhttps://example.com');});
+ it('keys are scoped by store, revision and staff',()=>{expect(notificationId('a','r','s')).not.toBe(notificationId('b','r','s'));expect(notificationId('a','r','s')).not.toBe(notificationId('a','r2','s'));});
+ it('blocks preview before any lookup or delivery',async()=>{m.preview.mockReturnValue(true);await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('隔離預覽');expect(m.push).not.toHaveBeenCalled();expect(m.report).not.toHaveBeenCalled();});
+ it.each(['disabled','changed','wrong-revision'])('blocks %s monthly state',async condition=>{const r=report();if(condition==='disabled')r.settings.personalIncomeEnabled=false;if(condition==='changed')r.fingerprint='different';if(condition==='wrong-revision')r.revisions[0].revision=2;m.report.mockResolvedValue(r);await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow();expect(m.push).not.toHaveBeenCalled();});
+ it('rejects arbitrary or another store staff id',async()=>{await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'foreign-staff')).rejects.toThrow('本次已確認');expect(m.link).not.toHaveBeenCalled();});
+ it('rejects a customer tied to another central user',async()=>{m.central.mockResolvedValue({centralUserId:'other',deliverable:true});await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('綁定');expect(m.push).not.toHaveBeenCalled();});
+ it('rechecks monthly state after acquiring the store lock',async()=>{m.report.mockResolvedValueOnce(report()).mockResolvedValue({...report(),settings:{personalIncomeEnabled:false}});await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('變更');expect(m.push).not.toHaveBeenCalled();});
+ it('commits a stable retry identity before sending',async()=>{await sendCourseMonthlyNotice(actor,'2026-09',1,'staff');const claim=m.exec.mock.calls.findIndex(([sql])=>sql.join('').includes('INSERT INTO "CourseMonthlyNotification"'));expect(claim).toBeGreaterThanOrEqual(0);expect(m.exec.mock.invocationCallOrder[claim]).toBeLessThan(m.push.mock.invocationCallOrder[0]);expect(m.push.mock.calls[0][2]).toMatch(/^[0-9a-f-]{36}$/);});
+ it('skips a previously successful delivery',async()=>{old=record('SENT');expect(await sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).toEqual({status:'SENT'});expect(m.push).not.toHaveBeenCalled();});
+ it('retries the exact body and key after failure',async()=>{old=record();await sendCourseMonthlyNotice(actor,'2026-09',1,'staff');expect(m.push).toHaveBeenCalledWith('line-user',[{type:'text',text:'原通知'}],old.retryKey);});
+ it('rejects changed recipient on retry',async()=>{old=record();m.route.mockResolvedValue({status:'READY',channel:'CENTRAL',recipientLineUserId:'other-line'});await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('收件帳號');expect(m.push).not.toHaveBeenCalled();});
+ it('does not overwrite settlement or payment data on delivery failure',async()=>{m.push.mockResolvedValue({success:false,httpStatus:500});expect(await sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).toEqual({status:'FAILED'});for(const [sql] of m.exec.mock.calls)expect(sql.join('')).not.toMatch(/(?:INSERT INTO|UPDATE|DELETE FROM) "(?:CourseMonthlySettlement|CourseProfitPayment|CashbookEntry)"/);});
+ it('does not retry permanent API rejection',async()=>{m.push.mockResolvedValue({success:false,httpStatus:400});expect(await sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).toEqual({status:'BLOCKED'});});
+ it('enforces quota before claim and push',async()=>{m.quota.mockReturnValue({allowed:false});await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('額度');expect(m.push).not.toHaveBeenCalled();expect(m.exec).not.toHaveBeenCalled();});
+ it('summary returns no LINE address or body',async()=>{const summary=await courseMonthlyNoticeSummary('store','2026-09',1);expect(summary.rows).toEqual([{staffId:'staff',name:'林教練',status:'READY',reason:''}]);expect(JSON.stringify(summary)).not.toContain('line-user');});
+ it('owner permission is checked by server action',async()=>{m.manager.mockResolvedValue({storeId:'store',user:{id:'coach',role:'STAFF'}});const r=await notifyCourseMonthlyPerson({month:'2026-09',revision:1,staffId:'staff'});expect(r.success).toBe(false);expect(m.report).not.toHaveBeenCalled();});
+ it('read permission and both features are required',async()=>{await notifyCourseMonthlyPerson({month:'2026-09',revision:1,staffId:'staff'});expect(m.manager).toHaveBeenCalledWith('report.read');expect(m.feature).toHaveBeenCalledTimes(2);expect(m.writable).toHaveBeenCalledWith('store');});
+ it('limits unknown outcomes to the LINE retry window and active lease',()=>{const r=record();const now=new Date();expect(noticeRetryState({...r,leaseUntil:new Date(now.getTime()+1000)},now)).toBe('BUSY');expect(noticeRetryState({...r,firstAttemptAt:new Date(now.getTime()-23*3600000)},now)).toBe('BLOCKED');expect(noticeRetryState({...r,status:'SENT',firstAttemptAt:new Date(0)},now)).toBe('SENT');});
+});

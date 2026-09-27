@@ -1,5 +1,7 @@
 "use client";
 
+import { BookingActionFeedback } from "./booking-action-feedback";
+
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { LinkPendingLabel } from "@/components/link-pending-label";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
@@ -96,6 +98,8 @@ interface DayDetailPanelProps {
   onCompleteBatch?: () => void;
   onCompleteSingle?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
+  actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
+  onCheckAction?: (id: string) => void;
   actingIds?: ReadonlySet<string>;
   batchActing?: boolean;
   readOnly?: boolean;
@@ -117,6 +121,8 @@ export function DayDetailPanel({
   onClearSelection,
   onCompleteBatch,
   onCompleteSingle,
+  actionStates,
+  onCheckAction,
   actingIds,
   batchActing = false,
   readOnly = false,
@@ -286,6 +292,7 @@ export function DayDetailPanel({
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     isActing={isActing}
                   />
+                  <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
                 </li>
               );
             })}
@@ -351,6 +358,8 @@ function TimelineItem({
   isActing: boolean;
 }) {
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
+  const phone = booking.customer?.phone?.trim();
+  const displayPhone = phone?.replace(/^(09\d{2})(\d{3})(\d{3})$/, "$1-$2-$3");
   // 有效 PACKAGE 堂數提醒（複用 PR #280 顧客清單同款 helper，定義一致）。
   const sessions = remainingSessionsState(booking.customer?.validPackageSessions ?? 0);
   const planBadge = bookingPlanBadge({
@@ -436,17 +445,15 @@ function TimelineItem({
         ) : null}
       </div>
 
-      {/* Body — opens drawer on click. Use a real button so keyboard works.
-          兩排式版型：
-            第一排：時間 + 顧客姓名 + 直屬店長
-            第二排：預約狀態 + 本次使用方案 */}
-      <button
-        type="button"
-        onClick={handleBodyClick}
-        aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
-        disabled={!onClick || isActing}
-        className="flex min-w-0 flex-1 flex-col gap-1 py-2 text-left disabled:cursor-default"
-      >
+      {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
+      <div className="relative isolate flex min-w-0 flex-1 flex-col gap-1 py-2 text-left">
+        <button
+          type="button"
+          onClick={handleBodyClick}
+          aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
+          disabled={!onClick || isActing}
+          className="absolute inset-0 z-10 rounded focus-visible:outline-2 focus-visible:outline-primary-600 disabled:cursor-default"
+        />
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
@@ -474,6 +481,18 @@ function TimelineItem({
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
+          {phone ? (
+            <a
+              href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+              aria-label={`撥打 ${booking.customer.name} 的手機號碼 ${displayPhone}`}
+              className="relative z-20 inline-flex min-h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded text-sm text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600"
+            >
+              <span className="tabular-nums">{displayPhone}</span>
+              <span className="px-1.5 text-xs font-medium">撥打</span>
+            </a>
+          ) : (
+            <span className="text-sm text-earth-500">未留電話</span>
+          )}
           {booking.customerConfirmedAt ? (
             <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
               顧客已確認會到
@@ -538,7 +557,7 @@ function TimelineItem({
             </span>
           </div>
         ))}
-      </button>
+      </div>
 
       {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
       <div className="flex shrink-0 flex-col justify-center gap-2 py-2">
@@ -722,4 +741,3 @@ function computeStats(bookings: DayBooking[]) {
   }
   return stats;
 }
-

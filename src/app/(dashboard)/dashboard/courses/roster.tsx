@@ -8,8 +8,9 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
+
 import { useRouter } from "next/navigation";
 import {
   updateCourseRosterBatch,
@@ -75,7 +76,13 @@ export function CourseRoster({
   roomId?: string;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const readVersion = useRef(0);
+  const mutationLock = useRef(false);
+  const currentSession = useRef(sessionId);
+  currentSession.current = sessionId;
+  const [transitionPending, start] = useTransition();
+  const [uncertain, setUncertain] = useState(false);
+  const pending = transitionPending || uncertain;
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
     "CHECKED_IN" | "ATTENDED" | "RESERVED"
@@ -130,7 +137,11 @@ export function CourseRoster({
   const [makeupTime,setMakeupTime]=useState("09:00");
 
   async function load() {
+
+    const version = ++readVersion.current;
     const result = await loadCourseRosterQuick(sessionId);
+    if (version !== readVersion.current || currentSession.current !== sessionId) return;
+
     if (result.success) {
       setRoster(result.data.roster);
       setSession(old=>old ? {...old,teacherNote:result.data.teacherNote,teacherAttendance:result.data.teacherAttendance,teacherAttendanceReason:result.data.teacherAttendanceReason}:old);
@@ -142,10 +153,14 @@ export function CourseRoster({
 
   useEffect(() => {
     let active = true;
-    const refresh = () =>
-      loadCourseSessionDetail(sessionId, view === "roster")
+
+    const refresh = () => {
+      if (mutationLock.current) return Promise.resolve();
+      const version = ++readVersion.current;
+      return loadCourseSessionDetail(sessionId, view === "roster")
+
         .then((result) => {
-          if (!active) return;
+          if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
           if (result.success) {
             setSession(result.data.session);
             setTrial(result.data.trial);
@@ -157,7 +172,10 @@ export function CourseRoster({
             setMessage(result.error);
           }
         })
-        .catch(() => active && setMessage("讀取失敗，請重試"));
+        .catch(() => {
+          if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
+        });
+    };
     void refresh();
     const refreshVisibleRoster = () => {
       if (view === "roster" && document.visibilityState === "visible") {
@@ -184,6 +202,12 @@ export function CourseRoster({
     optimistic?: {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string} | {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string}[],
     teacherStatus?:"SCHEDULED"|"LEAVE"|"NO_SHOW",
   ) {
+
+    if (mutationLock.current || uncertain) return;
+    mutationLock.current = true;
+    ++readVersion.current;
+    setMessage("處理中…");
+
     const previous = roster;
     const previousSession=session;
     const updates=optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
@@ -193,9 +217,11 @@ export function CourseRoster({
       updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,item.status,Boolean(item.absenceKind)));
     }
     if(teacherStatus){setSession(old=>old?{...old,teacherAttendance:teacherStatus}:old);onTeacherAttendanceOptimistic?.(teacherStatus);}
+
     start(async () => {
       try {
         const result = await action();
+        if (currentSession.current !== sessionId) return;
         if (!result.success) {
           if(updates.length){setRoster(previous);updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,null));}
           if(teacherStatus){setSession(previousSession);onTeacherAttendanceOptimistic?.(null);}
@@ -213,7 +239,15 @@ export function CourseRoster({
       } catch {
         if(updates.length){setRoster(previous);updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,null));}
         if(teacherStatus){setSession(previousSession);onTeacherAttendanceOptimistic?.(null);}
-        setMessage("連線中斷，請重試");
+
+        if (currentSession.current === sessionId) {
+          setUncertain(true);
+          setMessage("結果待確認，請重新開啟名單核對後再操作。");
+          try { await load(); } catch { /* Keep the last confirmed roster and warning. */ }
+        }
+      } finally {
+        mutationLock.current = false;
+
       }
     });
   }
@@ -667,8 +701,9 @@ export function CourseRoster({
   }
 
   return (
+
     <section className={musicLayout ? "flex min-h-0 flex-col gap-3 lg:h-full" : "flex h-full min-h-0 flex-col gap-3"}>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      {musicLayout ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <div className="rounded-lg bg-primary-50 px-3 py-2">
           <strong className="block text-base text-primary-900">
             {count}/{capacity}
@@ -697,8 +732,13 @@ export function CourseRoster({
               未收款 {unpaidTrialCount} 人
             </span>
           )}
-        </div>
-      </div>
+        </div></div> : <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
+        <span className="whitespace-nowrap">已預約 <strong className="text-primary-900">{count}/{capacity}</strong></span>
+        <span className="whitespace-nowrap">待點名 <strong>{waitingCount}</strong></span>
+        <span className="whitespace-nowrap">已出席 <strong className="text-primary-900">{attendedCount}</strong></span>
+        <span className="whitespace-nowrap">未到 <strong>{noShowCount}</strong></span>
+        {trialCount>0&&<span className="whitespace-nowrap text-amber-900">體驗客 <strong>{trialCount}</strong></span>}
+        {unpaidTrialCount>0&&<span className="whitespace-nowrap font-medium text-amber-800">未收款 {unpaidTrialCount} 人</span>}</div>}
 
       <div className="flex flex-wrap items-center gap-2">
         <button

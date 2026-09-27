@@ -8,6 +8,7 @@ import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
 import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
+import { OperationScope } from "@/components/operations/operation-scope";
 import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
@@ -69,7 +70,7 @@ export default async function DashboardLayout({
       if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
     }
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|guide\/?$|device-preview\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|device-preview\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }
@@ -164,7 +165,10 @@ export default async function DashboardLayout({
     ? viewableStores.find((store) => store.id === storeViewContext?.viewedStoreId)
     : null;
 
+  const operationScope = JSON.stringify([user.id, user.role, user.staffId, activeStoreId,
+    storeViewContext?.viewedStoreId, industryModule, [...permissions].sort()]);
   return (
+    <OperationScope key={operationScope} scope={operationScope}>
     <DashboardShell
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
@@ -218,5 +222,6 @@ export default async function DashboardLayout({
       <PreviewNavigationReporter />
       {children}
     </DashboardShell>
+    </OperationScope>
   );
 }

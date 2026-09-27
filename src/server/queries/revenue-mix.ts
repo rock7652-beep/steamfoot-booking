@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
+import { isRetailCashbookCategory } from "@/lib/cashbook-entry-kind";
 
 export type RevenueMixPoint = {
   key: string;
@@ -117,7 +118,7 @@ export async function getRevenueMix(
     const point = points.get(monthly ? date.slice(0, 7) : date);
     if (!point) continue;
     const field = entry.type === "EXPENSE" ? "expense"
-      : entry.category?.startsWith("零售-") ? "retailRevenue" : "otherRevenue";
+      : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue";
     const amount = Number(entry.amount);
     point[field] += amount;
     if (inPeriod(date)) {

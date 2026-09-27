@@ -84,16 +84,17 @@ export async function saveSpaCustomerNote(input: z.infer<typeof noteSchema>) {
     const user = await requireWritablePermission("customer.update");
     const storeId = await spaResourceStore("customer.update");
     const data = noteSchema.parse(input);
-    await prisma.$transaction(async (tx) => {
+    const outcome = await prisma.$transaction(async (tx) => {
       const result = await tx.customer.updateMany({
         where: { id: data.customerId, storeId, serviceNote: data.previousNote },
         data: { serviceNote: data.serviceNote || null },
       });
-      if (!result.count)
-        throw new AppError(
-          "CONFLICT",
-          "備註已被其他人更新或顧客不存在，請重新讀取後再儲存。",
-        );
+      if (!result.count) {
+        const current = await tx.customer.findFirst({ where: { id: data.customerId, storeId }, select: { serviceNote: true } });
+        if (current && current.serviceNote === (data.serviceNote || null)) return null;
+        return current ? { success: false as const, error: "備註已由其他人更新，你的輸入已保留。", currentValue: current.serviceNote }
+          : { success: false as const, error: "找不到本店顧客，尚未儲存。" };
+      }
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
@@ -102,7 +103,9 @@ export async function saveSpaCustomerNote(input: z.infer<typeof noteSchema>) {
           action: "SERVICE_NOTE_UPDATED",
         },
       });
+      return null;
     });
+    if (outcome) return outcome;
     revalidatePath("/dashboard/customers");
     return { success: true as const, serviceNote: data.serviceNote || null };
   } catch (error) {

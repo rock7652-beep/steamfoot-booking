@@ -63,6 +63,7 @@ interface Props {
   /** 整 row 點擊用的 href（同步 ?customerId=）；點擊後 page 會重抓並打開 drawer */
   buildViewHref: (row: CustomerRow) => string;
   /** 「＋指派」→ 開啟同一個 drawer，並展開方案區 */
+  quickAssignLabel?: string;
   onQuickAssign?: (row: CustomerRow) => void;
   /**
    * 啟用批次選取模式（顯示 checkbox 欄）。只在 canAssign=true 時開啟。
@@ -115,6 +116,7 @@ export function CustomersTable({
   onPrefetch,
   buildViewHref,
   onQuickAssign,
+  quickAssignLabel = "＋指派",
   selectionEnabled = false,
   selectedIds,
   onToggleRow,
@@ -338,7 +340,7 @@ export function CustomersTable({
                 }}
                 className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "h-8 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
               >
-                ＋指派
+                {quickAssignLabel}
               </button>
             ) : null}
             <button

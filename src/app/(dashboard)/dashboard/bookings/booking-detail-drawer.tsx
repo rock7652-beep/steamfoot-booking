@@ -3,7 +3,10 @@
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useResponsiveAction } from "@/hooks/use-responsive-action";
+import { bookingMatchesExpectation, type BookingActionExpectation } from "@/lib/booking-action-reconciliation";
+import { BookingActionFeedback } from "./booking-action-feedback";
 import { toast } from "sonner";
 import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -124,6 +127,7 @@ export interface BookingPrefill {
 }
 
 interface BookingDetailDrawerProps {
+  sharedActions?: ReturnType<typeof useResponsiveAction>;
   operationGuidePreview?: boolean;
   open: boolean;
   bookingId: string | null;
@@ -143,7 +147,7 @@ interface BookingDetailDrawerProps {
   onClose: () => void;
   /**
    * Called after a successful drawer action.
-   * `newStatus` is the optimistic next state — parent uses it to update
+   * `newStatus` is the server-confirmed next state — parent uses it to update
    * cached month / day data without refetching the whole month.
    */
   onUpdated?: (bookingId: string, newStatus: string | null) => void;
@@ -158,6 +162,7 @@ interface BookingDetailDrawerProps {
 }
 
 export function BookingDetailDrawer({
+  sharedActions,
   operationGuidePreview = false,
   open,
   bookingId,
@@ -175,7 +180,14 @@ export function BookingDetailDrawer({
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isActing, startAction] = useTransition();
+  const localActions = useResponsiveAction();
+  const saves = sharedActions ?? localActions;
+  const currentBooking = useRef(bookingId);
+  useLayoutEffect(() => { currentBooking.current = bookingId; }, [bookingId]);
+  const actionKey = bookingId ?? "";
+  const actionState = saves.states[actionKey];
+  const isActing = saves.isBlocked(actionKey);
+  const checkingResult = actionState?.phase === "checking" || actionState?.phase === "unknown";
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partialAttendedPeople, setPartialAttendedPeople] = useState<
     number | null
@@ -220,6 +232,15 @@ export function BookingDetailDrawer({
     setError(null);
     setPendingAttendedPeople(null);
     setPartialAttendedPeople(null);
+    setNoShowOpen(false);
+    setAttendanceOpen(false);
+    setAttendanceIntent(null);
+    setRescheduleOpen(false);
+    setCollectOpen(false);
+    setCorrectOpen(false);
+    setCollectSingleOpen(false);
+    setAdjustCheckoutOpen(false);
+    setAdjustToSingleOpen(false);
   }
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
@@ -232,7 +253,7 @@ export function BookingDetailDrawer({
   // `canceled` 會丟掉「被更新後的 run（如 mutation reloadNonce）取代」的舊回應，
   // 避免過期 revalidate 蓋掉 optimistic 結果。
   useEffect(() => {
-    if (!open || !bookingId) return;
+    if (!open || !bookingId || isActing) return;
     const id = bookingId;
     let canceled = false;
     const promise = cache ? cache.load(id) : fetchBookingDetail(id, resolvedStoreId);
@@ -253,66 +274,58 @@ export function BookingDetailDrawer({
     return () => {
       canceled = true;
     };
-  }, [open, bookingId, reloadNonce, cache, resolvedStoreId]);
+  }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing]);
 
-  /**
-   * Run a drawer action. Updates local drawer state optimistically with
-   * `nextStatus` so the user sees the new status immediately, and notifies
-   * the parent so it can patch its cached month/day data. We deliberately
-   * **don't** call `router.refresh()` — the booking server actions already
-   * `revalidatePath('/dashboard/bookings')`, so the data cache is invalidated
-   * and next navigation pulls fresh data; in the meantime the calendar's
-   * lifted state stays in sync via `onUpdated`.
-   */
+  /** Financial and attendance changes are confirmed before patching stored values. */
   function wrapAction(
     label: string,
     action: () => Promise<{ success: boolean; error?: string } | unknown>,
     nextStatus: string | null,
-    opts?: { onSuccess?: () => void },
+    opts?: { onSuccess?: () => void; expected?: BookingActionExpectation },
   ) {
     if (!bookingId) return;
-    if (readOnly) {
-      toast.error("查看模式下不可操作預約");
-      return;
-    }
+    if (readOnly) { toast.error("查看模式下不可操作預約"); return; }
     const id = bookingId;
-    startAction(async () => {
-      try {
-        const result = (await action()) as
-          { success: boolean; error?: string } | undefined;
-        if (result && result.success === false) {
-          toast.error(result.error ?? "操作失敗");
-          return;
-        }
-        toast.success(label);
-        opts?.onSuccess?.();
-
-        if (nextStatus) {
-          setData((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  booking: {
-                    ...prev.booking,
-                    bookingStatus: nextStatus,
-                    isCheckedIn:
-                      nextStatus === "COMPLETED"
-                        ? true
-                        : prev.booking.isCheckedIn,
-                  },
-                }
-              : prev,
-          );
-        }
-
+    let recoveredPayload: BookingDrawerPayload | null = null;
+    const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
+    void saves.run(id, async () => {
+      const result = await action() as { success?: boolean; error?: string } | undefined;
+      if (typeof result?.success !== "boolean") throw new Error("結果待確認");
+      if (!result.success) toast.error(result.error ?? "操作未完成");
+      return { success: result.success, error: result.error };
+    }, {
+      apply: () => {},
+      rollback: () => {},
+      reconcile: async signal => {
+        const payload = await fetchBookingDetail(id, resolvedStoreId);
+        if (signal.aborted || !bookingMatchesExpectation(payload.booking, id, expected)) return false;
+        recoveredPayload = payload;
+        return true;
+      },
+      recovered: () => {
+        if (!recoveredPayload) return;
+        cache?.invalidate(id);
         onUpdated?.(id, nextStatus);
-        // parent 已 invalidate 此 booking 的 cache（C）；bump nonce 讓 effect
-        // 重跑，取消任何過期 in-flight revalidate 並重抓 authoritative payload。
-        setReloadNonce((n) => n + 1);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "操作失敗";
-        toast.error(msg);
-      }
+        if (currentBooking.current !== id) return;
+        setData(recoveredPayload);
+        setError(null);
+        opts?.onSuccess?.();
+      },
+      confirmed: () => {
+        toast.success(label);
+        onUpdated?.(id, nextStatus);
+        cache?.invalidate(id);
+        // A late completion must not close B's modal or change B's status.
+        if (currentBooking.current !== id) return;
+        opts?.onSuccess?.();
+        if (nextStatus) setData(previous =>
+          previous?.booking.id === id ? { ...previous, booking: {
+            ...previous.booking,
+            bookingStatus: nextStatus,
+            isCheckedIn: nextStatus === "COMPLETED" ? true : nextStatus === "PENDING" ? false : previous.booking.isCheckedIn,
+          } } : previous);
+        setReloadNonce(n => n + 1);
+      },
     });
   }
 
@@ -400,6 +413,7 @@ export function BookingDetailDrawer({
       () => markCompleted(bookingId, { attendedPeople }),
       "COMPLETED",
       {
+        expected: { attendedPeople },
         onSuccess: () => {
           setAttendanceOpen(false);
           setAttendanceIntent(null);
@@ -420,6 +434,7 @@ export function BookingDetailDrawer({
           }),
         "COMPLETED",
         {
+          expected: { attendedPeople: partialAttendedPeople, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
           onSuccess: () => {
             setNoShowOpen(false);
             setPartialAttendedPeople(null);
@@ -443,6 +458,7 @@ export function BookingDetailDrawer({
     };
     const label = isFullMakeupBooking ? "已標記未到" : labelMap[choice];
     wrapAction(label, () => markNoShow(bookingId!, choice), "NO_SHOW", {
+      expected: { makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
       onSuccess: () => setNoShowOpen(false),
     });
   }
@@ -460,7 +476,7 @@ export function BookingDetailDrawer({
           slotTime: newSlotTime,
         }),
       null,
-      { onSuccess: () => setRescheduleOpen(false) },
+      { expected: { date: newDate, slotTime: newSlotTime }, onSuccess: () => setRescheduleOpen(false) },
     );
   }
 
@@ -544,6 +560,7 @@ export function BookingDetailDrawer({
         labelledById="booking-drawer-title"
         width={spaMode ? undefined : 860}
       >
+        {open && <BookingActionFeedback state={actionState} onCheck={() => { void saves.check(actionKey); }} />}
         {open && operationGuidePreview && !spaMode && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
         {hasFullData &&
         data &&
@@ -633,7 +650,7 @@ export function BookingDetailDrawer({
       </RightSheet>
       {!readOnly && (
         <NoShowModal
-          open={noShowOpen && !!data}
+          open={noShowOpen && !!data && !checkingResult}
           onClose={() => {
             setNoShowOpen(false);
             setPartialAttendedPeople(null);
@@ -659,7 +676,7 @@ export function BookingDetailDrawer({
           data.booking.bookingType === "PACKAGE_SESSION") &&
         data.booking.people > 1 && (
           <AttendanceModal
-            open={attendanceOpen}
+            open={attendanceOpen && !checkingResult}
             onClose={() => {
               setAttendanceOpen(false);
               setAttendanceIntent(null);
@@ -672,7 +689,7 @@ export function BookingDetailDrawer({
         )}
       {!readOnly && data && (
         <RescheduleModal
-          open={rescheduleOpen}
+          open={rescheduleOpen && !checkingResult}
           onClose={() => setRescheduleOpen(false)}
           currentDate={data.booking.bookingDate}
           currentSlotTime={data.booking.slotTime}

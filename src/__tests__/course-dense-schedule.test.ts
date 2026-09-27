@@ -34,14 +34,14 @@ it("dense day board supports room/coach perspectives and action filters", () => 
   expect(board).toContain("快滿");
   expect(board).toContain("滿班");
   expect(board).toContain("待報到");
-  expect(board).toContain("預約 <strong");
+  expect(board).toContain('musicDense ? "預約學員" : "預約"');
   expect(board).toContain("{booked}");
   expect(board).toContain('repeat(${resourceCount}, minmax(180px, 1fr))');
 });
 
 it("adaptive cards prioritize private members while group cards show capacity", () => {
   expect(board).toContain('template?.classType === "PRIVATE"');
-  expect(board).toContain("privateClass && customer ? customer : session.nameSnapshot");
+  expect(board).toContain("privateClass && customer ? customer : session.previewFaded");
   expect(board).toContain('`${session.bookings.length} / ${session.capacity} 人`');
   expect(board).toContain("customerName");
   expect(board).toContain("bookingKind");
@@ -50,7 +50,7 @@ it("adaptive cards prioritize private members while group cards show capacity", 
 });
 
 it("course operations use the shared right sheet instead of another centered modal", () => {
-  expect(workspace).toContain('width={courseDialog.kind === "roster" ? 820 : 560}');
+  expect(workspace).toContain('courseDialog.kind === "roster" ? 820 : 560');
   expect(workspace).toContain('labelledById="course-operation-title"');
   expect(workspace).not.toContain('className="fixed inset-0 z-[80] flex items-center justify-center');
 });
@@ -66,20 +66,20 @@ it("schedule layout keeps controls compact and sends month clicks into the day w
 
 it("day timetable balances width by active resource count", () => {
   expect(board).toContain('resourceCount === 1');
-  expect(board).toContain('? "44%"');
+  expect(board).toContain('musicDense');
   expect(board).toContain(': resourceCount === 2');
   expect(board).toContain('? "64%"');
   expect(board).toContain('? "80%"');
   expect(board).toContain("width: timetableWidth");
   expect(board).toContain("minWidth: timetableMinWidth");
-  expect(board).toContain('minmax(124px, 1fr)');
+  expect(board).toContain('musicResourceWidth');
   expect(board).toContain('minmax(180px, 1fr)');
   expect(board).not.toContain('aria-label="課表欄位視角"');
 });
 
 it("unpaid trial collection is visible beside the unpaid amount", () => {
-  expect(roster).toContain('!paid &&');
-  expect(roster).toContain(">\n                            收款\n");
+  expect(roster).toContain('paid ? `已收 NT$ ${paid.amount}` : "未收款"');
+  expect(roster).toContain('收款');
   expect(roster).toContain("setCorrectPayment(false)");
   expect(roster).toContain("setPaymentBooking(booking.id)");
   expect(roster).toContain('paid &&\n                    booking.bookingKind === "TRIAL"');

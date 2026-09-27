@@ -41,15 +41,13 @@ const SCHEDULE_LABEL: Record<DayScheduleInfo["status"], string | null> = {
   training: "進修",
 };
 
-const STATUS_STYLE: Record<
-  string,
-  { bg: string; border: string; textMuted?: string }
-> = {
-  PENDING: { bg: "bg-earth-100", border: "border-l-earth-400" },
-  CONFIRMED: { bg: "bg-blue-50", border: "border-l-blue-500" },
-  COMPLETED: { bg: "bg-green-50", border: "border-l-green-500" },
-  NO_SHOW: { bg: "bg-red-50", border: "border-l-red-500" },
-  CANCELLED: { bg: "bg-earth-50", border: "border-l-earth-300", textMuted: "text-earth-400" },
+// 月曆只以淡底色表示出席狀態，不再混用人員色條。
+const STATUS_STYLE: Record<string, { bg: string; label: string }> = {
+  PENDING: { bg: "bg-earth-50", label: "預約中" },
+  CONFIRMED: { bg: "bg-earth-50", label: "預約中" },
+  COMPLETED: { bg: "bg-green-50", label: "已完成" },
+  NO_SHOW: { bg: "bg-red-50", label: "未到" },
+  CANCELLED: { bg: "bg-earth-50", label: "已取消" },
 };
 
 interface BookingCalendarDesktopProps {
@@ -63,7 +61,7 @@ interface BookingCalendarDesktopProps {
   onDaySelect: (dateKey: string) => void;
   onBookingClick?: (bookingId: string) => void;
   basePath?: string;
-  /** 指定教練名稱時：cell 內僅該教練的 strip 保留原色，其他轉灰 */
+  /** 指定教練名稱時：cell 內其他教練的預約淡化，狀態底色保持不變 */
   highlightStaff?: string | null;
   /** 篩選後無符合資料的日期（cell 整體變灰） */
   dimmedDates?: Set<string>;
@@ -159,6 +157,15 @@ export function BookingCalendarDesktop({
             ›
           </Link>
         </div>
+      </div>
+
+      <div aria-label="預約狀態顏色說明" className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-xs text-earth-700">
+        {[STATUS_STYLE.PENDING, STATUS_STYLE.COMPLETED, STATUS_STYLE.NO_SHOW].map((status) => (
+          <span key={status.label} className="inline-flex items-center gap-1">
+            <span aria-hidden="true" className={`h-3 w-3 rounded-sm border border-earth-200 ${status.bg}`} />
+            {status.label}
+          </span>
+        ))}
       </div>
 
       <div className="grid grid-cols-7 border-b border-earth-200">
@@ -353,8 +360,6 @@ const BookingStrip = memo(function BookingStrip({
   const style =
     STATUS_STYLE[booking.bookingStatus] ?? STATUS_STYLE.PENDING;
 
-  const staffAccent = booking.staffColor ?? "#CBD0DA";
-  const border = dimmed ? "#E3E6EC" : staffAccent;
   const clickable = !!onSelect;
 
   return (
@@ -369,16 +374,15 @@ const BookingStrip = memo(function BookingStrip({
           : undefined
       }
       disabled={!clickable}
-      className={`flex h-[18px] w-full items-center gap-1 truncate rounded-[3px] pr-1.5 text-left text-[11px] font-medium ${style.bg} ${
+      className={`flex h-[18px] w-full items-center gap-1 truncate rounded-[3px] px-1.5 text-left text-[11px] font-medium ${style.bg} ${
         dimmed ? "opacity-50" : ""
       } ${clickable ? "cursor-pointer hover:brightness-95" : "cursor-default"}`}
-      style={{ borderLeft: `3px solid ${border}`, paddingLeft: 6 }}
-      title={`${booking.slotTime} ${booking.customerName} · ${booking.staffName ?? "未指派"}`}
+      title={`${booking.slotTime} ${booking.customerName} · ${style.label} · ${booking.staffName ?? "未指派"}`}
     >
-      <span className="shrink-0 tabular-nums text-earth-500">
+      <span className="shrink-0 tabular-nums text-earth-800">
         {booking.slotTime}
       </span>
-      <span className={`truncate ${style.textMuted ?? "text-earth-800"}`}>
+      <span className="truncate text-earth-800">
         {booking.customerName}
       </span>
       {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (

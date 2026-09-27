@@ -1,5 +1,6 @@
 "use client";
 
+import { useRetainedState } from "@/components/operations/operation-scope";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KpiStrip, type KpiStripItem } from "@/components/desktop";
@@ -39,11 +40,13 @@ export function PlansManager({
   // without router.refresh — server still revalidates the cache, so a
   // future navigation gets fresh data.
   const [plans, setPlans] = useState<PlanRow[]>(initialPlans);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [sourcePlans, setSourcePlans] = useState(initialPlans);
+  if (sourcePlans !== initialPlans) { setSourcePlans(initialPlans); setPlans(initialPlans); }
+  const [statusFilter, setStatusFilter] = useRetainedState<StatusFilter>("plans:status", "active", (v): v is StatusFilter => v === "active" || v === "all");
   const [visibilityFilter, setVisibilityFilter] =
-    useState<VisibilityFilter>("all");
+    useRetainedState<VisibilityFilter>("plans:visibility", "all", (v): v is VisibilityFilter => v === "all" || v === "public" || v === "internal");
   const [categoryFilter, setCategoryFilter] =
-    useState<CategoryFilter>("all");
+    useRetainedState<CategoryFilter>("plans:category", "all", (v): v is CategoryFilter => typeof v === "string" && ["all", "TRIAL", "SINGLE", "PACKAGE"].includes(v));
   const [drawer, setDrawer] = useState<{
     mode: "new" | "edit";
     plan: PlanRow | null;
@@ -81,7 +84,7 @@ export function PlansManager({
       if (categoryFilter !== "all" && p.category !== categoryFilter)
         return false;
       return true;
-    });
+    }).sort((a, b) => Number(b.isActive) - Number(a.isActive));
   }, [plans, statusFilter, visibilityFilter, categoryFilter]);
 
   function patchPlan(id: string, patch: Partial<PlanRow>) {
@@ -326,7 +329,7 @@ export function PlansManager({
         <PlanFormDrawer
           open={!!drawer}
           mode={drawer?.mode ?? "new"}
-          plan={drawer?.plan ?? null}
+          plan={plans.find(p => p.id === drawer?.plan?.id) ?? drawer?.plan ?? null}
           onClose={() => setDrawer(null)}
           onSaved={handleSaved}
         />

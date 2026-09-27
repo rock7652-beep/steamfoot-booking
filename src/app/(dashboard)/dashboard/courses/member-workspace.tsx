@@ -1,6 +1,10 @@
 "use client";
+import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
+import { saveCourseCustomerNote } from "@/server/actions/course-customer-note";
+import { useRetainedState, retainedString, retainedPage } from "@/components/operations/operation-scope";
 import {CourseOptionSelect} from "@/components/admin/course-option-select";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
+import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
@@ -11,9 +15,8 @@ import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
-  saveCourseCustomer,
-  saveCoursePointPlan,
   setCoursePointPlanStatus,
+
   assignCoursePointCard,
   setCourseCardMembers,
 } from "@/server/actions/course-members";
@@ -27,31 +30,17 @@ import { CourseCustomerList } from "./customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
-import { BirthdayFields } from "@/components/birthday-fields";
+import { CourseCustomerDraftForm, CoursePlanDraftForm, type Person, type Plan } from "./course-profile-forms";
 import { CourseCustomerHealth } from "./customer-health";
-import { musicPlanQuote } from "@/lib/music-course-products";
-type Person = { id: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
-type Plan = {
-  musicTerms?:number|null;
-  id: string;
-  name: string;
-  points: number;
-  price: number;
-  storeCost?: number;
-  termSessionIds?:string[];
-  validDays: number;
-  isActive: boolean;
-  customerPurchasable?: boolean;
-  allowShared?: boolean;
-  unit: string;
-  templateIds: string[];
-};
+
+
 export type CourseCardView = Awaited<ReturnType<typeof getCourseCards>>[number];
 const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
+  profitEnabled=true,
   canDelete=false,
   termSessions=[],
   view,
@@ -75,6 +64,7 @@ export function CourseMemberWorkspace({
   canDiscount = false,
   music = false,
 }: {
+  profitEnabled?:boolean;
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
   templates: {id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null}[];
@@ -103,15 +93,13 @@ export function CourseMemberWorkspace({
   const pathname=usePathname();
   function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
-  const [templateSearch,setTemplateSearch]=useState("");
-  const [selectedTemplateIds,setSelectedTemplateIds]=useState<string[]>([]);
-  const [musicTerms,setMusicTerms]=useState(1);
-  const [planAmounts,setPlanAmounts]=useState({points:music?4:10,price:0,storeCost:0});
+
+
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
-  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useRetainedState(`course-${view}:search`, "", retainedString);
+  const [page, setPage] = useRetainedState(`course-${view}:page`, 0, retainedPage);
+  const [status, setStatus] = useRetainedState(`course-${view}:status`, "all", retainedString);
   const [panel, setPanel] = useState<
     "person" | "plan" | "assign" | "card" | "coach" | "health" | null
   >(initialPerson ? "person" : null);
@@ -126,9 +114,9 @@ export function CourseMemberWorkspace({
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardLoading,setCardLoading]=useState(false);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
-  const [planUnit, setPlanUnit] = useState("all");
+  const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
+  function canLeave() { return !pending && !formPending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); if(view==="customers")keepCustomerInUrl(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [cardId, setCardId] = useState("");
@@ -166,18 +154,11 @@ export function CourseMemberWorkspace({
     setPanel(value);
     return true;
   }
-  function preparePlan(next: Plan | null) {
-    setPlan(next);
-    setTemplateSearch("");
-    setSelectedTemplateIds(next?.templateIds ?? []);
-    setMusicTerms(next?.musicTerms ?? 1);
-    setPlanAmounts({
-      points: next?.points ?? (music ? 4 : 10),
-      price: next?.price ?? 0,
-      storeCost: next?.storeCost ?? 0,
-    });
-    open("plan");
-  }
+
+  function preparePlan(next: Plan | null) { setPlan(next); }
+  const [formPending,setFormPending]=useState(false);
+  function finishDraftForm(){setDirty(false);setPanel(null);router.refresh();}
+
   function submit(
     event: FormEvent<HTMLFormElement>,
     action: (data: FormData) => Promise<{ success: boolean; error?: string }>,
@@ -196,7 +177,7 @@ export function CourseMemberWorkspace({
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
-        else setNotice("已儲存");
+        else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         router.refresh();
       } catch {
         setError("連線中斷，請重試");
@@ -229,15 +210,8 @@ export function CourseMemberWorkspace({
   const activePlans = plans.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
-  const normalizedTemplateSearch = templateSearch.trim().toLocaleLowerCase();
-  const visibleTemplates = templates.filter((item) =>
-    item.name.toLocaleLowerCase().includes(normalizedTemplateSearch),
-  );
-  const templateGroups = [...new Set(visibleTemplates.map((item) => item.category || "未分類"))];
-  const selectedMusicTemplate=templates.find(t=>t.id===selectedTemplateIds[0]);
-  const musicQuote=music && selectedMusicTemplate ? (()=>{try{return musicPlanQuote({musicPricePerLesson:selectedMusicTemplate.musicPricePerLesson??null,musicTermLessons:selectedMusicTemplate.musicTermLessons??null,musicValidityDaysPerTerm:selectedMusicTemplate.musicValidityDaysPerTerm??null},musicTerms);}catch{return null;}})() : null;
-  const unitPrice = music ? selectedMusicTemplate?.musicPricePerLesson ?? 0 : Math.round(planAmounts.price / Math.max(1, planAmounts.points));
-  const estimatedProfit = (music ? musicQuote?.price ?? 0 : planAmounts.price) - planAmounts.storeCost;
+
+
   return (
     <>
       {view === "plans" && (
@@ -295,7 +269,7 @@ export function CourseMemberWorkspace({
             disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
-            指派方案
+            購買方案
           </button>
         )}
       </div>
@@ -349,7 +323,7 @@ export function CourseMemberWorkspace({
                 ))}
           </tbody>
         </table>
-      </div> : canReadCards ? <CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
+      </div> : canReadCards ? <CourseCardBrowser canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
@@ -366,7 +340,7 @@ export function CourseMemberWorkspace({
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? plan ? "編輯方案" : "新增方案"
                   : panel === "assign"
-                    ? "指派方案"
+                    ? "購買方案"
                     : panel === "coach"
                       ? "加入為教練"
                       : "方案與共卡"}
@@ -422,10 +396,10 @@ export function CourseMemberWorkspace({
               <div className="flex flex-wrap gap-2">
 
                 {personTab === "info" && canManageStaff && <button className={button} onClick={() => open("coach")}>加入為教練</button>}
-                {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>指派方案</button>}
+                {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
               </div>
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
-                <CourseCardBrowser customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
               {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
@@ -436,167 +410,23 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <RetainedNoteEditor key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
+                placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
+                save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
+                onSaved={() => router.refresh()} />
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             </section>}
             {panel === "person" && (
-              <form
-                id="course-member-form"
-                onChange={()=>setDirty(true)}
-                className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${person && (!editingPerson || personTab !== "info") ? "hidden" : ""}`}
-                onSubmit={(e) =>
-                  submit(e, (d) =>
-                    saveCourseCustomer({
-                      id: person?.id,
-                      name: d.get("name"),
-                      phone: d.get("phone"),
-                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), serviceNote: d.get("serviceNote"), address: d.get("address"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
-                    }),
-                  )
-                }
-              >
-                <label className="block">
-                  姓名
-                  <input
-                    className={field}
-                    name="name"
-                    defaultValue={person?.name}
-                    readOnly={person ? !canEdit : !canCreate}
-                    required
-                    maxLength={80}
-                  />
-                </label>
-                <label className="block">
-                  電話
-                  <input
-                    className={field}
-                    name="phone"
-                    defaultValue={person?.phone}
-                    readOnly={person ? !canEdit : !canCreate}
-                    maxLength={30}
-                    required
-                  />
-                </label>
-                <fieldset disabled={person ? !canEdit : !canCreate} className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
-                  <label className="block">電子信箱<input className={field} name="email" type="email" defaultValue={person?.email ?? ""} /></label>
-                  <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
-                  <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
-                  <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
-                  <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
-                  <label className="block">地址<input className={field} name="address" maxLength={300} defaultValue={person?.address ?? ""} /></label>
-                  {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}
-                  <label className="block">店內備註（店長與授課教練可見）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
-                </fieldset>
-              </form>
+              <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
             {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`${button} ${recordTab===value ? "bg-primary-50 font-semibold":""}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
             {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
-              <form
-                id="course-member-form"
-                onChange={()=>setDirty(true)}
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-                onSubmit={(e) =>
-                  submit(e, (d) =>
-                    saveCoursePointPlan({
-                      id: plan?.id,
-                      name: d.get("name"),
-                      points: music ? musicQuote?.lessons ?? 0 : Number(d.get("points")),
-                      price: music ? musicQuote?.price ?? 0 : Number(d.get("price")),
-                      storeCost: Number(d.get("storeCost")),
-                      termSessionIds:d.getAll("termSessionIds"),
-                      customerPurchasable: d.get("purchaseMode") === "customer",
-                      allowShared: d.get("allowShared") === "yes",
-                      validDays: music ? musicQuote?.validDays ?? 0 : Number(d.get("days")),
-                      musicTerms: music ? musicTerms : null,
-                      isActive: d.get("active") === "yes",
-                      unit: d.get("unit"),
-                      templateIds: d.getAll("templateIds"),
-                    }),
-                  )
-                }
-              >
-                <label className="block sm:col-span-2">
-                  名稱
-                  <input
-                    className={field}
-                    name="name"
-                    defaultValue={plan?.name}
-                    required
-                  />
-                </label>
-                {music ? <input type="hidden" name="unit" value="SESSION"/> : <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>}
-                <label className="block">狀態<select className={field} name="active" defaultValue={plan?.isActive === false ? "no" : "yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
-                {music && <><label>購買期數<input className={field} type="number" min={1} max={100} value={musicTerms} onChange={e=>{setMusicTerms(Number(e.target.value));setDirty(true);}} required/></label><p className="self-end text-sm text-earth-600">{musicQuote ? `${musicQuote.lessons} 堂 · ${musicQuote.validDays} 天 · NT$ ${musicQuote.price.toLocaleString("zh-TW")}` : "請先選已設定售價的課程"}</p></>}
-                {!music && <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>}
-                {!music && <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3">
-                  <legend className="px-1">適用課程（未勾選表示全部課程）</legend>
-                  {selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 pb-2 text-sm">
-                    <span className="text-earth-600">已選 {selectedTemplateIds.length} 堂 · 顯示 {visibleTemplates.length} 堂</span>
-                    <span className="flex gap-2">
-                      <button type="button" className={button} onClick={()=>{setDirty(true);setSelectedTemplateIds(ids=>[...new Set([...ids,...visibleTemplates.filter(t=>t.isActive).map(t=>t.id)])]);}}>全選目前結果</button>
-                      <button type="button" className={button} onClick={()=>{setDirty(true);setSelectedTemplateIds(ids=>ids.filter(id=>!visibleTemplates.some(t=>t.id===id&&t.isActive)));}}>清除目前結果</button>
-                    </span>
-                  </div>
-                  <div className="max-h-64 space-y-3 overflow-y-auto overscroll-contain pr-1">
-                    {templateGroups.map(group=><section key={group} aria-label={group}>
-                      <h3 className="sticky top-0 bg-white py-1 text-xs font-semibold text-earth-500">{group}</h3>
-                      {visibleTemplates.filter(t=>(t.category||"未分類")===group).map(t=>{
-                        const selected=selectedTemplateIds.includes(t.id);
-                        return <label key={t.id} className={`flex min-h-10 items-center gap-2 rounded-md px-2 ${t.isActive?"hover:bg-earth-50":"bg-earth-50 text-earth-400"}`}>
-                          <input type="checkbox" value={t.id} checked={selected} disabled={!t.isActive} onChange={e=>{setDirty(true);setSelectedTemplateIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>
-                          <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                          {!t.isActive&&<span className="rounded-full bg-earth-200 px-2 py-0.5 text-[11px]">已下架</span>}
-                        </label>;
-                      })}
-                    </section>)}
-                    {!visibleTemplates.length&&<p className="py-6 text-center text-sm text-earth-500">沒有符合搜尋的課程</p>}
-                  </div>
-                </fieldset>}
-                {music && <label className="sm:col-span-2">適用課程<select className={field} value={selectedTemplateIds[0]??""} onChange={e=>{setSelectedTemplateIds(e.target.value?[e.target.value]:[]);setDirty(true);}} required><option value="">請選擇課程</option>{templates.filter(t=>t.isActive && !t.musicTrialMode && t.musicPricePerLesson!==null && t.musicTermLessons!==null).map(t=><option key={t.id} value={t.id}>{t.category} · {t.name}（{t.musicTermLessons} 堂／期，NT$ {t.musicPricePerLesson}／堂）</option>)}</select>{selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}</label>}
-                {!music && <>{plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details></>}
-                {!music && [
-                  [music ? "方案堂數" : "額度", "points", plan?.points ?? (music ? 4 : 10), 1],
-                  ["售價", "price", plan?.price ?? 0, 0],
-                  ["店家成本", "storeCost", plan?.storeCost ?? 0, 0],
-                  ["有效天數", "days", plan?.validDays ?? 90, 1],
-                ].map(([label, name, value, min]) => (
-                  <label key={String(name)} className="block">
-                    {label}
-                    {music && name === "points" ? <input
-                      className={field}
-                      name="points"
-                      type="number"
-                      min={1}
-                      step={1}
-                      defaultValue={Number(value)}
-                      onChange={e=>setPlanAmounts(v=>({...v,points:Number(e.target.value)}))}
-                      required
-                    /> : <input
-                      className={field}
-                      name={String(name)}
-                      type="number"
-                      min={Number(min)}
-                      defaultValue={Number(value)}
-                      onChange={e=>{
-                        const amount=Number(e.target.value)||0;
-                        if(name==="points")setPlanAmounts(v=>({...v,points:amount}));
-                        if(name==="price")setPlanAmounts(v=>({...v,price:amount}));
-                        if(name==="storeCost")setPlanAmounts(v=>({...v,storeCost:amount}));
-                      }}
-                      required
-                    />}
-                  </label>
-                ))}
-                {music && <label>店家成本<input className={field} type="number" min={0} name="storeCost" defaultValue={plan?.storeCost ?? 0} onChange={e=>setPlanAmounts(v=>({...v,storeCost:Number(e.target.value)}))} required/></label>}
-                <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{music?"堂":"單位"}</strong></p><p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p></div>
-                <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3"><legend className="px-1">方案使用方式</legend><div className="grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="customer" defaultChecked={plan?.customerPurchasable!==false}/>顧客可購買</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="backend" defaultChecked={plan?.customerPurchasable===false}/>僅後台指派</label></div><label className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="checkbox" name="allowShared" value="yes" defaultChecked={plan?.allowShared??false}/>允許共卡</label></fieldset>
-                <p className="sm:col-span-2 text-sm text-earth-500">
-                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。{music?"音樂教室每次上課使用 1 堂；每期堂數依課程設定。":"提供點數與堂數方案，無自動續費。"}
-                </p>
-              </form>
+
+              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} termSessions={termSessions} profitEnabled={profitEnabled} music={music} onPending={setFormPending} onSaved={finishDraftForm} />
+
             )}
             {panel === "assign" && (
               <form
@@ -650,12 +480,14 @@ export function CourseMemberWorkspace({
                       ),
                     )}
                   />
+
                 </label>}
-                <label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>
+                {profitEnabled&&<label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>}
+
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
-                  <CourseAssignmentPayment key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions} onSummary={setAssignmentSummary}/>
+                  <CourseAssignmentPayment profitEnabled={profitEnabled} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled} onSummary={setAssignmentSummary}/>
                 </fieldset>
               </form>
             )}
@@ -663,6 +495,7 @@ export function CourseMemberWorkspace({
               <>
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 <CourseCardSummary card={card} />
+                {canReadBookings && !cardLoading && !error && card.held > 0 && <CourseCardReservations cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {canAssign && card.allowShared && !cardLoading && !error && (
                   <form
                     id="course-member-form"
@@ -697,9 +530,9 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} w-full bg-primary-700 text-white`}
-                disabled={pending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
+                disabled={pending || formPending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
-                {pending ? "儲存中…" : panel === "assign" ? "確認結帳並指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
+                {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button>
             </footer>
           )}
@@ -713,14 +546,15 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
     <div className="space-y-2 text-sm">
       <h3 className="font-semibold">{card.name}</h3>
       <p>
-        剩餘 {card.remaining} · 已預約占用 {card.held} · 可用 {card.available}{" "}
-        {card.unit === "SESSION" ? "堂" : "點"}
+        剩餘 {card.remaining} {card.unit === "SESSION" ? "堂" : "點"} · 已預約 {card.held} {card.unit === "SESSION" ? "堂" : "點額度"}
+        {!card.closed && !card.expired && <> · {card.unit === "SESSION" ? `還可預約 ${card.available} 堂` : `可用 ${card.available} 點`}</>}
       </p>
       <p>
         期限：{card.musicValidityDays && !card.musicActivatedAt ? `首次上課起 ${card.musicValidityDays} 天` : toLocalDateStr(new Date(card.expiresAt))}
         {new Date(card.expiresAt) < new Date() ? "（已到期）" : ""}
       </p>
-      <p>授權成員：{card.members.map((m) => m.name).join("、")}</p>
+      <p>{card.members.length>1?"共同餘額 · 共卡人":"持有人"}：{card.members.map((m) => m.name).join("、")}</p>
+      {(card.closed || card.expired) ? <p>{card.closed ? "已停用" : "已到期"} · 剩餘額度僅供查詢</p> : card.remaining>0 && card.available===0 && card.held>=card.remaining ? <p>額度已全數預約</p> : card.remaining===0 ? <p>額度已用完</p> : null}
     </div>
   );
 }
@@ -729,8 +563,8 @@ export function CourseCardEntries({ card }: { card: CourseCardView }) {
     GRANT: "取得額度",
     REFUND: "退款收回額度",
     VOID: "誤建作廢收回額度",
-    RESERVE: "預約占用",
-    RELEASE: "釋放占用",
+    RESERVE: "預約保留額度",
+    RELEASE: "取消預約返還額度",
     DEBIT: "出席使用",
   };
   return (

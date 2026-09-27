@@ -86,7 +86,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   );
 
   return (
-    <PageShell className="mx-auto flex max-w-[1280px] flex-col gap-4 px-4 py-5 sm:px-5">
+    <PageShell className="box-border flex w-full min-w-0 flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
       <PageHeader
         title={`功能設定 · ${store.name}`}
         subtitle={`${store.slug} · ${PRICING_PLAN_INFO[store.plan].label}（${store.plan}）`}

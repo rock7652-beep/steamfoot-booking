@@ -41,6 +41,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
 import { CashDrawerWorkspace } from "../cash-drawer/cash-drawer-workspace";
 import { CashbookEntryDeleteButton } from "./cashbook-entry-delete-button";
+import { CashbookRecordFilters } from "./_components/cashbook-record-filters";
 
 const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
   INCOME: "收入",
@@ -72,6 +73,7 @@ interface PageProps {
     month?: string;
     type?: CashbookEntryType;
     categoryGroup?: string;
+    q?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: string;
@@ -104,6 +106,12 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const dateFrom = hasDateRange ? params.dateFrom! : monthDateFrom;
   const dateTo = hasDateRange ? params.dateTo! : monthDateTo;
   const categoryGroup = params.categoryGroup === "retail" || params.categoryGroup === "other" ? params.categoryGroup : undefined;
+  const keyword = params.q?.trim().slice(0, 60) ?? "";
+  const selectedKind = categoryGroup && params.type === "INCOME" ? categoryGroup
+    : params.type === "EXPENSE" ? "expense"
+    : params.type === "WITHDRAW" ? "withdraw"
+    : params.type === "ADJUSTMENT" ? "adjustment"
+    : params.type === "INCOME" ? "income" : "";
 
   const activeStoreId = await getActiveStoreForRead(user);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
@@ -122,6 +130,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       dateTo,
       type: params.type,
       categoryGroup,
+      keyword,
       page,
       pageSize: 30,
       activeStoreId: cashbookStoreId,
@@ -257,41 +266,12 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             </p>
           </div>
 
-          {/* 月份 / 類型 篩選 */}
-          <form method="GET" className="flex flex-wrap items-end gap-2">
-            <div>
-              <label className="block text-xs text-earth-500">月份</label>
-              <input
-                name="month"
-                type="month"
-                defaultValue={month}
-                className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
-              />
-            </div>
-            <select
-              name="type"
-              defaultValue={params.type ?? ""}
-              className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
-            >
-              <option value="">所有類型</option>
-              {Object.entries(ENTRY_TYPE_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
-            >
-              查詢
-            </button>
-          </form>
+          <CashbookRecordFilters month={month} kind={selectedKind} keyword={keyword} />
 
           {(hasDateRange || categoryGroup) && (
             <p className="text-xs text-primary-700">
               分析明細：{dateFrom} 至 {dateTo}{categoryGroup === "retail" ? " · 零售" : categoryGroup === "other" ? " · 其他手動收入" : ""}。
-              下方月度統計仍顯示整月資料；按「查詢」可切回月份篩選。
+              下方月度統計仍顯示整月資料；切換月份可返回月份篩選。
             </p>
           )}
 
@@ -348,8 +328,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                     <td colSpan={8} className="px-4 py-0">
                       <EmptyState
                         icon="empty"
-                        title="尚無現金帳記錄"
-                        description="新增第一筆現金帳記錄來開始追蹤"
+                        title={keyword || categoryGroup || params.type ? "沒有符合條件的紀錄" : "尚無現金帳記錄"}
+                        description={keyword || categoryGroup || params.type ? "請調整關鍵字或收支類型" : "新增第一筆現金帳記錄來開始追蹤"}
                       />
                     </td>
                   </tr>

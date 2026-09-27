@@ -51,7 +51,7 @@ export default async function SettingsIndexPage() {
     const canManageHeadquarters = user.role === "OWNER" || user.role === "ADMIN";
 
     return (
-      <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-4">
+      <PageShell className="flex w-full min-w-0 flex-col gap-3 py-4">
         <PageHeader
           title="總部設定"
           subtitle="管理跨店系統設定；單店設定請先切換到特定店舖"
@@ -241,7 +241,7 @@ export default async function SettingsIndexPage() {
     hints.push("尚未建立提醒規則，預約不會自動通知顧客");
 
   return (
-    <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-4">
+    <PageShell className="flex w-full min-w-0 flex-col gap-3 py-4">
       <PageHeader
         title="設定"
         subtitle="店長控制台 · 查看狀態、快速進入對應設定"

@@ -151,9 +151,11 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
 export function LineNotificationRecipientsCard({
   recipients,
   course = false,
+  bindingUnavailable,
 }: {
   recipients: Recipient[];
   course?: boolean;
+  bindingUnavailable?: string;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -198,7 +200,7 @@ export function LineNotificationRecipientsCard({
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}
-      <details
+      {bindingUnavailable ? <p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{bindingUnavailable} 完成設定後，請重新整理此頁。</p> : <details
         open={recipients.length === 0}
         className="rounded-xl border border-earth-200 bg-white p-4"
       >
@@ -231,19 +233,20 @@ export function LineNotificationRecipientsCard({
             className="rounded-lg bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50"
             onClick={() =>
               start(async () => {
-                const r = await createStoreLineNotificationRecipient({
+                try { const r = await createStoreLineNotificationRecipient({
                   displayName: name,
                   roleLabel: role,
                 });
                 if (r.success) window.location.href = r.data.bindUrl;
                 else toast.error(r.error);
+                } catch { toast.error("連線未完成，請稍後重試；姓名已保留。"); }
               })
             }
           >
             {pending ? "處理中…" : "綁定我的 LINE"}
           </button>
         </div>
-      </details>
+      </details>}
     </section>
   );
 }

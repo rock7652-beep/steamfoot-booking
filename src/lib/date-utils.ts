@@ -351,7 +351,7 @@ function formatUtcYmd(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-export type DateRangePreset = "today" | "month" | "quarter";
+export type DateRangePreset = "today" | "week" | "month" | "quarter";
 
 export function getPresetDateRange(preset: DateRangePreset): {
   startDate: string;
@@ -367,6 +367,12 @@ export function getPresetDateRange(preset: DateRangePreset): {
   switch (preset) {
     case "today":
       return { startDate: today, endDate: today, label: today };
+    case "week": {
+      const weekday = parseTaiwanDateToDbDate(today).getUTCDay();
+      const startDate = addTaiwanDuration(today, -((weekday + 6) % 7), "DAY");
+      const endDate = addTaiwanDuration(startDate, 6, "DAY");
+      return { startDate, endDate, label: `${startDate}～${endDate}` };
+    }
     case "month": {
       const first = `${y}-${String(m + 1).padStart(2, "0")}-01`;
       const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
@@ -383,4 +389,44 @@ export function getPresetDateRange(preset: DateRangePreset): {
     default:
       return { startDate: today, endDate: today, label: today };
   }
+}
+
+
+export type AnalysisRange = { startDate: string; endDate: string };
+export function isAnalysisDate(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = parseTaiwanDateToDbDate(value);
+  return Number.isFinite(date.getTime()) && formatUtcYmd(date) === value;
+}
+export function resolveAnalysisRange(params: { preset?: string; startDate?: string; endDate?: string; month?: string }) {
+  let preset = ["today", "week", "month"].includes(params.preset ?? "") ? params.preset! : "month";
+  let range: AnalysisRange = getPresetDateRange(preset as DateRangePreset);
+  if (isAnalysisDate(params.startDate) && isAnalysisDate(params.endDate) && params.startDate <= params.endDate) {
+    range = { startDate: params.startDate, endDate: params.endDate };
+    preset = ["today", "week", "month"].includes(params.preset ?? "") ? params.preset! : "custom";
+  } else if (/^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "")) {
+    const startDate = `${params.month}-01`;
+    range = { startDate, endDate: addTaiwanDuration(addTaiwanDuration(startDate, 1, "MONTH"), -1, "DAY") };
+  }
+  return { ...range, preset };
+}
+export function previousAnalysisRange(range: AnalysisRange, preset: string): AnalysisRange {
+  if (preset === "month") return {
+    startDate: addTaiwanDuration(range.startDate, -1, "MONTH"),
+    endDate: addTaiwanDuration(addTaiwanDuration(range.startDate, 0, "MONTH"), -1, "DAY"),
+  };
+  const days = Math.round((parseTaiwanDateToDbDate(range.endDate).getTime() - parseTaiwanDateToDbDate(range.startDate).getTime()) / 86400000) + 1;
+  return { startDate: addTaiwanDuration(range.startDate, -days, "DAY"), endDate: addTaiwanDuration(range.startDate, -1, "DAY") };
+}
+export function analysisComparisonRanges(range: AnalysisRange, preset: string, today = toLocalDateStr()) {
+  const current = { ...range, endDate: range.startDate <= today && range.endDate > today ? today : range.endDate };
+  const previousFull = previousAnalysisRange(range, preset);
+  const previous = { ...previousFull };
+  if (current.endDate !== range.endDate) {
+    const elapsed = Math.round((parseTaiwanDateToDbDate(current.endDate).getTime() - parseTaiwanDateToDbDate(current.startDate).getTime()) / 86400000);
+    const matched = addTaiwanDuration(previous.startDate, elapsed, "DAY");
+    previous.endDate = matched < previous.endDate ? matched : previous.endDate;
+  }
+  const year = { startDate: addTaiwanDuration(current.startDate, -12, "MONTH"), endDate: addTaiwanDuration(current.endDate, -12, "MONTH") };
+  return { current, previous, previousFull, year };
 }

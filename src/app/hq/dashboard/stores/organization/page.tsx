@@ -12,7 +12,7 @@ export default async function StoreOrganizationPage() {
   const stores = result.success ? result.data : [];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="w-full min-w-0 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-earth-900">店舖組織圖</h1>

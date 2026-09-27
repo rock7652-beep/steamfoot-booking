@@ -9,6 +9,7 @@ import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDate
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
+import { personalIncomeAccess } from "@/server/services/course-personal-income";
 export async function loadCoursePortal(requestedMonth?: string) {
   const month =
     requestedMonth && /^20\d{2}-(0[1-9]|1[0-2])$/.test(requestedMonth)
@@ -27,6 +28,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     special,
     healthEnabled,
     emergencyContact,
+    incomeAccess,
   ] = await Promise.all([
     prisma.staffMemberLink.findUnique({
       where: { uq_staff_member_link_user_store: { userId: user.id, storeId } },
@@ -68,6 +70,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     }),
     hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
     prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
+    personalIncomeAccess(user.id, storeId),
   ]);
   const memberEnabled = identity?.courseMemberEnabled !== false;
   const cards = memberEnabled ? await getCourseCards(storeId, customer.id) : [];
@@ -273,6 +276,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     prefix: context?.storeSlug ? `/s/${context.storeSlug}` : "",
     memberEnabled,
     hasWork: !!link,
+    incomeAvailable: !!incomeAccess,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     config,

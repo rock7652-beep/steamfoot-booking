@@ -2,6 +2,7 @@
 import {act,createElement,useState} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
+vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservations:vi.fn()}));
 const m=vi.hoisted(()=>({search:vi.fn(),cards:vi.fn()}));
 vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,browseCourseCards:m.cards}));
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";

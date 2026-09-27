@@ -14,6 +14,8 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...actual,
     useEffect: vi.fn(),
+    useLayoutEffect: vi.fn(),
+    useRef: <T,>(value: T) => ({ current: value }),
     useState: <T,>(initial: T | (() => T)) => {
       const index = harness.cursor++;
       if (!(index in harness.states)) {
@@ -37,6 +39,16 @@ vi.mock("react", async (importOriginal) => {
     ] as const,
   };
 });
+
+// This test checks modal argument wiring only; responsive lifecycle has real-render tests.
+vi.mock("@/hooks/use-responsive-action", () => ({
+  useResponsiveAction: () => ({
+    states: {}, isBlocked: () => false, check: vi.fn(),
+    run: (_id: string, action: () => Promise<unknown>) => {
+      const request = action(); harness.pending.push(request); return request;
+    },
+  }),
+}));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
