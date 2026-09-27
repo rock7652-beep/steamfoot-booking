@@ -390,6 +390,41 @@ export async function createCourseSchedule(input: unknown) {
             "CONFLICT",
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
           );
+        // A moved fixed lesson still owns its original recurring slot. A one-off
+        // lesson may use the released occurrence, but a new fixed series may not.
+        if (occurrences.length > 1 || template.musicScheduleMode === "FIXED") {
+          const movedOrigins = await tx.courseSession.findMany({
+            where: {
+              storeId,
+              cancelledAt: null,
+              rescheduledFromStartsAt: { lt: occurrences[occurrences.length - 1].endsAt },
+              rescheduledFromEndsAt: { gt: occurrences[0].startsAt },
+              OR: [{ rescheduledFromRoomId: data.roomId }, { rescheduledFromCoachId: data.coachId }],
+            },
+            select: {
+              requestKey: true,
+              rescheduledFromStartsAt: true,
+              rescheduledFromEndsAt: true,
+              rescheduledFromRoomId: true,
+              rescheduledFromCoachId: true,
+              template: { select: { musicScheduleMode: true } },
+            },
+          });
+          const recurringKeys = movedOrigins.length ? new Set((await tx.courseSession.groupBy({
+            by: ["requestKey"],
+            where: { storeId, cancelledAt: null, requestKey: { in: [...new Set(movedOrigins.map((item) => item.requestKey))] } },
+            _count: { id: true },
+            having: { id: { _count: { gt: 1 } } },
+          })).map((row) => row.requestKey)) : new Set<string>();
+          const fixedOrigin = movedOrigins.find((item) =>
+            (item.template.musicScheduleMode === "FIXED" || recurringKeys.has(item.requestKey)) &&
+            occurrences.some((range) =>
+              item.rescheduledFromStartsAt! < range.endsAt && item.rescheduledFromEndsAt! > range.startsAt &&
+              (item.rescheduledFromRoomId === data.roomId || item.rescheduledFromCoachId === data.coachId),
+            ),
+          );
+          if (fixedOrigin) throw new AppError("CONFLICT", "原固定課保留此時段；可排單次臨時課，不可再排固定課");
+        }
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
@@ -539,7 +574,9 @@ export async function moveCourseSessions(input: unknown) {
           select: { startsAt: true, roomId: true, coachId: true },
         });
         if (conflict)
-          throw new AppError("CONFLICT", `${formatTWDateTime(change.startsAt)} 已有課`);
+          throw new AppError("CONFLICT", restoring
+            ? `原時段${conflict.roomId === d.roomId ? "教室" : "老師"}已有課；請先處理占用課程，再恢復原課`
+            : `${formatTWDateTime(change.startsAt)} ${conflict.roomId === d.roomId ? "教室" : "老師"}已有課`);
       }
 
       await assertCourseSessionsFitHours(tx, storeId, changes);
