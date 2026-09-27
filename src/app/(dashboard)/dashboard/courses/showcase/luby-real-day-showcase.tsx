@@ -129,7 +129,7 @@ function sessionsFor(date: string) {
   });
 }
 
-export function LubyRealDayShowcase({ date }: { date: string }) {
+export function LubyRealDayShowcase({ date, mode = "day" }: { date: string; mode?: "day" | "week" }) {
   const displaySessions = sessionsFor(date);
   const totals = scheduleTotals(displaySessions);
   const unknownGroupRosters = displaySessions.filter((session) => session.previewRosterUnknown && !session.previewFaded).length;
@@ -146,8 +146,12 @@ export function LubyRealDayShowcase({ date }: { date: string }) {
         截圖可辨識：{totals.classes} 堂課｜至少 {totals.people} 人次｜租借 {totals.rentals} 次。
         團體班 {unknownGroupRosters} 堂未提供名單，因此無法核對完整人次。
       </p>
+      <div className="flex gap-2 text-sm">
+        <Link href={`/dashboard/courses?showcase=luby-day&date=${date}&scheduleView=day`} className={`rounded-lg border px-3 py-1.5 ${mode === "day" ? "border-primary-500 bg-primary-50 font-semibold" : "border-earth-200 bg-white"}`}>日表</Link>
+        <Link href={`/dashboard/courses?showcase=luby-day&date=${date}&scheduleView=week`} className={`rounded-lg border px-3 py-1.5 ${mode === "week" ? "border-primary-500 bg-primary-50 font-semibold" : "border-earth-200 bg-white"}`}>週表</Link>
+      </div>
       <LubyRealDayBoard
-        businessProfile="MUSIC" mode="day" selectedDate={date} today={date}
+        businessProfile="MUSIC" mode={mode} selectedDate={date} today={date} initialWeekRoomId="luby-06"
         sessions={displaySessions} rooms={rooms} coaches={coaches} templates={templates}
         storePeriods={[{ openTime: "09:00", closeTime: "21:00" }]}
         staffAvailability={[]} staffAvailabilityExceptions={[]}
