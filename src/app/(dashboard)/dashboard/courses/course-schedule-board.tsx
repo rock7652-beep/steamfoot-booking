@@ -426,7 +426,7 @@ export function CourseScheduleBoard({
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  const musicResourceWidth = 176;
+  const musicResourceWidth = 132;
   function snapDayScroll() {
     const element = dayScrollRef.current;
     if (!element || businessProfile !== "MUSIC") return;
@@ -815,8 +815,8 @@ export function CourseScheduleBoard({
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending||readOnly}
-                                title={available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
-                                 aria-label={available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
+                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
+                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
                                    ? (resourceView === "room"
                                        ? coachIds.length === 1
@@ -826,10 +826,10 @@ export function CourseScheduleBoard({
                                          ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
                                          : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
                                    : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
-                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
+                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
-                                 {available&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime} · ${availabilityDuration}分`}</span>}
-                                 <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100" aria-hidden="true">{minute}</span>
+                                 {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime} · ${availabilityDuration}分`}</span>}
+                                 {!readOnly&&<span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100" aria-hidden="true">{minute}</span>}
                               </button>
                             );
                           })}
@@ -852,7 +852,7 @@ export function CourseScheduleBoard({
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={musicDense ? "absolute left-1 right-1 z-10 pointer-events-auto" : "pointer-events-auto"}
+                            className={musicDense ? `absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}` : session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}
                             style={musicDense ? {
                               top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2,
                               height: Math.max(21, sessionDurationMinutes(session) * (50 / 60) - 4),
