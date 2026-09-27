@@ -309,13 +309,12 @@ function SessionCard({
     : copy.privateClass ? copy.secondary
     : groupProgress ? `${attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`} ${studentState}`.trim()
     : secondaryLine || copy.secondary;
-  const compactTeacherState = session.teacherAttendance === "LEAVE" ? "師假" : session.teacherAttendance === "NO_SHOW" ? "師曠" : "";
   return (
     <button
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`block min-w-0 max-w-full w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
@@ -324,7 +323,7 @@ function SessionCard({
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
-              {brief&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{compactTeacherState}</span>}
+              {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{teacherState}</span>}
               {brief&&groupProgress&&<span className={`shrink-0 rounded px-1 text-[10px] font-bold ${groupProgressColor}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`}</span>}
               {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
             </span>
@@ -332,7 +331,6 @@ function SessionCard({
           </div>
           {!brief && <div className="flex min-w-0 items-center gap-1 leading-4">
             <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-earth-700" title={readableCardSecondary}>{readableCardSecondary}</span>
-            {teacherState && <span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{compactTeacherState}</span>}
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>}
         </>
@@ -875,10 +873,10 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className={`relative min-w-0 border-b border-r border-earth-100 ${musicDense ? "h-[50px]" : "min-h-20 space-y-2 p-2"}`}
+                      className={`relative border-b border-r border-earth-100 ${musicDense ? "h-[50px]" : "min-h-20 space-y-2 p-2"}`}
                     >
                       {musicDense && resource.id !== "__none" && (
-                        <div className="absolute inset-0 z-0 grid grid-rows-2">
+                        <div className="absolute inset-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
                              const duration=moveClipboard?.durationMinutes ?? availabilityDuration;
@@ -953,11 +951,11 @@ export function CourseScheduleBoard({
                         </div>;
                       })}
 
-                      <div className={musicDense?"relative z-20 w-full min-w-0 p-1 pointer-events-none":"contents"}>
+                      <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={musicDense ? `absolute left-1 right-1 z-10 min-w-0 ${session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}` : session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}
+                            className={musicDense ? `absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}` : session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}
                             style={musicDense ? {
                               top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2,
                               height: Math.max(21, sessionDurationMinutes(session) * (50 / 60) - 4),
