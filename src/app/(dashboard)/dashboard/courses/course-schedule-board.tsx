@@ -250,6 +250,7 @@ function SessionCard({
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
   const seats = openSeats(session);
   const musicDense = dense && businessProfile === "MUSIC";
+  const musicTeacherCard = musicDense && resourceView === "coach";
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = isTrial(session) && !copy.groupClass;
@@ -311,6 +312,10 @@ function SessionCard({
   const resourceLabel = rental ? "租借" : resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
     ? `${copy.room.replace(/^教室\s*/, "")}室`
     : resourceView === "coach" ? copy.room : copy.coach;
+  const teacherCardSecondary = destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}`
+    : copy.privateClass ? copy.secondary
+    : groupProgress ? `${attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`} ${studentState}`.trim()
+    : secondaryLine || copy.secondary;
   return (
     <button
       type="button"
@@ -324,19 +329,22 @@ function SessionCard({
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
-              {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
+              {brief && !musicTeacherCard && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
               {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{teacherState}</span>}
               {brief&&groupProgress&&<span className={`shrink-0 rounded px-1 text-[10px] font-bold ${groupProgressColor}`}>{attendance.teacherAbsent ? "已記錄" : `${attendance.processed}/${attendance.total}`}</span>}
               {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
             </span>
-            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
+            {(!musicTeacherCard || brief) && <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>}
           </div>
-          {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
+          {!brief && (musicTeacherCard ? <div className="flex min-w-0 items-center gap-1 leading-4">
+            <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-earth-700" title={teacherCardSecondary}>{teacherCardSecondary}</span>
+            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={copy.room}>{resourceLabel}</span>
+          </div> : <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
             {groupProgress&&<span className={`shrink-0 whitespace-nowrap rounded px-1 text-[10px] font-bold ${groupProgressColor}`} title={attendance.teacherAbsent ? "老師狀態已記錄，學員免點名" : `已記錄 ${attendance.processed}/${attendance.total} 位學員`}>{attendance.teacherAbsent ? "已記錄" : `${attendance.processed}/${attendance.total}`}</span>}
             {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
             <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : fadedBadge ?? primaryType}</span>
-          </div>}
+          </div>)}
         </>
       ) : (
       <>
