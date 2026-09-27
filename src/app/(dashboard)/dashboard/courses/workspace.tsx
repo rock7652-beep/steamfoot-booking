@@ -261,14 +261,14 @@ export function CourseWorkspace({
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
   ).map((session) => ({
     ...session,
-    previewKind: /^(租借|RENTAL)$/i.test(allTemplates.find((template) => template.id === session.templateId)?.category.trim() ?? "")
+    previewKind: /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
       ? "RENTAL" as const
       : undefined,
   }));
   const monthSessions = sessions.filter((session) =>
     toLocalDateStr(new Date(session.startsAt)).startsWith(month),
   ).map((session) => ({ ...session,
-    previewKind: /^(租借|RENTAL)$/i.test(allTemplates.find((template) => template.id === session.templateId)?.category.trim() ?? "")
+    previewKind: /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
       ? "RENTAL" as const : undefined,
   }));
   const monthTotals = scheduleTotals(monthSessions);
