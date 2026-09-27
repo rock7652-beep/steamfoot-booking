@@ -87,6 +87,7 @@ type Props = {
   businessProfile: "FITNESS" | "MUSIC";
   mode: Exclude<CourseScheduleMode, "month">;
   selectedDate: string;
+  initialWeekRoomId?: string;
   today: string;
   sessions: Session[];
   leaveCounts?: Record<string, number>;
@@ -375,6 +376,7 @@ export function CourseScheduleBoard({
   businessProfile,
   mode,
   selectedDate,
+  initialWeekRoomId,
   today,
   sessions,
   leaveCounts = {},
@@ -398,6 +400,7 @@ export function CourseScheduleBoard({
     (coach) => coach.status === "ACTIVE" && coach.courseCoachEnabled,
   );
   const [resourceView, setResourceView] = React.useState<ResourceView>(businessProfile === "MUSIC" && !replica ? "coach" : "room");
+  const [weekRoomId, setWeekRoomId] = React.useState(initialWeekRoomId ?? activeRooms[0]?.id ?? "");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
   const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
@@ -439,6 +442,59 @@ export function CourseScheduleBoard({
       Math.max(0, Math.round(element.scrollLeft / musicResourceWidth) * musicResourceWidth),
     );
     element.scrollTo({ left: target, behavior: "smooth" });
+  }
+
+  if (mode === "week" && businessProfile === "MUSIC") {
+    const start = weekStart(selectedDate);
+    const dates = Array.from({ length: 7 }, (_, index) => addTaiwanDuration(start, index, "DAY"));
+    const roomId = activeRooms.some((room) => room.id === weekRoomId) ? weekRoomId : activeRooms[0]?.id;
+    const weekSessions = sessions.filter((session) => session.roomId === roomId && dates.includes(sessionDate(session)));
+    const weekTotals = scheduleTotals(weekSessions);
+    const hours = Array.from({ length: 13 }, (_, index) => 9 + index);
+    return (
+      <section className="space-y-2" aria-label="教室週課表">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-800">
+          <label htmlFor="course-week-room" className="font-medium">教室</label>
+          <select id="course-week-room" aria-label="選擇週表教室" value={roomId ?? ""} onChange={(event) => setWeekRoomId(event.target.value)} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
+            {activeRooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
+          </select>
+          <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
+          <div className="grid w-max min-w-full" style={{ gridTemplateColumns: "64px repeat(7, minmax(132px, 1fr))" }}>
+            <div className="sticky left-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
+            {dates.map((date, index) => {
+              const total = scheduleTotals(scheduleOnDate(weekSessions, date));
+              return <button key={date} type="button" onClick={() => onSelectDate(date)} className={`border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
+                <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}</strong>
+                <span>{total.classes} 堂｜{total.people} 人次</span>
+              </button>;
+            })}
+            {hours.map((hour) => <React.Fragment key={hour}>
+              <div className="sticky left-0 z-20 h-[50px] border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">
+                {String(hour).padStart(2, "0")}:00
+              </div>
+              {dates.map((date) => {
+                const list = weekSessions.filter((session) => sessionDate(session) === date && Number(hhmm(session.startsAt).slice(0, 2)) === hour);
+                const shadows = sessions.filter((session) => session.rescheduledFromStartsAt &&
+                  session.rescheduledFromRoomId === roomId &&
+                  toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
+                  Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
+                return <div key={`${date}:${hour}`} className="relative h-[50px] border-b border-r border-earth-100 bg-white">
+                  <div className="pointer-events-none absolute inset-x-0 top-[25px] border-t border-dashed border-earth-200" />
+                  {shadows.map((session) => <span key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[1] truncate rounded border border-dashed border-earth-300 bg-earth-50/75 px-1 text-[9px] text-earth-500" style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 27 : 2 }}>
+                    已調課 · {session.nameSnapshot}
+                  </span>)}
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(session) * 50 / 60 - 4) }}>
+                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => onOpenSession(session.id, date)} />
+                  </div>)}
+                </div>;
+              })}
+            </React.Fragment>)}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   if (mode === "week") {
