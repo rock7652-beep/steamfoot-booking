@@ -98,11 +98,12 @@ export interface BookingSummary {
  * 全部來自 monthData / BookingEntry，**不需任何額外查詢**。
  *
  * 用途：點「查看」後 body 立刻顯示已知資料，而非一片 skeleton。
- * **僅限唯讀顯示** —— 收款 / 完成 / 改時間 / 取消 / 調整結帳等操作一律等
- * fetchBookingDetail 的 authoritative payload，絕不依賴此 prefill 啟用。
+ * 單人方案／已收款預約可提前送出完成服務，由 server 再核對權限與扣堂。
+ * 多人、收款、改期、取消與調整結帳仍等完整明細。
  */
 export interface BookingPrefill {
   id: string;
+  customerId?: string;
   bookingDate: string; // YYYY-MM-DD
   slotTime: string;
   bookingStatus: string;
@@ -188,6 +189,7 @@ export function BookingDetailDrawer({
   spaMode = false,
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
+  const [prefillStatus, setPrefillStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const localActions = useResponsiveAction();
   const saves = sharedActions ?? localActions;
@@ -237,6 +239,7 @@ export function BookingDetailDrawer({
   // 避免上一筆未收款的選擇被帶到下一筆。
   if (open && bookingId && seededFor !== bookingId) {
     setSeededFor(bookingId);
+    setPrefillStatus(null);
     setData(cache?.get(bookingId) ?? null);
     setError(null);
     setPendingAttendedPeople(null);
@@ -303,7 +306,7 @@ export function BookingDetailDrawer({
     const id = bookingId;
     let recoveredPayload: BookingDrawerPayload | null = null;
     const originalData = data?.booking.id === id ? data : null;
-    const originalStatus = originalData?.booking.bookingStatus ?? null;
+    const originalStatus = originalData?.booking.bookingStatus ?? (prefill?.id === id ? prefill.bookingStatus : null);
     const optimisticStatus = opts?.optimistic && nextStatus ? nextStatus : null;
     const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
     void saves.run(id, async () => {
@@ -316,6 +319,7 @@ export function BookingDetailDrawer({
         if (!optimisticStatus) return;
         onUpdated?.(id, optimisticStatus);
         if (currentBooking.current !== id) return;
+        setPrefillStatus(optimisticStatus);
         setData(previous =>
           previous?.booking.id === id ? { ...previous, booking: {
             ...previous.booking,
@@ -332,6 +336,7 @@ export function BookingDetailDrawer({
         if (!optimisticStatus) return;
         if (originalStatus) onUpdated?.(id, originalStatus);
         if (currentBooking.current !== id) return;
+        setPrefillStatus(null);
         if (originalData) setData(originalData);
         opts?.onRollback?.();
       },
@@ -390,7 +395,7 @@ export function BookingDetailDrawer({
 
   // 完成服務入口：多人首次體驗與套餐都先確認實到人數。
   function handleComplete() {
-    const b = data?.booking;
+    const b = dataMatches ? data?.booking : prefill?.id === bookingId ? prefill : null;
     if (readOnly) return;
     if (
       b &&
@@ -603,7 +608,7 @@ export function BookingDetailDrawer({
 
   // What we have to render (priority):
   //   1. Full payload matching current bookingId — preferred when loaded (from
-  //      fetch or cache). Only this enables the action footer.
+  //      fetch or cache). Enables the complete action footer.
   //   2. Prefill — instant header + basic body from in-memory day-list data,
   //      with inline loaders for the extras. The common path on first open.
   //   3. Pre-loaded summary — header only + skeleton body (fallback).
@@ -685,6 +690,19 @@ export function BookingDetailDrawer({
               adjustCheckout: () => setAdjustCheckoutOpen(true),
               adjustToSingle: () => setAdjustToSingleOpen(true),
             }}
+          />
+        ) : showPrefill && prefill && !spaMode ? (
+          <PendingSteamDetail
+            prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED" } : prefill}
+            durationMinutes={durationMinutes}
+            error={error}
+            onClose={onClose}
+            onComplete={!readOnly && prefill.id === bookingId && prefill.people === 1 &&
+              ["PENDING", "CONFIRMED"].includes(prefill.bookingStatus) &&
+              (prefill.bookingType === "PACKAGE_SESSION" ||
+                (["FIRST_TRIAL", "SINGLE"].includes(prefill.bookingType) && prefill.collected))
+              ? handleComplete : undefined}
+            isActing={isActing}
           />
         ) : showPrefill && prefill ? (
           <PrefillDrawerContent
@@ -1263,15 +1281,17 @@ function DrawerContent({
  * shows skeleton placeholders until `fetchBookingDetail` resolves.
  */
 
-/** Read-only first paint. Unknown fields never masquerade as empty data.
- * Uses the same body grid, Section/KV typography and reserved footer as full data.
- * No mutation callbacks are passed to this component. */
-function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose }: {
+/** Immediate snapshot. Unknown fields never masquerade as empty data.
+ * Only eligible single-person completion is exposed before full detail arrives;
+ * the server still authorizes and validates every mutation. */
+function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose, onComplete, isActing = false }: {
   prefill?: BookingPrefill;
   summary?: BookingSummary;
   durationMinutes?: number;
   error: string | null;
   onClose: () => void;
+  onComplete?: () => void;
+  isActing?: boolean;
 }) {
   const known = prefill ?? summary;
   const pending = <span className="text-earth-500">讀取中…</span>;
@@ -1354,7 +1374,9 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
           <KV readable label="累積完成" value={pending} />
           <KV readable label="最近到店" value={pending} />
           <div className="col-span-2 mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
-            {["查看顧客資料", "查看歷史預約"].map(label => <button key={label} disabled type="button" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-500">{label}</button>)}
+            {["查看顧客資料", "查看歷史預約"].map((label, index) => prefill?.customerId ? (
+              <Link key={label} href={`/dashboard/customers/${prefill.customerId}${index === 1 ? "#bookings" : ""}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-700">{label}</Link>
+            ) : <button key={label} disabled type="button" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-500">{label}</button>)}
           </div>
         </Section>
         } payment={
@@ -1373,9 +1395,11 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
         </Section>
       } />
       <div className={`shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3 ${active ? "min-h-[116px]" : "min-h-[76px]"}`}>
-        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <LoadingStatus>讀取完整資料中，請稍候…</LoadingStatus>}
+        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <p role="status" className="text-sm text-earth-500">其他明細背景同步中</p>}
         <div className="mt-2 flex gap-2">
-          <button disabled type="button" className="inline-flex min-h-11 items-center rounded-md border border-earth-300 px-3 text-sm text-earth-500">{active ? "確認資料後開放操作" : "讀取操作權限中…"}</button>
+          {active && onComplete ? (
+            <button type="button" disabled={isActing} onClick={onComplete} className="inline-flex min-h-11 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white disabled:opacity-60">完成服務</button>
+          ) : <span className="text-sm text-earth-500">{active ? "其他操作準備中" : "更新明細中"}</span>}
         </div>
       </div>
     </>
