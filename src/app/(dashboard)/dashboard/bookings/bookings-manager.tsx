@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useResponsiveAction } from "@/hooks/use-responsive-action";
+import { fetchBookingDetail } from "@/server/actions/booking-drawer";
+import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
+import { dispatchBookingBatch } from "@/lib/booking-action-batch";
 import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
 import { refreshBookingManagement } from "@/server/actions/booking-refresh";
@@ -211,10 +215,10 @@ export function BookingsManager({
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [actingIds, setActingIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const saves = useResponsiveAction();
+  const actingIds = new Set(Object.entries(saves.states).filter(([, state]) => state.phase === "saving" || state.phase === "checking" || state.phase === "unknown").map(([id]) => id));
   const [batchActing, setBatchActing] = useState(false);
+  const batchSending = useRef(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
@@ -283,8 +287,7 @@ export function BookingsManager({
   useEffect(() => {
     if (readOnly) {
       setSelectedIds(new Set());
-      setActingIds(new Set());
-      setBatchActing(false);
+
     }
   }, [readOnly]);
 
@@ -489,20 +492,19 @@ export function BookingsManager({
     setSelectedDate(null);
   }, []);
 
-  // Apply optimistic status change to monthData; dayBookings re-derives via
+  // Apply confirmed status change to monthData; dayBookings re-derives via
   // useMemo. Replaces the old `router.refresh()` + `fetchDayDetail` re-run
   // (which together fired 5+ DB queries per action).
   //
-  // Reschedule (newStatus = null) is left as-is — monthData stays stale
-  // for the moved booking until next nav. Trade-off worth taking: the
-  // operations that happen many times a day (完成 / 取消 / 標記未到) all
-  // have a known target status and are fully covered.
+  // Reschedule (newStatus = null) invalidates details and schedules an
+  // authoritative summary refresh when the drawer closes.
   const handleBookingUpdated = useCallback(
     (bookingId: string, newStatus: string | null) => {
       // C：任何 mutation（收款 / 完成 / 改時間 / 標記未到 / 取消 / 調整結帳，
       // 含 newStatus=null 的收款/改期）都先 invalidate 該筆 detail cache，
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
       detailCache.invalidate(bookingId);
+      refreshGate.current.nextAutomaticAt = 0;
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {
@@ -530,7 +532,7 @@ export function BookingsManager({
             ...targetBooking,
             bookingStatus: newStatus,
             isCheckedIn:
-              newStatus === "COMPLETED" ? true : targetBooking.isCheckedIn,
+              newStatus === "COMPLETED" ? true : newStatus === "PENDING" ? false : targetBooking.isCheckedIn,
           };
           return { ...day, bookings: nextBookings };
         }),
@@ -579,95 +581,44 @@ export function BookingsManager({
     setSelectedIds(new Set());
   }, []);
 
-  const completeSingle = useCallback(
-    async (id: string) => {
-      if (readOnly) {
-        toast.error("查看模式下不可操作預約");
-        return;
-      }
-      // Lock just this row — batch UI bar won't show anything if no selection.
-      setActingIds((prev) => {
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-      try {
-        const r = await markCompleted(id);
-        if (r.success) {
-          toast.success("已完成服務");
-          handleBookingUpdated(id, "COMPLETED");
-          setSelectedIds((prev) => {
-            if (!prev.has(id)) return prev;
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        } else {
-          toast.error(r.error ?? "操作失敗");
-        }
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "操作失敗");
-      } finally {
-        setActingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }
-    },
-    [handleBookingUpdated, readOnly],
-  );
+  function completionCallbacks(id: string) {
+    const completed = () => {
+      handleBookingUpdated(id, "COMPLETED");
+      setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
+    };
+    return {
+      apply: () => {}, rollback: () => {},
+      confirmed: completed,
+      reconcile: async (signal: AbortSignal) => {
+        const payload = await fetchBookingDetail(id, storeId);
+        return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "COMPLETED" });
+      },
+      recovered: completed,
+    };
+  }
 
-  const completeBatch = useCallback(async () => {
-    if (readOnly) {
-      toast.error("查看模式下不可操作預約");
-      return;
-    }
-    // Defensive: only ids whose current row is still actionable.
+  async function completeSingle(id: string) {
+    if (readOnly || batchSending.current) return;
+    const outcome = await saves.run(id, () => markCompleted(id), completionCallbacks(id));
+    if (outcome === "saved") toast.success("已完成服務");
+  }
+
+  async function completeBatch() {
+    if (readOnly || batchSending.current) return;
     const ids = dayBookings
-      .filter(
-        (b) =>
-          selectedIds.has(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus),
-      )
-      .map((b) => b.id);
+      .filter(b => selectedIds.has(b.id) && !saves.isBlocked(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus))
+      .map(b => b.id);
     if (ids.length === 0) return;
+    batchSending.current = true;
     setBatchActing(true);
-    try {
-      const { results } = await markCompletedBatch(ids);
-      let okCount = 0;
-      const failed: Array<{ id: string; error: string }> = [];
-      const succeededIds: string[] = [];
-      for (const r of results) {
-        if (r.success) {
-          okCount += 1;
-          succeededIds.push(r.id);
-          handleBookingUpdated(r.id, "COMPLETED");
-        } else {
-          failed.push({ id: r.id, error: r.error ?? "操作失敗" });
-        }
-      }
-      if (okCount > 0) {
-        toast.success(`已完成 ${okCount} 位`);
-      }
-      if (failed.length > 0) {
-        // Per-id detail isn't useful in toast; aggregate label + first reason.
-        toast.error(
-          `${failed.length} 筆失敗${failed[0].error ? `：${failed[0].error}` : ""}`,
-        );
-      }
-      // Drop succeeded ids from selection; failed ones stay so the店長 can
-      // see what's still selected and retry / inspect.
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of succeededIds) next.delete(id);
-        return next;
-      });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "批次操作失敗");
-    } finally {
-      setBatchActing(false);
-    }
-  }, [dayBookings, selectedIds, handleBookingUpdated, readOnly]);
+    const outcomes = await dispatchBookingBatch(ids, markCompletedBatch,
+      (id, action) => saves.run(id, action, completionCallbacks(id)),
+      () => { batchSending.current = false; setBatchActing(false); });
+    const saved = outcomes.filter(outcome => outcome === "saved").length;
+    const failed = outcomes.filter(outcome => outcome === "error").length;
+    if (saved) toast.success(`已完成 ${saved} 筆`);
+    if (failed) toast.error(`${failed} 筆未完成，請查看個別提示`);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -754,7 +705,8 @@ export function BookingsManager({
           </button>
           </div>
         </div>
-        <div className="border-b border-earth-100 px-4 py-2">{syncControl}</div>
+        <div className="border-b border-earth-100 px-4 py-2">{syncControl}
+        </div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}
@@ -786,6 +738,8 @@ export function BookingsManager({
             onClearSelection={readOnly ? undefined : clearSelection}
             onCompleteBatch={readOnly ? undefined : completeBatch}
             onCompleteSingle={readOnly ? undefined : completeSingle}
+            actionStates={saves.states}
+            onCheckAction={id => { void saves.check(id); }}
             actingIds={readOnly ? undefined : actingIds}
             batchActing={readOnly ? false : batchActing}
           />
@@ -793,6 +747,7 @@ export function BookingsManager({
       </RightSheet>
 
       <BookingDetailDrawer
+        sharedActions={saves}
         operationGuidePreview={operationGuidePreview}
         open={!!activeBookingId}
         bookingId={activeBookingId}

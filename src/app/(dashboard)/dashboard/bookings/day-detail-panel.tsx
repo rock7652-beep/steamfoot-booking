@@ -1,5 +1,7 @@
 "use client";
 
+import { BookingActionFeedback } from "./booking-action-feedback";
+
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { LinkPendingLabel } from "@/components/link-pending-label";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
@@ -96,6 +98,8 @@ interface DayDetailPanelProps {
   onCompleteBatch?: () => void;
   onCompleteSingle?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
+  actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
+  onCheckAction?: (id: string) => void;
   actingIds?: ReadonlySet<string>;
   batchActing?: boolean;
   readOnly?: boolean;
@@ -117,6 +121,8 @@ export function DayDetailPanel({
   onClearSelection,
   onCompleteBatch,
   onCompleteSingle,
+  actionStates,
+  onCheckAction,
   actingIds,
   batchActing = false,
   readOnly = false,
@@ -286,6 +292,7 @@ export function DayDetailPanel({
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     isActing={isActing}
                   />
+                  <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
                 </li>
               );
             })}
