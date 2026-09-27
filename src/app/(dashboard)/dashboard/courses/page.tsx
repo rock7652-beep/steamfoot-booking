@@ -50,9 +50,10 @@ export default async function CoursesPage({
     const date = query.date && parseTaipeiDateTime(query.date, "00:00")
       ? query.date
       : "2026-09-26";
+    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
     return (
       <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
-        <MusicTypesShowcase date={date} />
+        <MusicTypesShowcase date={date} showLubyReplica={activeStore?.slug === "lubymusic"} />
       </PageShell>
     );
   }
@@ -252,6 +253,8 @@ export default async function CoursesPage({
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
+  const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
+    && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   return (
     <PageShell
       className={
@@ -263,9 +266,16 @@ export default async function CoursesPage({
       }
     >
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
-        <a href="/dashboard/courses?showcase=music-types&amp;date=2026-09-26" className="self-start rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
-          查看 9/26 七種班型示意課表（49 堂）
-        </a>
+        <div className="flex flex-wrap gap-2">
+          {showLubyReplica && (
+            <a href="/dashboard/courses?showcase=luby-day&date=2026-09-26" className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
+              查看 9/26 陸比原課表對照（9/12 截圖移日）
+            </a>
+          )}
+          <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
+            查看 9/26 七種班型示意（49 堂）
+          </a>
+        </div>
       )}
       {view !== "schedule" && (
         <PageHeader
