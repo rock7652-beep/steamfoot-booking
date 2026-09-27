@@ -290,7 +290,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               </div>
               <p className="mt-2 text-[11px] text-earth-500">待確認收款 NT$ {revenueMix.pendingRevenue.toLocaleString()} <DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=pending`} className="text-primary-700">查看待收明細 →</DashboardLink></p>
               <p className="mt-2 text-[11px] text-earth-400">
-                退款後營收 NT$ {revenueMix.netRevenue.toLocaleString()}；收支結餘＝退款後營收－已記錄支出。零售依現金帳「零售-」分類辨識；其他收入含體驗、單次、補差額及其餘手動收入。這不是含商品成本與應付帳款的會計淨利。
+                退款後營收 NT$ {revenueMix.netRevenue.toLocaleString()}；收支結餘＝退款後營收－已記錄支出。零售依記帳時選擇的類別計算；其他收入含體驗、單次、補差額及其餘手動收入。這不是含商品成本與應付帳款的會計淨利。
               </p>
               <RevenueMixTrend points={sixMonthRevenueMixTrend ?? []} />
             </>

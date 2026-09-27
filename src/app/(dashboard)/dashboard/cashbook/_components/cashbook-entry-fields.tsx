@@ -2,12 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
+import { cashbookCategoryForKind, isRetailCashbookCategory, type CashbookEntryKind } from "@/lib/cashbook-entry-kind";
 
 type EntryType = "INCOME" | "EXPENSE";
 type Customer = { id: string; name: string };
 
-const input = "mt-1 block h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+const input = "mt-1 block h-[52px] w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 const textarea = "mt-1 block min-h-28 w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+
+function initialKind(entry: { type: EntryType; category: string } | null | undefined): CashbookEntryKind | null {
+  if (!entry) return null;
+  if (entry.type === "EXPENSE") return "EXPENSE";
+  return isRetailCashbookCategory(entry.category) ? "RETAIL" : "OTHER";
+}
+
+function initialItem(entry: { type: EntryType; category: string } | null | undefined) {
+  if (!entry) return "";
+  if (entry.type === "INCOME" && isRetailCashbookCategory(entry.category)) {
+    return entry.category.slice("零售-".length);
+  }
+  return entry.category === "其他收入" ? "" : entry.category;
+}
 
 /** Shared entry fields for the quick cashbook and the cash drawer action modal. */
 export function CashbookEntryFields({
@@ -34,52 +49,57 @@ export function CashbookEntryFields({
   instantSearch?: boolean;
   disabled?: boolean;
 }) {
-  const [entryType, setEntryType] = useState<EntryType>(defaultEntry?.type ?? "INCOME");
+  const [kind, setKind] = useState<CashbookEntryKind | null>(initialKind(defaultEntry));
+  const [item, setItem] = useState(initialItem(defaultEntry));
+  const entryType: EntryType = kind === "EXPENSE" ? "EXPENSE" : "INCOME";
+  const category = cashbookCategoryForKind(kind, item);
   const [entryDate, setEntryDate] = useState(today);
   const [paymentMethod, setPaymentMethod] = useState(defaultEntry?.paymentMethod ?? "");
   const isClosed = closedDates.includes(entryDate);
   const needsConfirmation = isClosed && (paymentMethod === "CASH" || defaultEntry?.paymentMethod === "CASH");
 
-  return <fieldset disabled={disabled} className="grid grid-cols-2 gap-4">
-    {editableDate && <label className="col-span-2 text-sm font-medium text-earth-700">
-      日期
-      <input type="date" name="entryDate" required value={entryDate} onChange={(event) => setEntryDate(event.target.value)} className={input} />
-    </label>}
-    <label className="text-sm font-medium text-earth-700">
-      類型
-      <select name="type" value={entryType} onChange={(event) => setEntryType(event.target.value as EntryType)} className={input}>
-        <option value="INCOME">收入</option><option value="EXPENSE">支出</option>
-      </select>
+  return <fieldset disabled={disabled} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="sm:col-span-2 text-sm font-medium text-earth-700">
+      <span className="mb-2 block">這筆是什麼收支？</span>
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="收支分類">
+        {([ ["RETAIL", "零售收入"], ["OTHER", "其他收入"], ["EXPENSE", "支出"] ] as const).map(([value, label]) => (
+          <label key={value} className={`flex min-h-11 cursor-pointer items-center justify-center rounded-lg border px-2 text-center text-sm font-medium focus-within:ring-2 focus-within:ring-primary-300 ${kind === value ? "border-primary-600 bg-primary-50 text-primary-800" : "border-earth-200 bg-white text-earth-700"}`}>
+            <input type="radio" name="entryKind" value={value} required checked={kind === value}
+              onChange={() => { setKind(value); setItem(""); }} className="sr-only" />
+            {label}
+          </label>
+        ))}
+      </div>
+      <input type="hidden" name="type" value={entryType} />
+      <input type="hidden" name="category" value={category} />
+    </div>
+    <label className="min-w-0 text-sm font-medium text-earth-700">日期
+      {editableDate ? <input type="date" name="entryDate" required value={entryDate} onChange={(event) => setEntryDate(event.target.value)} className={input} />
+        : <span className={`${input} flex items-center`}>{entryDate}</span>}
     </label>
-    <label className="text-sm font-medium text-earth-700">
-      金額
+    <label className="min-w-0 text-sm font-medium text-earth-700">金額
       <input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue={defaultEntry?.amount ?? ""} className={input} />
     </label>
-    {entryType === "INCOME" && (instantSearch
+    {kind !== null && entryType === "INCOME" && (instantSearch
       ? <CashbookCustomerPicker key={defaultEntry?.customer?.id ?? "new"} storeId={storeId} defaultCustomer={defaultEntry?.customer ?? null} />
       : <LegacyCashbookCustomerPicker key={defaultEntry?.customer?.id ?? "new"} storeId={storeId} defaultCustomer={defaultEntry?.customer ?? null} />)}
-    <label className="col-span-2 text-sm font-medium text-earth-700">
-      {entryType === "INCOME" ? "消費項目" : "分類"}
-      <input name="category" list={entryType === "INCOME" ? "cashbook-income-categories" : undefined}
-        defaultValue={defaultEntry?.category ?? ""}
-        placeholder={entryType === "INCOME" ? "例如：零售-精油、單次服務" : "例如：耗材、清潔用品"}
+    <label className="min-w-0 text-sm font-medium text-earth-700">
+      {kind === "RETAIL" ? "商品名稱" : kind === "OTHER" ? "收入項目" : "支出項目"} <span className="font-normal text-earth-400">（選填）</span>
+      <input value={item} onChange={(event) => setItem(event.target.value)}
+        placeholder={kind === "RETAIL" ? "例如：精油" : kind === "OTHER" ? "例如：單次服務" : "例如：耗材"}
         className={input} />
-      {entryType === "INCOME" && <>
-        <datalist id="cashbook-income-categories"><option value="單次服務" /><option value="零售-其他商品" /><option value="其他收入" /></datalist>
-        <span className="mt-1 block text-xs font-normal text-earth-500">以「零售-」開頭的項目會自動納入零售分析。</span>
-      </>}
     </label>
-    <label className="col-span-2 text-sm font-medium text-earth-700">
+    <label className="min-w-0 text-sm font-medium text-earth-700">
       付款方式
       <select name="paymentMethod" required value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={input}>
         <option value="" disabled>請選擇</option><option value="CASH">現金</option><option value="OTHER">其他（轉帳／非現金）</option>
       </select>
     </label>
-    <label className="col-span-2 text-sm font-medium text-earth-700">
+    <label className="sm:col-span-2 text-sm font-medium text-earth-700">
       備註
       <textarea name="note" rows={3} defaultValue={defaultEntry?.note ?? ""} className={textarea} />
     </label>
-    {isClosed && <label className="col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800">
+    {isClosed && <label className="sm:col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800">
       <input type="checkbox" name="confirmClosedCashbookChange" required={needsConfirmation} /> 我知道這一天已結帳，這只是補紀錄，不會重算關帳快照。
     </label>}
   </fieldset>;
@@ -88,7 +108,7 @@ export function CashbookEntryFields({
 function CashbookCustomerPicker({ storeId, defaultCustomer }: { storeId: string; defaultCustomer: { id: string; name: string } | null }) {
   const [query, setQuery] = useState(defaultCustomer?.name ?? "");
   const [selected, setSelected] = useState(defaultCustomer);
-  return <div className="col-span-2 text-sm font-medium text-earth-700">
+  return <div className="sm:col-span-2 text-sm font-medium text-earth-700">
     <label htmlFor="quick-cashbook-customer">關聯顧客 <span className="font-normal text-earth-400">（選填）</span></label>
     <input type="hidden" name="customerId" value={selected?.id ?? ""} />
     <CustomerInstantSearch key={storeId} storeId={storeId} id="quick-cashbook-customer" value={query} className={input}
@@ -139,7 +159,7 @@ function LegacyCashbookCustomerPicker({ defaultCustomer }: { storeId: string; de
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [query, selected]);
-  return <div className="col-span-2 text-sm font-medium text-earth-700">
+  return <div className="sm:col-span-2 text-sm font-medium text-earth-700">
     <label htmlFor="quick-cashbook-customer">關聯顧客 <span className="font-normal text-earth-400">（選填）</span></label>
     <input type="hidden" name="customerId" value={selected?.id ?? ""}/>
     <input id="quick-cashbook-customer" value={query} onChange={(event) => { const value=event.target.value; setQuery(value); setSelected(null); setResults([]); setSearchError(""); setSearching(Boolean(value.trim())); }} placeholder="輸入姓名、手機前幾碼或 LINE 名稱" autoComplete="off" className={input}/>

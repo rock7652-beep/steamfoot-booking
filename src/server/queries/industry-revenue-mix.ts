@@ -7,6 +7,7 @@ import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { isSpaExternalPayment } from "@/lib/spa-payment-methods";
 import { getRevenueMix, type RevenueMix, type RevenueMixPoint } from "./revenue-mix";
+import { isRetailCashbookCategory } from "@/lib/cashbook-entry-kind";
 
 type RevenueField = "packageRevenue" | "retailRevenue" | "otherRevenue" | "refunds" | "expense";
 type Event = { date: string; field: RevenueField; amount: number; manual?: boolean };
@@ -58,7 +59,7 @@ async function cashbookEvents(storeId: string, startDate: string, endDate: strin
   });
   return entries.map((entry) => ({
     date: entry.entryDate.toISOString().slice(0, 10),
-    field: entry.type === "EXPENSE" ? "expense" : entry.category?.startsWith("零售-") ? "retailRevenue" : "otherRevenue",
+    field: entry.type === "EXPENSE" ? "expense" : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue",
     amount: Number(entry.amount), manual: entry.type === "INCOME",
   }));
 }
