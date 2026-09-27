@@ -2422,6 +2422,12 @@ model SessionBalanceNotification {
   renderedBody              String?
   errorMessage              String?
   sentAt                    DateTime?
+  deliveryVersion           Int                            @default(0)
+  deliverySnapshot          Json?
+  deliveryAttempts          Int                            @default(0)
+  nextAttemptAt             DateTime?
+  leaseUntil                DateTime?
+  retryUntil                DateTime?
   responseAction            String?
   responseAt                DateTime?
   managerNotificationStatus MessageLogStatus?
@@ -2438,6 +2444,7 @@ model SessionBalanceNotification {
   @@index([storeId, status])
   @@index([storeId, responseAction, responseAt])
   @@index([customerId])
+  @@index([deliveryVersion, status, nextAttemptAt])
 }
 
 // ============================================================

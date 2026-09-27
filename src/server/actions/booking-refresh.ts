@@ -1,5 +1,7 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
+
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -15,7 +17,9 @@ export async function refreshBookingManagement(input: {
   storeId?: string;
   date: string | null;
 }) {
-  const user = await requirePermission("booking.read");
+  const timing = new OperationTiming("steamfoot.refresh");
+  try {
+  const user = await timing.measure("permission", () => requirePermission("booking.read"));
   if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100 ||
       !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
     throw new AppError("VALIDATION", "月份無效");
@@ -36,11 +40,12 @@ export async function refreshBookingManagement(input: {
   // Slots still resolve their scope from the session. Do not combine a
   // notification's explicit store with slots from a different active store.
   const [monthData, monthSchedule, slotResult] = await Promise.all([
-    getMonthBookingSummary(input.year, input.month, storeId),
-    storeId ? getCachedMonthScheduleSummary(storeId, input.year, input.month) : Promise.resolve({}),
+    timing.measure("month", () => getMonthBookingSummary(input.year, input.month, storeId)),
+    timing.measure("schedule", () => storeId ? getCachedMonthScheduleSummary(storeId, input.year, input.month) : Promise.resolve({})),
     input.date && storeId && storeId === activeStoreId
-      ? fetchDaySlots(input.date)
+      ? timing.measure("slots", () => fetchDaySlots(input.date!))
       : Promise.resolve(null),
   ]);
   return { monthData, monthSchedule, slots: slotResult?.slots ?? null };
+  } finally { timing.finish(); }
 }

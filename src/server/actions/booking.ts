@@ -1,5 +1,8 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
+import { after } from "next/server";
+
 import { notifySameDayBookingManagers } from "@/server/services/same-day-booking-manager-notification";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -1186,18 +1189,19 @@ export async function markCompleted(
   bookingId: string,
   input?: z.infer<typeof completeBookingSchema>
 ): Promise<ActionResult<void>> {
+  const timing = new OperationTiming("steamfoot.complete");
   try {
-    const user = await requireWritablePermission("booking.update");
+    const user = await timing.measure("permission", () => requireWritablePermission("booking.update"));
     const data = completeBookingSchema.parse(input ?? {});
 
-    const booking = await prisma.booking.findUnique({
+    const booking = await timing.measure("booking", () => prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
         customer: true,
         customerPlanWallet: true,
         makeupCreditLinks: { select: { makeupCreditId: true } },
       },
-    });
+    }));
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
     assertStoreAccess(user, booking.storeId);
     if (booking.bookingStatus === "COMPLETED")
@@ -1296,7 +1300,7 @@ export async function markCompleted(
       data.partialNoShowChoice === "DEDUCTED_WITH_MAKEUP";
 
     let sessionBalanceNotificationIds: string[] = [];
-    await prisma.$transaction(async (tx) => {
+    await timing.measure("transaction", () => prisma.$transaction(async (tx) => {
       // 完成服務前重新核對「預約綁定方案＋堂數＋期限」。建立預約時的
       // 驗證不能取代此處：兩者之間方案可能被調整、停用或產生 ledger drift。
       // 期限以實際服務日判斷（DATE 欄位），避免事後補登完成時誤擋合法服務。
@@ -1554,20 +1558,34 @@ export async function markCompleted(
         storeId: booking.storeId,
         tx,
       });
-    });
+    }));
 
-    // 通知失敗不得回滾已完成的服務；唯一鍵確保同方案同階段最多一次。
-    await dispatchSessionBalanceNotifications(sessionBalanceNotificationIds);
+    // Durable PENDING records are committed above. Cron recovers if scheduling
+    // or the response lifecycle fails; notification errors never undo completion.
+    if (sessionBalanceNotificationIds.length) {
+      try {
+        after(async () => {
+          const background = new OperationTiming("steamfoot.complete.notifications");
+          try {
+            await background.measure("dispatch", () => dispatchSessionBalanceNotifications(sessionBalanceNotificationIds));
+          } catch {
+            console.error("[SessionBalanceNotification] background dispatch deferred to retry");
+          } finally { background.finish(); }
+        });
+      } catch {
+        console.error("[SessionBalanceNotification] scheduling deferred to retry");
+      }
+    }
 
-    // BOOKING_COMPLETED 事件埋點（交易外 fire-and-forget；埋點失敗不回滾業務）
+    // Keep the analytics write awaited until it has its own durable retry design.
     try {
-      await createBookingCompletedEvent({
+      await timing.measure("referralEvent", () => createBookingCompletedEvent({
         storeId: booking.storeId,
         customerId: booking.customerId,
         referrerId: booking.customer.sponsorId ?? null,
         bookingId: booking.id,
         source: "mark-completed",
-      });
+      }));
     } catch {
       // 埋點失敗不影響主流程
     }
@@ -1576,6 +1594,8 @@ export async function markCompleted(
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
+  } finally {
+    timing.finish();
   }
 }
 

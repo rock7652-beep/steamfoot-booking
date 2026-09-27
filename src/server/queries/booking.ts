@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { OperationTiming } from "@/lib/operation-timing";
 import { linkedWalletRemainingForBooking } from "@/lib/wallet-booking-integrity";
 import { spaPrisma } from "@/lib/spa-db";
 import { requireSession, requireStaffSession } from "@/lib/session";
@@ -426,6 +427,15 @@ async function computeMonthBookingSummary(
   month: number,
   todayDateStr: string,
 ) {
+  const timing = new OperationTiming("steamfoot.month.compute");
+  try { return await computeMonthBookingSummaryMeasured(scopeStoreId, year, month, todayDateStr, timing); }
+  finally { timing.finish(); }
+}
+
+async function computeMonthBookingSummaryMeasured(
+  scopeStoreId: string | null, year: number, month: number,
+  todayDateStr: string, timing: OperationTiming,
+) {
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
 
@@ -449,24 +459,24 @@ async function computeMonthBookingSummary(
     OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
   };
   const [dailyCounts, staffCounts, monthBookings] = await Promise.all([
-    prisma.booking.groupBy({
+    timing.measure("dailyCounts", () => prisma.booking.groupBy({
       by: ["bookingDate"],
       where: monthWhere,
       _count: { id: true },
       _sum: { people: true },
-    }),
-    prisma.booking.groupBy({
+    })),
+    timing.measure("staffCounts", () => prisma.booking.groupBy({
       by: ["bookingDate", "revenueStaffId"],
       where: { ...monthWhere, revenueStaffId: { not: null } },
       _count: { id: true },
-    }),
+    })),
     // Per-booking detail rich enough to power the day-detail panel
     // **without** a second per-day round-trip — phone for tel: link,
     // assignedStaff/serviceStaff for the panel's staff fallback chain,
     // servicePlan.name for the row's service label, isCheckedIn for the
     // KPI counter. Selects are still flat (`select` not `include`) so
     // the wire payload stays bounded.
-    prisma.booking.findMany({
+    timing.measure("monthBookings", () => prisma.booking.findMany({
       where: monthWhere,
       select: {
         id: true,
@@ -526,16 +536,20 @@ async function computeMonthBookingSummary(
         },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
-    }),
+    })),
   ]);
 
   // 預約工作台的「已結清」狀態必須涵蓋所有結帳方式：首次體驗、單次收款／
   // 儲值金，以及療程扣次。這裡以成功交易作為同一個 source of truth，避免
   // Drawer 已完成結帳、排程卻仍顯示待收費。
   const monthBookingIds = monthBookings.map((booking) => booking.id);
-  const collectedTx =
+  const trialStoreIds = [...new Set(monthBookings.filter((b) => b.bookingType === "FIRST_TRIAL").map((b) => b.storeId))];
+  const staffIds = [...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean))];
+  // Independent second-stage reads: do not serialize collections → config → staff.
+  const [collectedTx, configs, staffList] = await Promise.all([
+    timing.measure("collections", () =>
     monthBookingIds.length > 0
-      ? await prisma.transaction.findMany({
+      ? prisma.transaction.findMany({
           where: {
             bookingId: { in: monthBookingIds },
             transactionType: {
@@ -552,7 +566,18 @@ async function computeMonthBookingSummary(
             },
           },
         })
-      : [];
+      : Promise.resolve([])),
+    timing.measure("trialConfig", () => trialStoreIds.length > 0
+      ? prisma.shopConfig.findMany({
+          where: { storeId: { in: trialStoreIds } },
+          select: { storeId: true, trialDefaultPrice: true },
+        }) : Promise.resolve([])),
+    timing.measure("staff", () => staffIds.length > 0
+      ? prisma.staff.findMany({
+          where: { id: { in: staffIds } },
+          select: { id: true, displayName: true, colorCode: true },
+        }) : Promise.resolve([])),
+  ]);
   const collectedMap = new Map<string, number>();
   const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
@@ -568,35 +593,12 @@ async function computeMonthBookingSummary(
   // PR-D1D：FIRST_TRIAL badge fallback — 用 storeId 批次撈 ShopConfig.trialDefaultPrice。
   // 缺 ShopConfig row 時用 TRIAL_DEFAULTS.trialDefaultPrice，與 getTrialSettings 一致。
   // ADMIN __all__ 視角會包含多 store；非 ADMIN 永遠單店，N = 1。
-  const trialStoreIds = [
-    ...new Set(
-      monthBookings
-        .filter((b) => b.bookingType === "FIRST_TRIAL")
-        .map((b) => b.storeId),
-    ),
-  ];
   const trialDefaultByStore = new Map<string, number>();
-  if (trialStoreIds.length > 0) {
-    const configs = await prisma.shopConfig.findMany({
-      where: { storeId: { in: trialStoreIds } },
-      select: { storeId: true, trialDefaultPrice: true },
-    });
-    for (const c of configs) {
-      trialDefaultByStore.set(c.storeId, Number(c.trialDefaultPrice));
-    }
+  for (const c of configs) {
+    trialDefaultByStore.set(c.storeId, Number(c.trialDefaultPrice));
   }
 
   // 取涉及的 staff 名稱
-  const staffIds = [
-    ...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean)),
-  ];
-  const staffList =
-    staffIds.length > 0
-      ? await prisma.staff.findMany({
-          where: { id: { in: staffIds } },
-          select: { id: true, displayName: true, colorCode: true },
-        })
-      : [];
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
   // 組裝每日資料 — 每筆 booking 一次寫入完整 detail，讓前端 day panel
