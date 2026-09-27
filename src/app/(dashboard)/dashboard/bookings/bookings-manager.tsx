@@ -589,12 +589,17 @@ export function BookingsManager({
   }, []);
 
   function completionCallbacks(id: string) {
+    const originalStatus = monthData.flatMap(day => day.bookings ?? []).find(booking => booking.id === id)?.bookingStatus;
     const completed = () => {
       handleBookingUpdated(id, "COMPLETED");
       setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
     };
     return {
-      apply: () => {}, rollback: () => {},
+      // Show the expected status immediately. The server remains responsible
+      // for validation and deducting sessions; restore the prior status if it
+      // rejects the write or the result cannot be confirmed.
+      apply: () => handleBookingUpdated(id, "COMPLETED"),
+      rollback: () => { if (originalStatus) handleBookingUpdated(id, originalStatus); },
       confirmed: completed,
       reconcile: async (signal: AbortSignal) => {
         const payload = await fetchBookingDetail(id, storeId);

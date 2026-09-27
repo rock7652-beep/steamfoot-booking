@@ -1067,6 +1067,7 @@ export function CourseRoster({
                                 status: "ATTENDED",
                               }),
                             `已將 ${booking.customerName} 標記出席並完成方案結算`,
+                            {bookingId:booking.id,status:"ATTENDED"},
                           )
                         }
                       >
@@ -1120,6 +1121,7 @@ export function CourseRoster({
                                 ],
                               }),
                             `已將 ${booking.customerName} 更正為待點名`,
+                            {bookingId:booking.id,status:"RESERVED"},
                           )
                         }
                       >
