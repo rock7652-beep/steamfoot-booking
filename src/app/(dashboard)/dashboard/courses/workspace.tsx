@@ -165,7 +165,7 @@ export function CourseWorkspace({
   const [memberBookingReady, setMemberBookingReady] = useState(false);
   const [pending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [pendingAttendance, setPendingAttendance] = useState<Record<string, "ATTENDED" | "NO_SHOW" | "CANCELLED">>({});
+  const [pendingAttendance, setPendingAttendance] = useState<Record<string, "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED">>({});
   useEffect(() => {
     setPendingAttendance(previous => {
       const remaining = Object.fromEntries(Object.entries(previous).filter(([bookingId,status]) =>
@@ -173,7 +173,7 @@ export function CourseWorkspace({
       return Object.keys(remaining).length === Object.keys(previous).length ? previous : remaining;
     });
   }, [sessions]);
-  function showPendingAttendance(bookingId:string,status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|null) {
+  function showPendingAttendance(bookingId:string,status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED"|null) {
     setPendingAttendance(previous => {
       if(status)return {...previous,[bookingId]:status};
       const next={...previous};delete next[bookingId];return next;
@@ -770,7 +770,7 @@ export function CourseWorkspace({
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
             </div></details>}
-            {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}}/>}
+            {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard
               businessProfile={businessProfile}

@@ -17,9 +17,10 @@ export type DailyAttendanceRow = {
   note?: string;
 };
 
-export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpenCourse}:{
+export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpenCourse,onAttendanceOptimistic}:{
   kind:"leave"|"unmarked";date:string;nowIso:string;rows:DailyAttendanceRow[];canEdit:boolean;
   onClose:()=>void;onOpenCourse:(sessionId:string)=>void;
+  onAttendanceOptimistic?:(items:DailyAttendanceRow[],status:"ATTENDED"|"NO_SHOW"|null)=>void;
 }) {
   const router=useRouter();
   const [selected,setSelected]=useState<string[]>([]);
@@ -42,13 +43,14 @@ export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpe
     const action=target==="RESERVED"?"取消請假，恢復待點名":target==="ATTENDED"?"記錄出席並依規則扣堂":"記錄曠課並依規則扣堂";
     if(!window.confirm(`確定將 ${items.length} 位學員${action}？\n${items.map(row=>`${formatTWDateTime(new Date(row.startsAt)).slice(11,16)} ${row.name} · ${row.course}`).join("\n")}`))return;
     setError("");
+    if(target!=="RESERVED")onAttendanceOptimistic?.(items,target);
     startTransition(async()=>{
       try {
         // All selected classes are validated and changed in one transaction.
         const result=await updateCourseDailyAttendanceBatch({target,bookings:items.map(row=>({id:row.id,sessionId:row.sessionId,status:row.status}))});
-        if(!result.success){setError(result.error??"更新失敗");router.refresh();setSelected([]);return;}
+        if(!result.success){if(target!=="RESERVED")onAttendanceOptimistic?.(items,null);setError(result.error??"更新失敗");router.refresh();setSelected([]);return;}
         setSelected([]);router.refresh();onClose();
-      }catch{setError("連線失敗，請重新整理名單後再試。");router.refresh();}
+      }catch{if(target!=="RESERVED")onAttendanceOptimistic?.(items,null);setError("連線失敗，請重新整理名單後再試。");router.refresh();}
     });
   }
   function saveNote(){
