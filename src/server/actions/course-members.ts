@@ -42,7 +42,7 @@ const bookingInput = z.object({
 
 export async function saveCourseCustomer(input: unknown) {
   try {
-    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true }).extend({ id: id.optional(), emergencyContactName: z.string().trim().max(100).nullable().optional(), emergencyContactPhone: z.string().trim().max(30).nullable().optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional() }).parse(input);
+    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, expectedUpdatedAt: true }).extend({ id: id.optional(), emergencyContactName: z.string().trim().max(100).nullable().optional(), emergencyContactPhone: z.string().trim().max(30).nullable().optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional() }).parse(input);
     const { storeId } = await courseManager(
       data.id ? "customer.update" : "customer.create",
     );
@@ -63,10 +63,10 @@ export async function saveCourseCustomer(input: unknown) {
     let customerId = data.id ?? "";
     if (data.id) {
       const result = await prisma.customer.updateMany({
-        where: { id: data.id, storeId, mergedIntoCustomerId: null },
+        where: { id: data.id, storeId, mergedIntoCustomerId: null, ...(data.expectedUpdatedAt ? {updatedAt:new Date(data.expectedUpdatedAt)} : {}) },
         data: profile,
       });
-      if (!result.count) throw new AppError("NOT_FOUND", "找不到本店顧客");
+      if (!result.count) throw new AppError(data.expectedUpdatedAt?"CONFLICT":"NOT_FOUND", data.expectedUpdatedAt?"顧客資料已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店顧客");
     } else {
       const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
       const limits = await getStoreLimitsByStoreId(storeId);
@@ -93,9 +93,10 @@ export async function saveCourseCustomer(input: unknown) {
 
 export async function saveCoursePointPlan(input: unknown) {
   try {
-    const { id: planId, ...data } = z
+    const schema = z
       .object({
         id: id.optional(),
+        expectedSnapshot: z.string().max(30000).optional(),
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
@@ -108,7 +109,9 @@ export async function saveCoursePointPlan(input: unknown) {
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
         templateIds: z.array(id).max(200).default([]),
       })
-      .parse(input);
+;
+    const { id: planId, expectedSnapshot, ...data } = schema.parse(input);
+    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId } = await courseManager("plans.edit");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
@@ -118,10 +121,10 @@ export async function saveCoursePointPlan(input: unknown) {
     data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
     if (planId) {
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId },
+        where: { id: planId, storeId, ...(expected ? {...expected,templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
         data,
       });
-      if (!result.count) throw new AppError("NOT_FOUND", "找不到本店方案");
+      if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
     } else
       await tx.coursePointPlan.create({ data: { ...data, storeId } });
     });

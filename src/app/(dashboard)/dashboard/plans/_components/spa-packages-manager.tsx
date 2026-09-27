@@ -1,11 +1,13 @@
 "use client";
 import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
 import { useState, useTransition } from "react";
+import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveSpaPackage } from "@/server/actions/spa-commerce";
 type Package = {
   id: string;
+  updatedAt?: Date | string;
   name: string;
   treatmentId: string;
   price: number;
@@ -28,8 +30,7 @@ export function SpaPackagesManager({
     [search, setSearch] = useRetainedState("spa-packages:search", "", retainedString),
     [service, setService] = useRetainedState("spa-packages:service", "", retainedString),
     [editing, setEditing] = useState<Partial<Package> | null>(null),
-    [error, setError] = useState(""),
-    [pending, start] = useTransition();
+    [pending,setPending] = useState(false);
   const visible = packages.filter(
     (p) =>
       (filter === "ALL" || (filter === "ACTIVE" ? p.isActive : !p.isActive)) &&
@@ -48,7 +49,6 @@ export function SpaPackagesManager({
         {canManage && (
           <button
             onClick={() => {
-              setError("");
               setEditing({
                 name: "",
                 treatmentId: services[0]?.id ?? "",
@@ -152,8 +152,7 @@ export function SpaPackagesManager({
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          setError("");
-                          setEditing(p);
+                                      setEditing(p);
                         }}
                         className="rounded-lg border border-earth-200 p-2"
                       >
@@ -161,8 +160,7 @@ export function SpaPackagesManager({
                       </button>
                       <button
                         onClick={() => {
-                          setError("");
-                          setEditing({
+                                      setEditing({
                             ...p,
                             id: undefined,
                             name: `${p.name.slice(0, 76)}（複本）`,
@@ -198,29 +196,35 @@ export function SpaPackagesManager({
           width={520}
           labelledById="package-title"
         >
-          <form
-            className="min-h-0 flex-1 overflow-y-auto space-y-4 p-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setError("");
-              start(async () => {
-                try {
-                  const r = await saveSpaPackage(editing as Package);
-                  if (!r.success) {
-                    setError(r.error);
-                    return;
-                  }
-                  setFilter(editing.isActive ? "ACTIVE" : "INACTIVE");
-                  setEditing(null);
-                  router.refresh();
-                } catch {
-                  setError("儲存失敗，請重試。");
-                }
-              });
-            }}
-          >
+          <SpaPackageForm key={editing.id ?? "new"} original={packages.find(p=>p.id===editing.id) ?? editing} services={services} onPending={setPending} onClose={()=>setEditing(null)} onSaved={active=>{setFilter(active?"ACTIVE":"INACTIVE");setEditing(null);router.refresh();}} />
+        </RightSheet>
+      )}
+    </section>
+  );
+}
+
+function SpaPackageForm({original,services,onClose,onSaved,onPending}:{original:Partial<Package>;services:{id:string;name:string}[];onClose:()=>void;onPending:(value:boolean)=>void;onSaved:(active:boolean)=>void}) {
+  const router=useRouter();
+  const [error,setError]=useState("");
+  const [pending,start]=useTransition();
+  const draft=useFormDraft(`spa-package:${original.id??"new"}`,{
+    name:original.name??"",treatmentId:original.treatmentId??"",price:String(original.price??0),uses:String(original.uses??10),validityDays:String(original.validityDays??180),isActive:original.isActive??true,publicVisible:original.publicVisible??false,
+  },original.updatedAt ? new Date(original.updatedAt).toISOString():null);
+  const editing=draft.values;
+  return <form className="min-h-0 flex-1 overflow-y-auto space-y-4 p-5" onSubmit={e=>{
+    e.preventDefault();if(draft.busy.current||draft.stale)return;
+    draft.busy.current=true;onPending(true);setError("");
+    start(async()=>{try{
+      const result=await saveSpaPackage({...editing,id:original.id,price:Number(editing.price),uses:Number(editing.uses),validityDays:Number(editing.validityDays),expectedUpdatedAt:draft.expectedRevision??undefined});
+      if(!draft.mounted.current)return;
+      if(!result.success){setError(result.error);router.refresh();return;}
+      draft.clear();onSaved(editing.isActive);
+    }catch{if(draft.mounted.current)setError("連線中斷，輸入已保留，請稍後重試。");}finally{draft.busy.current=false;onPending(false);}});
+  }}>
+    <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()} />
+
             <h2 id="package-title" className="text-xl font-bold">
-              {editing.id ? "編輯方案" : "新增方案"}
+              {original.id ? "編輯方案" : "新增方案"}
             </h2>
             <fieldset disabled={pending} className="space-y-4">
               <label className="block">
@@ -230,7 +234,7 @@ export function SpaPackagesManager({
                   maxLength={80}
                   value={editing.name}
                   onChange={(e) =>
-                    setEditing({ ...editing, name: e.target.value })
+                    draft.set("name", e.target.value)
                   }
                   className="mt-1 w-full rounded border border-earth-200 p-3"
                 />
@@ -241,7 +245,7 @@ export function SpaPackagesManager({
                   required
                   value={editing.treatmentId}
                   onChange={(e) =>
-                    setEditing({ ...editing, treatmentId: e.target.value })
+                    draft.set("treatmentId", e.target.value)
                   }
                   className="mt-1 w-full rounded border border-earth-200 p-3"
                 >
@@ -269,7 +273,7 @@ export function SpaPackagesManager({
                     max={max}
                     value={editing[key]}
                     onChange={(e) =>
-                      setEditing({ ...editing, [key]: Number(e.target.value) })
+                      draft.set(key, e.target.value)
                     }
                     className="mt-1 w-full rounded border border-earth-200 p-3"
                   />
@@ -280,13 +284,13 @@ export function SpaPackagesManager({
                   type="checkbox"
                   checked={editing.isActive}
                   onChange={(e) =>
-                    setEditing({ ...editing, isActive: e.target.checked })
+                    draft.set("isActive", e.target.checked)
                   }
                 />
                 上架
               </label>
               <label className="flex gap-2">
-                <input type="checkbox" checked={editing.publicVisible ?? false} onChange={e => setEditing({ ...editing, publicVisible: e.target.checked })} />
+                <input type="checkbox" checked={editing.publicVisible ?? false} onChange={e => draft.set("publicVisible", e.target.checked)} />
                 公開展示於 LINE 本店方案
               </label>
               <p className="text-xs text-earth-500">只有上架且設為公開的方案會提供給顧客查看。</p>
@@ -304,14 +308,10 @@ export function SpaPackagesManager({
               <button
                 type="button"
                 className="ml-3"
-                onClick={() => setEditing(null)}
+                onClick={onClose}
               >
                 返回
               </button>
             </fieldset>
-          </form>
-        </RightSheet>
-      )}
-    </section>
-  );
+          </form>;
 }

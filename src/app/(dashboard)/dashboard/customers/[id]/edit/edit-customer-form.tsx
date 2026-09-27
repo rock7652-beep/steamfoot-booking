@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateCustomer } from "@/server/actions/customer";
@@ -16,6 +17,7 @@ import {
 
 interface CustomerData {
   id: string;
+  updatedAt?: string;
   name: string;
   phone: string;
   email: string;
@@ -42,12 +44,22 @@ export function EditCustomerForm({
   returnUrl?: string;
 }) {
   const router = useRouter();
+  const [year = "1970", month = "", day = ""] = customer.birthday.split("-");
+  const draft = useFormDraft(`customer:edit:${customer.id}`, {
+    name: customer.name, phone: customer.phone, email: customer.email, gender: customer.gender,
+    height: String(customer.height ?? ""), lineName: customer.lineName, serviceNote: customer.serviceNote,
+    birthYear: year || "1970", birthMonth: month, birthDay: day,
+  }, customer.updatedAt ?? null);
+  const fields = draft.values;
 
   const [state, action, pending] = useActionState(
     async (
       _prev: { error: string | null; existingCustomerId: string | null },
       formData: FormData,
     ) => {
+      if (draft.busy.current) return _prev;
+      draft.busy.current = true;
+      try {
       // 後台補資料情境：除 name + phone 必填外，其餘空白都送 undefined，
       // 由 schema (emptyToUndef) 與 action (undefined → null) 接手清空。
       const emailRaw = normalizeEmail((formData.get("email") as string) ?? "");
@@ -60,6 +72,7 @@ export function EditCustomerForm({
       const heightStr = ((formData.get("height") as string) ?? "").trim();
       const heightParsed = heightStr === "" ? NaN : parseFloat(heightStr);
       const input = {
+        expectedUpdatedAt: draft.expectedRevision ?? undefined,
         name: ((formData.get("name") as string) ?? "").trim(),
         phone: normalizePhone((formData.get("phone") as string) ?? ""),
         email: emailRaw || undefined,
@@ -71,17 +84,23 @@ export function EditCustomerForm({
       };
 
       const result = await updateCustomer(customer.id, input);
+      if (!draft.mounted.current) return _prev;
       if (result.success) {
+        draft.clear();
         toast.success("已儲存");
         router.push(returnUrl ?? `/dashboard/customers/${customer.id}`);
         router.refresh();
         return { error: null, existingCustomerId: null };
       }
+      router.refresh();
       toast.error(result.error ?? "更新失敗");
       return {
         error: result.error ?? "更新失敗",
         existingCustomerId: result.existingCustomerId ?? null,
       };
+      } catch {
+        return { error: "連線中斷，輸入已保留，請稍後重試。", existingCustomerId: null };
+      } finally { draft.busy.current = false; }
     },
     { error: null, existingCustomerId: null },
   );
@@ -89,6 +108,8 @@ export function EditCustomerForm({
   return (
     <FormShell width="md">
       <form action={action} className="space-y-6 pb-4">
+        <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
+        <fieldset disabled={pending} className="contents">
         <div
           className={
             isSpa
@@ -110,7 +131,7 @@ export function EditCustomerForm({
                   name="name"
                   type="text"
                   required
-                  defaultValue={customer.name}
+                  value={fields.name} onChange={e => draft.set("name", e.target.value)}
                   className={`mt-1 ${inputCls}`}
                 />
               </div>
@@ -126,7 +147,7 @@ export function EditCustomerForm({
                     required
                     pattern="^(09\d{8}|09\d{2}[\s-]?\d{3}[\s-]?\d{3})$"
                     title="09 開頭共 10 碼，可含空格或 -"
-                    defaultValue={customer.phone}
+                    value={fields.phone} onChange={e => draft.set("phone", e.target.value)}
                     className={`mt-1 ${inputCls}`}
                   />
                 </div>
@@ -140,7 +161,7 @@ export function EditCustomerForm({
                   <input
                     name="email"
                     type="email"
-                    defaultValue={customer.email}
+                    value={fields.email} onChange={e => draft.set("email", e.target.value)}
                     className={`mt-1 ${inputCls}`}
                   />
                 </div>
@@ -159,7 +180,7 @@ export function EditCustomerForm({
                     </label>
                     <select
                       name="gender"
-                      defaultValue={customer.gender}
+                      value={fields.gender} onChange={e => draft.set("gender", e.target.value)}
                       className={`mt-1 ${inputCls}`}
                     >
                       <option value="">未填寫</option>
@@ -176,7 +197,7 @@ export function EditCustomerForm({
                       </span>
                     </label>
                     <BirthdayFields
-                      defaultValue={customer.birthday}
+                      parts={{ year: fields.birthYear, month: fields.birthMonth, day: fields.birthDay }} onPartsChange={p => draft.setMany({ birthYear: p.year, birthMonth: p.month, birthDay: p.day })}
                       className={inputCls}
                     />
                   </div>
@@ -194,7 +215,7 @@ export function EditCustomerForm({
                     step="0.1"
                     min="50"
                     max="250"
-                    defaultValue={customer.height ?? ""}
+                    value={fields.height} onChange={e => draft.set("height", e.target.value)}
                     className={`mt-1 ${inputCls}`}
                   />
                 </div>
@@ -216,7 +237,7 @@ export function EditCustomerForm({
                     </label>
                     <select
                       name="gender"
-                      defaultValue={customer.gender}
+                      value={fields.gender} onChange={e => draft.set("gender", e.target.value)}
                       className={`mt-1 ${inputCls}`}
                     >
                       <option value="">未填寫</option>
@@ -233,7 +254,7 @@ export function EditCustomerForm({
                       </span>
                     </label>
                     <BirthdayFields
-                      defaultValue={customer.birthday}
+                      parts={{ year: fields.birthYear, month: fields.birthMonth, day: fields.birthDay }} onPartsChange={p => draft.setMany({ birthYear: p.year, birthMonth: p.month, birthDay: p.day })}
                       className={inputCls}
                     />
                   </div>
@@ -251,7 +272,7 @@ export function EditCustomerForm({
                     step="0.1"
                     min="50"
                     max="250"
-                    defaultValue={customer.height ?? ""}
+                    value={fields.height} onChange={e => draft.set("height", e.target.value)}
                     className={`mt-1 ${inputCls}`}
                   />
                 </div>
@@ -268,7 +289,7 @@ export function EditCustomerForm({
                 <input
                   name="lineName"
                   type="text"
-                  defaultValue={customer.lineName}
+                  value={fields.lineName} onChange={e => draft.set("lineName", e.target.value)}
                   className={`mt-1 ${inputCls}`}
                 />
               </div>
@@ -281,12 +302,13 @@ export function EditCustomerForm({
           <textarea
             name="serviceNote"
             rows={4}
-            defaultValue={customer.serviceNote}
+            value={fields.serviceNote} onChange={e => draft.set("serviceNote", e.target.value)}
             className={inputCls}
             placeholder="僅店內可見，每次服務都適用。例如：怕冷、座位偏好（選填）"
           />
         </FormSection>
 
+        </fieldset>
         {state.error ? (
           <div className="space-y-2">
             <p className="text-sm text-red-600">{state.error}</p>
@@ -316,7 +338,7 @@ export function EditCustomerForm({
           </Link>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || draft.stale}
             className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? (

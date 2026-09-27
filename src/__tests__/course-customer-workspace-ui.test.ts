@@ -25,7 +25,7 @@ const props={view:"customers" as const,templates:[],people:[{id:"person",name:"�
 const click=async(text:string)=>{const b=[...host.querySelectorAll("button")].find(b=>b.textContent===text);expect(b,text).toBeTruthy();await act(async()=>b!.click());};
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();});
-it("preserves the edit draft across tabs and rejects accidental closing",async()=>{
+it("preserves the edit draft across tabs and closes without redundant confirmation",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,props)));
  await click("編輯顧客資料");
  const input=host.querySelector('input[name="name"]') as HTMLInputElement;
@@ -33,7 +33,7 @@ it("preserves the edit draft across tabs and rejects accidental closing",async()
  await click("持有方案");await click("基本資料");
  expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存姓名");
  vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉");
- expect(window.confirm).toHaveBeenCalled();expect(host.querySelector('input[name="name"]')).not.toBeNull();expect(m.save).not.toHaveBeenCalled();
+ expect(window.confirm).not.toHaveBeenCalled();expect(host.querySelector('input[name="name"]')).toBeNull();expect(m.save).not.toHaveBeenCalled();
 });
 it("does not show unauthorized wallet, record, health, or edit controls",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,canEdit:false,canCreate:false,canAssign:false,canReadCards:false,canReadBookings:false,canReadTransactions:false,healthEnabled:false})));

@@ -232,10 +232,15 @@ export async function updateCustomer(
       prismaData.assignedStaffId = data.assignedStaffId;
     }
 
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: prismaData,
-    });
+    if (data.expectedUpdatedAt) {
+      const result = await prisma.customer.updateMany({
+        where: { id: customerId, storeId: customer.storeId, updatedAt: new Date(data.expectedUpdatedAt) },
+        data: prismaData,
+      });
+      if (!result.count) throw new AppError("CONFLICT", "資料已由其他人更新，輸入已保留。請核對目前資料後再編輯。");
+    } else {
+      await prisma.customer.update({ where: { id: customerId }, data: prismaData });
+    }
 
     updateTag(CACHE_TAGS.bookingsSummary);
     revalidatePath("/dashboard/bookings");

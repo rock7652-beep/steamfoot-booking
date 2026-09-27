@@ -43,7 +43,7 @@ describe("birthday profile UI contract", () => {
   it("uses the shared year/month/day picker in customer and staff forms", () => {
     for (const file of [
       "src/app/(customer)/profile/profile-form.tsx",
-      "src/app/(dashboard)/dashboard/customers/new/page.tsx",
+      "src/app/(dashboard)/dashboard/customers/new/new-customer-form.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form.tsx",
     ]) {
       expect(read(file)).toContain("BirthdayFields");

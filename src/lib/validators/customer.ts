@@ -56,6 +56,7 @@ export const createCustomerSchema = z.object({
 // email/gender/birthday/height 空字串會被 preprocess 成 undefined；
 // action 層會把 undefined 寫成 null 以清除 DB 欄位。
 export const updateCustomerSchema = z.object({
+  expectedUpdatedAt: z.string().datetime().optional(),
   name: z.string().trim().min(1, "請輸入姓名").max(100),
   phone: phoneSchema,
   email: emptyToUndef.pipe(

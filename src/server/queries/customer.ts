@@ -239,6 +239,7 @@ export async function getCustomerEditForUser(
     where: { id: customerId, ...getStoreFilter(user) },
     select: {
       id: true,
+      updatedAt: true,
       name: true,
       phone: true,
       email: true,
