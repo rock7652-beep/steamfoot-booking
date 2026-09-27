@@ -124,6 +124,15 @@ export interface BookingPrefill {
   collectedAmount: number | null;
   expectedAmount: number | null;
   trialDefaultPrice: number | null;
+  /** 已由月曆查詢取得的方案快照；僅供完整明細回來前唯讀顯示。 */
+  customerPlanWallet?: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | string | null;
+    planName: string;
+  } | null;
+  /** 已完成預約的實際扣堂方案名稱；空陣列代表月曆摘要沒有扣堂紀錄。 */
+  deductedPlanNames?: string[];
 }
 
 interface BookingDetailDrawerProps {
@@ -276,17 +285,26 @@ export function BookingDetailDrawer({
     };
   }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing]);
 
-  /** Financial and attendance changes are confirmed before patching stored values. */
+  /** Financial values stay server-confirmed; safe status changes may render optimistically. */
   function wrapAction(
     label: string,
     action: () => Promise<{ success: boolean; error?: string } | unknown>,
     nextStatus: string | null,
-    opts?: { onSuccess?: () => void; expected?: BookingActionExpectation },
+    opts?: {
+      onSuccess?: () => void;
+      expected?: BookingActionExpectation;
+      optimistic?: boolean;
+      onOptimistic?: () => void;
+      onRollback?: () => void;
+    },
   ) {
     if (!bookingId) return;
     if (readOnly) { toast.error("查看模式下不可操作預約"); return; }
     const id = bookingId;
     let recoveredPayload: BookingDrawerPayload | null = null;
+    const originalData = data?.booking.id === id ? data : null;
+    const originalStatus = originalData?.booking.bookingStatus ?? null;
+    const optimisticStatus = opts?.optimistic && nextStatus ? nextStatus : null;
     const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
     void saves.run(id, async () => {
       const result = await action() as { success?: boolean; error?: string } | undefined;
@@ -294,8 +312,29 @@ export function BookingDetailDrawer({
       if (!result.success) toast.error(result.error ?? "操作未完成");
       return { success: result.success, error: result.error };
     }, {
-      apply: () => {},
-      rollback: () => {},
+      apply: () => {
+        if (!optimisticStatus) return;
+        onUpdated?.(id, optimisticStatus);
+        if (currentBooking.current !== id) return;
+        setData(previous =>
+          previous?.booking.id === id ? { ...previous, booking: {
+            ...previous.booking,
+            bookingStatus: optimisticStatus,
+            isCheckedIn: optimisticStatus === "COMPLETED"
+              ? true
+              : optimisticStatus === "PENDING"
+                ? false
+                : previous.booking.isCheckedIn,
+          } } : previous);
+        opts?.onOptimistic?.();
+      },
+      rollback: () => {
+        if (!optimisticStatus) return;
+        if (originalStatus) onUpdated?.(id, originalStatus);
+        if (currentBooking.current !== id) return;
+        if (originalData) setData(originalData);
+        opts?.onRollback?.();
+      },
       reconcile: async signal => {
         const payload = await fetchBookingDetail(id, resolvedStoreId);
         if (signal.aborted || !bookingMatchesExpectation(payload.booking, id, expected)) return false;
@@ -313,7 +352,7 @@ export function BookingDetailDrawer({
       },
       confirmed: () => {
         toast.success(label);
-        onUpdated?.(id, nextStatus);
+        if (!optimisticStatus) onUpdated?.(id, nextStatus);
         cache?.invalidate(id);
         // A late completion must not close B's modal or change B's status.
         if (currentBooking.current !== id) return;
@@ -365,7 +404,9 @@ export function BookingDetailDrawer({
       setAttendanceOpen(true);
       return;
     }
-    wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED");
+    wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED", {
+      optimistic: true,
+    });
   }
 
   // AttendanceModal confirm — 依 attendanceIntent 分流。
@@ -414,6 +455,15 @@ export function BookingDetailDrawer({
       "COMPLETED",
       {
         expected: { attendedPeople },
+        optimistic: true,
+        onOptimistic: () => {
+          setAttendanceOpen(false);
+          setAttendanceIntent(null);
+        },
+        onRollback: () => {
+          setAttendanceIntent("complete");
+          setAttendanceOpen(true);
+        },
         onSuccess: () => {
           setAttendanceOpen(false);
           setAttendanceIntent(null);
@@ -425,16 +475,26 @@ export function BookingDetailDrawer({
   function handleNoShowConfirm(choice: NoShowChoice) {
     if (readOnly) return;
     if (partialAttendedPeople != null) {
+      const attendedPeople = partialAttendedPeople;
       wrapAction(
         "已完成服務並記錄部分未到",
         () =>
           markCompleted(bookingId!, {
-            attendedPeople: partialAttendedPeople,
+            attendedPeople,
             partialNoShowChoice: choice,
           }),
         "COMPLETED",
         {
-          expected: { attendedPeople: partialAttendedPeople, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
+          expected: { attendedPeople, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
+          optimistic: true,
+          onOptimistic: () => {
+            setNoShowOpen(false);
+            setPartialAttendedPeople(null);
+          },
+          onRollback: () => {
+            setPartialAttendedPeople(attendedPeople);
+            setNoShowOpen(true);
+          },
           onSuccess: () => {
             setNoShowOpen(false);
             setPartialAttendedPeople(null);
@@ -1221,6 +1281,36 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
     : summary?.isMakeup ? "補課" : summary?.servicePlanName;
   const subtitle = prefill?.bookingType === "PACKAGE_SESSION" && !prefill.servicePlanName && !prefill.isMakeup ? null : service;
   const active = !known || ["PENDING", "CONFIRMED"].includes(known.bookingStatus);
+  const packagePlanName = prefill
+    ? prefill.customerPlanWallet?.planName ?? prefill.servicePlanName ?? "—"
+    : pending;
+  const packageExpiryMeta = prefill?.customerPlanWallet
+    ? bookingPlanExpiry(prefill.customerPlanWallet.expiryDate)
+    : null;
+  const packageExpiry = !prefill
+    ? pending
+    : prefill.isMakeup
+      ? "不適用"
+      : packageExpiryMeta
+        ? <span className={packageExpiryMeta.className}>{packageExpiryMeta.detail}</span>
+        : "—";
+  const packageRemaining = !prefill
+    ? pending
+    : prefill.customerPlanWallet
+      ? `${prefill.customerPlanWallet.remainingSessions} 堂`
+      : "—";
+  const deductedPlanNames = prefill?.deductedPlanNames ?? [];
+  const packageUsage = !prefill
+    ? pending
+    : active
+      ? prefill.isMakeup
+        ? "補課資格（完成時核對）"
+        : "依方案扣堂（完成時核對）"
+      : prefill.isMakeup
+        ? "使用補課資格"
+        : deductedPlanNames.length > 0
+          ? `已扣：${deductedPlanNames.join("、")}`
+          : "依方案扣堂";
   return (
     <>
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
@@ -1271,14 +1361,14 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
         <Section readable title="收款與扣堂">
           {prefill?.bookingType === "FIRST_TRIAL" || prefill?.bookingType === "SINGLE" ? <>
             <KV readable label="金額" value={prefillAmount(prefill)} />
-            <KV readable label="付款狀態" value={pending} />
+            <KV readable label="付款狀態" value={prefill ? prefill.collected ? "已收款" : "未收款（現場收款）" : pending} />
             <KV readable label="付款方式" value={pending} />
             <KV readable label="收款日期" value={pending} />
           </> : <>
-            <KV readable label="方案" value={pending} />
-            <KV readable label="到期日" value={pending} />
-            <KV readable label="剩餘堂數" value={pending} />
-            <KV readable label={active ? "本次使用" : "結帳方式"} value={pending} />
+            <KV readable label="方案" value={packagePlanName} />
+            <KV readable label="到期日" value={packageExpiry} />
+            <KV readable label="剩餘堂數" value={packageRemaining} />
+            <KV readable label={active ? "本次使用" : "結帳方式"} value={packageUsage} />
           </>}
         </Section>
       } />

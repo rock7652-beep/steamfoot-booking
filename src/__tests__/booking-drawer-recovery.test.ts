@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
+import type { BookingPrefill } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn() }));
 vi.mock("@/server/actions/booking", () => ({ markCompleted: mocks.complete, markNoShow: vi.fn(), cancelBooking: vi.fn(), revertBookingStatus: vi.fn(), updateBooking: vi.fn() }));
 vi.mock("@/server/actions/booking-drawer", () => ({ fetchBookingDetail: mocks.read }));
@@ -21,6 +22,12 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/adjust-checkout-modal", () => ({ A
 vi.mock("@/app/(dashboard)/dashboard/bookings/reschedule-modal", () => ({ RescheduleModal: () => null }));
 import { BookingDetailDrawer } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+
+beforeEach(() => {
+  mocks.read.mockReset();
+  mocks.complete.mockReset();
+});
+
 function bookingPayload(): BookingDrawerPayload {
   return {
     booking: {
@@ -73,6 +80,88 @@ function bookingPayload(): BookingDrawerPayload {
 }
 
 
+
+it("renders the month wallet snapshot while full detail is still pending", async () => {
+  mocks.read.mockReset();
+  mocks.read.mockImplementation(() => new Promise<BookingDrawerPayload>(() => {}));
+  const prefill: BookingPrefill = {
+    id: "booking-prefill",
+    bookingDate: "2026-09-28",
+    slotTime: "10:00",
+    bookingStatus: "PENDING",
+    bookingType: "PACKAGE_SESSION",
+    isMakeup: false,
+    isCheckedIn: false,
+    people: 1,
+    attendedPeople: null,
+    customerName: "Prefill customer",
+    customerPhone: "0900000000",
+    serviceNote: null,
+    revenueStaff: null,
+    serviceStaffName: null,
+    servicePlanName: "月曆方案",
+    collected: false,
+    collectedAmount: null,
+    expectedAmount: null,
+    trialDefaultPrice: null,
+    customerPlanWallet: {
+      status: "ACTIVE",
+      remainingSessions: 3,
+      expiryDate: "2026-12-31",
+      planName: "月曆方案",
+    },
+    deductedPlanNames: [],
+  };
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true,
+      bookingId: prefill.id,
+      prefill,
+      onClose: vi.fn(),
+    })));
+    expect(container.textContent).toContain("月曆方案");
+    expect(container.textContent).toContain("2026/12/31");
+    expect(container.textContent).toContain("3 堂");
+    expect(container.textContent).toContain("依方案扣堂（完成時核對）");
+    expect(container.textContent).toContain("讀取完整資料中");
+    expect(mocks.read).toHaveBeenCalledOnce();
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+it("updates completion immediately and restores it when the server rejects the write", async () => {
+  mocks.complete.mockReset();
+  mocks.read.mockReset();
+  const payload = bookingPayload();
+  mocks.read.mockResolvedValue(payload);
+  let finish!: (result: { success: boolean; error?: string }) => void;
+  mocks.complete.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const onUpdated = vi.fn();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true,
+      bookingId: payload.booking.id,
+      onClose: vi.fn(),
+      onUpdated,
+    })));
+    const complete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
+    act(() => complete.click());
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "COMPLETED");
+    expect(container.textContent).toContain("還原狀態");
+
+    await act(async () => finish({ success: false, error: "server rejected" }));
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
+    expect(container.textContent).toContain("完成服務");
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 it("does not let A's late recovery overwrite B after switching bookings", async () => {
   const a = bookingPayload();
   const b = { ...bookingPayload(), booking: { ...a.booking, id: "booking-b", customer: { ...a.booking.customer, name: "Customer B" } } };
@@ -117,8 +206,10 @@ it("automatically checks first and the fallback only reads without completing tw
     const complete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
     await act(async () => complete.click());
     expect(mocks.read).toHaveBeenCalledTimes(2);
-    expect(onUpdated).not.toHaveBeenCalled();
-    expect(complete.disabled).toBe(true);
+    expect(onUpdated).toHaveBeenNthCalledWith(1, payload.booking.id, "COMPLETED");
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
+    const retryComplete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
+    expect(retryComplete.disabled).toBe(true);
     const check = [...container.querySelectorAll("button")].find(button => button.textContent === "查看最新狀態")!;
     expect(check).toBeDefined();
     mocks.read.mockResolvedValue({ ...payload, booking: { ...payload.booking, bookingStatus: "COMPLETED", isCheckedIn: true } });

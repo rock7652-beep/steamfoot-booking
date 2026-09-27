@@ -819,6 +819,15 @@ function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
     collectedAmount: b.collectedAmount,
     expectedAmount: b.expectedAmount,
     trialDefaultPrice: b.trialDefaultPrice,
+    customerPlanWallet: b.customerPlanWallet
+      ? {
+          status: b.customerPlanWallet.status,
+          remainingSessions: b.customerPlanWallet.remainingSessions,
+          expiryDate: b.customerPlanWallet.expiryDate,
+          planName: b.customerPlanWallet.plan.name,
+        }
+      : null,
+    deductedPlanNames: b.deductedPlanNames ?? [],
   };
 }
 
