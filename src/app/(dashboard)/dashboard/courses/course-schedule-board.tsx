@@ -321,7 +321,7 @@ function SessionCard({
             <span className="flex min-w-0 flex-1 items-center gap-1">
               {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
-              {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{session.teacherAttendance==="LEAVE"?"師假":"師曠"}</span>}
+              {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{teacherState}</span>}
               {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
             </span>
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
