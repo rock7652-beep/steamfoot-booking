@@ -680,6 +680,12 @@ export async function updateCourseRosterBatch(input: unknown) {
     count = data.bookings.length;
     const {user,storeId}=await courseManager("booking.update");
     authMs = Date.now() - startedAt;
+    // Start this independent lookup before the transaction so it does not add
+    // another database round trip after attendance has already been saved.
+    const musicLookup = prisma.storeFeatureEntitlement.findFirst({
+      where: { storeId, featureKey: "business.music", status: "ENABLED" },
+      select: { storeId: true },
+    }).then(Boolean, () => false);
     const transactionStartedAt = Date.now();
     await courseTransaction(storeId,async tx=>{
       const transactionWorkAt = Date.now();
@@ -700,8 +706,10 @@ export async function updateCourseRosterBatch(input: unknown) {
     });
     transactionMs = Date.now() - transactionStartedAt;
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
-    await refreshUnlessMusicRoster(storeId);
-    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
+    const refreshStartedAt = Date.now();
+    if (!(await musicLookup)) refresh();
+    const refreshMs = Date.now() - refreshStartedAt;
+    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, totalMs: Date.now() - startedAt });
     return {success:true as const};
   }catch(error){
     console.info("[course-roster-batch]", { outcome: "error", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
