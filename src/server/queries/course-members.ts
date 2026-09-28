@@ -134,8 +134,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         ? privateMusicTermLessons
         : purchasedLessons;
     const groupMusic = b.session.template.classType === "GROUP" && card?.unit === "SESSION";
-    const termNumber = !groupMusic && termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null;
-    const periodLessons = groupMusic ? allLessons : termNumber ? allLessons.slice((termNumber - 1) * termSize, termNumber * termSize) : [];
+    const validGroupEnrollment = groupMusic && !!card?.plan.musicTerms && card.plan.templateIds.includes(b.session.templateId) && purchasedLessons % card.plan.musicTerms === 0;
+    const missingGroupEnrollment = groupMusic && !validGroupEnrollment;
+    const termNumber = !missingGroupEnrollment && termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null;
+    const periodLessons = termNumber ? allLessons.slice((termNumber - 1) * termSize, termNumber * termSize) : [];
     const previousTermLesson = termNumber && termNumber > 1 ? allLessons[(termNumber - 1) * termSize - 1] : null;
     const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && sameEnrollment(item) && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && ((!card?.plan.musicTerms || card.plan.musicTerms === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
     const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
@@ -145,9 +147,9 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
     unit: card?.unit ?? "POINT",
     // Private music lessons use the learner’s own card and booked sequence.
-    // Group lessons need a separate cohort/enrollment start; never infer that from bookings.
-    termIndex: !groupMusic && currentPosition >= 0 && termSize > 0 && (card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? currentPosition % termSize + 1 : null,
-    termCount: !groupMusic && (card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
+    // Group progress is shown only for a dedicated group lesson purchase; each learner owns their purchased total.
+    termIndex: !missingGroupEnrollment && currentPosition >= 0 && termSize > 0 && (validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? currentPosition % termSize + 1 : null,
+    termCount: !missingGroupEnrollment && (validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
     termNumber,
     nextPaidLessons,
     termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
