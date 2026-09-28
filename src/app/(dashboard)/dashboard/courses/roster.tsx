@@ -234,7 +234,7 @@ export function CourseRoster({
     const updates=optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
     if(updates.length) {
       const changes=new Map(updates.map(item=>[item.bookingId,item]));
-      setRoster(rows=>rows.map(row=>changes.has(row.id)?{...row,status:changes.get(row.id)!.status,...(changes.get(row.id)!.absenceKind?{absenceKind:changes.get(row.id)!.absenceKind}:{} )}:row));
+      setRoster(rows=>rows.map(row=>{const change=changes.get(row.id);return change ? {...row,status:change.status,...(change.status === "RESERVED" ? {absenceKind:null} : change.absenceKind ? {absenceKind:change.absenceKind} : {})} : row;}));
       updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,item.status,Boolean(item.absenceKind)));
     }
     if(teacherStatus){setSession(old=>old?{...old,teacherAttendance:teacherStatus}:old);onTeacherAttendanceOptimistic?.(teacherStatus);}
@@ -254,9 +254,15 @@ export function CourseRoster({
         setMessage(successMessage);
         setSelected([]);
         setRequestKey(crypto.randomUUID());
-        await load();
-        router.refresh();
-        if (view !== "roster") onDone?.();
+        if (view === "roster" && musicLayout && updates.length) {
+          // Attendance has already been reflected in the list. Reconcile in the background
+          // so the action becomes available as soon as the server confirms the write.
+          void load().catch(() => setMessage("已儲存，名單更新失敗，請重新開啟核對"));
+        } else {
+          await load();
+          router.refresh();
+          if (view !== "roster") onDone?.();
+        }
       } catch {
         if(updates.length){setRoster(previous);updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,null));}
         if(teacherStatus){setSession(previousSession);onTeacherAttendanceOptimistic?.(null);}
@@ -954,7 +960,7 @@ export function CourseRoster({
                     <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,[{bookingId:booking.id,status:"NO_SHOW"}])}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
-                  {!teacherAbsent && (booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`)}>恢復待點名</button>}
+                  {!teacherAbsent && (booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`, {bookingId:booking.id,status:"RESERVED"})}>恢復待點名</button>}
                   
                    {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
