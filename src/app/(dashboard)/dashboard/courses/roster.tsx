@@ -1,6 +1,7 @@
 "use client";
 
 import { CollectTrialModal } from "../bookings/collect-trial-modal";
+import { CourseAssignmentPayment, type AssignmentSummary } from "@/components/admin/course-assignment-payment";
 import { scheduleTeacherMakeup } from "@/server/actions/course";
 import { CorrectTrialCollectionModal } from "../bookings/correct-trial-collection-modal";
 import {
@@ -19,6 +20,8 @@ import {
   saveCourseRosterNote,
   markCourseTeacherAttendance,
   createCourseBooking,
+  loadCourseStudentPurchase,
+  assignCoursePointCard,
   saveCourseCustomer,
   updateCourseBookingStatus,
   cancelCourseSession,
@@ -107,6 +110,15 @@ export function CourseRoster({
       { success: true }
     >["data"]["trial"] | null
   >(null);
+  const [canPurchase, setCanPurchase] = useState(false);
+  const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
+  const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
+  const [purchasePlanId, setPurchasePlanId] = useState("");
+  const [purchaseStaffId, setPurchaseStaffId] = useState("");
+  const [purchaseKey, setPurchaseKey] = useState("");
+  const [purchaseError, setPurchaseError] = useState("");
+  const [purchasePending, setPurchasePending] = useState(false);
+  const [purchaseSummary, setPurchaseSummary] = useState<AssignmentSummary>({paid:null,valid:false});
   const [paymentBooking, setPaymentBooking] = useState<string | null>(null);
   const [correctPayment, setCorrectPayment] = useState(false);
   const [noShowBooking, setNoShowBooking] = useState<{
@@ -166,6 +178,7 @@ export function CourseRoster({
             setTrial(result.data.trial);
             setRoster(result.data.roster);
             setCards(result.data.cards);
+            setCanPurchase(result.data.canPurchase);
             setLoaded(true);
             setRequestKey((current) => current || crypto.randomUUID());
           } else {
@@ -250,6 +263,21 @@ export function CourseRoster({
 
       }
     });
+  }
+
+  async function openStudentPurchase(bookingId: string) {
+    if (purchasePending) return;
+    setPurchaseFor(bookingId);
+    setPurchaseOptions(null);
+    setPurchaseError("");
+    const result = await loadCourseStudentPurchase(bookingId);
+    if (result.success) {
+      setPurchaseOptions(result.data);
+      setPurchasePlanId(result.data.plans[0]?.id ?? "");
+      setPurchaseStaffId(result.data.staff.some((person) => person.id === result.data.defaultStaffId) ? result.data.defaultStaffId ?? "" : "");
+      setPurchaseKey(crypto.randomUUID());
+      setPurchaseSummary({paid:null,valid:false});
+    } else setPurchaseError(result.error);
   }
 
   const payBooking = roster.find((booking) => booking.id === paymentBooking);
@@ -860,7 +888,8 @@ export function CourseRoster({
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
                   {!teacherAbsent && (booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`)}>恢復待點名</button>}
-                  {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
+                  {canPurchase && musicLayout && booking.bookingKind !== "TRIAL" && <button type="button" className="text-xs font-medium text-primary-700 underline" onClick={() => void openStudentPurchase(booking.id)}>學員繳費</button>}
+                   {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
                 </div>}
                 {canEdit && booking.status === "RESERVED" && !teacherAbsent && (largeMusicGroup
@@ -1313,6 +1342,47 @@ export function CourseRoster({
           <textarea autoFocus className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
           <div className="mt-4 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton} disabled={pending}>儲存</button></div>
         </form>
+      </div>}
+      {purchaseFor && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label="學員繳費">
+        <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-earth-200 p-4"><div><h3 className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3><p className="text-sm text-earth-600">完成後保留在這堂課的名單</p></div><button type="button" className={button} disabled={purchasePending} onClick={() => {setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
+          <div className="min-h-0 overflow-y-auto p-4">
+            {purchaseError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{purchaseError}</p>}
+            {!purchaseOptions && !purchaseError && <p role="status">讀取購買方案中…</p>}
+            {purchaseOptions && <form id="course-roster-purchase-form" className="space-y-4" onSubmit={(event) => {
+              event.preventDefault();
+              if (!purchaseSummary.valid || !purchasePlanId || purchasePending) return;
+              const fields = new FormData(event.currentTarget);
+              setPurchasePending(true);
+              setPurchaseError("");
+              void assignCoursePointCard({
+                planId: purchasePlanId,
+                customerId: purchaseOptions.customerId,
+                expiresDate: "2099-12-31",
+                expectedListPrice: Number(fields.get("expectedListPrice")),
+                expectedStoreCost: Number(fields.get("expectedStoreCost")),
+                revenueStaffId: purchaseStaffId,
+                discountKind: fields.get("discountKind"),
+                discountValue: Number(fields.get("discountValue")),
+                paymentMethod: fields.get("paymentMethod"),
+                transferLastFour: String(fields.get("transferLastFour") ?? ""),
+                requestKey: purchaseKey,
+              }).then(async (result) => {
+                if (!result.success) { setPurchaseError(result.error); return; }
+                setPurchaseFor(null);
+                setPurchaseOptions(null);
+                setMessage(`${purchaseOptions.customerName} 的購買及收款已登記`);
+                await load();
+                router.refresh();
+              }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
+            }}>
+              {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
+              {purchaseOptions.profitEnabled && <label className="block text-sm font-medium">直屬店長<select className={field} value={purchaseStaffId} onChange={(event) => setPurchaseStaffId(event.target.value)}><option value="">請選擇</option>{purchaseOptions.staff.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}</select></label>}
+              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <CourseAssignmentPayment key={plan.id} price={plan.price} storeCost={plan.storeCost} profitEnabled={purchaseOptions.profitEnabled} showAllocation={purchaseOptions.profitEnabled} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
+            </form>}
+          </div>
+          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid || (purchaseOptions.profitEnabled && !purchaseStaffId)}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}
+        </div>
       </div>}
       {payBooking && paymentSettings && !correctPayment && (
         <CollectTrialModal
