@@ -32,6 +32,38 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("keeps other music learners interactive while one restoration is saving", async () => {
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const rows=["b1","b2"].map((id,index)=>({
+  id,customerName:`學員${index+1}`,customerId:`c${index+1}`,customerPhone:"0912345678",
+  sharedCard:false,bookingSource:"店長建立",status:"ATTENDED",bookingKind:"CARD",
+  checkedInAt:"2026-09-28T10:00:00Z",trialPayments:[],planName:"團班八堂",
+  termCount:8,termIndex:1,termLeaveCount:0,termNoShowCount:0,
+  termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],
+  available:7,unit:"SESSION",notes:"",pointCost:1,
+ }));
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-28T10:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster:rows,cards:[],trial:null}});
+ m.quick.mockResolvedValue({success:true,data:{roster:rows,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
+ let finishFirst!: (value:{success:true})=>void;
+ let finishSecond!: (value:{success:true})=>void;
+ const first=new Promise<{success:true}>(resolve=>{finishFirst=resolve;});
+ const second=new Promise<{success:true}>(resolve=>{finishSecond=resolve;});
+ m.batch.mockReset().mockReturnValueOnce(first).mockReturnValueOnce(second);
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
+  const items=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
+  act(()=>{[...items()[0].querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!.click();});
+  expect(items()[0].textContent).toContain("儲存中");
+  const secondButton=[...items()[1].querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!;
+  expect(secondButton.disabled).toBe(false);
+  act(()=>secondButton.click());
+  expect(m.batch).toHaveBeenCalledTimes(2);
+  await act(async()=>{finishFirst({success:true});finishSecond({success:true});await Promise.all([first,second]);});
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+
 it("shows all twenty compact rows and selects them for one batch without cancelled bookings",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const roster=Array.from({length:21},(_,i)=>({id:`b${i}`,customerName:`學員${i}`,customerId:`c${i}`,customerPhone:`09000000${String(i).padStart(2,"0")}`,sharedCard:i===0,bookingSource:i===0?"黃教練代約":"本人預約",status:i===20?"CANCELLED":"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"十堂",available:10,expiresAt:"2099-01-01T00:00:00Z",serviceNote:"內部備註",notes:"本次備註",pointCost:1}));
