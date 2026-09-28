@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { correctTrialCollection } from "@/server/actions/trial-booking";
 
@@ -55,6 +55,8 @@ interface Props {
   };
   /** 更正成功後回呼（母層負責關閉 / 重抓 detail / 重整月曆）。 */
   onCorrected: () => void;
+  /** Refresh authoritative detail after rejection or an uncertain response. */
+  onReconcile?: () => void;
 }
 
 export function CorrectTrialCollectionModal({
@@ -71,6 +73,7 @@ export function CorrectTrialCollectionModal({
   attendedPeople,
   settings,
   onCorrected,
+  onReconcile,
   saveAction = correctTrialCollection,
 }: Props) {
   // PR-3c + PR-3d：effectivePeople = attendedPeople ?? people（最小 1）。
@@ -93,12 +96,14 @@ export function CorrectTrialCollectionModal({
   const [method, setMethod] = useState(originalMethod ?? "CASH");
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
+  const submitting = useRef(false);
 
   if (!open) return null;
 
   const reasonOk = reason.trim().length > 0;
 
   function handleConfirm() {
+    if (submitting.current) return;
     if (!reasonOk) {
       toast.error("請填寫更正原因");
       return;
@@ -106,24 +111,34 @@ export function CorrectTrialCollectionModal({
     const amountNum = settings.allowEdit
       ? Math.round(Number(amount))
       : totalDefaultByActual;
+    submitting.current = true;
     startTransition(async () => {
-      const r = await saveAction({
-        bookingId,
-        originalTransactionId,
-        paymentMethod: method as
-          | "CASH"
-          | "TRANSFER"
-          | "LINE_PAY"
-          | "CREDIT_CARD"
-          | "OTHER",
-        amount: Number.isFinite(amountNum) ? amountNum : undefined,
-        reason: reason.trim(),
-      });
-      if (r.success) {
-        toast.success("已更正收款");
-        onCorrected();
-      } else {
-        toast.error(r.error ?? "收款更正失敗");
+      try {
+        const r = await saveAction({
+          bookingId,
+          originalTransactionId,
+          paymentMethod: method as
+            | "CASH"
+            | "TRANSFER"
+            | "LINE_PAY"
+            | "CREDIT_CARD"
+            | "OTHER",
+          amount: Number.isFinite(amountNum) ? amountNum : undefined,
+          reason: reason.trim(),
+        });
+        if (r.success) {
+          toast.success("已更正收款");
+          onCorrected();
+        } else {
+          toast.error(r.error ?? "收款更正失敗");
+          // Voiding may have succeeded even though recollection was rejected.
+          onReconcile?.();
+        }
+      } catch {
+        toast.error("收款更正結果待確認，請先查看最新收款紀錄，勿重複送出。");
+        onReconcile?.();
+      } finally {
+        submitting.current = false;
       }
     });
   }

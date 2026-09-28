@@ -290,6 +290,7 @@ describe("correctTrialCollection — failure handling", () => {
     const r = await correctTrialCollection(base);
     expect(r.success).toBe(false);
     expect((r as { error: string }).error).toContain("原收款已作廢");
+    expect(h.revalidateBookings).toHaveBeenCalled();
     expect(h.voidTransaction).toHaveBeenCalledTimes(1);
     expect(h.txCreate).not.toHaveBeenCalled();
   });

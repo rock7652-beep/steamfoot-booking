@@ -58,3 +58,14 @@ export async function collectBookingTrialPayment(input: Parameters<typeof import
   if (typeof result?.success !== "boolean" || (result.success && typeof result.data?.serviceCompleted !== "boolean")) throw new Error("收款結果待確認");
   return result;
 }
+
+export async function correctBookingTrialCollection(input: Parameters<typeof import("@/server/actions/trial-booking").correctTrialCollection>[0]) {
+  const response = await fetch("/api/bookings/trial-correction", {
+    method: "POST", cache: "no-store", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("收款更正結果待確認");
+  const result: Awaited<ReturnType<typeof import("@/server/actions/trial-booking").correctTrialCollection>> = await response.json();
+  if (typeof result?.success !== "boolean" || (result.success && !result.data?.transactionId)) throw new Error("收款更正結果待確認");
+  return result;
+}

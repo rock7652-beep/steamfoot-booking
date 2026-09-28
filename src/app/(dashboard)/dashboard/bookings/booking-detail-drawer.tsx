@@ -1,5 +1,5 @@
 "use client";
-import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment } from "@/lib/booking-client-transport";
+import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
@@ -819,6 +819,8 @@ export function BookingDetailDrawer({
         data.trial.canCorrect &&
         data.trial.collectedTransactionId && (
           <CorrectTrialCollectionModal
+            saveAction={correctBookingTrialCollection}
+            onReconcile={handleCorrected}
             open={correctOpen}
             onClose={() => setCorrectOpen(false)}
             bookingId={data.booking.id}

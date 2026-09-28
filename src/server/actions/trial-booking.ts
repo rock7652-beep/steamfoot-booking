@@ -562,6 +562,8 @@ export async function correctTrialCollection(
       amount: data.amount,
     });
     if (!recollected.success) {
+      // The original payment is already voided; expire booking summaries too.
+      revalidateBookingMutation();
       return {
         success: false,
         error: `原收款已作廢，但新收款建立失敗（${recollected.error}）。此預約目前為未收款，請重新收款。`,
