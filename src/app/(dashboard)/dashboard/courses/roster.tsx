@@ -819,7 +819,7 @@ export function CourseRoster({
         {trialCount > 0 && <span className="text-amber-900">體驗 <strong>{trialCount}</strong> 位</span>}
         {unpaidTrialCount > 0 && <span className="font-medium text-amber-800">未收款 {unpaidTrialCount} 位</span>}
         {oneToOneMusic && !count && <span>尚未選擇學員</span>}
-        {canEdit && <button type="button" className="ml-auto whitespace-nowrap text-xs text-earth-700" aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={(event) => toggleRosterMenu(event.currentTarget)}>課程操作</button>}
+        {canEdit && <button type="button" className="ml-auto whitespace-nowrap rounded-lg border border-primary-300 bg-white px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-primary-50" aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={(event) => toggleRosterMenu(event.currentTarget)}>課程操作 ▾</button>}
       </div> : <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
         <span className="whitespace-nowrap">已預約 <strong className="text-primary-900">{count}/{capacity}</strong></span>
         <span className="whitespace-nowrap">待點名 <strong>{waitingCount}</strong></span>
