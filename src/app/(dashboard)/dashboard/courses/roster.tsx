@@ -770,7 +770,7 @@ export function CourseRoster({
         {canEdit && <details className="relative ml-auto text-xs">
           <summary className="cursor-pointer whitespace-nowrap text-earth-700">課程操作</summary>
           <div className="absolute right-0 z-30 mt-1 min-w-40 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
-            <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setConfirmCancel(true); }}>本堂停課</button>
+            <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setConfirmCancel(true); }}>取消本堂課</button>
           </div>
         </details>}
       </div> : <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
@@ -1479,11 +1479,11 @@ export function CourseRoster({
 
       {canEdit && musicLayout && confirmCancel && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="course-stop-title">
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-          <h3 id="course-stop-title" className="text-lg font-semibold">本堂停課？</h3>
+          <h3 id="course-stop-title" className="text-lg font-semibold">取消本堂課？</h3>
           <p className="mt-2 text-sm text-earth-600">將取消這一堂課，影響 {count} 位學員；未完成預約會釋放額度，紀錄保留。後續堂數不受影響。</p>
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" className={button} disabled={pending} onClick={() => setConfirmCancel(false)}>返回</button>
-            <button type="button" className={`${button} border-red-300 text-red-700`} disabled={pending} onClick={() => { setConfirmCancel(false); run(() => cancelCourseSession({ sessionId, expectedBookings: count }), "已取消本堂課"); }}>確認本堂停課</button>
+            <button type="button" className={`${button} border-red-300 text-red-700`} disabled={pending} onClick={() => { setConfirmCancel(false); run(() => cancelCourseSession({ sessionId, expectedBookings: count }), "已取消本堂課"); }}>確認取消本堂課</button>
           </div>
         </div>
       </div>}
