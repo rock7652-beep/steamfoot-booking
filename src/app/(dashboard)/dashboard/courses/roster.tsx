@@ -10,7 +10,7 @@ import {
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 import { useRouter } from "next/navigation";
@@ -234,12 +234,26 @@ export function CourseRoster({
     const previousSession=session;
     const updates=optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
     const quickAttendance = view === "roster" && musicLayout && updates.length > 0;
-    if (quickAttendance) setQuickAttendancePending(true);
-    if(updates.length) {
-      const changes=new Map(updates.map(item=>[item.bookingId,item]));
-      setRoster(rows=>rows.map(row=>{const change=changes.get(row.id);return change ? {...row,status:change.status,...(change.status === "RESERVED" ? {absenceKind:null,checkedInAt:null} : change.absenceKind ? {absenceKind:change.absenceKind} : {})} : row;}));
-      updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,item.status,Boolean(item.absenceKind)));
-    }
+    const applyOptimisticRoster = () => {
+      if (quickAttendance) setQuickAttendancePending(true);
+      if (updates.length) {
+        const changes = new Map(updates.map(item => [item.bookingId, item]));
+        setRoster(rows => rows.map(row => {
+          const change = changes.get(row.id);
+          return change ? {
+            ...row,
+            status: change.status,
+            ...(change.status === "RESERVED"
+              ? { absenceKind: null, checkedInAt: null }
+              : change.absenceKind ? { absenceKind: change.absenceKind } : {}),
+          } : row;
+        }));
+      }
+    };
+    // Paint the restored status before the server action starts its network work.
+    if (quickAttendance) flushSync(applyOptimisticRoster);
+    else applyOptimisticRoster();
+    updates.forEach(item => onAttendanceOptimistic?.(item.bookingId, item.status, Boolean(item.absenceKind)));
     if(teacherStatus){setSession(old=>old?{...old,teacherAttendance:teacherStatus}:old);onTeacherAttendanceOptimistic?.(teacherStatus);}
 
     const perform = async () => {
