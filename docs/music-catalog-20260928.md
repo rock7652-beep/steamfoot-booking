@@ -44,3 +44,16 @@ Rollback application first; retain the expanded check constraint because new leg
 - Subjects have same-store foreign keys, RLS enabled (no browser Data API policies), and server permission checks. Deactivation prevents new usage while retaining history.
 - Preview-only migration: `20260928140000_music_subject_catalog`. Production has not been changed. Rollback app to the previous preview and retain the additive schema/data; do not delete user-created subjects or templates.
 - Local checks: 51 purchase/term/subject tests plus 17 booking/reschedule tests passed; TypeScript and targeted ESLint passed. Browser acceptance pending deployment.
+
+## Management interface follow-up (ten agreed items)
+
+- Shared batch status UI on subjects, plans, rooms and staff. Each item commits independently; failed IDs and reasons remain selected. Filtering clears selection, and stale filter callbacks do not restore hidden selections.
+- Status controls lock only affected items. Successful rows update locally; background refresh retains current filters and scroll. Pending status overrides survive older server responses until acknowledged.
+- Compact plan/header spacing, consistent room separators, readable inactive rows, optional test-data filter (no deletion or renaming).
+- Plan name/status share a row; “包含期數” wording; gift/cost/schedule rules share one advanced section. Room equipment/location share a row, short notes, common save label. Subject editor warns before discarding unsaved input and retains failed inputs; existing room/plan/staff guards retained.
+- Music labels use 老師. Repeated emergency-contact and login reminders removed from roster rows, details remain available.
+- Music rooms no longer expose or enforce historical capacity; fitness room capacity checks retained. Music room deactivation keeps scheduled sessions. Deactivation controls first show the count of unfinished sessions.
+- Music manager enrollment can explicitly confirm adding to a full class, including trial learners. Public class capacity is not raised. Member booking rejects injected overrides. Duplicate enrollment, student timetable overlap, card validity/balance, store permissions and resource conflicts remain checked.
+- Preview personnel warning investigated read-only: store-lubymusic has 11 active staff and EXPERIENCE/TRIAL, maxStaffOverride=null; trial limit remains 3. No billing/entitlement/production configuration changed. Already-active staff status is idempotent even above legacy limits.
+- Verification: 107 targeted booking, resource, batch, staff, term, checkout and reschedule tests pass; TypeScript and changed-file ESLint pass. Browser verification follows this preview deployment.
+- This follow-up needs no additional migration. Requires prior subject migration from this branch. Production not merged.

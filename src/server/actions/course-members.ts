@@ -319,7 +319,7 @@ export async function createCourseBooking(input: unknown) {
     const { user, storeId } = await courseManager("booking.create");
     const booking = await reserveCourse(
       { userId: user.id, storeId, name: user.name ?? "店長" },
-      bookingInput.parse(input),
+      bookingInput.extend({allowOverCapacity:z.boolean().optional()}).parse(input),
     );
     scheduleCourseLowBalanceCheck(storeId,[booking.id]);
     refresh();

@@ -117,7 +117,7 @@ export async function getMusicSlotMatches(input: unknown) {
       for (let minute = Math.ceil(minuteOfDay(period.openTime) / 30) * 30; minute + data.durationMinutes <= minuteOfDay(period.closeTime); minute += 30) {
         const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
         for (const room of rooms) {
-          if (room.capacity !== null && room.capacity < (source?.capacity ?? template.capacity)) continue;
+          if (!template.musicSubject && room.capacity !== null && room.capacity < (source?.capacity ?? template.capacity)) continue;
           const coachIds = staff.filter(coach => {
             const unchanged = source?.coachId === coach.id && source.templateId === data.templateId;
             if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(data.templateId))) return false;
@@ -132,7 +132,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const firstMinute=Math.min(9*60,...opening);
     const lastMinute=Math.max(22*60,...closing);
     const qualified=staff.filter(coach=>!coach.courseQualificationsConfirmed||coach.courseQualifiedTemplateIds.includes(data.templateId));
-    const suitableRooms=rooms.filter(room=>room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
+    const suitableRooms=rooms.filter(room=>!!template.musicSubject||room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
     for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){
       const time=`${String(Math.floor(minute/60)).padStart(2,"0")}:${String(minute%60).padStart(2,"0")}`;

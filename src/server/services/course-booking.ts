@@ -71,6 +71,7 @@ export async function reserveCourse(
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
+    allowOverCapacity?: boolean;
   },
 ) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
@@ -93,6 +94,7 @@ export async function reserveCourseMembers(
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
+    allowOverCapacity?: boolean;
   },
 ) {
   const customers = [...new Set(input.customerIds)].sort();
@@ -128,7 +130,7 @@ export async function reserveCourseMembers(
   });
 }
 
-export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; trialPrice: number }) {
+export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number }) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null }, limits.maxMonthlyBookings));
 }
@@ -144,6 +146,7 @@ export async function reserveCourseInTransaction(
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
+    allowOverCapacity?: boolean;
   },
   maxMonthlyBookings: number | null,
 ) {
@@ -257,12 +260,17 @@ export async function reserveCourseInTransaction(
     }) : Promise.resolve({_sum:{pointCost:0}}),
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
-  if (occupied >= session.capacity) return fail("本堂課已滿班");
+  if (occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId && session.template.musicSubject)) return fail("本堂課已滿班，請由店長確認加人");
+  if (session.template.musicSubject) {
+    const overlap = await tx.courseBooking.findFirst({where:{storeId,customerId:input.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:session.endsAt},endsAt:{gt:session.startsAt}}},select:{id:true}});
+    if(overlap) return fail("學員同時段已有課程，請先調整上課時間");
+  }
   if (card && card.remaining - (held._sum.pointCost ?? 0) < bookingCost)
     return fail(card.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
   const booking = await tx.courseBooking.create({
     data: {
-      ...input,
+      sessionId:input.sessionId,cardId:input.cardId,customerId:input.customerId,requestKey:input.requestKey,
+      notes:input.notes,makeupForBookingId:input.makeupForBookingId,trialPrice:input.trialPrice,
       bookingKind: card ? "CARD" : "TRIAL",
       storeId,
       pointCost: bookingCost,

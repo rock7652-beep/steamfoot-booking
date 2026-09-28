@@ -1,4 +1,6 @@
 "use client";
+import {CourseTestDataFilter,isCourseTestData} from "@/components/admin/course-test-data-filter";
+import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-status-button";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
 import { saveCourseCustomerNote } from "@/server/actions/course-customer-note";
@@ -16,7 +18,7 @@ import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
-  setCoursePointPlanStatus,
+
 
   assignCoursePointCard,
   setCourseCardMembers,
@@ -48,7 +50,7 @@ export function CourseMemberWorkspace({
   view,
   templates,
   people,
-  plans,
+  plans: sourcePlans,
   cards,
   canEdit,
   canCreate,
@@ -99,6 +101,8 @@ export function CourseMemberWorkspace({
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
 
 
+  const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourcePlans);
+ const [hideTestData,setHideTestData]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
   const [search, setSearch] = useRetainedState(`course-${view}:search`, "", retainedString);
@@ -191,25 +195,12 @@ export function CourseMemberWorkspace({
   const filteredPlans = plans
     .filter(
       (p) =>
-        (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
         (templateFilter === "all" || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
-  function changePlanStatus(item: Plan) {
-    if (pending) return;
-    setError("");
-    setNotice("");
-    start(async () => {
-      try {
-        const result = await setCoursePointPlanStatus({id:item.id,isActive:!item.isActive});
-        if (!result.success) { setError(result.error ?? "狀態更新失敗"); return; }
-        setNotice(`${item.name} 已${item.isActive ? "下架" : "上架"}；既有持有方案不受影響。`);
-        router.refresh();
-      } catch { setError("連線中斷，請重試"); }
-    });
-  }
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   const activePlans = plans.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
@@ -220,42 +211,42 @@ export function CourseMemberWorkspace({
   return (
     <>
       {view === "plans" && (
-        <nav aria-label="方案管理分區" className="mb-4 flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
+        <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
           <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
           {canReadCards && <button type="button" aria-pressed={planArea === "cards"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "cards" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("cards")}>顧客持有方案</button>}
         </nav>
       )}
       {view === "plans" && planArea === "catalog" && (
-        <section aria-label="方案摘要" className="mb-3 flex flex-wrap gap-2">
+        <section aria-label="方案摘要" className="flex flex-wrap gap-2">
           {[
             ["全部方案", music ? plans.filter((plan) => plan.unit === "SESSION").length : plans.length],
             ["上架中", activePlans.length],
-            ...(music ? [["堂數方案", activePlans.filter(item => item.unit === "SESSION").length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
+            ...(music ? [] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm"><strong className="mr-2 tabular-nums text-primary-800">{value}</strong><span className="text-earth-500">{label}</span></div>)}
         </section>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
           placeholder="搜尋方案"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+          onChange={(e) => { setSelected([]);setSearch(e.target.value); setPage(0); }}
         />}
         {view === "plans" && planArea === "catalog" && (
           <select
             className={`${field} max-w-36`}
             aria-label="狀態篩選"
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(0); }}
+            onChange={(e) => { setSelected([]);setStatus(e.target.value); setPage(0); }}
           >
             <option value="all">全部狀態</option>
             <option value="active">上架</option>
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
-        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
@@ -285,7 +276,8 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
-      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
+      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
@@ -309,9 +301,9 @@ export function CourseMemberWorkspace({
             {filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
                   <tr
                     key={p.id}
-                    className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
+                    className={p.isActive ? "" : "bg-earth-50 text-earth-600"}
                   >
-                    <td className="max-w-72 px-3 py-2">{canEdit && <input type="checkbox" className="mr-2" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><span className="ml-2 text-xs text-earth-500">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span><p className="truncate pl-5 text-xs text-earth-500" title={p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") : "本店所有課程"}>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
+                    <td className="max-w-72 px-3 py-2">{canEdit && <input type="checkbox" className="mr-2" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><span className="ml-2 text-xs text-earth-500">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span><p className="truncate pl-5 text-xs text-earth-500" title={p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") : "本店所有課程"}>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
                     <td className="whitespace-nowrap px-3 py-2">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className="whitespace-nowrap px-3 py-2">NT$ {p.price.toLocaleString("zh-TW")}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
@@ -320,8 +312,8 @@ export function CourseMemberWorkspace({
                     <td className="whitespace-nowrap px-3 py-1.5">
                       {canEdit && (
                         <div className="flex gap-1">
-                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={pending} onClick={() => preparePlan(p)}>編輯</button>
-                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm text-primary-800" disabled={pending} onClick={() => changePlanStatus(p)}>{p.isActive ? "下架" : "上架"}</button>
+                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={busyIds.includes(p.id)} onClick={() => preparePlan(p)}>編輯</button>
+                          <CourseStatusButton kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/>
                         </div>
                       )}
                     </td>

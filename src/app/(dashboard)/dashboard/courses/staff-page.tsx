@@ -49,7 +49,7 @@ export async function CourseStaffPage() {
   const linkedUserIds=staff.flatMap(s=>s.memberLink ? [s.memberLink.userId]:[]);
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
-    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
+    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-2 px-6 py-4">
       <PageHeader title="人員管理" />
 
       <CourseStaffWorkspace feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled}

@@ -414,3 +414,18 @@ it.each([['HIDDEN',true,false],['HIDDEN',false,true],['OFF',true,false],['OFF',f
  const result=reserveCourse(member?actor:{storeId:actor.storeId,userId:'manager',name:'Manager'},input);
  if(allowed) await expect(result).resolves.toBeDefined();else {await expect(result).rejects.toThrow('不開放新增預約');expect(m.tx.courseBooking.create).not.toHaveBeenCalled();}
 });
+
+describe("music manager full-class enrollment",()=>{
+ const manager={storeId:"store-a",userId:"manager",name:"店長"};
+ beforeEach(()=>{
+  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true}},startsAt:new Date("2026-09-16T10:00:00Z"),endsAt:new Date("2026-09-16T11:00:00Z"),capacity:2,pointCost:1});
+  m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
+  m.tx.courseBooking.count.mockResolvedValue(2);
+ });
+ it("requires explicit manager confirmation",async()=>{await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+ it("confirmed manager can add a learner without changing public class capacity",async()=>{await reserveCourse(manager,{...input,allowOverCapacity:true});expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();expect(m.tx.courseBooking.create.mock.calls[0][0].data).not.toHaveProperty("allowOverCapacity");expect(m.tx.courseBooking.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store-a",customerId:"b",session:expect.objectContaining({startsAt:{lt:new Date("2026-09-16T11:00:00Z")}})})}));});
+ it("customer cannot use the override even if injected",async()=>{await expect(reserveCourse(actor,{...input,allowOverCapacity:true})).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+ it("fitness capacity remains protected",async()=>{m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC"},startsAt:new Date("2026-09-16T10:00:00Z"),capacity:2,pointCost:1});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("滿班");});
+ it("confirmed addition still rejects learner timetable collisions",async()=>{m.tx.courseBooking.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"overlap"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("同時段");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+ it("confirmed addition still rejects duplicate enrollment",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"duplicate"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("已預約");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+});

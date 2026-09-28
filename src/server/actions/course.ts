@@ -668,7 +668,7 @@ export async function setCourseCatalogStatus(input: unknown) {
       >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
       if (!stores.length)
         throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
-      if (data.kind === "room" && !data.isActive) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});
+      if (data.kind === "room" && !data.isActive && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}})) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});
       const result =
         data.kind === "room"
           ? await tx.courseRoom.updateMany({
@@ -726,7 +726,7 @@ export async function previewCourseSchedule(input: unknown) {
         where: { id: d.roomId, storeId },
         select: { capacity: true },
       }),
-      coursePrisma.courseTemplate.findFirst({ where: { id: d.templateId, storeId }, select: { musicScheduleMode: true } }),
+      coursePrisma.courseTemplate.findFirst({ where: { id: d.templateId, storeId }, select: { musicScheduleMode: true, musicSubjectId:true } }),
     ]);
     const originals = dates.length > 1 || targetTemplate?.musicScheduleMode === "FIXED"
       ? await coursePrisma.courseSession.findMany({ where: {
@@ -761,7 +761,7 @@ export async function previewCourseSchedule(input: unknown) {
           })),
         })),
         capacityWarning:
-          room?.capacity && d.capacity > room.capacity
+          !targetTemplate?.musicSubjectId && room?.capacity && d.capacity > room.capacity
             ? `排課 ${d.capacity} 人超過教室容納 ${room.capacity} 人，請確認容量`
             : null,
       },

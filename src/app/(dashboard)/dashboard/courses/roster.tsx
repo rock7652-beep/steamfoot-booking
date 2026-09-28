@@ -554,9 +554,12 @@ export function CourseRoster({
             setMessage("請先選擇學員與有效方案");
             return;
           }
+          const allowOverCapacity = musicLayout && count >= capacity;
+          if(allowOverCapacity && !window.confirm("已滿班，確認仍要加入這位學員？")) return;
           const data = new FormData(event.currentTarget);
           run(() =>
             createCourseBooking({
+              allowOverCapacity,
               sessionId,
               cardId,
               customerId,
@@ -766,9 +769,12 @@ export function CourseRoster({
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
+              const allowOverCapacity = musicLayout && count >= capacity;
+              if(allowOverCapacity && !window.confirm("已滿班，確認仍要加入這位學員？")) return;
               const data = new FormData(event.currentTarget);
               run(() =>
                 createCourseTrial({
+                  allowOverCapacity,
                   sessionId,
                   customerId: data.get("trial-customer-choice"),
                   price: Number(data.get("price")),
@@ -838,6 +844,8 @@ export function CourseRoster({
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
+              const allowOverCapacity = musicLayout && count >= capacity;
+              if(allowOverCapacity && !window.confirm("已滿班，確認仍要加入這位學員？")) return;
               const data = new FormData(event.currentTarget);
               run(async () => {
                 const saved = await saveCourseCustomer({
@@ -846,6 +854,7 @@ export function CourseRoster({
                 });
                 if (!saved.success) return saved;
                 return createCourseTrial({
+                  allowOverCapacity,
                   sessionId,
                   customerId: saved.data.id,
                   price: Number(data.get("price")),
