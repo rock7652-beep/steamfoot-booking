@@ -77,6 +77,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       cardId: true,
       pointCost: true,
       bookingKind: true,
+      session: { select: { template: { select: { classType: true } } } },
       trialPrice: true,
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
@@ -119,8 +120,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     checkedInAt: checkedInAt?.toISOString() ?? null,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
     unit: card?.unit ?? "POINT",
-    termIndex: currentPosition >= 0 && termSize > 0 && card?.termSessionIds.length ? currentPosition % termSize + 1 : null,
-    termCount: card?.termSessionIds.length ? termSize : 0,
+    // Private music lessons use the learner’s own card and booked sequence.
+    // Group lessons need a separate cohort/enrollment start; never infer that from bookings.
+    termIndex: currentPosition >= 0 && termSize > 0 && (card?.termSessionIds.length || (card?.plan.musicTerms && b.session.template.classType === "PRIVATE")) ? currentPosition % termSize + 1 : null,
+    termCount: (card?.termSessionIds.length || (card?.plan.musicTerms && b.session.template.classType === "PRIVATE")) ? termSize : 0,
     termNumber,
     termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
     termLeaveCount: periodLessons.filter((item) => item.absenceKind === "GROUP_LEAVE_FORFEITED").length + privateLeaves.length,
