@@ -865,7 +865,7 @@ export function CourseRoster({
                 {canEdit && booking.status === "RESERVED" && !teacherAbsent && (largeMusicGroup
                   ? <button type="button" className="text-xs text-earth-600 underline" disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
                   : <details className="w-full text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>)}
-                {booking.bookingKind !== "TRIAL" && booking.termLessons.length > 0 && <details className="w-full text-xs text-earth-700 lg:col-span-full">
+                {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && <details className="w-full text-xs text-earth-700 lg:col-span-full">
                   <summary className="cursor-pointer py-1 text-primary-800">查看本期上課日期</summary>
                   <div className="flex flex-wrap gap-1.5 pb-2">
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status}</span>)}
