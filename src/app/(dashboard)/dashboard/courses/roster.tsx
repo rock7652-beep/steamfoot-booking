@@ -767,6 +767,12 @@ export function CourseRoster({
         {trialCount > 0 && <span className="text-amber-900">體驗 <strong>{trialCount}</strong> 位</span>}
         {unpaidTrialCount > 0 && <span className="font-medium text-amber-800">未收款 {unpaidTrialCount} 位</span>}
         {oneToOneMusic && !count && <span>尚未選擇學員</span>}
+        {canEdit && <details className="relative ml-auto text-xs">
+          <summary className="cursor-pointer whitespace-nowrap text-earth-700">課程操作</summary>
+          <div className="absolute right-0 z-30 mt-1 min-w-40 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
+            <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setConfirmCancel(true); }}>本堂停課</button>
+          </div>
+        </details>}
       </div> : <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
         <span className="whitespace-nowrap">已預約 <strong className="text-primary-900">{count}/{capacity}</strong></span>
         <span className="whitespace-nowrap">待點名 <strong>{waitingCount}</strong></span>
@@ -902,12 +908,25 @@ export function CourseRoster({
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
                   {!teacherAbsent && (booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`)}>恢復待點名</button>}
-                  {canPurchase && musicLayout && classType !== "GROUP" && booking.bookingKind !== "TRIAL" && <button type="button" className="text-xs font-medium text-primary-700 underline" onClick={() => void openStudentPurchase(booking.id)}>學員繳費</button>}
+                  
                    {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
-                  {largeMusicGroup && booking.status === "RESERVED" && !teacherAbsent && <details className="self-center text-xs text-earth-600"><summary className="cursor-pointer whitespace-nowrap py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
+                  {musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || canEdit && booking.status === "RESERVED" && !teacherAbsent) && <details className="relative self-center text-xs text-earth-600">
+                    <summary className="cursor-pointer whitespace-nowrap py-1">其他操作</summary>
+                    <div className="absolute right-0 z-30 mt-1 flex min-w-44 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
+                      {canPurchase && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-primary-800 hover:bg-primary-50" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openStudentPurchase(booking.id); }}>學員繳費</button>}
+                      {canEdit && booking.status === "RESERVED" && !teacherAbsent && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setCancelBooking({ id: booking.id, name: booking.customerName }); }}>取消本堂預約</button>}
+                    </div>
+                  </details>}
                 </div>}
-                {!largeMusicGroup && canEdit && booking.status === "RESERVED" && !teacherAbsent && <details className="text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
+                {!musicLayout && canEdit && booking.status === "RESERVED" && !teacherAbsent && <details className="text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
+                {!largeMusicGroup && canEdit && musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || booking.status === "RESERVED" && !teacherAbsent) && <details className="relative text-xs text-earth-600">
+                  <summary className="cursor-pointer py-1">其他操作</summary>
+                  <div className="absolute left-0 z-30 mt-1 flex min-w-44 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
+                    {canPurchase && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-primary-800 hover:bg-primary-50" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openStudentPurchase(booking.id); }}>學員繳費</button>}
+                    {booking.status === "RESERVED" && !teacherAbsent && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setCancelBooking({ id: booking.id, name: booking.customerName }); }}>取消本堂預約</button>}
+                  </div>
+                </details>}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (largeMusicGroup ? <>
                   <button type="button" className="whitespace-nowrap py-1 text-xs text-primary-800 lg:order-2" aria-expanded={expandedLessonIds.includes(booking.id)} aria-controls={`lesson-history-${booking.id}`} onClick={() => setExpandedLessonIds((ids) => ids.includes(booking.id) ? ids.filter((id) => id !== booking.id) : [...ids, booking.id])}>{expandedLessonIds.includes(booking.id) ? "▼" : "▶"} 查看日期</button>
                   {expandedLessonIds.includes(booking.id) && <div id={`lesson-history-${booking.id}`} className="w-full text-xs text-earth-700 lg:order-3">
@@ -1458,7 +1477,17 @@ export function CourseRoster({
         />
       )}
 
-      {canEdit && (
+      {canEdit && musicLayout && confirmCancel && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="course-stop-title">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+          <h3 id="course-stop-title" className="text-lg font-semibold">本堂停課？</h3>
+          <p className="mt-2 text-sm text-earth-600">將取消這一堂課，影響 {count} 位學員；未完成預約會釋放額度，紀錄保留。後續堂數不受影響。</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" className={button} disabled={pending} onClick={() => setConfirmCancel(false)}>返回</button>
+            <button type="button" className={`${button} border-red-300 text-red-700`} disabled={pending} onClick={() => { setConfirmCancel(false); run(() => cancelCourseSession({ sessionId, expectedBookings: count }), "已取消本堂課"); }}>確認本堂停課</button>
+          </div>
+        </div>
+      </div>}
+      {canEdit && !musicLayout && (
         <div className="border-t border-earth-200 pt-3">
           {!confirmCancel ? (
             <button
