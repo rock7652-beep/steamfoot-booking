@@ -1819,7 +1819,7 @@ export function CourseWorkspace({
                         (r) => r.id === fields.get("roomId"),
                       )?.capacity;
                       setRoomCapacityNotice(
-                        businessProfile !== "MUSIC" && limit && Number(fields.get("capacity")) > limit
+                        limit && Number(fields.get("capacity")) > limit
                           ? `人數上限超過教室容納 ${limit} 人，請確認容量`
                           : "",
                       );

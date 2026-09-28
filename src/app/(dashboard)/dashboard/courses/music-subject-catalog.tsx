@@ -31,7 +31,40 @@ export function MusicSubjectCatalog({subjects:sourceSubjects,canCreate,canEdit}:
  <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{["課程名稱","分類","狀態","操作"].map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{rows.map(s=><tr key={s.id} className="border-t border-earth-100"><td className="px-4 py-2 font-medium">{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}</td><td className="px-4 py-2">{s.category||"未分類"}</td><td className="px-4 py-2">{s.isActive?"上架":"下架"}</td><td className="flex gap-2 px-4 py-2">{canEdit&&<button className={button} disabled={busyIds.includes(s.id)} onClick={()=>{setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={button} onClick={()=>router.push(`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>收費方案</button></td></tr>)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的課程</p>}</div>
  <RightSheet open={editing!==undefined} onClose={close} presentation="centered" width={560} fitContent labelledById="music-subject-title">
  <div className="flex items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯課程":"新增課程"}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></div>
- {editing!==undefined&&<form onChange={()=>setDirty(true)} className="grid gap-3 p-4 sm:grid-cols-2" onSubmit={e=>{e.preventDefault();const d=new FormData(e.currentTarget);start(async()=>{try{if(editing?.isActive&&d.get("active")!=="yes"){const impact=await courseStatusImpact({kind:"subject",ids:[editing.id]});if(!impact.success){setError(impact.error);return;}if(!window.confirm(`確認下架？已有 ${impact.count} 堂未結束課程，既有排課與歷史紀錄保留。`))return;}const r=await saveMusicSubject({id:editing?.id,expectedUpdatedAt:editing?.updatedAt,name:d.get("name"),category:d.get("category"),description:d.get("description"),isActive:d.get("active")==="yes"});if(!r.success){setError(r.error);return;}setEditing(undefined);router.refresh();}catch{setError("儲存失敗，輸入已保留，請重試");}});}}>
+ {editing!==undefined&&<form onChange={()=>setDirty(true)} className="grid gap-3 p-4 sm:grid-cols-2" onSubmit={e => {
+   e.preventDefault();
+   const d = new FormData(e.currentTarget);
+   start(async () => {
+     try {
+       if (editing?.isActive && d.get("active") !== "yes") {
+         const impact = await courseStatusImpact({kind: "subject", ids: [editing.id]});
+         if (!impact.success) {
+           setError(impact.error);
+           return;
+         }
+         const message = `確認下架？已有 ${impact.count} 堂未結束課程，既有排課與歷史紀錄保留。`;
+         if (!window.confirm(message)) return;
+       }
+       const result = await saveMusicSubject({
+         id: editing?.id,
+         expectedUpdatedAt: editing?.updatedAt,
+         name: d.get("name"),
+         category: d.get("category"),
+         description: d.get("description"),
+         isActive: d.get("active") === "yes",
+       });
+       if (!result.success) {
+         setError(result.error);
+         return;
+       }
+       setEditing(undefined);
+       router.refresh();
+     } catch {
+       setError("儲存失敗，輸入已保留，請重試");
+     }
+   });
+ }}>
+
  <fieldset disabled={pending} className="contents"><label className="sm:col-span-2">課程名稱<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
  <label>分類<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
  <label>狀態<select className={field} name="active" defaultValue={editing?.isActive===false?"no":"yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>

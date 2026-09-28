@@ -75,7 +75,7 @@ export async function applyCourseBatchStatus(input: unknown) {
       if(result.success)succeeded.push(id);else failed.push({id,error:result.error});
     }
     return {success:true as const,succeeded,failed};
-  }catch(e){return handleCourseActionError(e);}
+  }catch(e){const result=handleCourseActionError(e);return {success:false as const,error:result.error??"操作失敗，請重試"};}
 }
 
 export async function courseStatusImpact(input:unknown){
@@ -85,5 +85,5 @@ export async function courseStatusImpact(input:unknown){
     if(d.kind==="staff"&&user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可管理人員");
     const count=await courseTransaction(storeId,async tx=>d.kind==="plan"?0:tx.courseSession.count({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()},...(d.kind==="room"?{roomId:{in:d.ids}}:d.kind==="staff"?{coachId:{in:d.ids}}:{template:{musicSubjectId:{in:d.ids}}})}}));
     return {success:true as const,count};
-  }catch(e){return handleCourseActionError(e);}
+  }catch(e){const result=handleCourseActionError(e);return {success:false as const,error:result.error??"操作失敗，請重試"};}
 }
