@@ -546,10 +546,7 @@ async function fetchBookingDetailMeasured(
             booking.servicePlan?.name ??
             null,
           remaining: booking.customerPlanWallet?.remainingSessions ?? null,
-          singlePrice:
-            booking.expectedAmount != null
-                ? Number(booking.expectedAmount)
-                : 799,
+          singlePrice: 799 * booking.people,
         })
       : null,
   };

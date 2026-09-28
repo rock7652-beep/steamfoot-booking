@@ -349,7 +349,7 @@ export async function adjustCheckoutToSingle(
       // 在外層查詢後 commit）
       const fresh = await tx.booking.findUnique({
         where: { id: booking.id },
-        select: { bookingType: true, bookingStatus: true, isMakeup: true },
+        select: { bookingType: true, bookingStatus: true, isMakeup: true, people: true },
       });
       if (!fresh) throw new AppError("NOT_FOUND", "預約不存在");
       if (fresh.bookingType !== "PACKAGE_SESSION") {
@@ -380,6 +380,9 @@ export async function adjustCheckoutToSingle(
       //    路徑，不硬刪、不改 wallet-session 核心。
       await releaseSessions(tx, booking.id);
 
+      // expectedAmount 是整筆預約總額，使用鎖定後的最新人數。
+      const singleTotalAmount = SINGLE_DEFAULT_PRICE * fresh.people;
+
       // 2. 改成蒸足單次未收款：解除 wallet / 方案關聯，並留下單次金額快照。
       //    Drawer 對沒有 servicePlan 的蒸足 SINGLE 顯示「單次蒸足」；不借用 SPA
       //    treatment 欄位，兩個模組的服務資料仍保持隔離。
@@ -389,7 +392,7 @@ export async function adjustCheckoutToSingle(
           bookingType: "SINGLE",
           customerPlanWalletId: null,
           servicePlanId: null,
-          expectedAmount: SINGLE_DEFAULT_PRICE,
+          expectedAmount: singleTotalAmount,
         },
       });
 
@@ -413,7 +416,7 @@ export async function adjustCheckoutToSingle(
             bookingType: "SINGLE",
             customerPlanWalletId: null,
             servicePlanId: null,
-            expectedAmount: SINGLE_DEFAULT_PRICE,
+            expectedAmount: singleTotalAmount,
             reason: data.reason ?? null,
           },
         },
