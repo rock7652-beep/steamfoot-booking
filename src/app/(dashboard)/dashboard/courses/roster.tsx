@@ -879,7 +879,7 @@ export function CourseRoster({
                   <span className="ml-2 hidden sm:inline">{booking.bookingKind === "TRIAL" ? `體驗 NT$ ${booking.trialPrice}` : booking.bookingKind === "TEACHER_MAKEUP" ? booking.planName : booking.unit === "SESSION" ? `${booking.planName} · 可用 ${booking.available} 堂${booking.expiresAt ? ` · 到期 ${toLocalDateStr(new Date(booking.expiresAt))}` : ""}` : "舊方案需轉為堂數"}</span>
                 </div>
                 {canEdit && <button type="button" className="text-xs text-primary-700 underline" onClick={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>備註{booking.notes ? " ✓" : ""}</button>}
-                {canEdit && <div className={`ml-auto flex gap-1 ${largeMusicGroup ? "lg:flex-nowrap" : "flex-wrap"}`}>
+                {canEdit && <div className={`flex min-w-0 gap-1 ${largeMusicGroup ? "w-full flex-wrap justify-start lg:ml-auto lg:w-auto lg:flex-nowrap" : "ml-auto flex-wrap"}`}>
                   {booking.status === "RESERVED" && !teacherAbsent && <>
                     <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 記錄出席並扣除本次額度`,[{bookingId:booking.id,status:"ATTENDED"}])}>出席</button>
                     <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,[{bookingId:booking.id,status:"NO_SHOW"}])}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
@@ -891,7 +891,7 @@ export function CourseRoster({
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
                 </div>}
                 {canEdit && booking.status === "RESERVED" && !teacherAbsent && (largeMusicGroup
-                  ? <button type="button" className="text-xs text-earth-600 underline" disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
+                  ? <><button type="button" className="hidden text-xs text-earth-600 underline lg:inline" disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button><details className="w-full text-xs text-earth-600 lg:hidden"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details></>
                   : <details className="w-full text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>)}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && <details className="w-full text-xs text-earth-700 lg:col-span-full">
                   <summary className="cursor-pointer py-1 text-primary-800">查看此方案上課日期</summary>
