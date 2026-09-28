@@ -77,7 +77,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       cardId: true,
       pointCost: true,
       bookingKind: true,
-      session: { select: { templateId: true, template: { select: { classType: true, musicTermLessons: true } } } },
+      session: { select: { templateId: true, requestKey: true, requestIndex: true, template: { select: { classType: true, musicTermLessons: true } } } },
       trialPrice: true,
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
@@ -86,6 +86,13 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     },
     orderBy: { createdAt: "asc" },
   });
+  const groupSession = bookings[0]?.session;
+  const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
+  const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
+  const groupTermComplete = groupSession && groupTermStart !== null && groupTermLessons
+    ? await coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}}) === groupTermLessons
+    : false;
+  const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const customers = await prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
     select: { id: true, phone: true, serviceNote: true, notes: true },
@@ -144,6 +151,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     return ({
     ...b,
     checkedInAt: checkedInAt?.toISOString() ?? null,
+    groupCohortProgress,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
     unit: card?.unit ?? "POINT",
     // Private music lessons use the learner’s own card and booked sequence.
