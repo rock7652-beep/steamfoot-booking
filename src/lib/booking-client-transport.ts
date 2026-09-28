@@ -35,3 +35,26 @@ export async function readBookingSlots(date: string): Promise<{ slots: import("@
   if (!Array.isArray(result?.slots)) throw new Error("時段資料格式異常");
   return result;
 }
+
+export async function markBookingNoShow(bookingId: string, choice?: import("@/lib/booking-constants").NoShowChoice): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch("/api/bookings/status", {
+    method: "POST", cache: "no-store", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookingId, operation: "no-show", choice }),
+  });
+  if (!response.ok) throw new Error("操作結果待確認");
+  const result = await response.json();
+  if (typeof result?.success !== "boolean") throw new Error("操作結果待確認");
+  return result;
+}
+
+export async function collectBookingTrialPayment(input: Parameters<typeof import("@/server/actions/trial-booking").collectTrialPayment>[0]) {
+  const response = await fetch("/api/bookings/trial-payment", {
+    method: "POST", cache: "no-store", credentials: "same-origin",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("收款結果待確認");
+  const result: Awaited<ReturnType<typeof import("@/server/actions/trial-booking").collectTrialPayment>> = await response.json();
+  if (typeof result?.success !== "boolean" || (result.success && typeof result.data?.serviceCompleted !== "boolean")) throw new Error("收款結果待確認");
+  return result;
+}

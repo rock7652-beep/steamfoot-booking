@@ -21,7 +21,7 @@ import {
   correctTrialCollectionSchema,
 } from "@/lib/validators/trial-booking";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
-import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
+import { revalidateBookingMutation, revalidateBookingTransactionMutation } from "@/lib/booking-route-mutation";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
@@ -462,8 +462,8 @@ export async function collectTrialPayment(
       }
     }
 
-    revalidateBookings(booking.customerId);
-    revalidateTransactions(booking.customerId);
+    revalidateBookingMutation(booking.customerId);
+    revalidateBookingTransactionMutation(booking.customerId);
     return {
       success: true,
       data: { transactionId: result.id, serviceCompleted: completeService },

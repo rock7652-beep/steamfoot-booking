@@ -119,9 +119,9 @@ vi.mock("@/lib/shop-config", () => ({
 vi.mock("@/lib/transaction-snapshot", () => ({
   buildTransactionSnapshot: h.buildSnapshot,
 }));
-vi.mock("@/lib/revalidation", () => ({
-  revalidateBookings: h.revalidateBookings,
-  revalidateTransactions: h.revalidateTransactions,
+vi.mock("@/lib/booking-route-mutation", () => ({
+  revalidateBookingMutation: h.revalidateBookings,
+  revalidateBookingTransactionMutation: h.revalidateTransactions,
 }));
 vi.mock("@/server/actions/transaction", () => ({
   voidTransaction: h.voidTransaction,
