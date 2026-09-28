@@ -91,7 +91,7 @@ export function CourseRoster({
   const pending = transitionPending || uncertain;
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
-    "CHECKED_IN" | "ATTENDED" | "RESERVED"
+    "CHECKED_IN" | "ATTENDED" | "NO_SHOW" | "RESERVED"
   >(musicLayout ? "ATTENDED" : "CHECKED_IN");
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
@@ -234,7 +234,7 @@ export function CourseRoster({
     const updates=optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
     if(updates.length) {
       const changes=new Map(updates.map(item=>[item.bookingId,item]));
-      setRoster(rows=>rows.map(row=>{const change=changes.get(row.id);return change ? {...row,status:change.status,...(change.status === "RESERVED" ? {absenceKind:null} : change.absenceKind ? {absenceKind:change.absenceKind} : {})} : row;}));
+      setRoster(rows=>rows.map(row=>{const change=changes.get(row.id);return change ? {...row,status:change.status,...(change.status === "RESERVED" ? {absenceKind:null,checkedInAt:null} : change.absenceKind ? {absenceKind:change.absenceKind} : {})} : row;}));
       updates.forEach(item=>onAttendanceOptimistic?.(item.bookingId,item.status,Boolean(item.absenceKind)));
     }
     if(teacherStatus){setSession(old=>old?{...old,teacherAttendance:teacherStatus}:old);onTeacherAttendanceOptimistic?.(teacherStatus);}
@@ -359,7 +359,14 @@ export function CourseRoster({
   const cancelledRows = roster.filter(
     (booking) => booking.status === "CANCELLED" && (!musicLayout || !["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")),
   );
-  const selectableRows = activeRows.filter((booking) => booking.status !== "CANCELLED" && (!musicLayout || batchTarget !== "ATTENDED" || booking.status === "RESERVED"));
+  const selectableRows = activeRows.filter((booking) => {
+    if (booking.status === "CANCELLED") return false;
+    if (!musicLayout) return true;
+    if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
+    if (batchTarget === "RESERVED") return booking.status === "ATTENDED" || booking.status === "NO_SHOW";
+    if (batchTarget === "NO_SHOW") return booking.status === "RESERVED" || booking.status === "ATTENDED";
+    return booking.status === "RESERVED";
+  });
   const chosen = selectableRows.filter((booking) =>
     selected.includes(booking.id),
   );
@@ -872,7 +879,7 @@ export function CourseRoster({
           <label className="flex min-h-10 items-center gap-2">
             <input
               type="checkbox"
-              aria-label={musicLayout && batchTarget === "ATTENDED" ? "全選待點名學員" : "全選全班學員"}
+              aria-label={musicLayout ? "全選符合此操作的學員" : "全選全班學員"}
               checked={selectableRows.length > 0 && chosen.length === selectableRows.length}
               disabled={pending || !selectableRows.length}
               onChange={(event) =>
@@ -898,7 +905,8 @@ export function CourseRoster({
           >
             {!musicLayout && <option value="CHECKED_IN">報到</option>}
             <option value="ATTENDED">{musicLayout ? "簽到即出席" : "出席"}</option>
-            <option value="RESERVED">更正為待點名</option>
+            <option value="RESERVED">批次恢復待點名</option>
+            {musicLayout && <option value="NO_SHOW">批次曠課扣堂</option>}
           </select>
           <button
             type="button"
@@ -915,13 +923,14 @@ export function CourseRoster({
                   updateCourseRosterBatch({
                     sessionId,
                     target: batchTarget,
+                    ...(batchTarget === "NO_SHOW" ? { noShowChoice: "DEDUCTED" as const } : {}),
                     bookings: chosen.map((booking) => ({
                       id: booking.id,
                       status: booking.status,
                     })),
                   }),
                 `已更新 ${chosen.length} 位學員`,
-                batchTarget === "ATTENDED" || batchTarget === "RESERVED" ? chosen.map(booking=>({bookingId:booking.id,status:batchTarget})) : undefined,
+                batchTarget === "ATTENDED" || batchTarget === "RESERVED" || batchTarget === "NO_SHOW" ? chosen.map(booking=>({bookingId:booking.id,status:batchTarget})) : undefined,
               )
             }
           >
@@ -938,7 +947,7 @@ export function CourseRoster({
             <ul className="divide-y divide-earth-100">
               {searchedRows.map((booking) => <li key={booking.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 px-3 py-2 text-sm ${largeMusicGroup ? "lg:py-1.5" : ""} ${booking.status === "ATTENDED" ? "border-l-emerald-500" : booking.status === "NO_SHOW" ? "border-l-rose-500" : booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"") ? "border-l-violet-500" : "border-l-slate-200"}`}>
                 <div className={`flex min-w-0 flex-wrap items-center gap-2 ${largeMusicGroup ? "w-full lg:w-auto lg:flex-none lg:flex-nowrap" : "w-full"}`}>
-                  {canEdit && !oneToOneMusic && !teacherAbsent && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending || (musicLayout && batchTarget === "ATTENDED" && booking.status !== "RESERVED")} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
+                  {canEdit && !oneToOneMusic && !teacherAbsent && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending || !selectableRows.some((row) => row.id === booking.id)} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
                   <strong className="min-w-0 truncate" title={booking.customerName}>{booking.customerName}</strong>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${booking.status==="ATTENDED"?"bg-emerald-100 text-emerald-900":booking.status==="NO_SHOW"?"bg-rose-100 text-rose-900":booking.status==="CANCELLED"&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")?"bg-violet-100 text-violet-900":"bg-earth-100 text-earth-700"}`}>{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "") ? "請假" : "已取消" : teacherAbsent ? "本堂免點名" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
                   {!musicLayout && booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
@@ -960,6 +969,7 @@ export function CourseRoster({
                     <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,[{bookingId:booking.id,status:"NO_SHOW"}])}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
+                  {!teacherAbsent && booking.status === "ATTENDED" && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "NO_SHOW", noShowChoice: "DEDUCTED", bookings: [{ id: booking.id, status: "ATTENDED" }] }), `已將 ${booking.customerName} 更正為曠課`, {bookingId:booking.id,status:"NO_SHOW"})}>曠課扣堂</button>}
                   {!teacherAbsent && (booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`, {bookingId:booking.id,status:"RESERVED"})}>恢復待點名</button>}
                   
                    {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
