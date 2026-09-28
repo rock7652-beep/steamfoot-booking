@@ -797,13 +797,7 @@ export function CourseRoster({
         <strong className="text-sm text-earth-900">{teacherName}</strong>
         {session?.teacherAttendance === "NO_SHOW" ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-900">老師曠課</span> : session?.teacherAttendance === "LEAVE" ? <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">老師請假</span> : null}
         <a className="text-sm text-primary-700 hover:underline" href={teacherPhone ? `tel:${teacherPhone}` : undefined}>{teacherPhone || "未填老師電話"}</a>
-        {(session?.teacherNote || canEdit) && <details className="min-w-0 text-sm text-earth-700">
-          <summary className="max-w-[22rem] cursor-pointer truncate text-primary-800">{session?.teacherNote ? `老師備註：${session.teacherNote}` : "新增老師備註"}</summary>
-          <div className="mt-2 rounded-lg bg-earth-50 p-3">
-            {session?.teacherNote && <p className="whitespace-pre-wrap break-words">{session.teacherNote}</p>}
-            {canEdit && <button type="button" className="mt-1 text-primary-700 underline" onClick={() => {setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote ? "編輯備註" : "新增備註"}</button>}
-          </div>
-        </details>}
+        {(session?.teacherNote || canEdit) && (canEdit ? <button type="button" className="max-w-[22rem] min-w-0 truncate text-left text-sm text-primary-800 underline underline-offset-2" title={session?.teacherNote || "新增老師備註"} onClick={() => {setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote ? `老師備註：${session.teacherNote.trim().replace(/\\s+/g, " ")}` : "新增老師備註"}</button> : <span className="max-w-[22rem] min-w-0 truncate text-sm text-earth-700" title={session?.teacherNote || ""}>老師備註：{session?.teacherNote}</span>)}
         {canEdit && <div className="ml-auto flex flex-wrap items-center gap-2">
           {session?.teacherAttendance !== "NO_SHOW" && <button className={button} disabled={pending} onClick={() => {setTeacherDialog("NO_SHOW");setTeacherReason("");}}>老師曠課</button>}
           {session?.teacherAttendance !== "LEAVE" && <button className={button} disabled={pending} onClick={() => {setTeacherDialog("LEAVE");setTeacherReason("");}}>老師請假</button>}
