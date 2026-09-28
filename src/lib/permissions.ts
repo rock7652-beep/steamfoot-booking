@@ -465,14 +465,18 @@ function measurePermission<T>(timing: PermissionTiming | undefined, name: string
   return timing ? timing.measure(name, work) : work();
 }
 
-export async function requirePermission(permission: PermissionCode, timing?: PermissionTiming) {
+export async function requirePermission(
+  permission: PermissionCode,
+  timing?: PermissionTiming,
+  options: { deferSubscriptionGuard?: boolean } = {},
+) {
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
   const user = await measurePermission(timing, "permission.session", () => requireStaffSession());
   if (user.role === "ADMIN") return user;
   const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
-  if (!/\.(read|view|export)$/.test(permission) && user.storeId) {
+  if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission) && user.storeId) {
     const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
     await measurePermission(timing, "permission.subscription", () => assertStoreSubscriptionWritable(user.storeId!));
   }

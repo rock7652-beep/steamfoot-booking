@@ -39,8 +39,10 @@ export async function browseCourseCards(input: unknown) {
       ? (await prisma.customer.findMany({where:{...visibility,storeId,mergedIntoCustomerId:null},select:{id:true}})).map(c=>c.id) : null;
     const matchingIds = data.search ? (await prisma.customer.findMany({where:{...visibility,storeId,mergedIntoCustomerId:null,
       OR:[{name:{contains:data.search,mode:"insensitive"}},{phone:{contains:data.search}}]},select:{id:true}})).map(c=>c.id) : [];
+    const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
     const cards = await getCourseCards(storeId,data.customerId,{
       where:{
+        ...(musicStore ? { unit: "SESSION" } : {}),
         ...(data.cardId ? {id:data.cardId} : data.history ? {OR:[{closedAt:{not:null}},{expiresAt:{lt:new Date()}}]} : {closedAt:null,expiresAt:{gte:new Date()}}),
         AND:[...(visibleIds ? [{members:{some:{customerId:{in:visibleIds},storeId}}}] : []),
           ...(data.search ? [{OR:[{nameSnapshot:{contains:data.search,mode:"insensitive" as const}},{members:{some:{customerId:{in:matchingIds},storeId}}}]}] : [])],

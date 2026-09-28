@@ -256,16 +256,10 @@ function SessionCard({
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
-  const fadedBadge = session.previewFaded ? `${session.previewFaded} · ${fixed ? "限單次" : "可排固定"}` : null;
   const destination = session.previewDestinationStartsAt
     ? `調至 ${hhmm(session.previewDestinationStartsAt)} · 教室 ${rooms.find(room=>room.id===session.previewDestinationRoomId)?.name??"待核對"}` : null;
   const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
   const alteredSchedule = changed || substitute || moved || !fixed;
-  const typeBadge = rental ? "bg-pink-200 text-pink-950"
-    : copy.groupClass ? "bg-violet-200 text-violet-950"
-    : trialClass ? "bg-orange-200 text-orange-950"
-    : alteredSchedule ? "bg-emerald-200 text-emerald-950"
-    : "bg-sky-200 text-sky-950";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendance = courseAttendanceState(session.bookings, leaveCount, session.teacherAttendance);
@@ -297,7 +291,7 @@ function SessionCard({
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = rental || !copy.privateClass && !session.bookings.length
     ? copy.primary : copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
-  const cardName = !copy.privateClass && !brief ? copy.primary : studentLabel;
+  const cardName = musicDense ? copy.primary : !copy.privateClass && !brief ? copy.primary : studentLabel;
   const groupProgress = businessProfile === "MUSIC" && copy.groupClass && !session.previewAttendanceUnknown && !session.previewFaded && attendance.total > 0;
   const groupProgressColor = attendanceComplete ? "bg-violet-700 text-white"
     : attendance.processed > 0 ? "bg-violet-200 text-violet-950"
@@ -311,6 +305,10 @@ function SessionCard({
   const resourceLabel = rental ? "租借" : resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
     ? `${copy.room.replace(/^教室\s*/, "")}室`
     : resourceView === "coach" ? copy.room : copy.coach;
+  const readableCardSecondary = destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}`
+    : copy.privateClass ? copy.secondary
+    : groupProgress ? `${attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`} ${studentState}`.trim()
+    : secondaryLine || copy.secondary;
   return (
     <button
       type="button"
@@ -324,18 +322,16 @@ function SessionCard({
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
-              {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
               {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{teacherState}</span>}
-              {brief&&groupProgress&&<span className={`shrink-0 rounded px-1 text-[10px] font-bold ${groupProgressColor}`}>{attendance.teacherAbsent ? "已記錄" : `${attendance.processed}/${attendance.total}`}</span>}
+              {brief&&groupProgress&&<span className={`shrink-0 rounded px-1 text-[10px] font-bold ${groupProgressColor}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`}</span>}
               {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
             </span>
-            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
+            {brief && <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>}
           </div>
-          {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
-            {groupProgress&&<span className={`shrink-0 whitespace-nowrap rounded px-1 text-[10px] font-bold ${groupProgressColor}`} title={attendance.teacherAbsent ? "老師狀態已記錄，學員免點名" : `已記錄 ${attendance.processed}/${attendance.total} 位學員`}>{attendance.teacherAbsent ? "已記錄" : `${attendance.processed}/${attendance.total}`}</span>}
-            {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
-            <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : fadedBadge ?? primaryType}</span>
+          {!brief && <div className="flex min-w-0 items-center gap-1 leading-4">
+            <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-earth-700" title={readableCardSecondary}>{readableCardSecondary}</span>
+            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>}
         </>
       ) : (

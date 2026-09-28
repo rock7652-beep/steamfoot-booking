@@ -13,20 +13,36 @@ import type { Prisma } from "../../../generated/course-client";
 import { lockCourseStore } from "./course-store-lock";
 
 export async function courseManager(permission: PermissionCode) {
-  const user = await requirePermission(permission);
+  const startedAt = Date.now();
+  // Store resolution checks the subscription for the authorized target store.
+  const user = await requirePermission(permission, undefined, { deferSubscriptionGuard: true });
+  const permissionMs = Date.now() - startedAt;
   const storeId = await resolveWriteStoreId(user);
-  await requireCourseStore(storeId);
-  if (user.role !== "ADMIN") {
-    const staff = await prisma.staff.findFirst({
-      where: {
-        id: user.staffId ?? "",
-        storeId,
-        userId: user.id,
-        status: "ACTIVE",
-        user: { status: "ACTIVE" },
-      },
+  const storeMs = Date.now() - startedAt - permissionMs;
+  const [_, staff] = await Promise.all([
+    requireCourseStore(storeId),
+    user.role === "ADMIN"
+      ? Promise.resolve(true)
+      : prisma.staff.findFirst({
+          where: {
+            id: user.staffId ?? "",
+            storeId,
+            userId: user.id,
+            status: "ACTIVE",
+            user: { status: "ACTIVE" },
+          },
+          select: { id: true },
+        }),
+  ]);
+  if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
+  if (permission === "booking.read" || permission === "booking.update") {
+    console.info("[course-manager] auth timing", {
+      permission,
+      permissionMs,
+      storeMs,
+      checksMs: Date.now() - startedAt - permissionMs - storeMs,
+      totalMs: Date.now() - startedAt,
     });
-    if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   }
   return { user, storeId };
 }

@@ -189,10 +189,18 @@ async function resolveAuthorizedRouteStore(
   const { prisma } = await import("@/lib/db");
   const requested = await prisma.store.findUnique({
     where: { slug: routeSlug },
-    select: { id: true },
+    select: { id: true, slug: true, name: true, operatingStatus: true },
   });
   if (!requested) {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+  }
+  // The signed-in staff member's own active store needs no organization-tree
+  // lookup. Other stores still go through the full access check below.
+  if (user.role !== "ADMIN" && requested.id === user.storeId) {
+    if (!ACCESSIBLE_STORE_OPERATING_STATUSES.includes(requested.operatingStatus)) {
+      throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+    }
+    return { id: requested.id, slug: requested.slug, name: requested.name };
   }
   return resolveAuthorizedConcreteStore(user, requested.id, mode);
 }
