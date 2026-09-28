@@ -24,3 +24,14 @@ export async function updateBookingStatus(
   if (typeof result?.success !== "boolean") throw new Error("操作結果待確認");
   return result;
 }
+
+/** Read slots without a Server Action page payload; server retains session scope. */
+export async function readBookingSlots(date: string): Promise<{ slots: import("@/types").SlotAvailability[] }> {
+  const response = await fetch(`/api/bookings/slots?${new URLSearchParams({ date })}`, {
+    cache: "no-store", credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error("時段暫時無法載入");
+  const result = await response.json();
+  if (!Array.isArray(result?.slots)) throw new Error("時段資料格式異常");
+  return result;
+}

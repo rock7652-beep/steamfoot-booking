@@ -324,6 +324,9 @@ export function BookingDetailDrawer({
       if (!result.success) toast.error(result.error ?? "操作未完成");
       return { success: result.success, error: result.error };
     }, {
+      timingLabel: !spaMode && opts?.optimistic
+        ? nextStatus === "COMPLETED" ? "complete" : nextStatus === "PENDING" ? "revert" : undefined
+        : undefined,
       apply: () => {
         if (!optimisticStatus) return;
         onUpdated?.(id, optimisticStatus);

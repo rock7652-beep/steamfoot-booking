@@ -107,3 +107,19 @@ it("bounds an unresponsive read and ignores its late confirmation", async () => 
     expect(hook().isBlocked("a")).toBe(true);
   } finally { vi.useRealTimers(); }
 });
+
+it("reports after the saved state commits without awaiting telemetry or leaking the row key", async () => {
+  const fetch = vi.fn(() => new Promise<Response>(() => {}));
+  vi.stubGlobal("fetch", fetch);
+  try {
+    const hook = setup();
+    await act(() => hook().run("private-row", async () => ({ success: true }), { ...callbacks(), timingLabel: "complete" }));
+    expect(hook().states["private-row"].phase).toBe("saved");
+    expect(hook().isBlocked("private-row")).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(payload.operation).toBe("complete");
+    expect(payload.committedMs).toBeGreaterThanOrEqual(payload.responseMs);
+    expect(JSON.stringify(payload)).not.toContain("private-row");
+  } finally { vi.unstubAllGlobals(); }
+});
