@@ -91,6 +91,7 @@ export function CourseRoster({
     "CHECKED_IN" | "ATTENDED" | "RESERVED"
   >(musicLayout ? "ATTENDED" : "CHECKED_IN");
   const [showCancelled, setShowCancelled] = useState(false);
+  const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [roster, setRoster] = useState<
     Awaited<ReturnType<typeof getCourseRoster>>
@@ -907,15 +908,25 @@ export function CourseRoster({
                   {largeMusicGroup && booking.status === "RESERVED" && !teacherAbsent && <details className="self-center text-xs text-earth-600"><summary className="cursor-pointer whitespace-nowrap py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
                 </div>}
                 {!largeMusicGroup && canEdit && booking.status === "RESERVED" && !teacherAbsent && <details className="text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
-                {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && <details className={`text-xs text-earth-700 ${largeMusicGroup ? "w-full lg:order-2 lg:w-auto lg:open:w-full" : "w-full"}`}>
-                  <summary className="cursor-pointer whitespace-nowrap py-1 text-primary-800">{largeMusicGroup ? "查看日期" : "查看本期上課日期"}</summary>
+                {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (largeMusicGroup ? <>
+                  <button type="button" className="whitespace-nowrap py-1 text-xs text-primary-800 lg:order-2" aria-expanded={expandedLessonIds.includes(booking.id)} aria-controls={`lesson-history-${booking.id}`} onClick={() => setExpandedLessonIds((ids) => ids.includes(booking.id) ? ids.filter((id) => id !== booking.id) : [...ids, booking.id])}>{expandedLessonIds.includes(booking.id) ? "▼" : "▶"} 查看日期</button>
+                  {expandedLessonIds.includes(booking.id) && <div id={`lesson-history-${booking.id}`} className="w-full text-xs text-earth-700 lg:order-3">
                   {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
                   <div className="flex flex-wrap gap-1.5 pb-2">
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
                      {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
                   </div>
-                </details>}
+                  </div>}
+                </> : <details className="w-full text-xs text-earth-700">
+                  <summary className="cursor-pointer whitespace-nowrap py-1 text-primary-800">查看本期上課日期</summary>
+                  {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
+                  <div className="flex flex-wrap gap-1.5 pb-2">
+                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
+                     {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
+                    {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
+                  </div>
+                </details>)}
               </li>)}
               {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">沒有符合條件的學員</li>}
             </ul>
