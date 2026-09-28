@@ -1,0 +1,52 @@
+name: Music makeup isolated database audit
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/server/services/course-booking.ts'
+      - 'src/__tests__/course-student-makeup.pg.test.ts'
+      - 'supabase/migrations/20260928101128_course_student_makeup_link.sql'
+      - '.github/workflows/music-makeup-audit.yml'
+permissions:
+  contents: read
+jobs:
+  music-makeup-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-test-only
+          POSTGRES_DB: music_makeup_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d music_makeup_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/music_makeup_test
+      DIRECT_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/music_makeup_test
+      BOOKING_CONCURRENCY_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/music_makeup_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Exercise makeup reservation, attendance, cancellation, concurrency and isolation
+        run: npx vitest run src/__tests__/course-student-makeup.pg.test.ts --reporter=default --reporter=json --outputFile=music-makeup-pg-results.json
+      - name: Require all four database tests without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("music-makeup-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 4 || r.numPassedTests !== 4 || r.numPendingTests !== 0) throw new Error("All four makeup database scenarios must pass without skips");
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: music-makeup-pg-results
+          path: music-makeup-pg-results.json
+          retention-days: 7
