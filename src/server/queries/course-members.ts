@@ -82,7 +82,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, members: { select: { customerId: true } }, bookings: { select: { id: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
+      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { id: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -125,7 +125,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime());
     const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
     const currentPosition = lessonPosition >= 0 ? lessonPosition : b.absenceKind === "STUDENT_LEAVE" ? allLessons.filter((item) => item.session.startsAt < (card?.bookings.find((entry) => entry.id === b.id)?.session.startsAt ?? new Date(0))).length : -1;
-    const purchasedLessons = card?.plan.points ?? 0;
+    const purchasedLessons = card?.entries[0]?.points ?? card?.plan.points ?? 0;
     const privateMusicTermLessons = b.session.template.classType === "PRIVATE" && card?.unit === "SESSION"
       ? b.session.template.musicTermLessons : null;
     const termSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
