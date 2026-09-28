@@ -695,6 +695,132 @@ export async function copySettingsToFutureWeeks(input: {
 }
 
 // ============================================================
+// 複製設定到任選日期
+// ============================================================
+
+export async function copySettingsToDates(input: {
+  sourceDate: string;
+  targetDates: string[];
+  type: "closed" | "training" | "custom";
+  reason?: string;
+  openTime?: string;
+  closeTime?: string;
+  defaultCapacity?: number;
+  periods?: BusinessPeriodInput[];
+  conflictMode: "skip" | "replace";
+  resetSlotOverrides?: boolean;
+}): Promise<ActionResult<{ count: number; skipped: string[] }>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") {
+      throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
+    }
+    await assertModuleIntervals(storeId, input.periods);
+
+    const validDate = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+      new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    if (!validDate(input.sourceDate)) throw new AppError("VALIDATION", "來源日期格式不正確");
+
+    const uniqueDates = [...new Set(input.targetDates)].sort();
+    if (uniqueDates.length < 1 || uniqueDates.length > 62) {
+      throw new AppError("VALIDATION", "請選擇 1–62 個套用日期");
+    }
+    if (uniqueDates.some((date) => !validDate(date))) throw new AppError("VALIDATION", "套用日期格式不正確");
+    if (uniqueDates.includes(input.sourceDate)) throw new AppError("VALIDATION", "套用日期不可包含來源日期");
+    const today = toLocalDateStr();
+    if (uniqueDates.some((date) => date < today)) throw new AppError("VALIDATION", "不可套用到過去日期");
+
+    const isCustom = input.type === "custom";
+    if (isCustom) {
+      const validation = input.periods ? validateBusinessPeriods(input.periods) : validateTimeRange({
+        openTime: input.openTime,
+        closeTime: input.closeTime,
+        defaultCapacity: input.defaultCapacity,
+      });
+      if (!validation.valid) throw new AppError("VALIDATION", validation.error!);
+    }
+
+    const requestedDateObjects = uniqueDates.map((date) => new Date(`${date}T00:00:00Z`));
+    const existing = await prisma.specialBusinessDay.findMany({
+      where: { storeId, date: { in: requestedDateObjects } },
+      select: { date: true },
+    });
+    const existingDates = new Set(existing.map((item) => item.date.toISOString().slice(0, 10)));
+    const skipped = input.conflictMode === "skip"
+      ? uniqueDates.filter((date) => existingDates.has(date))
+      : [];
+    const dates = uniqueDates
+      .filter((date) => !skipped.includes(date))
+      .map((date) => new Date(`${date}T00:00:00Z`));
+
+    if (isCustom && input.resetSlotOverrides && dates.length > 0) {
+      const periods = input.periods ?? [{
+        openTime: input.openTime!,
+        closeTime: input.closeTime!,
+        slotInterval: 60,
+        defaultCapacity: input.defaultCapacity ?? 6,
+      }];
+      await assertBookingsFitSchedule(storeId, dates, periods);
+    }
+    if (!isCustom && dates.length > 0) {
+      const activeBookings = await prisma.booking.findMany({
+        where: {
+          storeId,
+          bookingDate: { in: dates },
+          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        },
+        select: { bookingDate: true },
+        take: 1,
+      });
+      if (activeBookings.length > 0) {
+        throw new AppError(
+          "VALIDATION",
+          `${activeBookings[0].bookingDate.toISOString().slice(0, 10)} 尚有有效預約，無法停止開放`,
+        );
+      }
+    }
+
+    const upserts = dates.map((date) => prisma.specialBusinessDay.upsert({
+      where: { storeId_date: { storeId, date } },
+      update: {
+        type: input.type,
+        reason: input.reason ?? null,
+        openTime: isCustom ? input.openTime ?? null : null,
+        closeTime: isCustom ? input.closeTime ?? null : null,
+        defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+        segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
+      },
+      create: {
+        storeId,
+        date,
+        type: input.type,
+        reason: input.reason ?? null,
+        openTime: isCustom ? input.openTime ?? null : null,
+        closeTime: isCustom ? input.closeTime ?? null : null,
+        defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+        segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
+      },
+    }));
+
+    if (upserts.length > 0) {
+      await prisma.$transaction([
+        ...upserts,
+        ...(input.resetSlotOverrides ? [
+          prisma.slotOverride.deleteMany({ where: { storeId, date: { in: dates } } }),
+        ] : []),
+      ]);
+      revalidateSpecialDays();
+    }
+    return { success: true, data: { count: dates.length, skipped } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
 // SlotOverride — 單日時段覆寫
 // ============================================================
 

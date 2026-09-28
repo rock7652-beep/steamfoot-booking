@@ -10,7 +10,7 @@ describe("settings store-scope source contracts", () => {
     const source = read("src/server/actions/business-hours.ts");
     expect(source).not.toContain("const storeId = user.storeId!");
     // applyDaySlotOverrides is also a store-scoped write action.
-    expect(source.match(/resolveWriteStoreId\(user\)/g)?.length).toBe(10);
+    expect(source.match(/resolveWriteStoreId\(user\)/g)?.length).toBe(11);
     expect(source).toContain("const sourceStoreId = hq.id");
     expect(source).toContain(
       "const destinationStoreId = await resolveWriteStoreId(user)",
