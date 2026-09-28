@@ -293,6 +293,7 @@ export function CourseRoster({
   const attendedCount = activeRows.filter(
     (booking) => booking.status === "ATTENDED",
   ).length;
+  const leaveCount = activeRows.filter((booking) => booking.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).length;
   const noShowCount = activeRows.filter(
     (booking) => booking.status === "NO_SHOW",
   ).length;
@@ -705,12 +706,23 @@ export function CourseRoster({
   return (
 
     <section className={musicLayout ? `flex min-h-0 flex-col gap-2 ${oneToOneMusic ? "" : "lg:h-full"}` : "flex h-full min-h-0 flex-col gap-3"}>
+      {musicLayout && <aside className="rounded-xl border border-earth-200 bg-white px-3 py-2" aria-label={`${teacherName}、${courseName}、${roomName}`}>
+            <h3 className="text-xs font-semibold text-earth-600">老師</h3>
+            <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-earth-900">{teacherName} {session?.teacherAttendance === "NO_SHOW" ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-900">老師曠課</span> : session?.teacherAttendance === "LEAVE" ? <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">老師請假</span> : null}</p>
+            <a className="inline-block text-sm text-primary-700 hover:underline" href={teacherPhone ? `tel:${teacherPhone}` : undefined}>{teacherPhone || "未填老師電話"}</a>
+            {canEdit && <div className="flex flex-wrap gap-2">{session?.teacherAttendance!=="NO_SHOW"&&<button className={button} disabled={pending} onClick={()=>{setTeacherDialog("NO_SHOW");setTeacherReason("");}}>老師曠課</button>}{session?.teacherAttendance!=="LEAVE"&&<button className={button} disabled={pending} onClick={()=>{setTeacherDialog("LEAVE");setTeacherReason("");}}>老師請假</button>}{session?.teacherAttendance !== "SCHEDULED" && <button className={button} disabled={pending} onClick={()=>setTeacherDialog("SCHEDULED")}>更正紀錄</button>}</div>}
+            {session?.teacherAttendanceReason && <p className="mt-2 text-sm text-earth-600">原因：{session.teacherAttendanceReason}</p>}
+            {canEdit && session?.teacherAttendance === "NO_SHOW" && <button className={`${button} mt-3 border-primary-500 text-primary-800`} disabled={pending} onClick={()=>{setMakeupDate("");setMakeupDialog(true);}}>安排免費補課</button>}
+            {(session?.teacherNote || canEdit) && <div className="mt-3 rounded-lg bg-earth-50 p-3 text-sm"><div className="flex items-center justify-between"><strong>老師備註</strong>{canEdit && <button type="button" className="text-primary-700 underline" onClick={()=>{setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote ? "編輯" : "新增"}</button>}</div>{session?.teacherNote && <p className="mt-1 whitespace-pre-wrap text-earth-700">{session.teacherNote}</p>}</div>}
+          </aside>}
+
       {musicLayout ? <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
         {!oneToOneMusic && <span>已預約 <strong>{count}/{capacity}</strong> 位</span>}
         {!teacherAbsent && <>
           {waitingCount > 0 && <span>待點名 <strong>{waitingCount}</strong></span>}
           {attendedCount > 0 && <span className="text-primary-800">已出席 <strong>{attendedCount}</strong></span>}
-          {noShowCount > 0 && <span className="text-rose-800">曠課 <strong>{noShowCount}</strong></span>}
+          {leaveCount > 0 && <span className="text-violet-800">請假 <strong>{leaveCount}</strong></span>}
+           {noShowCount > 0 && <span className="text-rose-800">曠課 <strong>{noShowCount}</strong></span>}
         </>}
         {trialCount > 0 && <span className="text-amber-900">體驗 <strong>{trialCount}</strong> 位</span>}
         {unpaidTrialCount > 0 && <span className="font-medium text-amber-800">未收款 {unpaidTrialCount} 位</span>}
@@ -821,8 +833,8 @@ export function CourseRoster({
       )}
 
       {musicLayout ? (
-        <div className={`grid min-h-0 flex-1 gap-3 ${oneToOneMusic ? "lg:grid-cols-2" : "lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]"} ${oneToOneMusic ? "" : "overflow-y-auto lg:overflow-hidden"}`}>
-          <section className="min-h-0 rounded-xl border border-earth-200 bg-white lg:overflow-y-auto" aria-label="學員">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <section className="rounded-xl border border-earth-200 bg-white" aria-label="學員">
             <h3 className="sticky top-0 z-10 border-b border-earth-200 bg-earth-50 px-3 py-2 text-sm font-semibold text-earth-800">學員 · {searchedRows.length} 人</h3>
             <ul className="divide-y divide-earth-100">
               {searchedRows.map((booking) => <li key={booking.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 px-3 py-2 text-sm ${largeMusicGroup ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto_auto_auto] lg:gap-x-2 lg:gap-y-0 lg:py-1.5" : ""} ${booking.status === "ATTENDED" ? "border-l-emerald-500" : booking.status === "NO_SHOW" ? "border-l-rose-500" : booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"") ? "border-l-violet-500" : "border-l-slate-200"}`}>
@@ -830,8 +842,10 @@ export function CourseRoster({
                   {canEdit && !oneToOneMusic && !teacherAbsent && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending || (musicLayout && batchTarget === "ATTENDED" && booking.status !== "RESERVED")} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
                   <strong className="min-w-0 truncate" title={booking.customerName}>{booking.customerName}</strong>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${booking.status==="ATTENDED"?"bg-emerald-100 text-emerald-900":booking.status==="NO_SHOW"?"bg-rose-100 text-rose-900":booking.status==="CANCELLED"&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")?"bg-violet-100 text-violet-900":"bg-earth-100 text-earth-700"}`}>{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "") ? "請假" : "已取消" : teacherAbsent ? "本堂免點名" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
-                  {booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
-                  {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
+                  {!musicLayout && booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
+                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">本期第 {booking.termIndex}/{booking.termCount} 堂</span>}
+                   {booking.bookingKind !== "TRIAL" && booking.termLeaveCount + booking.termNoShowCount > 0 && <span className="whitespace-nowrap text-xs text-amber-800">請假 {booking.termLeaveCount}・曠課 {booking.termNoShowCount}</span>}
+                   {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
                 </div>
                 <div className={`min-w-0 text-xs text-earth-600 ${largeMusicGroup ? "lg:truncate lg:whitespace-nowrap" : ""}`}>
                   <a className="text-primary-700 hover:underline" href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}>{booking.customerPhone || "未填電話"}</a>
@@ -851,19 +865,18 @@ export function CourseRoster({
                 {canEdit && booking.status === "RESERVED" && !teacherAbsent && (largeMusicGroup
                   ? <button type="button" className="text-xs text-earth-600 underline" disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
                   : <details className="w-full text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>)}
+                {booking.bookingKind !== "TRIAL" && booking.termLessons.length > 0 && <details className="w-full text-xs text-earth-700 lg:col-span-full">
+                  <summary className="cursor-pointer py-1 text-primary-800">查看本期上課日期</summary>
+                  <div className="flex flex-wrap gap-1.5 pb-2">
+                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status}</span>)}
+                    {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
+                  </div>
+                </details>}
               </li>)}
               {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">沒有符合條件的學員</li>}
             </ul>
           </section>
-          <aside className="min-h-0 rounded-xl border border-earth-200 bg-white p-3 lg:overflow-y-auto" aria-label={`${teacherName}、${courseName}、${roomName}`}>
-            <h3 className="border-b border-earth-100 pb-2 text-sm font-semibold text-earth-800">老師</h3>
-            <p className="mt-3 flex flex-wrap items-center gap-2 text-base font-semibold text-earth-900">{teacherName} {session?.teacherAttendance === "NO_SHOW" ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-900">老師曠課</span> : session?.teacherAttendance === "LEAVE" ? <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">老師請假</span> : null}</p>
-            <a className="mt-1 inline-block text-sm text-primary-700 hover:underline" href={teacherPhone ? `tel:${teacherPhone}` : undefined}>{teacherPhone || "未填老師電話"}</a>
-            {canEdit && <div className="mt-3 flex flex-wrap gap-2">{session?.teacherAttendance!=="NO_SHOW"&&<button className={button} disabled={pending} onClick={()=>{setTeacherDialog("NO_SHOW");setTeacherReason("");}}>老師曠課</button>}{session?.teacherAttendance!=="LEAVE"&&<button className={button} disabled={pending} onClick={()=>{setTeacherDialog("LEAVE");setTeacherReason("");}}>老師請假</button>}{session?.teacherAttendance !== "SCHEDULED" && <button className={button} disabled={pending} onClick={()=>setTeacherDialog("SCHEDULED")}>更正紀錄</button>}</div>}
-            {session?.teacherAttendanceReason && <p className="mt-2 text-sm text-earth-600">原因：{session.teacherAttendanceReason}</p>}
-            {canEdit && session?.teacherAttendance === "NO_SHOW" && <button className={`${button} mt-3 border-primary-500 text-primary-800`} disabled={pending} onClick={()=>{setMakeupDate("");setMakeupDialog(true);}}>安排免費補課</button>}
-            {(session?.teacherNote || canEdit) && <div className="mt-3 rounded-lg bg-earth-50 p-3 text-sm"><div className="flex items-center justify-between"><strong>老師備註</strong>{canEdit && <button type="button" className="text-primary-700 underline" onClick={()=>{setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote ? "編輯" : "新增"}</button>}</div>{session?.teacherNote && <p className="mt-1 whitespace-pre-wrap text-earth-700">{session.teacherNote}</p>}</div>}
-          </aside>
+          
         </div>
       ) : <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
         <div className="grid min-w-[1120px] grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
