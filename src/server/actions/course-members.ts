@@ -414,6 +414,102 @@ export async function cancelCourseSession(input: unknown) {
   }
 }
 
+/** Stop only the already scheduled future lessons of this series. Current and past lessons remain intact. */
+async function futureMusicCourseScope(
+  tx: Parameters<Parameters<typeof courseTransaction>[1]>[0],
+  storeId: string,
+  sessionId: string,
+  bookingId?: string,
+) {
+  const source = await tx.courseSession.findFirst({
+    where: { id: sessionId, storeId, cancelledAt: null },
+    select: { id: true, requestKey: true, templateId: true, startsAt: true },
+  });
+  if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+  const music = await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  });
+  if (!music) throw new AppError("VALIDATION", "此操作只適用音樂教室");
+  let customerId: string | undefined;
+  let customerName: string | undefined;
+  if (bookingId) {
+    const learner = await tx.courseBooking.findFirst({
+      where: { id: bookingId, storeId, sessionId, status: { not: "CANCELLED" } },
+      select: { customerId: true, customerName: true },
+    });
+    if (!learner) throw new AppError("NOT_FOUND", "找不到此堂學員");
+    customerId = learner.customerId;
+    customerName = learner.customerName;
+  }
+  const after = new Date(Math.max(Date.now(), source.startsAt.getTime()));
+  const sessions = await tx.courseSession.findMany({
+    where: { storeId, requestKey: source.requestKey, templateId: source.templateId,
+      startsAt: { gt: after }, cancelledAt: null, releasedAt: null },
+    select: { id: true, startsAt: true },
+    orderBy: { startsAt: "asc" },
+    take: 501,
+  });
+  if (sessions.length > 500) throw new AppError("VALIDATION", "後續課程過多，請分段處理");
+  const allBookings = await tx.courseBooking.findMany({
+    where: { storeId, sessionId: { in: sessions.map((item) => item.id) },
+      ...(customerId ? { customerId } : {}), status: { not: "CANCELLED" } },
+    select: { id: true, status: true, sessionId: true },
+    orderBy: { id: "asc" },
+  });
+  if (allBookings.some((item) => item.status !== "RESERVED"))
+    throw new AppError("CONFLICT", "後續課程已有完成點名，請先核對紀錄");
+  return {
+    sessionIds: sessions.map((item) => item.id),
+    bookingIds: allBookings.map((item) => item.id),
+    customerName,
+  };
+}
+
+export async function previewFutureCourseStop(input: unknown) {
+  try {
+    const data = z.object({ sessionId: id, bookingId: id.optional() }).parse(input);
+    const { storeId } = await courseManager("booking.read");
+    const scope = await courseTransaction(storeId, tx =>
+      futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId));
+    return { success: true as const, data: scope };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function stopFutureCourseLessons(input: unknown) {
+  try {
+    const data = z.object({
+      sessionId: id, bookingId: id.optional(),
+      expectedSessionIds: z.array(id).max(500),
+      expectedBookingIds: z.array(id).max(1000),
+    }).parse(input);
+    const { user, storeId } = await courseManager("booking.update");
+    await courseTransaction(storeId, async tx => {
+      const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId);
+      if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
+          scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
+        throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
+      if (!scope.sessionIds.length || data.bookingId && !scope.bookingIds.length)
+        throw new AppError("VALIDATION", "沒有可停止的後續已排課");
+      for (const bookingId of scope.bookingIds)
+        await settleCourseBooking(tx,
+          { storeId, userId: user.id, name: user.name ?? "店長" },
+          bookingId, "CANCELLED");
+      if (!data.bookingId)
+        await tx.courseSession.updateMany({
+          where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
+          data: { cancelledAt: new Date() },
+        });
+    });
+    refresh();
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false) {
   try {
     const { user, storeId } = await courseManager("booking.read");
