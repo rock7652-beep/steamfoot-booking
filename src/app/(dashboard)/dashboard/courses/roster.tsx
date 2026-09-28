@@ -844,7 +844,7 @@ export function CourseRoster({
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${booking.status==="ATTENDED"?"bg-emerald-100 text-emerald-900":booking.status==="NO_SHOW"?"bg-rose-100 text-rose-900":booking.status==="CANCELLED"&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")?"bg-violet-100 text-violet-900":"bg-earth-100 text-earth-700"}`}>{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "") ? "請假" : "已取消" : teacherAbsent ? "本堂免點名" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
                   {!musicLayout && booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
                   {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">本期第 {booking.termIndex}/{booking.termCount} 堂</span>}
-                   {booking.bookingKind !== "TRIAL" && booking.termLeaveCount + booking.termNoShowCount > 0 && <span className="whitespace-nowrap text-xs text-amber-800">請假 {booking.termLeaveCount}・曠課 {booking.termNoShowCount}</span>}
+                   {booking.bookingKind !== "TRIAL" && booking.termLeaveCount + booking.termNoShowCount > 0 && <span className="whitespace-nowrap text-xs text-amber-800">此方案請假 {booking.termLeaveCount}・曠課 {booking.termNoShowCount}</span>}
                    {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
                 </div>
                 <div className={`min-w-0 text-xs text-earth-600 ${largeMusicGroup ? "lg:truncate lg:whitespace-nowrap" : ""}`}>
@@ -866,7 +866,7 @@ export function CourseRoster({
                   ? <button type="button" className="text-xs text-earth-600 underline" disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
                   : <details className="w-full text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>)}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && <details className="w-full text-xs text-earth-700 lg:col-span-full">
-                  <summary className="cursor-pointer py-1 text-primary-800">查看本期上課日期</summary>
+                  <summary className="cursor-pointer py-1 text-primary-800">查看此方案上課日期</summary>
                   <div className="flex flex-wrap gap-1.5 pb-2">
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status}</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
