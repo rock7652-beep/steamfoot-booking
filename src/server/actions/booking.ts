@@ -1191,7 +1191,7 @@ export async function markCompleted(
 ): Promise<ActionResult<void>> {
   const timing = new OperationTiming("steamfoot.complete");
   try {
-    const user = await timing.measure("permission", () => requireWritablePermission("booking.update"));
+    const user = await timing.measure("permission", () => requireWritablePermission("booking.update", undefined, timing));
     const data = completeBookingSchema.parse(input ?? {});
 
     const booking = await timing.measure("booking", () => prisma.booking.findUnique({
@@ -1798,7 +1798,7 @@ export async function revertBookingStatus(
 ): Promise<ActionResult<void>> {
   const timing = new OperationTiming("steamfoot.revert");
   try {
-    const user = await timing.measure("permission", () => requireWritablePermission("booking.update"));
+    const user = await timing.measure("permission", () => requireWritablePermission("booking.update", undefined, timing));
 
     const booking = await timing.measure("booking", () => prisma.booking.findUnique({
       where: { id: bookingId },
