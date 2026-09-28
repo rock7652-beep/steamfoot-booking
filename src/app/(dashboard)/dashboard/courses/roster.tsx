@@ -87,8 +87,9 @@ export function CourseRoster({
   const currentSession = useRef(sessionId);
   currentSession.current = sessionId;
   const [transitionPending, start] = useTransition();
+  const [quickAttendancePending, setQuickAttendancePending] = useState(false);
   const [uncertain, setUncertain] = useState(false);
-  const pending = transitionPending || uncertain;
+  const pending = transitionPending || quickAttendancePending || uncertain;
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
     "CHECKED_IN" | "ATTENDED" | "NO_SHOW" | "RESERVED"
@@ -232,6 +233,8 @@ export function CourseRoster({
     const previous = roster;
     const previousSession=session;
     const updates=optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
+    const quickAttendance = view === "roster" && musicLayout && updates.length > 0;
+    if (quickAttendance) setQuickAttendancePending(true);
     if(updates.length) {
       const changes=new Map(updates.map(item=>[item.bookingId,item]));
       setRoster(rows=>rows.map(row=>{const change=changes.get(row.id);return change ? {...row,status:change.status,...(change.status === "RESERVED" ? {absenceKind:null,checkedInAt:null} : change.absenceKind ? {absenceKind:change.absenceKind} : {})} : row;}));
@@ -239,7 +242,7 @@ export function CourseRoster({
     }
     if(teacherStatus){setSession(old=>old?{...old,teacherAttendance:teacherStatus}:old);onTeacherAttendanceOptimistic?.(teacherStatus);}
 
-    start(async () => {
+    const perform = async () => {
       try {
         const result = await action();
         if (currentSession.current !== sessionId) return;
@@ -254,9 +257,9 @@ export function CourseRoster({
         setMessage(successMessage);
         setSelected([]);
         setRequestKey(crypto.randomUUID());
-        if (view === "roster" && musicLayout && updates.length) {
-          // Attendance has already been reflected in the list. Reconcile in the background
-          // so the action becomes available as soon as the server confirms the write.
+        if (quickAttendance) {
+          // The write is confirmed. Release the buttons while the roster reconciles separately.
+          setQuickAttendancePending(false);
           void load().catch(() => setMessage("已儲存，名單更新失敗，請重新開啟核對"));
         } else {
           await load();
@@ -274,9 +277,11 @@ export function CourseRoster({
         }
       } finally {
         mutationLock.current = false;
-
+        if (quickAttendance) setQuickAttendancePending(false);
       }
-    });
+    };
+    if (quickAttendance) void perform();
+    else start(perform);
   }
 
   async function openFutureStop(bookingId?: string, name = "整班") {
