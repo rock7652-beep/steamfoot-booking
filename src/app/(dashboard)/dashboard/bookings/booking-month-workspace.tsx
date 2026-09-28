@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { refreshBookingManagement } from "@/server/actions/booking-refresh";
+import { readBookingMonth } from "@/lib/booking-month-read";
 import { BookingsManager, type BookingsManagerProps } from "./bookings-manager";
 import { BookingMonthContext } from "./booking-month-context";
 import { createBookingMonthCache } from "./booking-month-cache";
@@ -29,7 +29,7 @@ export function BookingMonthWorkspace(props: BookingsManagerProps) {
   useLayoutEffect(() => { latest.current = view; }, [view]);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  const load = useCallback((year: number, month: number) => cache.load(keyOf(year, month), () => refreshBookingManagement({ year, month, storeId: props.storeId, date: null })), [cache, props.storeId]);
+  const load = useCallback((year: number, month: number) => cache.load(keyOf(year, month), () => readBookingMonth({ year, month, storeId: props.storeId })), [cache, props.storeId]);
 
   const navigate = useCallback((year: number, month: number, history = true) => {
     if (!valid(year, month) || busy.current) return;

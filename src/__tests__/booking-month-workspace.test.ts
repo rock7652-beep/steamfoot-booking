@@ -3,7 +3,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ read: vi.fn() }));
-vi.mock("@/server/actions/booking-refresh", () => ({ refreshBookingManagement: mocks.read }));
+vi.mock("@/lib/booking-month-read", () => ({ readBookingMonth: mocks.read }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/bookings-manager", async () => {
  const { useBookingMonthNavigation } = await import("@/app/(dashboard)/dashboard/bookings/booking-month-context");
  return { BookingsManager: ({ year, month }: { year: number; month: number }) => {
