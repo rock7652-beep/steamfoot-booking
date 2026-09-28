@@ -2256,7 +2256,7 @@ export function CourseWorkspace({
                   canCreate={canCreate}
                   canEdit={canEdit}
                   view={courseDialog.kind}
-                  musicLayout={courseDialog.kind === "roster" && businessProfile === "MUSIC"}
+                  musicLayout={businessProfile === "MUSIC"}
                   classType={allTemplates.find(template=>template.id===dialogSession.templateId)?.classType}
                   teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
                   teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
