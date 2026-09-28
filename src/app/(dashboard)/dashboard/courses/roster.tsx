@@ -10,6 +10,7 @@ import {
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 import { useRouter } from "next/navigation";
@@ -94,6 +95,7 @@ export function CourseRoster({
   >(musicLayout ? "ATTENDED" : "CHECKED_IN");
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
+  const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; top: number; left: number } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [roster, setRoster] = useState<
     Awaited<ReturnType<typeof getCourseRoster>>
@@ -283,6 +285,33 @@ export function CourseRoster({
     setFutureStopPending(false);
   }
 
+  function toggleRosterMenu(target: HTMLElement, bookingId?: string) {
+    const key = bookingId ?? "course";
+    if ((openActionMenu?.bookingId ?? "course") === key && openActionMenu) {
+      setOpenActionMenu(null);
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const menuHeight = bookingId ? 164 : 112;
+    setExpandedLessonIds([]);
+    setOpenActionMenu({
+      bookingId,
+      top: rect.bottom + menuHeight + 8 <= window.innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - menuHeight - 4),
+      left: Math.max(8, Math.min(rect.right - 192, window.innerWidth - 200)),
+    });
+  }
+
+  useEffect(() => {
+    if (!openActionMenu) return;
+    const close = () => setOpenActionMenu(null);
+    document.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [openActionMenu]);
+
   async function openStudentPurchase(bookingId: string) {
     if (purchasePending) return;
     setPurchaseFor(bookingId);
@@ -297,6 +326,7 @@ export function CourseRoster({
     } else setPurchaseError(result.error);
   }
 
+  const actionBooking = roster.find((booking) => booking.id === openActionMenu?.bookingId);
   const payBooking = roster.find((booking) => booking.id === paymentBooking);
   const receipt = payBooking?.trialPayments.find(
     (payment) => payment.status === "SUCCESS",
@@ -785,13 +815,7 @@ export function CourseRoster({
         {trialCount > 0 && <span className="text-amber-900">體驗 <strong>{trialCount}</strong> 位</span>}
         {unpaidTrialCount > 0 && <span className="font-medium text-amber-800">未收款 {unpaidTrialCount} 位</span>}
         {oneToOneMusic && !count && <span>尚未選擇學員</span>}
-        {canEdit && <details className="relative ml-auto text-xs">
-          <summary className="cursor-pointer whitespace-nowrap text-earth-700">課程操作</summary>
-          <div className="absolute right-0 z-30 mt-1 min-w-40 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
-            <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setConfirmCancel(true); }}>取消本堂</button>
-            <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openFutureStop(undefined, "整班"); }}>停課</button>
-          </div>
-        </details>}
+        {canEdit && <button type="button" className="ml-auto whitespace-nowrap text-xs text-earth-700" aria-expanded={!!openActionMenu && !openActionMenu.bookingId} onClick={(event) => toggleRosterMenu(event.currentTarget)}>課程操作</button>}
       </div> : <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
         <span className="whitespace-nowrap">已預約 <strong className="text-primary-900">{count}/{capacity}</strong></span>
         <span className="whitespace-nowrap">待點名 <strong>{waitingCount}</strong></span>
@@ -930,26 +954,12 @@ export function CourseRoster({
                   
                    {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
-                  {largeMusicGroup && (canPurchase && booking.bookingKind !== "TRIAL" || canEdit && booking.bookingKind !== "TRIAL" || canEdit && booking.status === "RESERVED" && !teacherAbsent) && <details className="relative self-center text-xs text-earth-600">
-                    <summary className="cursor-pointer whitespace-nowrap py-1">其他操作</summary>
-                    <div className="mt-1 flex min-w-40 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
-                      {canPurchase && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-primary-800 hover:bg-primary-50" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openStudentPurchase(booking.id); }}>學員繳費</button>}
-                      {canEdit && booking.status === "RESERVED" && !teacherAbsent && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setCancelBooking({ id: booking.id, name: booking.customerName }); }}>取消本堂</button>}
-                      {canEdit && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openFutureStop(booking.id, booking.customerName); }}>停課</button>}
-                    </div>
-                  </details>}
+                  {largeMusicGroup && (canPurchase && booking.bookingKind !== "TRIAL" || canEdit && booking.bookingKind !== "TRIAL" || canEdit && booking.status === "RESERVED" && !teacherAbsent) && <button type="button" className="self-center whitespace-nowrap py-1 text-xs text-earth-600" aria-expanded={openActionMenu?.bookingId === booking.id} onClick={(event) => toggleRosterMenu(event.currentTarget, booking.id)}>其他操作</button>}
                 </div>}
                 {!musicLayout && canEdit && booking.status === "RESERVED" && !teacherAbsent && <details className="text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
-                {!largeMusicGroup && canEdit && musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || booking.bookingKind !== "TRIAL" || booking.status === "RESERVED" && !teacherAbsent) && <details className="relative text-xs text-earth-600">
-                  <summary className="cursor-pointer py-1">其他操作</summary>
-                  <div className="mt-1 flex min-w-40 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
-                    {canPurchase && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-primary-800 hover:bg-primary-50" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openStudentPurchase(booking.id); }}>學員繳費</button>}
-                    {booking.status === "RESERVED" && !teacherAbsent && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setCancelBooking({ id: booking.id, name: booking.customerName }); }}>取消本堂</button>}
-                    {booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openFutureStop(booking.id, booking.customerName); }}>停課</button>}
-                  </div>
-                </details>}
+                {!largeMusicGroup && canEdit && musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || booking.bookingKind !== "TRIAL" || booking.status === "RESERVED" && !teacherAbsent) && <button type="button" className="py-1 text-xs text-earth-600" aria-expanded={openActionMenu?.bookingId === booking.id} onClick={(event) => toggleRosterMenu(event.currentTarget, booking.id)}>其他操作</button>}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (largeMusicGroup ? <>
-                  <button type="button" className="whitespace-nowrap py-1 text-xs text-primary-800 lg:order-2" aria-expanded={expandedLessonIds.includes(booking.id)} aria-controls={`lesson-history-${booking.id}`} onClick={() => setExpandedLessonIds((ids) => ids.includes(booking.id) ? ids.filter((id) => id !== booking.id) : [...ids, booking.id])}>{expandedLessonIds.includes(booking.id) ? "▼" : "▶"} 查看日期</button>
+                  <button type="button" className="whitespace-nowrap py-1 text-xs text-primary-800 lg:order-2" aria-expanded={expandedLessonIds.includes(booking.id)} aria-controls={`lesson-history-${booking.id}`} onClick={() => { setOpenActionMenu(null); setExpandedLessonIds((ids) => ids.includes(booking.id) ? [] : [booking.id]); }}>{expandedLessonIds.includes(booking.id) ? "▼" : "▶"} 查看日期</button>
                   {expandedLessonIds.includes(booking.id) && <div id={`lesson-history-${booking.id}`} className="w-full text-xs text-earth-700 lg:order-3">
                   {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
                   <div className="flex flex-wrap gap-1.5 pb-2">
@@ -1498,6 +1508,19 @@ export function CourseRoster({
         />
       )}
 
+      {musicLayout && openActionMenu && typeof document !== "undefined" && createPortal(<>
+        <button type="button" className="fixed inset-0 z-[140] cursor-default" aria-label="關閉操作選單" onClick={() => setOpenActionMenu(null)} />
+        <div className="fixed z-[141] flex w-48 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
+          {actionBooking ? <>
+            {canPurchase && actionBooking.bookingKind !== "TRIAL" && <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-primary-800 hover:bg-primary-50" onClick={() => { setOpenActionMenu(null); void openStudentPurchase(actionBooking.id); }}>學員繳費</button>}
+            {canEdit && actionBooking.status === "RESERVED" && !teacherAbsent && <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-red-700 hover:bg-red-50" disabled={pending} onClick={() => { setOpenActionMenu(null); setCancelBooking({ id: actionBooking.id, name: actionBooking.customerName }); }}>取消本堂</button>}
+            {canEdit && actionBooking.bookingKind !== "TRIAL" && <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-red-700 hover:bg-red-50" disabled={pending} onClick={() => { setOpenActionMenu(null); void openFutureStop(actionBooking.id, actionBooking.customerName); }}>停課</button>}
+          </> : <>
+            <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-red-700 hover:bg-red-50" disabled={pending} onClick={() => { setOpenActionMenu(null); setConfirmCancel(true); }}>取消本堂</button>
+            <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-red-700 hover:bg-red-50" disabled={pending} onClick={() => { setOpenActionMenu(null); void openFutureStop(undefined, "整班"); }}>停課</button>
+          </>}
+        </div>
+      </>, document.body)}
       {canEdit && musicLayout && futureStopTarget && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="course-future-stop-title">
         <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
           <h3 id="course-future-stop-title" className="text-lg font-semibold">{futureStopTarget.bookingId ? `${futureStopTarget.name} 停課？` : "整班停課？"}</h3>
