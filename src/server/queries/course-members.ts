@@ -82,7 +82,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, plan: { select: { points: true, musicTerms: true } }, members: { select: { customerId: true } }, bookings: { select: { id: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } } },
+      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, members: { select: { customerId: true } }, bookings: { select: { id: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -100,7 +100,24 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
     orderBy:{session:{startsAt:"desc"}},
   });
+  const confirmedPurchases = await coursePrisma.coursePurchase.findMany({
+    where: { storeId, customerId: { in: bookings.map((item) => item.customerId) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
+    select: { customerId: true, cardId: true, points: true },
+  });
+  const renewalCards = await coursePrisma.coursePointCard.findMany({
+    where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
+    select: { id: true, createdAt: true, remaining: true, plan: { select: { templateIds: true } } },
+  });
   return bookings.map(({ card, checkedInAt, ...b }) => {
+    const nextPaidLessons = card && card.plan.templateIds.length
+      ? confirmedPurchases
+        .filter((purchase) => purchase.customerId === b.customerId && purchase.cardId !== b.cardId)
+        .map((purchase) => ({ purchase, next: renewalCards.find((candidate) => candidate.id === purchase.cardId) }))
+        .filter(({ purchase, next }) =>
+          !!next && next.createdAt > card.createdAt && next.remaining >= purchase.points &&
+          next.plan.templateIds.some((templateId) => card.plan.templateIds.includes(templateId)))
+        .sort((left, right) => left.next!.createdAt.getTime() - right.next!.createdAt.getTime())[0]?.purchase.points ?? null
+      : null;
     const allLessons = (card?.bookings ?? [])
       .filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED"))
       .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime());
@@ -129,6 +146,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     termIndex: currentPosition >= 0 && termSize > 0 && (card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? currentPosition % termSize + 1 : null,
     termCount: (card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
     termNumber,
+    nextPaidLessons,
     termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
     termLeaveCount: periodLessons.filter((item) => item.absenceKind === "GROUP_LEAVE_FORFEITED").length + privateLeaves.length,
     termNoShowCount: termAbsences.filter((item) => item.status === "NO_SHOW").length,
