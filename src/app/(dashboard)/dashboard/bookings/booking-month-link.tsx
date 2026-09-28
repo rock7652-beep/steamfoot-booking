@@ -24,7 +24,7 @@ export function BookingMonthLink({ href, year, month, direction, className }: {
   href: string; year: number; month: number; direction: "previous" | "next"; className?: string;
 }) {
   const pathname = usePathname();
-  return <Link href={resolveDashboardHref(href, pathname)} className={className}
+  return <Link href={resolveDashboardHref(href, pathname)} className={className} prefetch={true} scroll={false}
     aria-label={direction === "previous" ? "上個月" : "下個月"}>
     <MonthFeedback label={`${year} 年 ${month} 月`}>{direction === "previous" ? "‹" : "›"}</MonthFeedback>
   </Link>;
