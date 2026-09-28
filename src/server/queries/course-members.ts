@@ -81,7 +81,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, members: { select: { customerId: true } }, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
+      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, plan: { select: { points: true, musicTerms: true } }, members: { select: { customerId: true } }, bookings: { select: { id: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -99,13 +99,33 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
     orderBy:{session:{startsAt:"desc"}},
   });
-  return bookings.map(({ card, checkedInAt, ...b }) => ({
+  return bookings.map(({ card, checkedInAt, ...b }) => {
+    const allLessons = (card?.bookings ?? [])
+      .filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED"))
+      .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime());
+    const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
+    const purchasedLessons = card?.plan.points ?? 0;
+    const termSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
+      ? purchasedLessons / card.plan.musicTerms
+      : purchasedLessons;
+    const termNumber = termSize > 0 && lessonPosition >= 0 ? Math.floor(lessonPosition / termSize) + 1 : null;
+    const periodLessons = termNumber ? allLessons.slice((termNumber - 1) * termSize, termNumber * termSize) : [];
+    const previousTermLesson = termNumber && termNumber > 1 ? allLessons[(termNumber - 1) * termSize - 1] : null;
+    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && item.absenceKind === "STUDENT_LEAVE" && periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt);
+    const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
+    return ({
     ...b,
     checkedInAt: checkedInAt?.toISOString() ?? null,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
     unit: card?.unit ?? "POINT",
-    termIndex:(card?.termSessionIds?.indexOf(sessionId) ?? -1)>=0 ? card!.termSessionIds.indexOf(sessionId)+1 : null,
-    termCount:card?.termSessionIds?.length??0,
+    termIndex: lessonPosition >= 0 && termSize > 0 ? lessonPosition % termSize + 1 : null,
+    termCount: termSize,
+    termNumber,
+    termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
+    termLeaveCount: periodLessons.filter((item) => item.absenceKind === "GROUP_LEAVE_FORFEITED").length + privateLeaves.length,
+    termNoShowCount: termAbsences.filter((item) => item.status === "NO_SHOW").length,
+    // Private-class leave does not consume a lesson; retain its date in the period's leave history.
+    termPrivateLeaves: privateLeaves.map((item) => item.session.startsAt.toISOString()),
     planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : "體驗（不使用方案）"),
     sharedCard: (card?.members.length ?? 0) > 1,
     bookingSource: b.operatorCustomerId
@@ -113,11 +133,12 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         ? "本人預約"
         : `${b.operatorName ?? "共卡成員"}代約`
       : "店長建立",
-    available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
+    available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
     absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind ?? "") ? "請假" : "曠課"})),
     serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
-  }));
+  });
+  });
 }
