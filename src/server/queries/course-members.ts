@@ -89,28 +89,31 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
-  const groupTermComplete = groupSession && groupTermStart !== null && groupTermLessons
-    ? await coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}}) === groupTermLessons
-    : false;
-  const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
-  const customers = await prisma.customer.findMany({
+  const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases] = await Promise.all([
+    groupSession && groupTermStart !== null && groupTermLessons
+    ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}}) === groupTermLessons
+    : Promise.resolve(0),
+    prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
     select: { id: true, phone: true, serviceNote: true, notes: true },
-  });
-  const leaveCounts = await coursePrisma.courseBooking.groupBy({
+  }),
+  coursePrisma.courseBooking.groupBy({
     by: ["customerId"],
     where: {storeId, customerId:{in:bookings.map(b=>b.customerId)}, OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
     _count: {id:true},
-  });
-  const absenceHistory = await coursePrisma.courseBooking.findMany({
+  }),
+  coursePrisma.courseBooking.findMany({
     where: {storeId,customerId:{in:bookings.map(b=>b.customerId)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
     select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
     orderBy:{session:{startsAt:"desc"}},
-  });
-  const confirmedPurchases = await coursePrisma.coursePurchase.findMany({
+  }),
+  coursePrisma.coursePurchase.findMany({
     where: { storeId, customerId: { in: bookings.map((item) => item.customerId) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
     select: { customerId: true, cardId: true, points: true },
-  });
+  }),
+  ]);
+  const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
+  const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const renewalCards = await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
     select: { id: true, createdAt: true, remaining: true, plan: { select: { templateIds: true } } },
