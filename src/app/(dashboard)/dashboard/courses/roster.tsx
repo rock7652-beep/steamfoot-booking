@@ -733,15 +733,26 @@ export function CourseRoster({
   return (
 
     <section className={musicLayout ? `flex min-h-0 flex-col gap-2 ${oneToOneMusic ? "" : "lg:h-full"}` : "flex h-full min-h-0 flex-col gap-3"}>
-      {musicLayout && <aside className="rounded-xl border border-earth-200 bg-white px-3 py-2" aria-label={`${teacherName}、${courseName}、${roomName}`}>
-            <h3 className="text-xs font-semibold text-earth-600">老師</h3>
-            <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-earth-900">{teacherName} {session?.teacherAttendance === "NO_SHOW" ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-900">老師曠課</span> : session?.teacherAttendance === "LEAVE" ? <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">老師請假</span> : null}</p>
-            <a className="inline-block text-sm text-primary-700 hover:underline" href={teacherPhone ? `tel:${teacherPhone}` : undefined}>{teacherPhone || "未填老師電話"}</a>
-            {canEdit && <div className="flex flex-wrap gap-2">{session?.teacherAttendance!=="NO_SHOW"&&<button className={button} disabled={pending} onClick={()=>{setTeacherDialog("NO_SHOW");setTeacherReason("");}}>老師曠課</button>}{session?.teacherAttendance!=="LEAVE"&&<button className={button} disabled={pending} onClick={()=>{setTeacherDialog("LEAVE");setTeacherReason("");}}>老師請假</button>}{session?.teacherAttendance !== "SCHEDULED" && <button className={button} disabled={pending} onClick={()=>setTeacherDialog("SCHEDULED")}>更正紀錄</button>}</div>}
-            {session?.teacherAttendanceReason && <p className="mt-2 text-sm text-earth-600">原因：{session.teacherAttendanceReason}</p>}
-            {canEdit && session?.teacherAttendance === "NO_SHOW" && <button className={`${button} mt-3 border-primary-500 text-primary-800`} disabled={pending} onClick={()=>{setMakeupDate("");setMakeupDialog(true);}}>安排免費補課</button>}
-            {(session?.teacherNote || canEdit) && <div className="mt-3 rounded-lg bg-earth-50 p-3 text-sm"><div className="flex items-center justify-between"><strong>老師備註</strong>{canEdit && <button type="button" className="text-primary-700 underline" onClick={()=>{setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote ? "編輯" : "新增"}</button>}</div>{session?.teacherNote && <p className="mt-1 whitespace-pre-wrap text-earth-700">{session.teacherNote}</p>}</div>}
-          </aside>}
+      {musicLayout && <aside className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-earth-200 bg-white px-3 py-2" aria-label={`${teacherName}、${courseName}、${roomName}`}>
+        <span className="text-xs font-semibold text-earth-600">老師</span>
+        <strong className="text-sm text-earth-900">{teacherName}</strong>
+        {session?.teacherAttendance === "NO_SHOW" ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-900">老師曠課</span> : session?.teacherAttendance === "LEAVE" ? <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">老師請假</span> : null}
+        <a className="text-sm text-primary-700 hover:underline" href={teacherPhone ? `tel:${teacherPhone}` : undefined}>{teacherPhone || "未填老師電話"}</a>
+        {(session?.teacherNote || canEdit) && <details className="min-w-0 text-sm text-earth-700">
+          <summary className="max-w-[22rem] cursor-pointer truncate text-primary-800">{session?.teacherNote ? `老師備註：${session.teacherNote}` : "新增老師備註"}</summary>
+          <div className="mt-2 rounded-lg bg-earth-50 p-3">
+            {session?.teacherNote && <p className="whitespace-pre-wrap break-words">{session.teacherNote}</p>}
+            {canEdit && <button type="button" className="mt-1 text-primary-700 underline" onClick={() => {setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote ? "編輯備註" : "新增備註"}</button>}
+          </div>
+        </details>}
+        {canEdit && <div className="ml-auto flex flex-wrap items-center gap-2">
+          {session?.teacherAttendance !== "NO_SHOW" && <button className={button} disabled={pending} onClick={() => {setTeacherDialog("NO_SHOW");setTeacherReason("");}}>老師曠課</button>}
+          {session?.teacherAttendance !== "LEAVE" && <button className={button} disabled={pending} onClick={() => {setTeacherDialog("LEAVE");setTeacherReason("");}}>老師請假</button>}
+          {session?.teacherAttendance !== "SCHEDULED" && <button className={button} disabled={pending} onClick={() => setTeacherDialog("SCHEDULED")}>更正紀錄</button>}
+          {session?.teacherAttendance === "NO_SHOW" && <button className={`${button} border-primary-500 text-primary-800`} disabled={pending} onClick={() => {setMakeupDate("");setMakeupDialog(true);}}>安排免費補課</button>}
+        </div>}
+        {session?.teacherAttendanceReason && <p className="w-full text-sm text-earth-600">原因：{session.teacherAttendanceReason}</p>}
+      </aside>}
 
       {musicLayout ? <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
         {groupCohortProgress && <span className="font-semibold text-primary-800">整班第 {groupCohortProgress.index}/{groupCohortProgress.count} 堂</span>}
