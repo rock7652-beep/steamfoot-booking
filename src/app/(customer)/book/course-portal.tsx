@@ -74,7 +74,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
   ]);
   const memberEnabled = identity?.courseMemberEnabled !== false;
   const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
-  const cards = memberEnabled ? await getCourseCards(storeId, customer.id, musicStore ? {where:{unit:"SESSION"}} : undefined) : [];
+  const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
   const sessionInclude = {
     room: { select: { name: true } },
     template: { select: { precautions: true } },
