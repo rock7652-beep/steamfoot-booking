@@ -1,4 +1,5 @@
 "use client";
+import { readBookingDetail as fetchBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
@@ -15,16 +16,13 @@ import {
   bookingStatusMeta,
 } from "@/components/admin/status-badge";
 import {
-  fetchBookingDetail,
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
 import type { BookingNotePatch } from "./booking-note-state";
 import type { BookingDetailCache } from "./booking-detail-cache";
 import {
-  markCompleted,
   markNoShow,
   cancelBooking,
-  revertBookingStatus,
   updateBooking,
 } from "@/server/actions/booking";
 import { BookingNoteEditor } from "./booking-note-editor";
@@ -423,7 +421,7 @@ export function BookingDetailDrawer({
       setAttendanceOpen(true);
       return;
     }
-    wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED", {
+    wrapAction("已完成服務", () => updateBookingStatus(bookingId!, "complete"), "COMPLETED", {
       optimistic: true,
     });
   }
@@ -470,7 +468,7 @@ export function BookingDetailDrawer({
     // intent === "complete"（或 fallback）：直接完成服務，markCompleted 寫 DB。
     wrapAction(
       "已完成服務",
-      () => markCompleted(bookingId, { attendedPeople }),
+      () => updateBookingStatus(bookingId, "complete", { attendedPeople }),
       "COMPLETED",
       {
         expected: { attendedPeople },
@@ -498,7 +496,7 @@ export function BookingDetailDrawer({
       wrapAction(
         "已完成服務並記錄部分未到",
         () =>
-          markCompleted(bookingId!, {
+          updateBookingStatus(bookingId!, "complete", {
             attendedPeople,
             partialNoShowChoice: choice,
           }),
@@ -568,7 +566,7 @@ export function BookingDetailDrawer({
   function handleRevert() {
     if (readOnly) return;
     // Revert returns to PENDING per booking.ts:867 logic.
-    wrapAction("已還原狀態", () => revertBookingStatus(bookingId!), "PENDING");
+    wrapAction("已還原狀態", () => updateBookingStatus(bookingId!, "revert"), "PENDING", { optimistic: true });
   }
 
   // 體驗 499 PR-3：現場收款成功 — 預約狀態不變，重抓 detail 讓

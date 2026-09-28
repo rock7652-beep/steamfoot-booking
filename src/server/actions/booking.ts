@@ -30,7 +30,7 @@ import {
   NO_SHOW_MAKEUP_VALID_DAYS,
   type NoShowChoice,
 } from "@/lib/booking-constants";
-import { revalidateBookings } from "@/lib/revalidation";
+import { revalidateBookingMutation } from "@/lib/booking-route-mutation";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import {
   applySlotOverrides,
@@ -150,7 +150,7 @@ async function voidSessionDeductionTxs(
 
 // 共用 revalidate
 function revalidateAll(customerId?: string) {
-  revalidateBookings(customerId);
+  revalidateBookingMutation(customerId);
 }
 
 async function loadCreateBookingEligibility(params: {
@@ -1796,17 +1796,18 @@ export async function markNoShow(
 export async function revertBookingStatus(
   bookingId: string
 ): Promise<ActionResult<void>> {
+  const timing = new OperationTiming("steamfoot.revert");
   try {
-    const user = await requireWritablePermission("booking.update");
+    const user = await timing.measure("permission", () => requireWritablePermission("booking.update"));
 
-    const booking = await prisma.booking.findUnique({
+    const booking = await timing.measure("booking", () => prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
         customer: true,
         customerPlanWallet: true,
         makeupCreditLinks: { select: { makeupCreditId: true } },
       },
-    });
+    }));
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
     assertStoreAccess(user, booking.storeId);
 
@@ -1828,7 +1829,7 @@ export async function revertBookingStatus(
       select: { id: true, expiryDate: true, createdAt: true, remainingSessions: true },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await timing.measure("transaction", () => prisma.$transaction(async (tx) => {
       // ── COMPLETED → PENDING ──
       if (st === "COMPLETED") {
         // 部分到店若曾發補課券，回退前必須確認尚未被使用，再整組移除。
@@ -2042,13 +2043,13 @@ export async function revertBookingStatus(
           },
         });
       }
-    });
+    }));
 
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
-  }
+  } finally { timing.finish(); }
 }
 
 // ============================================================

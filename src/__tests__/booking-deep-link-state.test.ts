@@ -38,7 +38,7 @@ describe("booking deep-link state", () => {
     );
 
     expect(manager).toContain("createBookingDetailCache(storeId)");
-    expect(cache).toContain("fetchBookingDetail(id, resolvedStoreId)");
+    expect(cache).toContain("readBookingDetail(id, resolvedStoreId)");
     expect(action).toContain('validateStoreAccess(user, resolvedStoreId, "read")');
   });
 
