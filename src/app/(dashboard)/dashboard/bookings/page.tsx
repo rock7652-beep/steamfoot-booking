@@ -6,6 +6,7 @@ import {
   toDateInputValue,
   toLocalDateStr,
 } from "@/lib/date-utils";
+import { OperationTiming } from "@/lib/operation-timing";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -34,28 +35,32 @@ interface PageProps {
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
-  const user = await getCurrentUser();
+  const timing = new OperationTiming("steamfoot.page");
+  try {
+  const user = await timing.measure("session", () => getCurrentUser());
   if (
     !user ||
-    !(await checkPermission(user.role, user.staffId, "booking.read"))
+    !(await timing.measure("permission", () => checkPermission(user.role, user.staffId, "booking.read")))
   ) {
     redirect("/dashboard");
   }
-  const canManageHours = await checkPermission(user.role, user.staffId, "business_hours.manage");
   const operationGuidePreview = isOperationGuidePreview();
   const params = await searchParams;
 
   // getActiveStoreForRead() already gives an authorized route-first store scope.
   // Reapplying the viewed-store cookie here can replace /s/:slug with a stale store.
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const [activeStoreId, storeViewContext, canManageHours, accessibleStoreIds] = await Promise.all([
+    timing.measure("activeStore", () => getActiveStoreForRead(user)),
+    timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user)),
+    timing.measure("hoursPermission", () => checkPermission(user.role, user.staffId, "business_hours.manage")),
+    params.bookingId
+      ? timing.measure("accessibleStores", () => getAccessibleStoreIds(user))
+      : Promise.resolve([]),
+  ]);
   const fallbackStoreId = activeStoreId;
   // Booking ids are globally unique. Resolve legacy and current notification
   // links only within stores this user is authorized to read, then let the
   // matched booking determine both data scope and read-only mode.
-  const accessibleStoreIds = params.bookingId
-    ? await getAccessibleStoreIds(user)
-    : [];
   const deepLinkedBooking = params.bookingId
     ? (await prisma.booking.findFirst({
         where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
@@ -102,7 +107,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   };
   const timer = new ServerTiming("/dashboard/bookings");
   const [monthData, monthSchedule, servicePlans] =
-    await Promise.all([
+    await timing.measure("data", () => Promise.all([
       // 查詢失敗與成功但沒有預約必須分開，避免店長誤判空檔。
       withTiming("getMonthBookingSummary", timer, () =>
         getMonthBookingSummary(year, month, bookingsStoreId).catch((e) => {
@@ -154,7 +159,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
               })
           : Promise.resolve([]),
       ),
-    ]);
+    ]));
   timer.finish();
   return (
     <PageShell>
@@ -201,6 +206,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       )}
     </PageShell>
   );
+  } finally { timing.finish(); }
 }
 
 function normalizeRequestedDate(
