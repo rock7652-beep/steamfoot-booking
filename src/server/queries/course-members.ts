@@ -91,7 +91,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
   const [termSessionCount, customers, leaveCounts, absenceHistory, confirmedPurchases] = await Promise.all([
     groupSession && groupTermStart !== null && groupTermLessons
-    ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}}) === groupTermLessons
+    ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
     : Promise.resolve(0),
     prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
