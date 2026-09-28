@@ -157,7 +157,7 @@ export function CourseMemberWorkspace({
     return true;
   }
 
-  function preparePlan(next: Plan | null) { setPlan(next); }
+  function preparePlan(next: Plan | null) { if(open("plan"))setPlan(next); }
   const [formPending,setFormPending]=useState(false);
   function finishDraftForm(){setDirty(false);setPanel(null);router.refresh();}
 
