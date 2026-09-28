@@ -25,6 +25,8 @@ import {
   saveCourseCustomer,
   updateCourseBookingStatus,
   cancelCourseSession,
+  previewFutureCourseStop,
+  stopFutureCourseLessons,
 } from "@/server/actions/course-members";
 import type { CourseCardView } from "./member-workspace";
 import type { getCourseRoster } from "@/server/queries/course-members";
@@ -138,6 +140,10 @@ export function CourseRoster({
   const [trialMode, setTrialMode] = useState<"existing" | "new">("new");
   const [message, setMessage] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [futureStopTarget, setFutureStopTarget] = useState<{ bookingId?: string; name: string } | null>(null);
+  const [futureStopPreview, setFutureStopPreview] = useState<{ sessionIds: string[]; bookingIds: string[]; customerName?: string } | null>(null);
+  const [futureStopError, setFutureStopError] = useState("");
+  const [futureStopPending, setFutureStopPending] = useState(false);
   const [requestKey, setRequestKey] = useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
   const [noteDraft,setNoteDraft]=useState("");
@@ -263,6 +269,18 @@ export function CourseRoster({
 
       }
     });
+  }
+
+  async function openFutureStop(bookingId?: string, name = "整班") {
+    setFutureStopTarget({ bookingId, name });
+    setFutureStopPreview(null);
+    setFutureStopError("");
+    setFutureStopPending(true);
+    const result = await previewFutureCourseStop({ sessionId, bookingId });
+    if (currentSession.current !== sessionId) return;
+    if (result.success) setFutureStopPreview(result.data);
+    else setFutureStopError(result.error);
+    setFutureStopPending(false);
   }
 
   async function openStudentPurchase(bookingId: string) {
@@ -771,6 +789,7 @@ export function CourseRoster({
           <summary className="cursor-pointer whitespace-nowrap text-earth-700">課程操作</summary>
           <div className="absolute right-0 z-30 mt-1 min-w-40 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
             <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setConfirmCancel(true); }}>取消本堂課</button>
+            <button type="button" className="min-h-10 w-full rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openFutureStop(undefined, "整班"); }}>停課（停止後續排課）</button>
           </div>
         </details>}
       </div> : <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
@@ -911,20 +930,22 @@ export function CourseRoster({
                   
                    {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
-                  {musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || canEdit && booking.status === "RESERVED" && !teacherAbsent) && <details className="relative self-center text-xs text-earth-600">
+                  {musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || canEdit && booking.bookingKind !== "TRIAL" || canEdit && booking.status === "RESERVED" && !teacherAbsent) && <details className="relative self-center text-xs text-earth-600">
                     <summary className="cursor-pointer whitespace-nowrap py-1">其他操作</summary>
                     <div className="absolute right-0 z-30 mt-1 flex min-w-44 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
                       {canPurchase && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-primary-800 hover:bg-primary-50" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openStudentPurchase(booking.id); }}>學員繳費</button>}
                       {canEdit && booking.status === "RESERVED" && !teacherAbsent && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setCancelBooking({ id: booking.id, name: booking.customerName }); }}>取消本堂預約</button>}
+                      {canEdit && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openFutureStop(booking.id, booking.customerName); }}>學員停課（退出後續課）</button>}
                     </div>
                   </details>}
                 </div>}
                 {!musicLayout && canEdit && booking.status === "RESERVED" && !teacherAbsent && <details className="text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
-                {!largeMusicGroup && canEdit && musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || booking.status === "RESERVED" && !teacherAbsent) && <details className="relative text-xs text-earth-600">
+                {!largeMusicGroup && canEdit && musicLayout && (canPurchase && booking.bookingKind !== "TRIAL" || booking.bookingKind !== "TRIAL" || booking.status === "RESERVED" && !teacherAbsent) && <details className="relative text-xs text-earth-600">
                   <summary className="cursor-pointer py-1">其他操作</summary>
                   <div className="absolute left-0 z-30 mt-1 flex min-w-44 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
                     {canPurchase && booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-primary-800 hover:bg-primary-50" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openStudentPurchase(booking.id); }}>學員繳費</button>}
                     {booking.status === "RESERVED" && !teacherAbsent && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setCancelBooking({ id: booking.id, name: booking.customerName }); }}>取消本堂預約</button>}
+                    {booking.bookingKind !== "TRIAL" && <button type="button" className="min-h-10 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50" disabled={pending} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void openFutureStop(booking.id, booking.customerName); }}>學員停課（退出後續課）</button>}
                   </div>
                 </details>}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (largeMusicGroup ? <>
@@ -1477,6 +1498,33 @@ export function CourseRoster({
         />
       )}
 
+      {canEdit && musicLayout && futureStopTarget && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="course-future-stop-title">
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+          <h3 id="course-future-stop-title" className="text-lg font-semibold">{futureStopTarget.bookingId ? `${futureStopTarget.name} 停課？` : "整班停課？"}</h3>
+          {futureStopPending && <p role="status" className="mt-3 text-sm text-earth-600">正在核對後續已排課…</p>}
+          {futureStopError && <p role="alert" className="mt-3 text-sm text-red-700">{futureStopError}</p>}
+          {futureStopPreview && <p className="mt-3 text-sm text-earth-700">
+            {futureStopTarget.bookingId
+              ? `將移除 ${futureStopTarget.name} 在此班後續 ${futureStopPreview.bookingIds.length} 堂的預約；其他學員照常上課。`
+              : `將取消此班後續 ${futureStopPreview.sessionIds.length} 堂課，影響 ${futureStopPreview.bookingIds.length} 筆學員預約。`}
+            已上課與本堂紀錄保留，未使用堂數保留在原方案；退款另行處理。
+          </p>}
+          {futureStopPreview && !(futureStopTarget.bookingId ? futureStopPreview.bookingIds.length : futureStopPreview.sessionIds.length) && <p className="mt-2 text-sm text-earth-600">目前沒有後續已排課可停止。</p>}
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" className={button} disabled={pending} onClick={() => setFutureStopTarget(null)}>返回</button>
+            {futureStopPreview && !!(futureStopTarget.bookingId ? futureStopPreview.bookingIds.length : futureStopPreview.sessionIds.length) && <button type="button" className={`${button} border-red-300 text-red-700`} disabled={pending} onClick={() => {
+              const target = futureStopTarget;
+              const preview = futureStopPreview;
+              setFutureStopTarget(null);
+              run(() => stopFutureCourseLessons({
+                sessionId, bookingId: target.bookingId,
+                expectedSessionIds: preview.sessionIds,
+                expectedBookingIds: preview.bookingIds,
+              }), target.bookingId ? `已停止 ${target.name} 的後續預約` : "已停止整班後續排課");
+            }}>確認停課</button>}
+          </div>
+        </div>
+      </div>}
       {canEdit && musicLayout && confirmCancel && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="course-stop-title">
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
           <h3 id="course-stop-title" className="text-lg font-semibold">取消本堂課？</h3>
