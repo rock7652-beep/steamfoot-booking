@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
 import type { SlotAvailability } from "@/types";
 
@@ -17,8 +17,11 @@ interface RescheduleModalProps {
   loading?: boolean;
 }
 
-export function RescheduleModal({
-  open,
+export function RescheduleModal(props: RescheduleModalProps) {
+  return props.open ? <OpenRescheduleModal key={`${props.currentDate}:${props.currentSlotTime}`} {...props} /> : null;
+}
+
+function OpenRescheduleModal({
   onClose,
   currentDate,
   currentSlotTime,
@@ -28,50 +31,49 @@ export function RescheduleModal({
 }: RescheduleModalProps) {
   const [date, setDate] = useState(currentDate);
   const [slotTime, setSlotTime] = useState(currentSlotTime);
-  const [slots, setSlots] = useState<SlotAvailability[]>([]);
-  const [slotsLoading, startSlotsLoad] = useTransition();
-  const [slotsError, setSlotsError] = useState<string | null>(null);
-
-  // 重置本地狀態當開啟
-  useEffect(() => {
-    if (!open) return;
-    setDate(currentDate);
-    setSlotTime(currentSlotTime);
-    setSlotsError(null);
-  }, [open, currentDate, currentSlotTime]);
+  const [result, setResult] = useState<{
+    date: string; slots: SlotAvailability[]; error: string | null;
+  } | null>(null);
+  const slotsLoading = result?.date !== date;
+  const slots = slotsLoading ? [] : result?.slots ?? [];
+  const slotsError = slotsLoading ? null : result?.error;
 
   // ESC 關閉
   useEffect(() => {
-    if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !loading) onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose, loading]);
+  }, [onClose, loading]);
 
   // 改日期 → 重抓該日 slots
   useEffect(() => {
-    if (!open || !date) return;
-    setSlotsError(null);
-    startSlotsLoad(async () => {
+    if (!date) return;
+    let canceled = false;
+    void (async () => {
       try {
         const result = await fetchDaySlots(date);
-        setSlots(result.slots);
+        if (!canceled) setResult({ date, slots: result.slots, error: null });
       } catch (e) {
-        setSlotsError(e instanceof Error ? e.message : "讀取時段失敗");
-        setSlots([]);
+        if (!canceled) {
+          setResult({ date, slots: [], error: e instanceof Error ? e.message : "讀取時段失敗" });
+        }
       }
-    });
-  }, [open, date]);
-
-  if (!open) return null;
+    })();
+    return () => { canceled = true; };
+  }, [date]);
 
   const sameDateAsCurrent = date === currentDate;
+  const selectedSlot = slots.find((slot) => slot.startTime === slotTime);
   const canSubmit =
     !!date &&
     !!slotTime &&
     !loading &&
+    !slotsLoading &&
+    !slotsError &&
+    !!selectedSlot && selectedSlot.isEnabled && !selectedSlot.isPast &&
+    selectedSlot.available + (sameDateAsCurrent && slotTime === currentSlotTime ? people : 0) >= people &&
     (!sameDateAsCurrent || slotTime !== currentSlotTime);
 
   return (
@@ -98,9 +100,10 @@ export function RescheduleModal({
               日期
             </label>
             <input
+              aria-label="改期日期"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => { setDate(e.target.value); setSlotTime(""); setResult(null); }}
               disabled={loading}
               className="h-9 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
             />
@@ -112,7 +115,7 @@ export function RescheduleModal({
                 時段
               </label>
               {slotsLoading && (
-                <span className="text-[11px] text-earth-400">載入中…</span>
+                <span role="status" className="text-[11px] text-earth-400">載入中…</span>
               )}
             </div>
             {slotsError ? (
@@ -125,12 +128,12 @@ export function RescheduleModal({
               </p>
             ) : (
               <SlotPicker
-                slots={slots}
+                slots={slotsLoading ? [] : slots}
                 value={slotTime}
                 people={people}
                 currentSlotTime={sameDateAsCurrent ? currentSlotTime : null}
                 onChange={setSlotTime}
-                disabled={loading}
+                disabled={loading || slotsLoading}
               />
             )}
           </div>
