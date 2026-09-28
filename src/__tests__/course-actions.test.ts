@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   room: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  move: vi.fn(),
+  cancelForMove: vi.fn(),
   catalogUpdate: vi.fn(),
   revalidate: vi.fn(),
 }));
@@ -44,7 +46,9 @@ vi.mock("@/lib/course-db", () => ({
           findFirst: mocks.conflict,
           createMany: mocks.create,
           update: mocks.update,
+          updateMany: mocks.cancelForMove,
         },
+        courseSessionMove: { create: mocks.move },
         courseBooking: { findMany: mocks.bookings },
         courseTemplate: {
           findFirst: mocks.template,
@@ -59,6 +63,7 @@ import {
   updateCourseSession,
   setCourseCatalogStatus,
   updateCourseRoom,
+  moveCourseSessions,
 } from "@/server/actions/course";
 import { AppError } from "@/lib/errors";
 const input = {
@@ -84,6 +89,38 @@ beforeEach(() => {
   mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2,isActive:true,visibility:"PUBLIC" });
   mocks.room.mockResolvedValue({ id: "room-a",capacity:null });
   mocks.create.mockResolvedValue({ count: 3 });
+});
+describe("restoring a moved lesson", () => {
+  const restore = {id:"moved",scope:"SINGLE",date:"2026-10-01",time:"10:00",roomId:"room-a",coachId:"coach-a",restore:true};
+  const session = {
+    id:"moved",storeId:"store-a",templateId:"yoga",roomId:"room-a",coachId:"coach-a",capacity:1,
+    startsAt:new Date("2026-10-02T02:00:00Z"),endsAt:new Date("2026-10-02T03:00:00Z"),
+    rescheduledFromStartsAt:new Date("2026-10-01T02:00:00Z"),rescheduledFromEndsAt:new Date("2026-10-01T03:00:00Z"),
+    rescheduledFromRoomId:"room-a",rescheduledFromCoachId:"coach-a",bookings:[],
+  };
+  it("restores an unstarted lesson without rewriting compensation fields", async () => {
+    mocks.conflict.mockResolvedValueOnce(session);
+    expect(await moveCourseSessions(restore)).toMatchObject({success:true,data:{count:1}});
+    const data=mocks.update.mock.calls[0][0].data;
+    expect(data.startsAt).toEqual(session.rescheduledFromStartsAt);
+    expect(data.rescheduledFromStartsAt).toBeNull();
+    expect(data).not.toHaveProperty("compensationSnapshot");
+    expect(mocks.move).toHaveBeenCalledTimes(1);
+  });
+  it.each(["snapshot","identity"])("explains the database's started-course %s refusal without retrying", async (kind) => {
+    mocks.conflict.mockResolvedValueOnce(session);
+    mocks.update.mockRejectedValueOnce(new Error(`ConnectorError: Cannot change compensation ${kind} of a started course`));
+    expect(await moveCourseSessions(restore)).toMatchObject({success:false,error:"課程已開始，為保留鐘點費紀錄，無法變更上課時間或老師（包含恢復原時段）。"});
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    expect(mocks.revalidate).not.toHaveBeenCalled();
+  });
+  it("rejects an attended lesson before any move writes", async () => {
+    mocks.conflict.mockResolvedValueOnce({...session,bookings:[{status:"ATTENDED",card:null}]});
+    expect(await moveCourseSessions(restore)).toMatchObject({success:false,error:"已完成的課程不可調整"});
+    expect(mocks.cancelForMove).not.toHaveBeenCalled();
+    expect(mocks.move).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
 });
 describe("room capacity changes", () => {
   const room = {id:"room-a",name:"教室",capacity:5};
