@@ -433,6 +433,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       user.staffId,
       "booking.create",
     );
+    const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
     const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const [roster, cards] = await Promise.all([
@@ -443,6 +444,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       success: true as const,
       data: {
         roster,
+        canPurchase,
         trial: {
           settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
