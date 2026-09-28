@@ -19,7 +19,7 @@ vi.mock("@/lib/perf", () => ({
 vi.mock("@/components/form-success-toast", () => ({ FormSuccessToast: () => null }));
 vi.mock("@/components/desktop", () => ({ PageShell: "main", PageHeader: "header" }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: "a" }));
-vi.mock("@/app/(dashboard)/dashboard/bookings/bookings-manager", () => ({ BookingsManager: "booking-manager" }));
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-month-workspace", () => ({ BookingMonthWorkspace: "booking-month-workspace" }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/booking-load-error", () => ({ BookingLoadError: "booking-load-error" }));
 
 import BookingsPage from "@/app/(dashboard)/dashboard/bookings/page";
@@ -41,7 +41,7 @@ describe("monthly booking load result", () => {
   it("keeps a genuinely empty successful result as a calendar", async () => {
     mocks.query.mockResolvedValue([]);
     const content = await mainContent();
-    expect(content.type).toBe("booking-manager");
+    expect(content.type).toBe("booking-month-workspace");
     expect(content.props).toMatchObject({ monthData: [], storeId: "s" });
   });
 
@@ -49,7 +49,7 @@ describe("monthly booking load result", () => {
     const rows = [{ date: "2026-09-09", count: 2 }];
     mocks.query.mockResolvedValue(rows);
     const content = await mainContent();
-    expect(content.type).toBe("booking-manager");
+    expect(content.type).toBe("booking-month-workspace");
     expect((content.props as { monthData: unknown }).monthData).toBe(rows);
   });
 });

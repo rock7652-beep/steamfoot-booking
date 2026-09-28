@@ -9,7 +9,7 @@ describe("booking deep-link state", () => {
       "utf8",
     );
 
-    expect(source).toContain("await getAccessibleStoreIds(user)");
+    expect(source).toContain('timing.measure("accessibleStores", () => getAccessibleStoreIds(user))');
     expect(source).toContain("storeId: { in: accessibleStoreIds }");
     expect(source).toContain("deepLinkedBooking?.storeId ?? fallbackStoreId");
   });
