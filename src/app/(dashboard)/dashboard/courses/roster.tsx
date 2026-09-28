@@ -868,7 +868,8 @@ export function CourseRoster({
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && <details className="w-full text-xs text-earth-700 lg:col-span-full">
                   <summary className="cursor-pointer py-1 text-primary-800">查看此方案上課日期</summary>
                   <div className="flex flex-wrap gap-1.5 pb-2">
-                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status}</span>)}
+                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
+                     {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
                   </div>
                 </details>}
