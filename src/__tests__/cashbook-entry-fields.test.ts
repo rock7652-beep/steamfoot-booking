@@ -21,7 +21,8 @@ describe("shared cashbook entry form", () => {
     root = createRoot(host);
     act(() => root?.render(createElement(CashbookEntryFields, { storeId: "store-1", today: "2026-09-27", editableDate: true, closedDates: [], instantSearch: false })));
     const retail = host.querySelector('input[name="entryKind"][value="RETAIL"]') as HTMLInputElement;
-    act(() => retail.click());
+    expect(retail.checked).toBe(true);
+    expect(host.querySelector('input[name="customerId"]')).not.toBeNull();
     const item = host.querySelector('input[placeholder="例如：精油"]') as HTMLInputElement;
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(item, "精油");
