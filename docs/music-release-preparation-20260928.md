@@ -26,7 +26,7 @@
 
 ## 正式發布順序（待授權，未執行）
 1. 確認核准的 PR head、正式站目前部署與 main SHA，記錄回退部署；確認最新備份／還原能力及待套用 migration 清單。
-2. 釐清 Cloudflare 失敗詳細原因與其是否為本案必需發布目標；不要取消必要 gate 以取得綠燈。
+2. 使用者於 2026-09-28 明確指示往後跳過 Cloudflare；保留原始檢查結果，不列為本次上線阻擋。
 3. 正式資料庫先依序套用：
    - 20260928094955_course_checkout_transfer_compat.sql
    - 20260928101128_course_student_makeup_link.sql
@@ -49,3 +49,16 @@
 - 保留兩份相容性 migration，尤其 nullable 補課欄位、關聯與索引；不刪補課、付款或出席資料。
 - 回退舊程式可能不理解補課關聯，補課寫入須暫停直到修復，避免舊程式繞過來源保護。
 - 若涉及誤扣堂或誤收款，依原紀錄逐筆對帳更正，不用資料庫整體回復覆蓋其他正常營運資料。
+
+## 20:15 補驗及合併核對
+- 使用者已指示往後跳過 Cloudflare；未修改任何 GitHub 必要檢查設定。
+- dc84db9e 的 Full Vitest baseline、Typecheck、Changed-file ESLint、Targeted tests、music-makeup-postgres 再次全部成功；一般 postgres-integration skipped 不列為通過。
+- 最新 main 為 abf071eb877ab4117a12e016ddc90049dcc634ea，GitHub 回報 PR mergeable=true；42 個變更檔案均屬音樂補課／顧客呈現、結帳相容、驗收或修復既有測試。共用顧客元件使用預設 false 的音樂開關，未夾帶零售、蒸足轉單次等支線。
+- 瀏覽器取消 cmul63jha0001la04viv9wwo1 成功，名額釋放，選學員重新顯示待補課1堂、原9/28請假及原方案可用1堂。
+- 過去時段重新預約遭截止時間規則拒絕，未放寬規則；改用新增單次課 UI 建立9/29 11:00、吳興儒、驗收0928專用教室並成功重排。
+- 新補課 cmul7ggog0006i8048znle8pc 為 RESERVED，來源 qa0928-private-book-3；舊补課 CANCELLED，來源保留；原請假仍 STUDENT_LEAVE，本期 remaining=1。
+- 整頁重載再展開，確認9/7、9/14、9/21已出席，第4堂9/29待上課；9/28請假不扣堂，9/28請假→9/29已安排補課；本期3200、下期6400／8堂均保留。
+- 為補驗暫時再調1000；完成後SQL確認 override 已恢復 NULL。正式站未變更。
+
+### 額外發現，尚未修復
+測試空課9/28 11:00已開始後，按「恢復原時段」遭既有資料庫鐘點費快照保護拒絕，畫面呈現泛用「系統錯誤」。Vercel runtime log：Cannot change compensation snapshot of a started course。取消與重新安排補課流程已通過，但這個恢復時段邊界不能宣稱通過；發布前應明確處理提示或修正允許的恢復行為，不能關閉鐘點費保護。
