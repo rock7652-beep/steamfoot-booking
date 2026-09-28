@@ -50,6 +50,14 @@ function allowEarlyPilotAttendance(): boolean {
       (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === "postgres.ttworfzgwejdeolegkxl");
   } catch { return false; }
 }
+// Music managers may mark today's lesson as attended before its scheduled start.
+// Keep future dates protected so an accidental tap cannot consume a later lesson.
+async function allowEarlyMusicAttendance(tx: Prisma.TransactionClient, storeId: string, startsAt: Date): Promise<boolean> {
+  if (allowEarlyPilotAttendance()) return true;
+  if (toLocalDateStr(startsAt) !== toLocalDateStr()) return false;
+  const rows = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+  return rows.length > 0;
+}
 const fail = (message: string): never => {
   throw new AppError("VALIDATION", message);
 };
@@ -293,7 +301,7 @@ export async function settleCourseBooking(
   if (target === "STUDENT_LEAVE" && actor.customerId) return fail("請假登記僅限有權限的人員");
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
+    if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !(await allowEarlyMusicAttendance(tx, actor.storeId, booking.session.startsAt)))
       return fail("課程尚未開始，不能標記未到");
     if (target === "CHECKED_IN") {
       if (booking.checkedInAt) return booking;
@@ -314,7 +322,7 @@ export async function settleCourseBooking(
     target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave;
   if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (target !== "STUDENT_LEAVE" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
+    if (target !== "STUDENT_LEAVE" && booking.session.startsAt > new Date() && !(await allowEarlyMusicAttendance(tx, actor.storeId, booking.session.startsAt)))
       return fail("課程尚未開始，不能標記出席");
     if (booking.cardId) {
     const expiry=booking.card?.musicValidityDays && !booking.card.musicActivatedAt ? musicCourseExpiry(booking.session.startsAt,booking.card.musicValidityDays) : null;
@@ -419,7 +427,7 @@ export async function correctCourseAttendance(
     if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");
     if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
-  if (!restoringLeave && b.session.startsAt > new Date() && !allowEarlyPilotAttendance()) return fail("課程尚未開始，不能點名");
+  if (!restoringLeave && b.session.startsAt > new Date() && !(await allowEarlyMusicAttendance(tx, actor.storeId, b.session.startsAt))) return fail("課程尚未開始，不能點名");
   if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED";

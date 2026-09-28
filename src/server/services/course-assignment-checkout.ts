@@ -12,8 +12,9 @@ export async function lockCourseCashDay(tx:Prisma.TransactionClient,storeId:stri
   await tx.$executeRaw`UPDATE "CashDrawerSession" SET "updatedAt"=GREATEST(clock_timestamp(),"updatedAt"+interval '1 millisecond') WHERE id=${rows[0].id} AND "storeId"=${storeId}`;
 }
 /** Caller checks wallet.create, transaction.create and discount permission, and holds the store lock. */
-export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor:{storeId:string;userId:string},data:CourseCheckoutInput & {planId:string;customerId:string;expiresDate:string;requestKey:string}) {
+export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor:{storeId:string;userId:string;music?:boolean},data:CourseCheckoutInput & {planId:string;customerId:string;expiresDate:string;requestKey:string}) {
   const {storeId,userId}=actor;
+  const revenueStaffId = actor.music ? null : data.revenueStaffId || null;
   const total=calculateCourseCheckout(data.expectedListPrice,data.discountKind,data.discountValue);
   const method=total.paid===0?"DISCOUNT":data.paymentMethod;
   const lastFour=method==="BANK_TRANSFER"?data.transferLastFour:null;
@@ -21,7 +22,7 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const previous=await tx.coursePurchase.findUnique({where:{storeId_requestKey:{storeId,requestKey:data.requestKey}}});
   if(previous){
     const card=previous.cardId?await tx.coursePointCard.findFirst({where:{id:previous.cardId,storeId}}):null;
-    if(previous.revenueStaffId!==(data.revenueStaffId||null)||previous.customerId!==data.customerId||previous.planId!==data.planId||previous.listPrice!==data.expectedListPrice||previous.discountKind!==data.discountKind||Number(previous.discountValue)!==data.discountValue||previous.price!==total.paid||previous.paymentMethod!==method||previous.transferLastFour!==lastFour||(!card?.musicValidityDays && card?.expiresAt.getTime()!==dayRange(data.expiresDate).end.getTime())) throw new AppError("CONFLICT","結帳請求已使用，請重新核對");
+    if(previous.revenueStaffId!==revenueStaffId||previous.customerId!==data.customerId||previous.planId!==data.planId||previous.listPrice!==data.expectedListPrice||previous.discountKind!==data.discountKind||Number(previous.discountValue)!==data.discountValue||previous.price!==total.paid||previous.paymentMethod!==method||previous.transferLastFour!==lastFour||(!card?.musicValidityDays && card?.expiresAt.getTime()!==dayRange(data.expiresDate).end.getTime())) throw new AppError("CONFLICT","結帳請求已使用，請重新核對");
     return previous;
   }
   // A key already used by the old grant-only flow must never become a new paid checkout.
@@ -32,8 +33,11 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   if(!plan||!customers.length||expiresAt<new Date()) throw new AppError("VALIDATION","請選擇本店方案、顧客及有效期限");
   if(plan.price!==data.expectedListPrice) throw new AppError("CONFLICT","方案售價已變更，請重新開啟核對");
   if(plan.storeCost!==data.expectedStoreCost) throw new AppError("CONFLICT","店家成本已變更，請重新開啟核對");
+  if(actor.music && (plan.unit!=="SESSION" || !plan.musicTerms)) throw new AppError("VALIDATION","音樂教室只能購買堂數方案");
   const termSessionIds=await validateCourseTerm(tx,storeId,{...plan,termSessionIds:plan.termSessionIds??[]});
-  const allocation=await courseSaleSnapshot(tx,storeId,total.paid,plan.storeCost,data.revenueStaffId||null);
+  const allocation=actor.music
+    ? {storeCostSnapshot:total.paid,developerProfitSnapshot:0,developerNameSnapshot:null,revenueStaffId:null}
+    : await courseSaleSnapshot(tx,storeId,total.paid,plan.storeCost,revenueStaffId);
   const day=new Date(toLocalDateStr()+"T00:00:00Z");
   if(method==="CASH") await lockCourseCashDay(tx,storeId,day);
   const card=await tx.coursePointCard.create({data:{termSessionIds,storeId,planId:plan.id,nameSnapshot:plan.name,unit:plan.unit,templateIds:plan.templateIds,remaining:plan.points,expiresAt,musicValidityDays:plan.musicTerms ? plan.validDays : null,requestKey:data.requestKey,members:{create:{customerId:data.customerId}},entries:{create:{kind:"GRANT",points:plan.points,actorUserId:userId}}}});

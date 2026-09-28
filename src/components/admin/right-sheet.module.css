@@ -26,6 +26,12 @@
     max-height: calc(100% - 3rem);
     overflow-y: auto;
   }
+
+  .centered[data-fit-content="true"] {
+    height: auto;
+    max-height: calc(100% - 3rem);
+    overflow-y: auto;
+  }
 }
 
 .centered > header { flex-shrink: 0; }
