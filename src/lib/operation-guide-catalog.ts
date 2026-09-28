@@ -276,12 +276,15 @@ export const additionalGuides: OperationGuide[] = [
     "steps": [
       "核對顧客、實際到店人數、方案與到期日。",
       "檢查本次的付款方式、收款金額或扣堂說明。",
-      "確認無誤再完成服務，回查預約狀態及收款／堂數紀錄。"
+      "確認無誤再完成服務；畫面會先顯示完成，再於背景核對實際結果，最後回查收款／堂數紀錄。"
     ],
-    "important": "完成服務可能影響收款與堂數，送出失敗時先核對紀錄，不要重複建立交易。",
-    "success": "",
-    "keywords": "完成 結帳 報到",
-    "details": [],
+    "important": "完成服務可能影響收款與堂數；顯示正在確認或暫時無法確認時先查看最新狀態，不要重複送出。",
+    "success": "預約、實際到店、收款與扣堂紀錄一致；需要發送的堂數提醒另於背景處理。",
+    "keywords": "完成 結帳 報到 即時更新 背景同步 正在確認 堂數提醒",
+    "details": [
+      "單人方案或已收款預約可在其他明細背景同步中完成服務；多人、未收款或需調整實到人數時，仍須等畫面提供對應確認步驟。",
+      "完成服務的交易先提交，低堂數／最後一堂等 LINE 提醒在背景派送；完成成功不等於訊息已送達，通知失敗也不會回滾已完成服務。"
+    ],
     "modules": [
       "steamfoot"
     ],
@@ -290,7 +293,10 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
+      "src/hooks/use-responsive-action.ts",
+      "src/server/actions/booking.ts",
+      "src/server/services/session-balance-notifications.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -359,14 +365,17 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "先確認上一次是否已成功，再決定要不要重送，避免產生兩筆預約或收款。",
     "path": "預約管理 → 更新狀態",
     "steps": [
-      "先看是否仍在儲存或顯示錯誤，保留未儲存內容。",
-      "完成後使用清單的手動更新，重新核對該筆預約。",
+      "先看是否顯示正在儲存、正在確認最新狀態或暫時無法確認；保留未儲存內容。",
+      "點查看最新狀態或使用清單手動更新，重新核對該筆預約。",
       "若仍不一致，記下日期、顧客及操作時間再聯繫支援。"
     ],
-    "important": "畫面未更新不代表送出失敗；先查紀錄，避免重複預約或收款。",
-    "success": "",
-    "keywords": "刷新 重新整理 卡住 更新",
-    "details": [],
+    "important": "畫面會先呈現預期狀態，再由伺服器確認；被拒絕會恢復原狀，結果不明時會鎖住該操作。先查紀錄，避免重複預約或收款。",
+    "success": "看到已確認最新狀態，或重新讀取後能判斷上次操作是否成功。",
+    "keywords": "刷新 重新整理 卡住 更新 正在確認最新狀態 暫時無法確認 查看最新狀態 連線中斷 回復原狀",
+    "details": [
+      "明確失敗會恢復原畫面；網路中斷等未知結果會先自動查核，不能把暫時顯示的完成狀態直接當成最終成功。",
+      "同一筆操作查核完成前會被阻擋；不要另開視窗重做。交易、預約與通知各自有紀錄，應回原紀錄確認。"
+    ],
     "modules": [
       "steamfoot"
     ],
@@ -375,7 +384,9 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
+      "src/app/(dashboard)/dashboard/bookings/booking-action-feedback.tsx",
+      "src/hooks/use-responsive-action.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -977,19 +988,20 @@ export const additionalGuides: OperationGuide[] = [
     "id": "E08",
     "category": "money",
     "title": "要登記收入或支出，從哪裡操作？",
-    "summary": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，支出則填分類。",
+    "summary": "三個模組共用同一組記帳欄位；收入分零售／其他，並可依月份、類型或關鍵字回查。",
     "path": "營運 → 現金抽屜 → 記一筆收支",
     "steps": [
       "開啟現金抽屜，點「記一筆收支」；需要補登其他日期時，先選正確日期。",
       "選零售收入、其他收入或支出並填金額；收入可搜尋並選擇關聯顧客，再填商品或收入項目。",
-      "選實際付款方式、填必要備註後儲存，再於明細及顧客消費紀錄核對。"
+      "選實際付款方式、填必要備註後儲存；回明細可用月份、收支類型及顧客／電話／項目／備註搜尋核對。"
     ],
     "important": "非現金收支與抽屜現金不同，付款方式要如實填寫；只輸入顧客姓名但未選候選，不會建立關聯。",
     "success": "收支明細出現正確紀錄。",
-    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 零售分類 補登日期",
+    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 零售分類 其他收入 補登日期 搜尋記帳 全部收入 提領 調整 顧客電話 備註",
     "details": [
       "記帳時選零售收入會納入零售分析；選其他收入會納入其他收入分析。顧客姓名不影響分類。",
-      "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。"
+      "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。",
+      "搜尋框最多取前 60 字並短暫等待輸入完成；切換月份會清除自訂起訖日期，其他篩選可組合使用。"
     ],
     "modules": [
       "steamfoot",
@@ -1001,11 +1013,12 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx",
-      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx"
+      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx",
+      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，支出則填分類。"
+    "answer": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，並可依月份、收支類型及關鍵字回查。"
   },
   {
     "id": "E09",
