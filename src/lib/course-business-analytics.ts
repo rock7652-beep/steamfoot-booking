@@ -16,9 +16,10 @@ export type BusinessScope = { view: "store" | "manager" | "coach"; person: strin
 export type BusinessPerson = { id: string; name: string; managerId: string | null };
 export type BusinessPurchase = { id: string; name?: string; customerId: string; confirmedAt: Date; price: number; revenueStaffId: string | null; developerProfitSnapshot: number | null; refunds: { amount: number; createdAt: Date }[] };
 export type BusinessSession = { id: string; nameSnapshot?: string; coachId: string; startsAt: Date; endsAt: Date; bookings: { customerId: string; customerName: string; bookingKind: string; status: string; absenceKind?:string|null }[] };
-export function resolveBusinessScope(params: { perspective?: string; person?: string }, all: boolean, staffId?: string | null): BusinessScope {
+export function resolveBusinessScope(params: { perspective?: string; person?: string }, all: boolean, staffId?: string | null, music = false): BusinessScope {
   if (params.perspective && !["store", "manager", "coach"].includes(params.perspective)) throw new Error("分析對象不正確");
-  const view = (params.perspective ?? (all ? "store" : "manager")) as BusinessScope["view"];
+  if (music && params.perspective === "manager") throw new Error("音樂教室不使用直屬店長分析");
+  const view = (params.perspective ?? (all ? "store" : music ? "coach" : "manager")) as BusinessScope["view"];
   if (!all && (!staffId || view === "store" || (params.person && params.person !== staffId))) throw new Error("無權查看此分析對象");
   return { view, person: view === "store" ? "all" : params.person || (all ? "all" : staffId!) };
 }

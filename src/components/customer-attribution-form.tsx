@@ -11,6 +11,7 @@ export function CustomerAttributionForm({
   staffOptions,
   canAssign,
   readOnly = false,
+  hideStaff = false,
   onSaved,
   saveAction = updateCustomerAssignment,
   searchAction = searchReferrerCandidates,
@@ -21,6 +22,7 @@ export function CustomerAttributionForm({
   staffOptions: StaffOption[];
   canAssign: boolean;
   readOnly?: boolean;
+  hideStaff?: boolean;
   onSaved?: () => void;
   saveAction?: typeof updateCustomerAssignment;
   searchAction?: typeof searchReferrerCandidates;
@@ -77,7 +79,7 @@ export function CustomerAttributionForm({
 
   async function handleSave() {
     if (saving || readOnly || !canAssign) return;
-    if (!staffId) {
+    if (!hideStaff && !staffId) {
       toast.error("請選擇歸屬店長");
       return;
     }
@@ -104,12 +106,12 @@ export function CustomerAttributionForm({
   if (!canAssign || readOnly) {
     return (
       <div className="space-y-1 text-xs text-earth-600">
-        <div>
+        {!hideStaff && <div>
           <span className="text-earth-500">歸屬店長：</span>
           <span className="font-medium text-earth-800">
             {staffOptions.find((s) => s.id === currentStaffId)?.displayName ?? "未指派"}
           </span>
-        </div>
+        </div>}
         <div>
           <span className="text-earth-500">推薦人：</span>
           <span className="text-earth-800">{currentSponsor?.name ?? "—"}</span>
@@ -123,7 +125,7 @@ export function CustomerAttributionForm({
 
   return (
     <div className="space-y-3">
-      <div>
+      {!hideStaff && <div>
         <label className="block text-xs font-medium text-earth-600">
           歸屬店長 <span className="text-red-500">*</span>
         </label>
@@ -141,7 +143,7 @@ export function CustomerAttributionForm({
             </option>
           ))}
         </select>
-      </div>
+      </div>}
 
       <div>
         <label className="block text-xs font-medium text-earth-600">

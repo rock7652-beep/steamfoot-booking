@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), staff: vi.fn(), update: vi.fn(), search: vi.fn(), bulk: vi.fn(), list: vi.fn(), audit: vi.fn(), lock: vi.fn() }));
+const m = vi.hoisted(() => ({ music: vi.fn(), manager: vi.fn(), customer: vi.fn(), staff: vi.fn(), update: vi.fn(), search: vi.fn(), bulk: vi.fn(), list: vi.fn(), audit: vi.fn(), lock: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requireWritablePermission: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: m.manager }));
 vi.mock("@/lib/db", () => ({ prisma: {
   $transaction: async (fn: (tx: unknown) => unknown) => fn({ customer: { findFirst: m.customer, update: m.update, findMany: m.list, updateMany: m.bulk }, staff: { findFirst: m.staff }, auditLog: { create: m.audit }, $queryRaw: m.lock }),
   customer: { findMany: m.search },
+  storeFeatureEntitlement: {findFirst:m.music},
 } }));
 import { saveCourseCustomerAttribution, searchCourseReferrerCandidates, bulkAssignCourseCustomers } from "@/server/actions/course-customer-attribution";
 import { AppError } from "@/lib/errors";
 const input = { customerId: "customer", assignedStaffId: "manager", referredByCustomerId: "sponsor" };
 beforeEach(() => {
   vi.clearAllMocks();
+  m.music.mockResolvedValue(null);
   m.manager.mockResolvedValue({ storeId: "store", user: { id: "actor" } });
   m.lock.mockResolvedValue([{ id: "store" }]);
   m.list.mockResolvedValue([{ id: "customer", assignedStaffId: null }]);
@@ -89,4 +91,11 @@ describe("course batch assignment", () => {
     expect(await bulkAssignCourseCustomers(bulk)).toMatchObject({ success: false });
     expect(m.lock).not.toHaveBeenCalled();
   });
+});
+
+it("music updates the referrer without assigning a manager",async()=>{
+ m.music.mockResolvedValue({storeId:"store"});
+ expect(await saveCourseCustomerAttribution({...input,assignedStaffId:"",referredByCustomerId:null})).toMatchObject({success:true});
+ expect(m.staff).not.toHaveBeenCalled();
+ expect(m.update).toHaveBeenCalledWith({where:{id:"customer",storeId:"store"},data:{sponsorId:null}});
 });

@@ -9,6 +9,11 @@ export class ResourceConflict extends AppError {
 }
 export function handleCourseActionError(error: unknown) {
   if (error instanceof ResourceConflict) return { success: false as const, error: error.message, conflicts: error.conflicts };
+  // Keep the database's started-course compensation guard, including races at
+  // the start time, but explain its refusal instead of returning a generic error.
+  if (error instanceof Error && /Cannot change compensation (?:snapshot|identity) of a started course/.test(error.message)) {
+    return { success: false as const, error: "課程已開始，為保留鐘點費紀錄，無法變更上課時間或老師（包含恢復原時段）。", conflicts: [] as CourseConflict[] };
+  }
   return { ...handleActionError(error), conflicts: [] as CourseConflict[] };
 }
 export async function assertNoCourseResourceUse(tx: Pick<Prisma.TransactionClient,"courseSession">, storeId: string,

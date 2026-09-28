@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-const m=vi.hoisted(()=>({auth:vi.fn(),permission:vi.fn(),store:vi.fn(),view:vi.fn(),feature:vi.fn(),exportFeature:vi.fn(),module:vi.fn(),plan:vi.fn(),limit:vi.fn(),analytics:vi.fn(),business:vi.fn()}));
+const m=vi.hoisted(()=>({music:vi.fn(),auth:vi.fn(),permission:vi.fn(),store:vi.fn(),view:vi.fn(),feature:vi.fn(),exportFeature:vi.fn(),module:vi.fn(),plan:vi.fn(),limit:vi.fn(),analytics:vi.fn(),business:vi.fn()}));
 vi.mock("@/lib/auth",()=>({auth:m.auth}));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.music}}}));
 vi.mock("next/headers",()=>({cookies:async()=>({get:()=>({value:"cookie-store"})})}));
 vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/lib/store",()=>({resolveActiveStoreId:m.store}));
@@ -16,7 +17,7 @@ vi.mock("@/server/queries/course-business-analytics",()=>({getCourseBusinessAnal
 import { GET } from "@/app/api/export/course-analysis/route";
 const request=()=>new NextRequest("https://example.test/api/export/course-analysis?startDate=2026-09-17&endDate=2026-09-17&storeId=foreign");
 beforeEach(()=>{
- vi.resetAllMocks();m.auth.mockResolvedValue({user:{role:"OWNER",staffId:"manager"}});m.permission.mockResolvedValue(true);m.store.mockResolvedValue("authorized");m.view.mockResolvedValue(null);m.exportFeature.mockResolvedValue(null);m.feature.mockResolvedValue(true);m.module.mockResolvedValue("course");m.plan.mockResolvedValue({id:"authorized"});m.limit.mockReturnValue({allowed:true});
+ vi.resetAllMocks(); m.music.mockResolvedValue(null);m.auth.mockResolvedValue({user:{role:"OWNER",staffId:"manager"}});m.permission.mockResolvedValue(true);m.store.mockResolvedValue("authorized");m.view.mockResolvedValue(null);m.exportFeature.mockResolvedValue(null);m.feature.mockResolvedValue(true);m.module.mockResolvedValue("course");m.plan.mockResolvedValue({id:"authorized"});m.limit.mockReturnValue({allowed:true});
  m.analytics.mockResolvedValue({current:{sessions:2,participants:1,participations:2,visitors:["b"],completed:2,newVisitors:["b"],returningVisitors:[],pointsUsed:3,sessionsUsed:1,checkedIn:0,noShow:0,coaches:[{id:"coach",sessions:2,completed:2}]},previous:{startDate:"2026-09-16",endDate:"2026-09-16"},returned:[],revenue:null,staff:[{id:"coach",displayName:"=FORMULA"}]});
 });
 describe("course analysis export authorization",()=>{
@@ -74,4 +75,11 @@ describe("business analysis export boundary",()=>{
   expect(m.business).toHaveBeenCalledWith("authorized",{startDate:"2026-09-01",endDate:"2026-09-03"},{view:"manager",person:"all"},{money:true,customers:false,fees:true});
   const csv=await response.text();expect(csv).toContain('"方案利潤已確認金額（待核對未計入）","待核對"');expect(csv).not.toContain('"收款淨額"');
  });
+});
+
+it("music exports reject a manager perspective before reading attributed data",async()=>{
+ m.music.mockResolvedValue({storeId:"authorized"});
+ const response=await GET(new NextRequest("https://example.test/api/export/course-analysis?report=business&perspective=manager"));
+ expect(response.status).toBe(403);expect(m.business).not.toHaveBeenCalled();
+ expect(m.music).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"authorized",featureKey:"business.music",status:"ENABLED"}}));
 });
