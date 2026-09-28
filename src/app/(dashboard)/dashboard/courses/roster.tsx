@@ -114,7 +114,6 @@ export function CourseRoster({
   const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
   const [purchasePlanId, setPurchasePlanId] = useState("");
-  const [purchaseStaffId, setPurchaseStaffId] = useState("");
   const [purchaseKey, setPurchaseKey] = useState("");
   const [purchaseError, setPurchaseError] = useState("");
   const [purchasePending, setPurchasePending] = useState(false);
@@ -274,7 +273,6 @@ export function CourseRoster({
     if (result.success) {
       setPurchaseOptions(result.data);
       setPurchasePlanId(result.data.plans[0]?.id ?? "");
-      setPurchaseStaffId(result.data.staff.some((person) => person.id === result.data.defaultStaffId) ? result.data.defaultStaffId ?? "" : "");
       setPurchaseKey(crypto.randomUUID());
       setPurchaseSummary({paid:null,valid:false});
     } else setPurchaseError(result.error);
@@ -1361,7 +1359,7 @@ export function CourseRoster({
                 expiresDate: "2099-12-31",
                 expectedListPrice: Number(fields.get("expectedListPrice")),
                 expectedStoreCost: Number(fields.get("expectedStoreCost")),
-                revenueStaffId: purchaseStaffId,
+                revenueStaffId: "",
                 discountKind: fields.get("discountKind"),
                 discountValue: Number(fields.get("discountValue")),
                 paymentMethod: fields.get("paymentMethod"),
@@ -1377,11 +1375,11 @@ export function CourseRoster({
               }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
             }}>
               {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
-              {purchaseOptions.profitEnabled && <label className="block text-sm font-medium">直屬店長<select className={field} value={purchaseStaffId} onChange={(event) => setPurchaseStaffId(event.target.value)}><option value="">請選擇</option>{purchaseOptions.staff.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}</select></label>}
-              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <CourseAssignmentPayment key={plan.id} price={plan.price} storeCost={plan.storeCost} profitEnabled={purchaseOptions.profitEnabled} showAllocation={purchaseOptions.profitEnabled} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
+}
+              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <CourseAssignmentPayment key={plan.id} price={plan.price} storeCost={plan.storeCost} profitEnabled={false} showAllocation={false} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
             </form>}
           </div>
-          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid || (purchaseOptions.profitEnabled && !purchaseStaffId)}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}
+          {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}
         </div>
       </div>}
       {payBooking && paymentSettings && !correctPayment && (
