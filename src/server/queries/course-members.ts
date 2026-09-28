@@ -77,7 +77,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       cardId: true,
       pointCost: true,
       bookingKind: true,
-      session: { select: { template: { select: { classType: true } } } },
+      session: { select: { template: { select: { classType: true, musicTermLessons: true } } } },
       trialPrice: true,
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
@@ -107,9 +107,13 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
     const currentPosition = lessonPosition >= 0 ? lessonPosition : b.absenceKind === "STUDENT_LEAVE" ? allLessons.filter((item) => item.session.startsAt < (card?.bookings.find((entry) => entry.id === b.id)?.session.startsAt ?? new Date(0))).length : -1;
     const purchasedLessons = card?.plan.points ?? 0;
+    const privateMusicTermLessons = b.session.template.classType === "PRIVATE" && card?.unit === "SESSION"
+      ? b.session.template.musicTermLessons : null;
     const termSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
       ? purchasedLessons / card.plan.musicTerms
-      : purchasedLessons;
+      : privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0
+        ? privateMusicTermLessons
+        : purchasedLessons;
     const termNumber = termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null;
     const periodLessons = termNumber ? allLessons.slice((termNumber - 1) * termSize, termNumber * termSize) : [];
     const previousTermLesson = termNumber && termNumber > 1 ? allLessons[(termNumber - 1) * termSize - 1] : null;
@@ -122,8 +126,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     unit: card?.unit ?? "POINT",
     // Private music lessons use the learner’s own card and booked sequence.
     // Group lessons need a separate cohort/enrollment start; never infer that from bookings.
-    termIndex: currentPosition >= 0 && termSize > 0 && (card?.termSessionIds.length || (card?.plan.musicTerms && b.session.template.classType === "PRIVATE")) ? currentPosition % termSize + 1 : null,
-    termCount: (card?.termSessionIds.length || (card?.plan.musicTerms && b.session.template.classType === "PRIVATE")) ? termSize : 0,
+    termIndex: currentPosition >= 0 && termSize > 0 && (card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? currentPosition % termSize + 1 : null,
+    termCount: (card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
     termNumber,
     termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
     termLeaveCount: periodLessons.filter((item) => item.absenceKind === "GROUP_LEAVE_FORFEITED").length + privateLeaves.length,
