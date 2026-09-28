@@ -560,14 +560,26 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
 }
 
 export async function loadCourseRosterQuick(sessionId: string) {
+  const startedAt = Date.now();
+  let authMs = 0;
+  let sessionMs = 0;
+  let rosterMs = 0;
   try {
     const { storeId } = await courseManager("booking.read");
+    authMs = Date.now() - startedAt;
     id.parse(sessionId);
     const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true}});
+    sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
-    return {success:true as const, data:{roster:await getCourseRoster(storeId,sessionId),teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
-  } catch(error) {return handleActionError(error);}
+    const roster = await getCourseRoster(storeId,sessionId);
+    rosterMs = Date.now() - startedAt - authMs - sessionMs;
+    console.info("[course-roster-read]", { outcome: "success", count: roster.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
+    return {success:true as const, data:{roster,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
+  } catch(error) {
+    console.info("[course-roster-read]", { outcome: "error", authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
+    return handleActionError(error);
+  }
 }
 
 export async function saveCourseRosterNote(input: unknown) {
@@ -642,25 +654,48 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 }
 
 export async function updateCourseRosterBatch(input: unknown) {
+  const startedAt = Date.now();
+  let authMs = 0;
+  let lockWaitMs = 0;
+  let validationMs = 0;
+  let writeMs = 0;
+  let transactionMs = 0;
+  let target = "UNKNOWN";
+  let count = 0;
   try {
     const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
+    target = data.target;
+    count = data.bookings.length;
     const {user,storeId}=await courseManager("booking.update");
+    authMs = Date.now() - startedAt;
+    const transactionStartedAt = Date.now();
     await courseTransaction(storeId,async tx=>{
+      const transactionWorkAt = Date.now();
+      lockWaitMs = transactionWorkAt - transactionStartedAt;
       const session=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null}});
       if(!session)throw new AppError("NOT_FOUND","找不到可點名的本店課次");
       const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},...(data.target==="RESERVED"?{OR:[{status:{not:"CANCELLED"}},{status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]}:{status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}})}});
       if(count!==data.bookings.length)throw new AppError("CONFLICT","名單或狀態已變更，請重新核對");
+      validationMs = Date.now() - transactionWorkAt;
+      const writeStartedAt = Date.now();
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       for(const booking of data.bookings){
         if(data.target==="CHECKED_IN")await settleCourseBooking(tx,actor,booking.id,"CHECKED_IN");
         else if(data.target==="NO_SHOW"&&booking.status==="RESERVED")await settleCourseBooking(tx,actor,booking.id,"NO_SHOW",data.noShowChoice);
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
+      writeMs = Date.now() - writeStartedAt;
     });
+    transactionMs = Date.now() - transactionStartedAt;
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
-    refresh();return {success:true as const};
-  }catch(error){return handleActionError(error);}
+    refresh();
+    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
+    return {success:true as const};
+  }catch(error){
+    console.info("[course-roster-batch]", { outcome: "error", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
+    return handleActionError(error);
+  }
 }
 
 /** One transaction for the manager's day-wide leave/attendance list. */
