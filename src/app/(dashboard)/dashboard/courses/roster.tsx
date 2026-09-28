@@ -888,7 +888,7 @@ export function CourseRoster({
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
                   {!teacherAbsent && (booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`)}>恢復待點名</button>}
-                  {canPurchase && musicLayout && booking.bookingKind !== "TRIAL" && <button type="button" className="text-xs font-medium text-primary-700 underline" onClick={() => void openStudentPurchase(booking.id)}>學員繳費</button>}
+                  {canPurchase && musicLayout && classType !== "GROUP" && booking.bookingKind !== "TRIAL" && <button type="button" className="text-xs font-medium text-primary-700 underline" onClick={() => void openStudentPurchase(booking.id)}>學員繳費</button>}
                    {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
                 </div>}
