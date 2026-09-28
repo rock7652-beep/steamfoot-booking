@@ -459,14 +459,17 @@ export async function assertNotLastStoreManager(
 // 用於 server actions / queries，無權限時拋 FORBIDDEN
 // ============================================================
 
-export async function requirePermission(permission: PermissionCode) {
+export async function requirePermission(
+  permission: PermissionCode,
+  options: { deferSubscriptionGuard?: boolean } = {},
+) {
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
   const user = await requireStaffSession();
   if (user.role === "ADMIN") return user;
   const allowed = await checkPermission(user.role, user.staffId, permission);
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
-  if (!/\.(read|view|export)$/.test(permission) && user.storeId) {
+  if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission) && user.storeId) {
     const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
     await assertStoreSubscriptionWritable(user.storeId);
   }
