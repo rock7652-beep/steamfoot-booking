@@ -187,9 +187,10 @@ export async function assignCoursePointCard(input: unknown) {
     if (checkout.discountValue > 0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
-      if(plan?.unit==="POINT" && await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))throw new AppError("VALIDATION","音樂教室只使用堂數方案");
+      const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+      if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
-      return assignCourseWithCheckout(tx, {storeId, userId:user.id}, {...data,...checkout});
+      return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
     });
     for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
     refresh();
@@ -211,20 +212,17 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     });
     if (!booking) throw new AppError("NOT_FOUND", "找不到本店學員");
     const { checkPermission } = await import("@/lib/permissions");
-    const { readSettlementSettings } = await import("@/server/services/course-monthly-settlement");
-    const [plans, staff, customer, settings, canDiscount] = await Promise.all([
+    const [plans, customer, canDiscount] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
         where: { storeId, isActive: true, unit: "SESSION", templateIds: { has: booking.session.templateId } },
         select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
-      prisma.staff.findMany({ where: { storeId, status: "ACTIVE", user: { role: "OWNER", status: "ACTIVE" } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }),
       prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { assignedStaffId: true } }),
-      readSettlementSettings(coursePrisma, storeId),
       checkPermission(user.role, user.staffId, "transaction.discount"),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
-    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans, staff, defaultStaffId: customer.assignedStaffId, profitEnabled: settings.profitEnabled, canDiscount } };
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans, canDiscount } };
   } catch (error) {
     return handleActionError(error);
   }
