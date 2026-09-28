@@ -247,3 +247,24 @@ it.each([
   }else{expect(collect).toBeUndefined();expect(correct).toBeUndefined();}
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("preselects pending makeup on the original card and allows removing the link",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const card={id:"original",name:"原四堂",unit:"SESSION",available:1,expiresAt:"2099-01-01T00:00:00.000Z",expired:false,closed:false,members:[{id:"learner",name:"補課學員",phone:"0900"}]};
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2090-01-02T10:00:00.000Z",pointCost:1},roster:[],cards:[card,{...card,id:"renewal",name:"下期八堂",available:8,expiresAt:"2098-01-01T00:00:00.000Z"}],trial:null,pendingMakeups:[{id:"leave",customerId:"learner",cardId:"original",date:"2090-01-01T10:00:00.000Z"}]}});
+ m.create.mockResolvedValue({success:false,error:"test stopped before write"});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+ await act(async()=>root.render(createElement(CourseRoster,{sessionId:"new",capacity:1,canCreate:true,canEdit:true,musicLayout:true,classType:"PRIVATE",view:"member-booking"})));
+ const search=host.querySelector("#course-member-search") as HTMLInputElement;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,"補課");search.dispatchEvent(new Event("input",{bubbles:true}));});
+ await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent?.includes("補課學員"))!.click());
+ const select=host.querySelector('select[aria-label="補課紀錄"]') as HTMLSelectElement;
+ expect(select.value).toBe("leave");expect(host.textContent).toContain("待補課 1 堂");
+ expect([...host.querySelectorAll("select")][1].value).toBe("original");
+ const submit=()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));
+ await act(async()=>{submit();});expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({cardId:"original",makeupForBookingId:"leave"}));
+ await act(async()=>{select.value="";select.dispatchEvent(new Event("change",{bubbles:true}));});
+ await act(async()=>{submit();});expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({makeupForBookingId:null}));
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

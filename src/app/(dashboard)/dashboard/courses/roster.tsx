@@ -121,6 +121,8 @@ export function CourseRoster({
   const [roster, setRoster] = useState<
     Awaited<ReturnType<typeof getCourseRoster>>
   >([]);
+  const [pendingMakeups, setPendingMakeups] = useState<Array<{id:string;customerId:string;cardId:string;date:string}>>([]);
+  const [makeupForBookingId, setMakeupForBookingId] = useState("");
   const [cards, setCards] = useState<CourseCardView[]>([]);
   const [session, setSession] = useState<{
     startsAt: string;
@@ -207,6 +209,7 @@ export function CourseRoster({
             setTrial(result.data.trial);
             setRoster(result.data.roster);
             setCards(result.data.cards);
+            setPendingMakeups(result.data.pendingMakeups ?? []);
             setCanPurchase(result.data.canPurchase);
             setLoaded(true);
             setRequestKey((current) => current || crypto.randomUUID());
@@ -558,6 +561,7 @@ export function CourseRoster({
               customerId,
               requestKey,
               notes: data.get("notes"),
+              makeupForBookingId: makeupForBookingId || null,
             }),
           );
         }}
@@ -595,7 +599,9 @@ export function CourseRoster({
                       className={`flex w-full items-center justify-between px-3 py-3 text-left hover:bg-primary-50 ${customerId === member.id ? "bg-primary-50" : ""}`}
                       onClick={() => {
                         setCustomerId(member.id);
-                        setCardId(memberCards[0]?.id ?? "");
+                        const makeup = pendingMakeups.find(item => item.customerId === member.id && memberCards.some(card=>card.id===item.cardId));
+                        setMakeupForBookingId(makeup?.id ?? "");
+                        setCardId(makeup?.cardId ?? memberCards[0]?.id ?? "");
                         setRequestKey(crypto.randomUUID());
                       }}
                     >
@@ -647,9 +653,21 @@ export function CourseRoster({
             <p className="font-medium">
               {learners.find((member) => member.id === customerId)?.name}
             </p>
+            {musicLayout && pendingMakeups.some(item=>item.customerId===customerId) && <label className="block text-sm font-medium">
+              待補課 {pendingMakeups.filter(item=>item.customerId===customerId).length} 堂
+              <select aria-label="補課紀錄" className={`${field} mt-1`} value={makeupForBookingId} onChange={event=>{
+                const value=event.target.value; setMakeupForBookingId(value);
+                const source=pendingMakeups.find(item=>item.id===value);
+                if(source)setCardId(source.cardId);
+                setRequestKey(crypto.randomUUID());
+              }}>
+                <option value="">不安排補課</option>
+                {pendingMakeups.filter(item=>item.customerId===customerId).map(item=><option key={item.id} value={item.id} disabled={!eligibleCards.some(card=>card.id===item.cardId)}>{toLocalDateStr(new Date(item.date))} 請假{!eligibleCards.some(card=>card.id===item.cardId) ? "（原方案無可用堂數或已到期）" : ""}</option>)}
+              </select>
+            </label>}
             <label className="block text-sm font-medium">
               有效方案
-              {eligibleCards.length > 1 && (
+              {eligibleCards.length > 1 && !makeupForBookingId && (
                 <span className="ml-2 font-normal text-earth-500">
                   已優先帶入最快到期方案
                 </span>
@@ -660,6 +678,7 @@ export function CourseRoster({
                 required
                 onChange={(event) => {
                   setCardId(event.target.value);
+                  setMakeupForBookingId("");
                   setRequestKey(crypto.randomUUID());
                 }}
               >
@@ -1057,6 +1076,7 @@ export function CourseRoster({
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
                      {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
+                    {booking.termMakeups?.map((item,index)=><span key={`makeup-${index}`} className="rounded-md bg-primary-50 px-2 py-1 text-primary-800">{toLocalDateStr(new Date(item.originalDate))} 請假 → {toLocalDateStr(new Date(item.date))} {item.status}</span>)}
                   </div>
                   <TermPaymentHistory booking={booking} />
                   </div>}
@@ -1067,6 +1087,7 @@ export function CourseRoster({
                     {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
                      {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
+                    {booking.termMakeups?.map((item,index)=><span key={`makeup-${index}`} className="rounded-md bg-primary-50 px-2 py-1 text-primary-800">{toLocalDateStr(new Date(item.originalDate))} 請假 → {toLocalDateStr(new Date(item.date))} {item.status}</span>)}
                   </div>
                   <TermPaymentHistory booking={booking} />
                 </details>)}

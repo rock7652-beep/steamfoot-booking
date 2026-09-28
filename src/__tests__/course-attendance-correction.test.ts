@@ -34,7 +34,7 @@ describe("restore music student leave", () => {
   const leave = () => ({ ...booking("CANCELLED"), sessionId: "session", customerId: "student", absenceKind: "STUDENT_LEAVE", session: { startsAt: new Date("2020-01-01"), cancelledAt: null, capacity: 2 }, card: { remaining: 3, closedAt: null, expiresAt: new Date("2099-01-01") } });
 
   it("restores a seat and its reserved lesson without charging a second time", async () => {
-    m.courseBooking.findFirst.mockResolvedValue(leave());
+    m.courseBooking.findFirst.mockImplementation(async ({where}) => where.makeupForBookingId ? null : leave());
     await correctCourseAttendance(tx, actor, "b", "RESERVED", "CANCELLED");
     expect(m.coursePointCard.update).not.toHaveBeenCalled();
     expect(m.coursePointEntry.create.mock.calls[0][0].data.kind).toMatch(/^CORRECT:CANCELLED:RESERVED:/);
@@ -65,7 +65,7 @@ describe("restore music student leave", () => {
   });
 
   it("refuses restoration if someone took the seat or remaining lessons are held", async () => {
-    m.courseBooking.findFirst.mockResolvedValue(leave());
+    m.courseBooking.findFirst.mockImplementation(async ({where}) => where.makeupForBookingId ? null : leave());
     m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 2);
     await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("名額已滿");
     m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 1);
@@ -80,7 +80,7 @@ describe("restore music student leave", () => {
   });
 
   it("refuses to restore if the same learner already has another active booking", async () => {
-    m.courseBooking.findFirst.mockResolvedValue({...leave(),customerId:"student"});
+    m.courseBooking.findFirst.mockImplementation(async ({where}) => where.makeupForBookingId ? null : ({...leave(),customerId:"student"}));
     m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 1 : 1);
     await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("重複恢復");
     expect(m.courseBooking.update).not.toHaveBeenCalled();
@@ -142,4 +142,10 @@ it.each([['NO_SHOW','ATTENDED',0],['RESERVED','NO_SHOW',-3],['NO_SHOW','RESERVED
  await correctCourseAttendance(tx,actor,'b',after,before);
  if(delta)expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:'c'},data:{remaining:{increment:delta}}});
  else expect(m.coursePointCard.update).not.toHaveBeenCalled();
+});
+
+it("does not restore the original leave while its makeup is booked",async()=>{
+ m.courseBooking.findFirst.mockResolvedValueOnce({...booking("CANCELLED"),absenceKind:"STUDENT_LEAVE",sessionId:"s"}).mockResolvedValueOnce({id:"makeup"});
+ await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("先取消補課");
+ expect(m.courseBooking.update).not.toHaveBeenCalled();
 });

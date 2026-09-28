@@ -105,3 +105,12 @@ it("counts group leave and no-show separately while both consume a group lesson"
   expect([result.termIndex, result.termCount, result.termLeaveCount, result.termNoShowCount]).toEqual([4, 8, 1, 1]);
   expect(result.termLessons.map(({ status }) => status)).toEqual(["已出席", "請假", "曠課", "待上課"]);
 });
+
+it("pairs a makeup's actual date with the original leave date",async()=>{
+ const leave=lesson("student",0,"CANCELLED","STUDENT_LEAVE");
+ const makeup={...lesson("student",1),makeupForBookingId:leave.id};
+ db.bookings.mockResolvedValue([row("student",makeup,card("student",[leave,makeup],4),"PRIVATE")]);
+ const [result]=await getCourseRoster("music-store","session-1");
+ expect(result.termMakeups).toEqual([{originalDate:day(1).toISOString(),date:day(8).toISOString(),status:"已補課"}]);
+ expect(result.termIndex).toBe(1);expect(result.termLeaveCount).toBe(1);
+});

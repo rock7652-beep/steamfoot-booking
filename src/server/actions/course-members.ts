@@ -44,6 +44,7 @@ async function refreshUnlessMusicRoster(storeId: string) {
   if (!music) refresh();
 }
 const bookingInput = z.object({
+  makeupForBookingId: id.nullable().optional(),
   sessionId: id,
   notes: z.string().trim().max(1000).default(""),
   cardId: id,
@@ -314,6 +315,7 @@ export async function createCourseBooking(input: unknown) {
 export async function createMemberCourseBooking(input: unknown) {
   try {
     const { user, storeId, customer } = await courseMember({ write: true });
+    if (input && typeof input === "object" && "makeupForBookingId" in input && input.makeupForBookingId) throw new AppError("VALIDATION", "補課請逐位安排");
     const bookings = await reserveCourseMembers(
       {
         userId: user.id,
@@ -539,18 +541,27 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       "booking.create",
     );
     const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
-    const [roster, cards] = await Promise.all([
+    const [roster, cards, pendingMakeups] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
+      canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
+        where:{storeId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
+        select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
+      }).then(async leaves => {
+        const used = await coursePrisma.courseBooking.findMany({where:{storeId,makeupForBookingId:{in:leaves.map(leave=>leave.id)},OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]},select:{makeupForBookingId:true}});
+        const linked = new Set(used.map(item=>item.makeupForBookingId));
+        return leaves.filter(leave=>!linked.has(leave.id)).map(leave=>({id:leave.id,customerId:leave.customerId,cardId:leave.cardId!,date:leave.session.startsAt.toISOString()}));
+      }) : [],
     ]);
     return {
       success: true as const,
       data: {
         roster,
         canPurchase,
+        pendingMakeups,
         trial: {
           settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),

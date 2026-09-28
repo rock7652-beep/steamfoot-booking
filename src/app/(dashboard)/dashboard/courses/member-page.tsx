@@ -50,7 +50,7 @@ export async function CourseMemberPage({
   );
   const params = new URLSearchParams(Object.entries(query).filter((pair): pair is [string,string] => typeof pair[1] === "string"));
   const customerPage = view === "customers" && canReadPeople
-    ? await getCourseCustomerPage(storeId, user.role, user.staffId, params, canReadCards) : undefined;
+    ? await getCourseCustomerPage(storeId, user.role, user.staffId, params, canReadCards, new Date(), music) : undefined;
   const customerIds = customerPage?.rows.map(r => r.id) ?? [];
   if (query.customerId) customerIds.push(query.customerId);
   const [people, plans, canEdit, canAssign, canCreate, canManageStaff] =

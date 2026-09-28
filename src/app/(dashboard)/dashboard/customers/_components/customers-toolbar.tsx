@@ -27,6 +27,7 @@ interface Props {
   /** 語意 basePath（例：`/dashboard/customers`）— 僅供「清除篩選」Link 使用，DashboardLink 會自動 prefix */
   basePath: string;
   courseMode?: boolean;
+  musicMode?: boolean;
   instantStoreId?: string;
 }
 
@@ -59,7 +60,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
 
 const FILTER_KEYS = ["search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false, instantStoreId }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
@@ -122,7 +123,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
     return !!v && v !== "";
   });
   const advancedActiveCount = [current.status, current.visit, current.referral, current.staff, current.sort === "recent" ? "" : current.sort].filter(Boolean).length;
-  const courseLabel = (label: string) => label.replaceAll("來店", "上課").replace("點數多寡", "可用點數");
+  const courseLabel = (label: string) => label.replaceAll("來店", "上課").replace("點數多寡", musicMode ? "可用堂數" : "可用點數");
   const activeFilterLabels = [
     STATUS_OPTIONS.find((option) => option.value === current.status)?.label,
     VISIT_OPTIONS.find((option) => option.value === current.visit)?.label,

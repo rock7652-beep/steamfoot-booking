@@ -11,12 +11,12 @@ import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CourseCardView } from "./member-workspace";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false }: {
+export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, music = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
-  canMerge?: boolean;
+  canMerge?: boolean; music?: boolean;
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
@@ -47,12 +47,12 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar staffOptions={assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode />
+    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode />
     {canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}
     <p className="text-xs text-earth-500">最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable stickyActions rows={pageRows}
-      selectionEnabled={canAssignManager} selectedIds={selectedIds}
+    <CustomersTable hideAssignedStaff={music} stickyActions rows={pageRows}
+      selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
@@ -62,15 +62,15 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
       lastVisitLabel="最近上課"
-      balanceColumn={{ label: "可用額度", render: row => canReadCards
-        ? <span className="text-sm">{points.get(row.id) ?? 0} 點 · {sessions.get(row.id) ?? 0} 堂</span>
+      balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
+        ? <span className="text-sm">{!music && <>{points.get(row.id) ?? 0} 點 · </>}{sessions.get(row.id) ?? 0} 堂</span>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />
     {pageCount > 1 && <nav aria-label="顧客分頁" className="flex items-center justify-end gap-3 text-sm">
       <span>共 {total} 人 · 第 {page}／{pageCount} 頁</span>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</button>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</button>
     </nav>}
-    {canAssignManager && selectedIds.size > 0 && <BulkAssignBar inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
+    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
       onCancel={() => setSelected(new Set())}
       onSubmit={async assignedStaffId => {
         const response = await bulkAssignCourseCustomers({ customerIds: [...selectedIds], assignedStaffId });
