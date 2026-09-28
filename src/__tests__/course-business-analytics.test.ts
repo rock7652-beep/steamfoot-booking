@@ -66,3 +66,12 @@ it("lists only scoped in-period unresolved profit and ended class fees with reas
  expect(r.pendingProfit).toHaveLength(r.missingProfit);
  expect(r.pendingFees.map(s=>s.id)).toEqual(["s2"]);expect(r.pendingFees).toHaveLength(r.missingFees);
 });
+
+it("music analysis omits manager scope without widening staff access",()=>{
+ expect(resolveBusinessScope({},true,"owner",true)).toEqual({view:"store",person:"all"});
+ expect(resolveBusinessScope({},false,"teacher",true)).toEqual({view:"coach",person:"teacher"});
+ expect(()=>resolveBusinessScope({perspective:"manager"},true,"owner",true)).toThrow();
+ expect(()=>resolveBusinessScope({perspective:"store"},false,"teacher",true)).toThrow();
+ expect(()=>resolveBusinessScope({perspective:"coach",person:"other"},false,"teacher",true)).toThrow();
+ expect(resolveBusinessScope({perspective:"manager"},true,"owner",false)).toEqual({view:"manager",person:"all"});
+});

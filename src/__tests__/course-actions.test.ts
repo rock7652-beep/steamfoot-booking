@@ -35,6 +35,7 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
+    courseSession: { findFirst: async()=>({id:"session-created"}) },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
         $queryRaw: mocks.raw,
@@ -77,7 +78,7 @@ beforeEach(() => {
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
-  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay/.test(sql.join("")) ? [] : [{ id: "valid",courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["yoga"] }]);
+  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay|StoreFeatureEntitlement/.test(sql.join("")) ? [] : [{ id: "valid",courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["yoga"] }]);
   mocks.existing.mockResolvedValue([]);
   mocks.conflict.mockResolvedValue(null);
   mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2,isActive:true,visibility:"PUBLIC" });
@@ -175,7 +176,7 @@ describe("course scheduling action", () => {
       storeId: "victim",
       pointCost: 0,
     });
-    expect(result).toEqual({ success: true, data: { count: 3 } });
+    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created" } });
     const rows = mocks.create.mock.calls[0][0].data;
     expect(rows).toHaveLength(3);
     expect(
@@ -214,7 +215,7 @@ describe("course scheduling action", () => {
     );
     expect(await createCourseSchedule(input)).toEqual({
       success: true,
-      data: { count: 3 },
+      data: { count: 3, sessionId: "session-created" },
     });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(
