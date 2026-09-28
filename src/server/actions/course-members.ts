@@ -218,7 +218,7 @@ export async function loadCourseStudentPurchase(bookingId: string) {
         select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
-      prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { assignedStaffId: true } }),
+      prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } }),
       checkPermission(user.role, user.staffId, "transaction.discount"),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
