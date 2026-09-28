@@ -232,7 +232,9 @@ export function BookingsManager({
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
-  const refreshGate = useRef(createBookingRefreshGate());
+  // The workspace already supplies SSR data or revalidates a month switch.
+  // Avoid a second identical request as soon as this manager mounts.
+  const refreshGate = useRef({ ...createBookingRefreshGate(), nextAutomaticAt: monthNavigation ? Date.now() + 60_000 : 0 });
   const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
     selectedIds.size > 0 || slotsLoadingDate !== null;
 
