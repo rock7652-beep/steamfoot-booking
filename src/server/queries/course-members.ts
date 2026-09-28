@@ -104,21 +104,22 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       .filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED"))
       .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime());
     const lessonPosition = allLessons.findIndex((item) => item.id === b.id);
+    const currentPosition = lessonPosition >= 0 ? lessonPosition : b.absenceKind === "STUDENT_LEAVE" ? allLessons.filter((item) => item.session.startsAt < (card?.bookings.find((entry) => entry.id === b.id)?.session.startsAt ?? new Date(0))).length : -1;
     const purchasedLessons = card?.plan.points ?? 0;
     const termSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
       ? purchasedLessons / card.plan.musicTerms
       : purchasedLessons;
-    const termNumber = termSize > 0 && lessonPosition >= 0 ? Math.floor(lessonPosition / termSize) + 1 : null;
+    const termNumber = termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null;
     const periodLessons = termNumber ? allLessons.slice((termNumber - 1) * termSize, termNumber * termSize) : [];
     const previousTermLesson = termNumber && termNumber > 1 ? allLessons[(termNumber - 1) * termSize - 1] : null;
-    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && item.absenceKind === "STUDENT_LEAVE" && periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt);
+    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && ((!card?.plan.musicTerms || card.plan.musicTerms === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
     const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
     return ({
     ...b,
     checkedInAt: checkedInAt?.toISOString() ?? null,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
     unit: card?.unit ?? "POINT",
-    termIndex: lessonPosition >= 0 && termSize > 0 ? lessonPosition % termSize + 1 : null,
+    termIndex: currentPosition >= 0 && termSize > 0 ? currentPosition % termSize + 1 : null,
     termCount: termSize,
     termNumber,
     termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
