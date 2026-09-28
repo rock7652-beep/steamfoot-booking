@@ -34,6 +34,8 @@ const h = vi.hoisted(() => ({
   txRun: vi.fn(),
   buildSnapshot: vi.fn(),
   revalidateTransactions: vi.fn(),
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -71,6 +73,8 @@ vi.mock("@/server/services/referral-points", () => ({
   awardFirstTopupReferralPointsIfEligible: vi.fn(),
 }));
 vi.mock("@/lib/revalidation", () => ({ revalidateTransactions: h.revalidateTransactions }));
+
+vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath, revalidateTag: h.revalidateTag }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -848,4 +852,21 @@ describe("transaction actions — store consistency", () => {
       }),
     );
   });
+});
+
+it("voids a trial payment in HTTP context with audit and cache expiration, without Server Action updateTag", async () => {
+  h.transactionFindUnique.mockResolvedValue({
+    id: "trial-old", storeId: "store-taichung", customerId: CUSTOMER_ID,
+    status: "SUCCESS", paymentStatus: "SUCCESS", paymentMethod: "CASH",
+    transactionType: "TRIAL_PURCHASE", customerPlanWalletId: null, amount: 499,
+  });
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  const { withBookingRouteMutation } = await import("@/lib/booking-route-mutation");
+  const result = await withBookingRouteMutation(() => voidTransaction({ transactionId: "trial-old", reason: "更正" }));
+  expect(result.success).toBe(true);
+  expect(h.txTransactionUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "trial-old", status: "SUCCESS" }) }));
+  expect(h.transactionAuditCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "VOID", reason: "更正" }) }));
+  expect(h.revalidateTransactions).not.toHaveBeenCalled();
+  expect(h.revalidateTag).toHaveBeenCalled();
+  expect(h.revalidatePath).toHaveBeenCalledWith(`/dashboard/customers/${CUSTOMER_ID}`);
 });

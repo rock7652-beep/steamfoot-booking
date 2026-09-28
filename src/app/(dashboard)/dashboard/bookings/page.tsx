@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -19,6 +20,7 @@ import { PageShell, PageHeader } from "@/components/desktop";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { FormSuccessToast } from "@/components/form-success-toast";
 import { BookingMonthWorkspace } from "./booking-month-workspace";
+import { BookingWorkspaceLoading } from "./booking-workspace-loading";
 import { BookingLoadError } from "./booking-load-error";
 import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -35,7 +37,7 @@ interface PageProps {
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
-  const timing = new OperationTiming("steamfoot.page");
+  const timing = new OperationTiming("steamfoot.page.shell");
   try {
   const user = await timing.measure("session", () => getCurrentUser());
   if (
@@ -105,6 +107,69 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     userId: user.id,
     sessionRole: user.role,
   };
+  return (
+    <PageShell>
+      <FormSuccessToast />
+      <PageHeader
+        title="預約管理"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+          {
+          isViewMode ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+              查看模式不可新增預約
+            </span>
+          ) : (
+            <div className="flex items-center gap-2">
+            <CashbookShortcut readOnly={isViewMode} />
+            <Link
+              href="/dashboard/bookings/new"
+              prefetch={false}
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+            >
+              ＋ 新增預約
+            </Link>
+            </div>
+          )
+          }
+          </div>
+        }
+      />
+      <Suspense fallback={<BookingWorkspaceLoading year={year} month={month} />}>
+        <BookingWorkspaceData
+          userId={user.id}
+          bookingsStoreId={bookingsStoreId}
+          year={year}
+          month={month}
+          isViewMode={isViewMode}
+          canManageHours={canManageHours}
+          operationGuidePreview={operationGuidePreview}
+          initialBookingId={deepLinkedBooking?.id ?? null}
+          logCtx={logCtx}
+        />
+      </Suspense>
+    </PageShell>
+  );
+  } finally { timing.finish(); }
+}
+
+
+async function BookingWorkspaceData({
+  userId, bookingsStoreId, year, month, isViewMode, canManageHours,
+  operationGuidePreview, initialBookingId, logCtx,
+}: {
+  userId: string;
+  bookingsStoreId: string | null;
+  year: number;
+  month: number;
+  isViewMode: boolean;
+  canManageHours: boolean;
+  operationGuidePreview: boolean;
+  initialBookingId: string | null;
+  logCtx: Record<string, unknown>;
+}) {
+  const timing = new OperationTiming("steamfoot.page.data");
+  try {
   const timer = new ServerTiming("/dashboard/bookings");
   const [monthData, monthSchedule, servicePlans] =
     await timing.measure("data", () => Promise.all([
@@ -161,37 +226,9 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       ),
     ]));
   timer.finish();
-  return (
-    <PageShell>
-      <FormSuccessToast />
-      <PageHeader
-        title="預約管理"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-          {
-          isViewMode ? (
-            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
-              查看模式不可新增預約
-            </span>
-          ) : (
-            <div className="flex items-center gap-2">
-            <CashbookShortcut readOnly={isViewMode} />
-            <Link
-              href="/dashboard/bookings/new"
-              prefetch={false}
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
-            >
-              ＋ 新增預約
-            </Link>
-            </div>
-          )
-          }
-          </div>
-        }
-      />
-      {monthData === null ? <BookingLoadError /> : (
+  return monthData === null ? <BookingLoadError /> : (
       <BookingMonthWorkspace
-        key={`${user.id}:${bookingsStoreId ?? "ALL"}:${isViewMode}:${year}:${month}:${deepLinkedBooking?.id ?? ""}`}
+        key={`${userId}:${bookingsStoreId ?? "ALL"}:${isViewMode}:${year}:${month}:${initialBookingId ?? ""}`}
         operationGuidePreview={operationGuidePreview}
         storeId={bookingsStoreId ?? undefined}
         year={year}
@@ -201,10 +238,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         servicePlans={servicePlans}
         readOnly={isViewMode}
         canManageHours={canManageHours}
-        initialBookingId={deepLinkedBooking?.id ?? null}
+        initialBookingId={initialBookingId}
       />
-      )}
-    </PageShell>
   );
   } finally { timing.finish(); }
 }

@@ -1,9 +1,9 @@
 import { expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ legacy: vi.fn(), path: vi.fn(), tag: vi.fn() }));
+const mocks = vi.hoisted(() => ({ legacy: vi.fn(), transactions: vi.fn(), path: vi.fn(), tag: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.path, revalidateTag: mocks.tag }));
-vi.mock("@/lib/revalidation", () => ({ revalidateBookings: mocks.legacy }));
-import { revalidateBookingMutation, withBookingRouteMutation } from "@/lib/booking-route-mutation";
+vi.mock("@/lib/revalidation", () => ({ revalidateBookings: mocks.legacy, revalidateTransactions: mocks.transactions }));
+import { revalidateBookingTransactionMutation, revalidateBookingMutation, withBookingRouteMutation } from "@/lib/booking-route-mutation";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 it("keeps route cache expiration request-local and preserves legacy actions", async () => {
   let release!: () => void;
@@ -25,4 +25,13 @@ it("keeps route cache expiration request-local and preserves legacy actions", as
   ]);
   revalidateBookingMutation("after");
   expect(mocks.legacy).toHaveBeenLastCalledWith("after");
+});
+
+it("preserves checkout invalidation in both transports without updateTag in HTTP", async () => {
+  mocks.tag.mockClear(); mocks.path.mockClear();
+  revalidateBookingTransactionMutation("legacy");
+  expect(mocks.transactions).toHaveBeenCalledWith("legacy");
+  await withBookingRouteMutation(async () => revalidateBookingTransactionMutation("customer"));
+  expect(mocks.tag).toHaveBeenCalledWith(CACHE_TAGS.reportStore, { expire: 0 });
+  expect(mocks.path.mock.calls.flat()).toEqual(["/dashboard/transactions", "/dashboard/payments", "/my-plans", "/book", "/dashboard/customers/customer"]);
 });

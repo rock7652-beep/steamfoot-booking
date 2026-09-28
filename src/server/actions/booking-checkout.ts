@@ -45,6 +45,8 @@ const SINGLE_DEFAULT_PRICE = 799;
 export async function adjustCheckoutToPackage(
   input: z.infer<typeof adjustCheckoutToPackageSchema>,
 ): Promise<ActionResult<{ walletId: string }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "adjustCheckoutToPackage");
   try {
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToPackageSchema.parse(input);
@@ -273,6 +275,8 @@ export async function adjustCheckoutToPackage(
 export async function adjustCheckoutToSingle(
   input: z.infer<typeof adjustCheckoutToSingleSchema>,
 ): Promise<ActionResult<{ bookingId: string }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "adjustCheckoutToSingle");
   try {
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToSingleSchema.parse(input);

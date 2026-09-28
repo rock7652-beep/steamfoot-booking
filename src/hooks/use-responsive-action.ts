@@ -6,6 +6,7 @@ type Result = { success: boolean; error?: string };
 export type SaveState = { phase: "saving" | "checking" | "saved" | "error" | "unknown"; message: string };
 export type SaveOutcome = "saved" | "error" | "unknown" | "ignored";
 type Callbacks = {
+  timingLabel?: "complete" | "revert";
   apply: () => void;
   rollback: () => void;
   confirmed?: () => void;
@@ -17,11 +18,34 @@ const UNKNOWN = "暫時無法確認，請查看最新狀態。";
 
 /** Shared per-row lock. Recovery can read the server, but never replays a write. */
 export function useResponsiveAction() {
+  const timings = useRef(new Map<string, { operation: "complete" | "revert"; started: number; responseMs?: number }>());
   const locks = useRef(new Set<string>());
   const recoveries = useRef(new Map<string, Callbacks>());
   const checks = useRef(new Map<string, AbortController>());
   const mounted = useRef(true);
   const [states, setStates] = useState<Record<string, SaveState>>({});
+
+  // Runs after React commits the state that removes the row's saving indicator.
+  // This measures a DOM commit, not an exact display-paint timestamp.
+  useEffect(() => {
+    for (const [key, timing] of timings.current) {
+      const state = states[key];
+      if (!state || state.phase === "saving" || state.phase === "checking") continue;
+      timings.current.delete(key);
+      const payload = {
+        operation: timing.operation,
+        outcome: state.phase,
+        responseMs: Math.round(timing.responseMs ?? performance.now() - timing.started),
+        committedMs: Math.round(performance.now() - timing.started),
+      };
+      // Diagnostics must never hold up or retry a booking write.
+      void fetch("/api/bookings/client-timing", {
+        method: "POST", credentials: "same-origin", keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
+  }, [states]);
 
   const check = useCallback(async (key: string): Promise<SaveOutcome> => {
     const callbacks = recoveries.current.get(key);
@@ -71,14 +95,21 @@ export function useResponsiveAction() {
 
   async function run(key: string, action: () => Promise<Result>, callbacks: Callbacks): Promise<SaveOutcome> {
     if (locks.current.has(key)) return "ignored";
+    if (callbacks.timingLabel) timings.current.set(key, {
+      operation: callbacks.timingLabel, started: performance.now(),
+    });
     locks.current.add(key);
     setStates(previous => ({ ...previous, [key]: { phase: "saving", message: "儲存中…" } }));
     callbacks.apply();
     let result: Result;
     try {
       result = await action();
+      const timing = timings.current.get(key);
+      if (timing) timing.responseMs = performance.now() - timing.started;
       if (typeof result?.success !== "boolean") throw new Error("結果待確認");
     } catch {
+      const timing = timings.current.get(key);
+      if (timing) timing.responseMs = performance.now() - timing.started;
       if (!mounted.current) return "ignored";
       callbacks.rollback();
       if (callbacks.reconcile) {

@@ -12,7 +12,7 @@ import { readBookingMonth } from "@/lib/booking-month-read";
 import { toast } from "sonner";
 import { useBookingMonthNavigation } from "./booking-month-context";
 import { BookingMonthLink } from "./booking-month-link";
-import { fetchDaySlots } from "@/server/actions/slots";
+import { readBookingSlots } from "@/lib/booking-client-transport";
 import {
   markCompletedBatch,
 } from "@/server/actions/booking";
@@ -265,7 +265,7 @@ export function BookingsManager({
       onBusy: setSyncing,
     });
     refreshRef.current = () => controller.refresh(true);
-    const resume = () => { void controller.refresh(); };
+    const resume = () => { controller.schedule(); };
     const timer = window.setInterval(resume, 60_000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
@@ -463,7 +463,7 @@ export function BookingsManager({
       setSlotsLoadingDate(dateKey);
       startTransition(async () => {
         try {
-          const result = await fetchDaySlots(dateKey);
+          const result = await readBookingSlots(dateKey);
           setSlotsCache((prev) => {
             const next = new Map(prev);
             next.set(dateKey, result.slots);
@@ -481,7 +481,7 @@ export function BookingsManager({
     monthNavigation?.invalidate();
     setSlotsLoadingDate(date);
     try {
-      const refreshed = await fetchDaySlots(date);
+      const refreshed = await readBookingSlots(date);
       setSlotsCache((previous) => {
         const next = new Map(previous);
         next.set(date, refreshed.slots);
@@ -539,7 +539,7 @@ export function BookingsManager({
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
       monthNavigation?.invalidate();
       detailCache.invalidate(bookingId);
-      refreshGate.current.nextAutomaticAt = 0;
+      refreshGate.current.nextAutomaticAt = Date.now() + 2_000;
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {
@@ -624,6 +624,7 @@ export function BookingsManager({
       setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
     };
     return {
+      timingLabel: "complete" as const,
       // Show the expected status immediately. The server remains responsible
       // for validation and deducting sessions; restore the prior status if it
       // rejects the write or the result cannot be confirmed.
@@ -650,6 +651,7 @@ export function BookingsManager({
     if (original?.bookingStatus !== "COMPLETED") return;
     const apply = () => handleBookingUpdated(id, "PENDING");
     const outcome = await saves.run(id, () => updateBookingStatus(id, "revert"), {
+      timingLabel: "revert",
       apply,
       rollback: () => handleBookingUpdated(id, original.bookingStatus),
       confirmed: apply,

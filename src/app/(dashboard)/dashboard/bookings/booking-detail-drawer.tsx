@@ -1,5 +1,5 @@
 "use client";
-import { readBookingDetail as fetchBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
+import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
@@ -21,7 +21,6 @@ import {
 import type { BookingNotePatch } from "./booking-note-state";
 import type { BookingDetailCache } from "./booking-detail-cache";
 import {
-  markNoShow,
   cancelBooking,
   updateBooking,
 } from "@/server/actions/booking";
@@ -324,6 +323,9 @@ export function BookingDetailDrawer({
       if (!result.success) toast.error(result.error ?? "操作未完成");
       return { success: result.success, error: result.error };
     }, {
+      timingLabel: !spaMode && opts?.optimistic
+        ? nextStatus === "COMPLETED" ? "complete" : nextStatus === "PENDING" ? "revert" : undefined
+        : undefined,
       apply: () => {
         if (!optimisticStatus) return;
         onUpdated?.(id, optimisticStatus);
@@ -437,7 +439,7 @@ export function BookingDetailDrawer({
     if (attendedPeople === 0) {
       wrapAction(
         "已標記未到",
-        () => markNoShow(bookingId, "DEDUCTED"),
+        () => markBookingNoShow(bookingId, "DEDUCTED"),
         "NO_SHOW",
         {
           onSuccess: () => {
@@ -534,7 +536,7 @@ export function BookingDetailDrawer({
       DEDUCTED_WITH_MAKEUP: "已標記未到、扣堂並發補課",
     };
     const label = isFullMakeupBooking ? "已標記未到" : labelMap[choice];
-    wrapAction(label, () => markNoShow(bookingId!, choice), "NO_SHOW", {
+    wrapAction(label, () => markBookingNoShow(bookingId!, choice), "NO_SHOW", {
       expected: { makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
       onSuccess: () => setNoShowOpen(false),
     });
@@ -790,6 +792,7 @@ export function BookingDetailDrawer({
       )}
       {!readOnly && data && data.trial && !data.trial.collected && (
         <CollectTrialModal
+          saveAction={collectBookingTrialPayment}
           open={collectOpen}
           onClose={() => {
             setCollectOpen(false);
@@ -816,6 +819,8 @@ export function BookingDetailDrawer({
         data.trial.canCorrect &&
         data.trial.collectedTransactionId && (
           <CorrectTrialCollectionModal
+            saveAction={correctBookingTrialCollection}
+            onReconcile={handleCorrected}
             open={correctOpen}
             onClose={() => setCorrectOpen(false)}
             bookingId={data.booking.id}
