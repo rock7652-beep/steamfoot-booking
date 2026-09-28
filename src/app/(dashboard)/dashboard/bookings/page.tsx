@@ -17,7 +17,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { FormSuccessToast } from "@/components/form-success-toast";
-import { BookingsManager } from "./bookings-manager";
+import { BookingMonthWorkspace } from "./booking-month-workspace";
 import { BookingLoadError } from "./booking-load-error";
 import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -161,7 +161,6 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       <FormSuccessToast />
       <PageHeader
         title="預約管理"
-        subtitle={`${year} 年 ${month} 月`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
           {
@@ -186,7 +185,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         }
       />
       {monthData === null ? <BookingLoadError /> : (
-      <BookingsManager
+      <BookingMonthWorkspace
+        key={`${user.id}:${bookingsStoreId ?? "ALL"}:${isViewMode}:${year}:${month}:${deepLinkedBooking?.id ?? ""}`}
         operationGuidePreview={operationGuidePreview}
         storeId={bookingsStoreId ?? undefined}
         year={year}

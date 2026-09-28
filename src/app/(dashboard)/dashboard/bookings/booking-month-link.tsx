@@ -4,6 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { resolveDashboardHref } from "@/components/dashboard-link";
+import { useBookingMonthNavigation } from "./booking-month-context";
 import type { ReactNode } from "react";
 
 function MonthFeedback({ label, children }: { label: string; children: ReactNode }) {
@@ -24,7 +25,9 @@ export function BookingMonthLink({ href, year, month, direction, className }: {
   href: string; year: number; month: number; direction: "previous" | "next"; className?: string;
 }) {
   const pathname = usePathname();
-  return <Link href={resolveDashboardHref(href, pathname)} className={className} prefetch={true} scroll={false}
+  const navigation = useBookingMonthNavigation();
+  return <Link href={resolveDashboardHref(href, pathname)} className={className} prefetch={false} scroll={false}
+    onNavigate={navigation ? event => { event.preventDefault(); navigation.navigate(year, month); } : undefined}
     aria-label={direction === "previous" ? "上個月" : "下個月"}>
     <MonthFeedback label={`${year} 年 ${month} 月`}>{direction === "previous" ? "‹" : "›"}</MonthFeedback>
   </Link>;

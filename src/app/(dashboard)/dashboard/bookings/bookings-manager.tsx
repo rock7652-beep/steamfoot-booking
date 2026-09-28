@@ -10,6 +10,7 @@ import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
 import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 import { toast } from "sonner";
+import { useBookingMonthNavigation } from "./booking-month-context";
 import { BookingMonthLink } from "./booking-month-link";
 import { fetchDaySlots } from "@/server/actions/slots";
 import {
@@ -149,7 +150,7 @@ const EMPTY_FILTERS: BookingFilters = {
   search: "",
 };
 
-interface BookingsManagerProps {
+export interface BookingsManagerProps {
   operationGuidePreview?: boolean;
   storeId?: string;
   year: number;
@@ -174,6 +175,7 @@ export function BookingsManager({
   canManageHours = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
+  const monthNavigation = useBookingMonthNavigation();
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
   // month. Sync back from prop whenever year / month / server data changes.
@@ -233,6 +235,8 @@ export function BookingsManager({
   const refreshGate = useRef(createBookingRefreshGate());
   const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
     selectedIds.size > 0 || slotsLoadingDate !== null;
+
+  useEffect(() => { monthNavigation?.busy(refreshPaused); return () => monthNavigation?.busy(false); }, [monthNavigation, refreshPaused]);
 
   useEffect(() => {
     setSyncing(false);
@@ -439,6 +443,11 @@ export function BookingsManager({
 
   const handleDaySelect = useCallback(
     (dateKey: string) => {
+      const [targetYear, targetMonth] = dateKey.split("-").map(Number);
+      if (targetYear !== year || targetMonth !== month) {
+        monthNavigation?.navigate(targetYear, targetMonth);
+        return;
+      }
       setSelectedDate(dateKey);
       // Switching day discards the prior selection — those bookings are no
       // longer visible, batch action would be confusing.
@@ -464,10 +473,11 @@ export function BookingsManager({
         }
       });
     },
-    [setSelectedDate],
+    [setSelectedDate, year, month, monthNavigation],
   );
 
   const refreshDaySlots = useCallback(async (date: string) => {
+    monthNavigation?.invalidate();
     setSlotsLoadingDate(date);
     try {
       const refreshed = await fetchDaySlots(date);
@@ -479,7 +489,7 @@ export function BookingsManager({
     } finally {
       setSlotsLoadingDate((current) => current === date ? null : current);
     }
-  }, []);
+  }, [monthNavigation]);
 
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
@@ -525,6 +535,7 @@ export function BookingsManager({
       // C：任何 mutation（收款 / 完成 / 改時間 / 標記未到 / 取消 / 調整結帳，
       // 含 newStatus=null 的收款/改期）都先 invalidate 該筆 detail cache，
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
+      monthNavigation?.invalidate();
       detailCache.invalidate(bookingId);
       refreshGate.current.nextAutomaticAt = 0;
       if (!newStatus) return;
@@ -560,10 +571,11 @@ export function BookingsManager({
         }),
       );
     },
-    [detailCache],
+    [detailCache, monthNavigation],
   );
 
   const handleNotesUpdated = useCallback((patch: BookingNotePatch) => {
+    monthNavigation?.invalidate();
     // A customer note applies to every booking for that customer.
     for (const day of monthData) {
       for (const booking of day.bookings ?? []) {
@@ -576,7 +588,7 @@ export function BookingsManager({
       ...day,
       bookings: day.bookings?.map((booking) => applyBookingNotePatch(booking, patch)),
     })));
-  }, [detailCache, monthData]);
+  }, [detailCache, monthData, monthNavigation]);
 
   // ── Batch / inline complete wiring ────────────────────────────
 

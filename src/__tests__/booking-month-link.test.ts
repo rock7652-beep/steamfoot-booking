@@ -16,7 +16,7 @@ it("shows the destination while pending and clears feedback on arrival or cancel
   const render = () => root.render(React.createElement(BookingMonthLink, { href: "/dashboard/bookings?year=2027&month=1", year: 2027, month: 1, direction: "next" }));
   try {
     act(render);
-    expect(state.prefetch).toBe(true);
+    expect(state.prefetch).toBe(false);
     expect(state.scroll).toBe(false);
     expect(container.querySelector("a")?.getAttribute("href")).toBe("/s/zhubei/admin/dashboard/bookings?year=2027&month=1");
     expect(document.querySelector('[role="status"]')).toBeNull();
