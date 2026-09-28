@@ -5,6 +5,7 @@ export const musicSubjectRuleSchema=z.object({
   musicPricePerLesson:z.number().int().min(0).max(1000000),
   musicTermLessons:z.number().int().min(1).max(1000),
   musicValidityDaysPerTerm:z.number().int().min(1).max(3650),
+  musicTeacherShare:z.number().finite().min(0).max(1).multipleOf(0.01).default(0.6),
   musicScheduleMode:z.enum(["FIXED","APPOINTMENT"]),
 });
 export type MusicSubjectRule=z.infer<typeof musicSubjectRuleSchema>;

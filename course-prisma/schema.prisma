@@ -49,6 +49,7 @@ model CourseTemplate {
 
   visibility String @default("PUBLIC")
   classType String?
+  musicTeacherShare Float?
   musicPricePerLesson Int?
   musicTermLessons Int?
   musicValidityDaysPerTerm Int?
