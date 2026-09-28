@@ -12,6 +12,48 @@ vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectC
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:m.collectModal}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:m.correctModal}));
 import {CourseRoster} from "@/app/(dashboard)/dashboard/courses/roster";
+it("shows each group learner's own term, dates and distinct leave/no-show counts", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const date=(day:number)=>`2026-09-${String(day).padStart(2,"0")}T10:00:00.000Z`;
+ const base={customerPhone:"",sharedCard:false,bookingSource:"店長建立",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"團班",termLeaveCount:0,termNoShowCount:0,termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:3,unit:"SESSION",notes:"",pointCost:1,nextPaidLessons:null};
+ const roster=[
+  {id:"a",customerId:"a",customerName:"甲",...base,termIndex:5,termCount:8,termLessons:[1,8,15,22,29].map(day=>({date:date(day),status:day===29?"待上課":"已出席"}))},
+  {id:"b",customerId:"b",customerName:"乙",...base,termIndex:3,termCount:6,termLessons:[15,22,29].map(day=>({date:date(day),status:"待上課"}))},
+  {id:"c",customerId:"c",customerName:"丙",...base,termIndex:4,termCount:7,termLeaveCount:1,termNoShowCount:1,termLessons:[8,15,22,29].map((day,index)=>({date:date(day),status:["已出席","請假","曠課","待上課"][index]}))},
+ ];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:date(29),pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group-term",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
+  const rows=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
+  expect(rows().map(row=>row.textContent?.match(/本期第 \d+\/\d+ 堂/)?.[0])).toEqual(["本期第 5/8 堂","本期第 3/6 堂","本期第 4/7 堂"]);
+  expect(rows()[2].textContent).toContain("此方案請假 1・曠課 1");
+  await act(async()=>[...rows()[2].querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
+  expect(rows()[2].textContent).toContain("2026-09-15 請假");
+  expect(rows()[2].textContent).toContain("2026-09-22 曠課");
+  await act(async()=>[...rows()[1].querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
+  expect(rows()[1].querySelector("[id^='lesson-history-']")).toBeTruthy();
+  expect(rows()[2].querySelector("[id^='lesson-history-']")).toBeNull();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("shows private makeup and renewal without combining leave with paid lessons",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const roster=[{id:"private",customerId:"student",customerName:"學員",customerPhone:"",sharedCard:false,bookingSource:"店長建立",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"四堂一期",termIndex:4,termCount:4,termLeaveCount:1,termNoShowCount:0,termLessons:["01","15","22","29"].map(day=>({date:`2026-09-${day}T10:00:00.000Z`,status:"已出席"})),termPrivateLeaves:["2026-09-08T10:00:00.000Z"],nextPaidLessons:8,termPayment:{date:"2026-09-01T10:00:00.000Z",amount:3200,method:"CASH"},nextTerm:{payment:{date:"2026-09-29T10:00:00.000Z",amount:6400,method:"BANK_TRANSFER"},lessons:[{date:"2026-10-06T10:00:00.000Z",status:"待上課"}]},absenceCount:1,absenceHistory:[],available:0,unit:"SESSION",notes:"",pointCost:1}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-29T10:00:00.000Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"private-term",capacity:1,canCreate:false,canEdit:true,musicLayout:true,classType:"PRIVATE",teacherName:"老師"})));
+  expect(host.textContent).toContain("本期第 4/4 堂");
+  expect(host.textContent).toContain("下期已繳 8 堂");
+  await act(async()=>[...host.querySelectorAll("summary")].find(summary=>summary.textContent?.includes("查看本期上課日期"))!.click());
+  expect(host.textContent).toContain("2026-09-08 請假・不扣堂");
+  expect(host.textContent).toContain("4. 2026-09-29");
+  expect(host.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
+  expect(host.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
+  expect(host.textContent).toContain("1. 2026-10-06 待上課");
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
 it("signs in music learners as attended in one batch and gives no makeup coupon for absence",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const roster=[{id:"music-booking",customerName:"小安",customerId:"customer",customerPhone:"0900000000",sharedCard:false,bookingSource:"店長建立",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"四堂一期",termCount:4,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:4,unit:"SESSION",notes:"",pointCost:1}];

@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 
 import { useRouter } from "next/navigation";
 import {
@@ -40,6 +41,23 @@ const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 
 type RosterView = "roster" | "member-booking" | "trial-booking";
+
+function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof getCourseRoster>>[number] }) {
+  if (!booking.termPayment && !booking.nextTerm) return null;
+  const payment = (record: NonNullable<typeof booking.termPayment>) =>
+    `${record.date ? toLocalDateStr(new Date(record.date)) : "已收款"} · NT$ ${record.amount.toLocaleString()} · ${COURSE_PAYMENT_LABELS[record.method ?? ""] ?? record.method ?? "付款方式未記錄"}`;
+  return <div className="space-y-1 border-t border-earth-100 pt-2">
+    {booking.termPayment && <p>本期付款：{payment(booking.termPayment)}</p>}
+    {booking.nextTerm && <div>
+      <p className="font-medium">下期已繳 {booking.nextPaidLessons} 堂 · {payment(booking.nextTerm.payment)}</p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {booking.nextTerm.lessons.length
+          ? booking.nextTerm.lessons.map((lesson, index) => <span key={`${lesson.date}-${index}`} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status}</span>)
+          : <span className="text-earth-500">下期尚未排課</span>}
+      </div>
+    </div>}
+  </div>;
+}
 
 export function CourseRoster({
   sessionId,
@@ -1040,6 +1058,7 @@ export function CourseRoster({
                      {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
                   </div>
+                  <TermPaymentHistory booking={booking} />
                   </div>}
                 </> : <details className="w-full text-xs text-earth-700">
                   <summary className="cursor-pointer whitespace-nowrap py-1 text-primary-800">查看本期上課日期</summary>
@@ -1049,6 +1068,7 @@ export function CourseRoster({
                      {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
                   </div>
+                  <TermPaymentHistory booking={booking} />
                 </details>)}
               </li>)}
               {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">沒有符合條件的學員</li>}

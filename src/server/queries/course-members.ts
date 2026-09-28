@@ -109,25 +109,31 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   }),
   coursePrisma.coursePurchase.findMany({
     where: { storeId, customerId: { in: bookings.map((item) => item.customerId) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
-    select: { customerId: true, cardId: true, points: true },
+    select: { customerId: true, cardId: true, points: true, price: true, paymentMethod: true, confirmedAt: true },
   }),
   ]);
   const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const renewalCards = await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
-    select: { id: true, createdAt: true, remaining: true, plan: { select: { templateIds: true } } },
+    select: { id: true, createdAt: true, remaining: true, plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
   });
   return bookings.map(({ card, checkedInAt, ...b }) => {
-    const nextPaidLessons = card && card.plan.templateIds.length
+    const currentPurchase = confirmedPurchases.find((purchase) => purchase.customerId === b.customerId && purchase.cardId === b.cardId);
+    const renewal = card && card.plan.templateIds.length
       ? confirmedPurchases
         .filter((purchase) => purchase.customerId === b.customerId && purchase.cardId !== b.cardId)
         .map((purchase) => ({ purchase, next: renewalCards.find((candidate) => candidate.id === purchase.cardId) }))
         .filter(({ purchase, next }) =>
           !!next && next.createdAt > card.createdAt && next.remaining >= purchase.points &&
           next.plan.templateIds.includes(b.session.templateId))
-        .sort((left, right) => left.next!.createdAt.getTime() - right.next!.createdAt.getTime())[0]?.purchase.points ?? null
+        .sort((left, right) => left.next!.createdAt.getTime() - right.next!.createdAt.getTime())[0] ?? null
       : null;
+    const paymentSummary = (purchase: (typeof confirmedPurchases)[number]) => ({
+      date: purchase.confirmedAt?.toISOString() ?? null,
+      amount: purchase.price,
+      method: purchase.paymentMethod,
+    });
     const sameEnrollment = (item: { sessionId: string; session: { templateId: string } }) =>
       card?.termSessionIds.length ? card.termSessionIds.includes(item.sessionId) : item.session.templateId === b.session.templateId;
     const allLessons = (card?.bookings ?? [])
@@ -162,7 +168,14 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     termIndex: !missingGroupEnrollment && currentPosition >= 0 && termSize > 0 && (validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? currentPosition % termSize + 1 : null,
     termCount: !missingGroupEnrollment && (validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
     termNumber,
-    nextPaidLessons,
+    nextPaidLessons: renewal?.purchase.points ?? null,
+    termPayment: currentPurchase ? paymentSummary(currentPurchase) : null,
+    nextTerm: renewal ? {
+      payment: paymentSummary(renewal.purchase),
+      lessons: renewal.next!.bookings.filter((item) => item.customerId === b.customerId && (item.status !== "CANCELLED" || item.absenceKind === "GROUP_LEAVE_FORFEITED"))
+        .sort((left, right) => left.session.startsAt.getTime() - right.session.startsAt.getTime())
+        .map((item) => ({ date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課" })),
+    } : null,
     termLessons: periodLessons.map((item) => ({date: item.session.startsAt.toISOString(), status: item.status === "ATTENDED" ? "已出席" : item.status === "NO_SHOW" ? "曠課" : item.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假" : "待上課"})),
     termLeaveCount: periodLessons.filter((item) => item.absenceKind === "GROUP_LEAVE_FORFEITED").length + privateLeaves.length,
     termNoShowCount: termAbsences.filter((item) => item.status === "NO_SHOW").length,

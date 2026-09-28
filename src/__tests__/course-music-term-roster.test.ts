@@ -72,13 +72,15 @@ it("keeps the current four lessons separate from a paid next term", async () => 
   const current = row("student", old[3], card("student", old, 4), "PRIVATE");
   db.bookings.mockResolvedValue([current]);
   db.purchases.mockResolvedValue([
-    { customerId: "student", cardId: "card-student", points: 4 },
-    { customerId: "student", cardId: "next-card", points: 8 },
+    { customerId: "student", cardId: "card-student", points: 4, price: 3200, paymentMethod: "CASH", confirmedAt: day(1) },
+    { customerId: "student", cardId: "next-card", points: 8, price: 6400, paymentMethod: "BANK_TRANSFER", confirmedAt: day(29) },
   ]);
-  db.cards.mockResolvedValue([{ id: "next-card", createdAt: day(29), remaining: 8, plan: { templateIds: ["guitar"] } }]);
+  db.cards.mockResolvedValue([{ id: "next-card", createdAt: day(29), remaining: 8, plan: { templateIds: ["guitar"] }, bookings: [{ customerId: "student", status: "RESERVED", absenceKind: null, session: { startsAt: new Date("2026-10-06T10:00:00.000Z") } }] }]);
   const [result] = await getCourseRoster("music-store", "session-3");
   expect([result.termIndex, result.termCount, result.nextPaidLessons]).toEqual([4, 4, 8]);
   expect(result.termLessons).toHaveLength(4);
+  expect(result.termPayment).toEqual({ date: day(1).toISOString(), amount: 3200, method: "CASH" });
+  expect(result.nextTerm).toEqual({ payment: { date: day(29).toISOString(), amount: 6400, method: "BANK_TRANSFER" }, lessons: [{ date: "2026-10-06T10:00:00.000Z", status: "待上課" }] });
 });
 
 it("retains private leave dates without spending a lesson when makeup is scheduled", async () => {
