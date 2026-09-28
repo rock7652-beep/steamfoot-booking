@@ -10,8 +10,8 @@ type Customer = { id: string; name: string };
 const input = "mt-1 block h-[52px] w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 const textarea = "mt-1 block min-h-[52px] w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 
-function initialKind(entry: { type: EntryType; category: string } | null | undefined): CashbookEntryKind | null {
-  if (!entry) return null;
+function initialKind(entry: { type: EntryType; category: string } | null | undefined): CashbookEntryKind {
+  if (!entry) return "RETAIL";
   if (entry.type === "EXPENSE") return "EXPENSE";
   return isRetailCashbookCategory(entry.category) ? "RETAIL" : "OTHER";
 }
@@ -49,7 +49,7 @@ export function CashbookEntryFields({
   instantSearch?: boolean;
   disabled?: boolean;
 }) {
-  const [kind, setKind] = useState<CashbookEntryKind | null>(initialKind(defaultEntry));
+  const [kind, setKind] = useState<CashbookEntryKind>(initialKind(defaultEntry));
   const [item, setItem] = useState(initialItem(defaultEntry));
   const entryType: EntryType = kind === "EXPENSE" ? "EXPENSE" : "INCOME";
   const category = cashbookCategoryForKind(kind, item);
@@ -80,7 +80,7 @@ export function CashbookEntryFields({
     <label className="min-w-0 text-sm font-medium text-earth-700">金額
       <input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue={defaultEntry?.amount ?? ""} className={input} />
     </label>
-    {kind !== null && entryType === "INCOME" && (instantSearch
+    {entryType === "INCOME" && (instantSearch
       ? <CashbookCustomerPicker key={defaultEntry?.customer?.id ?? "new"} storeId={storeId} defaultCustomer={defaultEntry?.customer ?? null} />
       : <LegacyCashbookCustomerPicker key={defaultEntry?.customer?.id ?? "new"} storeId={storeId} defaultCustomer={defaultEntry?.customer ?? null} />)}
     <label className="min-w-0 text-sm font-medium text-earth-700">
