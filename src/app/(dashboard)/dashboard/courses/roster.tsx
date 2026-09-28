@@ -876,7 +876,7 @@ export function CourseRoster({
                 </div>
                 <div className={`min-w-0 text-xs text-earth-600 ${largeMusicGroup ? "lg:truncate lg:whitespace-nowrap" : ""}`}>
                   <a className="text-primary-700 hover:underline" href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}>{booking.customerPhone || "未填電話"}</a>
-                  <span className="ml-2 hidden sm:inline">{booking.bookingKind === "TRIAL" ? `體驗 NT$ ${booking.trialPrice}` : booking.bookingKind === "TEACHER_MAKEUP" ? booking.planName : `${booking.planName} · 可用 ${booking.available} ${booking.unit === "SESSION" ? "堂" : "點"}${booking.expiresAt ? ` · 到期 ${toLocalDateStr(new Date(booking.expiresAt))}` : ""}`}</span>
+                  <span className="ml-2 hidden sm:inline">{booking.bookingKind === "TRIAL" ? `體驗 NT$ ${booking.trialPrice}` : booking.bookingKind === "TEACHER_MAKEUP" ? booking.planName : booking.unit === "SESSION" ? `${booking.planName} · 可用 ${booking.available} 堂${booking.expiresAt ? ` · 到期 ${toLocalDateStr(new Date(booking.expiresAt))}` : ""}` : "舊方案需轉為堂數"}</span>
                 </div>
                 {canEdit && <button type="button" className="text-xs text-primary-700 underline" onClick={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>備註{booking.notes ? " ✓" : ""}</button>}
                 {canEdit && <div className={`ml-auto flex gap-1 ${largeMusicGroup ? "lg:flex-nowrap" : "flex-wrap"}`}>
