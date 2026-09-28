@@ -434,6 +434,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
     const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
+    const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
     const [roster, cards] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
@@ -451,7 +452,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId },
-        cards: cards.map((card) => ({
+        cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
         })),
