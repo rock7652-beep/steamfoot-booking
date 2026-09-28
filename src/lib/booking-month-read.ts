@@ -2,10 +2,11 @@ import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 
 type Snapshot = Awaited<ReturnType<typeof refreshBookingManagement>>;
 
-export async function readBookingMonth(input: { year: number; month: number; storeId?: string }): Promise<Snapshot> {
+export async function readBookingMonth(input: { year: number; month: number; storeId?: string; date?: string | null }): Promise<Snapshot> {
   // ADMIN's all-store scope retains the established session-resolved action.
-  if (!input.storeId) return refreshBookingManagement({ ...input, date: null });
+  if (!input.storeId) return refreshBookingManagement({ ...input, date: input.date ?? null });
   const params = new URLSearchParams({ year: String(input.year), month: String(input.month), storeId: input.storeId });
+  if (input.date) params.set("date", input.date);
   const response = await fetch(`/api/bookings/month?${params}`, {
     cache: "no-store", credentials: "same-origin",
   });
@@ -20,7 +21,7 @@ export async function readBookingMonth(input: { year: number; month: number; sto
     }
     return value;
   });
-  if (!snapshot || !Array.isArray(snapshot.monthData) || !snapshot.monthSchedule || snapshot.slots !== null) {
+  if (!snapshot || !Array.isArray(snapshot.monthData) || !snapshot.monthSchedule || (snapshot.slots !== null && (!input.date || !Array.isArray(snapshot.slots)))) {
     throw new Error("月份資料格式異常");
   }
   return snapshot;

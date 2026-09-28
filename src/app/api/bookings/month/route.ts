@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       year: Number(params.get("year")),
       month: Number(params.get("month")),
       storeId,
-      date: null,
+      date: params.get("date"),
     });
     return Response.json(snapshot, { headers });
   } catch (error) {

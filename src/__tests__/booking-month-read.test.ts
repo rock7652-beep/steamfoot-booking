@@ -32,3 +32,26 @@ it("rejects a login page returned as HTML instead of treating it as data", async
   request.mockResolvedValue(new Response("<html>登入</html>"));
   await expect(readBookingMonth({ year: 2026, month: 10, storeId: "s" })).rejects.toThrow();
 });
+it("refreshes the selected day over HTTP without a page-rendering action", async () => {
+  const slots = [{ startTime: "10:00", capacity: 3, bookedCount: 1, available: 2, isEnabled: true, isPast: false }];
+  request.mockResolvedValue(Response.json({ monthData: [], monthSchedule: {}, slots }));
+  const result = await readBookingMonth({ year: 2026, month: 10, storeId: "store-a", date: "2026-10-01" });
+  expect(request).toHaveBeenCalledWith("/api/bookings/month?year=2026&month=10&storeId=store-a&date=2026-10-01", { cache: "no-store", credentials: "same-origin" });
+  expect(result.slots).toEqual(slots);
+  expect(mocks.action).not.toHaveBeenCalled();
+});
+it("keeps all-store selected-day scope in the legacy fallback", async () => {
+  await readBookingMonth({ year: 2026, month: 10, date: "2026-10-01" });
+  expect(mocks.action).toHaveBeenCalledWith({ year: 2026, month: 10, date: "2026-10-01" });
+});
+
+it("preserves null slots when the selected store differs from the active scope", async () => {
+  request.mockResolvedValue(Response.json({ monthData: [], monthSchedule: {}, slots: null }));
+  expect((await readBookingMonth({ year: 2026, month: 10, storeId: "store-b", date: "2026-10-01" })).slots).toBeNull();
+  expect(mocks.action).not.toHaveBeenCalled();
+});
+it("rejects malformed selected-day slots without retrying via an action", async () => {
+  request.mockResolvedValue(Response.json({ monthData: [], monthSchedule: {}, slots: {} }));
+  await expect(readBookingMonth({ year: 2026, month: 10, storeId: "store-a", date: "2026-10-01" })).rejects.toThrow();
+  expect(mocks.action).not.toHaveBeenCalled();
+});
