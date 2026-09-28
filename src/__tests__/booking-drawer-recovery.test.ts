@@ -4,9 +4,10 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import type { BookingPrefill } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
-const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn() }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn(), revert: vi.fn() }));
 vi.mock("@/server/actions/booking", () => ({ markCompleted: mocks.complete, markNoShow: vi.fn(), cancelBooking: vi.fn(), revertBookingStatus: vi.fn(), updateBooking: vi.fn() }));
 vi.mock("@/server/actions/booking-drawer", () => ({ fetchBookingDetail: mocks.read }));
+vi.mock("@/lib/booking-client-transport", () => ({ readBookingDetail: mocks.read, updateBookingStatus: (id: string, operation: string, input?: unknown) => operation === "complete" ? mocks.complete(id, input) : mocks.revert(id) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/admin/right-sheet", () => ({ RightSheet: ({ open, children }: { open: boolean; children: React.ReactNode }) => open ? children : null }));
 vi.mock("@/components/customer-page-link", () => ({ CustomerPageLink: ({children}: {children: React.ReactNode}) => children }));
@@ -26,6 +27,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 beforeEach(() => {
   mocks.read.mockReset();
   mocks.complete.mockReset();
+  mocks.revert.mockReset();
 });
 
 function bookingPayload(): BookingDrawerPayload {
@@ -276,5 +278,30 @@ it("keeps makeup wallet balance unchanged while completion is pending", async ()
     act(() => complete.click());
     expect(mocks.complete).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("1 / 2 堂");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("restores immediately, locks duplicate clicks and rolls back a rejected restore", async () => {
+  const payload = bookingPayload();
+  payload.booking.bookingStatus = "COMPLETED";
+  payload.booking.isCheckedIn = true;
+  mocks.read.mockResolvedValue(payload);
+  let finish!: (result: { success: boolean; error?: string }) => void;
+  mocks.revert.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const onUpdated = vi.fn();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true, bookingId: payload.booking.id, onClose: vi.fn(), onUpdated,
+    })));
+    const restore = [...container.querySelectorAll("button")].find(b => b.textContent === "還原狀態")!;
+    act(() => { restore.click(); restore.click(); });
+    expect(mocks.revert).toHaveBeenCalledTimes(1);
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
+    expect(container.textContent).toContain("完成服務");
+    await act(async () => finish({ success: false, error: "rejected" }));
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "COMPLETED");
+    expect(container.textContent).toContain("還原狀態");
   } finally { await act(async () => root.unmount()); }
 });

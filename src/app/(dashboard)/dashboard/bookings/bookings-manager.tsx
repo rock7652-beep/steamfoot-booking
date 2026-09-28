@@ -1,9 +1,9 @@
 "use client";
+import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRetainedState } from "@/components/operations/operation-scope";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
-import { fetchBookingDetail } from "@/server/actions/booking-drawer";
 import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
 import { dispatchBookingBatch } from "@/lib/booking-action-batch";
 import { matchesBookingSearch } from "@/lib/booking-month-search";
@@ -14,7 +14,6 @@ import { useBookingMonthNavigation } from "./booking-month-context";
 import { BookingMonthLink } from "./booking-month-link";
 import { fetchDaySlots } from "@/server/actions/slots";
 import {
-  markCompleted,
   markCompletedBatch,
 } from "@/server/actions/booking";
 import type { SlotAvailability } from "@/types";
@@ -506,6 +505,7 @@ export function BookingsManager({
 
   const openBooking = useCallback(
     (id: string) => {
+      if (saves.isBlocked(id)) return;
       // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
       // 不自動重開當日 Drawer。
       setSelectedDate(null);
@@ -513,7 +513,7 @@ export function BookingsManager({
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById, setSelectedDate],
+    [summaryById, prefillById, setSelectedDate, saves],
   );
 
   const closeBooking = useCallback(() => {
@@ -631,7 +631,7 @@ export function BookingsManager({
       rollback: () => { if (originalStatus) handleBookingUpdated(id, originalStatus); },
       confirmed: completed,
       reconcile: async (signal: AbortSignal) => {
-        const payload = await fetchBookingDetail(id, storeId);
+        const payload = await readBookingDetail(id, storeId);
         return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "COMPLETED" });
       },
       recovered: completed,
@@ -640,8 +640,26 @@ export function BookingsManager({
 
   async function completeSingle(id: string) {
     if (readOnly || batchSending.current) return;
-    const outcome = await saves.run(id, () => markCompleted(id), completionCallbacks(id));
+    const outcome = await saves.run(id, () => updateBookingStatus(id, "complete"), completionCallbacks(id));
     if (outcome === "saved") toast.success("已完成服務");
+  }
+
+  async function revertSingle(id: string) {
+    if (readOnly || batchSending.current) return;
+    const original = monthData.flatMap(day => day.bookings ?? []).find(booking => booking.id === id);
+    if (original?.bookingStatus !== "COMPLETED") return;
+    const apply = () => handleBookingUpdated(id, "PENDING");
+    const outcome = await saves.run(id, () => updateBookingStatus(id, "revert"), {
+      apply,
+      rollback: () => handleBookingUpdated(id, original.bookingStatus),
+      confirmed: apply,
+      reconcile: async signal => {
+        const payload = await readBookingDetail(id, storeId);
+        return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "PENDING" });
+      },
+      recovered: apply,
+    });
+    if (outcome === "saved") toast.success("已還原狀態");
   }
 
   async function completeBatch() {
@@ -779,6 +797,7 @@ export function BookingsManager({
             onClearSelection={readOnly ? undefined : clearSelection}
             onCompleteBatch={readOnly ? undefined : completeBatch}
             onCompleteSingle={readOnly ? undefined : completeSingle}
+            onRevertSingle={readOnly ? undefined : revertSingle}
             actionStates={saves.states}
             onCheckAction={id => { void saves.check(id); }}
             actingIds={readOnly ? undefined : actingIds}
