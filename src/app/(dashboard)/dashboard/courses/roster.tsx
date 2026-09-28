@@ -1375,7 +1375,6 @@ export function CourseRoster({
               }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
             }}>
               {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
-}
               {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <CourseAssignmentPayment key={plan.id} price={plan.price} storeCost={plan.storeCost} profitEnabled={false} showAllocation={false} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
             </form>}
           </div>
