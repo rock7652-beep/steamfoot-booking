@@ -312,6 +312,7 @@ export function CourseRoster({
   const count = activeRows.length;
   const oneToOneMusic = musicLayout && classType === "PRIVATE" && capacity === 1;
   const largeMusicGroup = musicLayout && capacity >= 10;
+  const groupCohortProgress = classType === "GROUP" ? activeRows[0]?.groupCohortProgress : null;
   const teacherAbsent = musicLayout && (session?.teacherAttendance === "LEAVE" || session?.teacherAttendance === "NO_SHOW");
   const waitingCount = activeRows.filter(
     (booking) => booking.status === "RESERVED",
@@ -743,6 +744,7 @@ export function CourseRoster({
           </aside>}
 
       {musicLayout ? <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
+        {groupCohortProgress && <span className="font-semibold text-primary-800">整班第 {groupCohortProgress.index}/{groupCohortProgress.count} 堂</span>}
         {!oneToOneMusic && <span>已預約 <strong>{count}/{capacity}</strong> 位</span>}
         {!teacherAbsent && <>
           {waitingCount > 0 && <span>待點名 <strong>{waitingCount}</strong></span>}
