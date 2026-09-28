@@ -33,6 +33,16 @@ function refresh() {
   revalidatePath("/dashboard/courses");
   revalidatePath("/book");
 }
+
+// The music roster updates itself optimistically and reconciles through a direct roster read.
+// Revalidating from a Server Action also forces the current dashboard route to reload.
+async function refreshUnlessMusicRoster(storeId: string) {
+  const music = await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  });
+  if (!music) refresh();
+}
 const bookingInput = z.object({
   sessionId: id,
   notes: z.string().trim().max(1000).default(""),
@@ -369,7 +379,8 @@ export async function updateCourseBookingStatus(input: unknown) {
       );
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
-    refresh();
+    if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
+    else refresh();
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
@@ -689,7 +700,7 @@ export async function updateCourseRosterBatch(input: unknown) {
     });
     transactionMs = Date.now() - transactionStartedAt;
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
-    refresh();
+    await refreshUnlessMusicRoster(storeId);
     console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
     return {success:true as const};
   }catch(error){
