@@ -60,5 +60,14 @@
 - 整頁重載再展開，確認9/7、9/14、9/21已出席，第4堂9/29待上課；9/28請假不扣堂，9/28請假→9/29已安排補課；本期3200、下期6400／8堂均保留。
 - 為補驗暫時再調1000；完成後SQL確認 override 已恢復 NULL。正式站未變更。
 
-### 額外發現，尚未修復
+### 額外發現（已於下輪修復提示）
 測試空課9/28 11:00已開始後，按「恢復原時段」遭既有資料庫鐘點費快照保護拒絕，畫面呈現泛用「系統錯誤」。Vercel runtime log：Cannot change compensation snapshot of a started course。取消與重新安排補課流程已通過，但這個恢復時段邊界不能宣稱通過；發布前應明確處理提示或修正允許的恢復行為，不能關閉鐘點費保護。
+
+## 恢復原時段修正及驗收
+程式提交 1a4bafd93dcc765446a4c9a384bfb1ab07e68e22；預覽部署 dpl_4VgZRxCVyHPqqwursSS6ApdUneun READY，瀏覽器版本20:19 staging。
+- 已開始課程的鐘點費 snapshot／identity 保護錯誤轉為明確提示：「課程已開始，為保留鐘點費紀錄，無法變更上課時間或老師（包含恢復原時段）。」保留資料庫保護，不允許改寫歷史鐘點費。
+- 瀏覽器：測試補課9/29 11:00先調至12:00，新版按恢復原時段成功回11:00，顯示「已恢復原時段」。
+- 瀏覽器：9/28 11:00已開始空課按恢復原時段，顯示上述明確提示，原時間保持11:00。
+- 自動測試：已有ATTENDED紀錄於寫入前拒絕；未開始恢復成功且不寫鐘點費快照；兩種資料庫保護錯誤均正確轉譯。course-actions共20項通過。已出席情境本輪由自動測試覆蓋，未另改動真實出席資料。
+- 此提交Full Vitest baseline、Typecheck、Changed-file ESLint、Targeted tests、music-makeup-postgres全部成功；一般postgres-integration skipped。Cloudflare failure依授權不列阻擋。
+- 此修正不需額外migration；未合併正式站、未變更正式資料庫。原五項發布準備已完成，正式執行依上述順序。
