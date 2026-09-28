@@ -168,6 +168,8 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 
 /** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */
 export async function getDaySlotDetails(dateStr: string) {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "getDaySlotDetails");
   const user = await requireStaffSession();
   const storeId = await resolveReadStoreId(user);
   if (!storeId) {
@@ -721,6 +723,8 @@ export async function applyDaySlotOverrides(input: {
     reason?: string;
   }>;
 }): Promise<ActionResult<{ changed: number; bookedPeopleKept: number }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "applyDaySlotOverrides");
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);

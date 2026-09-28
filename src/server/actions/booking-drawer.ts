@@ -268,6 +268,8 @@ export async function fetchBookingDetail(
   bookingId: string,
   resolvedStoreId?: string,
 ): Promise<BookingDrawerPayload> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "fetchBookingDetail");
   const timing = new OperationTiming("booking.detail");
   try { return await fetchBookingDetailMeasured(bookingId, resolvedStoreId, timing); }
   finally { timing.finish(); }

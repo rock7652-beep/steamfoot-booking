@@ -266,6 +266,8 @@ export async function updateCustomer(
 export async function updateCustomerServiceNoteAction(
   input: z.infer<typeof updateCustomerServiceNoteSchema>,
 ): Promise<ActionResult<undefined> & { currentValue?: string | null }> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "updateCustomerServiceNoteAction");
   try {
     const user = await requireWritablePermission("customer.update");
     const { customerId, serviceNote, expectedServiceNote } =

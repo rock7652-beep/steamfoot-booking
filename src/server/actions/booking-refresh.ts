@@ -17,6 +17,8 @@ export async function refreshBookingManagement(input: {
   storeId?: string;
   date: string | null;
 }) {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "refreshBookingManagement");
   const timing = new OperationTiming("steamfoot.refresh");
   try {
   const user = await timing.measure("permission", () => requirePermission("booking.read"));

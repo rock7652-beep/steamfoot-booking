@@ -16,6 +16,8 @@ import { addTaiwanDuration, parseTaiwanDateToDbDate, toLocalDateStr } from "@/li
 type PurchasePlanOption = { id: string; name: string; price: number; sessionCount: number };
 
 export async function getSingleBookingPurchasePlans(bookingId: string): Promise<ActionResult<PurchasePlanOption[]>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "getSingleBookingPurchasePlans");
   try {
     const user = await requireWritablePermission("booking.update");
     const storeId = currentStoreId(user);
@@ -40,6 +42,8 @@ export async function getSingleBookingPurchasePlans(bookingId: string): Promise<
 export async function purchasePlanForSingleBooking(
   input: z.infer<typeof purchasePlanForSingleBookingSchema>,
 ): Promise<ActionResult<{ transactionId: string; walletId: string | null; pendingPayment: boolean }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "purchasePlanForSingleBooking");
   try {
     const user = await requireWritablePermission("wallet.create");
     const data = purchasePlanForSingleBookingSchema.parse(input);

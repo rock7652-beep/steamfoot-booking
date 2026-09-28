@@ -873,6 +873,8 @@ export async function updateBooking(
   bookingId: string,
   input: z.infer<typeof updateBookingSchema>
 ): Promise<ActionResult<void>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "updateBooking");
   try {
     const user = await requireWritablePermission("booking.update");
     const data = updateBookingSchema.parse(input);
@@ -1090,6 +1092,8 @@ export async function cancelBooking(
   bookingId: string,
   note?: string
 ): Promise<ActionResult<void>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "cancelBooking");
   try {
     const user = await requireSession();
     await assertStaffBookingWritable(user);
@@ -1621,6 +1625,8 @@ export async function markNoShow(
   bookingId: string,
   choice: NoShowChoice = "DEDUCTED"
 ): Promise<ActionResult<void>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "markNoShow");
   try {
     const user = await requireWritablePermission("booking.update");
 
@@ -2087,6 +2093,8 @@ export interface BatchActionItemResult {
 export async function markCompletedBatch(
   ids: string[]
 ): Promise<{ results: BatchActionItemResult[] }> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "markCompletedBatch");
   // 權限檢查交給每筆 markCompleted（內部會 requireWritablePermission）。
   const results: BatchActionItemResult[] = [];
   for (const id of ids) {

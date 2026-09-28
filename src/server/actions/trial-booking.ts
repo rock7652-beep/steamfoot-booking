@@ -285,6 +285,8 @@ export async function createTrialBooking(
 export async function collectTrialPayment(
   input: z.infer<typeof collectTrialPaymentSchema>,
 ): Promise<ActionResult<{ transactionId: string; serviceCompleted: boolean }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "collectTrialPayment");
   try {
     const user = await requireWritablePermission("trial.confirm");
     const data = collectTrialPaymentSchema.parse(input);
@@ -496,6 +498,8 @@ export async function collectTrialPayment(
 export async function correctTrialCollection(
   input: z.infer<typeof correctTrialCollectionSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "correctTrialCollection");
   try {
     const user = await requireWritablePermission("transaction.void");
     const data = correctTrialCollectionSchema.parse(input);
