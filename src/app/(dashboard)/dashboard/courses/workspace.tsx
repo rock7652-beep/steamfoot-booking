@@ -1,4 +1,7 @@
 "use client";
+import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
+import type {CourseOrderSnapshot} from "@/lib/course-display-order";
+
 import {CourseTestDataFilter,isCourseTestData} from "@/components/admin/course-test-data-filter";
 import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-status-button";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
@@ -90,6 +93,7 @@ type Session = {
   rescheduledAt?: string | null;
 };
 type Props = {
+  displayOrder?:CourseOrderSnapshot;
   selectedDate: string;
   today: string;
   nowIso: string;
@@ -118,6 +122,7 @@ const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 
 export function CourseWorkspace({
+  displayOrder,
   canDelete=false,
   selectedDate: loadedDate,
   today,
@@ -235,6 +240,7 @@ export function CourseWorkspace({
   const categories = [
     ...new Set(catalogItems.map((item) => item.category)),
   ].sort();
+  const order=useCourseDisplayOrder("room",allRooms,displayOrder,businessProfile==="MUSIC"&&view==="rooms"&&canEdit&&!query&&status==="all"&&category==="all"&&!hideTestData&&!busyIds.length,r=>r.isActive);
   const filteredItems = catalogItems
     .filter(
       (item) =>
@@ -250,7 +256,7 @@ export function CourseWorkspace({
     )
     .sort((a, b) => {
       const rank = (item: Room) => !item.isActive ? 2 : item.visibility === "HIDDEN" ? 1 : 0;
-      return rank(a) - rank(b) || (businessProfile === "MUSIC" && view === "catalog" ? a.category.localeCompare(b.category, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant") : 0);
+      return rank(a) - rank(b) || (view==="rooms"?order.compare(a,b):0) || (businessProfile === "MUSIC" && view === "catalog" ? a.category.localeCompare(b.category, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant") : 0);
     });
   function changeStatus(item: Room, visibility?:string) {
     if (pending) return;
@@ -974,6 +980,7 @@ export function CourseWorkspace({
                   return (
                     <tr
                       key={item.id}
+                      {...order.rowProps(item.id)}
                       className={(
                         item.isActive && (!template || template.visibility === "PUBLIC")
                           ? "hover:bg-primary-50/40"
@@ -983,7 +990,7 @@ export function CourseWorkspace({
                       <td
                         className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
                       >
-                        {canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
+                        {businessProfile==="MUSIC"&&view==="rooms"&&canEdit&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
                         {template && <span className="ml-2 whitespace-nowrap text-xs font-normal text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="SELF_ORGANIZED"?"自組班":template.classType==="GROUP"?"團體班":"課型待補"}</span>}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">{item.category || "未分類"}</td>

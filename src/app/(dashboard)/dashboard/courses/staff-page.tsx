@@ -1,3 +1,5 @@
+import {readCourseOrders} from "@/server/services/course-display-order";
+import {orderCourseRows} from "@/lib/course-display-order";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import {
   COURSE_PERMISSIONS,
@@ -46,13 +48,15 @@ export async function CourseStaffPage() {
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
   ]);
+  const displayOrders=musicEntitlement?await readCourseOrders(storeId):{};
+  staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
   const linkedUserIds=staff.flatMap(s=>s.memberLink ? [s.memberLink.userId]:[]);
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-2 px-6 py-4">
       <PageHeader title="人員管理" />
 
-      <CourseStaffWorkspace feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled}
+      <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled}
         music={!!musicEntitlement}
 
         maxStaff={limits.maxStaff}

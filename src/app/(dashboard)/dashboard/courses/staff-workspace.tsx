@@ -1,4 +1,7 @@
 "use client";
+import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
+import type {CourseOrderSnapshot} from "@/lib/course-display-order";
+
 import {CourseTestDataFilter,isCourseTestData} from "@/components/admin/course-test-data-filter";
 import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-status-button";
 import {CourseStaffAssignments} from "@/components/admin/course-staff-assignments";
@@ -39,6 +42,7 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  displayOrder,
   feeEnabled=true,
   staff: sourceStaff,
   maxStaff,
@@ -48,6 +52,7 @@ export function CourseStaffWorkspace({
   permissionGroups,
   music = false,
 }: {
+  displayOrder?:CourseOrderSnapshot;
   feeEnabled?:boolean;
   staff: Person[];
   maxStaff: number | null;
@@ -114,6 +119,7 @@ export function CourseStaffWorkspace({
   }, [open, person, canManage, reloadFees, music]);
   const activeCount = staff.filter(p => p.active).length;
   const atLimit = maxStaff !== null && activeCount >= maxStaff;
+  const order=useCourseDisplayOrder("staff",staff,displayOrder,music&&canManage&&!search&&filter==="all"&&role==="all"&&!hideTestData&&!busyIds.length,p=>p.active);
   const rows = staff
     .filter(
       (s) =>
@@ -121,7 +127,7 @@ export function CourseStaffWorkspace({
         (filter === "all" || s.active === (filter === "active")) &&
         (role === "all" || (role === "coach" ? s.coachEnabled : role === "both" ? s.kind === "manager" && s.coachEnabled : s.kind === role)),
     )
-    .sort((a, b) => Number(b.active) - Number(a.active));
+    .sort((a, b) => Number(b.active) - Number(a.active)||order.compare(a,b));
   const allowedPermissionCodes = permissionGroups.flatMap((group) => group.codes.map((item) => item.code));
   const permissionQuery = permissionSearch.trim().toLocaleLowerCase();
   const visiblePermissionGroups = permissionGroups
@@ -203,9 +209,10 @@ export function CourseStaffWorkspace({
             {rows.slice(currentStaffPage*20,(currentStaffPage+1)*20).map((p) => (
               <tr
                 key={p.id}
+                {...order.rowProps(p.id)}
                 className={p.active ? "" : "text-earth-400 bg-earth-50"}
               >
-                <td className="whitespace-nowrap px-3 py-2">{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span>{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2">{music&&canManage&&order.handle(p.id,p.name)}{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span>{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 <td className="px-3 py-2">
                   {identity(p,music)}{p.coachEnabled && <span className="block whitespace-nowrap text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "授課已設定" : "授課待補"}</span>}
                 </td>

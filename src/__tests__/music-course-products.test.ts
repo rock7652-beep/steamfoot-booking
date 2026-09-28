@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {musicPlanQuote,musicCourseExpiry,musicPurchaseTerms,musicProratedTerms,musicPeriodAt} from "@/lib/music-course-products";
+import {musicCheckoutQuote,musicSnapshotBonus,musicPlanQuote,musicCourseExpiry,musicPurchaseTerms,musicProratedTerms,musicPeriodAt} from "@/lib/music-course-products";
 import {courseTemplateInput} from "@/lib/course-scheduling";
 import {courseTeacherFee} from "@/lib/course-fee-payment";
 
@@ -59,5 +59,29 @@ describe("immutable purchases and midterm joins",()=>{
   expect(()=>musicPurchaseTerms(plan,1000)).toThrow();
   expect(()=>musicProratedTerms(plan,3)).toThrow();
   expect(()=>musicProratedTerms({points:8,price:3600,musicTerms:1},9)).toThrow();
+ });
+});
+
+describe("purchase-time music periods",()=>{
+ const plan={points:4,price:3200,validDays:35,musicTerms:1,musicTermSizes:[4],musicBonusLessons:0};
+ it("quotes six periods without making six catalog products",()=>{
+  expect(musicCheckoutQuote(plan,6)).toEqual({points:24,price:19200,validDays:210,musicTermSizes:[4,4,4,4,4,4],musicBonusLessons:0});
+  expect(musicCheckoutQuote({...plan,validDays:30},6).validDays).toBe(180);
+ });
+ it("places bonus lessons in the first period and keeps boundaries accurate",()=>{
+  const q=musicCheckoutQuote(plan,3,1);expect(q.musicTermSizes).toEqual([5,4,4]);expect(q.validDays).toBe(105);expect(q.price).toBe(9600);
+  const bonus=musicSnapshotBonus(q.musicTermSizes,q.musicBonusLessons,q.points);
+  expect(musicPeriodAt(q.musicTermSizes,bonus,4)).toMatchObject({number:1,index:5,count:5});
+  expect(musicPeriodAt(q.musicTermSizes,bonus,5)).toMatchObject({number:2,index:1,count:4});
+  expect(musicPeriodAt(q.musicTermSizes,bonus,12)).toMatchObject({number:3,index:4,count:4});
+  expect(musicPeriodAt(q.musicTermSizes,bonus,13)).toBeNull();
+  expect(musicSnapshotBonus([4,4,4],1,13)).toBe(1);
+ });
+ it("supports a purchase-specific validity without changing the product",()=>{
+  expect(musicCheckoutQuote(plan,3,1,undefined,120).validDays).toBe(120);expect(plan.validDays).toBe(35);
+ });
+ it.each([0,-1,1.5,101,NaN])("rejects invalid terms %s",n=>expect(()=>musicCheckoutQuote(plan,n)).toThrow());
+ it("rejects multi-period midterm joins and gifts over the cap",()=>{
+  expect(()=>musicCheckoutQuote(plan,2,0,3)).toThrow();expect(()=>musicCheckoutQuote(plan,1,1001)).toThrow();
  });
 });

@@ -1,4 +1,6 @@
 "use server";
+import {readCourseOrders} from "@/server/services/course-display-order";
+import {orderCourseRows} from "@/lib/course-display-order";
 import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
 import { resolveMusicSubjectRule } from "@/server/services/music-subject-rule";
 import { courseHistoryRange } from "@/lib/course-history-range";
@@ -250,7 +252,7 @@ export async function loadCourseStudentPurchase(bookingId: string) {
       checkPermission(user.role, user.staffId, "transaction.discount"),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
-    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans, canDiscount } };
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount } };
   } catch (error) {
     return handleActionError(error);
   }

@@ -444,3 +444,12 @@ model CourseMonthlyNotification {
   @@unique([storeId, settlementId, staffId])
   @@index([storeId, status], map: "CourseMonthlyNotification_store_status")
 }
+
+// Server-only per-store display order; SQL migration owns FK and RLS.
+model CourseDisplayOrder {
+  storeId String
+  kind String
+  ids String[] @default([])
+  revision Int @default(0)
+  @@id([storeId, kind])
+}

@@ -1,3 +1,5 @@
+import {readCourseOrders} from "@/server/services/course-display-order";
+import {orderCourseRows} from "@/lib/course-display-order";
 import { MusicSubjectCatalog } from "./music-subject-catalog";
 import { CourseAnalyticsPage } from "./analytics-page";
 import { CourseMemberPage } from "./member-page";
@@ -224,10 +226,15 @@ export default async function CoursesPage({
     ),
   );
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  const displayOrders=businessProfile==="MUSIC"?await readCourseOrders(storeId):{};
+  rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
+  coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
+  const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
+  templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
   if(view === "catalog" && businessProfile === "MUSIC") {
     const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
     const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-2 px-6 py-4"><PageHeader title="課程管理" subtitle="管理教學項目"/><MusicSubjectCatalog subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    return <PageShell className="course-workspace flex w-full flex-col gap-2 px-6 py-4"><PageHeader title="課程管理" subtitle="管理教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
@@ -296,7 +303,7 @@ export default async function CoursesPage({
           }
         />
       )}
-      <CourseWorkspace canDelete={user.role==="OWNER"}
+      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"}
         key={`${storeId}:${view}`}
         view={view}
         selectedDate={selected}

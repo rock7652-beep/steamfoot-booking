@@ -1,5 +1,7 @@
 import { z } from "zod";
 export const courseCheckoutSchema = z.object({
+  musicPurchaseTerms: z.number().int().min(1).max(100).optional(),
+  musicValidityDays: z.number().int().min(1).max(3650).optional(),
   musicManualBonus: z.number().int().min(0).max(1000).optional(),
   musicJoinSessionId: z.string().min(1).max(100).optional(),
   revenueStaffId: z.string().max(180).default(""),

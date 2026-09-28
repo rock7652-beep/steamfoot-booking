@@ -1,5 +1,5 @@
 import "server-only";
-import {musicPeriodAt} from "@/lib/music-course-products";
+import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
@@ -150,7 +150,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       : privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0
         ? privateMusicTermLessons
         : purchasedLessons;
-    const snapshotPeriod=card?.musicTermSizes?.length ? musicPeriodAt(card.musicTermSizes,card.musicBonusLessons,currentPosition) : null;
+    const snapshotPeriod=card?.musicTermSizes?.length ? musicPeriodAt(card.musicTermSizes,musicSnapshotBonus(card.musicTermSizes,card.musicBonusLessons,purchasedLessons),currentPosition) : null;
     const hasSnapshot=!!card?.musicTermSizes?.length;
     const termSize=snapshotPeriod?.count??legacyTermSize;
     const groupMusic = b.session.template.classType === "GROUP" && card?.unit === "SESSION";
@@ -160,7 +160,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const periodStart=snapshotPeriod?.start??(termNumber ? (termNumber-1)*termSize : 0);
     const periodLessons = termNumber ? allLessons.slice(periodStart,periodStart+termSize) : [];
     const previousTermLesson = termNumber && termNumber > 1 ? allLessons[periodStart - 1] : null;
-    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && sameEnrollment(item) && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && (((hasSnapshot ? card!.musicTermSizes.length+(card!.musicBonusLessons?1:0) : card?.plan.musicTerms??1) === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
+    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && sameEnrollment(item) && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && (((hasSnapshot ? card!.musicTermSizes.length+(musicSnapshotBonus(card!.musicTermSizes,card!.musicBonusLessons,purchasedLessons)?1:0) : card?.plan.musicTerms??1) === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
     const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
     return ({
     ...b,
