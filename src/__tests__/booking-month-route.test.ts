@@ -4,11 +4,11 @@ vi.mock("@/server/actions/booking-refresh", () => ({ refreshBookingManagement: m
 import { GET } from "@/app/api/bookings/month/route";
 import { AppError } from "@/lib/errors";
 beforeEach(() => vi.resetAllMocks());
-it("passes explicit scope to the permission-checked service and never accepts day-slot scope", async () => {
+it("passes explicit scope to the permission-checked service including the selected date", async () => {
   const data = { monthData: [], monthSchedule: {}, slots: null };
   mocks.action.mockResolvedValue(data);
   const response = await GET(new Request("https://example.test/api/bookings/month?year=2026&month=10&storeId=store-a&date=2026-10-01"));
-  expect(mocks.action).toHaveBeenCalledWith({ year: 2026, month: 10, storeId: "store-a", date: null });
+  expect(mocks.action).toHaveBeenCalledWith({ year: 2026, month: 10, storeId: "store-a", date: "2026-10-01" });
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   expect(await response.json()).toEqual(data);
 });

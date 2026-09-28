@@ -8,7 +8,7 @@ import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
 import { dispatchBookingBatch } from "@/lib/booking-action-batch";
 import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
-import { refreshBookingManagement } from "@/server/actions/booking-refresh";
+import { readBookingMonth } from "@/lib/booking-month-read";
 import { toast } from "sonner";
 import { useBookingMonthNavigation } from "./booking-month-context";
 import { BookingMonthLink } from "./booking-month-link";
@@ -248,7 +248,7 @@ export function BookingsManager({
         Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
           dialog.getAttribute("aria-labelledby") !== "day-detail-sheet-title" &&
           !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
-      load: () => refreshBookingManagement({ year, month, storeId, date: selectedDate }),
+      load: () => readBookingMonth({ year, month, storeId, date: selectedDate }),
       apply: (snapshot) => {
         setMonthData(snapshot.monthData);
         setMonthSchedule(snapshot.monthSchedule);
