@@ -120,6 +120,19 @@ export async function validateStoreAccess(
     throw new AppError("VALIDATION", "請先在上方切換到指定分店");
   }
 
+  // Own-store access only needs a fresh operating-status check. Enumerating
+  // descendants and their feature entitlement cannot grant more access here.
+  if (user.role !== "ADMIN" && user.storeId === requestedStoreId) {
+    const { prisma } = await import("@/lib/db");
+    const [store] = await prisma.store.findMany({
+      where: { id: requestedStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      select: { id: true },
+      take: 1,
+    });
+    if (!store) throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+    return store.id;
+  }
+
   const accessibleIds = await getAccessibleStoreIds(user);
   if (!accessibleIds.includes(requestedStoreId)) {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");

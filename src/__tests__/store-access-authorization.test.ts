@@ -81,6 +81,17 @@ describe("organization store authorization", () => {
     expect(mockHasStoreFeature).toHaveBeenCalledTimes(1);
   });
 
+  it("authorizes the own mother store with one status query, without enumerating descendants", async () => {
+    const { validateStoreAccess } = await import("@/lib/store");
+    await expect(validateStoreAccess({ role: "OWNER", storeId: "hq" }, "hq", "read")).resolves.toBe("hq");
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    expect(mockHasStoreFeature).not.toHaveBeenCalled();
+  });
+  it.each(["inactive", "paused"])("still denies own-store access to %s", async (storeId) => {
+    const { validateStoreAccess } = await import("@/lib/store");
+    await expect(validateStoreAccess({ role: "OWNER", storeId }, storeId, "read")).rejects.toThrow("無權存取");
+  });
+
   it("lets ADMIN access ACTIVE and TRIAL stores and platform all", async () => {
     const { getAccessibleStoreIds, validateStoreAccess } = await import("@/lib/store");
     const user = { role: "ADMIN", storeId: null };

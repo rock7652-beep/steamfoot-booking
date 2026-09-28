@@ -59,3 +59,40 @@ describe("60 second booking refresh cadence", () => {
     expect(load).toHaveBeenCalledTimes(3);
   });
 });
+
+it("coalesces consecutive mutations across controller recreation into one trailing read", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(0);
+  const gate = createBookingRefreshGate();
+  const load = vi.fn().mockResolvedValue([]);
+  const options = { gate, load, apply: vi.fn(), onBusy: vi.fn(), onError: vi.fn(), paused: () => false };
+  gate.nextAutomaticAt = 2000;
+  const first = createBookingRefresh(options); first.schedule();
+  await vi.advanceTimersByTimeAsync(1500);
+  first.dispose();
+  gate.nextAutomaticAt = Date.now() + 2000;
+  const second = createBookingRefresh(options); second.schedule();
+  await vi.advanceTimersByTimeAsync(1999);
+  expect(load).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(load).toHaveBeenCalledTimes(1);
+  second.dispose();
+});
+it("allows manual refresh during the quiet period without a second automatic read", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(0);
+  const gate = createBookingRefreshGate(); gate.nextAutomaticAt = 2000;
+  const load = vi.fn().mockResolvedValue([]);
+  const controller = createBookingRefresh({ gate, load, apply: vi.fn(), onBusy: vi.fn(), onError: vi.fn(), paused: () => false });
+  controller.schedule(); await controller.refresh(true);
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(load).toHaveBeenCalledTimes(1);
+  controller.dispose();
+});
+it("never applies or starts a trailing read after disposal", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(0);
+  const gate = createBookingRefreshGate(); gate.nextAutomaticAt = 2000;
+  const load = vi.fn();
+  const controller = createBookingRefresh({ gate, load, apply: vi.fn(), onBusy: vi.fn(), onError: vi.fn(), paused: () => false });
+  controller.schedule(); controller.dispose();
+  await vi.advanceTimersByTimeAsync(3000);
+  expect(load).not.toHaveBeenCalled();
+});

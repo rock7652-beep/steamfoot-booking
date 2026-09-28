@@ -265,7 +265,7 @@ export function BookingsManager({
       onBusy: setSyncing,
     });
     refreshRef.current = () => controller.refresh(true);
-    const resume = () => { void controller.refresh(); };
+    const resume = () => { controller.schedule(); };
     const timer = window.setInterval(resume, 60_000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
@@ -539,7 +539,7 @@ export function BookingsManager({
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
       monthNavigation?.invalidate();
       detailCache.invalidate(bookingId);
-      refreshGate.current.nextAutomaticAt = 0;
+      refreshGate.current.nextAutomaticAt = Date.now() + 2_000;
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {
