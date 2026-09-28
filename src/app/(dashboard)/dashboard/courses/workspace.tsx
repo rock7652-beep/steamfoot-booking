@@ -47,6 +47,7 @@ type Room = {
   uses?: { id:string;nameSnapshot: string; startsAt: string }[];
 };
 type Template = Omit<Room, "capacity"> & {
+  musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null;
   durationMinutes: number;
   capacity: number;
   pointCost: number;
@@ -135,7 +136,7 @@ export function CourseWorkspace({
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
   const rooms = allRooms.filter((r) => r.isActive);
-  const templates = allTemplates.filter((t) => t.isActive);
+  const templates = allTemplates.filter((t) => t.isActive && t.musicSubject?.isActive !== false);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();

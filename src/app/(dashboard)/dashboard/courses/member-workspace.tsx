@@ -41,6 +41,7 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
+  subjects=[],
   profitEnabled=true,
   canDelete=false,
   termSessions=[],
@@ -65,10 +66,11 @@ export function CourseMemberWorkspace({
   canDiscount = false,
   music = false,
 }: {
+  subjects?:{id:string;name:string;category:string;isActive:boolean}[];
   profitEnabled?:boolean;
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
-  templates: {id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null}[];
+  templates: {id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicScheduleMode?:string|null;classType?:string|null;musicSubjectId?:string|null}[];
   people: Person[];
   plans: Plan[];
   cards: CourseCardView[];
@@ -93,7 +95,7 @@ export function CourseMemberWorkspace({
   const params = useSearchParams();
   const pathname=usePathname();
   function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
-  const [templateFilter, setTemplateFilter] = useState(params.get("templateId") ?? "all");
+  const [templateFilter, setTemplateFilter] = useState(params.get("subjectId") ?? params.get("templateId") ?? "all");
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
 
 
@@ -190,7 +192,7 @@ export function CourseMemberWorkspace({
     .filter(
       (p) =>
         (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
-        (templateFilter === "all" || p.templateIds.includes(templateFilter)) &&
+        (templateFilter === "all" || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
@@ -253,7 +255,7 @@ export function CourseMemberWorkspace({
           </select>
         )}
         {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
-        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{templates.map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
@@ -429,7 +431,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
 
-              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} termSessions={termSessions} profitEnabled={profitEnabled} music={music} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} />
+              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} />
 
             )}
             {panel === "assign" && (

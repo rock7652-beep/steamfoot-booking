@@ -34,3 +34,13 @@ Rollback application first; retain the expanded check constraint because new leg
 - Legacy initialization preserves the period layout inferable at migration time; it cannot reconstruct previously overwritten configuration.
 - 55 product/checkout/roster/correction tests passed; TypeScript passed. Browser acceptance pending deployment.
 - Midterm purchase creates entitlement; scheduling remains a separate existing operation. No existing enrollment is silently moved to the new purchase.
+
+## Subject / plan separation follow-up
+
+- Added a music-only subject catalogue (name, category, active status, optional description). No scheduling time or tuition fields in this editor.
+- Plan editor owns class type, per-lesson tuition, term size, term count, validity and gifts. Creates/reuses a rule template under the subject; never rewrites historic rule templates.
+- Existing templates are backfilled one-to-one without guessing instrument names or merging records. Existing purchases, bookings, qualifications and attendance references remain intact.
+- Scheduling selects subject and rule variant; time, room, teacher and capacity are scheduled separately. New rule variants still require the normal teacher qualification setup.
+- Subjects have same-store foreign keys, RLS enabled (no browser Data API policies), and server permission checks. Deactivation prevents new usage while retaining history.
+- Preview-only migration: `20260928140000_music_subject_catalog`. Production has not been changed. Rollback app to the previous preview and retain the additive schema/data; do not delete user-created subjects or templates.
+- Local checks: 51 purchase/term/subject tests plus 17 booking/reschedule tests passed; TypeScript and targeted ESLint passed. Browser acceptance pending deployment.

@@ -1,4 +1,6 @@
 "use server";
+import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
+import { resolveMusicSubjectRule } from "@/server/services/music-subject-rule";
 import { courseHistoryRange } from "@/lib/course-history-range";
 import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
@@ -109,6 +111,7 @@ export async function saveCoursePointPlan(input: unknown) {
       .object({
         id: id.optional(),
         expectedSnapshot: z.string().max(30000).optional(),
+        musicSetup: musicSubjectRuleSchema.optional(),
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
@@ -125,8 +128,8 @@ export async function saveCoursePointPlan(input: unknown) {
         templateIds: z.array(id).max(200).default([]),
       })
 ;
-    const { id: planId, expectedSnapshot, ...data } = schema.parse(input);
-    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true}).parse(JSON.parse(expectedSnapshot)) : null;
+    const { id: planId, expectedSnapshot, musicSetup, ...data } = schema.parse(input);
+    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId } = await courseManager("plans.edit");
     const isMusic = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.music", status: "ENABLED" },
@@ -134,10 +137,10 @@ export async function saveCoursePointPlan(input: unknown) {
     });
     if (isMusic && data.unit !== "SESSION")
       throw new AppError("VALIDATION", "音樂教室方案以堂數計算；每次上課使用 1 堂");
-    if (isMusic) {
-      if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種吉他課與購買期數");
+    if (isMusic && !musicSetup) {
+      if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種課程與購買期數");
       const template=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateIds[0],storeId,isActive:true},select:{musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true}});
-      if (!template || template.musicTrialMode) throw new AppError("VALIDATION","體驗課不建立期數方案，請選擇一般吉他課");
+      if (!template || template.musicTrialMode) throw new AppError("VALIDATION","體驗課不建立期數方案，請選擇一般課程");
       const {musicPlanQuote}=await import("@/lib/music-course-products");
       let quote:ReturnType<typeof musicPlanQuote>;
       try { quote=musicPlanQuote(template,data.musicTerms); } catch(error) {throw new AppError("VALIDATION",error instanceof Error ? error.message : "課程設定不完整");}
@@ -145,9 +148,19 @@ export async function saveCoursePointPlan(input: unknown) {
       data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
       if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
       if (data.termSessionIds.length) throw new AppError("VALIDATION","音樂固定時段由課表管理，購買方案不預先綁定指定課次");
-    } else if (data.musicBonusLessons || data.musicTermSizes.length || data.musicTerms!==null) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
+    } else if (!isMusic && (musicSetup || data.musicBonusLessons || data.musicTermSizes.length || data.musicTerms!==null)) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
+    if(isMusic && musicSetup){
+      if(data.musicTerms===null || data.termSessionIds.length)throw new AppError("VALIDATION","請設定購買期數；實際上課日期由課表安排");
+      const template=await resolveMusicSubjectRule(tx,storeId,musicSetup);
+      const {musicPlanQuote}=await import("@/lib/music-course-products");
+      const quote=musicPlanQuote(template,data.musicTerms);
+      data.templateIds=[template.id];data.points=quote.lessons+data.musicBonusLessons;
+      data.price=quote.price;data.validDays=quote.validDays;
+      data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
+      if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
+    }
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
     const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
     if(previous?.termSessionIds.length&&!sameTerm&&await tx.coursePurchase.count({where:{storeId,planId}}))throw new AppError("CONFLICT","此期課已有購買紀錄，請新增下一期方案，保留原期別課次。");

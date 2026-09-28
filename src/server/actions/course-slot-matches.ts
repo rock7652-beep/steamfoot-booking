@@ -35,8 +35,8 @@ export async function getMusicSlotMatches(input: unknown) {
       return { success: false as const, error: "找不到要調整的課，請重新整理" };
     if (source && Math.round((source.endsAt.getTime() - source.startsAt.getTime()) / 60000) !== data.durationMinutes)
       return { success: false as const, error: "課程時長已變更，請重新剪下" };
-    const template = await coursePrisma.courseTemplate.findFirst({ where: { id: data.templateId, storeId } });
-    if (!template || (!source && (!template.isActive || template.visibility === "OFF")))
+    const template = await coursePrisma.courseTemplate.findFirst({ where: { id: data.templateId, storeId }, include:{musicSubject:{select:{isActive:true}}} });
+    if (!template || (!source && (!template.isActive || template.visibility === "OFF" || template.musicSubject?.isActive===false)))
       return { success: false as const, error: "課程目前不可新增排課" };
 
     const series = source && data.scope !== "SINGLE"

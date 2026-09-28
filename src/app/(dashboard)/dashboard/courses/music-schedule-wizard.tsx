@@ -5,7 +5,7 @@ import { addTaiwanDuration } from "@/lib/date-utils";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
 import { createCourseSchedule } from "@/server/actions/course";
 
-type Template = { id:string; name:string; durationMinutes:number; capacity:number; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
+type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
 type Room = { id:string; name:string };
 type Coach = { id:string; displayName:string };
 
@@ -15,6 +15,11 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
 }) {
   const [templateId,setTemplateId]=useState(initialTemplateId ?? templates[0]?.id ?? "");
   const template=templates.find(t=>t.id===templateId);
+  const subjectId=template?.musicSubjectId??templateId;
+  const subjects=[...new Map(templates.map(t=>[t.musicSubjectId??t.id,{id:t.musicSubjectId??t.id,name:t.musicSubject?.name??t.name}])).values()];
+  const [capacity,setCapacity]=useState(templates.find(t=>t.id===(initialTemplateId??templates[0]?.id))?.capacity??1);
+  function chooseTemplate(id:string){setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);const n=t?.durationMinutes??60;setDuration(([30,60,90,120] as number[]).includes(n)?n as 30|60|90|120:60);resetSlot();}
+
   const [duration,setDuration]=useState<30|60|90|120>(()=>{
     const n=templates.find(t=>t.id===(initialTemplateId ?? templates[0]?.id))?.durationMinutes ?? 60;
     return ([30,60,90,120] as number[]).includes(n) ? n as 30|60|90|120 : 60;
@@ -45,12 +50,13 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const availableRooms=pairs.filter(option=>option.coachId===coachId);
   function create(){
     if(!template || !pair || !time || pending)return;
+    if(!Number.isInteger(capacity)||capacity<1||capacity>500){setError("人數上限請填 1–500 人");return;}
     setError("");
     startTransition(async()=>{
       try{
         const result=await createCourseSchedule({
           templateId,sourceSessionId:templateId===initialTemplateId?sourceSessionId:undefined,roomId:pair.roomId,coachId:pair.coachId,date,time,
-          durationMinutes:duration,capacity:template.capacity,
+          durationMinutes:duration,capacity,
           repeatUntil:repeat?addTaiwanDuration(date,((template.musicTermLessons ?? 4)-1)*7,"DAY"):undefined,
           requestKey,
         });
@@ -61,12 +67,11 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     });
   }
   return <div className="space-y-4 text-sm">
-    <p className="rounded-xl bg-primary-50 px-3 py-2 text-primary-900">課程 → 時長 → 看空位 → 選老師／教室 → 選學員</p>
-    <label className="block">① 課程
-      <select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>{setTemplateId(e.target.value);const n=templates.find(t=>t.id===e.target.value)?.durationMinutes ?? 60;setDuration(([30,60,90,120] as number[]).includes(n) ? n as 30|60|90|120 : 60);resetSlot();}}>
-        {templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-      </select>
-    </label>
+    <div className="grid gap-3 sm:grid-cols-2">
+    <label className="block">教學項目<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={subjectId} onChange={e=>chooseTemplate(templates.find(t=>(t.musicSubjectId??t.id)===e.target.value)?.id??"")}>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+    <label className="block">班型方案<select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>chooseTemplate(e.target.value)}>{templates.filter(t=>(t.musicSubjectId??t.id)===subjectId).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+    <label className="block">人數上限<input className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" type="number" min="1" max="500" value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/></label>
+    </div>
     <label className="block">② 上課時長
       <select className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={duration} onChange={e=>{setDuration(Number(e.target.value) as 30|60|90|120);resetSlot();}}>
         {[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}

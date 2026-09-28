@@ -1,3 +1,4 @@
+import { MusicSubjectCatalog } from "./music-subject-catalog";
 import { CourseAnalyticsPage } from "./analytics-page";
 import { CourseMemberPage } from "./member-page";
 import { redirect } from "next/navigation";
@@ -124,7 +125,7 @@ export default async function CoursesPage({
           name: true,
           category: true,
           isActive: true,
-          visibility:true,classType:true,
+          visibility:true,classType:true,musicSubjectId:true,musicSubject:{select:{id:true,name:true,isActive:true}},
           musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,
           musicScheduleMode:true,musicTrialMode:true,musicTeacherFeeBase:true,
           durationMinutes: true,
@@ -223,6 +224,11 @@ export default async function CoursesPage({
     ),
   );
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  if(view === "catalog" && businessProfile === "MUSIC") {
+    const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
+    const writable=user.role==="ADMIN"||user.storeId===storeId;
+    return <PageShell className="course-workspace flex w-full flex-col gap-4 px-6 py-6"><PageHeader title="課程管理" subtitle="管理教學項目"/><MusicSubjectCatalog subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+  }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
         by: ["requestKey"],

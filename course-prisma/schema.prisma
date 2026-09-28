@@ -29,7 +29,24 @@ model CourseRoom {
   @@unique([storeId, name])
 }
 
+model MusicSubject {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  category String @default("")
+  description String @default("")
+  isActive Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  templates CourseTemplate[]
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+}
+
 model CourseTemplate {
+  musicSubjectId String?
+  musicSubject MusicSubject? @relation(fields: [musicSubjectId, storeId], references: [id, storeId])
+  @@index([musicSubjectId])
+
   visibility String @default("PUBLIC")
   classType String?
   musicPricePerLesson Int?
