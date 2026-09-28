@@ -73,7 +73,8 @@ export async function loadCoursePortal(requestedMonth?: string) {
     personalIncomeAccess(user.id, storeId),
   ]);
   const memberEnabled = identity?.courseMemberEnabled !== false;
-  const cards = memberEnabled ? await getCourseCards(storeId, customer.id) : [];
+  const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+  const cards = memberEnabled ? await getCourseCards(storeId, customer.id, musicStore ? {where:{unit:"SESSION"}} : undefined) : [];
   const sessionInclude = {
     room: { select: { name: true } },
     template: { select: { precautions: true } },
@@ -158,7 +159,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : [],
     memberEnabled
       ? coursePrisma.coursePointPlan.findMany({
-          where: { storeId, isActive: true, customerPurchasable: true },
+          where: { storeId, isActive: true, customerPurchasable: true, ...(musicStore ? {unit:"SESSION" as const} : {}) },
           orderBy: { price: "asc" },
         })
       : [],
