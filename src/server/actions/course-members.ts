@@ -199,6 +199,37 @@ export async function assignCoursePointCard(input: unknown) {
   }
 }
 
+/** Checkout options for the learner currently selected in the schedule dialog. */
+export async function loadCourseStudentPurchase(bookingId: string) {
+  try {
+    id.parse(bookingId);
+    const { user, storeId } = await courseManager("wallet.create");
+    await courseManager("transaction.create");
+    const booking = await coursePrisma.courseBooking.findFirst({
+      where: { id: bookingId, storeId },
+      select: { customerId: true, customerName: true, session: { select: { templateId: true } } },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "找不到本店學員");
+    const { checkPermission } = await import("@/lib/permissions");
+    const { readSettlementSettings } = await import("@/server/services/course-monthly-settlement");
+    const [plans, staff, customer, settings, canDiscount] = await Promise.all([
+      coursePrisma.coursePointPlan.findMany({
+        where: { storeId, isActive: true, unit: "SESSION", templateIds: { has: booking.session.templateId } },
+        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true },
+        orderBy: [{ points: "asc" }, { name: "asc" }],
+      }),
+      prisma.staff.findMany({ where: { storeId, status: "ACTIVE", user: { role: "OWNER", status: "ACTIVE" } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }),
+      prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { assignedStaffId: true } }),
+      readSettlementSettings(coursePrisma, storeId),
+      checkPermission(user.role, user.staffId, "transaction.discount"),
+    ]);
+    if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans, staff, defaultStaffId: customer.assignedStaffId, profitEnabled: settings.profitEnabled, canDiscount } };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function setCourseCardMembers(input: unknown) {
   try {
     const { storeId } = await courseManager("wallet.create");
