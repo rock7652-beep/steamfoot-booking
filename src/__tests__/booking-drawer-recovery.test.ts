@@ -134,8 +134,10 @@ it("renders the month wallet snapshot while full detail is still pending", async
     act(() => { complete.click(); complete.click(); });
     expect(mocks.complete).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain("已完成");
+    expect(container.textContent).toContain("2 堂");
     await act(async () => finish({ success: false, error: "rejected" }));
     expect(container.textContent).toContain("完成服務");
+    expect(container.textContent).toContain("3 堂");
   } finally {
     await act(async () => root.unmount());
   }
@@ -162,9 +164,11 @@ it("updates completion immediately and restores it when the server rejects the w
     act(() => complete.click());
     expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "COMPLETED");
     expect(container.textContent).toContain("還原狀態");
+    expect(container.textContent).toContain("0 / 2 堂");
 
     await act(async () => finish({ success: false, error: "server rejected" }));
     expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
+    expect(container.textContent).toContain("1 / 2 堂");
     expect(container.textContent).toContain("完成服務");
   } finally {
     await act(async () => root.unmount());
@@ -217,10 +221,12 @@ it("does not let A's late recovery overwrite B after switching bookings", async 
     expect(mocks.complete).toHaveBeenCalledOnce();
     await act(async () => render(b.booking.id));
     expect(container.textContent).toContain("Customer B");
+    expect(container.textContent).toContain("1 / 2 堂");
     await act(async () => { rejectWrite(Error("lost response")); });
     expect(mocks.read).toHaveBeenCalledWith(a.booking.id, undefined);
     expect(onUpdated).toHaveBeenCalledWith(a.booking.id, "COMPLETED");
     expect(container.textContent).toContain("Customer B");
+    expect(container.textContent).toContain("1 / 2 堂");
     expect(container.textContent).not.toContain("Cross-date fixture");
     const bComplete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
     expect(bComplete.disabled).toBe(false);
@@ -252,5 +258,23 @@ it("automatically checks first and the fallback only reads without completing tw
     expect(mocks.complete).toHaveBeenCalledOnce();
     expect(onUpdated).toHaveBeenCalledWith(payload.booking.id, "COMPLETED");
     expect(container.textContent).not.toContain("查看最新狀態");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("keeps makeup wallet balance unchanged while completion is pending", async () => {
+  const payload = bookingPayload();
+  payload.booking.isMakeup = true;
+  mocks.read.mockResolvedValue(payload);
+  mocks.complete.mockImplementation(() => new Promise(() => {}));
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true, bookingId: payload.booking.id, onClose: vi.fn(),
+    })));
+    const complete = [...container.querySelectorAll("button")].find(b => b.textContent?.includes("完成服務"))!;
+    act(() => complete.click());
+    expect(mocks.complete).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain("1 / 2 堂");
   } finally { await act(async () => root.unmount()); }
 });

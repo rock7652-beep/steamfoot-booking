@@ -190,6 +190,7 @@ export function BookingDetailDrawer({
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [prefillStatus, setPrefillStatus] = useState<string | null>(null);
+  const [pendingBalance, setPendingBalance] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const localActions = useResponsiveAction();
   const saves = sharedActions ?? localActions;
@@ -240,6 +241,7 @@ export function BookingDetailDrawer({
   if (open && bookingId && seededFor !== bookingId) {
     setSeededFor(bookingId);
     setPrefillStatus(null);
+    setPendingBalance(null);
     setData(cache?.get(bookingId) ?? null);
     setError(null);
     setPendingAttendedPeople(null);
@@ -273,6 +275,7 @@ export function BookingDetailDrawer({
       .then((payload) => {
         if (canceled) return;
         setData(payload);
+        setPendingBalance(null);
         setError(null);
       })
       .catch((e) => {
@@ -288,7 +291,7 @@ export function BookingDetailDrawer({
     };
   }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing]);
 
-  /** Financial values stay server-confirmed; safe status changes may render optimistically. */
+  /** Only an unambiguous single-person package deduction is projected locally. */
   function wrapAction(
     label: string,
     action: () => Promise<{ success: boolean; error?: string } | unknown>,
@@ -308,6 +311,14 @@ export function BookingDetailDrawer({
     const originalData = data?.booking.id === id ? data : null;
     const originalStatus = originalData?.booking.bookingStatus ?? (prefill?.id === id ? prefill.bookingStatus : null);
     const optimisticStatus = opts?.optimistic && nextStatus ? nextStatus : null;
+    const source = originalData?.booking ?? (prefill?.id === id ? prefill : null);
+    const wallet = source?.customerPlanWallet;
+    const projectedBalance = !spaMode && optimisticStatus === "COMPLETED" &&
+      source && ["PENDING", "CONFIRMED"].includes(source.bookingStatus) &&
+      source.bookingType === "PACKAGE_SESSION" && source.people === 1 && !source.isMakeup &&
+      (!originalData || originalData.booking.makeupCreditLinks.length === 0) &&
+      wallet && wallet.remainingSessions > 0
+      ? wallet.remainingSessions - 1 : null;
     const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
     void saves.run(id, async () => {
       const result = await action() as { success?: boolean; error?: string } | undefined;
@@ -320,6 +331,7 @@ export function BookingDetailDrawer({
         onUpdated?.(id, optimisticStatus);
         if (currentBooking.current !== id) return;
         setPrefillStatus(optimisticStatus);
+        setPendingBalance(projectedBalance);
         setData(previous =>
           previous?.booking.id === id ? { ...previous, booking: {
             ...previous.booking,
@@ -337,6 +349,7 @@ export function BookingDetailDrawer({
         if (originalStatus) onUpdated?.(id, originalStatus);
         if (currentBooking.current !== id) return;
         setPrefillStatus(null);
+        setPendingBalance(null);
         if (originalData) setData(originalData);
         opts?.onRollback?.();
       },
@@ -352,6 +365,7 @@ export function BookingDetailDrawer({
         onUpdated?.(id, nextStatus);
         if (currentBooking.current !== id) return;
         setData(recoveredPayload);
+        setPendingBalance(null);
         setError(null);
         opts?.onSuccess?.();
       },
@@ -655,7 +669,7 @@ export function BookingDetailDrawer({
           />
         ) : hasFullData && data ? (
           <DrawerContent
-            payload={data}
+            payload={pendingBalance !== null && data.booking.customerPlanWallet ? { ...data, booking: { ...data.booking, customerPlanWallet: { ...data.booking.customerPlanWallet, remainingSessions: pendingBalance } } } : data}
             onNoteSaved={(patch) => {
               setData((previous) => {
                 if (!previous || previous.booking.id !== patch.bookingId) return previous;
@@ -693,7 +707,7 @@ export function BookingDetailDrawer({
           />
         ) : showPrefill && prefill && !spaMode ? (
           <PendingSteamDetail
-            prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED" } : prefill}
+            prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED", customerPlanWallet: pendingBalance !== null && prefill.customerPlanWallet ? { ...prefill.customerPlanWallet, remainingSessions: pendingBalance } : prefill.customerPlanWallet } : prefill}
             durationMinutes={durationMinutes}
             error={error}
             onClose={onClose}
