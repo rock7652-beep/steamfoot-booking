@@ -189,7 +189,7 @@ export function CourseMemberWorkspace({
       (p) =>
         p.name.includes(search.trim()) &&
         (status === "all" || p.isActive === (status === "active")) &&
-        (planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
+        (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
   function changePlanStatus(item: Plan) {
