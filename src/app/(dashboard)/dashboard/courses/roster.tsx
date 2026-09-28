@@ -1,7 +1,8 @@
 "use client";
+import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 
 import { CollectTrialModal } from "../bookings/collect-trial-modal";
-import { CourseAssignmentPayment, type AssignmentSummary } from "@/components/admin/course-assignment-payment";
+import { type AssignmentSummary } from "@/components/admin/course-assignment-payment";
 import { scheduleTeacherMakeup } from "@/server/actions/course";
 import { CorrectTrialCollectionModal } from "../bookings/correct-trial-collection-modal";
 import {
@@ -1040,7 +1041,7 @@ export function CourseRoster({
                   <strong className="min-w-0 truncate" title={booking.customerName}>{booking.customerName}</strong>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${booking.status==="ATTENDED"?"bg-emerald-100 text-emerald-900":booking.status==="NO_SHOW"?"bg-rose-100 text-rose-900":booking.status==="CANCELLED"&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")?"bg-violet-100 text-violet-900":"bg-earth-100 text-earth-700"}`}>{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "") ? "請假" : "已取消" : teacherAbsent ? "本堂免點名" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
                   {!musicLayout && booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
-                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">本期第 {booking.termIndex}/{booking.termCount} 堂</span>}
+                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</span>}
                    {musicLayout && booking.nextPaidLessons !== null && <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">下期已繳 {booking.nextPaidLessons} 堂</span>}
                    {booking.bookingKind !== "TRIAL" && booking.termLeaveCount + booking.termNoShowCount > 0 && <span className="whitespace-nowrap text-xs text-amber-800">此方案請假 {booking.termLeaveCount}・曠課 {booking.termNoShowCount}</span>}
                    {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
@@ -1547,6 +1548,8 @@ export function CourseRoster({
                 planId: purchasePlanId,
                 customerId: purchaseOptions.customerId,
                 expiresDate: "2099-12-31",
+                musicManualBonus:Number(fields.get("musicManualBonus")??0),
+                musicJoinSessionId:String(fields.get("musicJoinSessionId")??"")||undefined,
                 expectedListPrice: Number(fields.get("expectedListPrice")),
                 expectedStoreCost: Number(fields.get("expectedStoreCost")),
                 revenueStaffId: "",
@@ -1565,7 +1568,7 @@ export function CourseRoster({
               }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
             }}>
               {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
-              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <CourseAssignmentPayment key={plan.id} price={plan.price} storeCost={plan.storeCost} profitEnabled={false} showAllocation={false} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
+              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
             </form>}
           </div>
           {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}

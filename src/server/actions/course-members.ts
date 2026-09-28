@@ -119,6 +119,8 @@ export async function saveCoursePointPlan(input: unknown) {
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
+        musicBonusLessons:z.number().int().min(0).max(1000).default(0),
+        musicTermSizes:z.array(z.number().int().min(1).max(1000)).max(100).default([]),
         musicTerms:z.number().int().min(1).max(100).nullable().default(null),
         templateIds: z.array(id).max(200).default([]),
       })
@@ -139,9 +141,11 @@ export async function saveCoursePointPlan(input: unknown) {
       const {musicPlanQuote}=await import("@/lib/music-course-products");
       let quote:ReturnType<typeof musicPlanQuote>;
       try { quote=musicPlanQuote(template,data.musicTerms); } catch(error) {throw new AppError("VALIDATION",error instanceof Error ? error.message : "課程設定不完整");}
-      data.points=quote.lessons;data.price=quote.price;data.validDays=quote.validDays;
+      data.points=quote.lessons+data.musicBonusLessons;data.price=quote.price;data.validDays=quote.validDays;
+      data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
+      if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
       if (data.termSessionIds.length) throw new AppError("VALIDATION","音樂固定時段由課表管理，購買方案不預先綁定指定課次");
-    } else if (data.musicTerms!==null) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
+    } else if (data.musicBonusLessons || data.musicTermSizes.length || data.musicTerms!==null) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
@@ -150,7 +154,7 @@ export async function saveCoursePointPlan(input: unknown) {
     data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
     if (planId) {
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId, ...(expected ? {...expected,templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
+        where: { id: planId, storeId, ...(expected ? {...expected,musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
         data,
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
@@ -195,7 +199,7 @@ export async function assignCoursePointCard(input: unknown) {
       .parse(input);
     await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
-    if (checkout.discountValue > 0) await courseManager("transaction.discount");
+    if (checkout.discountValue > 0 || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
       const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
@@ -226,7 +230,7 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     const [plans, customer, canDiscount] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
         where: { storeId, isActive: true, unit: "SESSION", templateIds: { has: booking.session.templateId } },
-        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true },
+        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
       prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } }),
@@ -771,5 +775,23 @@ export async function saveCourseLeaveNote(input: unknown) {
       await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseBooking',${booking.id},'COURSE_LEAVE_NOTE',${JSON.stringify({storeId,note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;
     });
     refresh();return {success:true as const};
+  }catch(error){return handleActionError(error);}
+}
+
+export async function loadMusicJoinOptions(planId:string) {
+  try {
+    id.parse(planId);
+    const {storeId}=await courseManager("wallet.create");
+    const plan=await coursePrisma.coursePointPlan.findFirst({where:{id:planId,storeId,isActive:true}});
+    if(!plan || plan.musicTerms!==1 || plan.templateIds.length!==1)return {success:true as const,options:[]};
+    const template=await coursePrisma.courseTemplate.findFirst({where:{id:plan.templateIds[0],storeId,classType:"GROUP"}});
+    if(!template?.musicTermLessons)return {success:true as const,options:[]};
+    const sessions=await coursePrisma.courseSession.findMany({where:{storeId,templateId:template.id,cancelledAt:null,startsAt:{gte:new Date()}},orderBy:{startsAt:"asc"},take:200,select:{id:true,startsAt:true,requestIndex:true,requestKey:true}});
+    const size=template.musicTermLessons;
+    const options=sessions.filter(first=>{
+      const end=(Math.floor(first.requestIndex/size)+1)*size;
+      return sessions.filter(s=>s.requestKey===first.requestKey&&s.requestIndex>=first.requestIndex&&s.requestIndex<end).length===end-first.requestIndex;
+    }).map(first=>({id:first.id,startsAt:first.startsAt.toISOString(),remaining:size-first.requestIndex%size}));
+    return {success:true as const,options};
   }catch(error){return handleActionError(error);}
 }

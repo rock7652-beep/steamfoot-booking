@@ -122,6 +122,8 @@ model CourseSessionMove {
 }
 
 model CoursePointPlan {
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   musicTerms Int?
   storeCost Int @default(0)
   termSessionIds String[] @default([])
@@ -154,6 +156,10 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  musicJoinSessionId String?
+  musicManualBonus Int @default(0)
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   musicValidityDays Int?
   musicActivatedAt DateTime? @db.Timestamptz(3)
   termSessionIds String[] @default([])
@@ -260,6 +266,10 @@ model CourseBookingRule {
 }
 
 model CoursePurchase {
+  musicJoinSessionId String?
+  musicManualBonus Int @default(0)
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   storeCostSnapshot Int?
   developerProfitSnapshot Int?
   developerNameSnapshot String?

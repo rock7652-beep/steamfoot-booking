@@ -1,4 +1,5 @@
 "use client";
+import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
 import { saveCourseCustomerNote } from "@/server/actions/course-customer-note";
 import { useRetainedState, retainedString, retainedPage } from "@/components/operations/operation-scope";
@@ -92,6 +93,7 @@ export function CourseMemberWorkspace({
   const params = useSearchParams();
   const pathname=usePathname();
   function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
+  const [templateFilter, setTemplateFilter] = useState(params.get("templateId") ?? "all");
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
 
 
@@ -187,7 +189,8 @@ export function CourseMemberWorkspace({
   const filteredPlans = plans
     .filter(
       (p) =>
-        p.name.includes(search.trim()) &&
+        (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        (templateFilter === "all" || p.templateIds.includes(templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
@@ -250,6 +253,7 @@ export function CourseMemberWorkspace({
           </select>
         )}
         {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{templates.map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
@@ -425,7 +429,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
 
-              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} termSessions={termSessions} profitEnabled={profitEnabled} music={music} onPending={setFormPending} onSaved={finishDraftForm} />
+              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} termSessions={termSessions} profitEnabled={profitEnabled} music={music} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} />
 
             )}
             {panel === "assign" && (
@@ -439,6 +443,8 @@ export function CourseMemberWorkspace({
                       planId,
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
+                      musicManualBonus:music?Number(d.get("musicManualBonus")??0):undefined,
+                      musicJoinSessionId:music?String(d.get("musicJoinSessionId")??"")||undefined:undefined,
                       expectedListPrice: Number(d.get("expectedListPrice")),
                       expectedStoreCost: Number(d.get("expectedStoreCost")),
                       revenueStaffId: music ? "" : String(d.get("revenueStaffId")??""),
@@ -487,7 +493,7 @@ export function CourseMemberWorkspace({
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
-                  <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>
+                  {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
                 </fieldset>
               </form>
             )}

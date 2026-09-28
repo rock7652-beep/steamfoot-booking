@@ -201,6 +201,10 @@ export async function reserveCourseInTransaction(
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  if(card?.musicJoinSessionId) {
+    const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
+    if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
+  }
   if (input.makeupForBookingId) {
     if (actor.customerId || !card || card.unit !== "SESSION") return fail("補課僅由店長使用原堂數方案安排");
     const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;

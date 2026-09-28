@@ -53,14 +53,12 @@ async function writableStore(
   return courseManager(permission);
 }
 
-async function validateMusicTemplate(storeId:string,data:{classType:string|null;pointCost:number;musicPricePerLesson:number|null;musicTermLessons:4|8|null;musicValidityDaysPerTerm:number|null;musicScheduleMode:"FIXED"|"APPOINTMENT"|null;musicTrialMode:"FREE"|"PAID"|null;musicTeacherFeeBase:number|null;durationMinutes:number}) {
+async function validateMusicTemplate(storeId:string,data:{classType:string|null;pointCost:number;musicPricePerLesson:number|null;musicTermLessons:number|null;musicValidityDaysPerTerm:number|null;musicScheduleMode:"FIXED"|"APPOINTMENT"|null;musicTrialMode:"FREE"|"PAID"|null;musicTeacherFeeBase:number|null;durationMinutes:number}) {
   const music=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
   if (!music) return;
   if (!data.classType || data.musicPricePerLesson===null || data.musicTermLessons===null || data.musicValidityDaysPerTerm===null || !data.musicScheduleMode)
     throw new AppError("VALIDATION","音樂課程需設定課型、每堂售價、每期堂數、有效天數與排課方式");
   if (data.pointCost!==1) throw new AppError("VALIDATION","音樂課程只使用堂數，每次預約固定 1 堂");
-  if (data.musicTermLessons !== (data.classType==="GROUP" ? 8 : 4))
-    throw new AppError("VALIDATION",data.classType==="GROUP" ? "團體班每期 8 堂" : "個別課與自組班每期 4 堂");
   if (data.musicTrialMode==="FREE" && (data.durationMinutes!==30 || data.musicTeacherFeeBase===null))
     throw new AppError("VALIDATION","免費體驗為 30 分鐘，需設定老師拆帳計算基礎");
   if (data.musicTrialMode==="PAID" && data.durationMinutes<60)

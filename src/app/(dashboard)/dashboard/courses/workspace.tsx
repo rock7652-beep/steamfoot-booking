@@ -224,6 +224,7 @@ export function CourseWorkspace({
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
   const [roomFilter, setRoomFilter] = useState(params.get("room") ?? "all");
+  const [classFilter, setClassFilter] = useState("all");
   const [coachFilter, setCoachFilter] = useState("all");
   const catalogItems = view === "rooms" ? allRooms : allTemplates;
   const categories = [
@@ -237,13 +238,14 @@ export function CourseWorkspace({
           .includes(query.trim().toLocaleLowerCase()) &&
         (status === "all" || (view === "rooms" ? item.isActive === (status === "active") : (item.visibility ?? (item.isActive?"PUBLIC":"OFF")) === status)) &&
         (category === "all" || item.category === category) &&
+        (view !== "catalog" || classFilter === "all" || ("classType" in item && (classFilter === "TRIAL" ? !!item.musicTrialMode : !item.musicTrialMode && item.classType === classFilter))) &&
         (view === "rooms" ||
           roomFilter === "all" ||
           ("defaultRoomId" in item && item.defaultRoomId === roomFilter)),
     )
     .sort((a, b) => {
       const rank = (item: Room) => !item.isActive ? 2 : item.visibility === "HIDDEN" ? 1 : 0;
-      return rank(a) - rank(b);
+      return rank(a) - rank(b) || (businessProfile === "MUSIC" && view === "catalog" ? a.category.localeCompare(b.category, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant") : 0);
     });
   function changeStatus(item: Room, visibility?:string) {
     if (pending) return;
@@ -886,6 +888,7 @@ export function CourseWorkspace({
               </option>
               {view === "catalog" && <option value="HIDDEN">隱藏</option>}
             </select>
+            {view === "catalog" && businessProfile === "MUSIC" && <select aria-label="篩選班型" className={button} value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">全部班型</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組班</option><option value="GROUP">團體班</option><option value="TRIAL">體驗課</option></select>}
             {view === "catalog" && (
               <select
                 aria-label="篩選預設教室"
@@ -908,6 +911,7 @@ export function CourseWorkspace({
                 setStatus("all");
                 setCategory("all");
                 setRoomFilter("all");
+                setClassFilter("all");
               }}
             >
               清除篩選
@@ -941,7 +945,7 @@ export function CourseWorkspace({
                         "課程名稱",
                         "分類",
                         "時長",
-                        "每人方案扣抵",
+                        businessProfile === "MUSIC" ? "學費與堂數" : "每人方案扣抵",
                         "人數上限",
                         "狀態",
                         "操作",
@@ -984,7 +988,7 @@ export function CourseWorkspace({
                             {template.durationMinutes} 分
                           </td>
                           <td className="whitespace-nowrap px-3 py-2 tabular-nums">
-                            {businessProfile === "MUSIC" ? `${template.musicTermLessons ?? (template.classType === "GROUP" ? 8 : 4)} 堂／期 · 每位 NT$ ${template.musicPricePerLesson ?? "待設定"}／堂` : `點數卡 ${template.pointCost} 點；堂數卡 1 堂`}
+                            {businessProfile === "MUSIC" ? template.musicTrialMode ? `體驗 1 堂 · ${template.musicTrialMode === "FREE" ? "免費" : `NT$ ${template.musicPricePerLesson ?? "待設定"}`}` : `${template.musicTermLessons ?? "待設定"} 堂／期 · NT$ ${template.musicPricePerLesson ?? "待設定"}／堂` : `點數卡 ${template.pointCost} 點；堂數卡 1 堂`}
                           </td>
                           <td className="px-3 py-2 tabular-nums">
                             {template.capacity}
@@ -1022,6 +1026,7 @@ export function CourseWorkspace({
                                 查看{template ? "課程" : "教室"}
                               </button>
                               {template ? <>
+                                {businessProfile === "MUSIC" && !template.musicTrialMode && <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>router.push(`${pathname}?view=plans&templateId=${encodeURIComponent(template.id)}`)}>收費方案</button>}
                                 <select className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" aria-label={`${item.name} 狀態`} value={template.visibility ?? "PUBLIC"} disabled={pending} onChange={e=>changeStatus(item,e.target.value)}><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select>
                                 {canCreate && <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:template.name+"（複製）"}});open("edit");}}>複製</button>}
                               </> : <><button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={pending} onClick={()=>changeStatus(item)}>{item.isActive?"停用":"啟用"}</button><button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button></>}
@@ -2386,7 +2391,7 @@ function musicCourseInput(data:FormData) {
 function MusicCourseFields({value}:{value?:{musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicScheduleMode?:string|null;musicTrialMode?:string|null;musicTeacherFeeBase?:number|null}}) {
   return <>
     <label>每位學員每堂售價（元）<input className={field} name="musicPricePerLesson" type="number" min="0" max="1000000" defaultValue={value?.musicPricePerLesson ?? 800} required/></label>
-    <label>每期堂數<select className={field} name="musicTermLessons" defaultValue={value?.musicTermLessons ?? 4} required><option value="4">4 堂（個別／自組）</option><option value="8">8 堂（團體班）</option></select></label>
+    <label>每期堂數<input className={field} name="musicTermLessons" type="number" min="1" max="1000" step="1" defaultValue={value?.musicTermLessons ?? 4} required/></label>
     <label>排課方式<select className={field} name="musicScheduleMode" defaultValue={value?.musicScheduleMode ?? "FIXED"}><option value="FIXED">固定時段</option><option value="APPOINTMENT">每次約課</option></select></label>
     <label>每期有效天數<input className={field} name="musicValidityDaysPerTerm" type="number" min="1" max="3650" defaultValue={value?.musicValidityDaysPerTerm ?? 35} required/><span className="text-xs text-earth-500">固定課預設 35 天；約課預設 70 天，從第一次上課起算。</span></label>
     <label>體驗課<select className={field} name="musicTrialMode" defaultValue={value?.musicTrialMode ?? ""}><option value="">一般課程</option><option value="FREE">免費體驗（30 分鐘）</option><option value="PAID">付費體驗（完整一堂）</option></select></label>

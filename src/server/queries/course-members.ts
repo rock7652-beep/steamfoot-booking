@@ -1,4 +1,5 @@
 import "server-only";
+import {musicPeriodAt} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
@@ -82,7 +83,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
+      card: { select: { musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -116,17 +117,17 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const renewalCards = await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
-    select: { id: true, createdAt: true, remaining: true, plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
+    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
   });
   return bookings.map(({ card, checkedInAt, ...b }) => {
     const currentPurchase = confirmedPurchases.find((purchase) => purchase.customerId === b.customerId && purchase.cardId === b.cardId);
-    const renewal = card && card.plan.templateIds.length
+    const renewal = card && card.templateIds.length
       ? confirmedPurchases
         .filter((purchase) => purchase.customerId === b.customerId && purchase.cardId !== b.cardId)
         .map((purchase) => ({ purchase, next: renewalCards.find((candidate) => candidate.id === purchase.cardId) }))
         .filter(({ purchase, next }) =>
           !!next && next.createdAt > card.createdAt && next.remaining >= purchase.points &&
-          next.plan.templateIds.includes(b.session.templateId))
+          next.templateIds.includes(b.session.templateId))
         .sort((left, right) => left.next!.createdAt.getTime() - right.next!.createdAt.getTime())[0] ?? null
       : null;
     const paymentSummary = (purchase: (typeof confirmedPurchases)[number]) => ({
@@ -144,18 +145,22 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const purchasedLessons = card?.entries[0]?.points ?? card?.plan.points ?? 0;
     const privateMusicTermLessons = b.session.template.classType === "PRIVATE" && card?.unit === "SESSION"
       ? b.session.template.musicTermLessons : null;
-    const termSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
+    const legacyTermSize = card?.plan.musicTerms && purchasedLessons % card.plan.musicTerms === 0
       ? purchasedLessons / card.plan.musicTerms
       : privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0
         ? privateMusicTermLessons
         : purchasedLessons;
+    const snapshotPeriod=card?.musicTermSizes?.length ? musicPeriodAt(card.musicTermSizes,card.musicBonusLessons,currentPosition) : null;
+    const hasSnapshot=!!card?.musicTermSizes?.length;
+    const termSize=snapshotPeriod?.count??legacyTermSize;
     const groupMusic = b.session.template.classType === "GROUP" && card?.unit === "SESSION";
-    const validGroupEnrollment = groupMusic && !!card?.plan.musicTerms && card.plan.templateIds.includes(b.session.templateId) && purchasedLessons % card.plan.musicTerms === 0;
+    const validGroupEnrollment = groupMusic && (hasSnapshot || (!!card?.plan.musicTerms && card.templateIds.includes(b.session.templateId) && purchasedLessons % card.plan.musicTerms === 0));
     const missingGroupEnrollment = groupMusic && !validGroupEnrollment;
-    const termNumber = !missingGroupEnrollment && termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null;
-    const periodLessons = termNumber ? allLessons.slice((termNumber - 1) * termSize, termNumber * termSize) : [];
-    const previousTermLesson = termNumber && termNumber > 1 ? allLessons[(termNumber - 1) * termSize - 1] : null;
-    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && sameEnrollment(item) && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && ((!card?.plan.musicTerms || card.plan.musicTerms === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
+    const termNumber = snapshotPeriod?.number ?? (!missingGroupEnrollment && termSize > 0 && currentPosition >= 0 ? Math.floor(currentPosition / termSize) + 1 : null);
+    const periodStart=snapshotPeriod?.start??(termNumber ? (termNumber-1)*termSize : 0);
+    const periodLessons = termNumber ? allLessons.slice(periodStart,periodStart+termSize) : [];
+    const previousTermLesson = termNumber && termNumber > 1 ? allLessons[periodStart - 1] : null;
+    const privateLeaves = (card?.bookings ?? []).filter((item) => item.customerId === b.customerId && sameEnrollment(item) && item.absenceKind === "STUDENT_LEAVE" && termNumber !== null && (((hasSnapshot ? card!.musicTermSizes.length+(card!.musicBonusLessons?1:0) : card?.plan.musicTerms??1) === 1) || (periodLessons.length > 0 && (!previousTermLesson || item.session.startsAt > previousTermLesson.session.startsAt) && item.session.startsAt <= periodLessons[periodLessons.length - 1].session.startsAt)));
     const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
     return ({
     ...b,
@@ -165,9 +170,11 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     unit: card?.unit ?? "POINT",
     // Private music lessons use the learner’s own card and booked sequence.
     // Group progress is shown only for a dedicated group lesson purchase; each learner owns their purchased total.
-    termIndex: !missingGroupEnrollment && currentPosition >= 0 && termSize > 0 && (validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? currentPosition % termSize + 1 : null,
-    termCount: !missingGroupEnrollment && (validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
+    termIndex: !missingGroupEnrollment && currentPosition >= 0 && termSize > 0 && (hasSnapshot || validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? snapshotPeriod?.index ?? currentPosition % termSize + 1 : null,
+    termCount: !missingGroupEnrollment && (hasSnapshot || validGroupEnrollment || card?.termSessionIds.length || (privateMusicTermLessons && purchasedLessons % privateMusicTermLessons === 0)) ? termSize : 0,
     termNumber,
+    bonusPeriod:snapshotPeriod?.bonus??false,
+    bonusLessons:card?.musicBonusLessons??0,
     nextPaidLessons: renewal?.purchase.points ?? null,
     termPayment: currentPurchase ? paymentSummary(currentPurchase) : null,
     nextTerm: renewal ? {

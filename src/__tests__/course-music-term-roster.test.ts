@@ -26,7 +26,7 @@ const lesson = (student: string, index: number, status = "ATTENDED", absenceKind
   status, absenceKind, session: { startsAt: day(1 + index * 7), templateId: "guitar" },
 });
 const card = (student: string, lessons: ReturnType<typeof lesson>[], points: number, createdAt = day(1)) => ({
-  unit: "SESSION", nameSnapshot: "吉他課", termSessionIds: [], expiresAt: day(29),
+  musicTermSizes:[] as number[],musicBonusLessons:0,templateIds:["guitar"],unit: "SESSION", nameSnapshot: "吉他課", termSessionIds: [], expiresAt: day(29),
   remaining: points, createdAt,
   plan: { points, musicTerms: 1, templateIds: ["guitar"] },
   entries: [{ points }], members: [{ customerId: student }], bookings: lessons,
@@ -75,7 +75,7 @@ it("keeps the current four lessons separate from a paid next term", async () => 
     { customerId: "student", cardId: "card-student", points: 4, price: 3200, paymentMethod: "CASH", confirmedAt: day(1) },
     { customerId: "student", cardId: "next-card", points: 8, price: 6400, paymentMethod: "BANK_TRANSFER", confirmedAt: day(29) },
   ]);
-  db.cards.mockResolvedValue([{ id: "next-card", createdAt: day(29), remaining: 8, plan: { templateIds: ["guitar"] }, bookings: [{ customerId: "student", status: "RESERVED", absenceKind: null, session: { startsAt: new Date("2026-10-06T10:00:00.000Z") } }] }]);
+  db.cards.mockResolvedValue([{ id: "next-card", templateIds:["guitar"],createdAt: day(29), remaining: 8, plan: { templateIds: ["guitar"] }, bookings: [{ customerId: "student", status: "RESERVED", absenceKind: null, session: { startsAt: new Date("2026-10-06T10:00:00.000Z") } }] }]);
   const [result] = await getCourseRoster("music-store", "session-3");
   expect([result.termIndex, result.termCount, result.nextPaidLessons]).toEqual([4, 4, 8]);
   expect(result.termLessons).toHaveLength(4);
@@ -113,4 +113,24 @@ it("pairs a makeup's actual date with the original leave date",async()=>{
  const [result]=await getCourseRoster("music-store","session-1");
  expect(result.termMakeups).toEqual([{originalDate:day(1).toISOString(),date:day(8).toISOString(),status:"已補課"}]);
  expect(result.termIndex).toBe(1);expect(result.termLeaveCount).toBe(1);
+});
+
+it("keeps purchased term boundaries after a plan or course definition changes", async()=>{
+ const lessons=Array.from({length:5},(_,index)=>lesson("student",index));
+ const enrollment=card("student",lessons,9);
+ enrollment.musicTermSizes=[4,4];enrollment.musicBonusLessons=1;
+ enrollment.plan.musicTerms=1;enrollment.plan.points=18;
+ const current=row("student",lessons[4],enrollment,"PRIVATE");
+ current.session.template.musicTermLessons=18;
+ db.bookings.mockResolvedValue([current]);
+ const [result]=await getCourseRoster("music-store","session-4");
+ expect([result.termNumber,result.termIndex,result.termCount]).toEqual([2,1,4]);
+ expect(result.bonusPeriod).toBe(false);
+});
+it("shows bonus lessons separately from paid periods", async()=>{
+ const lessons=Array.from({length:5},(_,index)=>lesson("student",index));
+ const enrollment=card("student",lessons,5);enrollment.musicTermSizes=[4];enrollment.musicBonusLessons=1;
+ db.bookings.mockResolvedValue([row("student",lessons[4],enrollment,"PRIVATE")]);
+ const [result]=await getCourseRoster("music-store","session-4");
+ expect([result.termIndex,result.termCount,result.bonusPeriod]).toEqual([1,1,true]);
 });

@@ -1,8 +1,17 @@
 import {describe,expect,it} from "vitest";
-import {musicPlanQuote,musicCourseExpiry} from "@/lib/music-course-products";
+import {musicPlanQuote,musicCourseExpiry,musicPurchaseTerms,musicProratedTerms,musicPeriodAt} from "@/lib/music-course-products";
+import {courseTemplateInput} from "@/lib/course-scheduling";
 import {courseTeacherFee} from "@/lib/course-fee-payment";
 
 describe("music course terms",()=>{
+  it.each([1,3,6,7,18,1000])("supports freely configured %i lesson terms", lessons=>{
+    expect(courseTemplateInput.shape.musicTermLessons.parse(lessons)).toBe(lessons);
+    expect(musicPlanQuote({musicPricePerLesson:450,musicTermLessons:lessons,musicValidityDaysPerTerm:70},1))
+      .toEqual({lessons,price:450*lessons,validDays:70});
+  });
+  it.each([0,-1,1.5,1001])("rejects invalid lesson count %i", lessons=>{
+    expect(courseTemplateInput.shape.musicTermLessons.safeParse(lessons).success).toBe(false);
+  });
   it("prices any whole number of four-lesson periods and multiplies validity",()=>{
     expect(musicPlanQuote({musicPricePerLesson:800,musicTermLessons:4,musicValidityDaysPerTerm:70},4))
       .toEqual({lessons:16,price:12800,validDays:280});
@@ -33,4 +42,22 @@ describe("music teacher payout",()=>{
   it("keeps fixed pay independent of headcount",()=>{
     expect(courseTeacherFee({mode:"CLASS",value:500},{paid:0,freeTrial:0,pending:0},{perLesson:null,freeTrialBase:null})).toBe(500);
   });
+});
+
+describe("immutable purchases and midterm joins",()=>{
+ const plan={points:13,price:9600,musicTerms:3,musicTermSizes:[4,4,4],musicBonusLessons:1};
+ it("keeps paid periods and both bonus sources separate",()=>{
+  expect(musicPurchaseTerms(plan,2)).toEqual({points:15,price:9600,musicTermSizes:[4,4,4],musicBonusLessons:3});
+  expect(musicPeriodAt([4,4,4],3,12)).toEqual({number:4,index:1,count:3,start:12,bonus:true});
+  expect(musicPeriodAt([4,4,4],3,15)).toBeNull();
+ });
+ it.each([[6,2700],[7,3150]])("prices %i remaining group lessons",(remaining,price)=>{
+  expect(musicProratedTerms({points:8,price:3600,musicTerms:1,musicTermSizes:[8]},remaining)).toEqual({points:remaining,price,musicTermSizes:[remaining],musicBonusLessons:0});
+ });
+ it("rejects ambiguous periods, excess bonus and invalid joining counts",()=>{
+  expect(()=>musicPurchaseTerms({...plan,musicTermSizes:[8]},0)).toThrow();
+  expect(()=>musicPurchaseTerms(plan,1000)).toThrow();
+  expect(()=>musicProratedTerms(plan,3)).toThrow();
+  expect(()=>musicProratedTerms({points:8,price:3600,musicTerms:1},9)).toThrow();
+ });
 });
