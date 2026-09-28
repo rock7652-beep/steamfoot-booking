@@ -62,7 +62,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
       id: user.storeId,
       operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
-    select: { id: true, parentStoreId: true },
+    select: { id: true, parentStoreId: true, slug: true, name: true, isDefault: true },
     take: 1,
   });
   if (!ownStore) throw new AppError("FORBIDDEN", "店舖已停用或無法存取");
@@ -71,6 +71,12 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const isMotherOwner = user.role === "OWNER" && ownStore.parentStoreId === null;
   if (isMotherOwner && await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE)) {
     ids = [...ids, ...await getAccessibleDescendantStoreIds(user.storeId)];
+  }
+  // The operating-status-filtered query already contains the complete own-store
+  // DTO. Single-store staff need no second round trip for the same row.
+  if (ids.length === 1) {
+    const { id, slug, name, isDefault } = ownStore;
+    return [{ id, slug, name, isDefault }];
   }
   const stores = await prisma.store.findMany({
     where: {
