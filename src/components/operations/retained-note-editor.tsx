@@ -11,8 +11,8 @@ function validDraft(value: unknown): value is Draft {
   return (draft.base === null || typeof draft.base === "string") && typeof draft.text === "string" && draft.text.length <= 2000;
 }
 export type NoteSaveResult = { success: boolean; error?: string; currentValue?: string | null };
-export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", save, onSaved }: {
-  stateKey: string; title: string; hint: string; placeholder: string;
+export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", optimistic = false, save, onSaved }: {
+  optimistic?: boolean; stateKey: string; title: string; hint: string; placeholder: string;
   value: string | null; canEdit: boolean; maxLength: number; tone?: "green" | "gold";
   save: (text: string | null, expected: string | null) => Promise<NoteSaveResult>;
   onSaved: (value: string | null) => void;
@@ -40,10 +40,12 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
     const next = input.text.trim() || null;
     if (next === input.base) { setDraft(null); return; }
     busy.current = true; setSaving(true); setMessage("");
+    if(optimistic)setSaved({source:value,value:next});
     try {
       const result = await save(next, input.base);
       if (!mounted.current) return;
       if (!result.success) {
+        if(optimistic)setSaved({source:value,value:input.base});
         setMessage(result.error ?? "尚未儲存，內容已保留");
         if (Object.prototype.hasOwnProperty.call(result, "currentValue")) setConflict({ value: result.currentValue ?? null });
         return;
@@ -53,6 +55,7 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
       setDraft(null);
       onSaved(next);
     } catch {
+      if(optimistic&&mounted.current)setSaved({source:value,value:input.base});
       if (mounted.current) setMessage("連線中斷，內容已保留。重新連線後可再儲存。");
     } finally {
       busy.current = false;
@@ -71,7 +74,8 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
       }}>復原</button>}
     </div>
     {(draft || current?.trim()) && <p className="mb-2 text-xs text-earth-500">{hint}</p>}
-    {draft && canEdit ? <div className="space-y-2">
+    {saving && optimistic && <p role="status" className="text-xs text-earth-500">儲存中…</p>}
+    {draft && canEdit && !(saving && optimistic) ? <div className="space-y-2">
       <textarea aria-label={title} value={draft.text} maxLength={maxLength} rows={3} disabled={saving}
         onChange={event => setDraft({ ...draft, text: event.target.value })} placeholder={placeholder}
         className="w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-relaxed focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-100" />

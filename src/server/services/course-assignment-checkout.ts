@@ -1,4 +1,5 @@
 import "server-only";
+import {musicCheckoutQuote} from "@/lib/music-course-products";
 import {validateCourseTerm,enrollCourseTerm} from "./course-term";
 import {courseSaleSnapshot} from "./course-sale-allocation";
 import type { Prisma } from "../../../generated/course-client";
@@ -22,7 +23,7 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const previous=await tx.coursePurchase.findUnique({where:{storeId_requestKey:{storeId,requestKey:data.requestKey}}});
   if(previous){
     const card=previous.cardId?await tx.coursePointCard.findFirst({where:{id:previous.cardId,storeId}}):null;
-    if(previous.revenueStaffId!==revenueStaffId||previous.customerId!==data.customerId||previous.planId!==data.planId||previous.listPrice!==data.expectedListPrice||previous.discountKind!==data.discountKind||Number(previous.discountValue)!==data.discountValue||previous.price!==total.paid||previous.paymentMethod!==method||previous.transferLastFour!==lastFour||(!card?.musicValidityDays && card?.expiresAt.getTime()!==dayRange(data.expiresDate).end.getTime())) throw new AppError("CONFLICT","結帳請求已使用，請重新核對");
+    if((data.musicPurchaseTerms!==undefined && previous.musicTermSizes.length!==data.musicPurchaseTerms)||(data.musicValidityDays!==undefined && previous.validDays!==data.musicValidityDays)||(previous.musicManualBonus??0)!==(data.musicManualBonus??0)||(previous.musicJoinSessionId??null)!==(data.musicJoinSessionId??null)||previous.revenueStaffId!==revenueStaffId||previous.customerId!==data.customerId||previous.planId!==data.planId||previous.listPrice!==data.expectedListPrice||previous.discountKind!==data.discountKind||Number(previous.discountValue)!==data.discountValue||previous.price!==total.paid||previous.paymentMethod!==method||previous.transferLastFour!==lastFour||(!card?.musicValidityDays && card?.expiresAt.getTime()!==dayRange(data.expiresDate).end.getTime())) throw new AppError("CONFLICT","結帳請求已使用，請重新核對");
     return previous;
   }
   // A key already used by the old grant-only flow must never become a new paid checkout.
@@ -31,8 +32,20 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const customers=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Customer" WHERE id=${data.customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;
   const expiresAt=dayRange(plan?.musicTerms ? "2099-12-31" : data.expiresDate).end;
   if(!plan||!customers.length||expiresAt<new Date()) throw new AppError("VALIDATION","請選擇本店方案、顧客及有效期限");
-  if(plan.price!==data.expectedListPrice) throw new AppError("CONFLICT","方案售價已變更，請重新開啟核對");
-  if(plan.storeCost!==data.expectedStoreCost) throw new AppError("CONFLICT","店家成本已變更，請重新開啟核對");
+  if(!actor.music && (data.musicJoinSessionId || data.musicManualBonus || data.musicPurchaseTerms || data.musicValidityDays))throw new AppError("VALIDATION","此方案不適用音樂課程設定");
+  let musicQuote=actor.music ? musicCheckoutQuote(plan,data.musicPurchaseTerms,data.musicManualBonus??0,undefined,data.musicValidityDays) : null;
+  if(actor.music && data.musicJoinSessionId) {
+    const first=await tx.courseSession.findFirst({where:{id:data.musicJoinSessionId,storeId,cancelledAt:null},include:{template:true}});
+    if(!first || first.template.classType!=="GROUP" || !plan.templateIds.includes(first.templateId))throw new AppError("VALIDATION","請選擇本方案適用的團班課次");
+    const size=first.template.musicTermLessons;
+    if(!size)throw new AppError("VALIDATION","團班尚未設定每期堂數");
+    const end=(Math.floor(first.requestIndex/size)+1)*size;
+    const remaining=await tx.courseSession.count({where:{storeId,templateId:first.templateId,requestKey:first.requestKey,cancelledAt:null,requestIndex:{gte:first.requestIndex,lt:end}}});
+    if(remaining!==end-first.requestIndex)throw new AppError("VALIDATION","本期課次尚未排齊，請先核對課表再辦理插班");
+    musicQuote=musicCheckoutQuote(plan,data.musicPurchaseTerms,data.musicManualBonus??0,remaining,data.musicValidityDays);
+  }
+  if((musicQuote?.price??plan.price)!==data.expectedListPrice) throw new AppError("CONFLICT","方案售價已變更，請重新開啟核對");
+  if(!actor.music && plan.storeCost!==data.expectedStoreCost) throw new AppError("CONFLICT","店家成本已變更，請重新開啟核對");
   if(actor.music && (plan.unit!=="SESSION" || !plan.musicTerms)) throw new AppError("VALIDATION","音樂教室只能購買堂數方案");
   const termSessionIds=await validateCourseTerm(tx,storeId,{...plan,termSessionIds:plan.termSessionIds??[]});
   const allocation=actor.music
@@ -40,9 +53,9 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
     : await courseSaleSnapshot(tx,storeId,total.paid,plan.storeCost,revenueStaffId);
   const day=new Date(toLocalDateStr()+"T00:00:00Z");
   if(method==="CASH") await lockCourseCashDay(tx,storeId,day);
-  const card=await tx.coursePointCard.create({data:{termSessionIds,storeId,planId:plan.id,nameSnapshot:plan.name,unit:plan.unit,templateIds:plan.templateIds,remaining:plan.points,expiresAt,musicValidityDays:plan.musicTerms ? plan.validDays : null,requestKey:data.requestKey,members:{create:{customerId:data.customerId}},entries:{create:{kind:"GRANT",points:plan.points,actorUserId:userId}}}});
+  const card=await tx.coursePointCard.create({data:{termSessionIds,storeId,planId:plan.id,nameSnapshot:plan.name,unit:plan.unit,templateIds:plan.templateIds,remaining:musicQuote?.points??plan.points,...(musicQuote?{musicTermSizes:musicQuote.musicTermSizes,musicBonusLessons:musicQuote.musicBonusLessons,musicManualBonus:data.musicManualBonus??0,musicJoinSessionId:data.musicJoinSessionId??null}:{}),expiresAt,musicValidityDays:musicQuote?.validDays??(plan.musicTerms ? plan.validDays : null),requestKey:data.requestKey,members:{create:{customerId:data.customerId}},entries:{create:{kind:"GRANT",points:musicQuote?.points??plan.points,actorUserId:userId}}}});
   const note=`店長指派結帳：原價 NT$ ${total.listPrice}／折抵 ${data.discountKind==="PERCENT"?`${data.discountValue}%（NT$ ${total.discount}）`:`NT$ ${total.discount}`}／實收 NT$ ${total.paid}／${COURSE_PAYMENT_LABELS[method]}${lastFour?`（後四碼 ${lastFour}）`:""}`;
-  const order=await tx.coursePurchase.create({data:{...allocation,termSessionIds,storeId,customerId:data.customerId,planId:plan.id,name:plan.name,unit:plan.unit,points:plan.points,price:total.paid,validDays:plan.validDays,templateIds:plan.templateIds,status:"CONFIRMED",transferLastFive:"",requestKey:data.requestKey,cardId:card.id,confirmedAt:new Date(),confirmedBy:userId,note,listPrice:total.listPrice,discountKind:data.discountKind,discountValue:data.discountValue,paymentMethod:method,transferLastFour:lastFour}});
+  const order=await tx.coursePurchase.create({data:{...allocation,termSessionIds,storeId,customerId:data.customerId,planId:plan.id,name:plan.name,unit:plan.unit,points:musicQuote?.points??plan.points,...(musicQuote?{musicTermSizes:musicQuote.musicTermSizes,musicBonusLessons:musicQuote.musicBonusLessons,musicManualBonus:data.musicManualBonus??0,musicJoinSessionId:data.musicJoinSessionId??null}:{}),price:total.paid,validDays:musicQuote?.validDays??plan.validDays,templateIds:plan.templateIds,status:"CONFIRMED",transferLastFive:"",requestKey:data.requestKey,cardId:card.id,confirmedAt:new Date(),confirmedBy:userId,note,listPrice:total.listPrice,discountKind:data.discountKind,discountValue:data.discountValue,paymentMethod:method,transferLastFour:lastFour}});
   if(total.paid>0) await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"staffId","createdByUserId","updatedAt") VALUES (${"course-purchase:"+order.id},${storeId},${day},'INCOME',${method==="CASH"?"CASH":"OTHER"}::"CashbookPaymentMethod",'課程方案',${total.paid},${plan.name+" / "+note},${allocation.revenueStaffId},${userId},NOW())`;
   await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"afterJson","createdAt") VALUES (${crypto.randomUUID()},${userId},'CoursePurchase',${order.id},'ASSIGN_CHECKOUT',${JSON.stringify({storeId,cardId:card.id,...total,discountKind:data.discountKind,discountValue:data.discountValue,paymentMethod:method,transferLastFour:lastFour})}::jsonb,NOW())`;
   await enrollCourseTerm(tx,{storeId,userId,name:"店長指派期課"},card,data.customerId);

@@ -1179,7 +1179,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       ? "已核帳並啟用"
                       : o.status === "VOIDED" ? "已作廢，額度已收回" : o.status === "REFUNDED" ? "已登錄退款，卡片已停用" : "待店家核帳，尚未取得額度"}
                   </p>
-                  <p>轉帳後四碼：{o.transferLastFive}</p>
+                  <p>{o.paymentMethod==="CASH"?"現金":o.paymentMethod==="BANK_TRANSFER"?"轉帳":o.paymentMethod==="DISCOUNT"?"全額折抵":o.paymentMethod==="OTHER"?"其他付款":"付款方式待核對"}{(o.transferLastFour||o.transferLastFive)&&` · 後四碼 ${o.transferLastFour||o.transferLastFive}`}</p>
+                  <details><summary>繳費明細</summary><p>{o.termSizes.length?`${o.termSizes.length} 期 · 各期 ${o.termSizes.join("／")} 堂`:`${o.points} ${o.unit==="SESSION"?"堂":"點"}`}{o.bonus>0?`（含贈送 ${o.bonus} 堂）`:""}</p><p>原價 {o.listPrice===null?"待核對":`NT$ ${o.listPrice.toLocaleString()}`} · 優惠 {o.listPrice===null?"待核對":`NT$ ${(o.listPrice-o.price).toLocaleString()}`} · {o.status==="PENDING"?"應繳":"原登錄實收"} NT$ {o.price.toLocaleString()}</p>{o.confirmedAt&&<p>核帳日期：{formatTWDateTime(new Date(o.confirmedAt))}</p>}<p className="cp-meta">單號：{o.id}</p>{o.voidReason&&<p>作廢原因：{o.voidReason}</p>}</details>
                   {!!o.refunds.length&&<details><summary>退款紀錄 · 共 NT$ {o.refunds.reduce((sum,r)=>sum+r.amount,0).toLocaleString()}</summary>{o.refunds.map(r=><p key={r.id}>{formatTWDateTime(new Date(r.createdAt))} · NT$ {r.amount.toLocaleString()} · {COURSE_REFUND_METHOD_LABELS[r.method]??"其他非現金"}</p>)}<p>此為店家登錄紀錄，實際款項請向店家核對。</p></details>}
                 </article>
               ))}

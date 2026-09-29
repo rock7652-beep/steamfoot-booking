@@ -1,3 +1,4 @@
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import {beforeEach,expect,it,vi} from "vitest";
 import type {Prisma} from "../../generated/course-client";
 import {currentDeveloperProfit,summarizeSettlement,type SettlementLine} from "@/lib/course-monthly-settlement";

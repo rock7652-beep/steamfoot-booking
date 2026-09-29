@@ -64,7 +64,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:1,canCreate:false,canEdit:true,musicLayout:true,teacherName:"老師"})));
   expect([...host.querySelectorAll<HTMLOptionElement>('select[aria-label="批次點名狀態"] option')].map(option=>option.value)).toEqual(["ATTENDED","RESERVED","NO_SHOW"]);
-  await act(async()=>host.querySelector('input[aria-label="全選符合此操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
+  await act(async()=>host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="套用 1 人")!.click());
   expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"}]});
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="曠課扣堂")!.click());
@@ -123,7 +123,18 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   expect(host.querySelector('[aria-label="上課統計"]')?.textContent).toContain("已預約 20/20");
   expect(host.textContent).toContain("每 60 秒自動更新");
   expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeTruthy();
-  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="出席")).toHaveLength(20);
+  const search = host.querySelector('input[aria-label="搜尋上課學員"]') as HTMLInputElement;
+  const setSearch = async (value:string) => act(async()=>{
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,value);
+    search.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  await setSearch("0900000019");
+  await act(async()=>(host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]') as HTMLInputElement).click());
+  expect(host.textContent).toContain("套用 1 人");
+  expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(1);
+  await setSearch("");
+  expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(0);
+  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="簽到")).toHaveLength(20);
   expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="未到")).toHaveLength(20);
   expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="取消")).toHaveLength(20);
   expect(host.querySelectorAll("details[open]")).toHaveLength(0);
@@ -133,10 +144,10 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   const grant=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("未到扣堂＋發補課券"));expect(grant).toBeTruthy();
   await act(async()=>grant!.click());
   expect(m.status).toHaveBeenCalledWith({bookingId:"b0",status:"NO_SHOW",noShowChoice:"DEDUCTED_WITH_MAKEUP"});
-  await act(async()=>(host.querySelector('input[aria-label="全選全班學員"]') as HTMLInputElement).click());
+  await act(async()=>(host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]') as HTMLInputElement).click());
   const apply=[...host.querySelectorAll("button")].find(b=>b.textContent==="套用 20 人");expect(apply).toBeTruthy();
   await act(async()=>apply!.click());
-  expect(m.batch).toHaveBeenCalledWith({sessionId:"session",target:"CHECKED_IN",bookings:roster.slice(0,20).map(b=>({id:b.id,status:b.status}))});
+  expect(m.batch).toHaveBeenCalledWith({sessionId:"session",target:"ATTENDED",bookings:roster.slice(0,20).map(b=>({id:b.id,status:b.status}))});
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -262,9 +273,11 @@ it("preselects pending makeup on the original card and allows removing the link"
  const select=host.querySelector('select[aria-label="補課紀錄"]') as HTMLSelectElement;
  expect(select.value).toBe("leave");expect(host.textContent).toContain("待補課 1 堂");
  expect([...host.querySelectorAll("select")][1].value).toBe("original");
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(true);
  const submit=()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));
  await act(async()=>{submit();});expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({cardId:"original",makeupForBookingId:"leave"}));
  await act(async()=>{select.value="";select.dispatchEvent(new Event("change",{bubbles:true}));});
  await act(async()=>{submit();});expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({makeupForBookingId:null}));
+ confirm.mockRestore();
  }finally{await act(async()=>root.unmount());host.remove();}
 });

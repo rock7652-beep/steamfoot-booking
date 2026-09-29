@@ -51,3 +51,16 @@ export async function browseCourseCards(input: unknown) {
     return {success:true as const, rows:cards.slice(0,20),hasMore:cards.length>20};
   } catch(error) { return failure(error); }
 }
+
+/** Lightweight, permission-scoped index. Kept only in the mounted picker. */
+export async function loadCourseCustomerSearchIndex() {
+  try {
+    const { user, storeId } = await courseManager("customer.read");
+    const rows = await prisma.customer.findMany({
+      where: { ...getManagerCustomerWhere(user.role,user.staffId,storeId), storeId, mergedIntoCustomerId: null },
+      select: { id: true, name: true, phone: true, lineName: true },
+      orderBy: [{ name: "asc" }, { id: "asc" }], take: 2001,
+    });
+    return { success: true as const, scope: `${user.id}:${storeId}`, rows: rows.slice(0,2000), complete: rows.length <= 2000 };
+  } catch(error) { return failure(error); }
+}

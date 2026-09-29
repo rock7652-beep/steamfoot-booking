@@ -1,3 +1,4 @@
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import {beforeEach,expect,it,vi} from "vitest";
 import {fixedCourseFee} from "@/lib/course-fee-payment";
 import {recordCourseFeePayment,voidCourseFeePayment} from "@/server/services/course-fee-payment";
@@ -15,18 +16,30 @@ const raw=vi.fn(),execute=vi.fn();
 const tx={$queryRaw:raw,$executeRaw:execute} as unknown as Prisma.TransactionClient;
 beforeEach(()=>{vi.resetAllMocks();execute.mockResolvedValue(1);m.manager.mockResolvedValue({storeId:"A",user:{id:"owner",role:"OWNER"}});});
 it("distinguishes zero, missing and legacy fees",()=>{expect(fixedCourseFee({mode:"CLASS",value:0})).toBe(0);expect(fixedCourseFee(null)).toBeNull();expect(fixedCourseFee({mode:"HOUR",value:600})).toBeNull();});
-it("records one expense and audit for a whole class",async()=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([{paid:BigInt(0),freeTrial:BigInt(0),pending:BigInt(0)}]).mockResolvedValueOnce([]);await recordCourseFeePayment(tx,actor,input);expect(execute).toHaveBeenCalledTimes(3);});
+it("records one expense and audit for a whole class",async()=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);await recordCourseFeePayment(tx,actor,input);expect(execute).toHaveBeenCalledTimes(3);});
 it("records the music trial amount from two enrolled seats, including absence",async()=>{
- raw.mockResolvedValueOnce([]).mockResolvedValueOnce([{...row,rule:{mode:"SHARE",value:60},musicPricePerLesson:650,musicTeacherFeeBase:325,musicTrialMode:"FREE"}]).mockResolvedValueOnce([{paid:BigInt(0),freeTrial:BigInt(2),pending:BigInt(0)}]).mockResolvedValueOnce([]);
+ raw.mockResolvedValueOnce([]).mockResolvedValueOnce([{...row,rule:{mode:"SHARE",value:60},musicPricePerLesson:650,musicTeacherFeeBase:325,musicTrialMode:"FREE"}]).mockResolvedValueOnce([1,2].map(n=>({id:String(n),sessionId:"class",customerName:"試上",status:"ATTENDED",bookingKind:"TRIAL",absenceKind:null,trialPrice:0,purchaseCount:BigInt(0)}))).mockResolvedValueOnce([]);
  await recordCourseFeePayment(tx,actor,{...input,expectedAmount:390});
  expect(execute).toHaveBeenCalledTimes(3);
 });
 it("replay does not create another expense",async()=>{raw.mockResolvedValue([{sessionId:input.sessionId,amount:600,method:"OTHER",note:input.note,voidedAt:null}]);await recordCourseFeePayment(tx,actor,input);expect(execute).not.toHaveBeenCalled();});
 it("rejects a changed replay",async()=>{raw.mockResolvedValue([{sessionId:"different",amount:600,method:"OTHER",note:input.note}]);await expect(recordCourseFeePayment(tx,actor,input)).rejects.toThrow();expect(execute).not.toHaveBeenCalled();});
 it.each([null,{...row,cancelledAt:new Date()},{...row,endsAt:new Date("2099-01-01")},{...row,coachId:"different"},{...row,rule:{mode:"CLASS",value:500}}])("rejects missing cross-store, cancelled, future or changed class %#",async r=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce(r?[r]:[]);await expect(recordCourseFeePayment(tx,actor,input)).rejects.toThrow();expect(execute).not.toHaveBeenCalled();});
-it("rejects a second request key for an already paid class",async()=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([{paid:BigInt(0),freeTrial:BigInt(0),pending:BigInt(0)}]).mockResolvedValueOnce([{id:"paid"}]);await expect(recordCourseFeePayment(tx,actor,input)).rejects.toThrow("已登錄付款");expect(execute).not.toHaveBeenCalled();});
-it("closed cash drawer blocks all writes",async()=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([{paid:BigInt(0),freeTrial:BigInt(0),pending:BigInt(0)}]).mockResolvedValueOnce([]);m.cash.mockRejectedValue(new Error("closed"));await expect(recordCourseFeePayment(tx,actor,{...input,method:"CASH"})).rejects.toThrow("closed");expect(execute).not.toHaveBeenCalled();});
+it("rejects a second request key for an already paid class",async()=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"paid"}]);await expect(recordCourseFeePayment(tx,actor,input)).rejects.toThrow("已登錄付款");expect(execute).not.toHaveBeenCalled();});
+it("closed cash drawer blocks all writes",async()=>{raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);m.cash.mockRejectedValue(new Error("closed"));await expect(recordCourseFeePayment(tx,actor,{...input,method:"CASH"})).rejects.toThrow("closed");expect(execute).not.toHaveBeenCalled();});
 it("correction replay does not reverse twice",async()=>{raw.mockResolvedValue([{amount:600,method:"OTHER",voidedAt:new Date(),voidReason:"誤登"}]);await voidCourseFeePayment(tx,actor,{paymentId:input.requestKey,reason:"誤登"});expect(execute).not.toHaveBeenCalled();});
 it("checks original expense before correction",async()=>{raw.mockResolvedValueOnce([{amount:600,method:"OTHER",voidedAt:null}]).mockResolvedValueOnce([{amount:500,type:"EXPENSE",paymentMethod:"OTHER"}]);await expect(voidCourseFeePayment(tx,actor,{paymentId:input.requestKey,reason:"誤登"})).rejects.toThrow("不一致");expect(execute).not.toHaveBeenCalled();});
 it("rejects non-owner payment and correction",async()=>{m.manager.mockResolvedValue({storeId:"A",user:{id:"coach",role:"STAFF"}});expect((await payCourseFee(input)).success).toBe(false);expect((await correctCourseFee({paymentId:input.requestKey,reason:"誤登"})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();});
 it("expired subscription prevents writing",async()=>{m.writable.mockRejectedValue(new Error("expired"));expect((await payCourseFee(input)).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();});
+
+it("supports partial payment against the authoritative remaining balance",async()=>{
+ raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"first",amount:100}]);
+ await recordCourseFeePayment(tx,actor,{...input,amount:250,expectedRemaining:500});
+ expect(execute.mock.calls[0]).toContain(250);
+});
+it("rejects stale remaining balance and overpayment",async()=>{
+ for(const extra of [{amount:100,expectedRemaining:600},{amount:501,expectedRemaining:500}]){
+ raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"first",amount:100}]);
+ await expect(recordCourseFeePayment(tx,actor,{...input,...extra})).rejects.toThrow();
+ }expect(execute).not.toHaveBeenCalled();
+});

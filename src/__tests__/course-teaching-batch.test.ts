@@ -1,8 +1,9 @@
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import { beforeEach, expect, it, vi } from "vitest";
 const m=vi.hoisted(()=>({manager:vi.fn(),staff:vi.fn(),raw:vi.fn(),execute:vi.fn(),update:vi.fn(),transaction:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:vi.fn(),getStoreLimitsByStoreId:async()=>({maxStaff:10})}));
-vi.mock("@/lib/db",()=>({prisma:{$transaction:m.transaction}}));
+vi.mock("@/lib/db",()=>({prisma:{$transaction:m.transaction,$queryRaw:m.raw,staff:{findFirst:m.staff}}}));
 vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermissions:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn(),unstable_cache:(fn:unknown)=>fn}));
 import {readCourseStaffTeaching,saveCourseStaff} from "@/server/actions/course-staff";
@@ -28,4 +29,4 @@ it("rejects foreign templates",async()=>{m.raw.mockResolvedValue([]);expect(awai
 it("does not allow hourly or negative fees",async()=>{for(const value of [{mode:"HOUR",value:500},{mode:"CLASS",value:-1}])expect(await saveCourseStaff({...input,teachingFees:[{...input.teachingFees[0],value},input.teachingFees[1]]})).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
 it("keeps the ongoing class handover guard",async()=>{m.staff.mockResolvedValue({id:"teacher",userId:"u",status:"ACTIVE",user:{role:"CUSTOMER"},updatedAt:new Date(version),courseCoachEnabled:true,courseQualifiedTemplateIds:["yoga","other"],courseQualificationsConfirmed:true});const previous=m.raw.getMockImplementation()!;m.raw.mockImplementation(async(sql:TemplateStringsArray,...args:unknown[])=>sql.join("").includes('FROM "CourseSession"')?[{id:"s",name:"上課中",startsAt:new Date(),capacity:5}]:previous(sql,...args));expect(await saveCourseStaff(input)).toMatchObject({success:false,conflicts:[{id:"s"}]});expect(m.update).not.toHaveBeenCalled();});
 it("rejects unauthorized reads and writes",async()=>{m.manager.mockResolvedValue({storeId:"A",user:{role:"CUSTOMER"}});expect(await readCourseStaffTeaching("teacher")).toMatchObject({success:false});expect(await saveCourseStaff(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
-it("reads all fees in one snapshot",async()=>{expect(await readCourseStaffTeaching("teacher")).toMatchObject({success:true,version,qualificationIds:["yoga"],fees:[{templateId:"yoga",revision:2}]});expect(m.staff).toHaveBeenCalledWith({where:{id:"teacher",storeId:"A"}});});
+it("reads fees without taking the store write lock",async()=>{expect(await readCourseStaffTeaching("teacher")).toMatchObject({success:true,version,qualificationIds:["yoga"],fees:[{templateId:"yoga",revision:2}]});expect(m.staff).toHaveBeenCalledWith({where:{id:"teacher",storeId:"A"}});expect(m.transaction).not.toHaveBeenCalled();});

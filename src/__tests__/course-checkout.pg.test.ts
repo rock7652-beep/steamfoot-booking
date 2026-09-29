@@ -17,6 +17,7 @@ import { recordCourseFeePayment, voidCourseFeePayment } from "@/server/services/
 import { lockCourseStore } from "@/server/services/course-store-lock";
 
 vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn(),courseManager:vi.fn()}));
+vi.mock("@/server/services/music-finance-access",()=>({requireMusicFinance:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:vi.fn()}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxMonthlyBookings:null}),requireStoreFeature:vi.fn()}));

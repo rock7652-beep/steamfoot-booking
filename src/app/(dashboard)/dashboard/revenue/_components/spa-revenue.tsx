@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { SpaCustomerDrawerButton } from "../../customers/_components/spa-customer-drawer-button";
 import { SpaRevenueActions } from "./spa-revenue-actions";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -109,8 +110,7 @@ export async function SpaRevenue({
                 : " · 有效紀錄"}
           </span>
         </summary>
-        <form
-          key={from + to + method + search + kind + status}
+        <InstantFilterForm
           className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
           <label className="min-w-0 text-sm text-earth-600">
@@ -185,9 +185,7 @@ export async function SpaRevenue({
             </select>
           </label>
           <div className="flex gap-3 items-center sm:col-span-2 lg:col-span-3">
-            <button className="self-end rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] p-3 text-white">
-              套用篩選
-            </button>
+            
             <Link
               href="/dashboard/revenue"
               className="text-sm text-earth-500 underline"
@@ -195,7 +193,7 @@ export async function SpaRevenue({
               重設
             </Link>
           </div>
-        </form>
+        </InstantFilterForm>
       </details>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[

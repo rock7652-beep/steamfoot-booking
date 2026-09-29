@@ -1,7 +1,8 @@
 "use client";
+import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 
 import { CollectTrialModal } from "../bookings/collect-trial-modal";
-import { CourseAssignmentPayment, type AssignmentSummary } from "@/components/admin/course-assignment-payment";
+import { type AssignmentSummary } from "@/components/admin/course-assignment-payment";
 import { scheduleTeacherMakeup } from "@/server/actions/course";
 import { CorrectTrialCollectionModal } from "../bookings/correct-trial-collection-modal";
 import {
@@ -112,8 +113,8 @@ export function CourseRoster({
   const bulkPending = pending || savingBookingIds.length > 0;
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
-    "CHECKED_IN" | "ATTENDED" | "NO_SHOW" | "RESERVED"
-  >(musicLayout ? "ATTENDED" : "CHECKED_IN");
+    "ATTENDED" | "NO_SHOW" | "RESERVED"
+  >("ATTENDED");
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; top: number; left: number } | null>(null);
@@ -432,17 +433,6 @@ export function CourseRoster({
   const cancelledRows = roster.filter(
     (booking) => booking.status === "CANCELLED" && (!musicLayout || !["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")),
   );
-  const selectableRows = activeRows.filter((booking) => {
-    if (booking.status === "CANCELLED") return false;
-    if (!musicLayout) return true;
-    if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
-    if (batchTarget === "RESERVED") return booking.status === "ATTENDED" || booking.status === "NO_SHOW";
-    if (batchTarget === "NO_SHOW") return booking.status === "RESERVED" || booking.status === "ATTENDED";
-    return booking.status === "RESERVED";
-  });
-  const chosen = selectableRows.filter((booking) =>
-    selected.includes(booking.id),
-  );
   const rows = showCancelled ? cancelledRows : activeRows;
   const normalizedRosterQuery = memberQuery.trim().toLocaleLowerCase();
   const searchedRows = normalizedRosterQuery
@@ -454,6 +444,16 @@ export function CourseRoster({
           booking.customerPhone.includes(normalizedRosterQuery),
       )
     : rows;
+  const selectableRows = searchedRows.filter((booking) => {
+    if (booking.status === "CANCELLED") return false;
+    if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
+    if (batchTarget === "RESERVED") return booking.status === "ATTENDED" || booking.status === "NO_SHOW";
+    if (batchTarget === "NO_SHOW") return booking.status === "RESERVED" || booking.status === "ATTENDED";
+    return booking.status === "RESERVED";
+  });
+  const chosen = selectableRows.filter((booking) =>
+    selected.includes(booking.id),
+  );
   const count = activeRows.length;
   const oneToOneMusic = musicLayout && classType === "PRIVATE" && capacity === 1;
   const largeMusicGroup = musicLayout && capacity >= 10;
@@ -553,9 +553,12 @@ export function CourseRoster({
             setMessage("請先選擇學員與有效方案");
             return;
           }
+          const allowOverCapacity = musicLayout && count >= capacity;
+          if(allowOverCapacity && !window.confirm("已滿班，確認仍要加入這位學員？")) return;
           const data = new FormData(event.currentTarget);
           run(() =>
             createCourseBooking({
+              allowOverCapacity,
               sessionId,
               cardId,
               customerId,
@@ -765,9 +768,12 @@ export function CourseRoster({
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
+              const allowOverCapacity = musicLayout && count >= capacity;
+              if(allowOverCapacity && !window.confirm("已滿班，確認仍要加入這位學員？")) return;
               const data = new FormData(event.currentTarget);
               run(() =>
                 createCourseTrial({
+                  allowOverCapacity,
                   sessionId,
                   customerId: data.get("trial-customer-choice"),
                   price: Number(data.get("price")),
@@ -837,6 +843,8 @@ export function CourseRoster({
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
+              const allowOverCapacity = musicLayout && count >= capacity;
+              if(allowOverCapacity && !window.confirm("已滿班，確認仍要加入這位學員？")) return;
               const data = new FormData(event.currentTarget);
               run(async () => {
                 const saved = await saveCourseCustomer({
@@ -845,6 +853,7 @@ export function CourseRoster({
                 });
                 if (!saved.success) return saved;
                 return createCourseTrial({
+                  allowOverCapacity,
                   sessionId,
                   customerId: saved.data.id,
                   price: Number(data.get("price")),
@@ -932,23 +941,23 @@ export function CourseRoster({
 
       {teacherAbsent && <p className="rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">老師{session?.teacherAttendance === "LEAVE" ? "請假" : "曠課"}：本堂學員免點名，不新增學員出勤紀錄，也不扣堂。</p>}
 
-      {(!musicLayout || showCancelled || cancelledRows.length > 0 || largeMusicGroup) && <div className="flex flex-wrap items-center gap-2">
+      {<div className="flex flex-wrap items-center gap-2">
         <button
           className={`${button} ${!showCancelled ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
           onClick={() => setShowCancelled(false)}
         >
           上課名單 {activeRows.length}
         </button>
-        {(!musicLayout || showCancelled || cancelledRows.length > 0) && <button
+        {(showCancelled || cancelledRows.length > 0) && <button
           className={`${button} ${showCancelled ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
           onClick={() => setShowCancelled(true)}
         >
           已取消（{cancelledRows.length}）
         </button>}
-        {(!musicLayout || largeMusicGroup) && <input
+        {<input
           className="min-h-10 min-w-56 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:ml-auto sm:max-w-sm"
           value={memberQuery}
-          onChange={(event) => setMemberQuery(event.target.value)}
+          onChange={(event) => { setMemberQuery(event.target.value); setSelected([]); }}
           placeholder="搜尋姓名或手機"
           aria-label="搜尋上課學員"
         />}
@@ -968,7 +977,7 @@ export function CourseRoster({
           <label className="flex min-h-10 items-center gap-2">
             <input
               type="checkbox"
-              aria-label={musicLayout ? "全選符合此操作的學員" : "全選全班學員"}
+              aria-label="全選搜尋結果中可操作的學員"
               checked={selectableRows.length > 0 && chosen.length === selectableRows.length}
               disabled={bulkPending || !selectableRows.length}
               onChange={(event) =>
@@ -992,8 +1001,7 @@ export function CourseRoster({
               setBatchTarget(event.target.value as typeof batchTarget);
             }}
           >
-            {!musicLayout && <option value="CHECKED_IN">報到</option>}
-            <option value="ATTENDED">{musicLayout ? "簽到即出席" : "出席"}</option>
+            <option value="ATTENDED">簽到即出席</option>
             <option value="RESERVED">批次恢復待點名</option>
             {musicLayout && <option value="NO_SHOW">批次曠課扣堂</option>}
           </select>
@@ -1002,9 +1010,7 @@ export function CourseRoster({
             className={`${button} border-primary-300 bg-white text-primary-800`}
             disabled={
               bulkPending ||
-              !chosen.length ||
-              (batchTarget === "CHECKED_IN" &&
-                chosen.some((booking) => booking.status !== "RESERVED"))
+              !chosen.length
             }
             onClick={() =>
               run(
@@ -1040,7 +1046,7 @@ export function CourseRoster({
                   <strong className="min-w-0 truncate" title={booking.customerName}>{booking.customerName}</strong>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${booking.status==="ATTENDED"?"bg-emerald-100 text-emerald-900":booking.status==="NO_SHOW"?"bg-rose-100 text-rose-900":booking.status==="CANCELLED"&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")?"bg-violet-100 text-violet-900":"bg-earth-100 text-earth-700"}`}>{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "") ? "請假" : "已取消" : teacherAbsent ? "本堂免點名" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
                   {!musicLayout && booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
-                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">本期第 {booking.termIndex}/{booking.termCount} 堂</span>}
+                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</span>}
                    {musicLayout && booking.nextPaidLessons !== null && <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">下期已繳 {booking.nextPaidLessons} 堂</span>}
                    {booking.bookingKind !== "TRIAL" && booking.termLeaveCount + booking.termNoShowCount > 0 && <span className="whitespace-nowrap text-xs text-amber-800">此方案請假 {booking.termLeaveCount}・曠課 {booking.termNoShowCount}</span>}
                    {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
@@ -1055,7 +1061,7 @@ export function CourseRoster({
                 {savingBookingIds.includes(booking.id) && <span className="self-center whitespace-nowrap text-xs text-primary-700" role="status">儲存中…</span>}
                 {canEdit && <div className={`flex min-w-0 gap-1 ${largeMusicGroup ? "ml-auto flex-wrap justify-end lg:order-1 lg:flex-nowrap lg:shrink-0" : "ml-auto flex-wrap"}`}>
                   {booking.status === "RESERVED" && !teacherAbsent && <>
-                    <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 記錄出席並扣除本次額度`,[{bookingId:booking.id,status:"ATTENDED"}])}>出席</button>
+                    <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 記錄出席並扣除本次額度`,[{bookingId:booking.id,status:"ATTENDED"}])}>簽到</button>
                     <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,[{bookingId:booking.id,status:"NO_SHOW"}])}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
                     <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
@@ -1098,14 +1104,14 @@ export function CourseRoster({
 
         </div>
       ) : <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
-        <div className="grid min-w-[1120px] grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+        <div className="grid min-w-[760px] grid-cols-[1.4fr_1.5fr_1fr_0.8fr_2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>學員／電話</span>
           <span>方案／收費</span>
           <span>備註</span>
           <span>狀態</span>
           <span>操作</span>
         </div>
-        <ul className="max-h-[calc(100dvh-25rem)] min-h-48 min-w-[1120px] divide-y overflow-y-auto overscroll-contain">
+        <ul className="max-h-[calc(100dvh-25rem)] min-h-48 min-w-[760px] divide-y overflow-y-auto overscroll-contain">
           {searchedRows.map((booking) => {
             const paid = booking.trialPayments.find(
               (payment) => payment.status === "SUCCESS",
@@ -1118,7 +1124,7 @@ export function CourseRoster({
                   : booking.status === "NO_SHOW"
                     ? "未到"
                     : booking.checkedInAt
-                      ? "已報到"
+                      ? "待簽到結算"
                       : "待點名";
             const statusClass =
               booking.status === "ATTENDED"
@@ -1131,7 +1137,7 @@ export function CourseRoster({
             return (
               <li
                 key={booking.id}
-                className="grid min-h-16 grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
+                className="grid min-h-12 grid-cols-[1.4fr_1.5fr_1fr_0.8fr_2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
               >
                 <div className="flex items-start gap-2">
                   {canEdit && booking.status !== "CANCELLED" && (
@@ -1285,7 +1291,7 @@ export function CourseRoster({
                           )
                         }
                       >
-                        出席
+                        簽到
                       </button>
                       <button
                         className={button}
@@ -1547,6 +1553,10 @@ export function CourseRoster({
                 planId: purchasePlanId,
                 customerId: purchaseOptions.customerId,
                 expiresDate: "2099-12-31",
+                musicPurchaseTerms:Number(fields.get("musicPurchaseTerms")??1),
+                      musicValidityDays:fields.get("musicValidityDays")?Number(fields.get("musicValidityDays")):undefined,
+                      musicManualBonus:Number(fields.get("musicManualBonus")??0),
+                musicJoinSessionId:String(fields.get("musicJoinSessionId")??"")||undefined,
                 expectedListPrice: Number(fields.get("expectedListPrice")),
                 expectedStoreCost: Number(fields.get("expectedStoreCost")),
                 revenueStaffId: "",
@@ -1565,7 +1575,7 @@ export function CourseRoster({
               }).catch(() => setPurchaseError("結果待確認，請核對購買紀錄後再操作。")).finally(() => setPurchasePending(false));
             }}>
               {purchaseOptions.plans.length ? <><label className="block text-sm font-medium">課程方案<select className={field} value={purchasePlanId} onChange={(event) => {setPurchasePlanId(event.target.value);setPurchaseSummary({paid:null,valid:false});}}>{purchaseOptions.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.points} 堂</option>)}</select></label>
-              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <CourseAssignmentPayment key={plan.id} price={plan.price} storeCost={plan.storeCost} profitEnabled={false} showAllocation={false} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
+              {purchaseOptions.plans.filter((plan) => plan.id === purchasePlanId).map((plan) => <MusicAssignmentPayment key={plan.id} plan={plan} canDiscount={purchaseOptions.canDiscount} onSummary={setPurchaseSummary}/>)}</> : <p className="text-sm text-earth-600">此課程尚未上架可購買的堂數方案。</p>}
             </form>}
           </div>
           {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}

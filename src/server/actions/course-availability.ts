@@ -4,8 +4,10 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { AppError, handleActionError } from "@/lib/errors";
+import { AppError } from "@/lib/errors";
 import { normalizeAvailabilityPeriods } from "@/lib/course-availability";
+import { assertExistingTeacherAvailability } from "@/server/services/course-availability";
+import { handleCourseActionError } from "@/server/services/course-resources";
 import { courseManager } from "@/server/services/course-access";
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
@@ -44,8 +46,10 @@ export async function saveCourseStaffWeeklyAvailability(input:unknown) {
     const {storeId}=await courseManager("staff.manage");
     const data=weeklySchema.parse(input);
     await assertStaff(storeId,data.staffId);
+    await prisma.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
     if(data.inheritStoreHours) {
-      await prisma.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
+      await tx.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
     } else {
       const seen=new Set<number>();
       const normalized=data.days.map(day=>{
@@ -53,7 +57,7 @@ export async function saveCourseStaffWeeklyAvailability(input:unknown) {
         seen.add(day.dayOfWeek);
         return {...day,periods:validatePeriods(day.periods)};
       });
-      await prisma.$transaction(async tx=>{
+
         await tx.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
         for(const day of normalized) {
           const json=JSON.stringify(day.periods);
@@ -61,12 +65,14 @@ export async function saveCourseStaffWeeklyAvailability(input:unknown) {
             INSERT INTO "CourseStaffAvailability" (id,"storeId","staffId","dayOfWeek",segments,"createdAt","updatedAt")
             VALUES (${randomUUID()},${storeId},${data.staffId},${day.dayOfWeek},${json}::jsonb,NOW(),NOW())`;
         }
-      });
     }
+    await assertExistingTeacherAvailability(tx,storeId,data.staffId);
+    });
+    revalidatePath("/dashboard/teachers");
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard/staff");
     return {success:true as const};
-  } catch(error) { return handleActionError(error); }
+  } catch(error) { return handleCourseActionError(error); }
 }
 
 export async function saveCourseStaffAvailabilityException(input:unknown) {
@@ -75,22 +81,27 @@ export async function saveCourseStaffAvailabilityException(input:unknown) {
     const data=exceptionSchema.parse(input);
     await assertStaff(storeId,data.staffId);
     const date=new Date(data.date+"T00:00:00Z");
+    await prisma.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
     if(data.type==="INHERIT") {
-      await prisma.$executeRaw`DELETE FROM "CourseStaffAvailabilityException" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId} AND date=${date}::date`;
+      await tx.$executeRaw`DELETE FROM "CourseStaffAvailabilityException" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId} AND date=${date}::date`;
     } else {
       const periods=data.type==="CUSTOM"?validatePeriods(data.periods):[];
       if(data.type==="CUSTOM"&&!periods.length) throw new AppError("VALIDATION","臨時加開請至少設定一段可授課時間");
       const json=data.type==="CUSTOM"?JSON.stringify(periods):null;
-      await prisma.$executeRaw`
+      await tx.$executeRaw`
         INSERT INTO "CourseStaffAvailabilityException" (id,"storeId","staffId",date,type,segments,reason,"createdAt","updatedAt")
         VALUES (${randomUUID()},${storeId},${data.staffId},${date}::date,${data.type},${json}::jsonb,${data.reason||null},NOW(),NOW())
         ON CONFLICT ("storeId","staffId",date)
         DO UPDATE SET type=EXCLUDED.type,segments=EXCLUDED.segments,reason=EXCLUDED.reason,"updatedAt"=NOW()`;
     }
+    await assertExistingTeacherAvailability(tx,storeId,data.staffId);
+    });
+    revalidatePath("/dashboard/teachers");
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard/staff");
     return {success:true as const};
-  } catch(error) { return handleActionError(error); }
+  } catch(error) { return handleCourseActionError(error); }
 }
 
 export async function getCourseStaffAvailability(staffId:string) {

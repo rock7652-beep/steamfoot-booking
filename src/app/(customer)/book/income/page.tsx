@@ -40,7 +40,7 @@ export default async function MyCourseIncome({searchParams}: {searchParams: Prom
           <p className="text-xl font-semibold tabular-nums">{money(total)}</p>
           {lines.map((line,index)=><details key={index} className="border-t py-3">
             <summary className="min-h-11 cursor-pointer">{line.label} · {money(line.amount)}</summary>
-            <p className="mt-2 text-sm">{formatTWDateTime(new Date(line.date))}</p>
+            <p className="mt-2 text-sm">{formatTWDateTime(new Date(line.date))}{line.endsAt?` ～ ${formatTWDateTime(new Date(line.endsAt))}`:""}</p><p className="text-sm">已付 {money(line.paid)} · 未付 {line.amount===null||line.paid===null?"待核對":money(Math.max(0,line.amount-line.paid))}</p>
           </details>)}
         </section>;
       })}

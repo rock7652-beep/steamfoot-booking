@@ -592,26 +592,26 @@ model VerificationToken {
 // ============================================================
 
 model Store {
-  trialCareSetting TrialCareSetting?
-  trialCarePreferences TrialCarePreference[]
-  trialCareLogs TrialCareLog[]
-  managerRecipientsMigrated Boolean @default(false)
-  managerNotificationLogs ManagerNotificationLog[]
-  id                         String               @id @default(cuid())
+  trialCareSetting           TrialCareSetting?
+  trialCarePreferences       TrialCarePreference[]
+  trialCareLogs              TrialCareLog[]
+  managerRecipientsMigrated  Boolean                  @default(false)
+  managerNotificationLogs    ManagerNotificationLog[]
+  id                         String                   @id @default(cuid())
   name                       String
-  slug                       String               @unique
-  domain                     String?              @unique // 自訂網域，如 "steamfoot-zhubei.com"
-  lineDestination            String?              @unique // LINE Official Account bot userId (webhook destination)
-  isDefault                  Boolean              @default(false)
-  isDemo                     Boolean              @default(false) // Demo 店 — 僅供展示或測試
-  industryModule             IndustryModule       @default(STEAMFOOT)
+  slug                       String                   @unique
+  domain                     String?                  @unique // 自訂網域，如 "steamfoot-zhubei.com"
+  lineDestination            String?                  @unique // LINE Official Account bot userId (webhook destination)
+  isDefault                  Boolean                  @default(false)
+  isDemo                     Boolean                  @default(false) // Demo 店 — 僅供展示或測試
+  industryModule             IndustryModule           @default(STEAMFOOT)
   parentStoreId              String?
-  operatingStatus            StoreOperatingStatus @default(ACTIVE)
-  plan                       PricingPlan          @default(EXPERIENCE)
-  planStatus                 StorePlanStatus      @default(ACTIVE)
+  operatingStatus            StoreOperatingStatus     @default(ACTIVE)
+  plan                       PricingPlan              @default(EXPERIENCE)
+  planStatus                 StorePlanStatus          @default(ACTIVE)
   planEffectiveAt            DateTime?
   planExpiresAt              DateTime?
-  currentSubscriptionId      String?              @unique
+  currentSubscriptionId      String?                  @unique
   // Override fields — 客製方案用量上限（null = 走方案預設）
   maxStaffOverride           Int?
   maxCustomersOverride       Int?
@@ -624,9 +624,9 @@ model Store {
   // Nullable：未設 → server 端會 fallback 到 NEXT_PUBLIC_LIFF_ID_<SLUG> env var（過渡期），
   // env 也無則顯示「尚未開通 LINE Mini App」（NotOpenForLiff UI 路徑不變）。
   liffId                     String?
-  digitalButlerEnabled       Boolean              @default(false)
-  createdAt                  DateTime             @default(now())
-  updatedAt                  DateTime             @updatedAt
+  digitalButlerEnabled       Boolean                  @default(false)
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
 
   parentStore Store?  @relation("StoreHierarchy", fields: [parentStoreId], references: [id])
   childStores Store[] @relation("StoreHierarchy")
@@ -658,8 +658,8 @@ model Store {
   customerPlanWallets               CustomerPlanWallet[]
   cashbookEntries                   CashbookEntry[]
   dutyAssignments                   DutyAssignment[]
-  courseStaffAvailability            CourseStaffAvailability[]
-  courseStaffAvailabilityExceptions  CourseStaffAvailabilityException[]
+  courseStaffAvailability           CourseStaffAvailability[]
+  courseStaffAvailabilityExceptions CourseStaffAvailabilityException[]
   bookingSlots                      BookingSlot[]
   businessHours                     BusinessHours[]
   specialBusinessDays               SpecialBusinessDay[]
@@ -673,7 +673,7 @@ model Store {
   reconciliationRuns                ReconciliationRun[]
   makeupCredits                     MakeupCredit[]
   spaceFeeRecords                   SpaceFeeRecord[]
-  staffRentTerms StaffRentTerm[]
+  staffRentTerms                    StaffRentTerm[]
   messageLogs                       MessageLog[]
   sessionBalanceNotificationSetting SessionBalanceNotificationSetting?
   sessionBalanceNotifications       SessionBalanceNotification[]
@@ -699,20 +699,20 @@ model Store {
 }
 
 model StoreLineNotificationRecipient {
-  preferences Json @default("{}")
-  legacyStaffId String?
-  sameDayBookingEnabled Boolean @default(false)
-  id                   String    @id @default(cuid())
-  storeId              String
-  displayName          String
-  roleLabel            String
-  lineUserId           String?
-  bindingCode          String?   @unique
-  bindingCodeExpiresAt DateTime?
-  isActive             Boolean   @default(false)
-  linkedAt             DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  preferences           Json      @default("{}")
+  legacyStaffId         String?
+  sameDayBookingEnabled Boolean   @default(false)
+  id                    String    @id @default(cuid())
+  storeId               String
+  displayName           String
+  roleLabel             String
+  lineUserId            String?
+  bindingCode           String?   @unique
+  bindingCodeExpiresAt  DateTime?
+  isActive              Boolean   @default(false)
+  linkedAt              DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
@@ -997,25 +997,25 @@ model StoreSettlement {
 // ============================================================
 
 model Staff {
-  courseCoachEnabled Boolean @default(false)
-  courseQualificationsConfirmed Boolean @default(false)
-  courseQualifiedTemplateIds String[] @default([])
-  courseBirthday DateTime? @db.Date
-  emergencyContactRelation String @default("")
-  phone String @default("")
-  emergencyContactName String @default("")
-  emergencyContactPhone String @default("")
-  id              String      @id @default(cuid())
-  userId          String      @unique
-  storeId         String
-  displayName     String
-  colorCode       String      @default("#6366f1") // 後台日曆識別色
-  isOwner         Boolean     @default(false)
-  monthlySpaceFee Decimal     @default(0) @db.Decimal(10, 0) // 每月固定空間分租費
-  spaceFeeEnabled Boolean     @default(false)
-  status          StaffStatus @default(ACTIVE)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  courseCoachEnabled            Boolean     @default(false)
+  courseQualificationsConfirmed Boolean     @default(false)
+  courseQualifiedTemplateIds    String[]    @default([])
+  courseBirthday                DateTime?   @db.Date
+  emergencyContactRelation      String      @default("")
+  phone                         String      @default("")
+  emergencyContactName          String      @default("")
+  emergencyContactPhone         String      @default("")
+  id                            String      @id @default(cuid())
+  userId                        String      @unique
+  storeId                       String
+  displayName                   String
+  colorCode                     String      @default("#6366f1") // 後台日曆識別色
+  isOwner                       Boolean     @default(false)
+  monthlySpaceFee               Decimal     @default(0) @db.Decimal(10, 0) // 每月固定空間分租費
+  spaceFeeEnabled               Boolean     @default(false)
+  status                        StaffStatus @default(ACTIVE)
+  createdAt                     DateTime    @default(now())
+  updatedAt                     DateTime    @updatedAt
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   store Store @relation(fields: [storeId], references: [id])
@@ -1037,7 +1037,7 @@ model Staff {
 
   // 空間分租費
   spaceFeeRecords SpaceFeeRecord[]
-  rentTerms StaffRentTerm[]
+  rentTerms       StaffRentTerm[]
 
   // 現金帳
   cashbookEntries CashbookEntry[] @relation("CashbookStaff")
@@ -1046,9 +1046,9 @@ model Staff {
   opsAssignments OpsActionLog[] @relation("OpsAssignee")
 
   // 值班安排
-  dutyAssignments DutyAssignment[] @relation("DutyStaff")
-  dutyCreatedBy   DutyAssignment[] @relation("DutyCreatedBy")
-  courseAvailability CourseStaffAvailability[]
+  dutyAssignments              DutyAssignment[]                   @relation("DutyStaff")
+  dutyCreatedBy                DutyAssignment[]                   @relation("DutyCreatedBy")
+  courseAvailability           CourseStaffAvailability[]
   courseAvailabilityExceptions CourseStaffAvailabilityException[]
 
   // 會員登入與營運人員紀錄分離。連結不改寫 Staff.userId，避免破壞舊預約、排班與結算關係。
@@ -1064,16 +1064,16 @@ model Staff {
 // 同一個中央會員可在不同店具有不同工作身分。所有授權必須同時核對
 // userId + storeId + staffId；姓名與電話只用於顯示／搜尋，絕不授權。
 model StaffMemberLink {
-  courseMemberEnabled Boolean @default(true) // Course-only member/work identity switch; SPA ignores this flag.
-  id             String    @id @default(cuid())
-  userId         String
-  storeId        String
-  staffId        String
-  linkedByUserId String?
-  linkedAt       DateTime  @default(now())
-  revokedAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  courseMemberEnabled Boolean   @default(true) // Course-only member/work identity switch; SPA ignores this flag.
+  id                  String    @id @default(cuid())
+  userId              String
+  storeId             String
+  staffId             String
+  linkedByUserId      String?
+  linkedAt            DateTime  @default(now())
+  revokedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user     User  @relation("StaffMemberLinkUser", fields: [userId], references: [id], onDelete: Restrict)
   linkedBy User? @relation("StaffMemberLinkCreator", fields: [linkedByUserId], references: [id], onDelete: SetNull)
@@ -1091,19 +1091,19 @@ model StaffMemberLink {
 // ============================================================
 
 model Customer {
-  trialCarePreferences TrialCarePreference[]
-  trialCareLogs TrialCareLog[]
-  id                       String         @id @default(cuid())
-  userId                   String?        @unique // nullable: 有些顧客不一定有登入帳號
+  trialCarePreferences     TrialCarePreference[]
+  trialCareLogs            TrialCareLog[]
+  id                       String                @id @default(cuid())
+  userId                   String?               @unique // nullable: 有些顧客不一定有登入帳號
   storeId                  String
   name                     String
   phone                    String
   email                    String? // 用於 Google 綁定比對（per-store unique）
   googleId                 String? // Google sub ID（per-store unique）
   avatar                   String? // Google 大頭貼 URL（未來 UI 用）
-  authSource               AuthSource     @default(MANUAL) // 顧客來源（分析用）
+  authSource               AuthSource            @default(MANUAL) // 顧客來源（分析用）
   gender                   String? // 性別（選填）
-  birthday                 DateTime?      @db.Date // 出生年月日（選填）
+  birthday                 DateTime?             @db.Date // 出生年月日（選填）
   height                   Float? // 身高 cm（選填）
   address                  String? // 地址（選填）
   emergencyContactName     String? // 緊急聯絡人（選填）
@@ -1111,26 +1111,26 @@ model Customer {
   lineName                 String? // LINE 顯示名稱
   lineUserId               String? // LINE user ID (per-store unique)
   lineLinkedAt             DateTime? // LINE 綁定時間
-  lineLinkStatus           LineLinkStatus @default(UNLINKED)
+  lineLinkStatus           LineLinkStatus        @default(UNLINKED)
   lineBindingCode          String? // 6 碼綁定碼（per-store unique）
   lineBindingCodeCreatedAt DateTime? // 綁定碼產生時間
   notes                    String? // 內部備註
   // AI 健康評估系統連結
   healthProfileId          String? // AI 健康評估系統的 profile UUID
-  healthLinkStatus         String         @default("unlinked") // "unlinked" | "linked" | "not_found" | "error"
+  healthLinkStatus         String                @default("unlinked") // "unlinked" | "linked" | "not_found" | "error"
   healthSyncedAt           DateTime? // 最後一次同步健康評估的時間
   assignedStaffId          String? // 直屬店長（nullable: 建立時可不指派）
-  customerStage            CustomerStage  @default(LEAD)
+  customerStage            CustomerStage         @default(LEAD)
   // 人才管道
   sponsorId                String? // 推薦人（自我參照）
   referralCode             String? // 顧客專屬推薦碼（lazy + backfill；nullable 以相容舊會員）
-  talentStage              TalentStage    @default(CUSTOMER)
+  talentStage              TalentStage           @default(CUSTOMER)
   stageChangedAt           DateTime? // 階段最後變更時間
   stageNote                String? // 店長對此人的備註
   // 內部服務備註（店長 / 合作店長交接用）。**僅後台可見**：顧客前台 / LINE / LIFF /
   // 通知一律不顯示。與 customer-facing 的 `notes`（前台 profile 可編輯）刻意分欄。
   serviceNote              String? // 內部服務備註（後台限定）
-  selfBookingEnabled       Boolean        @default(false)
+  selfBookingEnabled       Boolean               @default(false)
   firstVisitAt             DateTime? // 首次到店日期
   convertedAt              DateTime? // 首次購課日期
   lastVisitAt              DateTime? // 最近消費日期（方便列表顯示）
@@ -1139,8 +1139,8 @@ model Customer {
   // FK 全部已搬到 target；source 保留 row 純粹是 audit / 不破壞歷史 join。
   mergedIntoCustomerId     String? // 若被合併，指向 target Customer.id
   mergedAt                 DateTime? // 合併執行時間
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
 
   user          User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
   store         Store  @relation(fields: [storeId], references: [id])
@@ -1175,7 +1175,7 @@ model Customer {
   makeupCredits MakeupCredit[]
 
   // 交易
-  transactions Transaction[]
+  transactions    Transaction[]
   cashbookEntries CashbookEntry[]
 
   // 訊息紀錄
@@ -2090,10 +2090,10 @@ model CashbookEntry {
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
-  store     Store  @relation(fields: [storeId], references: [id])
-  staff     Staff? @relation("CashbookStaff", fields: [staffId], references: [id])
+  store     Store     @relation(fields: [storeId], references: [id])
+  staff     Staff?    @relation("CashbookStaff", fields: [staffId], references: [id])
   customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  createdBy User   @relation("CashbookCreatedBy", fields: [createdByUserId], references: [id])
+  createdBy User      @relation("CashbookCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([storeId])
   @@index([entryDate])
@@ -2368,24 +2368,24 @@ model MessageTemplate {
 // ============================================================
 
 model MessageLog {
-  id           String             @id @default(cuid())
-  ruleId       String?
-  templateId   String?
-  customerId   String
-  bookingId    String?
+  id              String             @id @default(cuid())
+  ruleId          String?
+  templateId      String?
+  customerId      String
+  bookingId       String?
   courseBookingId String? // Course-specific link, scoped FK managed in SQL
-  courseCardId String? // Course card expiry/balance events
-  spaBookingId String? // SPA 獨立預約識別碼；刻意不連到蒸足 Booking FK
+  courseCardId    String? // Course card expiry/balance events
+  spaBookingId    String? // SPA 獨立預約識別碼；刻意不連到蒸足 Booking FK
   // 觸發時間（UTC）— 改期後 triggerAt 變更可重新發送
   // 規範：自動規則路徑（ruleId + bookingId 同時有值）必須寫入；純手動發送可為 NULL
-  triggerAt    DateTime?
-  channel      ReminderChannel    @default(LINE)
-  lineRoute    ReminderLineRoute?
-  status       MessageLogStatus   @default(PENDING)
-  renderedBody String? // 替換變數後的實際內容
-  errorMessage String?
-  sentAt       DateTime?
-  createdAt    DateTime           @default(now())
+  triggerAt       DateTime?
+  channel         ReminderChannel    @default(LINE)
+  lineRoute       ReminderLineRoute?
+  status          MessageLogStatus   @default(PENDING)
+  renderedBody    String? // 替換變數後的實際內容
+  errorMessage    String?
+  sentAt          DateTime?
+  createdAt       DateTime           @default(now())
 
   storeId  String
   rule     ReminderRule?    @relation(fields: [ruleId], references: [id])
@@ -2647,7 +2647,7 @@ model CourseStaffAvailabilityException {
   storeId   String
   staffId   String
   date      DateTime @db.Date
-  type      String   // "UNAVAILABLE" | "CUSTOM"
+  type      String // "UNAVAILABLE" | "CUSTOM"
   segments  Json?
   reason    String?
   createdAt DateTime @default(now())
@@ -2999,58 +2999,63 @@ model StoreModuleInstallation {
 }
 
 model ManagerNotificationLog {
-  id String @id @default(cuid())
-  storeId String
-  recipientId String
+  id            String    @id @default(cuid())
+  storeId       String
+  recipientId   String
   recipientName String
-  eventKey String
-  type String
-  status String @default("PENDING")
-  renderedBody String
-  errorMessage String?
-  createdAt DateTime @default(now())
-  sentAt DateTime?
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  eventKey      String
+  type          String
+  status        String    @default("PENDING")
+  renderedBody  String
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
   @@unique([storeId, recipientId, eventKey])
   @@index([storeId, createdAt])
 }
 
 // Independent, store-scoped trial care. No existing customers are enrolled by migration.
 model TrialCareSetting {
-  storeId String @id
-  enabled Boolean @default(false)
+  storeId     String    @id
+  enabled     Boolean   @default(false)
   activatedAt DateTime?
-  rules Json
-  updatedAt DateTime @updatedAt
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  rules       Json
+  updatedAt   DateTime  @updatedAt
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
+
 model TrialCarePreference {
-  id String @id @default(cuid())
-  storeId String
-  customerId String
-  token String @unique
-  stoppedAt DateTime?
+  id          String    @id @default(cuid())
+  storeId     String
+  customerId  String
+  token       String    @unique
+  stoppedAt   DateTime?
   lastEventAt DateTime?
-  createdAt DateTime @default(now())
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer    Customer  @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Cascade)
+
   @@unique([storeId, customerId])
 }
+
 model TrialCareLog {
-  id String @id @default(cuid())
-  storeId String
+  id         String    @id @default(cuid())
+  storeId    String
   customerId String
-  module String
-  bookingId String
-  stage Int
-  dueAt DateTime
-  status String
-  reason String?
-  body String?
-  sentAt DateTime?
-  createdAt DateTime @default(now())
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Cascade)
+  module     String
+  bookingId  String
+  stage      Int
+  dueAt      DateTime
+  status     String
+  reason     String?
+  body       String?
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Cascade)
+
   // A customer does not restart the promotional journey on another trial.
   @@unique([storeId, customerId, stage])
   @@index([storeId, createdAt])
@@ -3058,18 +3063,19 @@ model TrialCareLog {
 
 // Steamfoot rent agreements, not invoices or paid records. Kept separate from SpaceFeeRecord.
 model StaffRentTerm {
-  id String @id
-  storeId String
-  staffId String
-  startMonth String
-  endMonth String?
-  cycleMonths Int
+  id            String   @id
+  storeId       String
+  staffId       String
+  startMonth    String
+  endMonth      String?
+  cycleMonths   Int
   monthlyAmount Int
-  enabled Boolean @default(true)
-  createdBy String
-  createdAt DateTime @default(now())
-  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Restrict)
-  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  enabled       Boolean  @default(true)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  staff         Staff    @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Restrict)
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
   @@unique([staffId, startMonth])
   @@index([storeId, startMonth])
 }

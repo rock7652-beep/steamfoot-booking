@@ -1,5 +1,6 @@
 "use client";
 
+import { CourseConflicts, type ConflictItem } from "@/components/admin/course-conflicts";
 import { useEffect, useState, useTransition } from "react";
 import {
   getCourseStaffAvailability,
@@ -14,12 +15,12 @@ const field="min-h-10 rounded-lg border border-earth-200 bg-white px-2 text-sm";
 const button="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-xs text-primary-800";
 
 function PeriodRows({periods,onChange}:{periods:Period[];onChange:(value:Period[])=>void}) {
-  return <div className="space-y-1">
+  return <div className="flex flex-wrap items-center gap-1">
     {periods.map((period,index)=><div key={index} className="flex flex-wrap items-center gap-1">
       <input className={field} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
       <span className="text-xs text-earth-500">至</span>
       <input className={field} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
-      {periods.length>1&&<button type="button" className={button} onClick={()=>onChange(periods.filter((_,i)=>i!==index))}>移除</button>}
+      {periods.length>1&&<button type="button" aria-label="移除時段" className={button} onClick={()=>onChange(periods.filter((_,i)=>i!==index))}>×</button>}
     </div>)}
     {periods.length<8&&<button type="button" className={button} onClick={()=>onChange([...periods,{openTime:"18:00",closeTime:"21:00"}])}>＋ 時段</button>}
   </div>;
@@ -33,6 +34,7 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   const [exceptionReason,setExceptionReason]=useState("");
   const [exceptionPeriods,setExceptionPeriods]=useState<Period[]>([{openTime:"09:00",closeTime:"12:00"}]);
   const [exceptions,setExceptions]=useState<{date:string;type:string;reason:string;periods:Period[]}[]>([]);
+  const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [message,setMessage]=useState("");
   const [pending,start]=useTransition();
 
@@ -53,21 +55,22 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   },[staffId]);
 
   function saveWeekly(){
-    setMessage("");
+    setMessage("");setConflicts([]);
     start(async()=>{
       const result=await saveCourseStaffWeeklyAvailability({staffId,inheritStoreHours:inherit,days:inherit?[]:days});
+      if(!result.success)setConflicts(result.conflicts??[]);
       setMessage(result.success?"可授課時間已儲存":result.error??"儲存失敗");
     });
   }
   function saveException(){
     if(!exceptionDate){setMessage("請先選擇例外日期");return;}
-    setMessage("");
+    setMessage("");setConflicts([]);
     start(async()=>{
       const result=await saveCourseStaffAvailabilityException({
         staffId,date:exceptionDate,type:exceptionType,reason:exceptionReason,
         periods:exceptionType==="CUSTOM"?exceptionPeriods:[],
       });
-      if(!result.success){setMessage(result.error??"儲存失敗");return;}
+      if(!result.success){setConflicts(result.conflicts??[]);setMessage(result.error??"儲存失敗");return;}
       const value=await getCourseStaffAvailability(staffId);
       setExceptions(value.exceptions);
       setMessage("單日例外已儲存");
@@ -75,22 +78,21 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   }
 
   return <section className="space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3">
+    <CourseConflicts items={conflicts}/>
     <div>
       <h3 className="font-medium text-primary-900">可授課時間</h3>
-      <p className="text-xs text-earth-600">白色空格代表可排；非授課時段在老師視角反灰。開始時間以 30 分鐘為單位。</p>
     </div>
     <label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
       沿用店家授課時間
     </label>
     {!inherit&&<div className="space-y-2">
-      {days.map(day=><div key={day.dayOfWeek} className="grid gap-2 rounded-lg bg-white p-2 sm:grid-cols-[56px_1fr]">
-        <strong className="pt-2 text-sm">週{names[day.dayOfWeek]}</strong>
-        <div>
+      {days.map(day=><div key={day.dayOfWeek} className="grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1.5 sm:grid-cols-[48px_1fr_auto]">
+        <strong className="text-sm">週{names[day.dayOfWeek]}</strong>
+        <div className="min-w-0">
           <PeriodRows periods={day.periods} onChange={periods=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item))}/>
-          {!!day.periods.length&&<button type="button" className="mt-1 text-xs text-earth-500 underline" onClick={()=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item))}>本日不授課</button>}
-          {!day.periods.length&&<button type="button" className={button} onClick={()=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item))}>＋ 開放授課</button>}
         </div>
+        {!!day.periods.length?<button type="button" className="text-xs text-earth-500" onClick={()=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item))}>不授課</button>:<button type="button" className={button} onClick={()=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item))}>＋ 開放</button>}
       </div>)}
     </div>}
     <button type="button" disabled={pending} className={button} onClick={saveWeekly}>儲存每週可授課時間</button>
