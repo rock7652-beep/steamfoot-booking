@@ -225,10 +225,16 @@ export async function saveCourseStaff(input: unknown) {
           });
           // Only operational synthetic accounts are edited for coaches. A real
           // member account remains untouched when work access is disabled.
-          if (d.kind === "manager" || d.contactEmail !== undefined)
+          const nextEmail=d.kind==="manager"?d.email:d.contactEmail;
+          const accountChanged=
+            existing.user.name!==d.name ||
+            (d.kind==="manager"&&d.active&&existing.user.status!=="ACTIVE") ||
+            (nextEmail!==undefined&&(nextEmail||null)!==existing.user.email) ||
+            (d.kind==="manager"&&passwordHash!==null);
+          if ((d.kind === "manager" || d.contactEmail !== undefined) && accountChanged)
             await tx.user.update({
               where: { id: existing.userId },
-              data: { name: d.name, ...(d.kind==="manager"&&d.active?{status:"ACTIVE" as const}:{}), ...((d.kind==="manager"?d.email:d.contactEmail)!==undefined ? { email: (d.kind==="manager"?d.email:d.contactEmail)||null } : {}), ...(d.kind==="manager"&&passwordHash ? { passwordHash } : {}) },
+              data: { name: d.name, ...(d.kind==="manager"&&d.active?{status:"ACTIVE" as const}:{}), ...(nextEmail!==undefined ? { email: nextEmail||null } : {}), ...(d.kind==="manager"&&passwordHash ? { passwordHash } : {}) },
             });
           await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'Staff',${staffId},'UPDATE',${JSON.stringify(beforeStaff)}::jsonb,${JSON.stringify({storeId,displayName:d.name,status:d.active?"ACTIVE":"INACTIVE",...contacts,...courseFields})}::jsonb,now())`;
         } else

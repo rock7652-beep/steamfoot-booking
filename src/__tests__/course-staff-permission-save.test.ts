@@ -16,6 +16,12 @@ it("can grant implemented transaction permissions, then explicitly revoke refund
  expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission:"transaction.refund"}},update:{granted:false}}));
  expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({where:{id:"manager2",storeId:"s"}}));
 });
+it("does not invalidate the current login when only its permissions change",async()=>{
+ m.staff.mockResolvedValue({id:"manager1",userId:"owner",status:"ACTIVE",isOwner:true,courseCoachEnabled:false,courseQualifiedTemplateIds:[],user:{id:"owner",role:"OWNER",name:"Owner",email:"owner@example.com",status:"ACTIVE"},permissions:[]});
+ expect(await saveCourseStaff({...input,id:"manager1",name:"Owner",email:"owner@example.com",permissions:["staff.manage"]})).toMatchObject({success:true});
+ expect(m.user).not.toHaveBeenCalled();
+ expect(m.permission).toHaveBeenCalled();
+});
 it("requires an authorized owner and rejects permissions outside the course module",async()=>{
  m.manager.mockResolvedValue({user:{role:"CUSTOMER"},storeId:"s"});expect(await saveCourseStaff(input)).toMatchObject({success:false});expect(m.staff).not.toHaveBeenCalled();
  m.manager.mockResolvedValue({user:{role:"OWNER"},storeId:"s"});expect(await saveCourseStaff({...input,permissions:["transaction.discount"]})).toMatchObject({success:false});expect(m.permission).not.toHaveBeenCalled();
