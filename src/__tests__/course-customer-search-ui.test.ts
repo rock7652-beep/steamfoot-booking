@@ -2,8 +2,8 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ replace: vi.fn(), search: vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}), params: new URLSearchParams("view=customers&staff=owner&page=3"), path: "/s/course-test/admin/dashboard/courses" }));
-vi.mock("@/server/actions/course-browse", () => ({ searchCourseCustomers: m.search }));
+const m = vi.hoisted(() => ({ index:vi.fn().mockResolvedValue({success:false}), replace: vi.fn(), search: vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}), params: new URLSearchParams("view=customers&staff=owner&page=3"), path: "/s/course-test/admin/dashboard/courses" }));
+vi.mock("@/server/actions/course-browse", () => ({ searchCourseCustomers: m.search, loadCourseCustomerSearchIndex:m.index }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: m.replace }), usePathname: () => m.path, useSearchParams: () => m.params }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: ({ children }: { children: React.ReactNode }) => React.createElement("span", null, children) }));
 vi.mock("@/components/navigation-notice", () => ({ NavigationNotice: () => null }));
@@ -12,7 +12,7 @@ import { CourseCustomerPicker } from "@/components/admin/course-customer-picker"
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  vi.useFakeTimers(); m.replace.mockClear(); m.search.mockClear();
+  vi.useFakeTimers(); m.replace.mockClear(); m.search.mockClear(); m.index.mockReset().mockResolvedValue({success:false});
   m.params = new URLSearchParams("view=customers&staff=owner&page=3");
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
@@ -54,4 +54,20 @@ it("course picker waits for IME completion and Enter never submits or selects", 
   await act(async () => input.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true })));
   await act(async () => vi.advanceTimersByTime(250));
   expect(m.search).toHaveBeenCalledWith("黃");
+});
+
+it("complete authorized index filters immediately without a server search",async()=>{
+ m.index.mockResolvedValue({success:true,scope:"user:store",complete:true,rows:[{id:"a",name:"林老師",phone:"0911222333",lineName:null},{id:"b",name:"王同學",phone:"0922333444",lineName:null}]});
+ await act(async()=>root.render(React.createElement(CourseCustomerPicker,{name:"customerId"})));
+ await type("林");
+ expect(host.textContent).toContain("林老師");expect(host.textContent).not.toContain("王同學");expect(m.search).not.toHaveBeenCalled();
+ await type("王");
+ expect(host.textContent).toContain("王同學");expect(host.textContent).not.toContain("林老師");
+});
+it("incomplete index still queries all authorized customers",async()=>{
+ m.index.mockResolvedValue({success:true,scope:"user:store",complete:false,rows:[]});
+ m.search.mockResolvedValue({success:true,rows:[{id:"z",name:"遠端學員",phone:"0911111111"}],hasMore:false});
+ await act(async()=>root.render(React.createElement(CourseCustomerPicker,{name:"customerId"})));
+ await type("遠端");await act(async()=>vi.advanceTimersByTime(250));
+ expect(m.search).toHaveBeenCalledWith("遠端");expect(host.textContent).toContain("遠端學員");
 });

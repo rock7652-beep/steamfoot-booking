@@ -222,8 +222,12 @@ export async function assignCoursePointCard(input: unknown) {
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
     });
-    for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
-    refresh();
+    // The transaction is committed. Cache invalidation must not delay the
+    // checkout response or turn a successful payment into a reported failure.
+    after(() => {
+      for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
+      refresh();
+    });
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);

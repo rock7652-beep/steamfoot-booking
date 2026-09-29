@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
@@ -182,7 +183,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       )}
 
       {/* 篩選列 */}
-      <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
+      <InstantFilterForm className="mb-4 flex flex-wrap items-end gap-2">
         {revenueGroup && <input type="hidden" name="revenueGroup" value={revenueGroup} />}
         <div>
           <label className="block text-xs text-earth-500">開始日期</label>
@@ -238,7 +239,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
             清除
           </Link>
         )}
-      </form>
+      </InstantFilterForm>
 
       {hasActiveFilters && (
         <div className="mb-3 flex flex-wrap items-center gap-2">

@@ -191,7 +191,8 @@ export function CourseMemberWorkspace({
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
-        router.refresh();
+        window.dispatchEvent(new Event("customer-search-invalidated"));
+        setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
       }
@@ -287,7 +288,7 @@ export function CourseMemberWorkspace({
       )}
 <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
       {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
-      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(filteredPlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
 </div>
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
@@ -422,7 +423,7 @@ export function CourseMemberWorkspace({
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
               <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
-              <RetainedNoteEditor key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
+              <RetainedNoteEditor optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />

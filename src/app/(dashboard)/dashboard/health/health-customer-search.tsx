@@ -38,7 +38,7 @@ export function HealthCustomerSearch({ storeId, search = "", customerId = "" }: 
         startTransition(() => router.replace(`${pathname}?${params.toString()}`, { scroll: false }));
       }} />
     <p role="status" className="mt-1 text-xs text-earth-500">
-      {pending ? "正在更新量測紀錄…" : "輸入即顯示相關顧客，點選後查看量測紀錄；也可直接套用關鍵字篩選。"}
+      {pending ? "正在更新量測紀錄…" : "輸入即顯示相關顧客，點選後查看量測紀錄；關鍵字與條件會自動篩選。"}
     </p>
   </div>;
 }
