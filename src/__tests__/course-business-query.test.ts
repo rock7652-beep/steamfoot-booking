@@ -1,4 +1,6 @@
 import {beforeEach,it,expect,vi} from "vitest";
+vi.mock("@/lib/session",()=>({getCurrentUser:vi.fn().mockResolvedValue(null)}));
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:vi.fn().mockResolvedValue(false),readMusicFinanceScope:vi.fn().mockResolvedValue([])}));
 const m=vi.hoisted(()=>({customers:vi.fn(),staff:vi.fn(),sessions:vi.fn(),purchases:vi.fn(),fees:vi.fn(),receipts:vi.fn(),refunds:vi.fn(),store:vi.fn(),storeInfo:vi.fn()}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/db",()=>({prisma:{store:{findUniqueOrThrow:m.storeInfo},customer:{findMany:m.customers},staff:{findMany:m.staff}}}));
