@@ -1,6 +1,6 @@
-vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:()=>m.music(),readMusicFinanceScope:()=>m.scope()}));
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),limits:vi.fn(),staff:vi.fn(),count:vi.fn(),update:vi.fn(),user:vi.fn(),permission:vi.fn(),raw:vi.fn()}));
+const m=vi.hoisted(()=>({music:vi.fn(),scope:vi.fn(),manager:vi.fn(),feature:vi.fn(),limits:vi.fn(),staff:vi.fn(),count:vi.fn(),update:vi.fn(),user:vi.fn(),permission:vi.fn(),raw:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:m.feature,getStoreLimitsByStoreId:m.limits}));
 vi.mock("@/lib/db",()=>({prisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,$executeRaw:m.raw,staff:{findFirst:m.staff,count:m.count,update:m.update},user:{update:m.user},staffMemberLink:{updateMany:vi.fn()},staffPermission:{upsert:m.permission,findMany:async()=>[]}})}}));
@@ -8,7 +8,7 @@ vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermis
 vi.mock("next/cache",()=>({revalidatePath:vi.fn(),unstable_cache:(fn:unknown)=>fn}));
 import {saveCourseStaff} from "@/server/actions/course-staff";
 const input={id:"manager2",name:"Manager",kind:"manager",requestKey:"11111111-1111-4111-a111-111111111111"};
-beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({user:{id:"owner",role:"OWNER",staffId:"manager1"},storeId:"s"});m.limits.mockResolvedValue({maxStaff:10});m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});m.count.mockResolvedValue(2);});
+beforeEach(()=>{vi.resetAllMocks();m.music.mockResolvedValue(false);m.scope.mockResolvedValue(null);m.raw.mockResolvedValue([]);m.manager.mockResolvedValue({user:{id:"owner",role:"OWNER",staffId:"manager1"},storeId:"s"});m.limits.mockResolvedValue({maxStaff:10});m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});m.count.mockResolvedValue(2);});
 it("can grant implemented transaction permissions, then explicitly revoke refund without granting headquarters",async()=>{
  expect(await saveCourseStaff({...input,permissions:["transaction.read","transaction.create","transaction.void","transaction.refund","customer.assign"]})).toMatchObject({success:true});
  expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission:"transaction.refund"}},update:{granted:true}}));
@@ -52,4 +52,21 @@ it("removing coach role after handover preserves the manager role and one Staff 
 it("delegated staff cannot grant a financial permission they do not hold",async()=>{
  m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:false,permissions:[{permission:"staff.manage"}]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});
  expect(await saveCourseStaff({...input,permissions:["teacher.settlement.pay"]})).toMatchObject({success:false});expect(m.permission).not.toHaveBeenCalled();
+});
+
+it("delegated operators cannot widen scope even by omitting scope from permission updates",async()=>{
+ m.music.mockResolvedValue(true);m.scope.mockResolvedValue(["teacher-a"]);
+ for(const financeTeacherIds of [undefined,null,["teacher-b"]]){
+   expect(await saveCourseStaff({...input,financeTeacherIds})).toMatchObject({success:false});
+ }
+ expect(m.permission).not.toHaveBeenCalled();
+});
+it("teacher scope is restricted to the same store and recorded with an audit",async()=>{
+ m.music.mockResolvedValue(true);m.count.mockResolvedValue(1);
+ expect(await saveCourseStaff({...input,financeTeacherIds:["teacher-a"]})).toMatchObject({success:true});
+ expect(m.count).toHaveBeenCalledWith({where:{storeId:"s",id:{in:["teacher-a"]},courseCoachEnabled:true}});
+ expect(m.raw.mock.calls.some(c=>c[0].join("").includes('INSERT INTO "CourseTeacherFinanceScope"'))).toBe(true);
+ m.count.mockResolvedValue(0);m.permission.mockClear();
+ expect(await saveCourseStaff({...input,financeTeacherIds:["foreign-teacher"]})).toMatchObject({success:false});
+ expect(m.permission).not.toHaveBeenCalled();
 });

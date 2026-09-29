@@ -1,4 +1,4 @@
-import {canMusicFinance} from "@/server/services/music-finance-access";
+import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { CourseMonthlyNotifications } from "./course-monthly-notifications";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -20,10 +20,15 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const user=await getCurrentUser();
  if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"report.read"))return <p>僅店長可查看課程月結。</p>;
  if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p>尚未授權查看教師月結。</p>;
- const canConfirm=await canMusicFinance(user,storeId,"teacher.settlement.confirm");
+ const scope=await readMusicFinanceScope(user,storeId);
+ const canConfirm=scope===null && await canMusicFinance(user,storeId,"teacher.settlement.confirm");
  await requireCourseStore(storeId);
  if(!await hasStoreFeature(storeId,FEATURES.SERVICE_FEE_CALCULATOR))return <p>月結管理尚未開通。</p>;
  const report=await coursePrisma.$transaction(tx=>readCourseMonthlySettlement(tx,storeId,month),{isolationLevel:"RepeatableRead",timeout:20000});
+ if(scope!==null){
+   report.lines=report.lines.filter(l=>l.kind==="FEE" && l.staffId!==null && scope.includes(l.staffId));
+   report.revisions=report.revisions.map(r=>({...r,snapshot:r.snapshot.filter(l=>l.kind==="FEE"&&l.staffId!==null&&scope.includes(l.staffId))}));
+ }
  const period=monthRange(month);
  const changedOlder=await coursePrisma.coursePurchase.findMany({where:{storeId,confirmedAt:{lt:period.start},OR:[{voidedAt:{gte:period.start,lte:period.end}},{refunds:{some:{storeId,createdAt:{gte:period.start,lte:period.end}}}}]},select:{confirmedAt:true}});
  const olderMonths=[...new Set(changedOlder.filter(o=>o.confirmedAt).map(o=>toLocalMonthStr(o.confirmedAt!)))].sort();
@@ -33,8 +38,9 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
  return <PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  <PageHeader title="每月收入結算" subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
+ {scope!==null&&<p className="text-sm text-earth-500">僅顯示授權教師；全店月結確認由全店授權人員處理。</p>}
  <CourseMonthlyReport canPay={canPay&&!readOnly} key={month} lines={report.lines} status={<span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>} confirm={!confirmed&&!readOnly&&canConfirm&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>} actions={<>
- {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
+ {!readOnly&&scope===null&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&canConfirm&&!readOnly}/>
  </>}/>
  {!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">退款／作廢影響先前結算：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m} 查看</Link>)}</p>}

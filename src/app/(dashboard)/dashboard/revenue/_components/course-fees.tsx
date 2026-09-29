@@ -1,4 +1,4 @@
-import {canMusicFinance} from "@/server/services/music-finance-access";
+import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import {coursePrisma} from "@/lib/course-db";
 import {getCurrentUser} from "@/lib/session";
 import {checkPermission} from "@/lib/permissions";
@@ -10,6 +10,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
   const user=await getCurrentUser();
   if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"cashbook.read"))return null;
   if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return null;
+  const scope=await readMusicFinanceScope(user,storeId);
   const ready=await coursePrisma.$queryRaw<Array<{ready:boolean}>>`SELECT to_regclass('public."CourseFeePayment"') IS NOT NULL AS ready`;
   if(!ready[0]?.ready)return <section><h2>授課費</h2><p>授課費登錄尚未開放。</p></section>;
   const canPay=!readOnly&&await canMusicFinance(user,storeId,"teacher.settlement.pay")&&await checkPermission(user.role,user.staffId,"cashbook.create");
@@ -19,7 +20,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
     FROM "CourseSession" s LEFT JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId"
     LEFT JOIN "Staff" f ON f.id=c."staffId" AND f."storeId"=s."storeId"
     LEFT JOIN LATERAL (SELECT (array_agg(id ORDER BY "createdAt" DESC,id DESC))[1] AS id,sum(amount)::int AS amount,max("createdAt") AS "paidAt",(array_agg(method ORDER BY "createdAt" DESC,id DESC))[1] AS method,(array_agg(note ORDER BY "createdAt" DESC,id DESC))[1] AS note FROM "CourseFeePayment" WHERE "sessionId"=s.id AND "storeId"=s."storeId" AND "voidedAt" IS NULL) p ON true
-    WHERE s."storeId"=${storeId} AND s."startsAt">=${range.gte} AND s."startsAt"<=${range.lte}
+    WHERE s."storeId"=${storeId} AND s."startsAt">=${range.gte} AND s."startsAt"<=${range.lte} AND (${scope===null} OR c."staffId"=ANY(${scope??[]}::text[]))
     ORDER BY s."startsAt" DESC,s.id LIMIT 101`;
   const now=new Date();
   const feeSeats=await readTeacherFeeSeats(coursePrisma,storeId,rows.slice(0,100).map(s=>s.id));

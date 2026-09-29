@@ -7,7 +7,7 @@ import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
-import { canMusicFinance, requireMusicFinance, isMusicFinanceStore } from "@/server/services/music-finance-access";
+import { canMusicFinance, requireMusicFinance, isMusicFinanceStore, readMusicFinanceScope } from "@/server/services/music-finance-access";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { compensationRule, type CompensationRule } from "@/lib/course-compensation";
@@ -32,7 +32,7 @@ export async function readCourseStaffTeaching(staffId: string) {
     const { user, storeId } = await courseManager("staff.view");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
     id.parse(staffId);
-    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
+    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
     const data = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
       const staff = await tx.staff.findFirst({ where: { id: staffId, storeId } });
@@ -72,6 +72,7 @@ export async function saveCourseStaff(input: unknown) {
         teachingVersion: z.string().datetime().optional(),
         teachingFees: z.array(teachingFee).max(500).optional(),
         musicSettings: musicTeacherSettings.optional(),
+        financeTeacherIds: z.array(id).max(500).nullable().optional(),
         birthday: z.string().optional(),
         emergencyContactRelation: z.string().trim().max(40).default(""),
         confirmDeactivate: z.boolean().default(false),
@@ -84,7 +85,7 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
-    if(d.teachingFees || d.musicSettings)await requireMusicFinance(user,storeId,"teacher.compensation.manage");
+    if(d.teachingFees || d.musicSettings)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if ((d.musicSettings || d.teachingFees?.some(f=>f.value===null || f.value.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
@@ -264,6 +265,18 @@ export async function saveCourseStaff(input: unknown) {
           const priorPermissions=existing?await tx.staffPermission.findMany({where:{staffId},select:{permission:true,granted:true}}):[];
           const granted = d.permissions ?? priorPermissions.filter(p=>p.granted).map(p=>p.permission);
           if(!actorStaff.isOwner && granted.some(code=>!actorStaff.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
+          if(await isMusicFinanceStore(storeId)) {
+            const existingScope=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+            if(d.financeTeacherIds===undefined)d.financeTeacherIds=existingScope[0]?.teacherIds??null;
+            if(existing?.isOwner && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
+            const teacherIds=d.financeTeacherIds===null?null:[...new Set(d.financeTeacherIds)];
+            const actorScope=await readMusicFinanceScope(user,storeId);
+            if(actorScope!==null && (teacherIds===null || teacherIds.some(id=>!actorScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");
+            if(teacherIds?.length){const found=await tx.staff.count({where:{storeId,id:{in:teacherIds},courseCoachEnabled:true}});if(found!==teacherIds.length)throw new AppError("FORBIDDEN","指定教師包含非本店教師");}
+            const before=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+            await tx.$executeRaw`INSERT INTO "CourseTeacherFinanceScope" ("storeId","staffId","teacherIds") VALUES (${storeId},${staffId},${teacherIds}::text[]) ON CONFLICT ("storeId","staffId") DO UPDATE SET "teacherIds"=EXCLUDED."teacherIds","updatedAt"=now()`;
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherFinanceScope',${staffId},'UPDATE',${JSON.stringify(before[0]??null)}::jsonb,${JSON.stringify({storeId,teacherIds})}::jsonb,now())`;
+          }
           for (const permission of ALL_PERMISSIONS)
             await tx.staffPermission.upsert({
               where: { staffId_permission: { staffId, permission } },

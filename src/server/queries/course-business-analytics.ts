@@ -1,5 +1,5 @@
 import {getCurrentUser} from "@/lib/session";
-import {canMusicFinance} from "@/server/services/music-finance-access";
+import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import "server-only";
 import {capturedTeacherFee,readTeacherFeeSeats} from "@/server/services/course-teacher-fee";
 import { prisma } from "@/lib/db";
@@ -11,7 +11,7 @@ import { shiftCourseCalendarDate, type CourseAnalysisRange } from "@/lib/course-
 export async function getCourseBusinessAnalytics(storeId: string, range: CourseAnalysisRange, scope: BusinessScope, access: { money: boolean; customers: boolean; fees: boolean }) {
   await requireCourseStore(storeId);
   const user=await getCurrentUser();
-  if(access.fees && (!user || !await canMusicFinance(user,storeId,"teacher.settlement.read")))access={...access,fees:false};
+  if(access.fees && (!user || !await canMusicFinance(user,storeId,"teacher.settlement.read") || await readMusicFinanceScope(user,storeId)!==null))access={...access,fees:false};
   const end = new Date(Math.min(dayRange(range.endDate).end.getTime(), Date.now()));
   const historyStart = dayRange(shiftCourseCalendarDate(toLocalDateStr(end).slice(0,7)+"-01",-11)).start;
   const moneyStart = new Date(Math.min(+historyStart,+dayRange(range.startDate).start));

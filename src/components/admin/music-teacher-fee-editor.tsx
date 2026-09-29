@@ -19,7 +19,7 @@ export function MusicTeacherFeeEditor({templates,qualificationIds,fees,settings,
     const selected=qualificationIds.includes(plan.id),draft=fees[plan.id];
     const override=draft&&draft.mode!=="INHERIT"?{mode:draft.mode,value:Number(draft.value)}:null;
     const effective=resolveMusicTeacherRule(override,plan.musicSubjectId,settings,plan.musicTeacherShare);
-    return <div key={plan.id} className="space-y-1 px-3 py-2"><label className="flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" checked={selected} onChange={e=>onQualification(plan.id,e.target.checked)}/>{plan.name}</label>{selected&&<><RuleInput disabled={readOnly} label={plan.name} rule={override} onChange={rule=>onFees({...fees,[plan.id]:{mode:rule?.mode as "CLASS"|"SHARE"??"INHERIT",value:String(rule?.value??0),revision:draft?.revision??0}})}/><p className="text-xs text-earth-600">{effective.source}{effective.rule?` · ${effective.rule.mode==="SHARE"?`${effective.rule.value/100}／每人每堂`:`NT$ ${effective.rule.value}／整堂`}`:""}</p></>}</div>;
+    return <div key={plan.id} className="space-y-1 px-3 py-2"><label className="flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" disabled={readOnly} checked={selected} onChange={e=>onQualification(plan.id,e.target.checked)}/>{plan.name}</label>{selected&&<><RuleInput disabled={readOnly} label={plan.name} rule={override} onChange={rule=>onFees({...fees,[plan.id]:{mode:rule?.mode as "CLASS"|"SHARE"??"INHERIT",value:String(rule?.value??0),revision:draft?.revision??0}})}/><p className="text-xs text-earth-600">{effective.source}{effective.rule?` · ${effective.rule.mode==="SHARE"?`${effective.rule.value/100}／每人每堂`:`NT$ ${effective.rule.value}／整堂`}`:""}</p></>}</div>;
    })}</div>
   </section>)}
  </div>;

@@ -1,5 +1,6 @@
 "use server";
-import {requireMusicFinance} from "@/server/services/music-finance-access";
+import {courseFeePaymentInput,courseFeeVoidInput} from "@/lib/course-fee-payment";
+import {isMusicFinanceStore,requireMusicFinance} from "@/server/services/music-finance-access";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 import { recordCourseFeePayment, voidCourseFeePayment } from "@/server/services/course-fee-payment";
@@ -10,9 +11,16 @@ export async function payCourseFee(input: unknown) {
   try {
     const {user, storeId} = await courseManager("cashbook.create");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可登錄授課費付款");
-    await requireMusicFinance(user,storeId,"teacher.settlement.pay");
     await assertStoreSubscriptionWritable(storeId);
-    await courseTransaction(storeId, tx => recordCourseFeePayment(tx, {storeId, userId:user.id}, input));
+    await courseTransaction(storeId, async tx => {
+      if(await isMusicFinanceStore(storeId)) {
+        const d=courseFeePaymentInput.parse(input);
+        const rows=await tx.$queryRaw<Array<{staffId:string}>>`SELECT "staffId" FROM "CourseCompensationSnapshot" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId} FOR UPDATE`;
+        if(!rows[0])throw new AppError("NOT_FOUND","找不到本店課次");
+        await requireMusicFinance(user,storeId,"teacher.settlement.pay",rows[0].staffId);
+      }
+      await recordCourseFeePayment(tx, {storeId, userId:user.id}, input);
+    });
     revalidatePath("/dashboard/service-fee-calculator");
     revalidatePath("/dashboard/revenue");
     revalidatePath("/dashboard/transactions");
@@ -25,9 +33,16 @@ export async function correctCourseFee(input: unknown) {
   try {
     const {user, storeId} = await courseManager("cashbook.create");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可更正授課費付款");
-    await requireMusicFinance(user,storeId,"teacher.settlement.pay");
     await assertStoreSubscriptionWritable(storeId);
-    await courseTransaction(storeId, tx => voidCourseFeePayment(tx, {storeId, userId:user.id}, input));
+    await courseTransaction(storeId, async tx => {
+      if(await isMusicFinanceStore(storeId)) {
+        const d=courseFeeVoidInput.parse(input);
+        const rows=await tx.$queryRaw<Array<{staffId:string}>>`SELECT "staffId" FROM "CourseFeePayment" WHERE "storeId"=${storeId} AND id=${d.paymentId} FOR UPDATE`;
+        if(!rows[0])throw new AppError("NOT_FOUND","找不到本店付款");
+        await requireMusicFinance(user,storeId,"teacher.settlement.pay",rows[0].staffId);
+      }
+      await voidCourseFeePayment(tx, {storeId, userId:user.id}, input);
+    });
     revalidatePath("/dashboard/service-fee-calculator");
     revalidatePath("/dashboard/revenue");
     revalidatePath("/dashboard/transactions");

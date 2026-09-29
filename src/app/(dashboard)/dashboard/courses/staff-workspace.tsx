@@ -17,6 +17,7 @@ import { RightSheet } from "@/components/admin/right-sheet";
 
 import { readCourseStaffTeaching, saveCourseStaff } from "@/server/actions/course-staff";
 type Person = {
+  financeTeacherIds?:string[]|null;
   updatedAt?: string;
   coachLoginReady:boolean;
   coachEnabled:boolean;
@@ -45,9 +46,11 @@ const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
   displayOrder,
+  financeScope=null,
+  teacherChoices=[],
   accountKind,
-  feeEnabled=true,
-  canEditFees=true,
+  feeEnabled:feeAccess=true,
+  canEditFees:editFeeAccess=true,
   staff: sourceStaff,
   maxStaff,
   templates,
@@ -56,6 +59,8 @@ export function CourseStaffWorkspace({
   permissionGroups,
   music = false,
 }: {
+  financeScope?:string[]|null;
+  teacherChoices?:{id:string;name:string}[];
   displayOrder?:CourseOrderSnapshot;
   accountKind?:"manager"|"coach";
   feeEnabled?:boolean;
@@ -83,6 +88,9 @@ export function CourseStaffWorkspace({
     [kind, setKind] = useState<"coach" | "manager">("coach"),
     [error, setError] = useState(""),
     [key, setKey] = useState("");
+  const feeEnabled=feeAccess&&(financeScope===null||!!person&&financeScope.includes(person.id));
+  const canEditFees=editFeeAccess&&(financeScope===null||!!person&&financeScope.includes(person.id));
+  const [financeTeacherIds,setFinanceTeacherIds]=useState<string[]|null>(null);
   const [coachEnabled,setCoachEnabled]=useState(true);
   const [qualificationIds,setQualificationIds]=useState<string[]>([]);
   const [qualificationSearch,setQualificationSearch]=useState("");
@@ -154,6 +162,7 @@ export function CourseStaffWorkspace({
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage);
     const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setPermissions((p?.permissions ?? []).filter((permission) => allowed.has(permission)));
+    setFinanceTeacherIds(p?.financeTeacherIds??financeScope);
     setPermissionSearch("");
     setKind(p?.kind ?? accountKind ?? "coach");
     setError("");
@@ -337,6 +346,7 @@ export function CourseStaffWorkspace({
                         coachEnabled
                           ? d.get("memberEnabled") === "yes"
                           : person?.memberEnabled ?? true,
+                      financeTeacherIds:music&&kind==="manager"?financeTeacherIds:undefined,
                       permissions:
                         kind === "manager" ? permissions : undefined,
                       requestKey: key,
@@ -456,6 +466,8 @@ export function CourseStaffWorkspace({
                 {person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
+                {music&&<fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="text-xs text-earth-500">仍需開啟下方拆帳或月結權限；指定範圍不包含全店月結確認。</p></fieldset>}
+
               {kind === "manager" && (
                   <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
                     <label className="block text-sm">

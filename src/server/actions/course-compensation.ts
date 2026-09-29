@@ -7,7 +7,7 @@ import {compensationRules,type CompensationRule} from "@/lib/course-compensation
 import {handleActionError,AppError} from "@/lib/errors";
 import {revalidatePath} from "next/cache";
 const scope=z.object({templateId:z.string().min(1).max(180),staffId:z.string().max(180).default("")});
-async function actor(staffId:string,write=false){const a=await courseManager(staffId?"staff.manage":"booking.update");if(staffId&&a.user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可設定教練報酬");await requireMusicFinance(a.user,a.storeId,write?"teacher.compensation.manage":"teacher.compensation.read");return a;}
+async function actor(staffId:string,write=false){const a=await courseManager(staffId?"staff.manage":"booking.update");if(staffId&&a.user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可設定教練報酬");await requireMusicFinance(a.user,a.storeId,write?"teacher.compensation.manage":"teacher.compensation.read",staffId||undefined);return a;}
 export async function readCourseCompensation(input:unknown){try{
  const d=scope.parse(input),{storeId}=await actor(d.staffId);
  const rows=await coursePrisma.$queryRaw<Array<{staffId:string;rules:CompensationRule[];revision:number}>>`SELECT "staffId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "templateId"=${d.templateId} AND ("staffId"='' OR "staffId"=${d.staffId})`;

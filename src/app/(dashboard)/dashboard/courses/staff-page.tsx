@@ -1,4 +1,4 @@
-import {canMusicFinance} from "@/server/services/music-finance-access";
+import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
@@ -51,6 +51,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   ]);
   if(teachers && !musicEntitlement)notFound();
   const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
+  const financeScope=await readMusicFinanceScope(user,storeId);
+  const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=musicEntitlement?await readCourseOrders(storeId):{};
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
   const linkedUserIds=staff.flatMap(s=>s.memberLink ? [s.memberLink.userId]:[]);
@@ -60,6 +62,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
       <PageHeader title={teachers?"教師管理":"人員管理"} />
 
       <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+        financeScope={financeScope}
+        teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}
         accountKind={musicEntitlement?(teachers?"coach":"manager"):undefined}
 
@@ -80,6 +84,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
           .filter((g) => g.codes.length)}
         staff={staff.filter(s=>!musicEntitlement || (teachers?(s.user.role==="CUSTOMER"||s.courseCoachEnabled):s.user.role!=="CUSTOMER")).map((s) => ({
           id: s.id,
+          financeTeacherIds:financeRows.find(f=>f.staffId===s.id)?.teacherIds??null,
           name: s.displayName,
           phone: s.phone,
           coachEnabled:s.courseCoachEnabled,
