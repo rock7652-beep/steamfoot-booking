@@ -1,4 +1,5 @@
 import "server-only";
+import { ResourceConflict } from "./course-resources";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
 import { COURSE_DURATION_OPTIONS, normalizeAvailabilityPeriods, periodContains } from "@/lib/course-availability";
@@ -66,4 +67,28 @@ export async function assertMusicCourseAvailability(
       throw new AppError("VALIDATION",`${date} ${start} 不在老師可授課時間內，本堂尚未建立`);
     }
   }
+}
+
+/** Called after availability changes inside the same Store lock as scheduling.
+ * Throwing rolls back the settings; existing sessions are never moved or cancelled. */
+export async function assertExistingTeacherAvailability(tx:Reader,storeId:string,staffId:string) {
+  const [sessions,weekly,exceptions]=await Promise.all([
+    tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;endsAt:Date;capacity:number}>>`
+      SELECT id,"nameSnapshot" AS name,"startsAt","endsAt",capacity FROM "CourseSession"
+      WHERE "storeId"=${storeId} AND "coachId"=${staffId} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP ORDER BY "startsAt"`,
+    tx.$queryRaw<Array<{dayOfWeek:number;segments:unknown}>>`
+      SELECT "dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
+    tx.$queryRaw<Array<{date:Date;type:string;segments:unknown}>>`
+      SELECT date,type,segments FROM "CourseStaffAvailabilityException" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
+  ]);
+  const conflicts=sessions.filter(session=>{
+    const date=toLocalDateStr(session.startsAt);
+    const exception=exceptions.find(row=>row.date.toISOString().slice(0,10)===date);
+    if(exception?.type==="UNAVAILABLE")return true;
+    const day=new Date(date+"T00:00:00Z").getUTCDay();
+    const periods=exception?.type==="CUSTOM"?normalizeAvailabilityPeriods(exception.segments)
+      :weekly.length?normalizeAvailabilityPeriods(weekly.find(row=>row.dayOfWeek===day)?.segments):null;
+    return periods!==null && !periodContains(periods,formatTWDateTime(session.startsAt).slice(11),(+session.endsAt-+session.startsAt)/60000);
+  });
+  if(conflicts.length)throw new ResourceConflict("新授課時間與既有課程衝突，尚未儲存；請先調課或保留原授課時間",conflicts.map(row=>({...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString()})));
 }

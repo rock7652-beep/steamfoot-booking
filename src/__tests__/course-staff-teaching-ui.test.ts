@@ -57,3 +57,14 @@ it("filters legacy permissions so renaming a manager can be saved from the compa
  await click("儲存變更");
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({name:"蔡店長（新）",permissions:["customer.read"]}));
 });
+
+it("music qualification editors with read-only pay access can change qualifications without changing fees",async()=>{
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"},{id:"s",name:"鋼琴"}],customers:[],canManage:true,music:true,feeEnabled:true,canEditFees:false,permissionGroups:[]})));
+ await click("授課設定");
+ expect((host.querySelector('[aria-label="老師全科預設比例"]') as HTMLInputElement).disabled).toBe(true);
+ const qualification=Array.from(host.querySelectorAll("label")).find(l=>l.textContent==="鋼琴")!.querySelector("input")!;
+ expect(qualification.disabled).toBe(false);
+ await act(async()=>qualification.click());
+ await click("儲存變更");
+ expect(m.save).toHaveBeenCalledWith(expect.objectContaining({qualificationIds:["y","s"],teachingFees:undefined,musicSettings:undefined}));
+});

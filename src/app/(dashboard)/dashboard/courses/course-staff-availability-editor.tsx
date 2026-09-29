@@ -1,5 +1,6 @@
 "use client";
 
+import { CourseConflicts, type ConflictItem } from "@/components/admin/course-conflicts";
 import { useEffect, useState, useTransition } from "react";
 import {
   getCourseStaffAvailability,
@@ -33,6 +34,7 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   const [exceptionReason,setExceptionReason]=useState("");
   const [exceptionPeriods,setExceptionPeriods]=useState<Period[]>([{openTime:"09:00",closeTime:"12:00"}]);
   const [exceptions,setExceptions]=useState<{date:string;type:string;reason:string;periods:Period[]}[]>([]);
+  const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [message,setMessage]=useState("");
   const [pending,start]=useTransition();
 
@@ -53,21 +55,22 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   },[staffId]);
 
   function saveWeekly(){
-    setMessage("");
+    setMessage("");setConflicts([]);
     start(async()=>{
       const result=await saveCourseStaffWeeklyAvailability({staffId,inheritStoreHours:inherit,days:inherit?[]:days});
+      if(!result.success)setConflicts(result.conflicts??[]);
       setMessage(result.success?"可授課時間已儲存":result.error??"儲存失敗");
     });
   }
   function saveException(){
     if(!exceptionDate){setMessage("請先選擇例外日期");return;}
-    setMessage("");
+    setMessage("");setConflicts([]);
     start(async()=>{
       const result=await saveCourseStaffAvailabilityException({
         staffId,date:exceptionDate,type:exceptionType,reason:exceptionReason,
         periods:exceptionType==="CUSTOM"?exceptionPeriods:[],
       });
-      if(!result.success){setMessage(result.error??"儲存失敗");return;}
+      if(!result.success){setConflicts(result.conflicts??[]);setMessage(result.error??"儲存失敗");return;}
       const value=await getCourseStaffAvailability(staffId);
       setExceptions(value.exceptions);
       setMessage("單日例外已儲存");
@@ -75,6 +78,7 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   }
 
   return <section className="space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3">
+    <CourseConflicts items={conflicts}/>
     <div>
       <h3 className="font-medium text-primary-900">可授課時間</h3>
       <p className="text-xs text-earth-600">白色空格代表可排；非授課時段在老師視角反灰。開始時間以 30 分鐘為單位。</p>

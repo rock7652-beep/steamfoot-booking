@@ -45,7 +45,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
     }),
     checkPermission(user.role, user.staffId, "staff.manage"),
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,musicSubjectId:true,musicTeacherShare:true,musicSubject:{select:{name:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
-    coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
+    coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,endsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
   ]);
@@ -93,7 +93,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
           updatedAt:s.updatedAt.toISOString(),
           birthday:s.courseBirthday?.toISOString().slice(0,10) ?? "",
           emergencyContactRelation:s.emergencyContactRelation,
-          assignments:handover.filter(h=>h.coachId===s.id).map(h=>({id:h.id,name:h.nameSnapshot,startsAt:h.startsAt.toISOString(),capacity:h.capacity})),
+          assignments:handover.filter(h=>h.coachId===s.id).map(h=>({id:h.id,name:h.nameSnapshot,startsAt:h.startsAt.toISOString(),endsAt:h.endsAt.toISOString(),capacity:h.capacity})),
           emergencyContactName: s.emergencyContactName,
           emergencyContactPhone: s.emergencyContactPhone,
           kind: s.user.role === "CUSTOMER" ? "coach" : "manager",

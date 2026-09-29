@@ -29,3 +29,11 @@
 2. Deploy preview branch and verify teacher settings, monthly report and partial-payment UI.
 3. Retain Draft PR #1134. No production changes in this task.
 4. Rolling back the app to the earlier implementation would ignore v2 original-price rounding and partial payments. Do NOT use a blind app-only rollback after v2 classes/payments exist. Disable finance writes, retain all rows, and use a forward fix or compatible rollback build. Never re-add the prior unique active-payment index when partial payments exist.
+
+## Follow-up verification — 2026-09-29
+- Qualification editing and compensation editing now have independent UI controls. An operator with staff management and read-only compensation can update qualifications without submitting any salary fields.
+- V2 fixed class fees now exclude free teacher makeup and non-chargeable leave-only sessions; chargeable no-shows / forfeited group leave still earn one class fee.
+- Weekly and single-day teacher availability changes acquire the same Store row lock as scheduling, validate existing unfinished sessions, and roll back settings on conflict. The UI lists affected classes; no sessions are cancelled or moved.
+- Teacher assignments and availability conflicts show both start and end time.
+- This follow-up passed 142 distinct tests across 14 files, TypeScript and changed-file ESLint. No new migration or production data changes.
+- Still not claimed: physical iPad, live LINE identity switching, simultaneous multi-user browser acceptance. Changes to rates currently apply to newly scheduled classes only; a future effective-date / already-scheduled bulk repricing flow is not implemented.

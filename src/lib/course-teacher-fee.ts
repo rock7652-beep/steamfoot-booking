@@ -31,9 +31,11 @@ export function calculateTeacherFee(input: {
   if (!parsed.success || parsed.data.mode === "HOUR") return result(null, "授課費率待核對");
   if (input.seats.some(s => s.status === "RESERVED")) return result(null, "尚有學員待點名");
   const rule = parsed.data;
-  if (rule.mode === "CLASS") return Number.isSafeInteger(rule.value) ? result(rule.value) : result(null, "固定授課費須為整數");
   const due = input.seats.filter(s => s.bookingKind !== "TEACHER_MAKEUP" &&
     (s.status === "ATTENDED" || s.status === "NO_SHOW" || s.absenceKind === "GROUP_LEAVE_FORFEITED"));
+  // A fixed class fee is paid once only when the class has a chargeable attendance.
+  // Free teacher makeup and cancelled/leave-only classes must not generate a second fee.
+  if (rule.mode === "CLASS") return !due.length ? result(0) : Number.isSafeInteger(rule.value) ? result(rule.value) : result(null, "固定授課費須為整數");
   const details = due.map(s => {
     const freeTrial = s.bookingKind === "TRIAL" && input.trialMode === "FREE";
     const base = freeTrial ? input.trialBase ?? null : s.originalUnitPrice;
