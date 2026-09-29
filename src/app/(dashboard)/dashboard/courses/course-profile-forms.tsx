@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
@@ -28,8 +28,9 @@ export type Plan = {
 
 const field="min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-type Callbacks={onPending:(value:boolean)=>void;onSaved:()=>void};
-function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted"|"stale"|"clear">, {onPending,onSaved}:Callbacks){
+type Callbacks={onPending:(value:boolean)=>void;onSaved:()=>void;onDirtyChange?:(value:boolean)=>void};
+function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted"|"stale"|"clear"|"dirty">, {onPending,onSaved,onDirtyChange}:Callbacks){
+ useEffect(()=>{onDirtyChange?.(draft.dirty);},[draft.dirty,onDirtyChange]);
  const router=useRouter();const [error,setError]=useState("");const [pending,setPending]=useState(false);
  async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string}>){
   event.preventDefault();if(draft.busy.current||draft.stale)return;
