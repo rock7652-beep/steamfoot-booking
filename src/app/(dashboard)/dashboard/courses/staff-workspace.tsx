@@ -127,12 +127,15 @@ export function CourseStaffWorkspace({
       if (!active) return;
       if (!result.success) { setFeesError(result.error); return; }
       if (person.updatedAt && result.version !== person.updatedAt) { setFeesError("人員資料已變更，請關閉並重新整理頁面後再編輯。"); return; }
-      setFees(Object.fromEntries(result.fees.map(f => [f.templateId, {
+      const loadedFees:Record<string,TeacherFeeDraft>=Object.fromEntries(result.fees.map(f => [f.templateId, {
         mode: !f.rules.length && music ? "INHERIT" : f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
         value: f.rules.length === 1 && (f.rules[0].mode === "CLASS" || (music && f.rules[0].mode === "SHARE")) ? String(f.rules[0].value) : "",
         revision: f.revision,
-      }])));
-      setMusicSettings(result.musicSettings??{defaultRatio:null,subjectRules:{},revision:0});
+      }]));
+      const loadedSettings=result.musicSettings??{defaultRatio:null,subjectRules:{},revision:0};
+      for(const template of templates){const draft=loadedFees[template.id];const subjectRule=template.musicSubjectId?loadedSettings.subjectRules[template.musicSubjectId]:undefined;if(result.qualificationIds.includes(template.id)&&draft?.mode==="INHERIT"&&subjectRule)loadedFees[template.id]={...draft,mode:subjectRule.mode==="SHARE"?"SHARE":"CLASS",value:String(subjectRule.value)};}
+      setFees(loadedFees);
+      setMusicSettings({...loadedSettings,subjectRules:{}});
       setTeachingVersion(result.version);
       setQualificationIds(result.qualificationIds);
       setFeesReady(true);
@@ -266,7 +269,7 @@ export function CourseStaffWorkspace({
           compact
           open
           onClose={close}
-          width={640}
+          width={920}
           labelledById="course-staff-title"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
@@ -415,14 +418,13 @@ export function CourseStaffWorkspace({
                 <section className="space-y-2">
 
                   <h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><strong>生效範圍：</strong>儲存後只套用新建立的課次；已排定課次沿用原本的費用快照，不會回溯改動。若需調整既有未來課次，請先個別核對後重新排課。</div>
-                  <p className="text-sm text-earth-600">勾選可教授課程並設定計酬，最後一次儲存。「0 元」代表這項課程不計授課費。</p>
+                  <p className="text-xs text-earth-500">套用新課次　ⓘ</p>
 
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   <div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
                   <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">全部課程（{templates.length}）</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>
                   <p className="text-sm text-earth-500">已選 {qualificationIds.length} 項 · 篩選及換頁會保留未儲存的費用</p>
-                  {music && feeEnabled ? <MusicTeacherFeeEditor templates={matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10)} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);}} onFees={v=>{setFees(v);setDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setQualificationIds(ids=>selected?[...ids,id]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
+                  {music && feeEnabled ? <MusicTeacherFeeEditor templates={matchingTemplates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);}} onFees={v=>{setFees(v);setDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setQualificationIds(ids=>selected?[...ids,id]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
                       return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,17rem)] items-center gap-3 px-3 py-2">
@@ -434,7 +436,7 @@ export function CourseStaffWorkspace({
                     })}
                     {!matchingTemplates.length && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
                   </div>}
-                  {qualificationPages>1 && <nav aria-label="授課設定分頁" className="flex flex-wrap items-center justify-end gap-2 text-sm"><span>第 {visibleQualificationPage+1}／{qualificationPages} 頁</span><button type="button" className={button} disabled={!visibleQualificationPage} onClick={()=>setQualificationPage(visibleQualificationPage-1)}>上一頁</button><button type="button" className={button} disabled={visibleQualificationPage+1>=qualificationPages} onClick={()=>setQualificationPage(visibleQualificationPage+1)}>下一頁</button></nav>}
+                  {!music&&qualificationPages>1 && <nav aria-label="授課設定分頁" className="flex flex-wrap items-center justify-end gap-2 text-sm"><span>第 {visibleQualificationPage+1}／{qualificationPages} 頁</span><button type="button" className={button} disabled={!visibleQualificationPage} onClick={()=>setQualificationPage(visibleQualificationPage-1)}>上一頁</button><button type="button" className={button} disabled={visibleQualificationPage+1>=qualificationPages} onClick={()=>setQualificationPage(visibleQualificationPage+1)}>下一頁</button></nav>}
                 </section>
               </div>
               <div data-staff-tab="work" hidden={tab!=="work" || !coachEnabled} className="space-y-3">
