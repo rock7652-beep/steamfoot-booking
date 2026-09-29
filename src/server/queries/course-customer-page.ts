@@ -14,7 +14,7 @@ export type CourseCustomerPage = {
 // include the entire visible store, never only the currently rendered customers.
 export async function getCourseCustomerPage(
   storeId: string, role: string, staffId: string | null, params: URLSearchParams,
-  canReadCards: boolean, now = new Date(),
+  canReadCards: boolean, now = new Date(), music = false,
 ): Promise<CourseCustomerPage> {
   const visibility = getManagerCustomerWhere(role, staffId, storeId);
   const staffScope = typeof visibility.assignedStaffId === "string" ? visibility.assignedStaffId : null;
@@ -26,9 +26,9 @@ export async function getCourseCustomerPage(
   const status = params.get("status") ?? "";
   const visit = params.get("visit") ?? "";
   const referral = params.get("referral") ?? "";
-  const assigned = params.get("staff") ?? "";
+  const assigned = music ? "" : params.get("staff") ?? "";
   const sort = params.get("sort") ?? "recent";
-  const order = sort === "points" && canReadCards ? Prisma.sql`points DESC`
+  const order = sort === "points" && canReadCards ? (music ? Prisma.sql`sessions DESC` : Prisma.sql`points DESC`)
     : sort === "created" ? Prisma.sql`"createdAt" DESC`
       : Prisma.sql`"lastVisitAt" DESC NULLS LAST`;
   const [result] = await prisma.$queryRaw<CourseCustomerPage[]>(Prisma.sql`

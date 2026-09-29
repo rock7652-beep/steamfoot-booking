@@ -33,7 +33,18 @@ function refresh() {
   revalidatePath("/dashboard/courses");
   revalidatePath("/book");
 }
+
+// The music roster updates itself optimistically and reconciles through a direct roster read.
+// Revalidating from a Server Action also forces the current dashboard route to reload.
+async function refreshUnlessMusicRoster(storeId: string) {
+  const music = await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  });
+  if (!music) refresh();
+}
 const bookingInput = z.object({
+  makeupForBookingId: id.nullable().optional(),
   sessionId: id,
   notes: z.string().trim().max(1000).default(""),
   cardId: id,
@@ -187,13 +198,42 @@ export async function assignCoursePointCard(input: unknown) {
     if (checkout.discountValue > 0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
-      if(plan?.unit==="POINT" && await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))throw new AppError("VALIDATION","音樂教室只使用堂數方案");
+      const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+      if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
-      return assignCourseWithCheckout(tx, {storeId, userId:user.id}, {...data,...checkout});
+      return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
     });
     for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
     refresh();
     return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/** Checkout options for the learner currently selected in the schedule dialog. */
+export async function loadCourseStudentPurchase(bookingId: string) {
+  try {
+    id.parse(bookingId);
+    const { user, storeId } = await courseManager("wallet.create");
+    await courseManager("transaction.create");
+    const booking = await coursePrisma.courseBooking.findFirst({
+      where: { id: bookingId, storeId },
+      select: { customerId: true, customerName: true, session: { select: { templateId: true } } },
+    });
+    if (!booking) throw new AppError("NOT_FOUND", "找不到本店學員");
+    const { checkPermission } = await import("@/lib/permissions");
+    const [plans, customer, canDiscount] = await Promise.all([
+      coursePrisma.coursePointPlan.findMany({
+        where: { storeId, isActive: true, unit: "SESSION", templateIds: { has: booking.session.templateId } },
+        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true },
+        orderBy: [{ points: "asc" }, { name: "asc" }],
+      }),
+      prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } }),
+      checkPermission(user.role, user.staffId, "transaction.discount"),
+    ]);
+    if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans, canDiscount } };
   } catch (error) {
     return handleActionError(error);
   }
@@ -275,6 +315,7 @@ export async function createCourseBooking(input: unknown) {
 export async function createMemberCourseBooking(input: unknown) {
   try {
     const { user, storeId, customer } = await courseMember({ write: true });
+    if (input && typeof input === "object" && "makeupForBookingId" in input && input.makeupForBookingId) throw new AppError("VALIDATION", "補課請逐位安排");
     const bookings = await reserveCourseMembers(
       {
         userId: user.id,
@@ -340,7 +381,8 @@ export async function updateCourseBookingStatus(input: unknown) {
       );
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
-    refresh();
+    if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
+    else refresh();
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
@@ -385,6 +427,102 @@ export async function cancelCourseSession(input: unknown) {
   }
 }
 
+/** Stop only the already scheduled future lessons of this series. Current and past lessons remain intact. */
+async function futureMusicCourseScope(
+  tx: Parameters<Parameters<typeof courseTransaction>[1]>[0],
+  storeId: string,
+  sessionId: string,
+  bookingId?: string,
+) {
+  const source = await tx.courseSession.findFirst({
+    where: { id: sessionId, storeId, cancelledAt: null },
+    select: { id: true, requestKey: true, templateId: true, startsAt: true },
+  });
+  if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+  const music = await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  });
+  if (!music) throw new AppError("VALIDATION", "此操作只適用音樂教室");
+  let customerId: string | undefined;
+  let customerName: string | undefined;
+  if (bookingId) {
+    const learner = await tx.courseBooking.findFirst({
+      where: { id: bookingId, storeId, sessionId, status: { not: "CANCELLED" } },
+      select: { customerId: true, customerName: true },
+    });
+    if (!learner) throw new AppError("NOT_FOUND", "找不到此堂學員");
+    customerId = learner.customerId;
+    customerName = learner.customerName;
+  }
+  const after = new Date(Math.max(Date.now(), source.startsAt.getTime()));
+  const sessions = await tx.courseSession.findMany({
+    where: { storeId, requestKey: source.requestKey, templateId: source.templateId,
+      startsAt: { gt: after }, cancelledAt: null, releasedAt: null },
+    select: { id: true, startsAt: true },
+    orderBy: { startsAt: "asc" },
+    take: 501,
+  });
+  if (sessions.length > 500) throw new AppError("VALIDATION", "後續課程過多，請分段處理");
+  const allBookings = await tx.courseBooking.findMany({
+    where: { storeId, sessionId: { in: sessions.map((item) => item.id) },
+      ...(customerId ? { customerId } : {}), status: { not: "CANCELLED" } },
+    select: { id: true, status: true, sessionId: true },
+    orderBy: { id: "asc" },
+  });
+  if (allBookings.some((item) => item.status !== "RESERVED"))
+    throw new AppError("CONFLICT", "後續課程已有完成點名，請先核對紀錄");
+  return {
+    sessionIds: sessions.map((item) => item.id),
+    bookingIds: allBookings.map((item) => item.id),
+    customerName,
+  };
+}
+
+export async function previewFutureCourseStop(input: unknown) {
+  try {
+    const data = z.object({ sessionId: id, bookingId: id.optional() }).parse(input);
+    const { storeId } = await courseManager("booking.read");
+    const scope = await courseTransaction(storeId, tx =>
+      futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId));
+    return { success: true as const, data: scope };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function stopFutureCourseLessons(input: unknown) {
+  try {
+    const data = z.object({
+      sessionId: id, bookingId: id.optional(),
+      expectedSessionIds: z.array(id).max(500),
+      expectedBookingIds: z.array(id).max(1000),
+    }).parse(input);
+    const { user, storeId } = await courseManager("booking.update");
+    await courseTransaction(storeId, async tx => {
+      const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId);
+      if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
+          scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
+        throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
+      if (!scope.sessionIds.length || data.bookingId && !scope.bookingIds.length)
+        throw new AppError("VALIDATION", "沒有可停止的後續已排課");
+      for (const bookingId of scope.bookingIds)
+        await settleCourseBooking(tx,
+          { storeId, userId: user.id, name: user.name ?? "店長" },
+          bookingId, "CANCELLED");
+      if (!data.bookingId)
+        await tx.courseSession.updateMany({
+          where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
+          data: { cancelledAt: new Date() },
+        });
+    });
+    refresh();
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false) {
   try {
     const { user, storeId } = await courseManager("booking.read");
@@ -402,16 +540,28 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       user.staffId,
       "booking.create",
     );
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
+    const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-    const [roster, cards] = await Promise.all([
+    const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+    const [roster, cards, pendingMakeups] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
+      canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
+        where:{storeId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
+        select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
+      }).then(async leaves => {
+        const used = await coursePrisma.courseBooking.findMany({where:{storeId,makeupForBookingId:{in:leaves.map(leave=>leave.id)},OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]},select:{makeupForBookingId:true}});
+        const linked = new Set(used.map(item=>item.makeupForBookingId));
+        return leaves.filter(leave=>!linked.has(leave.id)).map(leave=>({id:leave.id,customerId:leave.customerId,cardId:leave.cardId!,date:leave.session.startsAt.toISOString()}));
+      }) : [],
     ]);
     return {
       success: true as const,
       data: {
         roster,
+        canPurchase,
+        pendingMakeups,
         trial: {
           settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
@@ -420,7 +570,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId },
-        cards: cards.map((card) => ({
+        cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
         })),
@@ -432,14 +582,26 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
 }
 
 export async function loadCourseRosterQuick(sessionId: string) {
+  const startedAt = Date.now();
+  let authMs = 0;
+  let sessionMs = 0;
+  let rosterMs = 0;
   try {
     const { storeId } = await courseManager("booking.read");
+    authMs = Date.now() - startedAt;
     id.parse(sessionId);
     const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true}});
+    sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
-    return {success:true as const, data:{roster:await getCourseRoster(storeId,sessionId),teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
-  } catch(error) {return handleActionError(error);}
+    const roster = await getCourseRoster(storeId,sessionId);
+    rosterMs = Date.now() - startedAt - authMs - sessionMs;
+    console.info("[course-roster-read]", { outcome: "success", count: roster.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
+    return {success:true as const, data:{roster,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
+  } catch(error) {
+    console.info("[course-roster-read]", { outcome: "error", authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
+    return handleActionError(error);
+  }
 }
 
 export async function saveCourseRosterNote(input: unknown) {
@@ -514,25 +676,56 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 }
 
 export async function updateCourseRosterBatch(input: unknown) {
+  const startedAt = Date.now();
+  let authMs = 0;
+  let lockWaitMs = 0;
+  let validationMs = 0;
+  let writeMs = 0;
+  let transactionMs = 0;
+  let target = "UNKNOWN";
+  let count = 0;
   try {
     const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
+    target = data.target;
+    count = data.bookings.length;
     const {user,storeId}=await courseManager("booking.update");
+    authMs = Date.now() - startedAt;
+    // Start this independent lookup before the transaction so it does not add
+    // another database round trip after attendance has already been saved.
+    const musicLookup = prisma.storeFeatureEntitlement.findFirst({
+      where: { storeId, featureKey: "business.music", status: "ENABLED" },
+      select: { storeId: true },
+    }).then(Boolean, () => false);
+    const transactionStartedAt = Date.now();
     await courseTransaction(storeId,async tx=>{
+      const transactionWorkAt = Date.now();
+      lockWaitMs = transactionWorkAt - transactionStartedAt;
       const session=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null}});
       if(!session)throw new AppError("NOT_FOUND","找不到可點名的本店課次");
       const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},...(data.target==="RESERVED"?{OR:[{status:{not:"CANCELLED"}},{status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]}:{status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}})}});
       if(count!==data.bookings.length)throw new AppError("CONFLICT","名單或狀態已變更，請重新核對");
+      validationMs = Date.now() - transactionWorkAt;
+      const writeStartedAt = Date.now();
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       for(const booking of data.bookings){
         if(data.target==="CHECKED_IN")await settleCourseBooking(tx,actor,booking.id,"CHECKED_IN");
         else if(data.target==="NO_SHOW"&&booking.status==="RESERVED")await settleCourseBooking(tx,actor,booking.id,"NO_SHOW",data.noShowChoice);
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
+      writeMs = Date.now() - writeStartedAt;
     });
+    transactionMs = Date.now() - transactionStartedAt;
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
-    refresh();return {success:true as const};
-  }catch(error){return handleActionError(error);}
+    const refreshStartedAt = Date.now();
+    if (!(await musicLookup)) refresh();
+    const refreshMs = Date.now() - refreshStartedAt;
+    console.info("[course-roster-batch]", { outcome: "success", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, refreshMs, totalMs: Date.now() - startedAt });
+    return {success:true as const};
+  }catch(error){
+    console.info("[course-roster-batch]", { outcome: "error", target, count, authMs, lockWaitMs, validationMs, writeMs, transactionMs, totalMs: Date.now() - startedAt });
+    return handleActionError(error);
+  }
 }
 
 /** One transaction for the manager's day-wide leave/attendance list. */

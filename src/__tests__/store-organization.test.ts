@@ -57,7 +57,7 @@ vi.mock("@/lib/feature-gate", () => ({
 function mockStoreTree(parentToChildren: Record<string, string[]>) {
   mockFindMany.mockImplementation(({ where }: { where: { parentStoreId?: { in: string[] }; id?: { in: string[] } | string } }) => {
     if (typeof where.id === "string") {
-      return Promise.resolve([{ id: where.id, parentStoreId: null }]);
+      return Promise.resolve([{ id: where.id, parentStoreId: null, name: "A", slug: "store-a", isDefault: false }]);
     }
     if (where.id?.in) {
       return Promise.resolve(where.id.in.map((id) => ({
@@ -123,7 +123,7 @@ describe("store organization foundation", () => {
     mockHasStoreFeature.mockResolvedValueOnce(false);
     mockFindMany.mockImplementation(({ where }: { where: { id?: { in: string[] } | string } }) => {
       if (typeof where.id === "string") {
-        return Promise.resolve([{ id: where.id, parentStoreId: null }]);
+        return Promise.resolve([{ id: where.id, parentStoreId: null, name: "A", slug: "store-a", isDefault: false }]);
       }
       if (where.id?.in) {
         return Promise.resolve([

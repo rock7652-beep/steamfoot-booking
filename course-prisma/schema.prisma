@@ -186,6 +186,8 @@ model CourseCardMember {
 }
 
 model CourseBooking {
+  makeupForBookingId String?
+  @@index([makeupForBookingId, storeId], map: "CourseBooking_makeup_source_idx")
   id String @id @default(cuid())
   storeId String
   sessionId String

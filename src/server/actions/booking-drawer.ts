@@ -268,6 +268,8 @@ export async function fetchBookingDetail(
   bookingId: string,
   resolvedStoreId?: string,
 ): Promise<BookingDrawerPayload> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "fetchBookingDetail");
   const timing = new OperationTiming("booking.detail");
   try { return await fetchBookingDetailMeasured(bookingId, resolvedStoreId, timing); }
   finally { timing.finish(); }
@@ -277,10 +279,16 @@ async function fetchBookingDetailMeasured(
   bookingId: string, resolvedStoreId: string | undefined, timing: OperationTiming,
 ): Promise<BookingDrawerPayload> {
   const user = await timing.measure("session", () => requireStaffSession());
-  const activeStoreId = await timing.measure("activeStore", () => getActiveStoreForRead(user));
-  const storeViewContext = await timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user));
+  // Explicit page scope is authoritative after authorization. Do not resolve
+  // unused route/cookie scopes first (or let stale view cookies block it).
+  const [activeStoreId, storeViewContext] = resolvedStoreId
+    ? [null, null] as const
+    : await Promise.all([
+        timing.measure("activeStore", () => getActiveStoreForRead(user)),
+        timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user)),
+      ]);
   const bookingStoreId = resolvedStoreId
-    ? await validateStoreAccess(user, resolvedStoreId, "read")
+    ? await timing.measure("explicitStore", () => validateStoreAccess(user, resolvedStoreId, "read"))
     : storeIdForViewContext(activeStoreId, storeViewContext);
   const readUser = resolvedStoreId && user.role !== "ADMIN"
     ? { ...user, storeId: resolvedStoreId }
@@ -538,10 +546,7 @@ async function fetchBookingDetailMeasured(
             booking.servicePlan?.name ??
             null,
           remaining: booking.customerPlanWallet?.remainingSessions ?? null,
-          singlePrice:
-            booking.expectedAmount != null
-                ? Number(booking.expectedAmount)
-                : 799,
+          singlePrice: 799 * booking.people,
         })
       : null,
   };

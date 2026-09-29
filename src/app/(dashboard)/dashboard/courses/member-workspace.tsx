@@ -189,7 +189,7 @@ export function CourseMemberWorkspace({
       (p) =>
         p.name.includes(search.trim()) &&
         (status === "all" || p.isActive === (status === "active")) &&
-        (planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
+        (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
   function changePlanStatus(item: Plan) {
@@ -223,7 +223,7 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && (
         <section aria-label="方案摘要" className="mb-3 flex flex-wrap gap-2">
           {[
-            ["全部方案", plans.length],
+            ["全部方案", music ? plans.filter((plan) => plan.unit === "SESSION").length : plans.length],
             ["上架中", activePlans.length],
             ...(music ? [["堂數方案", activePlans.filter(item => item.unit === "SESSION").length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm"><strong className="mr-2 tabular-nums text-primary-800">{value}</strong><span className="text-earth-500">{label}</span></div>)}
@@ -280,7 +280,7 @@ export function CourseMemberWorkspace({
         </p>
       )}
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
-      {view === "customers" ? <CourseCustomerList customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
         onView={id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); open("person"); }}
@@ -405,7 +405,7 @@ export function CourseMemberWorkspace({
               {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
               </dl>
-                <CustomerAttributionForm key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
+                <CustomerAttributionForm hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
               </details>}
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
@@ -441,7 +441,7 @@ export function CourseMemberWorkspace({
                       expiresDate: d.get("expires"),
                       expectedListPrice: Number(d.get("expectedListPrice")),
                       expectedStoreCost: Number(d.get("expectedStoreCost")),
-                      revenueStaffId: String(d.get("revenueStaffId")??""),
+                      revenueStaffId: music ? "" : String(d.get("revenueStaffId")??""),
                       discountKind: d.get("discountKind"),
                       discountValue: Number(d.get("discountValue")),
                       paymentMethod: d.get("paymentMethod"),
@@ -482,12 +482,12 @@ export function CourseMemberWorkspace({
                   />
 
                 </label>}
-                {profitEnabled&&<label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>}
+                {profitEnabled&&!music&&<label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>}
 
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
-                  <CourseAssignmentPayment profitEnabled={profitEnabled} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled} onSummary={setAssignmentSummary}/>
+                  <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>
                 </fieldset>
               </form>
             )}

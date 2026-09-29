@@ -1,3 +1,4 @@
+import type { OperationTiming } from "@/lib/operation-timing";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { UserRole } from "@prisma/client";
@@ -459,16 +460,25 @@ export async function assertNotLastStoreManager(
 // 用於 server actions / queries，無權限時拋 FORBIDDEN
 // ============================================================
 
-export async function requirePermission(permission: PermissionCode) {
+type PermissionTiming = Pick<OperationTiming, "measure">;
+function measurePermission<T>(timing: PermissionTiming | undefined, name: string, work: () => Promise<T>): Promise<T> {
+  return timing ? timing.measure(name, work) : work();
+}
+
+export async function requirePermission(
+  permission: PermissionCode,
+  timing?: PermissionTiming,
+  options: { deferSubscriptionGuard?: boolean } = {},
+) {
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
-  const user = await requireStaffSession();
+  const user = await measurePermission(timing, "permission.session", () => requireStaffSession());
   if (user.role === "ADMIN") return user;
-  const allowed = await checkPermission(user.role, user.staffId, permission);
+  const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
-  if (!/\.(read|view|export)$/.test(permission) && user.storeId) {
+  if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission) && user.storeId) {
     const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
-    await assertStoreSubscriptionWritable(user.storeId);
+    await measurePermission(timing, "permission.subscription", () => assertStoreSubscriptionWritable(user.storeId!));
   }
   return user;
 }
@@ -484,8 +494,9 @@ export async function requirePermission(permission: PermissionCode) {
 export async function requireWritablePermission(
   permission: PermissionCode,
   options?: { viewedStoreId?: string | null },
+  timing?: PermissionTiming,
 ) {
-  const user = await requirePermission(permission);
+  const user = await requirePermission(permission, timing);
   if (user.role === "ADMIN") return user;
 
   let viewOptions = options;
@@ -494,7 +505,7 @@ export async function requireWritablePermission(
     const { VIEWED_STORE_COOKIE_NAME } = await import(
       "@/lib/store-view-mode-constants"
     );
-    const cookieStore = await cookies();
+    const cookieStore = await measurePermission(timing, "permission.cookie", () => cookies());
     viewOptions = {
       viewedStoreId: cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null,
     };
@@ -502,7 +513,7 @@ export async function requireWritablePermission(
 
   const { resolveStoreViewContext, assertWritableStoreViewContext } =
     await import("@/lib/store-organization");
-  const ctx = await resolveStoreViewContext(user, viewOptions);
+  const ctx = await measurePermission(timing, "permission.store", () => resolveStoreViewContext(user, viewOptions));
   assertWritableStoreViewContext(ctx);
   return user;
 }

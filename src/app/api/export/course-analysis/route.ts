@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -30,8 +31,9 @@ export async function GET(req:NextRequest) {
   let range;
   try { range=courseAnalysisRange(Object.fromEntries(req.nextUrl.searchParams)); } catch { return new NextResponse("日期格式不正確",{status:400}); }
   if(req.nextUrl.searchParams.get("report")==="business") {
+    const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}));
     let scope;
-    try {scope=resolveBusinessScope(Object.fromEntries(req.nextUrl.searchParams),user.role==="OWNER"||user.role==="ADMIN",user.staffId);} catch {return new NextResponse("分析對象無權限",{status:403});}
+    try {scope=resolveBusinessScope(Object.fromEntries(req.nextUrl.searchParams),user.role==="OWNER"||user.role==="ADMIN",user.staffId,music);} catch {return new NextResponse("分析對象無權限",{status:403});}
     let report;
     try {report=await getCourseBusinessAnalytics(storeId,range,scope,{money:await checkPermission(user.role,user.staffId,"transaction.read"),customers:false,fees:user.role==="OWNER"&&await checkPermission(user.role,user.staffId,"cashbook.read")});}
     catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象")return new NextResponse(error.message,{status:404});throw error;}

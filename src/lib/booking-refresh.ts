@@ -12,6 +12,7 @@ export function createBookingRefresh<T>(options: {
   gate?: ReturnType<typeof createBookingRefreshGate>;
 }) {
   let disposed = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const gate = options.gate ?? createBookingRefreshGate();
 
   async function refresh(manual = false) {
@@ -31,5 +32,21 @@ export function createBookingRefresh<T>(options: {
     }
   }
 
-  return { refresh, dispose: () => { disposed = true; } };
+  // Coalesce mutations until the trailing quiet period. Effect recreation
+  // cancels the old timer while the shared gate retains the latest deadline.
+  function schedule() {
+    if (timer) clearTimeout(timer);
+    if (disposed || options.paused()) return;
+    const delay = Math.max(gate.pending ? 250 : 0, gate.nextAutomaticAt - Date.now());
+    if (delay > 0) {
+      timer = setTimeout(schedule, delay);
+      return;
+    }
+    void refresh();
+  }
+  return { refresh, schedule, dispose: () => {
+    disposed = true;
+    if (timer) clearTimeout(timer);
+  } };
+
 }

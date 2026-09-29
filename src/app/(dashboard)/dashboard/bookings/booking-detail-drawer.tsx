@@ -1,4 +1,5 @@
 "use client";
+import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
@@ -15,16 +16,12 @@ import {
   bookingStatusMeta,
 } from "@/components/admin/status-badge";
 import {
-  fetchBookingDetail,
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
 import type { BookingNotePatch } from "./booking-note-state";
 import type { BookingDetailCache } from "./booking-detail-cache";
 import {
-  markCompleted,
-  markNoShow,
   cancelBooking,
-  revertBookingStatus,
   updateBooking,
 } from "@/server/actions/booking";
 import { BookingNoteEditor } from "./booking-note-editor";
@@ -190,6 +187,7 @@ export function BookingDetailDrawer({
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [prefillStatus, setPrefillStatus] = useState<string | null>(null);
+  const [pendingBalance, setPendingBalance] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const localActions = useResponsiveAction();
   const saves = sharedActions ?? localActions;
@@ -240,6 +238,7 @@ export function BookingDetailDrawer({
   if (open && bookingId && seededFor !== bookingId) {
     setSeededFor(bookingId);
     setPrefillStatus(null);
+    setPendingBalance(null);
     setData(cache?.get(bookingId) ?? null);
     setError(null);
     setPendingAttendedPeople(null);
@@ -273,6 +272,7 @@ export function BookingDetailDrawer({
       .then((payload) => {
         if (canceled) return;
         setData(payload);
+        setPendingBalance(null);
         setError(null);
       })
       .catch((e) => {
@@ -288,7 +288,7 @@ export function BookingDetailDrawer({
     };
   }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing]);
 
-  /** Financial values stay server-confirmed; safe status changes may render optimistically. */
+  /** Only an unambiguous single-person package deduction is projected locally. */
   function wrapAction(
     label: string,
     action: () => Promise<{ success: boolean; error?: string } | unknown>,
@@ -308,6 +308,14 @@ export function BookingDetailDrawer({
     const originalData = data?.booking.id === id ? data : null;
     const originalStatus = originalData?.booking.bookingStatus ?? (prefill?.id === id ? prefill.bookingStatus : null);
     const optimisticStatus = opts?.optimistic && nextStatus ? nextStatus : null;
+    const source = originalData?.booking ?? (prefill?.id === id ? prefill : null);
+    const wallet = source?.customerPlanWallet;
+    const projectedBalance = !spaMode && optimisticStatus === "COMPLETED" &&
+      source && ["PENDING", "CONFIRMED"].includes(source.bookingStatus) &&
+      source.bookingType === "PACKAGE_SESSION" && source.people === 1 && !source.isMakeup &&
+      (!originalData || originalData.booking.makeupCreditLinks.length === 0) &&
+      wallet && wallet.remainingSessions > 0
+      ? wallet.remainingSessions - 1 : null;
     const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
     void saves.run(id, async () => {
       const result = await action() as { success?: boolean; error?: string } | undefined;
@@ -315,11 +323,15 @@ export function BookingDetailDrawer({
       if (!result.success) toast.error(result.error ?? "操作未完成");
       return { success: result.success, error: result.error };
     }, {
+      timingLabel: !spaMode && opts?.optimistic
+        ? nextStatus === "COMPLETED" ? "complete" : nextStatus === "PENDING" ? "revert" : undefined
+        : undefined,
       apply: () => {
         if (!optimisticStatus) return;
         onUpdated?.(id, optimisticStatus);
         if (currentBooking.current !== id) return;
         setPrefillStatus(optimisticStatus);
+        setPendingBalance(projectedBalance);
         setData(previous =>
           previous?.booking.id === id ? { ...previous, booking: {
             ...previous.booking,
@@ -337,6 +349,7 @@ export function BookingDetailDrawer({
         if (originalStatus) onUpdated?.(id, originalStatus);
         if (currentBooking.current !== id) return;
         setPrefillStatus(null);
+        setPendingBalance(null);
         if (originalData) setData(originalData);
         opts?.onRollback?.();
       },
@@ -352,6 +365,7 @@ export function BookingDetailDrawer({
         onUpdated?.(id, nextStatus);
         if (currentBooking.current !== id) return;
         setData(recoveredPayload);
+        setPendingBalance(null);
         setError(null);
         opts?.onSuccess?.();
       },
@@ -409,7 +423,7 @@ export function BookingDetailDrawer({
       setAttendanceOpen(true);
       return;
     }
-    wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED", {
+    wrapAction("已完成服務", () => updateBookingStatus(bookingId!, "complete"), "COMPLETED", {
       optimistic: true,
     });
   }
@@ -425,7 +439,7 @@ export function BookingDetailDrawer({
     if (attendedPeople === 0) {
       wrapAction(
         "已標記未到",
-        () => markNoShow(bookingId, "DEDUCTED"),
+        () => markBookingNoShow(bookingId, "DEDUCTED"),
         "NO_SHOW",
         {
           onSuccess: () => {
@@ -456,7 +470,7 @@ export function BookingDetailDrawer({
     // intent === "complete"（或 fallback）：直接完成服務，markCompleted 寫 DB。
     wrapAction(
       "已完成服務",
-      () => markCompleted(bookingId, { attendedPeople }),
+      () => updateBookingStatus(bookingId, "complete", { attendedPeople }),
       "COMPLETED",
       {
         expected: { attendedPeople },
@@ -484,7 +498,7 @@ export function BookingDetailDrawer({
       wrapAction(
         "已完成服務並記錄部分未到",
         () =>
-          markCompleted(bookingId!, {
+          updateBookingStatus(bookingId!, "complete", {
             attendedPeople,
             partialNoShowChoice: choice,
           }),
@@ -522,7 +536,7 @@ export function BookingDetailDrawer({
       DEDUCTED_WITH_MAKEUP: "已標記未到、扣堂並發補課",
     };
     const label = isFullMakeupBooking ? "已標記未到" : labelMap[choice];
-    wrapAction(label, () => markNoShow(bookingId!, choice), "NO_SHOW", {
+    wrapAction(label, () => markBookingNoShow(bookingId!, choice), "NO_SHOW", {
       expected: { makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
       onSuccess: () => setNoShowOpen(false),
     });
@@ -554,7 +568,7 @@ export function BookingDetailDrawer({
   function handleRevert() {
     if (readOnly) return;
     // Revert returns to PENDING per booking.ts:867 logic.
-    wrapAction("已還原狀態", () => revertBookingStatus(bookingId!), "PENDING");
+    wrapAction("已還原狀態", () => updateBookingStatus(bookingId!, "revert"), "PENDING", { optimistic: true });
   }
 
   // 體驗 499 PR-3：現場收款成功 — 預約狀態不變，重抓 detail 讓
@@ -655,7 +669,7 @@ export function BookingDetailDrawer({
           />
         ) : hasFullData && data ? (
           <DrawerContent
-            payload={data}
+            payload={pendingBalance !== null && data.booking.customerPlanWallet ? { ...data, booking: { ...data.booking, customerPlanWallet: { ...data.booking.customerPlanWallet, remainingSessions: pendingBalance } } } : data}
             onNoteSaved={(patch) => {
               setData((previous) => {
                 if (!previous || previous.booking.id !== patch.bookingId) return previous;
@@ -693,7 +707,7 @@ export function BookingDetailDrawer({
           />
         ) : showPrefill && prefill && !spaMode ? (
           <PendingSteamDetail
-            prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED" } : prefill}
+            prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED", customerPlanWallet: pendingBalance !== null && prefill.customerPlanWallet ? { ...prefill.customerPlanWallet, remainingSessions: pendingBalance } : prefill.customerPlanWallet } : prefill}
             durationMinutes={durationMinutes}
             error={error}
             onClose={onClose}
@@ -778,6 +792,7 @@ export function BookingDetailDrawer({
       )}
       {!readOnly && data && data.trial && !data.trial.collected && (
         <CollectTrialModal
+          saveAction={collectBookingTrialPayment}
           open={collectOpen}
           onClose={() => {
             setCollectOpen(false);
@@ -804,6 +819,8 @@ export function BookingDetailDrawer({
         data.trial.canCorrect &&
         data.trial.collectedTransactionId && (
           <CorrectTrialCollectionModal
+            saveAction={correctBookingTrialCollection}
+            onReconcile={handleCorrected}
             open={correctOpen}
             onClose={() => setCorrectOpen(false)}
             bookingId={data.booking.id}

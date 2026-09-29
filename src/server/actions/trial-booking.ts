@@ -21,7 +21,7 @@ import {
   correctTrialCollectionSchema,
 } from "@/lib/validators/trial-booking";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
-import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
+import { revalidateBookingMutation, revalidateBookingTransactionMutation } from "@/lib/booking-route-mutation";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
@@ -285,6 +285,8 @@ export async function createTrialBooking(
 export async function collectTrialPayment(
   input: z.infer<typeof collectTrialPaymentSchema>,
 ): Promise<ActionResult<{ transactionId: string; serviceCompleted: boolean }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "collectTrialPayment");
   try {
     const user = await requireWritablePermission("trial.confirm");
     const data = collectTrialPaymentSchema.parse(input);
@@ -460,8 +462,8 @@ export async function collectTrialPayment(
       }
     }
 
-    revalidateBookings(booking.customerId);
-    revalidateTransactions(booking.customerId);
+    revalidateBookingMutation(booking.customerId);
+    revalidateBookingTransactionMutation(booking.customerId);
     return {
       success: true,
       data: { transactionId: result.id, serviceCompleted: completeService },
@@ -496,6 +498,8 @@ export async function collectTrialPayment(
 export async function correctTrialCollection(
   input: z.infer<typeof correctTrialCollectionSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "correctTrialCollection");
   try {
     const user = await requireWritablePermission("transaction.void");
     const data = correctTrialCollectionSchema.parse(input);
@@ -558,6 +562,8 @@ export async function correctTrialCollection(
       amount: data.amount,
     });
     if (!recollected.success) {
+      // The original payment is already voided; expire booking summaries too.
+      revalidateBookingMutation();
       return {
         success: false,
         error: `原收款已作廢，但新收款建立失敗（${recollected.error}）。此預約目前為未收款，請重新收款。`,

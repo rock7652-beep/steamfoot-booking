@@ -156,9 +156,9 @@ vi.mock("@/server/queries/staff", () => ({
 // PR-3b：trial-booking.ts 新增 module-level import @/server/actions/transaction
 // （voidTransaction）→ mock 掉，避免 vitest 解析 next-auth / next/server
 vi.mock("@/server/actions/transaction", () => ({ voidTransaction: vi.fn() }));
-vi.mock("@/lib/revalidation", () => ({
-  revalidateBookings: h.revalidateBookings,
-  revalidateTransactions: h.revalidateTransactions,
+vi.mock("@/lib/booking-route-mutation", () => ({
+  revalidateBookingMutation: h.revalidateBookings,
+  revalidateBookingTransactionMutation: h.revalidateTransactions,
 }));
 vi.mock("@/lib/errors", () => ({
   AppError: class AppError extends Error {

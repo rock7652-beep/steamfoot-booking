@@ -1,19 +1,19 @@
 "use client";
+import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRetainedState } from "@/components/operations/operation-scope";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
-import { fetchBookingDetail } from "@/server/actions/booking-drawer";
 import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
 import { dispatchBookingBatch } from "@/lib/booking-action-batch";
 import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
-import { refreshBookingManagement } from "@/server/actions/booking-refresh";
+import { readBookingMonth } from "@/lib/booking-month-read";
 import { toast } from "sonner";
-import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchDaySlots } from "@/server/actions/slots";
+import { useBookingMonthNavigation } from "./booking-month-context";
+import { BookingMonthLink } from "./booking-month-link";
+import { readBookingSlots } from "@/lib/booking-client-transport";
 import {
-  markCompleted,
   markCompletedBatch,
 } from "@/server/actions/booking";
 import type { SlotAvailability } from "@/types";
@@ -149,7 +149,7 @@ const EMPTY_FILTERS: BookingFilters = {
   search: "",
 };
 
-interface BookingsManagerProps {
+export interface BookingsManagerProps {
   operationGuidePreview?: boolean;
   storeId?: string;
   year: number;
@@ -174,6 +174,7 @@ export function BookingsManager({
   canManageHours = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
+  const monthNavigation = useBookingMonthNavigation();
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
   // month. Sync back from prop whenever year / month / server data changes.
@@ -230,9 +231,13 @@ export function BookingsManager({
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
-  const refreshGate = useRef(createBookingRefreshGate());
+  // The workspace already supplies SSR data or revalidates a month switch.
+  // Avoid a second identical request as soon as this manager mounts.
+  const refreshGate = useRef({ ...createBookingRefreshGate(), nextAutomaticAt: monthNavigation ? Date.now() + 60_000 : 0 });
   const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
     selectedIds.size > 0 || slotsLoadingDate !== null;
+
+  useEffect(() => { monthNavigation?.busy(refreshPaused); return () => monthNavigation?.busy(false); }, [monthNavigation, refreshPaused]);
 
   useEffect(() => {
     setSyncing(false);
@@ -243,7 +248,7 @@ export function BookingsManager({
         Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
           dialog.getAttribute("aria-labelledby") !== "day-detail-sheet-title" &&
           !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
-      load: () => refreshBookingManagement({ year, month, storeId, date: selectedDate }),
+      load: () => readBookingMonth({ year, month, storeId, date: selectedDate }),
       apply: (snapshot) => {
         setMonthData(snapshot.monthData);
         setMonthSchedule(snapshot.monthSchedule);
@@ -260,7 +265,7 @@ export function BookingsManager({
       onBusy: setSyncing,
     });
     refreshRef.current = () => controller.refresh(true);
-    const resume = () => { void controller.refresh(); };
+    const resume = () => { controller.schedule(); };
     const timer = window.setInterval(resume, 60_000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
@@ -439,6 +444,11 @@ export function BookingsManager({
 
   const handleDaySelect = useCallback(
     (dateKey: string) => {
+      const [targetYear, targetMonth] = dateKey.split("-").map(Number);
+      if (targetYear !== year || targetMonth !== month) {
+        monthNavigation?.navigate(targetYear, targetMonth);
+        return;
+      }
       setSelectedDate(dateKey);
       // Switching day discards the prior selection — those bookings are no
       // longer visible, batch action would be confusing.
@@ -453,7 +463,7 @@ export function BookingsManager({
       setSlotsLoadingDate(dateKey);
       startTransition(async () => {
         try {
-          const result = await fetchDaySlots(dateKey);
+          const result = await readBookingSlots(dateKey);
           setSlotsCache((prev) => {
             const next = new Map(prev);
             next.set(dateKey, result.slots);
@@ -464,13 +474,14 @@ export function BookingsManager({
         }
       });
     },
-    [setSelectedDate],
+    [setSelectedDate, year, month, monthNavigation],
   );
 
   const refreshDaySlots = useCallback(async (date: string) => {
+    monthNavigation?.invalidate();
     setSlotsLoadingDate(date);
     try {
-      const refreshed = await fetchDaySlots(date);
+      const refreshed = await readBookingSlots(date);
       setSlotsCache((previous) => {
         const next = new Map(previous);
         next.set(date, refreshed.slots);
@@ -479,7 +490,7 @@ export function BookingsManager({
     } finally {
       setSlotsLoadingDate((current) => current === date ? null : current);
     }
-  }, []);
+  }, [monthNavigation]);
 
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
@@ -494,6 +505,7 @@ export function BookingsManager({
 
   const openBooking = useCallback(
     (id: string) => {
+      if (saves.isBlocked(id)) return;
       // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
       // 不自動重開當日 Drawer。
       setSelectedDate(null);
@@ -501,7 +513,7 @@ export function BookingsManager({
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById, setSelectedDate],
+    [summaryById, prefillById, setSelectedDate, saves],
   );
 
   const closeBooking = useCallback(() => {
@@ -525,8 +537,9 @@ export function BookingsManager({
       // C：任何 mutation（收款 / 完成 / 改時間 / 標記未到 / 取消 / 調整結帳，
       // 含 newStatus=null 的收款/改期）都先 invalidate 該筆 detail cache，
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
+      monthNavigation?.invalidate();
       detailCache.invalidate(bookingId);
-      refreshGate.current.nextAutomaticAt = 0;
+      refreshGate.current.nextAutomaticAt = Date.now() + 2_000;
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {
@@ -560,10 +573,11 @@ export function BookingsManager({
         }),
       );
     },
-    [detailCache],
+    [detailCache, monthNavigation],
   );
 
   const handleNotesUpdated = useCallback((patch: BookingNotePatch) => {
+    monthNavigation?.invalidate();
     // A customer note applies to every booking for that customer.
     for (const day of monthData) {
       for (const booking of day.bookings ?? []) {
@@ -576,7 +590,7 @@ export function BookingsManager({
       ...day,
       bookings: day.bookings?.map((booking) => applyBookingNotePatch(booking, patch)),
     })));
-  }, [detailCache, monthData]);
+  }, [detailCache, monthData, monthNavigation]);
 
   // ── Batch / inline complete wiring ────────────────────────────
 
@@ -610,6 +624,7 @@ export function BookingsManager({
       setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
     };
     return {
+      timingLabel: "complete" as const,
       // Show the expected status immediately. The server remains responsible
       // for validation and deducting sessions; restore the prior status if it
       // rejects the write or the result cannot be confirmed.
@@ -617,7 +632,7 @@ export function BookingsManager({
       rollback: () => { if (originalStatus) handleBookingUpdated(id, originalStatus); },
       confirmed: completed,
       reconcile: async (signal: AbortSignal) => {
-        const payload = await fetchBookingDetail(id, storeId);
+        const payload = await readBookingDetail(id, storeId);
         return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "COMPLETED" });
       },
       recovered: completed,
@@ -626,8 +641,27 @@ export function BookingsManager({
 
   async function completeSingle(id: string) {
     if (readOnly || batchSending.current) return;
-    const outcome = await saves.run(id, () => markCompleted(id), completionCallbacks(id));
+    const outcome = await saves.run(id, () => updateBookingStatus(id, "complete"), completionCallbacks(id));
     if (outcome === "saved") toast.success("已完成服務");
+  }
+
+  async function revertSingle(id: string) {
+    if (readOnly || batchSending.current) return;
+    const original = monthData.flatMap(day => day.bookings ?? []).find(booking => booking.id === id);
+    if (original?.bookingStatus !== "COMPLETED") return;
+    const apply = () => handleBookingUpdated(id, "PENDING");
+    const outcome = await saves.run(id, () => updateBookingStatus(id, "revert"), {
+      timingLabel: "revert",
+      apply,
+      rollback: () => handleBookingUpdated(id, original.bookingStatus),
+      confirmed: apply,
+      reconcile: async signal => {
+        const payload = await readBookingDetail(id, storeId);
+        return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "PENDING" });
+      },
+      recovered: apply,
+    });
+    if (outcome === "saved") toast.success("已還原狀態");
   }
 
   async function completeBatch() {
@@ -765,6 +799,7 @@ export function BookingsManager({
             onClearSelection={readOnly ? undefined : clearSelection}
             onCompleteBatch={readOnly ? undefined : completeBatch}
             onCompleteSingle={readOnly ? undefined : completeSingle}
+            onRevertSingle={readOnly ? undefined : revertSingle}
             actionStates={saves.states}
             onCheckAction={id => { void saves.check(id); }}
             actingIds={readOnly ? undefined : actingIds}
@@ -879,23 +914,19 @@ function Toolbar({
   return (
     <div data-booking-filter-bar className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-earth-200 bg-white px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Link
+        <BookingMonthLink
           href={`/dashboard/bookings?year=${prevYear}&month=${prevMonth}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-          aria-label="上個月"
-        >
-          ‹
-        </Link>
+          year={prevYear} month={prevMonth} direction="previous"
+        />
         <span className="min-w-[90px] text-center text-sm font-semibold text-earth-900">
           {year} 年 {month} 月
         </span>
-        <Link
+        <BookingMonthLink
           href={`/dashboard/bookings?year=${nextYear}&month=${nextMonth}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-          aria-label="下個月"
-        >
-          ›
-        </Link>
+          year={nextYear} month={nextMonth} direction="next"
+        />
         <button
           type="button"
           onClick={() => onJumpToday(todayIso)}

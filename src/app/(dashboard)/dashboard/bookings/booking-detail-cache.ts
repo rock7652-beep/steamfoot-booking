@@ -13,9 +13,9 @@
  */
 
 import {
-  fetchBookingDetail,
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
+import { readBookingDetail } from "@/lib/booking-client-transport";
 
 export interface BookingDetailCache {
   /** 同步取得已快取的完整 payload（無則 undefined）。 */
@@ -48,7 +48,7 @@ export function createBookingDetailCache(resolvedStoreId?: string): BookingDetai
       const existing = inflight.get(id);
       if (existing) return existing;
 
-      const p = fetchBookingDetail(id, resolvedStoreId).then(
+      const p = readBookingDetail(id, resolvedStoreId).then(
         (payload) => {
           // 只有仍是當前 in-flight 才寫入 cache（被 invalidate/取代則跳過）。
           if (inflight.get(id) === p) {

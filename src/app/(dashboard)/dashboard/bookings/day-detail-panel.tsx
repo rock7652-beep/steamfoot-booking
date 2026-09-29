@@ -97,6 +97,7 @@ interface DayDetailPanelProps {
   onClearSelection?: () => void;
   onCompleteBatch?: () => void;
   onCompleteSingle?: (id: string) => void;
+  onRevertSingle?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
   actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
   onCheckAction?: (id: string) => void;
@@ -121,6 +122,7 @@ export function DayDetailPanel({
   onClearSelection,
   onCompleteBatch,
   onCompleteSingle,
+  onRevertSingle,
   actionStates,
   onCheckAction,
   actingIds,
@@ -290,6 +292,7 @@ export function DayDetailPanel({
                       selectionEnabled ? onToggleSelect : undefined
                     }
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
+                    onRevertSingle={readOnly ? undefined : onRevertSingle}
                     isActing={isActing}
                   />
                   <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
@@ -347,6 +350,7 @@ function TimelineItem({
   selected,
   onToggleSelect,
   onCompleteSingle,
+  onRevertSingle,
   isActing,
 }: {
   booking: DayBooking;
@@ -355,6 +359,7 @@ function TimelineItem({
   selected: boolean;
   onToggleSelect?: (id: string) => void;
   onCompleteSingle?: (id: string) => void;
+  onRevertSingle?: (id: string) => void;
   isActing: boolean;
 }) {
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
@@ -571,7 +576,14 @@ function TimelineItem({
             disabled={isActing}
             className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
-            {isActing ? "..." : "完成"}
+            {isActing ? "儲存中…" : "完成"}
+          </button>
+        ) : null}
+        {booking.bookingStatus === "COMPLETED" && onRevertSingle ? (
+          <button type="button" disabled={isActing}
+            onClick={(event) => { event.stopPropagation(); if (!isActing) onRevertSingle(booking.id); }}
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 px-3 text-sm font-semibold text-earth-700 hover:bg-earth-50 disabled:cursor-wait disabled:opacity-60">
+            {isActing ? "儲存中…" : "還原"}
           </button>
         ) : null}
         {!onClick ? (

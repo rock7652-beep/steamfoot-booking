@@ -21,18 +21,18 @@ it("keeps temporary moves visible without turning the original slot into an occu
   expect(schema).toContain("rescheduledFromRoomId");
   expect(schema).toContain("model CourseSessionMove");
   expect(board).toContain("調課");
-  expect(board).toContain("已移動 ·");
+  expect(board).toContain("已調課");
   expect(board).toContain("movedShadows");
 });
 
 it("uses a compact cut-paste workflow for one lesson, several weeks, or future lessons", () => {
-  expect(workspace).toContain("調整時間");
+  expect(workspace).toContain("調課");
   expect(workspace).toContain(">這堂</button>");
-  expect(workspace).toContain(">連續</button>");
-  expect(workspace).toContain(">之後都改</button>");
+  expect(workspace).toContain(">連續幾週</button>");
+  expect(workspace).toContain(">換固定時段</button>");
   expect(workspace).toContain("選白格貼上");
   expect(workspace).toContain("moveCourseSessions");
-  expect(board).toContain('moveClipboard?"貼上":"＋"');
+  expect(board).toContain('選擇貼上位置');
 });
 
 it("moves atomically and preserves the original lesson if validation fails", () => {

@@ -119,9 +119,9 @@ vi.mock("@/lib/shop-config", () => ({
 vi.mock("@/lib/transaction-snapshot", () => ({
   buildTransactionSnapshot: h.buildSnapshot,
 }));
-vi.mock("@/lib/revalidation", () => ({
-  revalidateBookings: h.revalidateBookings,
-  revalidateTransactions: h.revalidateTransactions,
+vi.mock("@/lib/booking-route-mutation", () => ({
+  revalidateBookingMutation: h.revalidateBookings,
+  revalidateBookingTransactionMutation: h.revalidateTransactions,
 }));
 vi.mock("@/server/actions/transaction", () => ({
   voidTransaction: h.voidTransaction,
@@ -290,6 +290,7 @@ describe("correctTrialCollection — failure handling", () => {
     const r = await correctTrialCollection(base);
     expect(r.success).toBe(false);
     expect((r as { error: string }).error).toContain("原收款已作廢");
+    expect(h.revalidateBookings).toHaveBeenCalled();
     expect(h.voidTransaction).toHaveBeenCalledTimes(1);
     expect(h.txCreate).not.toHaveBeenCalled();
   });

@@ -10,6 +10,7 @@ let originalOverflow = "";
 interface RightSheetProps {
   presentation?: "side" | "centered";
   compact?: boolean;
+  fitContent?: boolean;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -25,6 +26,7 @@ export function RightSheet({
   children,
   width = 460,
   compact = false,
+  fitContent = false,
   labelledById,
   closeOnEscape = true,
 }: RightSheetProps) {
@@ -90,6 +92,7 @@ export function RightSheet({
       />
       <aside
         data-compact={compact || undefined}
+        data-fit-content={fitContent || undefined}
         ref={panelRef}
         tabIndex={compact || centered ? -1 : undefined}
         role="dialog"

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), store: vi.fn(), module: vi.fn(), scope: vi.fn(), page: vi.fn() }));
+const m = vi.hoisted(() => ({ music: vi.fn(), user: vi.fn(), permission: vi.fn(), store: vi.fn(), module: vi.fn(), scope: vi.fn(), page: vi.fn() }));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.music}}}));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
@@ -15,7 +16,7 @@ vi.mock("@/app/(dashboard)/dashboard/courses/home-controls", () => ({ HomeRetry:
 import Page from "@/app/(dashboard)/dashboard/courses/unassigned-plans/page";
 const render = async (page = "1") => renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ page }) }));
 beforeEach(() => {
-  vi.resetAllMocks(); m.user.mockResolvedValue({ role: "OWNER", staffId: "s" }); m.permission.mockResolvedValue(true); m.store.mockResolvedValue("a"); m.scope.mockReturnValue("s"); m.page.mockResolvedValue({ total: 0, page: 1, pageSize: 30, rows: [] });
+  vi.resetAllMocks(); m.music.mockResolvedValue(null); m.user.mockResolvedValue({ role: "OWNER", staffId: "s" }); m.permission.mockResolvedValue(true); m.store.mockResolvedValue("a"); m.scope.mockReturnValue("s"); m.page.mockResolvedValue({ total: 0, page: 1, pageSize: 30, rows: [] });
 });
 describe("unassigned course page", () => {
   it.each(["customer.read", "wallet.read"])("blocks missing %s before querying", async denied => {
@@ -32,4 +33,11 @@ describe("unassigned course page", () => {
   it("reports failures as unknown, not zero people", async () => {
     m.page.mockRejectedValue(new Error("offline")); const html = await render(); expect(html).toContain("尚無法確認人數"); expect(html).not.toContain("目前沒有符合條件");
   });
+});
+
+it("music omits staff attribution while sports retains it",async()=>{
+ m.page.mockResolvedValue({total:1,page:1,pageSize:30,rows:[{id:"c",name:"學員",phoneLastFour:"0123",staffName:"專屬店長甲",createdAt:"2026-09-20T23:00:00Z"}]});
+ expect(await render()).toContain("專屬店長甲");
+ m.music.mockResolvedValue({storeId:"a"});
+ const html=await render();expect(html).not.toContain("專屬店長甲");expect(html).toContain("0123");expect(m.page).toHaveBeenLastCalledWith("a","s",1);
 });

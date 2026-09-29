@@ -205,6 +205,8 @@ function createTestBookingLink(booking: { id: string; storeId: string }): string
 export async function previewBookingTestReminder(
   input: z.input<typeof bookingTestReminderSchema>,
 ): Promise<ActionResult<BookingTestReminderPreview>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "previewBookingTestReminder");
   try {
     const user = await requirePermission("booking.update");
     const storeId = await resolveWriteStoreId(user);
@@ -251,6 +253,8 @@ export async function previewBookingTestReminder(
 export async function sendBookingTestReminder(
   input: z.input<typeof bookingTestReminderSchema>,
 ): Promise<ActionResult<{ messageLogId: string; channel: BookingTestReminderChannel; channelLabel: string }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "sendBookingTestReminder");
   try {
     const user = await requirePermission("booking.update");
     const storeId = await resolveWriteStoreId(user);
@@ -335,6 +339,8 @@ export async function sendBookingTestReminder(
 export async function previewBookingLineTestReminder(
   input: z.input<typeof bookingLineTestSchema>
 ): Promise<ActionResult<{ lineRoute: "CENTRAL" | "STORE" }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "previewBookingLineTestReminder");
   try {
     const user = await requirePermission("booking.update");
     const storeId = await resolveWriteStoreId(user);
@@ -1138,6 +1144,8 @@ export async function sendLineSmokeTest(
 export async function sendBookingLineTestReminder(
   input: z.input<typeof bookingLineTestSchema>
 ): Promise<ActionResult<{ messageLogId: string; lineRoute: "CENTRAL" | "STORE" }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "sendBookingLineTestReminder");
   try {
     const user = await requirePermission("booking.update");
     const storeId = await resolveWriteStoreId(user);

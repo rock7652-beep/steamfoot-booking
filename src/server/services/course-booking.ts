@@ -50,6 +50,14 @@ function allowEarlyPilotAttendance(): boolean {
       (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === "postgres.ttworfzgwejdeolegkxl");
   } catch { return false; }
 }
+// Music managers may mark today's lesson as attended before its scheduled start.
+// Keep future dates protected so an accidental tap cannot consume a later lesson.
+async function allowEarlyMusicAttendance(tx: Prisma.TransactionClient, storeId: string, startsAt: Date): Promise<boolean> {
+  if (allowEarlyPilotAttendance()) return true;
+  if (toLocalDateStr(startsAt) !== toLocalDateStr()) return false;
+  const rows = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+  return rows.length > 0;
+}
 const fail = (message: string): never => {
   throw new AppError("VALIDATION", message);
 };
@@ -62,6 +70,7 @@ export async function reserveCourse(
     customerId: string;
     requestKey: string;
     notes?: string;
+    makeupForBookingId?: string | null;
   },
 ) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
@@ -83,6 +92,7 @@ export async function reserveCourseMembers(
     customerIds: string[];
     requestKey: string;
     notes?: string;
+    makeupForBookingId?: string | null;
   },
 ) {
   const customers = [...new Set(input.customerIds)].sort();
@@ -133,6 +143,7 @@ export async function reserveCourseInTransaction(
     customerId: string;
     requestKey: string;
     notes?: string;
+    makeupForBookingId?: string | null;
   },
   maxMonthlyBookings: number | null,
 ) {
@@ -146,6 +157,7 @@ export async function reserveCourseInTransaction(
       previous.sessionId !== input.sessionId ||
       previous.cardId !== input.cardId ||
       previous.customerId !== input.customerId ||
+      (previous.makeupForBookingId ?? null) !== (input.makeupForBookingId ?? null) ||
       (input.cardId === null && previous.trialPrice !== input.trialPrice)
     )
       fail("預約請求已使用，請重新開啟表單");
@@ -189,6 +201,13 @@ export async function reserveCourseInTransaction(
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  if (input.makeupForBookingId) {
+    if (actor.customerId || !card || card.unit !== "SESSION") return fail("補課僅由店長使用原堂數方案安排");
+    const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    const source = await tx.courseBooking.findFirst({where:{id:input.makeupForBookingId,storeId,customerId:input.customerId,cardId:card.id,status:"CANCELLED",absenceKind:"STUDENT_LEAVE"},include:{session:{include:{template:true}}}});
+    if (!music.length || !source || source.session.template.classType === "GROUP" || source.session.templateId !== session.templateId || source.session.startsAt >= session.startsAt) return fail("請選擇此學員同課程、原方案的待補課紀錄");
+    if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
+  }
   const bookingCost = card ? (card.unit === "SESSION" ? 1 : session.pointCost) : 0;
   if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || actor.customerId)) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
@@ -236,7 +255,7 @@ export async function reserveCourseInTransaction(
   if (duplicate) return fail("此上課人已預約本堂課");
   if (occupied >= session.capacity) return fail("本堂課已滿班");
   if (card && card.remaining - (held._sum.pointCost ?? 0) < bookingCost)
-    return fail("方案可用點數不足");
+    return fail(card.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
   const booking = await tx.courseBooking.create({
     data: {
       ...input,
@@ -293,7 +312,7 @@ export async function settleCourseBooking(
   if (target === "STUDENT_LEAVE" && actor.customerId) return fail("請假登記僅限有權限的人員");
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
+    if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !(await allowEarlyMusicAttendance(tx, actor.storeId, booking.session.startsAt)))
       return fail("課程尚未開始，不能標記未到");
     if (target === "CHECKED_IN") {
       if (booking.checkedInAt) return booking;
@@ -314,7 +333,7 @@ export async function settleCourseBooking(
     target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave;
   if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (target !== "STUDENT_LEAVE" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
+    if (target !== "STUDENT_LEAVE" && booking.session.startsAt > new Date() && !(await allowEarlyMusicAttendance(tx, actor.storeId, booking.session.startsAt)))
       return fail("課程尚未開始，不能標記出席");
     if (booking.cardId) {
     const expiry=booking.card?.musicValidityDays && !booking.card.musicActivatedAt ? musicCourseExpiry(booking.session.startsAt,booking.card.musicValidityDays) : null;
@@ -411,6 +430,7 @@ export async function correctCourseAttendance(
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
   if (restoringLeave) {
+    if (b.absenceKind === "STUDENT_LEAVE" && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,makeupForBookingId:b.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
     const [occupied, duplicate] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }),
@@ -419,7 +439,7 @@ export async function correctCourseAttendance(
     if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");
     if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
-  if (!restoringLeave && b.session.startsAt > new Date() && !allowEarlyPilotAttendance()) return fail("課程尚未開始，不能點名");
+  if (!restoringLeave && b.session.startsAt > new Date() && !(await allowEarlyMusicAttendance(tx, actor.storeId, b.session.startsAt))) return fail("課程尚未開始，不能點名");
   if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED";

@@ -82,6 +82,7 @@ interface Props {
   lastVisitLabel?: string;
   onCreate?: () => void;
   stickyActions?: boolean;
+  hideAssignedStaff?: boolean;
 }
 
 /**
@@ -126,6 +127,7 @@ export function CustomersTable({
   lastVisitLabel = "最近來店",
   onCreate,
   stickyActions = false,
+  hideAssignedStaff = false,
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -382,7 +384,7 @@ export function CustomersTable({
 
   return (
     <DataTable
-      columns={columns}
+      columns={hideAssignedStaff ? columns.filter(column => column.key !== "assignedStaff") : columns}
       rows={rows}
       rowKey={(c) => c.id}
       rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}

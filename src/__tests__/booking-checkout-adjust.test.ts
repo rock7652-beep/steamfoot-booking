@@ -392,12 +392,13 @@ const PACKAGE_PENDING = {
 
 const baseB = { bookingId: "bk_2", reason: "連蒸第二天優惠" };
 
-function setupModeB() {
-  h.bookingFindFirst.mockResolvedValue({ ...PACKAGE_PENDING } as unknown as never);
+function setupModeB(people = 1) {
+  h.bookingFindFirst.mockResolvedValue({ ...PACKAGE_PENDING, people: 1 } as unknown as never);
   h.txBookingFindUnique.mockResolvedValue({
     bookingType: "PACKAGE_SESSION",
     bookingStatus: "PENDING",
     isMakeup: false,
+    people,
   } as unknown as never);
 }
 
@@ -437,6 +438,21 @@ describe("adjustCheckoutToSingle — happy path (PACKAGE_SESSION → SINGLE)", (
     // 零金流
     expect(h.txTransactionCreate).not.toHaveBeenCalled();
     expect(h.revalidateBookings).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([2, 3, 4])("converts %i people using the locked headcount and audits the total", async (people) => {
+    setupModeB(people);
+    const result = await adjustCheckoutToSingle(baseB);
+    expect(result.success).toBe(true);
+    expect(lastUpdateData().data.expectedAmount).toBe(799 * people);
+    expect(lastUpdateData().data).not.toHaveProperty("people");
+    expect(h.txAuditCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        afterJson: expect.objectContaining({ expectedAmount: 799 * people }),
+      }),
+    }));
+    expect(h.releaseSessions).toHaveBeenCalledTimes(1);
+    expect(h.txTransactionCreate).not.toHaveBeenCalled();
   });
 
   it("reason omitted → still succeeds, audit reason = null", async () => {

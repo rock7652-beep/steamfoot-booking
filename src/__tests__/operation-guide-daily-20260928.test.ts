@@ -20,7 +20,7 @@ const steam: GuideAccess = {
 
 describe("September 28 guide review", () => {
   it("adds music setup, scheduling, attendance, absence, availability, reschedule and validity guides", () => {
-    expect(operationGuides).toHaveLength(156);
+    expect(operationGuides).toHaveLength(160);
     expect(availableGuides(allCourse).map(item => item.id)).toEqual(expect.arrayContaining([
       "C143", "C144", "C145", "C146", "C147", "C148", "C149",
     ]));

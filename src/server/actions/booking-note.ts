@@ -22,6 +22,8 @@ export async function updateBookingNoteAction(input: {
   notes: string | null;
   expectedNotes?: string | null;
 }): Promise<ActionResult<void> & { currentValue?: string | null }> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "updateBookingNoteAction");
   try {
     const user = await requireWritablePermission("booking.update");
     const { bookingId, notes, expectedNotes } = schema.parse(input);

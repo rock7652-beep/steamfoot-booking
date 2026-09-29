@@ -6,7 +6,7 @@ vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "a" }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "course" }));
-vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
+vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async()=>null }, store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: async () => null } } }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: m.usage }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));

@@ -265,3 +265,25 @@ it("offers read-only recovery only after automatic confirmation is inconclusive"
     expect(container.textContent).not.toContain("查看最新狀態");
   } finally { await act(async () => root.unmount()); }
 });
+
+it("offers restore in the completed row and disables it while saving", async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const restore = vi.fn();
+  const render = (acting = false, readOnly = false) => root.render(React.createElement(DayDetailPanel, {
+    date: "2026-06-26", bookings: [booking({ bookingStatus: "COMPLETED" })], slots: [],
+    onRevertSingle: restore, actingIds: new Set(acting ? ["booking-1"] : []), readOnly,
+  }));
+  try {
+    await act(async () => render());
+    const button = [...container.querySelectorAll("button")].find(b => b.textContent === "還原")!;
+    act(() => button.click());
+    expect(restore).toHaveBeenCalledExactlyOnceWith("booking-1");
+    await act(async () => render(true));
+    const saving = [...container.querySelectorAll("button")].find(b => b.textContent === "儲存中…")!;
+    expect(saving.disabled).toBe(true);
+    await act(async () => render(false, true));
+    expect(container.textContent).not.toContain("還原");
+  } finally { await act(async () => root.unmount()); }
+});

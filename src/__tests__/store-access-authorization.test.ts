@@ -62,6 +62,36 @@ describe("organization store authorization", () => {
     });
   });
 
+  it.each(["OWNER", "PARTNER"])("reads a single-store %s's authorization metadata only once", async (role) => {
+    const { getAccessibleStores } = await import("@/lib/store");
+    await expect(getAccessibleStores({ role, storeId: "branch-a" })).resolves.toEqual([
+      { id: "branch-a", slug: "branch-a", name: "A", isDefault: false },
+    ]);
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    expect(mockHasStoreFeature).not.toHaveBeenCalled();
+  });
+
+  it("reuses an own-store row for a mother owner without multi-store entitlement", async () => {
+    mockHasStoreFeature.mockResolvedValue(false);
+    const { getAccessibleStores } = await import("@/lib/store");
+    await expect(getAccessibleStores({ role: "OWNER", storeId: "hq" })).resolves.toEqual([
+      { id: "hq", slug: "hq", name: "HQ", isDefault: true },
+    ]);
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    expect(mockHasStoreFeature).toHaveBeenCalledTimes(1);
+  });
+
+  it("authorizes the own mother store with one status query, without enumerating descendants", async () => {
+    const { validateStoreAccess } = await import("@/lib/store");
+    await expect(validateStoreAccess({ role: "OWNER", storeId: "hq" }, "hq", "read")).resolves.toBe("hq");
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    expect(mockHasStoreFeature).not.toHaveBeenCalled();
+  });
+  it.each(["inactive", "paused"])("still denies own-store access to %s", async (storeId) => {
+    const { validateStoreAccess } = await import("@/lib/store");
+    await expect(validateStoreAccess({ role: "OWNER", storeId }, storeId, "read")).rejects.toThrow("無權存取");
+  });
+
   it("lets ADMIN access ACTIVE and TRIAL stores and platform all", async () => {
     const { getAccessibleStoreIds, validateStoreAccess } = await import("@/lib/store");
     const user = { role: "ADMIN", storeId: null };
