@@ -467,7 +467,7 @@ export function CourseStaffWorkspace({
                 </label>
               )}
 
-                {person && <CourseStaffAvailabilityEditor staffId={person.id}/>}
+                {person && coachEnabled && tab==="work" && <CourseStaffAvailabilityEditor staffId={person.id}/>}
                 {person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>

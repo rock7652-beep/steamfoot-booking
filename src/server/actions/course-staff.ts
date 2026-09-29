@@ -90,7 +90,12 @@ export async function saveCourseStaff(input: unknown) {
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if ((d.musicSettings || d.teachingFees?.some(f=>f.value===null || f.value.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
-    if(!d.id && d.kind==="manager" && d.coachEnabled && await isMusicFinanceStore(storeId))throw new AppError("VALIDATION","店務與教師請分別建立帳號");
+    // Resolve access outside the transaction. Production uses a one-connection
+    // pool, so querying through the global client while a transaction owns that
+    // connection would wait on itself until the pool timeout.
+    const musicFinanceStore = d.kind === "manager" ? await isMusicFinanceStore(storeId) : false;
+    const actorFinanceScope = musicFinanceStore ? await readMusicFinanceScope(user,storeId) : null;
+    if(!d.id && d.kind==="manager" && d.coachEnabled && musicFinanceStore)throw new AppError("VALIDATION","店務與教師請分別建立帳號");
     if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
     const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
@@ -126,7 +131,7 @@ export async function saveCourseStaff(input: unknown) {
             (d.permissions && !d.permissions.includes("staff.manage")))
         )
           throw new AppError("FORBIDDEN", "不能停用自己或移除自己的管理權限");
-        if(d.kind==="manager" && d.coachEnabled && !existing?.courseCoachEnabled && await isMusicFinanceStore(storeId))throw new AppError("VALIDATION","店務與教師請分別建立帳號");
+        if(d.kind==="manager" && d.coachEnabled && !existing?.courseCoachEnabled && musicFinanceStore)throw new AppError("VALIDATION","店務與教師請分別建立帳號");
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
         const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
         const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
@@ -272,14 +277,13 @@ export async function saveCourseStaff(input: unknown) {
           const priorPermissions=existing?await tx.staffPermission.findMany({where:{staffId},select:{permission:true,granted:true}}):[];
           const granted = d.permissions ?? priorPermissions.filter(p=>p.granted).map(p=>p.permission);
           if(!actorStaff.isOwner && granted.some(code=>!actorStaff.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
-          if(await isMusicFinanceStore(storeId)) {
+          if(musicFinanceStore) {
             const existingScope=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
             if(d.financeTeacherIds===undefined)d.financeTeacherIds=existingScope[0]?.teacherIds??null;
             if(existing?.isOwner && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
             const teacherIds=d.financeTeacherIds===null?null:[...new Set(d.financeTeacherIds)];
             if(teacherIds!==null && granted.includes("teacher.settlement.confirm"))throw new AppError("VALIDATION","確認全店月結需要全店教師範圍；請改選全店或關閉該權限");
-            const actorScope=await readMusicFinanceScope(user,storeId);
-            if(actorScope!==null && (teacherIds===null || teacherIds.some(id=>!actorScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");
+            if(actorFinanceScope!==null && (teacherIds===null || teacherIds.some(id=>!actorFinanceScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");
             if(teacherIds?.length){const found=await tx.staff.count({where:{storeId,id:{in:teacherIds},courseCoachEnabled:true}});if(found!==teacherIds.length)throw new AppError("FORBIDDEN","指定教師包含非本店教師");}
             const before=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
             await tx.$executeRaw`INSERT INTO "CourseTeacherFinanceScope" ("storeId","staffId","teacherIds") VALUES (${storeId},${staffId},${teacherIds}::text[]) ON CONFLICT ("storeId","staffId") DO UPDATE SET "teacherIds"=EXCLUDED."teacherIds","updatedAt"=now()`;
@@ -288,11 +292,7 @@ export async function saveCourseStaff(input: unknown) {
           for (const permission of ALL_PERMISSIONS)
             await tx.staffPermission.upsert({
               where: { staffId_permission: { staffId, permission } },
-              create: {
-                staffId,
-                permission,
-                granted: granted.includes(permission),
-              },
+              create: { staffId, permission, granted: granted.includes(permission) },
               update: { granted: granted.includes(permission) },
             });
           await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffPermission',${staffId},'UPDATE',${JSON.stringify(priorPermissions)}::jsonb,${JSON.stringify({storeId,granted})}::jsonb,now())`;
