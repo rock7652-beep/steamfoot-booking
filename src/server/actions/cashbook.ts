@@ -153,29 +153,22 @@ export async function createCashbookEntry(
       storeId,
     };
 
-    // 一般 create 不寫 audit（維持既有行為，不擴大範圍）；
-    // 僅「已閉店日 + CASH + 已確認」這個敏感路徑留痕（beforeJson 為 null，afterJson 用 snapshot）。
-    let entry;
-    if (auditClosedCashCreate) {
-      entry = await prisma.$transaction(async (tx) => {
-        const created = await tx.cashbookEntry.create({ data: createData });
-        await tx.auditLog.create({
-          data: {
-            actorUserId: user.id,
-            storeId,
-            module: "SHARED",
-            targetType: "CashbookEntry",
-            targetId: created.id,
-            action: "CREATE",
-            summary: "補登已結帳日期的現金收支",
-            afterJson: cashbookSnapshot(created),
-          },
-        });
-        return created;
+    const entry = await prisma.$transaction(async (tx) => {
+      const created = await tx.cashbookEntry.create({ data: createData });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          storeId,
+          module: "SHARED",
+          targetType: "CashbookEntry",
+          targetId: created.id,
+          action: "CREATE",
+          summary: auditClosedCashCreate ? "補登已結帳日期的現金收支" : "新增現金收支",
+          afterJson: cashbookSnapshot({ ...createData, entryDate: createData.entryDate }),
+        },
       });
-    } else {
-      entry = await prisma.cashbookEntry.create({ data: createData });
-    }
+      return created;
+    });
 
     revalidatePath("/dashboard/cashbook");
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);

@@ -39,6 +39,22 @@ export async function recordOperationAudit(
   });
 }
 
+/** Cross-schema writes cannot share the business transaction; never report the
+ * completed business action as failed only because its follow-up audit write failed. */
+export async function recordOperationAuditBestEffort(input: OperationAuditInput) {
+  try {
+    return await recordOperationAudit(input);
+  } catch (error) {
+    console.error("[operation-audit] follow-up write failed", {
+      targetType: input.targetType,
+      targetId: input.targetId,
+      action: input.action,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 export async function getOperationHistory(input: {
   storeId: string;
   targetType: string;

@@ -18,7 +18,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { applicableLocations, spaEndTime, staffAvailable, validSpaDate } from "@/lib/spa-scheduling";
 import type { ActionResult } from "@/types";
-import { recordOperationAudit } from "@/server/services/operation-audit";
+import { recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 
 const inputSchema = z.object({
   customerId: z.string().min(1), serviceStaffId: z.string().min(1),
@@ -174,7 +174,7 @@ export async function createSpaBookingAction(input: CreateSpaBookingInput): Prom
   try {
     const { storeId, user } = await authorizedStore("booking.create");
     const booking = await saveBooking(storeId, parsed.data);
-    await recordOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "CREATE", summary: "建立服務預約" });
+    await recordOperationAuditBestEffort({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "CREATE", summary: "建立服務預約" });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) { return actionError(e); }
@@ -186,7 +186,7 @@ export async function updateSpaBookingAction(input: UpdateSpaBookingInput): Prom
   try {
     const { storeId, user } = await authorizedStore("booking.update");
     const booking = await saveBooking(storeId, parsed.data, parsed.data);
-    await recordOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "UPDATE", summary: "修改服務預約" });
+    await recordOperationAuditBestEffort({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "UPDATE", summary: "修改服務預約" });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) { return actionError(e); }
@@ -208,7 +208,7 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
         data: { status: "CANCELLED", cancelledAt: new Date() },
       });
     });
-    await recordOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: parsed.data.bookingId, action: "CANCEL", summary: "取消服務預約" });
+    await recordOperationAuditBestEffort({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: parsed.data.bookingId, action: "CANCEL", summary: "取消服務預約" });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: parsed.data.bookingId } };
   } catch (e) { return actionError(e); }
@@ -227,7 +227,7 @@ export async function createSpaGroupBookingAction(input:z.infer<typeof groupSche
    for(let i=0;i<d.guests.length;i++)await saveBooking(storeId,d.guests[i],undefined,tx,{id:created.id,index:i+1});
    return created;
   },{timeout:25000});
-  await recordOperationAudit({actorUserId:user.id,storeId,module:"SPA",targetType:"SpaBookingGroup",targetId:group.id,action:"CREATE",summary:"建立同行服務預約"});
+  await recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"SPA",targetType:"SpaBookingGroup",targetId:group.id,action:"CREATE",summary:"建立同行服務預約"});
   revalidatePath("/dashboard/spa-schedule");return{success:true as const,data:{groupId:group.id}};
  }catch(e){return actionError(e);}
 }

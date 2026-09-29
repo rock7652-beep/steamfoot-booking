@@ -33,6 +33,7 @@ import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { AttendanceModal } from "./attendance-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
+import { OperationHistoryButton } from "@/components/operation-history-button";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { packageUsageSummary } from "./package-usage-summary";
@@ -1053,6 +1054,11 @@ function DrawerContent({
             <KV readable label="預約來源" value={trialBookingSourceLabel(booking.bookingSource)} />
           )}
           <KV readable={!spaMode} label="人數" value={`${booking.people} 人`} />
+          {!spaMode && (
+            <div className="col-span-2 mt-1 border-t border-earth-100 pt-2">
+              <OperationHistoryButton targetType="Booking" targetId={booking.id} />
+            </div>
+          )}
           {booking.attendedPeople != null &&
             booking.attendedPeople < booking.people && (
               <KV readable={!spaMode}
