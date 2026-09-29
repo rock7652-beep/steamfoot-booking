@@ -77,6 +77,8 @@ export async function saveCourseStaff(input: unknown) {
         emergencyContactRelation: z.string().trim().max(40).default(""),
         confirmDeactivate: z.boolean().default(false),
         email: z.string().email().optional(),
+        contactEmail: z.union([z.string().email(), z.literal("")]).optional(),
+        notificationsEnabled: z.boolean().optional(),
         password: z.string().min(8).max(100).optional(),
         customerId: id.optional(),
         active: z.boolean().default(true),
@@ -93,7 +95,7 @@ export async function saveCourseStaff(input: unknown) {
     if(!d.id && d.kind==="manager" && d.coachEnabled && await isMusicFinanceStore(storeId))throw new AppError("VALIDATION","店務與教師請分別建立帳號");
     if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
-    const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
+    const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone, ...(d.contactEmail!==undefined?{courseEmail:d.contactEmail}:{}), ...(d.notificationsEnabled!==undefined?{courseNotificationsEnabled:d.notificationsEnabled}: {}) };
     const limits = await getStoreLimitsByStoreId(storeId);
     if (!d.id && d.kind === "manager" && (!d.email || !d.password))
       throw new AppError("VALIDATION", "建立店長必須填登入信箱與密碼");

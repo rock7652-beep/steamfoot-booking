@@ -87,6 +87,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
           financeTeacherIds:financeRows.find(f=>f.staffId===s.id)?.teacherIds??null,
           name: s.displayName,
           phone: s.phone,
+          contactEmail:s.courseEmail,
+          notificationsEnabled:s.courseNotificationsEnabled,
           coachEnabled:s.courseCoachEnabled,
           qualificationsConfirmed:s.courseQualificationsConfirmed,
           qualificationIds:s.courseQualifiedTemplateIds,

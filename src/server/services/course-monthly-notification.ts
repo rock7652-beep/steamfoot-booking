@@ -23,7 +23,7 @@ async function context(storeId:string,month:string,revision:number) {
  return {report,last,reason,staffIds:[...new Set((last?.snapshot??[]).map(l=>l.staffId).filter((id):id is string=>!!id))]};
 }
 async function recipient(storeId:string,staffId:string,preview:boolean) {
- const link=await prisma.staffMemberLink.findFirst({where:{storeId,staffId,revokedAt:null,staff:{storeId,status:'ACTIVE'},user:{status:'ACTIVE'}},select:{userId:true}});
+ const link=await prisma.staffMemberLink.findFirst({where:{storeId,staffId,revokedAt:null,staff:{storeId,status:'ACTIVE',courseNotificationsEnabled:true},user:{status:'ACTIVE'}},select:{userId:true}});
  if(!link)return null;
  const member=await resolveCentralMemberCustomerForStore(link.userId,storeId);
  if(!member)return null;

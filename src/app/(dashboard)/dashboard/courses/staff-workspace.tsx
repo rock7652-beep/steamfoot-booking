@@ -30,6 +30,8 @@ type Person = {
   name: string;
   kind: "manager" | "coach";
   email: string;
+  contactEmail?:string;
+  notificationsEnabled?:boolean;
   phone: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
@@ -228,7 +230,7 @@ export function CourseStaffWorkspace({
         <table className="min-w-[720px] w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["姓名", "身分", "登入／連結", "狀態", "操作"].map((t) => (
+              {["姓名", "聯絡方式", "身分／狀態", "系統通知", "操作"].map((t) => (
                 <th key={t} className="px-3 py-2 font-medium">
                   {t}
                 </th>
@@ -243,16 +245,9 @@ export function CourseStaffWorkspace({
                 className={p.active ? "" : "text-earth-400 bg-earth-50"}
               >
                 <td className="whitespace-nowrap px-3 py-2">{music&&canManage&&order.handle(p.id,p.name)}{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span>{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
-                <td className="px-3 py-2">
-                  {identity(p,music)}{p.coachEnabled && <span className="block whitespace-nowrap text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "授課已設定" : "授課待補"}</span>}
-                </td>
-                <td className="px-3 py-2">
-                  {p.kind === "manager"
-                    ? p.email
-                    : (customers.find((c) => c.id === p.customerId)?.name ??
-                      "尚未連結會員帳號")}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2">{p.active ? "啟用" : "停用"}</td>
+                <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 truncate text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td>
+                <td className="px-3 py-2">{identity(p,music)}<span className="block whitespace-nowrap text-xs text-earth-600">{p.active?"啟用":"停用"}{p.coachEnabled?` · ${p.qualificationsConfirmed&&p.qualificationIds.length?"授課已設定":"授課待補"}`:""}</span></td>
+                <td className="px-3 py-2"><span className={p.notificationsEnabled!==false&&p.coachLoginReady?"text-primary-800":"text-earth-500"}>{p.notificationsEnabled===false?"已關閉":p.coachLoginReady?"可通知":"待連結 LINE"}</span></td>
                 <td className="whitespace-nowrap px-3 py-1.5">
                   {canManage&&<CourseStatusButton kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>}
                   <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={busyIds.includes(p.id)} onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
@@ -294,7 +289,7 @@ export function CourseStaffWorkspace({
               </p>
             )}
             {readOnly && person && <section className="space-y-3">
-              {tab === "basic" && <dl className="divide-y divide-earth-100">{[["姓名",person.name],["身分",identity(person,music)],["電話",person.phone || "未填"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名待補",person.emergencyContactRelation || "關係待補",person.emergencyContactPhone || "電話待補"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
+              {tab === "basic" && <dl className="divide-y divide-earth-100">{[["姓名",person.name],["身分",identity(person,music)],["電話",person.phone || "未填"],["Email",person.kind==="manager"?person.email:person.contactEmail||"未填"],["系統通知",person.notificationsEnabled===false?"關閉":"開啟"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名待補",person.emergencyContactRelation || "關係待補",person.emergencyContactPhone || "電話待補"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
               {(tab === "qualifications" || tab === "work") && <><h3 className="font-medium">授課設定狀態</h3><p>{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}</p><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">{music?"老師登入狀態":"教練登入狀態"}</h3><p>{person.coachLoginReady ? (music?"已開通老師登入":"已開通教練登入") : (music?"尚未開通老師登入":"尚未開通教練登入")}</p>{!person.coachLoginReady && <p className="text-sm text-earth-600">先由授課人員完成本店會員登入，再編輯此頁「連結既有顧客」並儲存。授課設定與登入分開，不影響店長依資格排課。</p>}<h3 className="pt-3 font-medium">會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
               {tab === "qualifications" && music && feeEnabled && feesReady && <MusicTeacherFeeEditor readOnly templates={templates.filter(t=>qualificationIds.includes(t.id))} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} onSettings={()=>{}} onFees={()=>{}} onQualification={()=>{}}/>}
               {tab === "permissions" && <><h3 className="font-medium">後台登入</h3><p>{person.email}</p><h3 className="pt-3 font-medium">店內管理權限</h3>{permissionGroups.map(g=><details key={g.label}><summary className="min-h-11 cursor-pointer py-3">{g.label} · {g.codes.filter(c=>permissions.includes(c.code)).length} 項</summary><p>{g.codes.filter(c=>permissions.includes(c.code)).map(c=>c.label).join("、") || "未開啟"}</p></details>)}</>}
@@ -336,6 +331,8 @@ export function CourseStaffWorkspace({
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
                       phone: d.get("phone"),
+                      contactEmail: kind === "coach" ? d.get("contactEmail") : undefined,
+                      notificationsEnabled: kind === "coach" ? d.get("notificationsEnabled") === "yes" : undefined,
                       emergencyContactName: d.get("emergencyContactName"),
                       emergencyContactPhone: d.get("emergencyContactPhone"),
                       email:
@@ -402,6 +399,7 @@ export function CourseStaffWorkspace({
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
               ] as const).map(([name, label]) => <label className="block" key={name}>{label}{name!=="phone" ? (!person ? "（必填）" : !person[name] ? "（待補）" : "") : "（選填）"}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} required={!person && name!=="phone"} /></label>)}
+              {kind==="coach"&&<><label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label><label className="flex min-h-11 items-center gap-2 self-end"><input name="notificationsEnabled" value="yes" type="checkbox" defaultChecked={person?.notificationsEnabled??true}/><span>接收系統通知</span></label></>}
               <label className="block">
                 狀態
                 <select
@@ -421,10 +419,10 @@ export function CourseStaffWorkspace({
                   <p className="text-xs text-earth-500">套用新課次　ⓘ</p>
 
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
-                  <div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
-                  <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">全部課程（{templates.length}）</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>
-                  <p className="text-sm text-earth-500">已選 {qualificationIds.length} 項 · 篩選及換頁會保留未儲存的費用</p>
-                  {music && feeEnabled ? <MusicTeacherFeeEditor templates={matchingTemplates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);}} onFees={v=>{setFees(v);setDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setQualificationIds(ids=>selected?[...ids,id]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
+                  {!music&&<div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
+                  <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">全部課程（{templates.length}）</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>}
+                  {!music&&<p className="text-sm text-earth-500">已選 {qualificationIds.length} 項 · 篩選及換頁會保留未儲存的費用</p>}
+                  {music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);}} onFees={v=>{setFees(v);setDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setQualificationIds(ids=>selected?[...ids,id]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
                       return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,17rem)] items-center gap-3 px-3 py-2">
