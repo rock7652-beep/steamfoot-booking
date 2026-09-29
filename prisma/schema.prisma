@@ -2128,6 +2128,7 @@ model Reminder {
 model AuditLog {
   id          String   @id @default(cuid())
   actorUserId String
+  actorNameSnapshot String?
   storeId     String?
   module      String?
   targetType  String // e.g. "Customer", "Booking", "Transaction"

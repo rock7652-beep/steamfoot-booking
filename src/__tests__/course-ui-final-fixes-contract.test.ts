@@ -61,4 +61,9 @@ describe("course UI final fixes", () => {
     expect(roster).toContain("沒有可用方案，請先指派方案。");
     expect(roster).not.toContain("改用體驗預約");
   });
+
+  it("shows per-record operation history in both fitness and music rosters", () => {
+    const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
+    expect(roster.match(/OperationHistoryButton targetType="CourseBooking"/g)).toHaveLength(2);
+  });
 });

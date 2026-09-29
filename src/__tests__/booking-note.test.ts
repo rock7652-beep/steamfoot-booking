@@ -20,18 +20,22 @@ import { updateBookingNoteAction } from "@/server/actions/booking-note";
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.permission.mockResolvedValue({ id: "staff1" });
-  mocks.find.mockResolvedValue({ id: "b1", storeId: "store1", customerId: "c1", bookingStatus: "COMPLETED" });
+  mocks.permission.mockResolvedValue({ id: "staff1", name: "王店長" });
+  mocks.find.mockResolvedValue({ id: "b1", storeId: "store1", customerId: "c1", bookingStatus: "COMPLETED", notes: null });
 });
 
 describe("本次備註", () => {
   it("allows completed booking notes to be corrected without changing settlement/status or customer notes", async () => {
     expect((await updateBookingNoteAction({ bookingId: "b1", notes: " 今天晚到 " })).success).toBe(true);
     expect(mocks.permission).toHaveBeenCalledWith("booking.update");
-    expect(mocks.access).toHaveBeenCalledWith({ id: "staff1" }, "store1");
+    expect(mocks.access).toHaveBeenCalledWith({ id: "staff1", name: "王店長" }, "store1");
     expect(mocks.subscription).toHaveBeenCalledWith("store1");
     expect(mocks.update).toHaveBeenCalledWith({ where: { id: "b1" }, data: { notes: "今天晚到" } });
-    expect(mocks.audit).toHaveBeenCalledWith({ data: { actorUserId: "staff1", targetType: "Booking", targetId: "b1", action: "BOOKING_NOTE_UPDATED" } });
+    expect(mocks.audit).toHaveBeenCalledWith({ data: expect.objectContaining({
+      actorUserId: "staff1", actorNameSnapshot: "王店長", storeId: "store1", module: "STEAM",
+      targetType: "Booking", targetId: "b1", action: "BOOKING_NOTE_UPDATED", summary: "修改預約備註",
+      beforeJson: { notes: null }, afterJson: { notes: "今天晚到" },
+    }), select: { id: true } });
     expect(mocks.refresh).toHaveBeenCalledWith("c1");
     expect(mocks.path).toHaveBeenCalledWith("/dashboard/bookings/b1");
   });

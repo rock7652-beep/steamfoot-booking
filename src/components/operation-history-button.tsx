@@ -22,6 +22,54 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
+const fieldLabels: Record<string, string> = {
+  notes: "備註",
+  note: "備註",
+  status: "狀態",
+  entryDate: "日期",
+  type: "收支類型",
+  category: "分類",
+  amount: "金額",
+  paymentMethod: "付款方式",
+  staffId: "歸屬人員",
+  customerId: "顧客",
+  checkedInAt: "簽到時間",
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function formatValue(key: string, value: unknown) {
+  if (value === null || value === undefined || value === "") return "—";
+  const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+  if (/phone|mobile/i.test(key)) return text.replace(/(\d{4})\d+(\d{3})/, "$1***$2");
+  if (key === "amount" && Number.isFinite(Number(value))) return `NT$ ${Number(value).toLocaleString("zh-TW")}`;
+  return text.length > 80 ? `${text.slice(0, 80)}…` : text;
+}
+
+function Changes({ before, after }: { before: unknown; after: unknown }) {
+  const previous = asRecord(before);
+  const next = asRecord(after);
+  const keys = [...new Set([...Object.keys(previous), ...Object.keys(next)])]
+    .filter((key) => JSON.stringify(previous[key]) !== JSON.stringify(next[key]));
+  if (keys.length === 0) return null;
+  return (
+    <dl className="mt-2 space-y-1 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-700">
+      {keys.map((key) => (
+        <div key={key} className="grid grid-cols-[5rem_1fr] gap-2">
+          <dt className="text-earth-500">{fieldLabels[key] ?? key}</dt>
+          <dd className="min-w-0 break-words">
+            {formatValue(key, previous[key])} <span aria-hidden="true">→</span> {formatValue(key, next[key])}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function OperationHistoryButton({
   targetType,
   targetId,
@@ -71,9 +119,10 @@ export function OperationHistoryButton({
                         <time className="text-xs tabular-nums text-earth-500">{formatTime(item.createdAt)}</time>
                       </div>
                       <p className="mt-1 text-xs text-earth-600">
-                        {item.actor.name}・{roleLabels[item.actor.role] ?? item.actor.role}
+                        {item.actorNameSnapshot ?? item.actor.name}・{roleLabels[item.actor.role] ?? item.actor.role}
                         {index === 0 ? "（最後操作）" : ""}
                       </p>
+                      <Changes before={item.beforeJson} after={item.afterJson} />
                     </li>
                   ))}
                 </ol>

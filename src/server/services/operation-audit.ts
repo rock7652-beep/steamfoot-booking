@@ -8,6 +8,7 @@ type AuditClient = Pick<Prisma.TransactionClient, "auditLog">;
 
 export type OperationAuditInput = {
   actorUserId: string;
+  actorNameSnapshot?: string | null;
   storeId: string;
   module: OperationModule;
   targetType: string;
@@ -26,6 +27,7 @@ export async function recordOperationAudit(
   return client.auditLog.create({
     data: {
       actorUserId: input.actorUserId,
+      actorNameSnapshot: input.actorNameSnapshot?.trim() || null,
       storeId: input.storeId,
       module: input.module,
       targetType: input.targetType,
@@ -68,6 +70,7 @@ export async function getOperationHistory(input: {
     take: limit,
     select: {
       id: true, action: true, summary: true, module: true, createdAt: true,
+      actorNameSnapshot: true, beforeJson: true, afterJson: true,
       actor: { select: { id: true, name: true, role: true } },
     },
   });

@@ -1254,6 +1254,7 @@ export function CourseRoster({
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={booking.id} />}
                   {allowTrialActions &&
                     trial?.canCollect &&
                     paid &&

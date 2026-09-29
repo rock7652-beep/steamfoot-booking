@@ -11,11 +11,11 @@ describe("shared operation audit", () => {
   it("records the server-resolved actor and target", async () => {
     mocks.create.mockResolvedValue({ id: "audit-1" });
     await recordOperationAudit({
-      actorUserId: "user-1", storeId: "store-1", module: "STEAM",
+      actorUserId: "user-1", actorNameSnapshot: "王店長", storeId: "store-1", module: "STEAM",
       targetType: "Booking", targetId: "booking-1", action: "CANCEL", summary: "取消預約",
     });
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
-      actorUserId: "user-1", storeId: "store-1", module: "STEAM", targetId: "booking-1",
+      actorUserId: "user-1", actorNameSnapshot: "王店長", storeId: "store-1", module: "STEAM", targetId: "booking-1",
     }) }));
   });
 

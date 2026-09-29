@@ -20,6 +20,9 @@ export type OperationHistoryItem = {
   summary: string | null;
   module: string | null;
   createdAt: string;
+  actorNameSnapshot: string | null;
+  beforeJson: unknown;
+  afterJson: unknown;
   actor: { id: string; name: string; role: string };
 };
 

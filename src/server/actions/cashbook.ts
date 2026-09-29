@@ -158,6 +158,7 @@ export async function createCashbookEntry(
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          actorNameSnapshot: user.name,
           storeId,
           module: "SHARED",
           targetType: "CashbookEntry",
@@ -266,6 +267,7 @@ export async function updateCashbookEntry(
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          actorNameSnapshot: user.name,
           storeId: entry.storeId,
           module: "SHARED",
           targetType: "CashbookEntry",
@@ -306,6 +308,7 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          actorNameSnapshot: user.name,
           storeId: entry.storeId,
           module: "SHARED",
           targetType: "CashbookEntry",
