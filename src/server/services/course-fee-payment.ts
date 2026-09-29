@@ -2,7 +2,8 @@ import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { courseFeePaymentInput, courseFeeVoidInput, courseTeacherFee } from "@/lib/course-fee-payment";
+import { courseFeePaymentInput, courseFeeVoidInput } from "@/lib/course-fee-payment";
+import { capturedTeacherFee, readTeacherFeeSeats, type CapturedTeacherFee } from "./course-teacher-fee";
 import { lockCourseCashDay } from "./course-assignment-checkout";
 
 /** Caller authenticates the owner, checks cashbook.create and holds the course store lock. */
@@ -15,29 +16,28 @@ export async function recordCourseFeePayment(tx: Prisma.TransactionClient, actor
   if (previous[0]) {
     const p = previous[0];
     if (p.voidedAt) throw new AppError("CONFLICT", "原付款已更正，請重新開啟登錄");
-    if (p.sessionId !== d.sessionId || p.amount !== d.expectedAmount || p.method !== d.method || p.note !== d.note)
+    if (p.sessionId !== d.sessionId || p.amount !== (d.amount??d.expectedRemaining??d.expectedAmount) || p.method !== d.method || p.note !== d.note)
       throw new AppError("CONFLICT", "此付款請求已使用，請重新核對");
     return;
   }
-  const rows = await tx.$queryRaw<Array<{name: string; staffId: string; coachId: string; staffName: string; rule: unknown; endsAt: Date; cancelledAt: Date | null;musicPricePerLesson:number|null;musicTeacherFeeBase:number|null;musicTrialMode:string|null}>>`
-    SELECT s."nameSnapshot" AS name, c."staffId", s."coachId", f."displayName" AS "staffName", c.rule, s."endsAt", s."cancelledAt",c."musicPricePerLesson",c."musicTeacherFeeBase",c."musicTrialMode"
+  const rows = await tx.$queryRaw<Array<{name: string; staffId: string; coachId: string; staffName: string; rule: unknown; endsAt: Date; cancelledAt: Date | null;musicPricePerLesson:number|null;musicTeacherFeeBase:number|null;musicTrialMode:string|null}&CapturedTeacherFee>>`
+    SELECT s."nameSnapshot" AS name, c."staffId", s."coachId", f."displayName" AS "staffName", c.rule,c.revision,s."teacherAttendance", s."endsAt", s."cancelledAt",c."musicPricePerLesson",c."musicTeacherFeeBase",c."musicTrialMode"
     FROM "CourseSession" s JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId"
     JOIN "Staff" f ON f.id=c."staffId" AND f."storeId"=s."storeId"
     WHERE s.id=${d.sessionId} AND s."storeId"=${storeId} FOR UPDATE OF s, c`;
   const row = rows[0];
   if (!row || row.cancelledAt || row.endsAt > new Date() || row.coachId !== row.staffId)
     throw new AppError("BUSINESS_RULE", "請核對已結束、未取消課次及授課教練");
-  const bookingRows=await tx.$queryRaw<Array<{paid:bigint;freeTrial:bigint;pending:bigint}>>`
-    SELECT count(*) FILTER (WHERE (status IN ('ATTENDED','NO_SHOW') OR "absenceKind"='GROUP_LEAVE_FORFEITED') AND NOT ("bookingKind"='TRIAL' AND ${row.musicTrialMode==="FREE"}) AND "bookingKind"<>'TEACHER_MAKEUP') AS paid,
-      count(*) FILTER (WHERE (status IN ('ATTENDED','NO_SHOW') OR "absenceKind"='GROUP_LEAVE_FORFEITED') AND "bookingKind"='TRIAL' AND ${row.musicTrialMode==="FREE"}) AS "freeTrial",
-      count(*) FILTER (WHERE status='RESERVED') AS pending
-    FROM "CourseBooking" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId}`;
-  const seats=bookingRows[0];
-  const amount = courseTeacherFee(row.rule,{paid:Number(seats?.paid??0),freeTrial:Number(seats?.freeTrial??0),pending:Number(seats?.pending??0)},{perLesson:row.musicPricePerLesson,freeTrialBase:row.musicTeacherFeeBase});
-  if (amount === null || amount !== d.expectedAmount || !Number.isSafeInteger(amount))
+  const seats=await readTeacherFeeSeats(tx,storeId,[d.sessionId]);
+  const total=capturedTeacherFee(row,seats.get(d.sessionId)??[]).amount;
+  if (total === null || total !== d.expectedAmount || !Number.isSafeInteger(total))
     throw new AppError("CONFLICT", "授課費與畫面不一致或需人工核對，尚未登錄付款");
-  const paid = await tx.$queryRaw<Array<{id: string}>>`SELECT id FROM "CourseFeePayment" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId} AND "voidedAt" IS NULL`;
-  if (paid.length) throw new AppError("CONFLICT", "這堂課已登錄付款，請重新整理查看");
+  const paid = await tx.$queryRaw<Array<{id: string;amount:number}>>`SELECT id,amount FROM "CourseFeePayment" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId} AND "voidedAt" IS NULL`;
+  const remaining=total-paid.reduce((n,p)=>n+p.amount,0);
+  if(paid.length && d.expectedRemaining===undefined)throw new AppError("CONFLICT","這堂課已登錄付款，請重新整理查看");
+  if(d.expectedRemaining!==undefined && d.expectedRemaining!==remaining)throw new AppError("CONFLICT","未付金額已變更，請重新核對");
+  const amount=d.amount??remaining;
+  if(amount<=0 || amount>remaining)throw new AppError("CONFLICT","本次金額超過未付金額");
   const day = new Date(toLocalDateStr() + "T00:00:00Z");
   if (d.method === "CASH") await lockCourseCashDay(tx, storeId, day);
   const id = crypto.randomUUID();

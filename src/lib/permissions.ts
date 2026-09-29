@@ -90,6 +90,11 @@ export const ALL_PERMISSIONS = [
   // 人員
   "staff.view",
   "staff.manage", // 管理店員與權限（編輯權限 / 停用·啟用 / 改 role）— PR-3
+  "teacher.compensation.read",
+  "teacher.compensation.manage",
+  "teacher.settlement.read",
+  "teacher.settlement.confirm",
+  "teacher.settlement.pay",
   // 值班安排
   "duty.read",
   "duty.manage",
@@ -148,6 +153,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "人員管理",
     codes: ["staff.view", "staff.manage"],
   },
+  teacherFinance: { label: "教師拆帳與月結", codes: ["teacher.compensation.read", "teacher.compensation.manage", "teacher.settlement.read", "teacher.settlement.confirm", "teacher.settlement.pay"] },
   duty: {
     label: "值班安排",
     codes: ["duty.read", "duty.manage"],
@@ -192,6 +198,11 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "cashDrawer.open": "開店點錢",
   "cashDrawer.close": "閉店點錢",
   "cashDrawer.entry": "現金抽屜異動（提領 / 補入 / 調整）",
+  "teacher.compensation.read": "查看教師拆帳",
+  "teacher.compensation.manage": "修改教師拆帳",
+  "teacher.settlement.read": "查看教師月結",
+  "teacher.settlement.confirm": "確認教師月結",
+  "teacher.settlement.pay": "登錄／更正教師付款",
   "staff.view": "查看店員資料",
   "staff.manage": "管理店員與權限",
   "duty.read": "查看值班安排",

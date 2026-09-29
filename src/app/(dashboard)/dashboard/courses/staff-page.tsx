@@ -1,3 +1,4 @@
+import {canMusicFinance} from "@/server/services/music-finance-access";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
@@ -19,7 +20,7 @@ import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CourseStaffWorkspace } from "./staff-workspace";
-export async function CourseStaffPage() {
+export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const user = await getCurrentUser();
   if (
     !user ||
@@ -43,24 +44,27 @@ export async function CourseStaffPage() {
       orderBy: { displayName: "asc" },
     }),
     checkPermission(user.role, user.staffId, "staff.manage"),
-    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true},orderBy:{name:"asc"}}),
+    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,musicSubjectId:true,musicTeacherShare:true,musicSubject:{select:{name:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
   ]);
+  if(teachers && !musicEntitlement)notFound();
+  const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
   const displayOrders=musicEntitlement?await readCourseOrders(storeId):{};
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
   const linkedUserIds=staff.flatMap(s=>s.memberLink ? [s.memberLink.userId]:[]);
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
-      <PageHeader title="人員管理" />
+      <PageHeader title={teachers?"教師管理":"人員管理"} />
 
-      <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled}
+      <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={await canMusicFinance(user,storeId,"teacher.compensation.manage")}
         music={!!musicEntitlement}
+        accountKind={musicEntitlement?(teachers?"coach":"manager"):undefined}
 
         maxStaff={limits.maxStaff}
-        templates={templates}
+        templates={templates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,subjectName:t.musicSubject?.name}))}
         canManage={canManage}
         permissionGroups={Object.values(PERMISSION_GROUPS)
           .map((g) => ({
@@ -74,7 +78,7 @@ export async function CourseStaffPage() {
               })),
           }))
           .filter((g) => g.codes.length)}
-        staff={staff.map((s) => ({
+        staff={staff.filter(s=>!musicEntitlement || (teachers?(s.user.role==="CUSTOMER"||s.courseCoachEnabled):s.user.role!=="CUSTOMER")).map((s) => ({
           id: s.id,
           name: s.displayName,
           phone: s.phone,

@@ -1,4 +1,5 @@
 "use server";
+import {requireMusicFinance} from "@/server/services/music-finance-access";
 import { z } from "zod";
 import { courseManager } from "@/server/services/course-access";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -11,6 +12,7 @@ const input=z.object({month:settlementMonth,revision:z.number().int().positive()
 async function actor(){
  const a=await courseManager('report.read');
  if(a.user.role!=='OWNER')throw new AppError('FORBIDDEN','僅店長可通知人員');
+ await requireMusicFinance(a.user,a.storeId,"teacher.settlement.read");
  await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
  await requireStoreFeature(a.storeId,FEATURES.LINE_REMINDER);
  await assertStoreSubscriptionWritable(a.storeId);

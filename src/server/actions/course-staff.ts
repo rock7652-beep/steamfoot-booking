@@ -1,11 +1,13 @@
 "use server";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
+import { canMusicFinance, requireMusicFinance, isMusicFinanceStore } from "@/server/services/music-finance-access";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { compensationRule, type CompensationRule } from "@/lib/course-compensation";
@@ -22,20 +24,22 @@ import { revalidatePath } from "next/cache";
 const id = z.string().min(1).max(180);
 const teachingFee = z.object({
   templateId: id,
-  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬"),
+  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬").nullable(),
   revision: z.number().int().min(0),
 });
 export async function readCourseStaffTeaching(staffId: string) {
   try {
-    const { user, storeId } = await courseManager("staff.manage");
+    const { user, storeId } = await courseManager("staff.view");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
     id.parse(staffId);
+    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
     const data = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
       const staff = await tx.staff.findFirst({ where: { id: staffId, storeId } });
       if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
-      const fees = await tx.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
-      return { version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees };
+      const fees = canReadFees ? await tx.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}` : [];
+      const settings=canReadFees ? await tx.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}` : [];
+      return { version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
     });
     return { success: true as const, ...data };
   } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }
@@ -67,6 +71,7 @@ export async function saveCourseStaff(input: unknown) {
         qualificationsConfirmed: z.boolean().optional(),
         teachingVersion: z.string().datetime().optional(),
         teachingFees: z.array(teachingFee).max(500).optional(),
+        musicSettings: musicTeacherSettings.optional(),
         birthday: z.string().optional(),
         emergencyContactRelation: z.string().trim().max(40).default(""),
         confirmDeactivate: z.boolean().default(false),
@@ -79,10 +84,12 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
+    if(d.teachingFees || d.musicSettings)await requireMusicFinance(user,storeId,"teacher.compensation.manage");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
-    if (d.teachingFees?.some(f=>f.value.mode==="SHARE") && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
+    if ((d.musicSettings || d.teachingFees?.some(f=>f.value===null || f.value.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
+    if(!d.id && d.kind==="manager" && d.coachEnabled && await isMusicFinanceStore(storeId))throw new AppError("VALIDATION","店務與教師請分別建立帳號");
     if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
     const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
@@ -118,6 +125,7 @@ export async function saveCourseStaff(input: unknown) {
             (d.permissions && !d.permissions.includes("staff.manage")))
         )
           throw new AppError("FORBIDDEN", "不能停用自己或移除自己的管理權限");
+        if(d.kind==="manager" && d.coachEnabled && !existing?.courseCoachEnabled && await isMusicFinanceStore(storeId))throw new AppError("VALIDATION","店務與教師請分別建立帳號");
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
         const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
         const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
@@ -233,14 +241,29 @@ export async function saveCourseStaff(input: unknown) {
               },
             },
           });
+        if(d.musicSettings) {
+          const before=await tx.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
+          if((before[0]?.revision??0)!==d.musicSettings.revision)throw new AppError("CONFLICT","老師拆帳設定已更新，請重新開啟核對");
+          const ids=Object.keys(d.musicSettings.subjectRules);
+          if(ids.length){const subjects=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "MusicSubject" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[])`;if(subjects.length!==ids.length)throw new AppError("FORBIDDEN","科目包含非本店資料");}
+          await tx.$executeRaw`INSERT INTO "CourseTeacherCompensationSetting" ("storeId","staffId","defaultRatio","subjectRules",revision) VALUES (${storeId},${staffId},${d.musicSettings.defaultRatio},${JSON.stringify(d.musicSettings.subjectRules)}::jsonb,1) ON CONFLICT ("storeId","staffId") DO UPDATE SET "defaultRatio"=EXCLUDED."defaultRatio","subjectRules"=EXCLUDED."subjectRules",revision="CourseTeacherCompensationSetting".revision+1,"updatedAt"=now()`;
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherCompensationSetting',${staffId},'UPDATE',${JSON.stringify(before[0]??null)}::jsonb,${JSON.stringify({...d.musicSettings,storeId,scope:"NEW_SESSIONS"})}::jsonb,now())`;
+        }
         if (d.teachingFees) {
+          const priorFees=await tx.$queryRaw<Array<{templateId:string;rules:unknown;revision:number}>>`SELECT "templateId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseCompensation',${staffId},'UPDATE',${JSON.stringify(priorFees)}::jsonb,${JSON.stringify({storeId,fees:d.teachingFees,scope:"NEW_SESSIONS"})}::jsonb,now())`;
           for (const fee of d.teachingFees) {
-            const rules = JSON.stringify([fee.value]);
+            const rules = JSON.stringify(fee.value ? [fee.value] : []);
             await tx.$executeRaw`INSERT INTO "CourseCompensation" ("storeId","templateId","staffId",rules,revision) VALUES (${storeId},${fee.templateId},${staffId},${rules}::jsonb,1) ON CONFLICT ("storeId","templateId","staffId") DO UPDATE SET rules=EXCLUDED.rules,revision="CourseCompensation".revision+1,"updatedAt"=NOW()`;
           }
         }
         if (d.kind === "manager") {
-          const granted = d.permissions ?? [...COURSE_PERMISSIONS];
+          const actorStaff=await tx.staff.findFirst({where:{id:user.staffId??"",storeId,userId:user.id},include:{permissions:{where:{granted:true}}}});
+          if(!actorStaff)throw new AppError("FORBIDDEN","找不到本店授權人員");
+          if(existing?.isOwner && !actorStaff.isOwner)throw new AppError("FORBIDDEN","不能修改店主帳號");
+          const priorPermissions=existing?await tx.staffPermission.findMany({where:{staffId},select:{permission:true,granted:true}}):[];
+          const granted = d.permissions ?? priorPermissions.filter(p=>p.granted).map(p=>p.permission);
+          if(!actorStaff.isOwner && granted.some(code=>!actorStaff.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
           for (const permission of ALL_PERMISSIONS)
             await tx.staffPermission.upsert({
               where: { staffId_permission: { staffId, permission } },
@@ -251,6 +274,7 @@ export async function saveCourseStaff(input: unknown) {
               },
               update: { granted: granted.includes(permission) },
             });
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffPermission',${staffId},'UPDATE',${JSON.stringify(priorPermissions)}::jsonb,${JSON.stringify({storeId,granted})}::jsonb,now())`;
         }
         if (memberUserId) {
           const priorLink=await tx.staffMemberLink.findUnique({where:{uq_staff_member_link_staff_store:{staffId,storeId}}});

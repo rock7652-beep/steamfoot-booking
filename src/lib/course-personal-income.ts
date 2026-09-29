@@ -29,7 +29,7 @@ export function personalIncomeView(staffId: string, live: SettlementLine[], last
     lines: own(last.snapshot).map(line => {
       const now = current.get(`${line.kind}:${line.id}`);
       return {
-        kind: line.kind, label: line.label, date: line.date, amount: line.amount,
+        kind: line.kind, label: line.label, date: line.date, endsAt:line.endsAt??null, amount: line.amount,
         // Missing/reassigned live rows must not expose another person's payments.
         paid: now ? now.paid : null,
         payments: (now?.payments ?? []).map(({amount,date,voided}) => ({amount,date,voided})),

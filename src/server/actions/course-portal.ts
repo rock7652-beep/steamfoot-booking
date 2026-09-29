@@ -157,6 +157,7 @@ export async function purchaseCoursePlan(input: unknown) {
           ...(plan.musicTerms ? musicPurchaseTerms(plan) : {}),
           points: plan.points,
           price: plan.price,
+          listPrice: plan.price,
           validDays: plan.validDays,
           templateIds: plan.templateIds,
         },

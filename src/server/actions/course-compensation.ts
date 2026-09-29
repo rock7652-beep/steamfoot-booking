@@ -1,4 +1,5 @@
 "use server";
+import {requireMusicFinance} from "@/server/services/music-finance-access";
 import {z} from "zod";
 import {courseManager,courseTransaction} from "@/server/services/course-access";
 import {coursePrisma} from "@/lib/course-db";
@@ -6,14 +7,14 @@ import {compensationRules,type CompensationRule} from "@/lib/course-compensation
 import {handleActionError,AppError} from "@/lib/errors";
 import {revalidatePath} from "next/cache";
 const scope=z.object({templateId:z.string().min(1).max(180),staffId:z.string().max(180).default("")});
-async function actor(staffId:string){const a=await courseManager(staffId?"staff.manage":"booking.update");if(staffId&&a.user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可設定教練報酬");return a;}
+async function actor(staffId:string,write=false){const a=await courseManager(staffId?"staff.manage":"booking.update");if(staffId&&a.user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可設定教練報酬");await requireMusicFinance(a.user,a.storeId,write?"teacher.compensation.manage":"teacher.compensation.read");return a;}
 export async function readCourseCompensation(input:unknown){try{
  const d=scope.parse(input),{storeId}=await actor(d.staffId);
  const rows=await coursePrisma.$queryRaw<Array<{staffId:string;rules:CompensationRule[];revision:number}>>`SELECT "staffId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "templateId"=${d.templateId} AND ("staffId"='' OR "staffId"=${d.staffId})`;
  return {success:true as const,defaults:rows.find(r=>!r.staffId)?.rules??[],rules:rows.find(r=>r.staffId===d.staffId)?.rules??[],revision:rows.find(r=>r.staffId===d.staffId)?.revision??0};
 }catch(e){const failure=handleActionError(e);return {success:false as const,error:!failure.success?failure.error:"操作失敗"};}}
 export async function saveCourseCompensation(input:unknown){try{
- const d=scope.extend({staffId:z.string().min(1).max(180),rules:compensationRules,revision:z.number().int().min(0)}).parse(input),{storeId}=await actor(d.staffId);
+ const d=scope.extend({staffId:z.string().min(1).max(180),rules:compensationRules,revision:z.number().int().min(0)}).parse(input),{storeId}=await actor(d.staffId,true);
  if(d.rules.length!==1||!(["CLASS","SHARE"].includes(d.rules[0].mode)))throw new AppError("VALIDATION","僅支援每堂固定或音樂課按比例計酬");
  if(d.rules[0].mode==="SHARE"){
   const music=await coursePrisma.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;

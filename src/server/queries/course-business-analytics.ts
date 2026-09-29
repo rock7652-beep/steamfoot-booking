@@ -1,4 +1,7 @@
+import {getCurrentUser} from "@/lib/session";
+import {canMusicFinance} from "@/server/services/music-finance-access";
 import "server-only";
+import {capturedTeacherFee,readTeacherFeeSeats} from "@/server/services/course-teacher-fee";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { requireCourseStore } from "@/lib/industry-module-server";
@@ -7,6 +10,8 @@ import { businessComparisonRange, summarizeCourseBusiness, type BusinessScope } 
 import { shiftCourseCalendarDate, type CourseAnalysisRange } from "@/lib/course-analytics";
 export async function getCourseBusinessAnalytics(storeId: string, range: CourseAnalysisRange, scope: BusinessScope, access: { money: boolean; customers: boolean; fees: boolean }) {
   await requireCourseStore(storeId);
+  const user=await getCurrentUser();
+  if(access.fees && (!user || !await canMusicFinance(user,storeId,"teacher.settlement.read")))access={...access,fees:false};
   const end = new Date(Math.min(dayRange(range.endDate).end.getTime(), Date.now()));
   const historyStart = dayRange(shiftCourseCalendarDate(toLocalDateStr(end).slice(0,7)+"-01",-11)).start;
   const moneyStart = new Date(Math.min(+historyStart,+dayRange(range.startDate).start));
@@ -15,13 +20,14 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
     prisma.staff.findMany({where:{storeId},select:{id:true,displayName:true,courseCoachEnabled:true,user:{select:{role:true}}}}),
     coursePrisma.$transaction(async tx => {
       const [sessions,purchases,fees,receipts,refunds] = await Promise.all([
-        tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{lte:end}},select:{id:true,nameSnapshot:true,coachId:true,startsAt:true,endsAt:true,bookings:{where:{storeId},select:{customerId:true,customerName:true,bookingKind:true,status:true,absenceKind:true}}}}),
+        tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{lte:end}},select:{id:true,nameSnapshot:true,coachId:true,teacherAttendance:true,startsAt:true,endsAt:true,bookings:{where:{storeId},select:{customerId:true,customerName:true,bookingKind:true,status:true,absenceKind:true}}}}),
         tx.coursePurchase.findMany({where:{storeId,status:{in:["CONFIRMED","REFUNDED"]},confirmedAt:{lte:end},price:{gt:0}},select:{id:true,name:true,customerId:true,confirmedAt:true,price:true,revenueStaffId:true,developerProfitSnapshot:true,refunds:{where:{storeId},select:{amount:true,createdAt:true}}}}),
-        access.fees ? tx.courseCompensationSnapshot.findMany({where:{storeId},select:{sessionId:true,staffId:true,rule:true,musicPricePerLesson:true,musicTeacherFeeBase:true,musicTrialMode:true}}) : [],
+        access.fees ? tx.courseCompensationSnapshot.findMany({where:{storeId},select:{sessionId:true,staffId:true,rule:true,revision:true,musicPricePerLesson:true,musicTeacherFeeBase:true,musicTrialMode:true}}) : [],
         access.money ? tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:{gte:moneyStart,lte:end}},{voidedAt:{gte:moneyStart,lte:end}}]},select:{amount:true,createdAt:true,voidedAt:true,booking:{select:{customerId:true}}}}) : [],
         access.money ? tx.coursePurchaseRefund.findMany({where:{storeId,createdAt:{gte:moneyStart,lte:end}},select:{amount:true,createdAt:true,purchase:{select:{revenueStaffId:true}}}}) : [],
       ]);
-      return {sessions,purchases,fees,receipts,refunds};
+      const seats=access.fees?await readTeacherFeeSeats(tx,storeId,sessions.map(s=>s.id)):new Map();
+      return {sessions,purchases,fees:fees.map(f=>({...f,calculatedAmount:capturedTeacherFee({...f,teacherAttendance:sessions.find(s=>s.id===f.sessionId)?.teacherAttendance},seats.get(f.sessionId)??[]).amount})),receipts,refunds};
     },{isolationLevel:"RepeatableRead",timeout:20000}),
     prisma.store.findUniqueOrThrow({where:{id:storeId},select:{createdAt:true}}),
   ]);

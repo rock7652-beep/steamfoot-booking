@@ -13,7 +13,7 @@ import { readCourseMonthlySettlement, readSettlementSettings } from "./course-mo
 export async function personalIncomeAccess(userId: string, storeId: string) {
   const [link, entitled, settings] = await Promise.all([
     prisma.staffMemberLink.findFirst({
-      where: { userId, storeId, revokedAt: null, staff: { storeId, status: "ACTIVE" } },
+      where: { userId, storeId, revokedAt: null, staff: { storeId, status: "ACTIVE", courseCoachEnabled:true } },
       select: { staffId: true },
     }),
     hasStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR),
