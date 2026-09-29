@@ -937,6 +937,7 @@ export function CourseWorkspace({
               </button>
             )}
           </div>
+          {businessProfile==="MUSIC"&&view==="rooms"&&canEdit&&order.toggle}
           {businessProfile==="MUSIC"&&<CourseTestDataFilter names={catalogItems.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelectedIds([]);setHideTestData(v);}}/>}
           {view==="rooms" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} kind="room" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
           {view==="catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}`} canDelete={canDelete} kind="template" deleteOnly names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}

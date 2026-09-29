@@ -8,6 +8,7 @@ export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKin
   const [saved,setSaved]=useState(initial);
   const [busy,setBusy]=useState(false);
   const [open,setOpen]=useState<string|null>(null);
+  const [sorting,setSorting]=useState(false);
   const moved=useRef(false);
   const lock=useRef(false);
   const drag=useRef<{id:string;target:string;y:number}|null>(null);
@@ -21,7 +22,7 @@ export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKin
       const result=await saveCourseDisplayOrder({kind,ids,revision:saved.revision});
       if(!result.success)throw new Error(result.error);
       const next={ids,revision:result.revision};setSaved(next);
-      toast.success("排序已儲存",undo?{action:{label:"復原",onClick:()=>{void restore(previous.ids,next);}}}:undefined);
+      toast.success("排序已儲存",{id:`course-order-${kind}`,position:"bottom-center",duration:3500,style:{padding:"10px 14px",width:"min(320px, calc(100vw - 32px))"},...(undo?{action:{label:"復原",onClick:()=>{void restore(previous.ids,next);}}}:{})});
     }catch(e){setSaved(previous);toast.error(e instanceof Error?e.message:"排序儲存失敗，已恢復原順序");}
     finally{lock.current=false;setBusy(false);}
   }
@@ -53,7 +54,7 @@ export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKin
     const same=rows.filter(r=>row&&group(r)===group(row));
     return same[same.findIndex(r=>r.id===id)+offset]?.id;
   }
-  return {rows,busy,compare:(a:T,b:T)=>(ranks.get(a.id)??0)-(ranks.get(b.id)??0),rowProps:(id:string)=>({"data-course-order":kind,"data-row-id":id}),handle:(id:string,name:string)=><span className="inline-flex flex-wrap items-center gap-1">
+  return {rows,busy,sorting,toggle:<button type="button" aria-pressed={sorting} disabled={busy} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={()=>{if(!enabled&&!sorting){toast.info("請先清除搜尋與篩選，再調整排序");return;}setSorting(!sorting);setOpen(null);}}>{sorting?"完成排序":"排序"}</button>,compare:(a:T,b:T)=>(ranks.get(a.id)??0)-(ranks.get(b.id)??0),rowProps:(id:string)=>({"data-course-order":kind,"data-row-id":id}),handle:(id:string,name:string)=>!sorting?null:<span className="inline-flex shrink-0 flex-wrap items-center gap-1">
     <button type="button" disabled={busy} aria-label={`拖曳排序 ${name}`} aria-expanded={open===id} title={enabled?"拖曳排序，或點一下選擇上移／下移":"清除篩選後可排序"} className="mr-1 inline-flex h-11 w-11 touch-none select-none items-center justify-center rounded text-earth-500 hover:bg-earth-100 disabled:opacity-30 cursor-grab active:cursor-grabbing"
       onClick={()=>{if(moved.current){moved.current=false;return;}if(!enabled){toast.info("請先清除搜尋與篩選，再調整排序");return;}setOpen(open===id?null:id);}}
       onPointerDown={e=>{moved.current=false;if(!enabled||busy)return;drag.current={id,target:id,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}

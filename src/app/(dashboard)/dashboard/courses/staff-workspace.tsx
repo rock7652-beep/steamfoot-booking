@@ -185,6 +185,7 @@ export function CourseStaffWorkspace({
           <option value="active">啟用</option>
           <option value="inactive">停用</option>
         </select>
+        {music&&canManage&&order.toggle}
         {canManage && (
           <button className={button} onClick={() => edit(null)}>
             新增人員
