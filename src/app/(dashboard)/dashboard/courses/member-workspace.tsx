@@ -216,6 +216,7 @@ export function CourseMemberWorkspace({
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
         <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
           <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
@@ -231,8 +232,9 @@ export function CourseMemberWorkspace({
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm"><strong className="mr-2 tabular-nums text-primary-800">{value}</strong><span className="text-earth-500">{label}</span></div>)}
         </section>
       )}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
-        {music&&canEdit&&view==="plans"&&planArea==="catalog"&&order.toggle}
+
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
@@ -283,8 +285,10 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
+<div className="flex flex-wrap items-center gap-x-5 gap-y-1">
       {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+</div>
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}

@@ -858,11 +858,11 @@ export function CourseWorkspace({
       </datalist>
       {view !== "schedule" && (
         <section
-          className="space-y-3"
+          className="space-y-1"
           aria-label={view === "rooms" ? "教室清單" : "課程清單"}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <label className="min-w-48 flex-1">
+            <label className="min-w-48 flex-1 sm:max-w-xs">
               <span className="sr-only">搜尋名稱</span>
               <input
                 className={field}
@@ -937,10 +937,12 @@ export function CourseWorkspace({
               </button>
             )}
           </div>
-          {businessProfile==="MUSIC"&&view==="rooms"&&canEdit&&order.toggle}
+
+<div className="flex flex-wrap items-center gap-x-5 gap-y-1">
           {businessProfile==="MUSIC"&&<CourseTestDataFilter names={catalogItems.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelectedIds([]);setHideTestData(v);}}/>}
           {view==="rooms" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} kind="room" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
           {view==="catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}`} canDelete={canDelete} kind="template" deleteOnly names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
+</div>
           {view==="catalog" && canEdit && selectedIds.length>0 && <form className="flex flex-wrap items-center gap-2" onSubmit={e=>submit(e,async d=>batchCourseTemplates({ids:selectedIds,...(d.get("batchCategory")!==""?{category:d.get("batchCategory")}:{}),...(d.get("batchVisibility")?{visibility:d.get("batchVisibility")}: {})}),()=>setSelectedIds([]))}>
             <span>已選 {selectedIds.length} 筆</span><input name="batchCategory" className={button} placeholder="調整分類"/><select name="batchVisibility" className={button}><option value="">狀態不變</option><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select><button className={button} disabled={pending}>套用至選取課程</button>
           </form>}

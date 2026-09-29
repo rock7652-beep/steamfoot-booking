@@ -157,7 +157,7 @@ export function CourseStaffWorkspace({
   }
   return (
     <>
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           className={`${field} max-w-xs`}
           aria-label="搜尋人員"
@@ -185,16 +185,18 @@ export function CourseStaffWorkspace({
           <option value="active">啟用</option>
           <option value="inactive">停用</option>
         </select>
-        {music&&canManage&&order.toggle}
+
         {canManage && (
           <button className={button} onClick={() => edit(null)}>
             新增人員
           </button>
         )}
       </div>
-      {canManage && atLimit && <p className="mb-3 text-sm text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
+      {canManage && atLimit && <p className="text-xs text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
+<div className="flex flex-wrap items-center gap-x-5 gap-y-1">
       {music&&<CourseTestDataFilter names={staff.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setStaffPage(0);setHideTestData(v);}}/>}
       {canManage && <CourseBatchBar key={`${hideTestData}:${search}:${filter}:${role}`} canDelete={canManage} names={Object.fromEntries(rows.map(p=>[p.id,p.name]))} kind="staff" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+</div>
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className="min-w-[720px] w-full text-left text-sm">
           <thead className="bg-earth-50">

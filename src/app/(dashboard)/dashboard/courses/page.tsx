@@ -234,7 +234,7 @@ export default async function CoursesPage({
   if(view === "catalog" && businessProfile === "MUSIC") {
     const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
     const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-2 px-6 py-4"><PageHeader title="課程管理" subtitle="管理教學項目"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="課程管理"/><MusicSubjectCatalog key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
@@ -278,7 +278,7 @@ export default async function CoursesPage({
           ? businessProfile === "MUSIC"
             ? "course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2"
             : "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
-          : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-2 px-6 py-4"
+          : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1"
       }
     >
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
