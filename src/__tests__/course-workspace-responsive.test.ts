@@ -5,11 +5,11 @@ import { expect, it } from "vitest";
 const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
 
 it("mobile calendar shows counts, closures, and retains the accessible date action", () => {
-  expect(source).toContain('mt-1 text-xs font-medium sm:hidden');
-  expect(source).toContain('{list.length} 堂');
+  expect(source).toContain('h-16 sm:h-20');
+  expect(source).toContain('{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次');
   expect(source).toContain('aria-label={`${date}，${isClosed ? closureLabel : `${scheduleTotals(list).classes} 堂課，${scheduleTotals(list).people} 人次`}`}');
   expect(source).toContain('calendarDay?.status === "training" ? "員工訓練" : "公休"');
-  expect(source).toContain('hidden w-full shrink-0 truncate leading-[14px] sm:block');
+  expect(source).not.toContain('list.slice(0, 2).map');
 });
 
 it("resource tables scroll horizontally and retain view and edit actions", () => {

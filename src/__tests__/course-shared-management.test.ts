@@ -37,3 +37,13 @@ it("does not interpret old check-in timestamps as settled attendance", () => {
   expect(roster).not.toContain('if (!musicLayout) return true;');
   expect(roster).toContain('min-w-[760px]');
 });
+
+it("shares compact month summaries and search-scoped roster selection", () => {
+  const workspace = read("workspace");
+  const roster = read("roster");
+  expect(workspace).toContain('h-16 sm:h-20');
+  expect(workspace).not.toContain('h-16 sm:h-24 xl:h-28');
+  expect(roster).toContain('const selectableRows = searchedRows.filter');
+  expect(roster).toContain('aria-label="全選搜尋結果中可操作的學員"');
+  expect(roster).toContain('setMemberQuery(event.target.value); setSelected([]);');
+});

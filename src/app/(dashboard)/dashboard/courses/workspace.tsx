@@ -704,9 +704,9 @@ export function CourseWorkspace({
           </div>}
           {scheduleMode === "month" ? (
             <>
-              {businessProfile === "MUSIC" && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
+              <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
                 本月已排課程 {monthTotals.classes} 堂｜預約學員 {monthTotals.people} 人次｜租借 {monthTotals.rentals} 次
-              </p>}
+              </p>
               <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
             aria-busy={pending}
@@ -744,7 +744,7 @@ export function CourseWorkspace({
                       go(date);
                       changeScheduleMode("day");
                     }}
-                    className={`relative flex min-w-0 ${businessProfile === "MUSIC" ? "h-14 sm:h-16" : "h-16 sm:h-24 xl:h-28"} flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
+                    className={`relative flex min-w-0 h-16 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
@@ -763,39 +763,13 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {businessProfile === "MUSIC" && <span className="mt-1 text-[11px] font-medium text-earth-700">{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次</span>}
-                    {businessProfile !== "MUSIC" && list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
-                    {businessProfile !== "MUSIC" && list.slice(0, 2).map((s) => (
-                      <span
-                        key={s.id}
-                        className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}
-                        title={`${s.nameSnapshot} · ${s.isFixed ? (s.isBiweekly ? "隔週固定" : "每週固定") + " · " : ""}${courseSessionStatus(s, nowIso).label}`}
-                      >
-                        {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
-                        {s.nameSnapshot}
-                      </span>
-                    ))}
-                    {businessProfile !== "MUSIC" && list.length > 2 && (
-                      <span className="hidden shrink-0 leading-[14px] sm:block sm:text-[11px]">
-                        ＋{list.length - 2} 堂
-                      </span>
-                    )}
+                    <span className="mt-1 text-[11px] font-medium text-earth-700">{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次</span>
                   </button>
                 );
               })}
             </div>
           </div>
-          {businessProfile !== "MUSIC" && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-600" aria-label="課程狀態圖例">
-            {[
-              ["未開始", "bg-sky-50 text-sky-800"],
-              ["進行中", "bg-amber-50 text-amber-800"],
-              ["待點名", "bg-violet-50 text-violet-800"],
-              ["已完成", "bg-emerald-50 text-emerald-800"],
-              ["未到", "bg-red-50 text-red-700"],
-              ["已結束", "bg-earth-100 text-earth-700"],
-            ].map(([label, tone]) => <span key={label} className={`rounded-full px-2 py-1 ${tone}`}>{label}</span>)}
-            <span>灰底「公休／員工訓練」：當日不可排課</span>
-          </div>}
+
             </>
           ) : (
             <>

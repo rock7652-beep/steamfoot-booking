@@ -433,16 +433,6 @@ export function CourseRoster({
   const cancelledRows = roster.filter(
     (booking) => booking.status === "CANCELLED" && (!musicLayout || !["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")),
   );
-  const selectableRows = activeRows.filter((booking) => {
-    if (booking.status === "CANCELLED") return false;
-    if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
-    if (batchTarget === "RESERVED") return booking.status === "ATTENDED" || booking.status === "NO_SHOW";
-    if (batchTarget === "NO_SHOW") return booking.status === "RESERVED" || booking.status === "ATTENDED";
-    return booking.status === "RESERVED";
-  });
-  const chosen = selectableRows.filter((booking) =>
-    selected.includes(booking.id),
-  );
   const rows = showCancelled ? cancelledRows : activeRows;
   const normalizedRosterQuery = memberQuery.trim().toLocaleLowerCase();
   const searchedRows = normalizedRosterQuery
@@ -454,6 +444,16 @@ export function CourseRoster({
           booking.customerPhone.includes(normalizedRosterQuery),
       )
     : rows;
+  const selectableRows = searchedRows.filter((booking) => {
+    if (booking.status === "CANCELLED") return false;
+    if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
+    if (batchTarget === "RESERVED") return booking.status === "ATTENDED" || booking.status === "NO_SHOW";
+    if (batchTarget === "NO_SHOW") return booking.status === "RESERVED" || booking.status === "ATTENDED";
+    return booking.status === "RESERVED";
+  });
+  const chosen = selectableRows.filter((booking) =>
+    selected.includes(booking.id),
+  );
   const count = activeRows.length;
   const oneToOneMusic = musicLayout && classType === "PRIVATE" && capacity === 1;
   const largeMusicGroup = musicLayout && capacity >= 10;
@@ -941,23 +941,23 @@ export function CourseRoster({
 
       {teacherAbsent && <p className="rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">老師{session?.teacherAttendance === "LEAVE" ? "請假" : "曠課"}：本堂學員免點名，不新增學員出勤紀錄，也不扣堂。</p>}
 
-      {(!musicLayout || showCancelled || cancelledRows.length > 0 || largeMusicGroup) && <div className="flex flex-wrap items-center gap-2">
+      {<div className="flex flex-wrap items-center gap-2">
         <button
           className={`${button} ${!showCancelled ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
           onClick={() => setShowCancelled(false)}
         >
           上課名單 {activeRows.length}
         </button>
-        {(!musicLayout || showCancelled || cancelledRows.length > 0) && <button
+        {(showCancelled || cancelledRows.length > 0) && <button
           className={`${button} ${showCancelled ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
           onClick={() => setShowCancelled(true)}
         >
           已取消（{cancelledRows.length}）
         </button>}
-        {(!musicLayout || largeMusicGroup) && <input
+        {<input
           className="min-h-10 min-w-56 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:ml-auto sm:max-w-sm"
           value={memberQuery}
-          onChange={(event) => setMemberQuery(event.target.value)}
+          onChange={(event) => { setMemberQuery(event.target.value); setSelected([]); }}
           placeholder="搜尋姓名或手機"
           aria-label="搜尋上課學員"
         />}
@@ -977,7 +977,7 @@ export function CourseRoster({
           <label className="flex min-h-10 items-center gap-2">
             <input
               type="checkbox"
-              aria-label={musicLayout ? "全選符合此操作的學員" : "全選全班學員"}
+              aria-label="全選搜尋結果中可操作的學員"
               checked={selectableRows.length > 0 && chosen.length === selectableRows.length}
               disabled={bulkPending || !selectableRows.length}
               onChange={(event) =>
