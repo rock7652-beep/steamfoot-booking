@@ -15,7 +15,7 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { Fragment, useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -108,6 +108,7 @@ export function CourseMemberWorkspace({
 
   const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourcePlans);
  const [hideTestData,setHideTestData]=useState(false);
+ const [showInactive,setShowInactive]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
   const [search, setSearch] = useRetainedState(`course-${view}:search`, "", retainedString);
@@ -208,8 +209,12 @@ export function CourseMemberWorkspace({
         (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive)||order.compare(a,b));
-  const totalRows = filteredPlans.length;
+  const activeFilteredPlans=filteredPlans.filter(p=>p.isActive),inactiveFilteredPlans=filteredPlans.filter(p=>!p.isActive);
+  const inactiveForced=status==="inactive"||!!search||templateFilter!=="all"||planUnit!=="all";
+  const inactiveExpanded=inactiveForced||showInactive;
+  const totalRows = activeFilteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
+  const visiblePlans=[...activeFilteredPlans.slice(currentPage*20,(currentPage+1)*20),...(inactiveExpanded?inactiveFilteredPlans:[])];
   const activePlans = order.rows.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
@@ -288,7 +293,7 @@ export function CourseMemberWorkspace({
       )}
 <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
       {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
-      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(filteredPlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
 </div>
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
@@ -310,11 +315,12 @@ export function CourseMemberWorkspace({
           </thead>
           <tbody className={`${music?"block sm:table-row-group":""} divide-y divide-earth-100`}>
             {!filteredPlans.length && <tr><td colSpan={music ? 5 : 7} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
-            {filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
+            {visiblePlans.map((p,index) => (
+                  <Fragment key={p.id}>
+                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music?5:7} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                   <tr
-                    key={p.id}
                     {...order.rowProps(p.id)}
-                    className={`${music?"grid grid-cols-[1fr_auto] sm:table-row":""} ${p.isActive ? "" : "bg-earth-50 text-earth-600"}`}
+                    className={`${music?"grid grid-cols-[1fr_auto] sm:table-row":""} ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
                     <td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{music&&canEdit&&order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="min-w-0 break-words font-medium">{p.name}</span></div><div className="mt-1 flex flex-wrap gap-x-2 text-xs text-earth-500"><span className="whitespace-nowrap">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span><span>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</span></div>{music&&<p className="mt-1 flex flex-wrap gap-x-2 text-xs sm:hidden"><span>{p.points} 堂 · {p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</span><span>NT$ {p.price.toLocaleString("zh-TW")} · 每堂 {Math.round(p.price/Math.max(1,p.points)).toLocaleString("zh-TW")}</span></p>}</td>
                     <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}{music && <p className="text-xs text-earth-500">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</p>}</td>
@@ -332,7 +338,9 @@ export function CourseMemberWorkspace({
                       )}
                     </td>
                   </tr>
+                  </Fragment>
                 ))}
+            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music?5:7} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div> : canReadCards ? <CourseCardBrowser canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null

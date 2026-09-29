@@ -11,7 +11,7 @@ import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {CourseStaffAvailabilityEditor} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 
@@ -79,6 +79,7 @@ export function CourseStaffWorkspace({
   }[];
 }) {
   const [staffPage,setStaffPage]=useState(0);
+  const [showInactive,setShowInactive]=useState(false);
   const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceStaff,"active");
  const [hideTestData,setHideTestData]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
@@ -165,8 +166,12 @@ export function CourseStaffWorkspace({
       ),
     }))
     .filter((group) => group.codes.length);
-  const staffPages=Math.max(1,Math.ceil(rows.length/20));
+  const activeRows=rows.filter(p=>p.active),inactiveRows=rows.filter(p=>!p.active);
+  const inactiveForced=filter==="inactive"||!!search||role!=="all";
+  const inactiveExpanded=inactiveForced||showInactive;
+  const staffPages=Math.max(1,Math.ceil(activeRows.length/20));
   const currentStaffPage=Math.min(staffPage,staffPages-1);
+  const visibleRows=[...activeRows.slice(currentStaffPage*20,(currentStaffPage+1)*20),...(inactiveExpanded?inactiveRows:[])];
   function edit(p: Person | null) {
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
     setDirty(false);setTeachingDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
@@ -224,7 +229,7 @@ export function CourseStaffWorkspace({
       {canManage && atLimit && <p className="text-xs text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。</p>}
 <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
       {music&&<CourseTestDataFilter names={staff.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setStaffPage(0);setHideTestData(v);}}/>}
-      {canManage && <CourseBatchBar key={`${hideTestData}:${search}:${filter}:${role}`} canDelete={canManage} names={Object.fromEntries(rows.map(p=>[p.id,p.name]))} kind="staff" blockedIds={busyIds} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {canManage && <CourseBatchBar key={`${hideTestData}:${search}:${filter}:${role}:${inactiveExpanded}`} canDelete={canManage} names={Object.fromEntries(visibleRows.map(p=>[p.id,p.name]))} kind="staff" blockedIds={busyIds} states={Object.fromEntries(visibleRows.map(p=>[p.id,p.active]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visibleRows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
 </div>
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className="min-w-[720px] w-full text-left text-sm">
@@ -238,11 +243,12 @@ export function CourseStaffWorkspace({
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
-            {rows.slice(currentStaffPage*20,(currentStaffPage+1)*20).map((p) => (
+            {visibleRows.map((p,index) => (
+              <Fragment key={p.id}>
+              {!p.active&&(index===0||visibleRows[index-1]?.active)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>停用人員（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
               <tr
-                key={p.id}
                 {...order.rowProps(p.id)}
-                className={p.active ? "" : "text-earth-400 bg-earth-50"}
+                className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
               >
                 <td className="whitespace-nowrap px-3 py-2">{music&&canManage&&order.handle(p.id,p.name)}{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span>{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 truncate text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td>
@@ -254,11 +260,13 @@ export function CourseStaffWorkspace({
                   {canManage && p.coachEnabled && <button className="ml-1 min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
                 </td>
               </tr>
+              </Fragment>
             ))}
+            {!inactiveExpanded&&inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>停用人員（{inactiveRows.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div>
-      {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>共 {rows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
+      {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>啟用 {activeRows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
       {open && (
         <RightSheet presentation="centered"
           compact

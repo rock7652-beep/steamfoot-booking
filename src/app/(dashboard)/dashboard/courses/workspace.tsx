@@ -7,7 +7,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -236,6 +236,7 @@ export function CourseWorkspace({
   const [classFilter, setClassFilter] = useState("all");
   const [coachFilter, setCoachFilter] = useState("all");
   const [hideTestData,setHideTestData]=useState(false);
+  const [showInactive,setShowInactive]=useState(false);
   const catalogItems = view === "rooms" ? allRooms : allTemplates;
   const categories = [
     ...new Set(catalogItems.map((item) => item.category)),
@@ -258,6 +259,12 @@ export function CourseWorkspace({
       const rank = (item: Room) => !item.isActive ? 2 : item.visibility === "HIDDEN" ? 1 : 0;
       return rank(a) - rank(b) || (view==="rooms"?order.compare(a,b):0) || (businessProfile === "MUSIC" && view === "catalog" ? a.category.localeCompare(b.category, "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant") : 0);
     });
+  const isInactiveItem=(item:Room|Template)=>view==="rooms"?!item.isActive:!item.isActive||item.visibility==="OFF";
+  const activeFilteredItems=filteredItems.filter(item=>!isInactiveItem(item));
+  const inactiveFilteredItems=filteredItems.filter(isInactiveItem);
+  const inactiveForced=status===(view==="rooms"?"inactive":"OFF")||!!query||category!=="all"||roomFilter!=="all"||classFilter!=="all";
+  const inactiveExpanded=inactiveForced||showInactive;
+  const visibleItems=[...activeFilteredItems,...(inactiveExpanded?inactiveFilteredItems:[])];
   function changeStatus(item: Room, visibility?:string) {
     if (pending) return;
     setError("");
@@ -940,8 +947,8 @@ export function CourseWorkspace({
 
 <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
           {businessProfile==="MUSIC"&&<CourseTestDataFilter names={catalogItems.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelectedIds([]);setHideTestData(v);}}/>}
-          {view==="rooms" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}`} canDelete={canDelete} names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} kind="room" blockedIds={busyIds} states={Object.fromEntries(filteredItems.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
-          {view==="catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}`} canDelete={canDelete} kind="template" deleteOnly names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
+          {view==="rooms" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visibleItems.map(r=>[r.id,r.name]))} kind="room" blockedIds={busyIds} states={Object.fromEntries(visibleItems.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visibleItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
+          {view==="catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}:${inactiveExpanded}`} canDelete={canDelete} kind="template" deleteOnly names={Object.fromEntries(visibleItems.map(r=>[r.id,r.name]))} ids={visibleItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
 </div>
           {view==="catalog" && canEdit && selectedIds.length>0 && <form className="flex flex-wrap items-center gap-2" onSubmit={e=>submit(e,async d=>batchCourseTemplates({ids:selectedIds,...(d.get("batchCategory")!==""?{category:d.get("batchCategory")}:{}),...(d.get("batchVisibility")?{visibility:d.get("batchVisibility")}: {})}),()=>setSelectedIds([]))}>
             <span>已選 {selectedIds.length} 筆</span><input name="batchCategory" className={button} placeholder="調整分類"/><select name="batchVisibility" className={button}><option value="">狀態不變</option><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select><button className={button} disabled={pending}>套用至選取課程</button>
@@ -977,12 +984,13 @@ export function CourseWorkspace({
                 </tr>
               </thead>
               <tbody className="divide-y divide-earth-100">
-                {filteredItems.map((item) => {
+                {visibleItems.map((item,index) => {
                   const template =
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
+                    <Fragment key={item.id}>
+                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?4:5):7} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用教室":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                     <tr
-                      key={item.id}
                       {...order.rowProps(item.id)}
                       className={(
                         item.isActive && (!template || template.visibility === "PUBLIC")
@@ -1050,8 +1058,10 @@ export function CourseWorkspace({
                         </div>
                       </td>
                     </tr>
+                    </Fragment>
                   );
                 })}
+                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?4:5):7} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用教室":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
               </tbody>
             </table>
             {!filteredItems.length && (
