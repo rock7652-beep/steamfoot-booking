@@ -30,6 +30,7 @@ import {
   syncCourseRelease,
   type CourseActor,
 } from "@/server/services/course-booking";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 const id = z.string().min(1).max(100);
 function refresh() {
@@ -327,6 +328,7 @@ export async function createCourseBooking(input: unknown) {
       { userId: user.id, storeId, name: user.name ?? "店長" },
       bookingInput.extend({allowOverCapacity:z.boolean().optional()}).parse(input),
     );
+    await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" });
     scheduleCourseLowBalanceCheck(storeId,[booking.id]);
     refresh();
     return { success: true as const };
@@ -351,6 +353,9 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
+    for (const booking of bookings) {
+      await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "顧客建立課程預約" });
+    }
     scheduleCourseLowBalanceCheck(storeId,bookings.map(b=>b.id));
     after(async () => {
       const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
@@ -402,6 +407,15 @@ export async function updateCourseBookingStatus(input: unknown) {
         data.status,
         data.noShowChoice,
       );
+    });
+    await recordOperationAudit({
+      actorUserId: actor.userId,
+      storeId: actor.storeId,
+      module: "COURSE",
+      targetType: "CourseBooking",
+      targetId: data.bookingId,
+      action: data.status,
+      summary: ({ CANCELLED: "取消課程預約", ATTENDED: "標記課程出席", CHECKED_IN: "課程報到", NO_SHOW: "標記課程未到", STUDENT_LEAVE: "記錄學員請假" } as const)[data.status],
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);

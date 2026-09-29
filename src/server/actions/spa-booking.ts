@@ -18,6 +18,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { applicableLocations, spaEndTime, staffAvailable, validSpaDate } from "@/lib/spa-scheduling";
 import type { ActionResult } from "@/types";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 const inputSchema = z.object({
   customerId: z.string().min(1), serviceStaffId: z.string().min(1),
@@ -59,7 +60,7 @@ async function authorizedStore(permission: "booking.create" | "booking.update") 
   await assertStoreSubscriptionWritable(storeId);
   const installation = await prisma.storeModuleInstallation.findUnique({ where: { storeId }, select: { status: true } });
   if (installation?.status !== "ACTIVE") throw new AppError("FORBIDDEN", "此店尚未完成服務模組設定");
-  return storeId;
+  return { storeId, user };
 }
 
 function actionError(error: unknown): ActionResult<{ bookingId: string }> {
@@ -171,8 +172,9 @@ export async function createSpaBookingAction(input: CreateSpaBookingInput): Prom
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "預約資料不完整" };
   try {
-    const storeId = await authorizedStore("booking.create");
+    const { storeId, user } = await authorizedStore("booking.create");
     const booking = await saveBooking(storeId, parsed.data);
+    await recordOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "CREATE", summary: "建立服務預約" });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) { return actionError(e); }
@@ -182,8 +184,9 @@ export async function updateSpaBookingAction(input: UpdateSpaBookingInput): Prom
   const parsed = editSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "預約資料不完整" };
   try {
-    const storeId = await authorizedStore("booking.update");
+    const { storeId, user } = await authorizedStore("booking.update");
     const booking = await saveBooking(storeId, parsed.data, parsed.data);
+    await recordOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "UPDATE", summary: "修改服務預約" });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) { return actionError(e); }
@@ -193,7 +196,7 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
   const parsed = cancelSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "預約資料不完整" };
   try {
-    const storeId = await authorizedStore("booking.update");
+    const { storeId, user } = await authorizedStore("booking.update");
     await spaPrisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
       const booking = await tx.spaBooking.findFirst({ where: { id: parsed.data.bookingId, storeId } });
@@ -205,6 +208,7 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
         data: { status: "CANCELLED", cancelledAt: new Date() },
       });
     });
+    await recordOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: parsed.data.bookingId, action: "CANCEL", summary: "取消服務預約" });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: parsed.data.bookingId } };
   } catch (e) { return actionError(e); }
@@ -213,7 +217,7 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
 const groupSchema=z.object({requestKey:z.string().uuid(),customerId:z.string().min(1),guests:z.array(inputSchema).min(2).max(3)}).refine(d=>d.guests.every(g=>g.customerId===d.customerId&&g.bookingDate===d.guests[0].bookingDate),"同行預約須使用同一主要聯絡人與日期").refine(d=>new Set(d.guests.map(g=>g.requestKey)).size===d.guests.length,"同行預約不可重複");
 export async function createSpaGroupBookingAction(input:z.infer<typeof groupSchema>){
  try{
-  const d=groupSchema.parse(input),storeId=await authorizedStore("booking.create"),fingerprint=JSON.stringify(d);
+  const d=groupSchema.parse(input),{storeId,user}=await authorizedStore("booking.create"),fingerprint=JSON.stringify(d);
   const group=await spaPrisma.$transaction(async tx=>{
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
    const previous=await tx.spaBookingGroup.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
@@ -223,6 +227,7 @@ export async function createSpaGroupBookingAction(input:z.infer<typeof groupSche
    for(let i=0;i<d.guests.length;i++)await saveBooking(storeId,d.guests[i],undefined,tx,{id:created.id,index:i+1});
    return created;
   },{timeout:25000});
+  await recordOperationAudit({actorUserId:user.id,storeId,module:"SPA",targetType:"SpaBookingGroup",targetId:group.id,action:"CREATE",summary:"建立同行服務預約"});
   revalidatePath("/dashboard/spa-schedule");return{success:true as const,data:{groupId:group.id}};
  }catch(e){return actionError(e);}
 }

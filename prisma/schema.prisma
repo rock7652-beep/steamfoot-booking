@@ -2128,9 +2128,12 @@ model Reminder {
 model AuditLog {
   id          String   @id @default(cuid())
   actorUserId String
+  storeId     String?
+  module      String?
   targetType  String // e.g. "Customer", "Booking", "Transaction"
   targetId    String
   action      String // e.g. "CREATE", "UPDATE", "DELETE", "TRANSFER"
+  summary     String?
   beforeJson  Json? // 變更前資料快照
   afterJson   Json? // 變更後資料快照
   createdAt   DateTime @default(now())
@@ -2138,6 +2141,7 @@ model AuditLog {
   actor User @relation(fields: [actorUserId], references: [id])
 
   @@index([targetType, targetId])
+  @@index([storeId, module, createdAt])
   @@index([actorUserId])
   @@index([createdAt])
 }

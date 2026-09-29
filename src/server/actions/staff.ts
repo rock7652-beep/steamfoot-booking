@@ -23,6 +23,7 @@ import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 const spaSkillKeys = ["body", "head", "foot", "face"] as const;
 const spaTimePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -471,6 +472,15 @@ export async function updateStaffPermissionsAction(
     });
 
     await updateStaffPermissions(staffId, permissions);
+    await recordOperationAudit({
+      actorUserId: sessionUser.id,
+      storeId: writeStoreId,
+      module: "SHARED",
+      targetType: "StaffPermission",
+      targetId: staffId,
+      action: "UPDATE",
+      summary: "調整人員權限",
+    });
     revalidateStaffPermissions();
     revalidateStaff();
     return { success: true, data: undefined };

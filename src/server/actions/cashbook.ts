@@ -162,9 +162,12 @@ export async function createCashbookEntry(
         await tx.auditLog.create({
           data: {
             actorUserId: user.id,
+            storeId,
+            module: "SHARED",
             targetType: "CashbookEntry",
             targetId: created.id,
             action: "CREATE",
+            summary: "補登已結帳日期的現金收支",
             afterJson: cashbookSnapshot(created),
           },
         });
@@ -270,9 +273,12 @@ export async function updateCashbookEntry(
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          storeId: entry.storeId,
+          module: "SHARED",
           targetType: "CashbookEntry",
           targetId: entryId,
           action: "UPDATE",
+          summary: "修改現金收支",
           beforeJson: cashbookSnapshot(entry),
           afterJson: cashbookSnapshot(updated),
         },
@@ -307,9 +313,12 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          storeId: entry.storeId,
+          module: "SHARED",
           targetType: "CashbookEntry",
           targetId: entryId,
           action: "DELETE",
+          summary: "刪除現金收支",
           beforeJson: cashbookSnapshot(entry),
         },
       });
