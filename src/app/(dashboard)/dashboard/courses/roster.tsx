@@ -113,8 +113,8 @@ export function CourseRoster({
   const bulkPending = pending || savingBookingIds.length > 0;
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
-    "CHECKED_IN" | "ATTENDED" | "NO_SHOW" | "RESERVED"
-  >(musicLayout ? "ATTENDED" : "CHECKED_IN");
+    "ATTENDED" | "NO_SHOW" | "RESERVED"
+  >("ATTENDED");
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; top: number; left: number } | null>(null);
@@ -435,7 +435,6 @@ export function CourseRoster({
   );
   const selectableRows = activeRows.filter((booking) => {
     if (booking.status === "CANCELLED") return false;
-    if (!musicLayout) return true;
     if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
     if (batchTarget === "RESERVED") return booking.status === "ATTENDED" || booking.status === "NO_SHOW";
     if (batchTarget === "NO_SHOW") return booking.status === "RESERVED" || booking.status === "ATTENDED";
@@ -1002,8 +1001,7 @@ export function CourseRoster({
               setBatchTarget(event.target.value as typeof batchTarget);
             }}
           >
-            {!musicLayout && <option value="CHECKED_IN">報到</option>}
-            <option value="ATTENDED">{musicLayout ? "簽到即出席" : "出席"}</option>
+            <option value="ATTENDED">簽到即出席</option>
             <option value="RESERVED">批次恢復待點名</option>
             {musicLayout && <option value="NO_SHOW">批次曠課扣堂</option>}
           </select>
@@ -1012,9 +1010,7 @@ export function CourseRoster({
             className={`${button} border-primary-300 bg-white text-primary-800`}
             disabled={
               bulkPending ||
-              !chosen.length ||
-              (batchTarget === "CHECKED_IN" &&
-                chosen.some((booking) => booking.status !== "RESERVED"))
+              !chosen.length
             }
             onClick={() =>
               run(
@@ -1065,7 +1061,7 @@ export function CourseRoster({
                 {savingBookingIds.includes(booking.id) && <span className="self-center whitespace-nowrap text-xs text-primary-700" role="status">儲存中…</span>}
                 {canEdit && <div className={`flex min-w-0 gap-1 ${largeMusicGroup ? "ml-auto flex-wrap justify-end lg:order-1 lg:flex-nowrap lg:shrink-0" : "ml-auto flex-wrap"}`}>
                   {booking.status === "RESERVED" && !teacherAbsent && <>
-                    <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 記錄出席並扣除本次額度`,[{bookingId:booking.id,status:"ATTENDED"}])}>出席</button>
+                    <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 記錄出席並扣除本次額度`,[{bookingId:booking.id,status:"ATTENDED"}])}>簽到</button>
                     <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,[{bookingId:booking.id,status:"NO_SHOW"}])}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
                     <button className={button} disabled={pending || savingBookingIds.includes(booking.id)} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                   </>}
@@ -1108,14 +1104,14 @@ export function CourseRoster({
 
         </div>
       ) : <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
-        <div className="grid min-w-[1120px] grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+        <div className="grid min-w-[760px] grid-cols-[1.4fr_1.5fr_1fr_0.8fr_2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>學員／電話</span>
           <span>方案／收費</span>
           <span>備註</span>
           <span>狀態</span>
           <span>操作</span>
         </div>
-        <ul className="max-h-[calc(100dvh-25rem)] min-h-48 min-w-[1120px] divide-y overflow-y-auto overscroll-contain">
+        <ul className="max-h-[calc(100dvh-25rem)] min-h-48 min-w-[760px] divide-y overflow-y-auto overscroll-contain">
           {searchedRows.map((booking) => {
             const paid = booking.trialPayments.find(
               (payment) => payment.status === "SUCCESS",
@@ -1128,7 +1124,7 @@ export function CourseRoster({
                   : booking.status === "NO_SHOW"
                     ? "未到"
                     : booking.checkedInAt
-                      ? "已報到"
+                      ? "待簽到結算"
                       : "待點名";
             const statusClass =
               booking.status === "ATTENDED"
@@ -1141,7 +1137,7 @@ export function CourseRoster({
             return (
               <li
                 key={booking.id}
-                className="grid min-h-16 grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
+                className="grid min-h-12 grid-cols-[1.4fr_1.5fr_1fr_0.8fr_2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
               >
                 <div className="flex items-start gap-2">
                   {canEdit && booking.status !== "CANCELLED" && (
@@ -1295,7 +1291,7 @@ export function CourseRoster({
                           )
                         }
                       >
-                        出席
+                        簽到
                       </button>
                       <button
                         className={button}

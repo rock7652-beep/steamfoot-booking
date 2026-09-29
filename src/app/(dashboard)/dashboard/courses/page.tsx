@@ -226,7 +226,7 @@ export default async function CoursesPage({
     ),
   );
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
-  const displayOrders=businessProfile==="MUSIC"?await readCourseOrders(storeId):{};
+  const displayOrders=await readCourseOrders(storeId);
   rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
   coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
   const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));

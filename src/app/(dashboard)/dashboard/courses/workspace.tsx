@@ -241,7 +241,7 @@ export function CourseWorkspace({
   const categories = [
     ...new Set(catalogItems.map((item) => item.category)),
   ].sort();
-  const order=useCourseDisplayOrder("room",allRooms,displayOrder,businessProfile==="MUSIC"&&view==="rooms"&&canEdit&&!query&&status==="all"&&category==="all"&&!hideTestData&&!busyIds.length,r=>r.isActive);
+  const order=useCourseDisplayOrder("room",allRooms,displayOrder,view==="rooms"&&canEdit&&!query&&status==="all"&&category==="all"&&!hideTestData&&!busyIds.length,r=>r.isActive);
   const filteredItems = catalogItems
     .filter(
       (item) =>
@@ -1001,7 +1001,7 @@ export function CourseWorkspace({
                       <td
                         className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
                       >
-                        {businessProfile==="MUSIC"&&view==="rooms"&&canEdit&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
+                        {view==="rooms"&&canEdit&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
                         {template && <span className="ml-2 whitespace-nowrap text-xs font-normal text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="SELF_ORGANIZED"?"自組班":template.classType==="GROUP"?"團體班":"課型待補"}</span>}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">{item.category || "未分類"}</td>
@@ -2205,10 +2205,10 @@ export function CourseWorkspace({
           return (
             <RightSheet
               open
-              presentation={courseDialog.kind === "roster" && businessProfile === "MUSIC" ? "centered" : "side"}
+              presentation="centered"
               fitContent={oneToOneMusicDialog}
               onClose={() => setCourseDialog(null)}
-              width={oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 820 : 560}
+              width={oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
             >
               <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">

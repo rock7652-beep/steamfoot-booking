@@ -479,13 +479,17 @@ export function CourseScheduleBoard({
     element.scrollTo({ left: target, behavior: "smooth" });
   }
 
-  if (mode === "week" && businessProfile === "MUSIC") {
+  // Keep the all-room list when historical sessions have no active room.
+  // A room-only grid must never silently hide those sessions.
+  if (mode === "week" && activeRooms.length > 0 && sessions.every(session => activeRooms.some(room => room.id === session.roomId))) {
     const start = weekStart(selectedDate);
     const dates = Array.from({ length: 7 }, (_, index) => addTaiwanDuration(start, index, "DAY"));
     const roomId = activeRooms.some((room) => room.id === weekRoomId) ? weekRoomId : activeRooms[0]?.id;
     const weekSessions = sessions.filter((session) => session.roomId === roomId && dates.includes(sessionDate(session)));
     const weekTotals = scheduleTotals(weekSessions);
-    const hours = Array.from({ length: 13 }, (_, index) => 9 + index);
+    const firstHour = Math.min(9, ...weekSessions.map(session => Number(hhmm(session.startsAt).slice(0, 2))));
+    const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
+    const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section className="space-y-2" aria-label="教室週課表">
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-800">
@@ -523,7 +527,7 @@ export function CourseScheduleBoard({
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(session) * 50 / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 50 / 60, height: Math.max(21, sessionDurationMinutes(session) * 50 / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly || Boolean(session.previewFaded)} onOpen={() => onOpenSession(session.id, date)} />
                   </div>)}
                 </div>;
@@ -645,13 +649,7 @@ export function CourseScheduleBoard({
   const musicDense = businessProfile === "MUSIC";
   const timetableWidth = musicDense
     ? 64 + resourceCount * musicResourceWidth
-    : resourceCount === 1
-      ? "44%"
-      : resourceCount === 2
-        ? "64%"
-        : resourceCount === 3
-          ? "80%"
-          : "100%";
+    : "100%";
   const timetableMinWidth = musicDense
     ? timetableWidth
     : resourceCount === 1

@@ -53,7 +53,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
   const financeScope=await readMusicFinanceScope(user,storeId);
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
-  const displayOrders=musicEntitlement?await readCourseOrders(storeId):{};
+  const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
   const linkedUserIds=staff.flatMap(s=>s.memberLink ? [s.memberLink.userId]:[]);
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
