@@ -33,14 +33,13 @@ export async function readCourseStaffTeaching(staffId: string) {
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
     id.parse(staffId);
     const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
-    const data = await prisma.$transaction(async tx => {
-      await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
-      const staff = await tx.staff.findFirst({ where: { id: staffId, storeId } });
-      if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
-      const fees = canReadFees ? await tx.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}` : [];
-      const settings=canReadFees ? await tx.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}` : [];
-      return { version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
-    });
+    const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
+    if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
+    const [fees,settings]=canReadFees ? await Promise.all([
+      prisma.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
+      prisma.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
+    ]) : [[],[]] as const;
+    const data={ version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
     return { success: true as const, ...data };
   } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }
 }

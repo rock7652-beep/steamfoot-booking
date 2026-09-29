@@ -106,6 +106,7 @@ export function CourseStaffWorkspace({
   const [tab,setTab]=useState("basic");
   const [readOnly,setReadOnly]=useState(false);
   const [dirty,setDirty]=useState(false);
+  const [teachingDirty,setTeachingDirty]=useState(false);
   const [fees,setFees]=useState<Record<string,TeacherFeeDraft>>({});
   const [musicSettings,setMusicSettings]=useState<MusicTeacherSettings>({defaultRatio:null,subjectRules:{},revision:0});
   const [teachingVersion,setTeachingVersion]=useState<string>();
@@ -123,12 +124,11 @@ export function CourseStaffWorkspace({
     return () => window.removeEventListener("beforeunload", warn);
   }, [open, dirty]);
   useEffect(() => {
-    if (!open || !person || (!canManage && !feeEnabled)) return;
+    if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
     let active = true;
     readCourseStaffTeaching(person.id).then(result => {
       if (!active) return;
       if (!result.success) { setFeesError(result.error); return; }
-      if (person.updatedAt && result.version !== person.updatedAt) { setFeesError("人員資料已變更，請關閉並重新整理頁面後再編輯。"); return; }
       const loadedFees:Record<string,TeacherFeeDraft>=Object.fromEntries(result.fees.map(f => [f.templateId, {
         mode: !f.rules.length && music ? "INHERIT" : f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
         value: f.rules.length === 1 && (f.rules[0].mode === "CLASS" || (music && f.rules[0].mode === "SHARE")) ? String(f.rules[0].value) : "",
@@ -143,7 +143,7 @@ export function CourseStaffWorkspace({
       setFeesReady(true);
     }).catch(() => { if (active) setFeesError("授課費讀取失敗，請重試；尚未覆蓋原設定。"); });
     return () => { active = false; };
-  }, [open, person, canManage, reloadFees, music, feeEnabled]);
+  }, [open, tab, feesReady, person, canManage, reloadFees, music, feeEnabled, templates]);
   const activeCount = staff.filter(p => p.active).length;
   const atLimit = maxStaff !== null && activeCount >= maxStaff;
   const order=useCourseDisplayOrder("staff",staff,displayOrder,music&&canManage&&!search&&filter==="all"&&role==="all"&&!hideTestData&&!busyIds.length,p=>p.active);
@@ -169,7 +169,7 @@ export function CourseStaffWorkspace({
   const currentStaffPage=Math.min(staffPage,staffPages-1);
   function edit(p: Person | null) {
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
-    setDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
+    setDirty(false);setTeachingDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage);
     const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setPermissions((p?.permissions ?? []).filter((permission) => allowed.has(permission)));
@@ -299,13 +299,13 @@ export function CourseStaffWorkspace({
               noValidate
               hidden={readOnly}
               onInvalidCapture={(e)=>{const group=(e.target as HTMLElement).closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);}}
-              onChangeCapture={e=>{if(!(e.target as HTMLElement).closest("[data-browse-control]"))setDirty(true);}}
+              onChangeCapture={e=>{if(!(e.target as HTMLElement).closest("[data-browse-control]")){setDirty(true);if((e.target as HTMLElement).closest('[data-staff-tab="qualifications"]'))setTeachingDirty(true);}}}
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (pending || !feesReady) return;
+                if (pending || (teachingDirty && !feesReady)) return;
 
-                const invalidFee=coachEnabled && feeEnabled && canEditFees ? qualificationIds.find(id=>{if(music&&(!fees[id]||fees[id].mode==="INHERIT"))return false;const raw=fees[id]?.value??"0";const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
+                const invalidFee=teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.find(id=>{if(music&&(!fees[id]||fees[id].mode==="INHERIT"))return false;const raw=fees[id]?.value??"0";const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
 
                 if(invalidFee){setTab("qualifications");setQualificationSearch("");setQualificationScope("all");setQualificationPage(Math.max(0,Math.floor(templates.findIndex(t=>t.id===invalidFee)/10)));setError(`請填寫「${templates.find(t=>t.id===invalidFee)?.name??"課程"}」的每堂授課費（0 至 1,000,000 元，最多兩位小數）。`);return;}
                 const invalid=e.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement>("input:invalid,select:invalid,textarea:invalid");
@@ -324,8 +324,8 @@ export function CourseStaffWorkspace({
                       qualificationsConfirmed: coachEnabled ? (!person || person.qualificationsConfirmed || qualificationsTouched) : person?.qualificationsConfirmed ?? false,
                       teachingVersion,
 
-                      musicSettings: music && coachEnabled && feeEnabled && canEditFees ? musicSettings : undefined,
-                      teachingFees: coachEnabled && feeEnabled && canEditFees ? qualificationIds.map(templateId => ({templateId, value: music && (!fees[templateId] || fees[templateId].mode==="INHERIT") ? null : {mode: fees[templateId]?.mode??"CLASS", value: Number(fees[templateId]?.value ?? "0")}, revision: fees[templateId]?.revision ?? 0})) : undefined,
+                      musicSettings: teachingDirty && music && coachEnabled && feeEnabled && canEditFees ? musicSettings : undefined,
+                      teachingFees: teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.map(templateId => ({templateId, value: music && (!fees[templateId] || fees[templateId].mode==="INHERIT") ? null : {mode: fees[templateId]?.mode??"CLASS", value: Number(fees[templateId]?.value ?? "0")}, revision: fees[templateId]?.revision ?? 0})) : undefined,
 
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
@@ -367,7 +367,7 @@ export function CourseStaffWorkspace({
                 });
               }}
             >
-              <fieldset disabled={readOnly || pending || !feesReady} className="contents">
+              <fieldset disabled={readOnly || pending} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
               <label className="block">
                 姓名（必填）
@@ -421,7 +421,7 @@ export function CourseStaffWorkspace({
                   {!music&&<div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
                   <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">全部課程（{templates.length}）</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>}
                   {!music&&<p className="text-sm text-earth-500">已選 {qualificationIds.length} 項 · 篩選及換頁會保留未儲存的費用</p>}
-                  {music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);}} onFees={v=>{setFees(v);setDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setQualificationIds(ids=>selected?[...ids,id]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
+                  {feeEnabled&&!feesReady ? <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p> : music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);setTeachingDirty(true);}} onFees={v=>{setFees(v);setDirty(true);setTeachingDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setDirty(true);setTeachingDirty(true);setQualificationIds(ids=>selected?[...new Set([...ids,id])]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
                       return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,17rem)] items-center gap-3 px-3 py-2">
@@ -561,14 +561,13 @@ export function CourseStaffWorkspace({
             </form>
           </div>
           <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
-            {canManage && !feesReady && <p role="status" className="mb-2 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p>}
             {readOnly ? <button key="edit" type="button" className={button} disabled={!canManage} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <>
             <div className="flex gap-2"><button type="button" className={button} disabled={pending} onClick={close}>取消</button>
             <button
               form="course-staff-form"
               type="submit"
               className={`${button} min-w-0 flex-1 !border-primary-700 !bg-primary-700 !text-white`}
-              disabled={pending || !feesReady || (!!person && !dirty)}
+              disabled={pending || (teachingDirty && !feesReady) || (!!person && !dirty)}
             >
               {pending ? "儲存中…" : "儲存變更"}
             </button>
