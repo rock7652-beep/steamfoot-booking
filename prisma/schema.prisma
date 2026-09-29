@@ -642,6 +642,7 @@ model Store {
   digitalButlerExecutionLogs  DigitalButlerExecutionLog[]
 
   staff                             Staff[]
+  courseStaffPersonLinks           CourseStaffPersonLink[]
   staffMemberLinks                  StaffMemberLink[]
   customers                         Customer[]
   customerIdentityLinks             CustomerIdentityLink[]
@@ -997,6 +998,7 @@ model StoreSettlement {
 // ============================================================
 
 model Staff {
+  courseDefaultClassFee         Decimal?    @db.Decimal(10, 0) // 運動教室每堂預設授課費；空白與 0 元不同
   courseCoachEnabled            Boolean     @default(false)
   courseQualificationsConfirmed Boolean     @default(false)
   courseQualifiedTemplateIds    String[]    @default([])
@@ -1053,6 +1055,8 @@ model Staff {
 
   // 會員登入與營運人員紀錄分離。連結不改寫 Staff.userId，避免破壞舊預約、排班與結算關係。
   memberLink StaffMemberLink?
+  courseManagerPersonLink CourseStaffPersonLink? @relation("CourseManagerPerson")
+  courseInstructorPersonLink CourseStaffPersonLink? @relation("CourseInstructorPerson")
 
   // 註銷的單堂明細
   voidedSessions WalletSession[] @relation("VoidedSessions")
@@ -1084,6 +1088,25 @@ model StaffMemberLink {
   @@unique([userId, storeId], name: "uq_staff_member_link_user_store")
   @@index([storeId, revokedAt])
   @@index([userId])
+}
+
+// Optional association between two independent work identities at the same store.
+// This never grants access or changes the instructor's member/LINE login.
+model CourseStaffPersonLink {
+  id String @id @default(cuid())
+  storeId String
+  managerStaffId String
+  instructorStaffId String
+  linkedByUserId String?
+  createdAt DateTime @default(now())
+
+  manager Staff @relation("CourseManagerPerson", fields: [managerStaffId, storeId], references: [id, storeId], onDelete: Restrict)
+  instructor Staff @relation("CourseInstructorPerson", fields: [instructorStaffId, storeId], references: [id, storeId], onDelete: Restrict)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@index([storeId])
+  @@unique([managerStaffId, storeId])
+  @@unique([instructorStaffId, storeId])
 }
 
 // ============================================================
