@@ -22,6 +22,10 @@ export async function batchCourseStatus(input: unknown) {
         const rows=await tx.$queryRaw<Array<{id:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店人員，未變更任何資料");
         if(!d.active && ids.includes(user.staffId ?? "")) throw new AppError("FORBIDDEN","不能停用自己，請取消勾選本人");
+        if(!d.active) {
+          const unfinished=await tx.courseSession.groupBy({by:["coachId"],where:{storeId,coachId:{in:ids},cancelledAt:null,endsAt:{gt:new Date()}},_count:{_all:true}});
+          if(unfinished.length) throw new AppError("CONFLICT",`仍有 ${unfinished.reduce((sum,row)=>sum+row._count._all,0)} 堂未結束課次，請先完成改派或取消後再停用`);
+        }
         if(d.active && rows.some(r=>r.status!=="ACTIVE") && limits?.maxStaff!=null) {
           const [r]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) FROM "Staff" WHERE "storeId"=${storeId} AND status::text='ACTIVE'`;
           if(Number(r.count)+rows.filter(r=>r.status!=="ACTIVE").length>limits.maxStaff) throw new AppError("FORBIDDEN","啟用後超過人員上限，未變更任何資料");
@@ -31,6 +35,7 @@ export async function batchCourseStatus(input: unknown) {
         if(!d.active) await tx.$executeRaw`UPDATE "StaffMemberLink" SET "revokedAt"=NOW() WHERE "storeId"=${storeId} AND "staffId"=ANY(${ids}::text[])`;
         // Reactivation follows the individual editor, including coach-work access.
         else {const coaches=rows.filter(r=>r.courseCoachEnabled).map(r=>r.id);if(coaches.length) await tx.$executeRaw`UPDATE "StaffMemberLink" SET "revokedAt"=NULL WHERE "storeId"=${storeId} AND "staffId"=ANY(${coaches}::text[])`;}
+        await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffBatch',${ids.join(',')},'STATUS_UPDATE',${JSON.stringify(rows.map(r=>({id:r.id,status:r.status})))}::jsonb,${JSON.stringify({storeId,ids,status:d.active?"ACTIVE":"INACTIVE"})}::jsonb,now())`;
       } else if(d.kind==="room") {
         const rows=await tx.courseRoom.findMany({where:{storeId,id:{in:ids}},select:{id:true}});
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店教室");

@@ -135,6 +135,11 @@ export async function saveCourseStaff(input: unknown) {
           if(rows.length!==qualificationIds.length) throw new AppError("FORBIDDEN","授課資格包含非本店課程");
         }
         if(existing?.status === "ACTIVE" && !d.active && !d.confirmDeactivate) throw new AppError("CONFLICT","請確認停用：所有工作存取立即撤銷，既有課次保留待交接");
+        if(existing?.status === "ACTIVE" && !d.active) {
+          const [impact]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP`;
+          const unfinished=Number(impact?.count??0);
+          if(unfinished) throw new AppError("CONFLICT",`仍有 ${unfinished} 堂未結束課次，請先完成改派或取消後再停用`);
+        }
         const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
         if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || removed.length)) {
           const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
@@ -202,6 +207,7 @@ export async function saveCourseStaff(input: unknown) {
             );
         }
         if (existing) {
+          const beforeStaff={displayName:existing.displayName,status:existing.status,phone:existing.phone,courseBirthday:existing.courseBirthday,emergencyContactName:existing.emergencyContactName,emergencyContactPhone:existing.emergencyContactPhone,emergencyContactRelation:existing.emergencyContactRelation,courseCoachEnabled:existing.courseCoachEnabled,courseQualifiedTemplateIds:existing.courseQualifiedTemplateIds};
           await tx.staff.update({
             where: { id: existing.id },
             data: {
@@ -219,6 +225,7 @@ export async function saveCourseStaff(input: unknown) {
               where: { id: existing.userId },
               data: { name: d.name, ...(d.active?{status:"ACTIVE" as const}:{}), ...(d.email ? { email: d.email } : {}), ...(passwordHash ? { passwordHash } : {}) },
             });
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'Staff',${staffId},'UPDATE',${JSON.stringify(beforeStaff)}::jsonb,${JSON.stringify({storeId,displayName:d.name,status:d.active?"ACTIVE":"INACTIVE",...contacts,...courseFields})}::jsonb,now())`;
         } else
           await tx.user.create({
             data: {
@@ -270,6 +277,7 @@ export async function saveCourseStaff(input: unknown) {
             if(d.financeTeacherIds===undefined)d.financeTeacherIds=existingScope[0]?.teacherIds??null;
             if(existing?.isOwner && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
             const teacherIds=d.financeTeacherIds===null?null:[...new Set(d.financeTeacherIds)];
+            if(teacherIds!==null && granted.includes("teacher.settlement.confirm"))throw new AppError("VALIDATION","確認全店月結需要全店教師範圍；請改選全店或關閉該權限");
             const actorScope=await readMusicFinanceScope(user,storeId);
             if(actorScope!==null && (teacherIds===null || teacherIds.some(id=>!actorScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");
             if(teacherIds?.length){const found=await tx.staff.count({where:{storeId,id:{in:teacherIds},courseCoachEnabled:true}});if(found!==teacherIds.length)throw new AppError("FORBIDDEN","指定教師包含非本店教師");}

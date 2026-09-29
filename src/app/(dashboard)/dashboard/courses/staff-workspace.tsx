@@ -115,6 +115,12 @@ export function CourseStaffWorkspace({
   const [pending, start] = useTransition();
   const router = useRouter();
   useEffect(() => {
+    if (!open || !dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [open, dirty]);
+  useEffect(() => {
     if (!open || !person || (!canManage && !feeEnabled)) return;
     let active = true;
     readCourseStaffTeaching(person.id).then(result => {
@@ -265,7 +271,7 @@ export function CourseStaffWorkspace({
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
             <h2 id="course-staff-title" className="font-semibold">
-              {person ? (readOnly ? "查看人員":"編輯人員") : "新增人員"}
+              {person ? (readOnly ? (music && accountKind==="coach" ? "查看教師":"查看人員"):(music && accountKind==="coach" ? "編輯教師":"編輯人員")) : (music && accountKind==="coach" ? "新增教師":"新增人員")}
             </h2>
             <button
               className={button}
@@ -275,7 +281,7 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?"授課費設定":"授課資格"],["work","工作與授課安排"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work","工作與授課安排"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : (music?"店務使用信箱登入，教師另建帳號並連結 LINE 會員。":"同一人兼任店長與教練只計一位。")}</p>}
             <CourseConflicts items={conflicts}/>
@@ -409,7 +415,8 @@ export function CourseStaffWorkspace({
                 <section className="space-y-2">
 
                   <h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>
-                  <p className="text-sm text-earth-600">勾選可教授課程並填費用，最後一次儲存。0 元表示不另計；變更適用新排課，既有課次不變。</p>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><strong>生效範圍：</strong>儲存後只套用新建立的課次；已排定課次沿用原本的費用快照，不會回溯改動。若需調整既有未來課次，請先個別核對後重新排課。</div>
+                  <p className="text-sm text-earth-600">勾選可教授課程並設定計酬，最後一次儲存。「0 元」代表這項課程不計授課費。</p>
 
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   <div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
@@ -466,7 +473,7 @@ export function CourseStaffWorkspace({
                 {person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
-                {music&&<fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="text-xs text-earth-500">仍需開啟下方拆帳或月結權限；指定範圍不包含全店月結確認。</p></fieldset>}
+                {music&&<fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="rounded bg-earth-50 p-2 text-sm text-earth-700">目前可查看：{financeTeacherIds===null?"全店教師":financeTeacherIds.length?teacherChoices.filter(t=>financeTeacherIds.includes(t.id)).map(t=>t.name).join("、"):"尚未選擇教師"}。實際能查看或操作哪些資料，仍以下方拆帳／月結權限為準。</p>{financeTeacherIds!==null&&permissions.includes("teacher.settlement.confirm")&&<p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-900">「確認全店月結」需要全店教師範圍；目前指定教師範圍只可查看授權教師，請改選全店或關閉該權限。</p>}</fieldset>}
 
               {kind === "manager" && (
                   <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
