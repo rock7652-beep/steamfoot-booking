@@ -31,7 +31,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireCourseStore(storeId);
-  const [staff, canManage, templates, handover, limits, musicEntitlement] = await Promise.all([
+  const [staff, canManage, templates, handover, limits, musicEntitlement, personLinks] = await Promise.all([
     prisma.staff.findMany({
       where: { storeId },
       include: {
@@ -48,8 +48,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,endsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
+    prisma.courseStaffPersonLink.findMany({where:{storeId},select:{managerStaffId:true,instructorStaffId:true}}),
   ]);
-  if(teachers && !musicEntitlement)notFound();
   const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
   const financeScope=await readMusicFinanceScope(user,storeId);
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
@@ -59,13 +59,14 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
-      <PageHeader title={teachers?"教師管理":"人員管理"} />
+      <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
 
       <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={await canMusicFinance(user,storeId,"teacher.compensation.manage")}
         financeScope={financeScope}
         teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}
-        accountKind={musicEntitlement?(teachers?"coach":"manager"):undefined}
+        accountKind={teachers?"coach":"manager"}
+        counterpartChoices={staff.filter(s=>teachers?s.user.role!=="CUSTOMER":s.user.role==="CUSTOMER").map(s=>({id:s.id,name:s.displayName,phone:s.phone,birthday:s.courseBirthday?.toISOString().slice(0,10)??"",emergencyContactName:s.emergencyContactName,emergencyContactPhone:s.emergencyContactPhone,emergencyContactRelation:s.emergencyContactRelation,linked:personLinks.some(l=>l.managerStaffId===s.id||l.instructorStaffId===s.id)}))}
 
         maxStaff={limits.maxStaff}
         templates={templates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,subjectName:t.musicSubject?.name}))}
@@ -82,11 +83,14 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
               })),
           }))
           .filter((g) => g.codes.length)}
-        staff={staff.filter(s=>!musicEntitlement || (teachers?(s.user.role==="CUSTOMER"||s.courseCoachEnabled):s.user.role!=="CUSTOMER")).map((s) => ({
+        staff={staff.filter(s=>teachers?s.user.role==="CUSTOMER":s.user.role!=="CUSTOMER").map((s) => ({
           id: s.id,
+          linkedStaffId:teachers?personLinks.find(l=>l.instructorStaffId===s.id)?.managerStaffId??"":personLinks.find(l=>l.managerStaffId===s.id)?.instructorStaffId??"",
+          linkedStaffName:teachers?staff.find(other=>other.id===personLinks.find(l=>l.instructorStaffId===s.id)?.managerStaffId)?.displayName??"":staff.find(other=>other.id===personLinks.find(l=>l.managerStaffId===s.id)?.instructorStaffId)?.displayName??"",
           financeTeacherIds:financeRows.find(f=>f.staffId===s.id)?.teacherIds??null,
           name: s.displayName,
           phone: s.phone,
+          defaultClassFee:s.courseDefaultClassFee?.toString()??"",
           contactEmail:s.user.email ?? "",
           notificationsEnabled:!!s.memberLink && !s.memberLink.revokedAt,
           coachEnabled:s.courseCoachEnabled,

@@ -17,10 +17,13 @@ import { RightSheet } from "@/components/admin/right-sheet";
 
 import { readCourseStaffTeaching, saveCourseStaff } from "@/server/actions/course-staff";
 type Person = {
+  linkedStaffId?:string;
+  linkedStaffName?:string;
   financeTeacherIds?:string[]|null;
   updatedAt?: string;
   coachLoginReady:boolean;
   coachEnabled:boolean;
+  defaultClassFee?:string;
   qualificationIds:string[];
   qualificationsConfirmed:boolean;
   birthday:string;
@@ -47,6 +50,7 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  counterpartChoices=[],
   displayOrder,
   financeScope=null,
   teacherChoices=[],
@@ -61,6 +65,7 @@ export function CourseStaffWorkspace({
   permissionGroups,
   music = false,
 }: {
+  counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
   teacherChoices?:{id:string;name:string}[];
   displayOrder?:CourseOrderSnapshot;
@@ -81,6 +86,8 @@ export function CourseStaffWorkspace({
   const [staffPage,setStaffPage]=useState(0);
   const [showInactive,setShowInactive]=useState(false);
   const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceStaff,"active");
+  const [linkedStaffId,setLinkedStaffId]=useState("");
+  const selectedCounterpart=counterpartChoices.find(c=>c.id===linkedStaffId);
  const [hideTestData,setHideTestData]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const [search, setSearch] = useState(""),
@@ -131,7 +138,7 @@ export function CourseStaffWorkspace({
       if (!active) return;
       if (!result.success) { setFeesError(result.error); return; }
       const loadedFees:Record<string,TeacherFeeDraft>=Object.fromEntries(result.fees.map(f => [f.templateId, {
-        mode: !f.rules.length && music ? "INHERIT" : f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
+        mode: !f.rules.length ? "INHERIT" : f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
         value: f.rules.length === 1 && (f.rules[0].mode === "CLASS" || (music && f.rules[0].mode === "SHARE")) ? String(f.rules[0].value) : "",
         revision: f.revision,
       }]));
@@ -173,6 +180,7 @@ export function CourseStaffWorkspace({
   const currentStaffPage=Math.min(staffPage,staffPages-1);
   const visibleRows=[...activeRows.slice(currentStaffPage*20,(currentStaffPage+1)*20),...(inactiveExpanded?inactiveRows:[])];
   function edit(p: Person | null) {
+    setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
     setDirty(false);setTeachingDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage);
@@ -207,7 +215,7 @@ export function CourseStaffWorkspace({
         >
           <option value="all">全部角色</option>
           <option value="manager">店長</option>
-          <option value="coach">{music?"老師":"教練"}</option><option value="both">{music?"店長兼老師":"店長兼教練"}</option>
+          <option value="coach">{music?"老師":"教練"}</option>{staff.some(s=>s.kind==="manager"&&s.coachEnabled)&&<option value="both">舊資料兼任（待拆分）</option>}
         </select>
         <select
           className={button}
@@ -222,7 +230,7 @@ export function CourseStaffWorkspace({
 
         {canManage && (
           <button className={button} onClick={() => edit(null)}>
-            {accountKind==="coach"?"新增教師":"新增人員"}
+            {accountKind==="coach"?(music?"新增教師":"新增教練"):"新增人員"}
           </button>
         )}
       </div>
@@ -277,7 +285,7 @@ export function CourseStaffWorkspace({
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
             <h2 id="course-staff-title" className="font-semibold">
-              {person ? (readOnly ? (music && accountKind==="coach" ? "查看教師":"查看人員"):(music && accountKind==="coach" ? "編輯教師":"編輯人員")) : (music && accountKind==="coach" ? "新增教師":"新增人員")}
+              {person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":"查看教練"):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":"編輯教練"):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":"新增教練"):"新增人員")}
             </h2>
             <button
               className={button}
@@ -289,7 +297,7 @@ export function CourseStaffWorkspace({
           </header>
           <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work","工作與授課安排"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-            {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : (music?"店務使用信箱登入，教師另建帳號並連結 LINE 會員。":"同一人兼任店長與教練只計一位。")}</p>}
+            {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":"教練"}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -313,18 +321,20 @@ export function CourseStaffWorkspace({
                 e.preventDefault();
                 if (pending || (teachingDirty && !feesReady)) return;
 
-                const invalidFee=teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.find(id=>{if(music&&(!fees[id]||fees[id].mode==="INHERIT"))return false;const raw=fees[id]?.value??"0";const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
+                const invalidFee=teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.find(id=>{if(!fees[id]||fees[id].mode==="INHERIT")return false;const raw=fees[id].value;const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
 
                 if(invalidFee){setTab("qualifications");setQualificationSearch("");setQualificationScope("all");setQualificationPage(Math.max(0,Math.floor(templates.findIndex(t=>t.id===invalidFee)/10)));setError(`請填寫「${templates.find(t=>t.id===invalidFee)?.name??"課程"}」的每堂授課費（0 至 1,000,000 元，最多兩位小數）。`);return;}
                 const invalid=e.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement>("input:invalid,select:invalid,textarea:invalid");
                 if(invalid){const group=invalid.closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);setQualificationSearch("");requestAnimationFrame(()=>invalid.reportValidity());return;}
                 const d = new FormData(e.currentTarget);
                 const deactivating=person?.active && d.get("active")==="no";
+                if(person?.linkedStaffId && !linkedStaffId && !window.confirm("確定解除同一人連結？兩個身分及過往紀錄都會保留。"))return;
                 if(deactivating && !window.confirm(`確認停用？立即撤銷所有工作存取，${person.assignments.length} 堂未結束課次保留待交接；會員與歷史不變。`)) return;
                 start(async () => {
                   try {
                     const r = await saveCourseStaff({
                       id: person?.id,
+                      linkedStaffId,
                       name: d.get("name"),
                       kind,
                       coachEnabled,
@@ -333,12 +343,13 @@ export function CourseStaffWorkspace({
                       teachingVersion,
 
                       musicSettings: teachingDirty && music && coachEnabled && feeEnabled && canEditFees ? musicSettings : undefined,
-                      teachingFees: teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.map(templateId => ({templateId, value: music && (!fees[templateId] || fees[templateId].mode==="INHERIT") ? null : {mode: fees[templateId]?.mode??"CLASS", value: Number(fees[templateId]?.value ?? "0")}, revision: fees[templateId]?.revision ?? 0})) : undefined,
+                      teachingFees: teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.map(templateId => ({templateId, value: !fees[templateId] || fees[templateId].mode==="INHERIT" ? null : {mode: fees[templateId].mode, value: Number(fees[templateId].value)}, revision: fees[templateId]?.revision ?? 0})) : undefined,
 
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
                       phone: d.get("phone"),
+                      defaultClassFee:!music&&kind==="coach"&&feeEnabled&&canEditFees ? (d.get("defaultClassFee") ? Number(d.get("defaultClassFee")) : null) : undefined,
                       contactEmail: kind === "coach" ? d.get("contactEmail") : undefined,
                       emergencyContactName: d.get("emergencyContactName"),
                       emergencyContactPhone: d.get("emergencyContactPhone"),
@@ -377,12 +388,21 @@ export function CourseStaffWorkspace({
             >
               <fieldset disabled={readOnly || pending} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
+              <label className="col-span-full block">連結同一人（選填）
+                <select className={field} aria-label="連結既有身分" value={linkedStaffId} onChange={e=>{setLinkedStaffId(e.target.value);setDirty(true);}}>
+                  <option value="">不連結</option>
+                  {counterpartChoices.filter(c=>!c.linked||c.id===person?.linkedStaffId).map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?`（${c.phone}）`:""}</option>)}
+                </select>
+                <span className="text-xs text-earth-500">請核對是本店同一人。登入、授課設定及後台權限仍各自獨立。</span>
+              </label>
+              {person?.linkedStaffId&&<p className="col-span-full text-sm text-primary-800">已連結：{person.linkedStaffName}。解除連結不會刪除身分或紀錄。</p>}
               <label className="block">
                 姓名（必填）
                 <input
                   className={field}
                   name="name"
-                  defaultValue={person?.name}
+                  key={`name:${linkedStaffId}`}
+                  defaultValue={person?.name??selectedCounterpart?.name}
                   required
                 />
               </label>
@@ -398,14 +418,14 @@ export function CourseStaffWorkspace({
                   <option value="manager">店長：後台管理</option>
                 </select>
               </label>
-              {kind === "manager" && !music && <label className="col-span-full flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>{music?"兼任老師":"兼任教練"}</label>}
-              <label className="block">生日（選填）<input className={field} type="date" name="birthday" defaultValue={person?.birthday}/></label>
+              {kind === "manager" && coachEnabled && <label className="col-span-full flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>舊資料兼任授課：交接後可關閉，往後請另建{music?"老師":"教練"}身分</label>}
+              <label className="block">生日（選填）<input key={`birthday:${linkedStaffId}`} className={field} type="date" name="birthday" defaultValue={person?.birthday??selectedCounterpart?.birthday}/></label>
               {([
                 ["phone", "電話"],
                 ["emergencyContactName", "緊急聯絡人姓名"],
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
-              ] as const).map(([name, label]) => <label className="block" key={name}>{label}{name!=="phone" ? (!person ? "（必填）" : !person[name] ? "（待補）" : "") : "（選填）"}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} required={!person && name!=="phone"} /></label>)}
+              ] as const).map(([name, label]) => <label className="block" key={name}>{label}{name!=="phone" ? (!person ? "（必填）" : !person[name] ? "（待補）" : "") : "（選填）"}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} required={!person && name!=="phone"} /></label>)}
               {kind==="coach"&&<><label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label><div className="self-end rounded-lg bg-earth-50 px-3 py-2 text-sm"><strong>系統通知</strong><span className="ml-2 text-earth-600">{person?.coachLoginReady?"已開啟":"連結 LINE 後自動開啟"}</span></div></>}
               <label className="block">
                 狀態
@@ -424,6 +444,7 @@ export function CourseStaffWorkspace({
 
                   <h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>
                   <p className="text-xs text-earth-500">套用新課次　ⓘ</p>
+                  {!music && feeEnabled && canEditFees && <label className="block max-w-xs text-sm">教練預設授課費（選填，元／堂）<input className={field} type="number" name="defaultClassFee" min="0" max="1000000" step="1" placeholder="未設定" defaultValue={person?.defaultClassFee??""}/><span className="text-xs text-earth-500">各課程留空時沿用此費用；預設也留空則月結顯示待核對。明確填 0 才表示 0 元。</span></label>}
 
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   {!music&&<div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
@@ -435,7 +456,7 @@ export function CourseStaffWorkspace({
                       return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,17rem)] items-center gap-3 px-3 py-2">
                         <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>
 
-                        {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" required value={fees[t.id]?.value ?? "0"} onChange={e=>setFees(old=>({...old,[t.id]:{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
+                        {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
 
                       </div>;
                     })}
