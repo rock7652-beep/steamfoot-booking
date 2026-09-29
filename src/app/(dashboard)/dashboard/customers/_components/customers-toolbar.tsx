@@ -99,7 +99,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   // Local suggestions are immediate; serialize list navigations and retain the
   // latest input while the previous server-rendered list is still pending.
   useEffect(() => {
-    if ((!instantStoreId && !courseMode) || composing || isPending || instantQuery === current.search) return;
+    if (composing || isPending || instantQuery === current.search) return;
     const params = new URLSearchParams(latestParams.current.toString());
     if (instantQuery) params.set("search", instantQuery);
     else params.delete("search");
@@ -109,7 +109,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
     const timer = setTimeout(() => {
       lastListRequest.current = url;
       startTransition(() => router.replace(url, { scroll: false }));
-    }, courseMode ? 250 : 0);
+    }, 250);
     return () => clearTimeout(timer);
   }, [instantStoreId, courseMode, composing, isPending, instantQuery, current.search, searchParams, pathname, router]);
 
