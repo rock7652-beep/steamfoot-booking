@@ -88,6 +88,7 @@ import { isWalletUsableForServiceDate } from "@/lib/wallet-booking-integrity";
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 async function assertStaffBookingWritable(
   user: Awaited<ReturnType<typeof requireSession>>,
@@ -810,6 +811,12 @@ export async function createBooking(
         });
       }
 
+      await recordOperationAudit({
+        actorUserId: user.id, storeId, module: "STEAM", targetType: "Booking",
+        targetId: created.id, action: "CREATE",
+        summary: user.role === "CUSTOMER" ? "顧客建立預約" : "建立預約",
+      }, tx);
+
       return created;
     });
 
@@ -1073,6 +1080,11 @@ export async function updateBooking(
       });
     }
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "UPDATE", summary: "修改預約",
+    });
+
     revalidateAll();
     return { success: true, data: undefined };
   } catch (e) {
@@ -1170,6 +1182,12 @@ export async function cancelBooking(
       // 釋放單堂明細 RESERVED → AVAILABLE（補課 / 舊資料無 row 則 no-op）
       // multi-person：對該 booking 的全部 RESERVED row 操作
       await releaseSessions(tx, bookingId);
+
+      await recordOperationAudit({
+        actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+        targetType: "Booking", targetId: bookingId, action: "CANCEL", summary: "取消預約",
+        after: note ? { reason: note } : undefined,
+      }, tx);
     });
 
     revalidateAll(booking.customerId);
@@ -1594,6 +1612,10 @@ export async function markCompleted(
       // 埋點失敗不影響主流程
     }
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "COMPLETE", summary: "完成服務",
+    });
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {
@@ -1781,6 +1803,11 @@ export async function markNoShow(
       }
     });
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "NO_SHOW", summary: "標記未到",
+      after: { policy: dbPolicy, makeupGranted: shouldGrantMakeup },
+    });
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {
@@ -2051,6 +2078,11 @@ export async function revertBookingStatus(
       }
     }));
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "REVERT", summary: "恢復為待到店",
+      before: { status: st }, after: { status: "PENDING" },
+    });
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {

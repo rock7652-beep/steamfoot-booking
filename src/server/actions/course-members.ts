@@ -30,6 +30,7 @@ import {
   syncCourseRelease,
   type CourseActor,
 } from "@/server/services/course-booking";
+import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 
 const id = z.string().min(1).max(100);
 function refresh() {
@@ -327,6 +328,7 @@ export async function createCourseBooking(input: unknown) {
       { userId: user.id, storeId, name: user.name ?? "店長" },
       bookingInput.extend({allowOverCapacity:z.boolean().optional()}).parse(input),
     );
+    await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" });
     scheduleCourseLowBalanceCheck(storeId,[booking.id]);
     refresh();
     return { success: true as const };
@@ -351,6 +353,9 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
+    for (const booking of bookings) {
+      await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "顧客建立課程預約" });
+    }
     scheduleCourseLowBalanceCheck(storeId,bookings.map(b=>b.id));
     after(async () => {
       const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
@@ -402,6 +407,15 @@ export async function updateCourseBookingStatus(input: unknown) {
         data.status,
         data.noShowChoice,
       );
+    });
+    await recordOperationAudit({
+      actorUserId: actor.userId,
+      storeId: actor.storeId,
+      module: "COURSE",
+      targetType: "CourseBooking",
+      targetId: data.bookingId,
+      action: data.status,
+      summary: ({ CANCELLED: "取消課程預約", ATTENDED: "標記課程出席", CHECKED_IN: "課程報到", NO_SHOW: "標記課程未到", STUDENT_LEAVE: "記錄學員請假" } as const)[data.status],
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
@@ -739,6 +753,13 @@ export async function updateCourseRosterBatch(input: unknown) {
       writeMs = Date.now() - writeStartedAt;
     });
     transactionMs = Date.now() - transactionStartedAt;
+    for (const booking of data.bookings) {
+      await recordOperationAuditBestEffort({
+        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        targetId: booking.id, action: data.target,
+        summary: ({ CHECKED_IN: "課程報到", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到", RESERVED: "恢復待點名" } as const)[data.target],
+      });
+    }
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     const refreshStartedAt = Date.now();
     if (!(await musicLookup)) refresh();
@@ -777,6 +798,13 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
     });
+    for (const booking of data.bookings) {
+      await recordOperationAuditBestEffort({
+        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        targetId: booking.id, action: data.target,
+        summary: ({ RESERVED: "恢復待點名", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到" } as const)[data.target],
+      });
+    }
     scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();return {success:true as const};
   }catch(error){return handleActionError(error);}
@@ -791,7 +819,7 @@ export async function saveCourseLeaveNote(input: unknown) {
       if(!booking)throw new AppError("CONFLICT","請假狀態已變更，請重新核對");
       if(booking.notes===data.note)return;
       await tx.courseBooking.update({where:{id:booking.id},data:{notes:data.note}});
-      await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseBooking',${booking.id},'COURSE_LEAVE_NOTE',${JSON.stringify({storeId,note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;
+      await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,"targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${storeId},'COURSE','CourseBooking',${booking.id},'COURSE_LEAVE_NOTE','修改請假備註',${JSON.stringify({note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;
     });
     refresh();return {success:true as const};
   }catch(error){return handleActionError(error);}

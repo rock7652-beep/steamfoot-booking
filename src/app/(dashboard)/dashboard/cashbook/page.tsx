@@ -42,6 +42,7 @@ import type { CashbookEntryType } from "@prisma/client";
 import { CashDrawerWorkspace } from "../cash-drawer/cash-drawer-workspace";
 import { CashbookEntryDeleteButton } from "./cashbook-entry-delete-button";
 import { CashbookRecordFilters } from "./_components/cashbook-record-filters";
+import { OperationHistoryButton } from "@/components/operation-history-button";
 
 const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
   INCOME: "收入",
@@ -376,6 +377,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <div className="flex items-center gap-3">
+                          <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
                           {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"

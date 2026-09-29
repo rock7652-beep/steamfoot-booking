@@ -33,6 +33,7 @@ import {
 } from "@/server/actions/course-members";
 import type { CourseCardView } from "./member-workspace";
 import type { getCourseRoster } from "@/server/queries/course-members";
+import { OperationHistoryButton } from "@/components/operation-history-button";
 
 const button =
   "min-h-10 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-sm disabled:opacity-50";
@@ -1052,6 +1053,7 @@ export function CourseRoster({
                    {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
                   {largeMusicGroup && <a className="whitespace-nowrap text-xs text-primary-700 hover:underline" href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}>{booking.customerPhone || "未填電話"}</a>}
                   {largeMusicGroup && canEdit && <button type="button" className="max-w-[11rem] min-w-0 truncate whitespace-nowrap text-left text-xs text-primary-700 underline underline-offset-2" title={booking.notes || "新增備註"} onClick={() => {setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>{booking.notes?.trim() ? `備註：${booking.notes.trim().replace(/\s+/g, " ")}` : "備註"}</button>}
+                  {canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={booking.id} />}
                 </div>
                 {!largeMusicGroup && <div className="min-w-0 text-xs text-earth-600">
                   <a className="text-primary-700 hover:underline" href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}>{booking.customerPhone || "未填電話"}</a>
@@ -1252,6 +1254,7 @@ export function CourseRoster({
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={booking.id} />}
                   {allowTrialActions &&
                     trial?.canCollect &&
                     paid &&

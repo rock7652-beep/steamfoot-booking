@@ -1,6 +1,7 @@
 import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
 import { SPA_PAYMENT_LABELS } from "@/lib/spa-payment-methods";
 import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
+import { OperationHistoryButton } from "@/components/operation-history-button";
 
 export function SpaBookingSummary({
   booking,
@@ -37,6 +38,9 @@ export function SpaBookingSummary({
         <p className="mt-3 font-semibold">
           預約金額 NT${booking.totalPrice.toLocaleString("zh-TW")}
         </p>
+        <div className="mt-3 border-t border-earth-200 pt-3">
+          <OperationHistoryButton targetType="SpaBooking" targetId={booking.id} />
+        </div>
       </div>
       {receipt && (
         <>

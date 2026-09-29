@@ -129,12 +129,13 @@ describe("listCashbookEntries 保留 paymentMethod", () => {
 });
 
 describe("createCashbookEntry — 閉店日防呆 guard", () => {
-  it("非閉店日 + CASH → 正常建立，且不寫 AuditLog（不擴大一般 create 的稽核）", async () => {
+  it("非閉店日 + CASH → 正常建立並留下責任紀錄", async () => {
     mockSessionFindUnique.mockResolvedValue(null);
     const res = await createCashbookEntry({ ...baseCreate, paymentMethod: "CASH" });
     expect(res.success).toBe(true);
     expect(mockCashbookCreate).toHaveBeenCalledOnce();
-    expect(mockAuditCreate).not.toHaveBeenCalled();
+    expect(mockAuditCreate).toHaveBeenCalledOnce();
+    expect(mockAuditCreate.mock.calls[0][0].data.summary).toBe("新增現金收支");
   });
 
   it("非閉店日 + OTHER → 正常建立", async () => {
@@ -142,6 +143,7 @@ describe("createCashbookEntry — 閉店日防呆 guard", () => {
     const res = await createCashbookEntry({ ...baseCreate, paymentMethod: "OTHER" });
     expect(res.success).toBe(true);
     expect(mockCashbookCreate).toHaveBeenCalledOnce();
+    expect(mockAuditCreate).toHaveBeenCalledOnce();
   });
 
   it("閉店日 + CASH + 未確認 → 後端拒絕，且不寫入、不重算抽屜", async () => {
@@ -191,6 +193,7 @@ describe("createCashbookEntry — 閉店日防呆 guard", () => {
     // OTHER 不涉現金 → 根本不需查 session 狀態
     expect(mockSessionFindUnique).not.toHaveBeenCalled();
     expect(mockSessionUpdate).not.toHaveBeenCalled();
+    expect(mockAuditCreate).toHaveBeenCalledOnce();
   });
 });
 
