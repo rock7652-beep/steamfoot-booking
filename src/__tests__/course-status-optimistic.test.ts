@@ -22,3 +22,13 @@ it("staff permission changes wait for authoritative success",async()=>{
  await act(async()=>host.querySelector("button")!.click());expect(applied).not.toHaveBeenCalled();
  await act(async()=>resolve({success:true,succeeded:["b"],failed:[]}));expect(applied).toHaveBeenCalledWith(["b"],true);
 });
+
+import {CourseBatchBar} from "@/components/admin/course-batch-selection";
+it("batch partial failure restores the failed row to its original state",async()=>{
+ let resolve!:(value:unknown)=>void;m.apply.mockReturnValue(new Promise(r=>{resolve=r;}));const applied=vi.fn(),selected=vi.fn();
+ await act(async()=>root.render(React.createElement(CourseBatchBar,{kind:"plan",ids:["a","b"],selected:["a","b"],states:{a:false,b:false},onChange:selected,onApplied:applied})));
+ await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="批次上架")!.click());
+ expect(applied).toHaveBeenCalledWith(["a","b"],true);
+ await act(async()=>resolve({success:true,succeeded:["a"],failed:[{id:"b",error:"禁止修改"}]}));
+ expect(applied).toHaveBeenCalledWith(["b"],false);expect(selected).toHaveBeenLastCalledWith(["b"]);expect(host.textContent).toContain("禁止修改");
+});
