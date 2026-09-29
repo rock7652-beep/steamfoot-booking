@@ -998,8 +998,6 @@ model StoreSettlement {
 
 model Staff {
   courseCoachEnabled            Boolean     @default(false)
-  courseEmail                   String      @default("")
-  courseNotificationsEnabled    Boolean     @default(true)
   courseQualificationsConfirmed Boolean     @default(false)
   courseQualifiedTemplateIds    String[]    @default([])
   courseBirthday                DateTime?   @db.Date

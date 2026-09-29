@@ -78,7 +78,6 @@ export async function saveCourseStaff(input: unknown) {
         confirmDeactivate: z.boolean().default(false),
         email: z.string().email().optional(),
         contactEmail: z.union([z.string().email(), z.literal("")]).optional(),
-        notificationsEnabled: z.boolean().optional(),
         password: z.string().min(8).max(100).optional(),
         customerId: id.optional(),
         active: z.boolean().default(true),
@@ -95,7 +94,7 @@ export async function saveCourseStaff(input: unknown) {
     if(!d.id && d.kind==="manager" && d.coachEnabled && await isMusicFinanceStore(storeId))throw new AppError("VALIDATION","店務與教師請分別建立帳號");
     if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
-    const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone, ...(d.contactEmail!==undefined?{courseEmail:d.contactEmail}:{}), ...(d.notificationsEnabled!==undefined?{courseNotificationsEnabled:d.notificationsEnabled}: {}) };
+    const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
     const limits = await getStoreLimitsByStoreId(storeId);
     if (!d.id && d.kind === "manager" && (!d.email || !d.password))
       throw new AppError("VALIDATION", "建立店長必須填登入信箱與密碼");
@@ -222,10 +221,10 @@ export async function saveCourseStaff(input: unknown) {
           });
           // Only operational synthetic accounts are edited for coaches. A real
           // member account remains untouched when work access is disabled.
-          if (d.kind === "manager")
+          if (d.kind === "manager" || d.contactEmail !== undefined)
             await tx.user.update({
               where: { id: existing.userId },
-              data: { name: d.name, ...(d.active?{status:"ACTIVE" as const}:{}), ...(d.email ? { email: d.email } : {}), ...(passwordHash ? { passwordHash } : {}) },
+              data: { name: d.name, ...(d.kind==="manager"&&d.active?{status:"ACTIVE" as const}:{}), ...((d.kind==="manager"?d.email:d.contactEmail)!==undefined ? { email: (d.kind==="manager"?d.email:d.contactEmail)||null } : {}), ...(d.kind==="manager"&&passwordHash ? { passwordHash } : {}) },
             });
           await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'Staff',${staffId},'UPDATE',${JSON.stringify(beforeStaff)}::jsonb,${JSON.stringify({storeId,displayName:d.name,status:d.active?"ACTIVE":"INACTIVE",...contacts,...courseFields})}::jsonb,now())`;
         } else
@@ -233,7 +232,7 @@ export async function saveCourseStaff(input: unknown) {
             data: {
               id: `course-user:${storeId}:${d.requestKey}`,
               name: d.name,
-              email: d.kind === "manager" ? d.email : null,
+              email: (d.kind === "manager" ? d.email : d.contactEmail) || null,
               passwordHash: d.kind === "manager" ? passwordHash : null,
               role: d.kind === "manager" ? "OWNER" : "CUSTOMER",
               status: d.kind === "manager" ? "ACTIVE" : "SUSPENDED",

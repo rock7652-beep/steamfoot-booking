@@ -332,7 +332,6 @@ export function CourseStaffWorkspace({
                       confirmDeactivate:!!deactivating,
                       phone: d.get("phone"),
                       contactEmail: kind === "coach" ? d.get("contactEmail") : undefined,
-                      notificationsEnabled: kind === "coach" ? d.get("notificationsEnabled") === "yes" : undefined,
                       emergencyContactName: d.get("emergencyContactName"),
                       emergencyContactPhone: d.get("emergencyContactPhone"),
                       email:
@@ -399,7 +398,7 @@ export function CourseStaffWorkspace({
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
               ] as const).map(([name, label]) => <label className="block" key={name}>{label}{name!=="phone" ? (!person ? "（必填）" : !person[name] ? "（待補）" : "") : "（選填）"}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} required={!person && name!=="phone"} /></label>)}
-              {kind==="coach"&&<><label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label><label className="flex min-h-11 items-center gap-2 self-end"><input name="notificationsEnabled" value="yes" type="checkbox" defaultChecked={person?.notificationsEnabled??true}/><span>接收系統通知</span></label></>}
+              {kind==="coach"&&<><label className="block">Email（選填）<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label><div className="self-end rounded-lg bg-earth-50 px-3 py-2 text-sm"><strong>系統通知</strong><span className="ml-2 text-earth-600">{person?.coachLoginReady?"已開啟":"連結 LINE 後自動開啟"}</span></div></>}
               <label className="block">
                 狀態
                 <select
