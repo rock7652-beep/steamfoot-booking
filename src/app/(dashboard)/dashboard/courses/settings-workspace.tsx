@@ -55,7 +55,7 @@ function Row({
   return <section className="min-w-0 border-b border-earth-100 last:border-0">
     <div className="grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]">
       <h3 className="truncate text-sm font-semibold text-primary-900">{title}</h3>
-      <p className="min-w-0 truncate text-sm text-earth-600" title={summary}>{summary}</p>
+      <p className="min-w-0 truncate text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>
       <div className="flex items-center justify-end gap-2">
         {controls}
         {onEdit && !expanded && <button type="button" onClick={onEdit} className="inline-flex min-h-10 min-w-24 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">修改</button>}
