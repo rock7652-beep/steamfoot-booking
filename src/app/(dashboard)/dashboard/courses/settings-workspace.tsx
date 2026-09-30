@@ -56,13 +56,13 @@ function Row({
     <div className="grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]">
       <h3 className="truncate text-sm font-semibold text-primary-900">{title}</h3>
       <p className="min-w-0 truncate text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex w-[200px] items-center justify-end gap-2">
         {controls}
         {onEdit && !expanded && <button type="button" onClick={onEdit} className="inline-flex min-h-10 min-w-24 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">修改</button>}
         {href && <DashboardLink href={courseSettingsPanelHref(href)} scroll={false} prefetch={false} aria-label={`開啟${title}`} className="inline-flex min-h-10 min-w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">{action}</DashboardLink>}
       </div>
     </div>
-    {showChildren && children ? <div className="border-t border-earth-100 pb-3 pt-3">{children}</div> : null}
+    {showChildren && children ? <div className="border-t border-earth-100 pb-3 pt-3 md:ml-[216px]">{children}</div> : null}
   </section>;
 }
 function SectionGuard({ section, context, children }: { section: string; context: NonNullable<ContextType<typeof SettingsPanelContext>>; children: ReactNode }) {
