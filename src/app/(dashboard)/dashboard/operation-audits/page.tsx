@@ -14,14 +14,16 @@ import { OperationAuditFilters } from "./operation-audit-filters";
 const MODULE_LABELS: Record<OperationModule, string> = {
   STEAM: "蒸足",
   SPA: "SPA",
-  COURSE: "課程",
-  SHARED: "店務",
+  MUSIC: "音樂教室",
+  FITNESS: "運動教室",
+  COURSE: "課程（歷史）",
+  SHARED: "共用店務",
+  SYSTEM: "系統管理",
 };
 
-const STORE_MODULE_SCOPE: Record<string, { modules: OperationModule[]; label: string }> = {
-  steamfoot: { modules: ["STEAM", "SHARED"], label: "本店蒸足＋本店店務" },
-  spa: { modules: ["SPA", "SHARED"], label: "本店 SPA＋本店店務" },
-  course: { modules: ["COURSE", "SHARED"], label: "本店課程＋本店店務" },
+const STORE_MODULE_SCOPE: Record<string, OperationModule[]> = {
+  steamfoot: ["STEAM", "SHARED", "SYSTEM"],
+  spa: ["SPA", "SHARED", "SYSTEM"],
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -29,7 +31,45 @@ const ACTION_LABELS: Record<string, string> = {
   UPDATE: "修改",
   DELETE: "刪除",
   VIEW_CROSS_STORE: "跨店查看",
+  CANCEL: "取消",
+  COMPLETE: "完成",
+  NO_SHOW: "標記未到",
+  REVERT: "恢復",
+  BOOKING_NOTE_UPDATED: "修改預約備註",
 };
+
+const TARGET_LABELS: Record<string, string> = {
+  Booking: "蒸足預約",
+  SpaBooking: "SPA 預約",
+  SpaBookingGroup: "SPA 同行預約",
+  CourseBooking: "課程預約",
+  CourseCompensation: "課程拆帳設定",
+  CourseTeacherCompensationSetting: "老師拆帳設定",
+  CourseTeacherFinanceScope: "老師帳務範圍",
+  Staff: "人員資料",
+  StaffPermission: "人員權限",
+  CashbookEntry: "現金收支",
+};
+
+const SYSTEM_TARGETS = new Set(["Staff", "StaffPermission", "CourseTeacherFinanceScope"]);
+
+function displayedModule(item: { module: string | null; targetType: string }): OperationModule {
+  if (item.module && Object.hasOwn(MODULE_LABELS, item.module)) return item.module as OperationModule;
+  if (SYSTEM_TARGETS.has(item.targetType)) return "SYSTEM";
+  if (item.targetType.startsWith("Course")) return "COURSE";
+  if (item.targetType.startsWith("Spa")) return "SPA";
+  if (item.targetType === "Booking") return "STEAM";
+  return "SHARED";
+}
+
+function summaryText(item: { summary: string | null; targetType: string; action: string }) {
+  const target = TARGET_LABELS[item.targetType] ?? item.targetType;
+  const action = ACTION_LABELS[item.action] ?? item.action;
+  if (!item.summary || item.summary.includes(item.action) || item.summary.startsWith(item.targetType)) {
+    return `${action}${target}`;
+  }
+  return item.summary.replace(item.targetType, target);
+}
 
 function dateDaysAgo(days: number) {
   return toLocalDateStr(new Date(Date.now() - days * 86_400_000));
@@ -70,7 +110,15 @@ export default async function OperationAuditsPage({
   const storeId = storeIdForViewContext(activeStoreId, viewContext);
   const isHeadquarters = user.role === "ADMIN";
   const storeModuleScope = !isHeadquarters && storeId
-    ? STORE_MODULE_SCOPE[await getStoreIndustryModule(storeId)] ?? STORE_MODULE_SCOPE.steamfoot
+    ? await (async () => {
+        const industry = await getStoreIndustryModule(storeId);
+        if (industry !== "course") return { modules: STORE_MODULE_SCOPE[industry] ?? STORE_MODULE_SCOPE.steamfoot };
+        const music = await prisma.storeFeatureEntitlement.findFirst({
+          where: { storeId, featureKey: "business.music", status: "ENABLED" },
+          select: { storeId: true },
+        });
+        return { modules: [music ? "MUSIC" : "FITNESS", "COURSE", "SHARED", "SYSTEM"] as OperationModule[] };
+      })()
     : null;
   const result = await listOperationAudits({
     storeId,
@@ -105,14 +153,14 @@ export default async function OperationAuditsPage({
 
   return (
     <PageShell>
-      <PageHeader title="操作紀錄" subtitle="查詢本店的資料異動與跨店查看紀錄；紀錄僅供查閱，不能修改或刪除" />
+      <PageHeader title="操作紀錄" subtitle={isHeadquarters ? "查詢各店資料異動；紀錄僅供查閱，不能修改或刪除" : "查詢本店資料異動；紀錄僅供查閱，不能修改或刪除"} />
 
       <OperationAuditFilters
         actors={result.actors}
         cacheKey={`operation-audit-filters:${storeId ?? "all"}`}
         defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
         hasExplicitFilters={hasExplicitFilters}
-        fixedModuleLabel={storeModuleScope?.label}
+        showModuleFilter={isHeadquarters}
       />
 
       <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">
@@ -128,8 +176,8 @@ export default async function OperationAuditsPage({
                 <summary className="grid cursor-pointer list-none gap-1.5 text-sm md:grid-cols-[145px_105px_72px_1fr_105px] md:items-center">
                   <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
                   <span className="truncate font-medium text-earth-900">{item.actorNameSnapshot ?? item.actor.name}</span>
-                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-xs text-primary-800">{MODULE_LABELS[item.module as OperationModule] ?? item.module ?? "系統"}</span>
-                  <span className="min-w-0 truncate text-earth-800">{item.summary ?? `${item.targetType} ${ACTION_LABELS[item.action] ?? item.action}`}</span>
+                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-xs text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
+                  <span className="min-w-0 truncate text-earth-800">{summaryText(item)}</span>
                   <span className="truncate text-xs text-earth-500 md:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>
                 <div className="mt-2 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">

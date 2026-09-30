@@ -3,7 +3,14 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
-export type OperationModule = "STEAM" | "SPA" | "COURSE" | "SHARED";
+export type OperationModule =
+  | "STEAM"
+  | "SPA"
+  | "MUSIC"
+  | "FITNESS"
+  | "COURSE"
+  | "SHARED"
+  | "SYSTEM";
 type AuditClient = Pick<Prisma.TransactionClient, "auditLog">;
 
 export type OperationAuditInput = {
@@ -24,12 +31,15 @@ export async function recordOperationAudit(
   input: OperationAuditInput,
   client: AuditClient = prisma,
 ) {
+  const auditModule = input.module === "COURSE"
+    ? await resolveCourseOperationModule(input.storeId)
+    : input.module;
   return client.auditLog.create({
     data: {
       actorUserId: input.actorUserId,
       actorNameSnapshot: input.actorNameSnapshot?.trim() || null,
       storeId: input.storeId,
-      module: input.module,
+      module: auditModule,
       targetType: input.targetType,
       targetId: input.targetId,
       action: input.action,
@@ -39,6 +49,14 @@ export async function recordOperationAudit(
     },
     select: { id: true },
   });
+}
+
+async function resolveCourseOperationModule(storeId: string): Promise<"MUSIC" | "FITNESS"> {
+  const music = await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  });
+  return music ? "MUSIC" : "FITNESS";
 }
 
 /** Cross-schema writes cannot share the business transaction; never report the
@@ -89,6 +107,29 @@ export type OperationAuditCenterFilters = {
   pageSize?: number;
 };
 
+function moduleWhere(input: Pick<OperationAuditCenterFilters, "module" | "modules">): Prisma.AuditLogWhereInput {
+  const selected = input.module ? [input.module] : input.modules;
+  if (!selected?.length) return {};
+  const values = selected.filter((module) => module !== "SYSTEM");
+  const includeSystem = selected.includes("SYSTEM");
+  const clauses: Prisma.AuditLogWhereInput[] = values.length ? [{ module: { in: values } }] : [];
+  if (includeSystem) clauses.push(
+    { module: "SYSTEM" },
+    { module: null, targetType: { in: ["Staff", "StaffPermission", "CourseTeacherFinanceScope"] } },
+  );
+  if (values.includes("COURSE")) clauses.push({
+    module: null,
+    targetType: { startsWith: "Course", notIn: ["CourseTeacherFinanceScope"] },
+  });
+  if (values.includes("STEAM")) clauses.push({ module: null, targetType: "Booking" });
+  if (values.includes("SPA")) clauses.push({ module: null, targetType: { startsWith: "Spa" } });
+  if (values.includes("SHARED")) clauses.push({
+    module: null,
+    targetType: { in: ["CashbookEntry", "Transaction"] },
+  });
+  return { AND: [{ OR: clauses }] };
+}
+
 /** Read-only, paginated query for the store/HQ operation record center. */
 export async function listOperationAudits(input: OperationAuditCenterFilters) {
   const page = Math.max(input.page ?? 1, 1);
@@ -102,11 +143,7 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
         ? { storeId: { in: input.storeIds } }
         : {}),
     ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
-    ...(input.module
-      ? { module: input.module }
-      : input.modules?.length
-        ? { module: { in: input.modules } }
-        : {}),
+    ...moduleWhere(input),
     ...(keyword
       ? {
           OR: [
@@ -141,11 +178,7 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
           : input.storeIds
             ? { storeId: { in: input.storeIds } }
             : {}),
-        ...(input.module
-          ? { module: input.module }
-          : input.modules?.length
-            ? { module: { in: input.modules } }
-            : {}),
+        ...moduleWhere(input),
       },
       distinct: ["actorUserId"],
       orderBy: { createdAt: "desc" },
