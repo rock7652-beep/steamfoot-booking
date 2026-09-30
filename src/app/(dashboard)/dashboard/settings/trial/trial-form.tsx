@@ -86,18 +86,8 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       className={compact ? "mt-2" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
     >
       {compact && !expanded && (
-        <div className="space-y-1.5">
-          <div className="flex min-h-9 items-center justify-between gap-3 rounded-lg border border-earth-200 px-3">
-            <span className="text-xs font-medium text-earth-700">體驗單</span>
-            <span className="text-xs text-earth-500">{trialEnabled ? "開啟" : "關閉"}・預設 NT$ {d}</span>
-          </div>
-          <div className="flex min-h-9 items-center justify-between gap-3 rounded-lg border border-earth-200 px-3">
-            <span className="text-xs font-medium text-earth-700">允許調價</span>
-            <span className="text-xs text-earth-500">{allowEdit ? `開啟・NT$ ${lo}–${hi}` : "關閉"}</span>
-          </div>
-          <div className="flex justify-end">
-            <button type="button" onClick={() => setExpanded(true)} className="min-h-9 rounded-lg border px-3 text-xs font-medium text-primary-700">修改</button>
-          </div>
+        <div className="flex justify-end">
+          <button type="button" onClick={() => setExpanded(true)} className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">修改</button>
         </div>
       )}
 
@@ -114,7 +104,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
           <div className={compact ? "grid gap-2 sm:grid-cols-2" : "space-y-4"}>
             <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2">
               <span>
-                <span className="text-xs font-medium text-earth-800">啟用體驗單功能</span>
+                <span className="text-sm font-medium text-earth-800">啟用體驗單功能</span>
                 <span className="hidden">
                   關閉後，顧客頁與月曆將隱藏「建立體驗單」入口
                 </span>
@@ -139,14 +129,14 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
                 onChange={(e) => setDefaultPrice(e.target.value)}
                 className={inputCls}
               />
-              <p className="mt-1 text-xs text-earth-400">
+              <p className="mt-1 text-sm text-earth-400">
                 建立體驗單時預設帶入此價格，可依活動調整
               </p>
             </div>
 
             <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2">
               <span>
-                <span className="text-xs font-medium text-earth-800">
+                <span className="text-sm font-medium text-earth-800">
                   允許建立時調整價格
                 </span>
                 <span className="hidden">
@@ -202,14 +192,14 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
           </div>
 
           <div className={`${compact ? "" : "sticky bottom-0 z-10"} mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2`}>
-            <span className="text-[11px] text-earth-400">
+            <span className="text-sm text-earth-500">
               {pending ? "儲存中..." : draft !== savedDraft ? "未儲存" : ""}
             </span>
-            <button type="button" disabled={pending || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-9 rounded-lg border px-3 text-xs disabled:opacity-40">還原修改</button>
+            <button type="button" disabled={pending || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
             <button
               type="submit"
               disabled={pending || invalid || draft === savedDraft}
-              className="min-h-9 rounded-lg bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
+              className="min-h-10 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
             >
               {pending ? "儲存中..." : courseMode ? "儲存體驗設定" : "儲存"}
             </button>
@@ -219,7 +209,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
 
       {/* Right: behavior preview */}
       <details hidden={compact && !expanded} open={compact ? undefined : true} className={compact ? "text-sm" : "lg:col-span-5"}>
-        <summary className={compact ? "min-h-9 cursor-pointer py-2 text-xs text-primary-700" : "hidden"}>建立體驗單預覽</summary>
+        <summary className={compact ? "min-h-10 cursor-pointer py-2 text-sm text-primary-700" : "hidden"}>建立體驗單預覽</summary>
         <section className="lg:sticky lg:top-4 rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-earth-900">建立體驗單預覽</h2>
