@@ -16,6 +16,7 @@ import { DutySchedulingToggle } from "../settings/duty/duty-toggle";
 import { TrialSettingsForm } from "../settings/trial/trial-form";
 import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import type { TrialSettings } from "@/lib/shop-config";
+import { CourseWaitlistSettings } from "./course-waitlist-settings";
 
 type Props = {
   music?:boolean;
@@ -28,6 +29,8 @@ type Props = {
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
   bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
+  waitlistFeatureAvailable?: boolean;
+  waitlistSettings?: { enabled: boolean; defaultLimit: number; autoPromoteStopMinutes: number };
 };
 function Row({ title, summary, href, action = "查看設定", children }: { title: string; summary: string; href?: string; action?: string; children?: ReactNode }) {
   return <section className="min-w-0 border-b border-earth-100 py-5 last:border-0"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="font-medium text-primary-900">{title}</h3><p className="mt-1 break-words text-sm text-earth-600">{summary}</p></div>{href && <DashboardLink href={courseSettingsPanelHref(href)} scroll={false} prefetch={false} aria-label={`開啟${title}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm text-primary-700">{action}</DashboardLink>}</div>{children}</section>;
@@ -104,6 +107,11 @@ export function CourseSettingsWorkspace(props: Props) {
           {editor({ section: "booking", bookingLeadMinutes: props.bookingLeadMinutes, cancellationLeadMinutes: props.cancellationLeadMinutes }, props.canEdit)}
           <details className="mt-3 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">目前扣堂規則</summary><p>{props.music ? "預約先保留堂數，報到即出席並扣 1 堂；曠課扣 1 堂。自組班請假保留補課資格，團體班請假記錄並扣 1 堂。音樂教室沒有補課券。" : "自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。"}</p></details>
         </Row>
+        {props.waitlistFeatureAvailable && props.waitlistSettings && (
+          <Row title="候補" summary={props.waitlistSettings.enabled ? "已啟用：滿班後可加入候補，空位依順位直接遞補。" : "未啟用：既有候補紀錄保留，不接受新候補或自動遞補。"}>
+            <CourseWaitlistSettings initial={props.waitlistSettings} canEdit={props.canEdit} />
+          </Row>
+        )}
         <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用：教練值班須涵蓋完整課程。" : "未啟用：值班供參考，依實際排課開放預約。"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="查看值班概況">{props.canDutyManage && <div className="mt-3"><DutySchedulingToggle enabled={props.dutyEnabled ?? false} course compact /></div>}</Row>
       </SectionGuard></section>
       <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>
