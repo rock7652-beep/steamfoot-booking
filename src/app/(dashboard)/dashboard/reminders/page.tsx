@@ -77,7 +77,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   if (activeTab === "manager") {
     const recipients = await listStoreLineNotificationRecipients();
     content = (
-      <LineNotificationRecipientsCard key={storeId} recipients={recipients} />
+      <LineNotificationRecipientsCard key={storeId} recipients={recipients} showHeading={false} />
     );
   } else if (activeTab === "logs") {
     content = (
@@ -101,12 +101,6 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       ]);
     content = (
       <section key={`${storeId}-customer`} className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold text-earth-900">顧客提醒</h2>
-          <p className="mt-1 text-sm text-earth-500">
-            展開卡片編輯通知內容與預覽；體驗關懷須按儲存後才生效。
-          </p>
-        </div>
         <nav aria-label="顧客提醒分類" className="flex flex-wrap gap-2">
           {[["booking-reminders", "預約前提醒"], ["trial-care", "體驗後關懷"], ["plan-reminders", "方案使用提醒"]].map(([id, label]) => (
             <a key={id} href={`#${id}`} className="rounded-full border border-earth-200 bg-white px-4 py-2 text-sm text-primary-700 hover:bg-primary-50">{label}</a>
@@ -150,6 +144,22 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       </section>
     );
   }
+  const tabIntro =
+    activeTab === "manager"
+      ? {
+          title: "店長 LINE 通知",
+          description: "管理本店通知人員與各自接收的提醒。",
+        }
+      : activeTab === "logs"
+        ? {
+            title: "發送紀錄",
+            description: "搜尋通知紀錄、查看發送結果與異常。",
+          }
+        : {
+            title: "顧客提醒",
+            description: "管理預約前提醒、體驗後關懷與方案使用提醒。",
+          };
+
   return (
     <FeatureGate plan={plan} feature={FEATURES.LINE_REMINDER} enabled={enabled}>
       <PageShell>
@@ -165,41 +175,49 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             </Link>
           }
         />
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm">
-          <span
-            className={
-              health?.status === "NORMAL"
-                ? "text-green-700"
-                : health
-                  ? "text-amber-700"
-                  : "text-earth-500"
-            }
-          >
-            {previewBlocked ? (
-              "預覽環境：不會實際發送 LINE 通知"
-            ) : (
-              <>
-                LINE{" "}
-                {health?.status === "NORMAL"
-                  ? "連線正常"
+        <div className="sticky top-0 z-20 bg-white pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm">
+            <span
+              className={
+                health?.status === "NORMAL"
+                  ? "text-green-700"
                   : health
-                    ? "連線需要處理"
-                    : "暫時無法確認連線"}
-              </>
-            )}
-          </span>
-          <Link
-            href="/dashboard/reminders?tab=logs&status=FAILED"
-            className="text-primary-700"
-          >
-            查看發送異常 →
-          </Link>
+                    ? "text-amber-700"
+                    : "text-earth-500"
+              }
+            >
+              {previewBlocked ? (
+                "預覽環境：不會實際發送 LINE 通知"
+              ) : (
+                <>
+                  LINE{" "}
+                  {health?.status === "NORMAL"
+                    ? "連線正常"
+                    : health
+                      ? "連線需要處理"
+                      : "暫時無法確認連線"}
+                </>
+              )}
+            </span>
+            <Link
+              href="/dashboard/reminders?tab=logs&status=FAILED"
+              className="text-primary-700"
+            >
+              查看發送異常 →
+            </Link>
+          </div>
+          <ReminderTabs
+            active={activeTab}
+            explicit={!!params.tab}
+            storeId={storeId}
+          />
         </div>
-        <ReminderTabs
-          active={activeTab}
-          explicit={!!params.tab}
-          storeId={storeId}
-        />
+
+        <div className="min-h-[64px]">
+          <h2 className="text-lg font-semibold text-earth-900">{tabIntro.title}</h2>
+          <p className="mt-1 text-sm text-earth-500">{tabIntro.description}</p>
+        </div>
+
         {content}
         <details className="rounded-xl border border-earth-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">
