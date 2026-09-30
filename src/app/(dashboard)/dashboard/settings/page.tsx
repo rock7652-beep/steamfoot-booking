@@ -237,7 +237,7 @@ export default async function SettingsIndexPage() {
           id: "staff",
           label: "人員與權限",
           content: (
-            <SettingsListRow title="人員狀態" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/settings/staff" action="管理" />
+            <SettingsListRow title="人員狀態" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/staff" action="管理" />
           ),
         },
         {
