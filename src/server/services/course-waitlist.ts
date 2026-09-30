@@ -10,6 +10,7 @@ import { AppError } from "@/lib/errors";
 import { reserveCourseInTransaction, type CourseActor } from "@/server/services/course-booking";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 import type { Prisma } from "../../../generated/course-client";
+import { waitlistGroups, withinAutoPromoteWindow } from "@/lib/course-waitlist";
 
 export type CourseWaitlistSettings = {
   featureAvailable: boolean;
@@ -45,22 +46,6 @@ function groupKeyFor(requestKey: string, customerIds: string[]) {
   return createHash("sha256")
     .update(JSON.stringify([requestKey, [...customerIds].sort()]))
     .digest("hex");
-}
-
-export function waitlistGroups<T extends { groupKey: string; createdAt: Date; id: string }>(rows: T[]): T[][] {
-  const groups = new Map<string, T[]>();
-  for (const row of rows) {
-    const group = groups.get(row.groupKey) ?? [];
-    group.push(row);
-    groups.set(row.groupKey, group);
-  }
-  return [...groups.values()].sort((a, b) =>
-    a[0].createdAt.getTime() - b[0].createdAt.getTime() || a[0].id.localeCompare(b[0].id),
-  );
-}
-
-export function withinAutoPromoteWindow(startsAt: Date, stopMinutes: number, now = new Date()) {
-  return startsAt.getTime() > now.getTime() + stopMinutes * 60_000;
 }
 
 export async function joinCourseWaitlist(
