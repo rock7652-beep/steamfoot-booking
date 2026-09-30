@@ -32,12 +32,12 @@ export function SettingsSidePanel({
   return (
     <>
       <SideCard title="快速操作" subtitle="常用入口直接進入">
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-0.5">
           {quickActions.map((a) => (
             <li key={a.href}>
               <Link
                 href={a.href}
-                className="flex items-center justify-between rounded-md border border-earth-200 px-2.5 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                className="flex min-h-9 items-center justify-between rounded-md border border-earth-200 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50"
               >
                 <span>{a.label}</span>
                 <span className="text-earth-300">→</span>
