@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabelFilter } from "@/components/customer-labels";
 
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
 import { normalizeCustomerSearch } from "@/lib/customer-search-index";
@@ -58,7 +59,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "points", label: "點數多寡" },
 ];
 
-const FILTER_KEYS = ["search", "status", "visit", "referral", "staff"] as const;
+const FILTER_KEYS = ["label", "search", "status", "visit", "referral", "staff"] as const;
 
 export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId }: Props) {
   const router = useRouter();
@@ -173,7 +174,8 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   if (courseMode) {
     return (
       <div className="space-y-2 border-b border-earth-200 pb-3">
-        {isPending && <NavigationNotice />}
+        <CustomerLabelFilter />
+      {isPending && <NavigationNotice />}
         <div className="flex items-center gap-2">
           <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
             <input
@@ -235,9 +237,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
               </label>
               {staffOptions.length > 0 ? (
                 <label className="space-y-1 text-sm text-earth-600">
-                  <span>直屬店長</span>
+                  <span>{courseMode ? "所屬教練" : "直屬店長"}</span>
                   <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                    <option value="">全部店長</option>
+                    <option value="">{courseMode ? "全部所屬教練" : "全部店長"}</option>
                     {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
                   </select>
                 </label>
@@ -267,6 +269,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
+      <CustomerLabelFilter />
       {isPending && <NavigationNotice />}
       <form onSubmit={onSearchSubmit} className={courseMode ? "flex min-w-0 basis-full items-center gap-2 lg:basis-64 lg:flex-1" : "flex min-w-[220px] flex-1 items-center gap-1.5"}>
         {instantStoreId ? <CustomerInstantSearch key={instantStoreId} storeId={instantStoreId} value={searchDraft} filterQuery={indexFilters.toString()}
@@ -344,9 +347,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
           onChange={(e) => setParam("staff", e.target.value)}
 
           className={selectClass}
-          aria-label="直屬店長"
+          aria-label={courseMode ? "所屬教練" : "直屬店長"}
         >
-          <option value="">全部店長</option>
+          <option value="">{courseMode ? "全部所屬教練" : "全部店長"}</option>
           {staffOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}

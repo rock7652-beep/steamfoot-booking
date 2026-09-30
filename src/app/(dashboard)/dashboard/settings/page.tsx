@@ -1,3 +1,4 @@
+import { CustomerLabelsSettingsLink } from "@/components/customer-labels";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -114,6 +115,7 @@ export default async function SettingsIndexPage() {
     ].filter((entry) => entry.allowed);
     return (
       <PageShell>
+        <CustomerLabelsSettingsLink />
         <PageHeader title="設定" subtitle="管理店舖營業與付款設定，快速前往人員及預約排程" />
         <div className="spa-home-grid">
           {entries.map((entry) => (
@@ -247,6 +249,7 @@ export default async function SettingsIndexPage() {
         subtitle="店長控制台 · 查看狀態、快速進入對應設定"
       />
 
+      <CustomerLabelsSettingsLink />
       <SettingsShell
         nav={navSections.map((s) => (
           <SettingsNavSection key={s.title} title={s.title} items={s.items} />

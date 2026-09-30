@@ -56,7 +56,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
-      hasActiveFilters={["search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
+      hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
       quickAssignLabel="購買方案"
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
@@ -70,7 +70,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</button>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</button>
     </nav>}
-    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
+    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar staffLabel="所屬教練" inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
       onCancel={() => setSelected(new Set())}
       onSubmit={async assignedStaffId => {
         const response = await bulkAssignCourseCustomers({ customerIds: [...selectedIds], assignedStaffId });

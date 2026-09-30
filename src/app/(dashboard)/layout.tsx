@@ -1,3 +1,5 @@
+import { CustomerLabelsProvider } from "@/components/customer-labels";
+import { loadCustomerLabels } from "@/server/actions/customer-labels";
 import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect, notFound } from "next/navigation";
@@ -223,7 +225,7 @@ export default async function DashboardLayout({
       }
     >
       <PreviewNavigationReporter />
-      {children}
+      <CustomerLabelsProvider initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{children}</CustomerLabelsProvider>
     </DashboardShell>
     </OperationScope>
   );

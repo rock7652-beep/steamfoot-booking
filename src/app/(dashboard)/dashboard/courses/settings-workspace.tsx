@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabelsSettingsLink } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -88,7 +89,7 @@ export function CourseSettingsWorkspace(props: Props) {
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
   const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
-  return <SettingsPanelContext.Provider value={context}><div className="grid min-w-0 gap-4 md:grid-cols-[190px_minmax(0,1fr)]">
+  return <SettingsPanelContext.Provider value={context}><div className="grid min-w-0 gap-4 md:grid-cols-[190px_minmax(0,1fr)]"><div className="col-span-full"><CustomerLabelsSettingsLink /></div>
     <nav aria-label="設定分類" className="min-w-0">
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
       <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 md:block">{COURSE_SETTINGS_SECTIONS.map(section => <button type="button" key={section.id} aria-current={active === section.id ? "page" : undefined} onClick={() => select(section.id)} className={"min-h-11 w-full rounded-lg px-3 py-3 text-left text-sm " + (active === section.id ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-earth-50")}>{section.label}{sectionDirty(section.id) && <span className="ml-1 text-xs text-amber-700">未儲存</span>}</button>)}</div>

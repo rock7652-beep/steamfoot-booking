@@ -1,3 +1,4 @@
+import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
 import { spaCustomerSummaries } from "@/server/queries/spa-customer-summary";
 import { SpaCustomersWorkspace } from "./spa-customers-workspace";
@@ -14,11 +15,14 @@ export type SpaCustomerPermissions = {
 export async function SpaCustomers({
   storeId,
   search,
+  labelId,
   ...permissions
-}: { storeId: string; search: string } & SpaCustomerPermissions) {
+}: { storeId: string; search: string; labelId?: string } & SpaCustomerPermissions) {
+  const labelIds=await customerLabelFilterIds(storeId,labelId);
   const customers = await prisma.customer.findMany({
     where: {
       storeId,
+      ...(labelIds===null ? {} : {id:{in:labelIds}}),
       ...(search
         ? {
             OR: [

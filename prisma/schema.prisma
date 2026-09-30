@@ -1114,6 +1114,7 @@ model CourseStaffPersonLink {
 // ============================================================
 
 model Customer {
+  @@unique([storeId, id])
   trialCarePreferences     TrialCarePreference[]
   trialCareLogs            TrialCareLog[]
   id                       String                @id @default(cuid())
@@ -3106,4 +3107,37 @@ model StaffRentTerm {
 
   @@unique([staffId, startMonth])
   @@index([storeId, startMonth])
+}
+
+model CustomerLabelSetting {
+  storeId String @id
+  enabled Boolean @default(false)
+  nextCategoryNumber Int @default(1)
+}
+model CustomerLabelCategory {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  number Int
+  position Int
+  active Boolean @default(true)
+  @@unique([storeId, number])
+  @@unique([storeId, name])
+  @@unique([storeId, id])
+}
+model CustomerLabel {
+  id String @id @default(cuid())
+  storeId String
+  categoryId String
+  name String
+  active Boolean @default(true)
+  @@unique([storeId, categoryId, name])
+  @@unique([storeId, id])
+}
+model CustomerLabelAssignment {
+  storeId String
+  customerId String
+  labelId String
+  @@id([storeId, customerId, labelId])
+  @@index([storeId, labelId, customerId])
 }

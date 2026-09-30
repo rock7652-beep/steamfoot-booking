@@ -1,3 +1,4 @@
+import { CustomerLabels } from "@/components/customer-labels";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
 import { getCustomerDetailForUser } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
@@ -339,6 +340,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         <span className="text-earth-700">顧客詳情</span>
       </div>
 
+      <CustomerLabels customerId={customer.id} readOnly={isViewMode || !canEdit}/>
       {simplified ? (
         <header className="space-y-4">
           <div>

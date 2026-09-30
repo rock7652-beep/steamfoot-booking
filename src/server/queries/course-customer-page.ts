@@ -1,3 +1,4 @@
+import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -18,6 +19,8 @@ export async function getCourseCustomerPage(
 ): Promise<CourseCustomerPage> {
   const visibility = getManagerCustomerWhere(role, staffId, storeId);
   const staffScope = typeof visibility.assignedStaffId === "string" ? visibility.assignedStaffId : null;
+  const labelIds = await customerLabelFilterIds(storeId, params.get("label") ?? undefined);
+  const labelFilter = labelIds === null ? Prisma.empty : labelIds.length ? Prisma.sql`AND c.id IN (${Prisma.join(labelIds)})` : Prisma.sql`AND false`;
   const requested = Number(params.get("page") ?? 1);
   const page = Number.isSafeInteger(requested) ? Math.max(1, Math.min(50000, requested)) : 1;
   const search = (params.get("search") ?? "").trim().toLocaleLowerCase().slice(0, 200);
@@ -52,7 +55,7 @@ export async function getCourseCustomerPage(
         COALESCE(b.sessions,0) AS sessions,CASE WHEN u.status='SUSPENDED' THEN 1 ELSE 0 END AS inactive
       FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
       LEFT JOIN attendance a ON a."customerId"=c.id LEFT JOIN balances b ON b."customerId"=c.id
-      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL
+      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL ${labelFilter}
         AND (${staffScope}::text IS NULL OR c."assignedStaffId"=${staffScope})
         AND (${assigned}='' OR c."assignedStaffId"=${assigned})
         AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."lineName")),${search})>0)

@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
 
 import type { ReactNode } from "react";
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
@@ -189,7 +190,7 @@ export function CustomersTable({
         return (
           <div className={`flex flex-col leading-tight ${inactive ? "opacity-60" : ""}`}>
             <span className="flex items-center gap-1.5 text-sm font-medium text-earth-900">
-              <span className={inactive ? "line-through decoration-earth-300" : ""}>{c.name}</span>
+              <span className={inactive ? "line-through decoration-earth-300" : ""}>{c.name}</span><CustomerLabels customerId={c.id} readOnly={readOnly || inactive}/>
               {inactive ? (
                 <span
                   className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500"

@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
 import { createCustomer } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
 import { SpaCustomerPicker } from "./customer-picker";
@@ -563,6 +564,7 @@ export function SpaScheduleWorkspace(props: Props) {
                           <span>
                             {customers.find((c) => c.id === b.customerId)
                               ?.name ?? "顧客"}
+                            <CustomerLabels customerId={b.customerId} displayOnly readOnly/>
                             {spaPartyLabel(b) && (
                               <span className="ml-1 font-normal">
                                 · {spaPartyLabel(b)}
@@ -613,8 +615,7 @@ export function SpaScheduleWorkspace(props: Props) {
           當日預約紀錄（{bookings.length}）
         </summary>
         {bookings.map((b) => (
-          <button
-            key={b.id}
+          <div key={b.id} className="border-b border-earth-100"><button
             onClick={() => openEdit(b)}
             className="flex w-full justify-between gap-3 border-b border-earth-100 py-3 text-left text-sm"
           >
@@ -638,7 +639,7 @@ export function SpaScheduleWorkspace(props: Props) {
                 </span>
               )}
             </span>
-          </button>
+          </button><CustomerLabels customerId={b.customerId}/></div>
         ))}
       </details>
       {checkout && (

@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
 import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
@@ -706,7 +707,7 @@ export function BookingsManager({
             : monthSearchResults.map(({ date, booking }) => <button key={booking.id} type="button"
               onClick={() => openBooking(booking.id)}
               className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-earth-100 px-4 py-2 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
-              <span><span className="font-medium text-earth-900">{booking.customer.name}</span>
+              <span><span className="font-medium text-earth-900">{booking.customer.name}</span><CustomerLabels customerId={booking.customer.id} readOnly={readOnly}/>
                 <span className="ml-3 text-sm text-earth-500">{booking.customer.phone}</span></span>
               <span className="text-sm text-earth-700">{date} · {booking.slotTime} · {booking.servicePlan?.name ?? "未指定服務"} · {STATUS_OPTIONS.find((s) => s.value === booking.bookingStatus)?.label ?? booking.bookingStatus}</span>
             </button>)}

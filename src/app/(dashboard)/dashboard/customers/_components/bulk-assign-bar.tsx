@@ -26,9 +26,10 @@ interface Props {
   onCancel: () => void;
   /** Course uses inline confirmation because native dialogs block its iPad preview. */
   inlineConfirmation?: boolean;
+  staffLabel?: string;
 }
 
-export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel, inlineConfirmation = false }: Props) {
+export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel, inlineConfirmation = false, staffLabel = "直屬店長" }: Props) {
   const [staffId, setStaffId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -58,7 +59,7 @@ export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel,
   return (
     <div
       role="region"
-      aria-label="批次指派直屬店長"
+      aria-label={`批次指派${staffLabel}`}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-earth-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
     >
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
@@ -77,7 +78,7 @@ export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel,
             onChange={(e) => { setStaffId(e.target.value); setConfirming(false); }}
             disabled={submitting}
           >
-            <option value="">請選擇店長</option>
+            <option value="">請選擇{staffLabel}</option>
             {staffOptions.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.displayName}

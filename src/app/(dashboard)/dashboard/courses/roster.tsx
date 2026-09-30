@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 
 import { CollectTrialModal } from "../bookings/collect-trial-modal";
@@ -1211,6 +1212,7 @@ export function CourseRoster({
                       <strong className="truncate" title={booking.customerName}>
                         {booking.customerName}
                       </strong>
+                      <CustomerLabels customerId={booking.customerId} readOnly={!canEdit}/>
                       {booking.sharedCard && (
                         <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800">
                           共卡

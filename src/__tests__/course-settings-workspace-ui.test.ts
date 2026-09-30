@@ -2,6 +2,8 @@
 import { act, createElement, type ComponentProps, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
+vi.mock("@/components/customer-labels", () => ({ CustomerLabelsSettingsLink: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/course-waitlist-settings", () => ({ CourseWaitlistSettings: () => null }));
 const m = vi.hoisted(() => ({ save: vi.fn(), windowSave: vi.fn(), trialSave: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, push: vi.fn() }), usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/server/actions/course-settings", () => ({ saveCourseSettingsSection: m.save }));

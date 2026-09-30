@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useRef, useState } from "react";
 import { BookingServiceNoteEditor } from "../../bookings/booking-service-note-editor";
@@ -268,6 +269,7 @@ export function CustomerDetailDrawerContent({
           </dl>
         </section>
 
+        <CustomerLabels readOnly={readOnly || !canEditNote} customerId={customer.id}/>
         <BookingServiceNoteEditor customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />
 

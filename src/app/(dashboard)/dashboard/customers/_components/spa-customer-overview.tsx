@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
 import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
 import { DashboardLink } from "@/components/dashboard-link";
 import {
@@ -31,6 +32,7 @@ export function SpaCustomerOverview({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
+        <CustomerLabels customerId={customer.id} readOnly={!canEdit}/>
         <div className="space-y-3">
           {canEdit && (
             <DashboardLink
