@@ -27,11 +27,11 @@ export function ViewModeBanner({ viewedStoreName }: ViewModeBannerProps) {
     <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="font-semibold">展店管理模式</div>
+          <div className="font-semibold">子店唯讀查看模式</div>
           <div className="mt-1 leading-6">
             目前查看：<span className="font-semibold">{viewedStoreName}</span>
             <br />
-            您可在授權範圍內查看與管理此店資料。
+            您可以查看此店資料，但不能新增、編輯、刪除或執行店務操作。
           </div>
         </div>
         <button
