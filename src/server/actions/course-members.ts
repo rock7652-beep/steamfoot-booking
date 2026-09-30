@@ -588,7 +588,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
     const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
-    const [roster, cards, pendingMakeups] = await Promise.all([
+    const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
       canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
@@ -599,6 +599,11 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         const linked = new Set(used.map(item=>item.makeupForBookingId));
         return leaves.filter(leave=>!linked.has(leave.id)).map(leave=>({id:leave.id,customerId:leave.customerId,cardId:leave.cardId!,date:leave.session.startsAt.toISOString()}));
       }) : [],
+      coursePrisma.courseWaitlistEntry.findMany({
+        where: { storeId, sessionId, status: "WAITING" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { id: true, customerId: true, customerName: true, groupKey: true, createdAt: true },
+      }),
     ]);
     return {
       success: true as const,
@@ -606,6 +611,18 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         roster,
         canPurchase,
         pendingMakeups,
+        waitlist: waitlistRows.map((row, index, all) => {
+          const groups = [...new Map(all.map(item => [item.groupKey, item.createdAt])).entries()]
+            .sort((a, b) => a[1].getTime() - b[1].getTime() || a[0].localeCompare(b[0]));
+          return {
+            id: row.id,
+            customerId: row.customerId,
+            customerName: row.customerName,
+            groupKey: row.groupKey,
+            position: groups.findIndex(([key]) => key === row.groupKey) + 1,
+            createdAt: row.createdAt.toISOString(),
+          };
+        }),
         trial: {
           settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
@@ -638,10 +655,19 @@ export async function loadCourseRosterQuick(sessionId: string) {
     sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
-    const roster = await getCourseRoster(storeId,sessionId);
+    const [roster, waitlistRows] = await Promise.all([
+      getCourseRoster(storeId,sessionId),
+      coursePrisma.courseWaitlistEntry.findMany({
+        where:{storeId,sessionId,status:"WAITING"},
+        orderBy:[{createdAt:"asc"},{id:"asc"}],
+        select:{id:true,customerId:true,customerName:true,groupKey:true,createdAt:true},
+      }),
+    ]);
     rosterMs = Date.now() - startedAt - authMs - sessionMs;
-    console.info("[course-roster-read]", { outcome: "success", count: roster.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
-    return {success:true as const, data:{roster,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
+    const groups=[...new Map(waitlistRows.map(item=>[item.groupKey,item.createdAt])).entries()].sort((a,b)=>a[1].getTime()-b[1].getTime()||a[0].localeCompare(b[0]));
+    const waitlist=waitlistRows.map(row=>({id:row.id,customerId:row.customerId,customerName:row.customerName,groupKey:row.groupKey,position:groups.findIndex(([key])=>key===row.groupKey)+1,createdAt:row.createdAt.toISOString()}));
+    console.info("[course-roster-read]", { outcome: "success", count: roster.length, waitlistCount: waitlist.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
+    return {success:true as const, data:{roster,waitlist,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
   } catch(error) {
     console.info("[course-roster-read]", { outcome: "error", authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);
