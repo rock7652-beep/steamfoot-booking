@@ -37,7 +37,7 @@ export function SettingsSidePanel({
             <li key={a.href}>
               <Link
                 href={a.href}
-                className="flex min-h-9 items-center justify-between rounded-md border border-earth-200 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                className="flex min-h-10 items-center justify-between rounded-md border border-earth-200 px-2.5 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
               >
                 <span>{a.label}</span>
                 <span className="text-earth-300">→</span>
