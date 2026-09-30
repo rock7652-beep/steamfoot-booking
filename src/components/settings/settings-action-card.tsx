@@ -47,7 +47,7 @@ export function SettingsActionCard({
   secondaryLabel,
 }: SettingsActionCardProps) {
   return (
-    <section className="rounded-xl border border-earth-200 bg-white p-2.5 shadow-sm transition hover:border-earth-300">
+    <section className="rounded-xl border border-earth-200 bg-white p-3 shadow-sm transition hover:border-earth-300 hover:bg-earth-50/30">
       <header className="flex items-center gap-2">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-earth-50 text-earth-500">
           <svg
@@ -68,9 +68,9 @@ export function SettingsActionCard({
             {description}
           </p>
         </div>
-        {onPrimaryAction ? <button type="button" onClick={onPrimaryAction} className="min-h-10 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700">{primaryLabel}</button> : <Link
+        {onPrimaryAction ? <button type="button" onClick={onPrimaryAction} className="min-h-10 min-w-24 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-200">{primaryLabel}</button> : <Link
           href={primaryHref}
-          className="min-h-10 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+          className="min-h-10 min-w-24 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-200"
         >
           {primaryLabel}
         </Link>}
