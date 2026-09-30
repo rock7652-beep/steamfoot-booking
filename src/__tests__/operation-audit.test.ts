@@ -58,7 +58,7 @@ describe("shared operation audit", () => {
       where: expect.objectContaining({
         storeId: "store-1",
         actorUserId: "user-1",
-        module: "COURSE",
+        AND: [{ OR: expect.arrayContaining([{ module: { in: ["COURSE"] } }]) }],
         createdAt: { gte: dateFrom, lte: dateTo },
       }),
     }));
@@ -77,13 +77,13 @@ describe("shared operation audit", () => {
     expect(mocks.count).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         storeId: "course-store",
-        module: { in: ["COURSE", "SHARED"] },
+        AND: [{ OR: expect.arrayContaining([{ module: { in: ["COURSE", "SHARED"] } }]) }],
       }),
     }));
     expect(mocks.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
       where: expect.objectContaining({
         storeId: "course-store",
-        module: { in: ["COURSE", "SHARED"] },
+        AND: [{ OR: expect.arrayContaining([{ module: { in: ["COURSE", "SHARED"] } }]) }],
       }),
     }));
   });
@@ -97,7 +97,10 @@ describe("shared operation audit", () => {
       dateTo: new Date("2026-09-30T23:59:59.999Z"),
     });
     expect(mocks.count).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ OR: [{ module: null }, { module: "SYSTEM" }] }),
+      where: expect.objectContaining({ AND: [{ OR: [
+          { module: "SYSTEM" },
+          { module: null, targetType: { in: ["Staff", "StaffPermission", "CourseTeacherFinanceScope"] } },
+        ] }] }),
     }));
   });
 });

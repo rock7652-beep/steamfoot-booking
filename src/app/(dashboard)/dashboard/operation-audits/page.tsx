@@ -35,6 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   COMPLETE: "完成",
   NO_SHOW: "標記未到",
   REVERT: "恢復",
+  BOOKING_NOTE_UPDATED: "修改預約備註",
 };
 
 const TARGET_LABELS: Record<string, string> = {
@@ -43,16 +44,28 @@ const TARGET_LABELS: Record<string, string> = {
   SpaBookingGroup: "SPA 同行預約",
   CourseBooking: "課程預約",
   CourseCompensation: "課程拆帳設定",
+  CourseTeacherCompensationSetting: "老師拆帳設定",
   CourseTeacherFinanceScope: "老師帳務範圍",
   Staff: "人員資料",
   StaffPermission: "人員權限",
   CashbookEntry: "現金收支",
 };
 
+const SYSTEM_TARGETS = new Set(["Staff", "StaffPermission", "CourseTeacherFinanceScope"]);
+
+function displayedModule(item: { module: string | null; targetType: string }): OperationModule {
+  if (item.module && Object.hasOwn(MODULE_LABELS, item.module)) return item.module as OperationModule;
+  if (SYSTEM_TARGETS.has(item.targetType)) return "SYSTEM";
+  if (item.targetType.startsWith("Course")) return "COURSE";
+  if (item.targetType.startsWith("Spa")) return "SPA";
+  if (item.targetType === "Booking") return "STEAM";
+  return "SHARED";
+}
+
 function summaryText(item: { summary: string | null; targetType: string; action: string }) {
   const target = TARGET_LABELS[item.targetType] ?? item.targetType;
   const action = ACTION_LABELS[item.action] ?? item.action;
-  if (!item.summary || item.summary === `${item.targetType} ${action}` || item.summary === `${item.targetType} 修改`) {
+  if (!item.summary || item.summary.includes(item.action) || item.summary.startsWith(item.targetType)) {
     return `${action}${target}`;
   }
   return item.summary.replace(item.targetType, target);
@@ -163,7 +176,7 @@ export default async function OperationAuditsPage({
                 <summary className="grid cursor-pointer list-none gap-1.5 text-sm md:grid-cols-[145px_105px_72px_1fr_105px] md:items-center">
                   <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
                   <span className="truncate font-medium text-earth-900">{item.actorNameSnapshot ?? item.actor.name}</span>
-                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-xs text-primary-800">{MODULE_LABELS[item.module as OperationModule] ?? item.module ?? "系統"}</span>
+                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-xs text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
                   <span className="min-w-0 truncate text-earth-800">{summaryText(item)}</span>
                   <span className="truncate text-xs text-earth-500 md:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>

@@ -112,14 +112,22 @@ function moduleWhere(input: Pick<OperationAuditCenterFilters, "module" | "module
   if (!selected?.length) return {};
   const values = selected.filter((module) => module !== "SYSTEM");
   const includeSystem = selected.includes("SYSTEM");
-  if (!includeSystem) return { module: values.length === 1 ? values[0] : { in: values } };
-  return {
-    OR: [
-      { module: null },
-      { module: "SYSTEM" },
-      ...(values.length ? [{ module: { in: values } }] : []),
-    ],
-  };
+  const clauses: Prisma.AuditLogWhereInput[] = values.length ? [{ module: { in: values } }] : [];
+  if (includeSystem) clauses.push(
+    { module: "SYSTEM" },
+    { module: null, targetType: { in: ["Staff", "StaffPermission", "CourseTeacherFinanceScope"] } },
+  );
+  if (values.includes("COURSE")) clauses.push({
+    module: null,
+    targetType: { startsWith: "Course", notIn: ["CourseTeacherFinanceScope"] },
+  });
+  if (values.includes("STEAM")) clauses.push({ module: null, targetType: "Booking" });
+  if (values.includes("SPA")) clauses.push({ module: null, targetType: { startsWith: "Spa" } });
+  if (values.includes("SHARED")) clauses.push({
+    module: null,
+    targetType: { in: ["CashbookEntry", "Transaction"] },
+  });
+  return { AND: [{ OR: clauses }] };
 }
 
 /** Read-only, paginated query for the store/HQ operation record center. */
