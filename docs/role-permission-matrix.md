@@ -72,6 +72,7 @@
 | **交易紀錄** | R | R（自己名下） | — | `checkPermission(transaction.read)` | `listTransactions()` staffFilter |
 | **現金帳 - 列表** | R | R（自己名下） | — | `checkPermission(cashbook.read)` | `listCashbookEntries()` staffFilter |
 | **現金帳 - 新增** | C | C（綁定自己） | — | `checkPermission(cashbook.create)` | `requirePermission(cashbook.create)` |
+| **操作紀錄中心** | R（跨店） | 依 `audit.read` 授權 | — | `checkPermission(audit.read)` | 伺服器頁面同權限檢查＋門市範圍 |
 | **課程方案 - 列表** | R | R | — | `checkPermission(wallet.read)` | `requireStaffSession()` |
 | **課程方案 - 新增** | C | — | — | `isOwner` 按鈕隱藏 | `requirePermission(wallet.create)` |
 | **課程方案 - 編輯** | U | — | — | `isOwner` 條件渲染 | `requirePermission(wallet.create)` |

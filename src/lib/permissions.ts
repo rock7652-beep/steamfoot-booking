@@ -107,6 +107,8 @@ export const ALL_PERMISSIONS = [
   "trial.confirm", // 確認收款（開通堂數 / 計營收）
   "trial.cancel",  // 取消體驗 / 退款取消
   "trial.manage",  // 體驗課設定
+  // 系統稽核
+  "audit.read", // 查看本店操作紀錄中心
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -166,6 +168,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "體驗單",
     codes: ["trial.read", "trial.create", "trial.confirm", "trial.cancel", "trial.manage"],
   },
+  audit: {
+    label: "操作紀錄",
+    codes: ["audit.read"],
+  },
 };
 
 // 權限代碼 → 中文說明
@@ -214,6 +220,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "trial.confirm": "確認體驗收款",
   "trial.cancel": "取消體驗 / 退款取消",
   "trial.manage": "管理體驗課設定",
+  "audit.read": "查看操作紀錄",
 };
 
 // ============================================================
@@ -262,6 +269,7 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "trial.confirm",
   "trial.cancel",
   "trial.manage",
+  "audit.read",
 ];
 
 /** 合作店長 預設權限（日常操作，不含營收報表/系統設定/人才管理） */

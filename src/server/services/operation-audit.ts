@@ -75,3 +75,85 @@ export async function getOperationHistory(input: {
     },
   });
 }
+
+export type OperationAuditCenterFilters = {
+  storeId?: string | null;
+  storeIds?: string[];
+  actorUserId?: string;
+  module?: OperationModule;
+  keyword?: string;
+  dateFrom: Date;
+  dateTo: Date;
+  page?: number;
+  pageSize?: number;
+};
+
+/** Read-only, paginated query for the store/HQ operation record center. */
+export async function listOperationAudits(input: OperationAuditCenterFilters) {
+  const page = Math.max(input.page ?? 1, 1);
+  const pageSize = Math.min(Math.max(input.pageSize ?? 30, 1), 100);
+  const keyword = input.keyword?.trim().slice(0, 80);
+  const where: Prisma.AuditLogWhereInput = {
+    createdAt: { gte: input.dateFrom, lte: input.dateTo },
+    ...(input.storeId
+      ? { storeId: input.storeId }
+      : input.storeIds
+        ? { storeId: { in: input.storeIds } }
+        : {}),
+    ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
+    ...(input.module ? { module: input.module } : {}),
+    ...(keyword
+      ? {
+          OR: [
+            { summary: { contains: keyword, mode: "insensitive" } },
+            { action: { contains: keyword, mode: "insensitive" } },
+            { targetType: { contains: keyword, mode: "insensitive" } },
+            { actorNameSnapshot: { contains: keyword, mode: "insensitive" } },
+            { actor: { name: { contains: keyword, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
+  };
+  const [total, items, actorRows] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true, action: true, summary: true, module: true, targetType: true,
+        targetId: true, createdAt: true, actorUserId: true,
+        actorNameSnapshot: true, beforeJson: true, afterJson: true, storeId: true,
+        actor: { select: { name: true, role: true } },
+      },
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        createdAt: { gte: input.dateFrom, lte: input.dateTo },
+        ...(input.storeId
+          ? { storeId: input.storeId }
+          : input.storeIds
+            ? { storeId: { in: input.storeIds } }
+            : {}),
+      },
+      distinct: ["actorUserId"],
+      orderBy: { createdAt: "desc" },
+      select: {
+        actorUserId: true,
+        actorNameSnapshot: true,
+        actor: { select: { name: true } },
+      },
+    }),
+  ]);
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    actors: actorRows.map((row) => ({
+      id: row.actorUserId,
+      name: row.actorNameSnapshot ?? row.actor.name,
+    })),
+  };
+}
