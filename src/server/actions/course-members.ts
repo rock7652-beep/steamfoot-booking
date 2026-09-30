@@ -40,7 +40,11 @@ function refresh() {
   revalidatePath("/book");
 }
 
-function scheduleCourseWaitlistPromotion(storeId: string, sessionIds: string[]) {
+function scheduleCourseWaitlistPromotion(
+  storeId: string,
+  sessionIds: string[],
+  trigger: { actorUserId: string; actorNameSnapshot?: string | null },
+) {
   const uniqueSessionIds = [...new Set(sessionIds)].filter(Boolean);
   if (!uniqueSessionIds.length) return;
   after(async () => {
@@ -53,7 +57,22 @@ function scheduleCourseWaitlistPromotion(storeId: string, sessionIds: string[]) 
         const promoted = await courseTransaction(storeId, tx =>
           promoteCourseWaitlistForSession(tx, storeId, sessionId),
         );
-        if (promoted.length) await notifyCourseWaitlistPromotions(storeId, promoted);
+        if (promoted.length) {
+          await Promise.all([
+            notifyCourseWaitlistPromotions(storeId, promoted),
+            recordOperationAuditBestEffort({
+              actorUserId: trigger.actorUserId,
+              actorNameSnapshot: trigger.actorNameSnapshot,
+              storeId,
+              module: "COURSE",
+              targetType: "CourseWaitlist",
+              targetId: sessionId,
+              action: "AUTO_PROMOTE",
+              summary: `候補自動遞補（${promoted.length} 人）`,
+              after: { bookingIds: promoted.map(item => item.bookingId) },
+            }),
+          ]);
+        }
       }
     } catch (error) {
       console.error("[course-waitlist] post-cancel promotion failed", {
@@ -436,7 +455,10 @@ export async function updateCourseBookingStatus(input: unknown) {
       return settled.sessionId;
     });
     if (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")
-      scheduleCourseWaitlistPromotion(actor.storeId, [settledSessionId]);
+      scheduleCourseWaitlistPromotion(actor.storeId, [settledSessionId], {
+        actorUserId: actor.userId,
+        actorNameSnapshot: actor.name,
+      });
     await recordOperationAudit({
       actorUserId: actor.userId,
       storeId: actor.storeId,
@@ -591,7 +613,10 @@ export async function stopFutureCourseLessons(input: unknown) {
       }
       return [...affectedSessionIds];
     });
-    if (data.bookingId) scheduleCourseWaitlistPromotion(storeId, releasedSessionIds);
+    if (data.bookingId) scheduleCourseWaitlistPromotion(storeId, releasedSessionIds, {
+      actorUserId: user.id,
+      actorNameSnapshot: user.name,
+    });
     refresh();
     return { success: true as const };
   } catch (error) {
