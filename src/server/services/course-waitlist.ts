@@ -180,7 +180,7 @@ export async function cancelMemberCourseWaitlist(
       select: { groupKey: true },
     });
     if (!own) fail("找不到目前候補紀錄");
-    const groupKey = own.groupKey;
+    const groupKey = own!.groupKey;
     const result = await tx.courseWaitlistEntry.updateMany({
       where: { storeId: actor.storeId, sessionId: input.sessionId, groupKey, status: "WAITING" },
       data: { status: "CANCELLED", failureReason: "會員取消", updatedAt: new Date() },
