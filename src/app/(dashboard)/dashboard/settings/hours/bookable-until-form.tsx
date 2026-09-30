@@ -100,8 +100,8 @@ export function BookableUntilForm({
         )}
       </header>
 
-      {expanded && dirty && <p role="status" className={direct ? "ml-[216px] mt-2 text-sm font-medium text-amber-700" : "mt-2 text-sm font-medium text-amber-700"}>未儲存</p>}
-      {expanded && <fieldset className={direct ? "ml-[216px] mt-2 grid gap-2 text-sm text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
+      {expanded && dirty && <p role="status" className={direct ? "mt-2 md:ml-[216px] text-sm font-medium text-amber-700" : "mt-2 text-sm font-medium text-amber-700"}>未儲存</p>}
+      {expanded && <fieldset className={direct ? "mt-2 md:ml-[216px] grid gap-2 text-sm text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
         <legend className="sr-only">預約開放方式</legend>
         <label
           className={`block cursor-pointer rounded-lg border px-3 py-2 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
@@ -160,7 +160,7 @@ export function BookableUntilForm({
         </label>
       </fieldset>}
       {canManage && expanded && (
-        <div className={direct ? "ml-[216px] mt-2 flex justify-end gap-2" : "mt-2 flex justify-end gap-2"}>
+        <div className={direct ? "mt-2 md:ml-[216px] flex justify-end gap-2" : "mt-2 flex justify-end gap-2"}>
           {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>}
           <button
             type="button"
