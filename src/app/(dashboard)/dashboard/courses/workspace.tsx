@@ -7,7 +7,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -296,6 +296,14 @@ export function CourseWorkspace({
     };
   }, [panel, router, view]);
   const [dirty, setDirty] = useState(false);
+  const restoreScrollY = useRef<number | null>(null);
+  useEffect(() => {
+    if (restoreScrollY.current === null) return;
+    const y = restoreScrollY.current;
+    restoreScrollY.current = null;
+    window.requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
+  }, [allTemplates, sourceRooms]);
+
   function closePanel() {
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
     setDirty(false);
@@ -579,6 +587,9 @@ export function CourseWorkspace({
         setDirty(false);
         form.reset();
         after?.(data);
+        if (panel === "catalog" || (panel === "edit" && editing?.kind !== "session")) {
+          restoreScrollY.current = window.scrollY;
+        }
         if (panel === "catalog") setPanel(null);
         router.refresh();
       } catch {
