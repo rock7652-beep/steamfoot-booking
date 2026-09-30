@@ -107,7 +107,7 @@ npm run db:studio
 
 ## 文件
 
-- `docs/STEAMFOOT_UI_Settings_Framework_v1.0.md` — UI／Settings Framework（UI、設定、新功能與跨模組介面的設計／開發／驗收標準）
+- `docs/STEAMFOOT_UI_Settings_Framework.md` — UI／Settings Framework（UI、設定、新功能與跨模組介面的設計／開發／驗收標準）
 - `docs/ARCHITECTURE.md` — 技術架構
 - `docs/PERMISSIONS.md` — 權限設計
 - `docs/API.md` — API / Server Actions 規劃
