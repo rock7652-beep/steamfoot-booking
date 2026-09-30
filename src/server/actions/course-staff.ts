@@ -118,7 +118,7 @@ export async function saveCourseStaff(input: unknown) {
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
         if (!d.id && existing) return;
-        if (d.teachingFees && existing && d.teachingVersion !== existing.updatedAt.toISOString())
+        if ((d.teachingFees || d.defaultClassFee !== undefined) && existing && d.teachingVersion !== existing.updatedAt.toISOString())
           throw new AppError("CONFLICT", "人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (
           existing &&
