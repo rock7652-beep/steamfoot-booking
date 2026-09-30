@@ -31,14 +31,38 @@ import {
   type CourseActor,
 } from "@/server/services/course-booking";
 import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
-import { cancelCourseWaitlistForSession, promoteCourseWaitlistForSession } from "@/server/services/course-waitlist";
-import { notifyCourseWaitlistPromotions } from "@/server/services/course-waitlist-notifications";
+import { cancelCourseWaitlistForSession } from "@/server/services/course-waitlist";
 
 const id = z.string().min(1).max(100);
 function refresh() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/courses");
   revalidatePath("/book");
+}
+
+function scheduleCourseWaitlistPromotion(storeId: string, sessionIds: string[]) {
+  const uniqueSessionIds = [...new Set(sessionIds)].filter(Boolean);
+  if (!uniqueSessionIds.length) return;
+  after(async () => {
+    try {
+      const [{ promoteCourseWaitlistForSession }, { notifyCourseWaitlistPromotions }] = await Promise.all([
+        import("@/server/services/course-waitlist"),
+        import("@/server/services/course-waitlist-notifications"),
+      ]);
+      for (const sessionId of uniqueSessionIds) {
+        const promoted = await courseTransaction(storeId, tx =>
+          promoteCourseWaitlistForSession(tx, storeId, sessionId),
+        );
+        if (promoted.length) await notifyCourseWaitlistPromotions(storeId, promoted);
+      }
+    } catch (error) {
+      console.error("[course-waitlist] post-cancel promotion failed", {
+        storeId,
+        sessionIds: uniqueSessionIds,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 }
 
 // The music roster updates itself optimistically and reconciles through a direct roster read.
@@ -397,7 +421,7 @@ export async function updateCourseBookingStatus(input: unknown) {
       const { user, storeId } = await courseManager("booking.update");
       actor = { userId: user.id, storeId, name: user.name ?? "店長" };
     }
-    const promoted = await courseTransaction(actor.storeId, async (tx) => {
+    const settledSessionId = await courseTransaction(actor.storeId, async (tx) => {
       if (!data.member && (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
@@ -409,11 +433,10 @@ export async function updateCourseBookingStatus(input: unknown) {
         data.status,
         data.noShowChoice,
       );
-      return data.status === "CANCELLED" || data.status === "STUDENT_LEAVE"
-        ? promoteCourseWaitlistForSession(tx, actor.storeId, settled.sessionId)
-        : [];
+      return settled.sessionId;
     });
-    if (promoted.length) after(() => notifyCourseWaitlistPromotions(actor.storeId, promoted));
+    if (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")
+      scheduleCourseWaitlistPromotion(actor.storeId, [settledSessionId]);
     await recordOperationAudit({
       actorUserId: actor.userId,
       storeId: actor.storeId,
@@ -543,7 +566,7 @@ export async function stopFutureCourseLessons(input: unknown) {
       expectedBookingIds: z.array(id).max(1000),
     }).parse(input);
     const { user, storeId } = await courseManager("booking.update");
-    const promoted = await courseTransaction(storeId, async tx => {
+    const releasedSessionIds = await courseTransaction(storeId, async tx => {
       const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId);
       if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
           scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
@@ -566,12 +589,9 @@ export async function stopFutureCourseLessons(input: unknown) {
           await cancelCourseWaitlistForSession(tx, storeId, sessionId);
         return [];
       }
-      const results = [];
-      for (const sessionId of affectedSessionIds)
-        results.push(...await promoteCourseWaitlistForSession(tx, storeId, sessionId));
-      return results;
+      return [...affectedSessionIds];
     });
-    if (promoted.length) after(() => notifyCourseWaitlistPromotions(storeId, promoted));
+    if (data.bookingId) scheduleCourseWaitlistPromotion(storeId, releasedSessionIds);
     refresh();
     return { success: true as const };
   } catch (error) {
