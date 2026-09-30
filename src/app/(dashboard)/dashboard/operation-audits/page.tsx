@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
@@ -7,7 +7,6 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { listOperationAudits, type OperationModule } from "@/server/services/operation-audit";
 import { OperationAuditFilters } from "./operation-audit-filters";
 
@@ -19,11 +18,6 @@ const MODULE_LABELS: Record<OperationModule, string> = {
   COURSE: "課程（歷史）",
   SHARED: "共用店務",
   SYSTEM: "系統管理",
-};
-
-const STORE_MODULE_SCOPE: Record<string, OperationModule[]> = {
-  steamfoot: ["STEAM", "SHARED", "SYSTEM"],
-  spa: ["SPA", "SHARED", "SYSTEM"],
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -92,7 +86,9 @@ export default async function OperationAuditsPage({
   }>;
 }) {
   const user = await getCurrentUser();
-  if (!user || !(await checkPermission(user.role, user.staffId, "audit.read"))) notFound();
+  if (!user) notFound();
+  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!(await checkPermission(user.role, user.staffId, "audit.read"))) notFound();
 
   const params = await searchParams;
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -108,23 +104,10 @@ export default async function OperationAuditsPage({
   const activeStoreId = await getActiveStoreForRead(user);
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const storeId = storeIdForViewContext(activeStoreId, viewContext);
-  const isHeadquarters = user.role === "ADMIN";
-  const storeModuleScope = !isHeadquarters && storeId
-    ? await (async () => {
-        const industry = await getStoreIndustryModule(storeId);
-        if (industry !== "course") return { modules: STORE_MODULE_SCOPE[industry] ?? STORE_MODULE_SCOPE.steamfoot };
-        const music = await prisma.storeFeatureEntitlement.findFirst({
-          where: { storeId, featureKey: "business.music", status: "ENABLED" },
-          select: { storeId: true },
-        });
-        return { modules: [music ? "MUSIC" : "FITNESS", "COURSE", "SHARED", "SYSTEM"] as OperationModule[] };
-      })()
-    : null;
   const result = await listOperationAudits({
     storeId,
     actorUserId: params.actor || undefined,
-    module: isHeadquarters ? moduleFilter : undefined,
-    modules: storeModuleScope?.modules,
+    module: moduleFilter,
     keyword: params.q,
     dateFrom: from,
     dateTo: to,
@@ -153,14 +136,14 @@ export default async function OperationAuditsPage({
 
   return (
     <PageShell>
-      <PageHeader title="操作紀錄" subtitle={isHeadquarters ? "查詢各店資料異動；紀錄僅供查閱，不能修改或刪除" : "查詢本店資料異動；紀錄僅供查閱，不能修改或刪除"} />
+      <PageHeader title="操作紀錄" subtitle="查詢各店資料異動；紀錄僅供查閱，不能修改或刪除" />
 
       <OperationAuditFilters
         actors={result.actors}
         cacheKey={`operation-audit-filters:${storeId ?? "all"}`}
         defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
         hasExplicitFilters={hasExplicitFilters}
-        showModuleFilter={isHeadquarters}
+        showModuleFilter
       />
 
       <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">

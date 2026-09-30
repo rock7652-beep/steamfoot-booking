@@ -30,6 +30,22 @@ export function OperationAuditFilters({
 }) {
   const router = useRouter();
   const restored = useRef(false);
+  const keywordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyFilters = (form: HTMLFormElement) => {
+    const data = new FormData(form);
+    const values = Object.fromEntries(FILTER_NAMES.map((name) => [name, String(data.get(name) ?? "")])) as FilterValues;
+    const query = new URLSearchParams();
+
+    FILTER_NAMES.forEach((name) => {
+      if (name === "module" && !showModuleFilter) return;
+      if (values[name]) query.set(name, values[name]);
+    });
+
+    localStorage.setItem(cacheKey, JSON.stringify(values));
+    const search = query.toString();
+    router.replace(`/dashboard/operation-audits${search ? `?${search}` : ""}`);
+  };
 
   useEffect(() => {
     if (restored.current || hasExplicitFilters) return;
@@ -49,14 +65,33 @@ export function OperationAuditFilters({
     }
   }, [cacheKey, hasExplicitFilters, router, showModuleFilter]);
 
+  useEffect(() => () => {
+    if (keywordTimer.current) clearTimeout(keywordTimer.current);
+  }, []);
+
   return (
     <form
       className={`grid gap-2 rounded-xl border border-earth-200 bg-white p-3 md:items-end ${showModuleFilter ? "md:grid-cols-[150px_150px_minmax(150px,1fr)_130px_minmax(220px,1.4fr)]" : "md:grid-cols-[150px_150px_minmax(180px,1fr)_minmax(280px,1.6fr)]"}`}
       method="get"
       onSubmit={(event) => {
-        const data = new FormData(event.currentTarget);
-        const values = Object.fromEntries(FILTER_NAMES.map((name) => [name, String(data.get(name) ?? "")])) as FilterValues;
-        localStorage.setItem(cacheKey, JSON.stringify(values));
+        event.preventDefault();
+        if (keywordTimer.current) clearTimeout(keywordTimer.current);
+        applyFilters(event.currentTarget);
+      }}
+      onChange={(event) => {
+        const target = event.target as unknown as HTMLInputElement | HTMLSelectElement;
+        const form = event.currentTarget;
+
+        if (target.name === "q") {
+          if (keywordTimer.current) clearTimeout(keywordTimer.current);
+          keywordTimer.current = setTimeout(() => applyFilters(form), 400);
+          return;
+        }
+
+        if (keywordTimer.current) clearTimeout(keywordTimer.current);
+        const data = new FormData(form);
+        if ((target.name === "dateFrom" || target.name === "dateTo") && (!data.get("dateFrom") || !data.get("dateTo"))) return;
+        applyFilters(form);
       }}
     >
       <label className="text-xs text-earth-600">開始日期
@@ -88,7 +123,6 @@ export function OperationAuditFilters({
       <label className="text-xs text-earth-600">關鍵字
         <div className="mt-1 flex gap-1.5">
           <input className="h-9 min-w-0 flex-1 rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="q" defaultValue={defaults.q} placeholder="操作或資料類型" maxLength={80} />
-          <button className="h-9 rounded-lg bg-primary-700 px-3 text-sm font-medium text-white" type="submit">查詢</button>
           <button
             className="h-9 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-2 text-sm text-earth-600"
             type="button"

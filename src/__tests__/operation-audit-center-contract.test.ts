@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 describe("unified operation audit center contract", () => {
-  it("defines one read-only permission and grants it to store owners", () => {
+  it("keeps the read-only permission for HQ access", () => {
     const permissions = read("src/lib/permissions.ts");
     const migration = read("prisma/migrations/20260930081500_add_operation_audit_read_permission/migration.sql");
     expect(permissions).toContain('"audit.read"');
@@ -15,15 +15,17 @@ describe("unified operation audit center contract", () => {
     expect(migration).toContain("ON CONFLICT");
   });
 
-  it("enforces permission, store scope, filters, and pagination on the server", () => {
+  it("restricts the center to HQ while keeping filters and pagination on the server", () => {
     const page = read("src/app/(dashboard)/dashboard/operation-audits/page.tsx");
     const layout = read("src/app/(dashboard)/layout.tsx");
+    const sidebar = read("src/components/sidebar.tsx");
     const service = read("src/server/services/operation-audit.ts");
+    expect(page).toContain('if (user.role !== "ADMIN") redirect("/dashboard")');
     expect(page).toContain('checkPermission(user.role, user.staffId, "audit.read")');
     expect(layout).toContain("operation-audits\\/?$");
     expect(page).toContain("storeIdForViewContext");
-    expect(page).toContain('modules: storeModuleScope?.modules');
-    expect(page).toContain('module: isHeadquarters ? moduleFilter : undefined');
+    expect(page).toContain('module: moduleFilter');
+    expect(sidebar.match(/href: "\/dashboard\/operation-audits"/g)).toHaveLength(1);
     expect(service).toContain("pageSize = Math.min");
     expect(service).toContain("createdAt: { gte: input.dateFrom, lte: input.dateTo }");
     expect(service).toContain("skip: (page - 1) * pageSize");
