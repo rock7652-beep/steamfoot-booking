@@ -88,3 +88,9 @@ it("links only the opposite work role in the same store, without granting permis
  expect(await saveCourseStaff({...input,linkedStaffId:"coach2"})).toMatchObject({success:false});
  expect(m.linkCreate).not.toHaveBeenCalled();
 });
+
+ it("rejects a stale default coach fee without overwriting the newer value",async()=>{
+  m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]}:{id:"coach2",userId:"coach-user",updatedAt:new Date("2026-09-30T00:00:00.000Z"),user:{role:"CUSTOMER"}});
+  expect(await saveCourseStaff({...input,id:"coach2",kind:"coach",name:"Coach",defaultClassFee:0,teachingVersion:"2026-09-29T00:00:00.000Z"})).toMatchObject({success:false});
+  expect(m.update).not.toHaveBeenCalled();
+ });
