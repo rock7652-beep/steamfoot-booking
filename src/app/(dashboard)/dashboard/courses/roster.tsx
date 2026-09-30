@@ -958,7 +958,7 @@ export function CourseRoster({
                 <li key={entry.id} className="flex items-center gap-2 rounded-md bg-white/80 px-2 py-1.5">
                   <span className="w-10 shrink-0 font-semibold text-amber-900">#{entry.position}</span>
                   <span className="min-w-0 flex-1 truncate">{entry.customerName}</span>
-                  {index > 0 && waitlist[index - 1]?.groupKey === entry.groupKey && (
+                  {waitlist.filter(item => item.groupKey === entry.groupKey).length > 1 && (
                     <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">同行</span>
                   )}
                 </li>
