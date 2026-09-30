@@ -17,8 +17,10 @@ describe("unified operation audit center contract", () => {
 
   it("enforces permission, store scope, filters, and pagination on the server", () => {
     const page = read("src/app/(dashboard)/dashboard/operation-audits/page.tsx");
+    const layout = read("src/app/(dashboard)/layout.tsx");
     const service = read("src/server/services/operation-audit.ts");
     expect(page).toContain('checkPermission(user.role, user.staffId, "audit.read")');
+    expect(layout).toContain("operation-audits\\/?$");
     expect(page).toContain("storeIdForViewContext");
     expect(service).toContain("pageSize = Math.min");
     expect(service).toContain("createdAt: { gte: input.dateFrom, lte: input.dateTo }");
