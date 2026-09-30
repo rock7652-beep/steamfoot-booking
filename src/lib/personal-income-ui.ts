@@ -3,6 +3,16 @@ import type { personalIncomeView } from "./course-personal-income";
 export type PersonalIncomeLine = ReturnType<typeof personalIncomeView>["lines"][number];
 export type IncomeFilter = "all" | "unpaid" | "paid";
 
+export const INCOME_PAGE_SIZE = 50;
+
+/** Apply after filtering; monthly totals must always use the unpaged rows. */
+export function pageIncomeLines(lines: PersonalIncomeLine[], requestedPage: number) {
+  const pageCount = Math.max(1, Math.ceil(lines.length / INCOME_PAGE_SIZE));
+  const page = Math.max(1, Math.min(pageCount, Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1));
+  const offset = (page - 1) * INCOME_PAGE_SIZE;
+  return { page, pageCount, start: lines.length ? offset + 1 : 0, end: Math.min(offset + INCOME_PAGE_SIZE, lines.length), lines: lines.slice(offset, offset + INCOME_PAGE_SIZE) };
+}
+
 export function incomePaymentStatus(line: { amount: number | null; paid: number | null }) {
   if (line.amount === null || line.paid === null) return "待核對";
   if (line.paid > line.amount) return "溢付待核對";
