@@ -1,4 +1,5 @@
 "use client";
+import { DashboardLink } from "@/components/dashboard-link";
 import { CustomerLabels } from "@/components/customer-labels";
 
 import type { ReactNode } from "react";
@@ -84,6 +85,7 @@ interface Props {
   onCreate?: () => void;
   stickyActions?: boolean;
   hideAssignedStaff?: boolean;
+  assignedStaffLabel?: string;
 }
 
 /**
@@ -129,6 +131,7 @@ export function CustomersTable({
   onCreate,
   stickyActions = false,
   hideAssignedStaff = false,
+  assignedStaffLabel = "直屬店長",
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -182,6 +185,7 @@ export function CustomersTable({
     {
       key: "customer",
       header: "顧客",
+      noLink: true,
       width: stickyActions ? "min-w-[10rem] w-48" : undefined,
       accessor: (c) => {
         const phoneDisplay = formatPhoneForStaff(c.phone);
@@ -190,7 +194,7 @@ export function CustomersTable({
         return (
           <div className={`flex flex-col leading-tight ${inactive ? "opacity-60" : ""}`}>
             <span className="flex items-center gap-1.5 text-sm font-medium text-earth-900">
-              <span className={inactive ? "line-through decoration-earth-300" : ""}>{c.name}</span><CustomerLabels customerId={c.id} readOnly={readOnly || inactive}/>
+              <DashboardLink href={buildViewHref(c)} onClick={e=>{e.preventDefault();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className={inactive ? "pointer-events-none line-through decoration-earth-300" : ""}>{c.name}</DashboardLink><CustomerLabels customerId={c.id} readOnly={readOnly || inactive}/>
               {inactive ? (
                 <span
                   className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500"
@@ -266,7 +270,7 @@ export function CustomersTable({
     },
     {
       key: "assignedStaff",
-      header: "直屬店長",
+      header: assignedStaffLabel,
       width: "w-28",
       accessor: (c) => {
         if (isInactiveRow(c)) {

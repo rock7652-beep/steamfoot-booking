@@ -51,7 +51,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
     {canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}
     <p className="text-xs text-earth-500">最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable hideAssignedStaff={music} stickyActions rows={pageRows}
+    <CustomersTable assignedStaffLabel="所屬教練" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
