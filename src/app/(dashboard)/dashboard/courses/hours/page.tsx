@@ -4,7 +4,7 @@ import { BookableUntilForm } from "../../settings/hours/bookable-until-form";
 import { DEFAULT_BOOKABLE_DAYS_AHEAD } from "@/lib/shop-config";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { courseManager } from "@/server/services/course-access";
+import { courseManagerRead } from "@/server/services/course-access";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { parseBusinessPeriods } from "@/lib/business-hours-resolver";
@@ -17,10 +17,10 @@ import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 export default async function CourseHoursPage({ searchParams }: { searchParams?: Promise<{ tab?: string; setup?: string }> }) {
  const params=await searchParams;
  const user=await getCurrentUser(); if(!user || !(await checkPermission(user.role,user.staffId,"business_hours.view"))) notFound();
- const {storeId}=await courseManager("business_hours.view");
+ const {storeId,isChildStoreView}=await courseManagerRead("business_hours.view");
  const [year,month]=toLocalDateStr().split("-").map(Number);
  const [hours,specials,summary,canManage,config,businessEntitlements]=await Promise.all([
-  prisma.businessHours.findMany({where:{storeId},orderBy:{dayOfWeek:"asc"}}),getCourseMonthSpecialDays(year,month),getCourseMonthScheduleSummary(year,month),checkPermission(user.role,user.staffId,"business_hours.manage"),prisma.shopConfig.findUnique({where:{storeId},select:{bookableUntilDate:true,bookingWindowDays:true}}),
+  prisma.businessHours.findMany({where:{storeId},orderBy:{dayOfWeek:"asc"}}),getCourseMonthSpecialDays(year,month),getCourseMonthScheduleSummary(year,month),isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"business_hours.manage"),prisma.shopConfig.findUnique({where:{storeId},select:{bookableUntilDate:true,bookingWindowDays:true}}),
   prisma.storeFeatureEntitlement.findMany({where:{storeId,featureKey:{startsWith:"business."},status:"ENABLED"},select:{featureKey:true}})
  ]);
  const businessProfile=resolveCourseBusinessProfile(businessEntitlements.map(item=>item.featureKey));

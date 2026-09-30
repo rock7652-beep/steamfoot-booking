@@ -65,7 +65,9 @@ export default async function DashboardLayout({
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
   // the remaining course-specific areas are being delivered.
   if (industryModule === "course") {
-    if (user.role !== "ADMIN") {
+    const isOwnerChildStoreView =
+      user.role === "OWNER" && !!user.storeId && activeStoreId !== user.storeId;
+    if (user.role !== "ADMIN" && !isOwnerChildStoreView) {
       const {prisma}=await import("@/lib/db");
       if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
     }

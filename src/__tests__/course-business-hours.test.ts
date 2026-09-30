@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { Prisma } from "../../generated/course-client";
 const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),raw:vi.fn(),write:vi.fn(),sessions:vi.fn(),hours:vi.fn(),special:vi.fn(),entitlement:vi.fn()}));
 vi.mock("@/lib/db",()=>({prisma:{businessHours:{findMany:m.hours},specialBusinessDay:{findMany:m.special},storeFeatureEntitlement:{findFirst:m.entitlement}}}));
-vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseManagerRead:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/lib/revalidation",()=>({revalidateBusinessHours:vi.fn(),revalidateSpecialDays:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 import { saveCourseWeeklyHours,saveCourseDayHours,getCourseMonthScheduleSummary } from "@/server/actions/course-business-hours";

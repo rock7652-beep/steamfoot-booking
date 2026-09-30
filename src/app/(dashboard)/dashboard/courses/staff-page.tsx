@@ -30,6 +30,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
     notFound();
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
+  const isChildStoreView = !!user.storeId && storeId !== user.storeId;
   await requireCourseStore(storeId);
   const [staff, canManage, templates, handover, limits, musicEntitlement, personLinks] = await Promise.all([
     prisma.staff.findMany({
@@ -43,15 +44,15 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
       },
       orderBy: { displayName: "asc" },
     }),
-    checkPermission(user.role, user.staffId, "staff.manage"),
+    isChildStoreView ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "staff.manage"),
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,musicSubjectId:true,musicTeacherShare:true,musicSubject:{select:{name:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,endsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
     prisma.courseStaffPersonLink.findMany({where:{storeId},select:{managerStaffId:true,instructorStaffId:true}}),
   ]);
-  const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read");
-  const financeScope=await readMusicFinanceScope(user,storeId);
+  const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
+  const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
@@ -61,7 +62,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
       <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
 
-      <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+      <CourseStaffWorkspace key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
         financeScope={financeScope}
         teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}

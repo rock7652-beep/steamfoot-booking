@@ -36,6 +36,8 @@ export async function CourseMemberPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireCourseStore(storeId);
+  const viewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = viewContext?.isViewMode ?? false;
   const music = !!(await prisma.storeFeatureEntitlement.findFirst({
     where: { storeId, featureKey: "business.music", status: "ENABLED" },
     select: { storeId: true },
@@ -70,18 +72,18 @@ export async function CourseMemberPage({
             orderBy: { name: "asc" },
           })
         : [],
-      checkPermission(
+      isViewMode ? Promise.resolve(false) : checkPermission(
         user.role,
         user.staffId,
         view === "customers" ? "customer.update" : "plans.edit",
       ),
-      checkPermission(user.role, user.staffId, "wallet.create"),
-      checkPermission(
+      isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "wallet.create"),
+      isViewMode ? Promise.resolve(false) : checkPermission(
         user.role,
         user.staffId,
         view === "customers" ? "customer.create" : "plans.edit",
       ),
-      user.role === "OWNER"
+      user.role === "OWNER" && !isViewMode
         ? checkPermission(user.role, user.staffId, "staff.manage")
         : false,
     ]);
@@ -105,17 +107,17 @@ export async function CourseMemberPage({
   subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
-  const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !(await resolveStoreViewContextFromCookie(user))?.isViewMode && await hasDataExportFeature(storeId);
+  const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId);
   return (
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-6"}`}>
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} actions={canExport ? <a href="/api/export/customers" download className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-700">匯出全部顧客 CSV</a> : undefined} />
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"}
-        canMerge={(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
+      <CourseMemberWorkspace key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"&&!isViewMode}
+        canMerge={!isViewMode&&(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
         customerPage={customerPage}
         assignmentStaff={assignmentStaff}
-        canAssignManager={await checkPermission(user.role, user.staffId, "customer.assign")}
+        canAssignManager={!isViewMode&&await checkPermission(user.role, user.staffId, "customer.assign")}
         canReadCards={canReadCards}
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
         termSessions={termSessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString()}))}
@@ -131,7 +133,7 @@ export async function CourseMemberPage({
         canCreate={canCreate}
         canManageStaff={canManageStaff}
         canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
-        canDiscount={await checkPermission(user.role,user.staffId,"transaction.discount")}
+        canDiscount={!isViewMode&&await checkPermission(user.role,user.staffId,"transaction.discount")}
         music={music}
       />
     </PageShell>

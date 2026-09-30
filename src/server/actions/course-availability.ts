@@ -8,7 +8,7 @@ import { AppError } from "@/lib/errors";
 import { normalizeAvailabilityPeriods } from "@/lib/course-availability";
 import { assertExistingTeacherAvailability } from "@/server/services/course-availability";
 import { handleCourseActionError } from "@/server/services/course-resources";
-import { courseManager } from "@/server/services/course-access";
+import { courseManager, courseManagerRead } from "@/server/services/course-access";
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const period = z.object({ openTime: time, closeTime: time });
@@ -105,7 +105,7 @@ export async function saveCourseStaffAvailabilityException(input:unknown) {
 }
 
 export async function getCourseStaffAvailability(staffId:string) {
-  const {storeId}=await courseManager("staff.view");
+  const {storeId}=await courseManagerRead("staff.view");
   await assertStaff(storeId,staffId);
   const [weekly,exceptions]=await Promise.all([
     prisma.$queryRaw<{dayOfWeek:number;segments:unknown}[]>`
