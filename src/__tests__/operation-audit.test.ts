@@ -1,12 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ create: vi.fn(), findMany: vi.fn(), count: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { auditLog: mocks } }));
+const mocks = vi.hoisted(() => ({ create: vi.fn(), findMany: vi.fn(), count: vi.fn(), findMusic: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { auditLog: mocks, storeFeatureEntitlement: { findFirst: mocks.findMusic } } }));
 
 import { getOperationHistory, listOperationAudits, recordOperationAudit } from "@/server/services/operation-audit";
 
 describe("shared operation audit", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("records course operations as music or fitness from the store profile", async () => {
+    mocks.create.mockResolvedValue({ id: "audit-course" });
+    mocks.findMusic.mockResolvedValue({ storeId: "music-store" });
+    await recordOperationAudit({
+      actorUserId: "user-1", storeId: "music-store", module: "COURSE",
+      targetType: "CourseBooking", targetId: "booking-1", action: "UPDATE", summary: "修改課程預約",
+    });
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ module: "MUSIC" }),
+    }));
+  });
 
   it("records the server-resolved actor and target", async () => {
     mocks.create.mockResolvedValue({ id: "audit-1" });
@@ -73,6 +85,19 @@ describe("shared operation audit", () => {
         storeId: "course-store",
         module: { in: ["COURSE", "SHARED"] },
       }),
+    }));
+  });
+
+  it("treats system management as explicit and historical null records", async () => {
+    mocks.count.mockResolvedValue(0);
+    mocks.findMany.mockResolvedValue([]);
+    await listOperationAudits({
+      module: "SYSTEM",
+      dateFrom: new Date("2026-09-01T00:00:00.000Z"),
+      dateTo: new Date("2026-09-30T23:59:59.999Z"),
+    });
+    expect(mocks.count).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ OR: [{ module: null }, { module: "SYSTEM" }] }),
     }));
   });
 });

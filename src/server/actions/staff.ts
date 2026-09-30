@@ -482,7 +482,7 @@ export async function updateStaffPermissionsAction(
       actorUserId: sessionUser.id,
       actorNameSnapshot: sessionUser.name,
       storeId: writeStoreId,
-      module: "SHARED",
+      module: "SYSTEM",
       targetType: "StaffPermission",
       targetId: staffId,
       action: "UPDATE",

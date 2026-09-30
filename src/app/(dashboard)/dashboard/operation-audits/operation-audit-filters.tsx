@@ -77,8 +77,11 @@ export function OperationAuditFilters({
             <option value="">全部模組</option>
             <option value="STEAM">蒸足</option>
             <option value="SPA">SPA</option>
-            <option value="COURSE">課程</option>
-            <option value="SHARED">店務</option>
+            <option value="MUSIC">音樂教室</option>
+            <option value="FITNESS">運動教室</option>
+            <option value="SHARED">共用店務</option>
+            <option value="SYSTEM">系統管理</option>
+            <option value="COURSE">課程（歷史）</option>
           </select>
         </label>
       ) : null}
