@@ -118,6 +118,7 @@ export function CourseStaffWorkspace({
   const [fees,setFees]=useState<Record<string,TeacherFeeDraft>>({});
   const [musicSettings,setMusicSettings]=useState<MusicTeacherSettings>({defaultRatio:null,subjectRules:{},revision:0});
   const [teachingVersion,setTeachingVersion]=useState<string>();
+  const [defaultFeeDirty,setDefaultFeeDirty]=useState(false);
   const [feesReady,setFeesReady]=useState(false);
   const [feesError,setFeesError]=useState("");
   const [reloadFees,setReloadFees]=useState(0);
@@ -182,7 +183,7 @@ export function CourseStaffWorkspace({
   function edit(p: Person | null) {
     setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
-    setDirty(false);setTeachingDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
+    setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage);
     const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setPermissions((p?.permissions ?? []).filter((permission) => allowed.has(permission)));
@@ -349,7 +350,7 @@ export function CourseStaffWorkspace({
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
                       phone: d.get("phone"),
-                      defaultClassFee:!music&&kind==="coach"&&feeEnabled&&canEditFees ? (d.get("defaultClassFee") ? Number(d.get("defaultClassFee")) : null) : undefined,
+                      defaultClassFee:!music&&kind==="coach"&&feeEnabled&&canEditFees&&(!person||defaultFeeDirty) ? (d.get("defaultClassFee") ? Number(d.get("defaultClassFee")) : null) : undefined,
                       contactEmail: kind === "coach" ? d.get("contactEmail") : undefined,
                       emergencyContactName: d.get("emergencyContactName"),
                       emergencyContactPhone: d.get("emergencyContactPhone"),
@@ -444,7 +445,7 @@ export function CourseStaffWorkspace({
 
                   <h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>
                   <p className="text-xs text-earth-500">套用新課次　ⓘ</p>
-                  {!music && feeEnabled && canEditFees && <label className="block max-w-xs text-sm">教練預設授課費（選填，元／堂）<input className={field} type="number" name="defaultClassFee" min="0" max="1000000" step="1" placeholder="未設定" defaultValue={person?.defaultClassFee??""}/><span className="text-xs text-earth-500">各課程留空時沿用此費用；預設也留空則月結顯示待核對。明確填 0 才表示 0 元。</span></label>}
+                  {!music && feeEnabled && canEditFees && <label className="block max-w-xs text-sm">教練預設授課費（選填，元／堂）<input className={field} type="number" name="defaultClassFee" min="0" max="1000000" step="1" placeholder="未設定" defaultValue={person?.defaultClassFee??""} onChange={()=>{setDefaultFeeDirty(true);setTeachingDirty(true);}}/><span className="text-xs text-earth-500">各課程留空時沿用此費用；預設也留空則月結顯示待核對。明確填 0 才表示 0 元。</span></label>}
 
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   {!music&&<div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
