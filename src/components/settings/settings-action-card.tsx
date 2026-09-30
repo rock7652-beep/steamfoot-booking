@@ -63,14 +63,14 @@ export function SettingsActionCard({
           </svg>
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-semibold text-earth-900">{title}</h3>
-          <p className="mt-0.5 line-clamp-1 text-[10px] text-earth-500">
+          <h3 className="text-sm font-semibold text-earth-900">{title}</h3>
+          <p className="mt-0.5 line-clamp-1 text-xs text-earth-500">
             {description}
           </p>
         </div>
-        {onPrimaryAction ? <button type="button" onClick={onPrimaryAction} className="min-h-9 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700">{primaryLabel}</button> : <Link
+        {onPrimaryAction ? <button type="button" onClick={onPrimaryAction} className="min-h-10 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700">{primaryLabel}</button> : <Link
           href={primaryHref}
-          className="min-h-8 shrink-0 rounded-lg bg-primary-600 px-2.5 py-1 text-[11px] font-medium leading-6 text-white hover:bg-primary-700"
+          className="min-h-10 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
         >
           {primaryLabel}
         </Link>}
@@ -84,7 +84,7 @@ export function SettingsActionCard({
         <div className="mt-1 flex justify-end">
           <Link
             href={secondaryHref}
-            className="text-[11px] text-earth-500 hover:text-earth-700 hover:underline"
+            className="text-xs text-earth-500 hover:text-earth-700 hover:underline"
           >
             {secondaryLabel} →
           </Link>
