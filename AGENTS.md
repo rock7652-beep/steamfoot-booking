@@ -25,7 +25,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 蒸管家 UI／Settings Framework
 
-凡涉及以下工作，開始前必須先閱讀 `docs/STEAMFOOT_UI_Settings_Framework_v1.0.md`，並以該文件作為設計、開發與驗收基準：
+凡涉及以下工作，開始前必須先閱讀 `docs/STEAMFOOT_UI_Settings_Framework.md`，並以該文件作為設計、開發與驗收基準：
 
 - UI／UX 調整
 - 設定介面
