@@ -135,6 +135,7 @@ export function CourseRoster({
     teacherAttendance:string;
     teacherAttendanceReason:string;
     teacherMakeupForSessionId:string|null;
+    waitlistStopMinutes:number;
   } | null>(null);
   const [trial, setTrial] = useState<
     Extract<
@@ -192,7 +193,7 @@ export function CourseRoster({
     if (result.success) {
       setRoster(result.data.roster);
       setWaitlist(result.data.waitlist ?? []);
-      setSession(old=>old ? {...old,teacherNote:result.data.teacherNote,teacherAttendance:result.data.teacherAttendance,teacherAttendanceReason:result.data.teacherAttendanceReason}:old);
+      setSession(old=>old ? {...old,teacherNote:result.data.teacherNote,teacherAttendance:result.data.teacherAttendance,teacherAttendanceReason:result.data.teacherAttendanceReason,waitlistStopMinutes:result.data.waitlistStopMinutes}:old);
       setLoaded(true);
     } else {
       setMessage(result.error);
@@ -953,6 +954,10 @@ export function CourseRoster({
             <span className="text-xs font-normal">依加入順序</span>
           </summary>
           <div className="border-t border-amber-100 px-3 py-2">
+            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-amber-900">
+              <span>目前空位 {Math.max(0, capacity - activeRows.length)}</span>
+              <span>開課前 {Math.round((session?.waitlistStopMinutes ?? 240) / 60)} 小時停止自動遞補</span>
+            </div>
             <ol className="space-y-1 text-sm text-earth-800">
               {waitlist.map((entry, index) => (
                 <li key={entry.id} className="flex items-center gap-2 rounded-md bg-white/80 px-2 py-1.5">
@@ -965,17 +970,21 @@ export function CourseRoster({
               ))}
             </ol>
             {canEdit && (
-              <button
-                type="button"
-                className="mt-3 min-h-10 rounded-lg border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 disabled:opacity-50"
-                disabled={pending || activeRows.length >= capacity}
-                onClick={() => run(
-                  () => promoteCourseWaitlistManually({ sessionId }),
-                  "已依順位處理候補",
-                )}
-              >
-                {activeRows.length >= capacity ? "目前仍滿班" : "依順位立即遞補"}
-              </button>
+              activeRows.length >= capacity ? (
+                <p className="mt-3 rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-amber-900">目前滿班，暫無可遞補名額</p>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 min-h-10 rounded-lg border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 disabled:opacity-50"
+                  disabled={pending}
+                  onClick={() => run(
+                    () => promoteCourseWaitlistManually({ sessionId }),
+                    "已依順位處理候補",
+                  )}
+                >
+                  依順位立即遞補
+                </button>
+              )
             )}
           </div>
         </details>
