@@ -4,7 +4,7 @@
 
 ## UI／Settings Framework 檢查
 
-若本 PR 涉及 UI／UX、設定介面、新功能、跨模組共用元件或操作流程，請依 `docs/STEAMFOOT_UI_Settings_Framework_v1.0.md` 驗收：
+若本 PR 涉及 UI／UX、設定介面、新功能、跨模組共用元件或操作流程，請依 `docs/STEAMFOOT_UI_Settings_Framework.md` 驗收：
 
 - [ ] 已閱讀《蒸管家 UI／Settings Framework 規範》
 - [ ] 已優先使用既有共用骨架／元件，沒有為單一模組複製一套
