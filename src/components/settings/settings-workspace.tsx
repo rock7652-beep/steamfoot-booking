@@ -7,6 +7,7 @@ export type SettingsWorkspaceNavItem = {
   id: string;
   label: string;
   href?: string;
+  status?: string;
 };
 
 export function SettingsWorkspaceNav({
@@ -28,11 +29,11 @@ export function SettingsWorkspaceNav({
             : "text-earth-600 hover:bg-earth-50");
         return item.href && !onSelect ? (
           <DashboardLink key={item.id} href={item.href} className={cls}>
-            {item.label}
+            {item.label}{item.status ? <span className="ml-1 text-xs text-amber-700">{item.status}</span> : null}
           </DashboardLink>
         ) : (
           <button key={item.id} type="button" onClick={() => onSelect?.(item.id)} className={cls}>
-            {item.label}
+            {item.label}{item.status ? <span className="ml-1 text-xs text-amber-700">{item.status}</span> : null}
           </button>
         );
       })}
