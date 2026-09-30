@@ -233,9 +233,11 @@ export default async function CoursesPage({
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
   const waitlistFeatureAvailable = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
   const waitlistStoreSetting = waitlistFeatureAvailable
-    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true } })
+    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true, defaultLimit: true, autoPromoteStopMinutes: true } })
     : null;
   const waitlistEnabled = waitlistFeatureAvailable && (waitlistStoreSetting?.enabled ?? false);
+  const waitlistDefaultLimit = waitlistStoreSetting?.defaultLimit ?? 5;
+  const waitlistDefaultStopMinutes = waitlistStoreSetting?.autoPromoteStopMinutes ?? 240;
   const displayOrders=await readCourseOrders(storeId);
   rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
   coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
@@ -333,6 +335,8 @@ export default async function CoursesPage({
         staffAvailability={staffAvailability}
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
         waitlistEnabled={waitlistEnabled}
+        waitlistDefaultLimit={waitlistDefaultLimit}
+        waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={sessions.map((s) => ({
           ...s,
           isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
