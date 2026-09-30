@@ -135,6 +135,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "data_export",
     "member_portal",
     "service_fee_calculator",
+    "course_waitlist",
     // PRO 全部
     "customer_care",
     "training_content",
