@@ -7,7 +7,7 @@ vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "a" }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "course" }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async()=>null }, store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: async () => null } } }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: async () => null }, courseWaitlistSetting: { findUnique: async () => null } } }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: m.usage }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
 vi.mock("@/lib/shop-config", () => ({ DEFAULT_BOOKABLE_DAYS_AHEAD: 14, TRIAL_DEFAULTS: { trialEnabled: true, trialDefaultPrice: 499 } }));
