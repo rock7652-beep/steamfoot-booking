@@ -22,6 +22,8 @@ describe("unified operation audit center contract", () => {
     expect(page).toContain('checkPermission(user.role, user.staffId, "audit.read")');
     expect(layout).toContain("operation-audits\\/?$");
     expect(page).toContain("storeIdForViewContext");
+    expect(page).toContain('modules: storeModuleScope?.modules');
+    expect(page).toContain('module: isHeadquarters ? moduleFilter : undefined');
     expect(service).toContain("pageSize = Math.min");
     expect(service).toContain("createdAt: { gte: input.dateFrom, lte: input.dateTo }");
     expect(service).toContain("skip: (page - 1) * pageSize");
