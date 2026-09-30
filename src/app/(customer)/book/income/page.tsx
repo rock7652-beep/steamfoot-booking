@@ -1,3 +1,6 @@
+import { CourseWorkReturnLink } from "@/components/course-work-return-link";
+import { coursePortalRoleCookie } from "@/lib/course-portal-role";
+import { getCurrentUser } from "@/lib/session";
 import { IncomeMonthFilter } from "@/components/income-month-filter";
 import { AppError } from "@/lib/errors";
 import { settlementMonth } from "@/lib/course-monthly-settlement";
@@ -14,7 +17,7 @@ export default async function MyCourseIncome({searchParams}: {searchParams: Prom
   const parsed = settlementMonth.safeParse(params.month ?? toLocalMonthStr());
   if (!parsed.success) return <p className="p-6">月份格式不正確，請使用 YYYY-MM。</p>;
   const month = parsed.data;
-  const context = await getStoreContext();
+  const [context, user] = await Promise.all([getStoreContext(), getCurrentUser()]);
   const prefix = context?.storeSlug ? `/s/${context.storeSlug}` : "";
   let report;
   try { report = await readMyCourseIncome(month); }
@@ -23,7 +26,7 @@ export default async function MyCourseIncome({searchParams}: {searchParams: Prom
     return <section className="mx-auto max-w-2xl space-y-4 p-6"><h1 className="text-xl font-bold">我的收入</h1><p role="status">{error.message}</p><a className="underline" href={`${prefix}/book`}>返回人員／會員首頁</a></section>;
   }
   return <section className="mx-auto max-w-2xl space-y-5 p-4 sm:p-6">
-    <a className="inline-flex min-h-11 items-center underline" href={`${prefix}/book`}>返回人員／會員首頁</a>
+    {user && context ? <CourseWorkReturnLink href={`${prefix}/book`} cookieName={coursePortalRoleCookie(user.id, context.storeId)} /> : <a className="inline-flex min-h-11 items-center underline" href={`${prefix}/book`}>返回首頁</a>}
     <h1 className="text-2xl font-bold">我的收入</h1>
     <IncomeMonthFilter month={month}/>
     {!report.confirmed ? <p role="status" className="rounded-lg bg-earth-50 p-4">本月收入待店長確認。</p> : <>
@@ -48,3 +51,4 @@ export default async function MyCourseIncome({searchParams}: {searchParams: Prom
     </>}
   </section>;
 }
+
