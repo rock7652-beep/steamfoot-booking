@@ -36,8 +36,8 @@ export function CourseWaitlistSettings({
   }
 
   return (
-    <div className="grid items-end gap-3 sm:grid-cols-[auto_minmax(140px,0.55fr)_minmax(170px,0.8fr)_auto]">
-      <label className="flex min-h-10 items-center gap-2 text-sm font-medium text-earth-700">
+    <div className="grid items-end gap-3 sm:grid-cols-[72px_minmax(140px,0.55fr)_minmax(170px,0.8fr)_96px]">
+      <label className="flex min-h-10 items-center gap-2 self-end pb-0.5 text-sm font-medium text-earth-700">
         <input
           type="checkbox"
           checked={enabled}
@@ -49,7 +49,7 @@ export function CourseWaitlistSettings({
       <label className={`block text-sm text-earth-700 ${enabled ? "" : "opacity-45"}`}>
         候補名額
         <input
-          className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm"
+          className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm tabular-nums"
           type="number"
           min={1}
           max={100}
@@ -80,7 +80,7 @@ export function CourseWaitlistSettings({
           type="button"
           disabled={pending || !dirty}
           onClick={save}
-          className="min-h-10 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-white disabled:opacity-30"
+          className="min-h-10 min-w-24 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-white disabled:opacity-30"
         >
           {pending ? "儲存中…" : "儲存"}
         </button>
