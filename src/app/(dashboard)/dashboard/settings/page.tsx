@@ -20,7 +20,9 @@ import {
 import {
   SettingsListRow,
   SettingsModuleWorkspace,
+  SettingsPanel,
 } from "@/components/settings";
+import RemindersPage from "../reminders/page";
 
 /**
  * /dashboard/settings — 設定控制台（PR5 重構）
@@ -34,7 +36,12 @@ import {
  *   - 所有 summary 都走既有 query，並行取得
  *   - 取不到資料時以保守字串取代，不報錯
  */
-export default async function SettingsIndexPage() {
+interface SettingsPageProps {
+  searchParams: Promise<Record<string, string | undefined>>;
+}
+
+export default async function SettingsIndexPage({ searchParams }: SettingsPageProps) {
+  const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
@@ -151,7 +158,7 @@ export default async function SettingsIndexPage() {
 
   const commonNotificationRows = (
     <>
-      <SettingsListRow title="提醒管理" summary={remindersLine} href="/dashboard/reminders" action="管理" />
+      <SettingsListRow title="提醒管理" summary={remindersLine} href="/dashboard/settings?panel=reminders&panelQuery=tab%3Dcustomer" action="管理" />
       <SettingsListRow
         title="推薦分享"
         summary={"referralShareTemplate" in shopConfig && shopConfig.referralShareTemplate ? "已自訂" : "系統預設"}
@@ -265,6 +272,16 @@ export default async function SettingsIndexPage() {
         storeName={storeName}
         sections={sections}
       />
+
+      {params.panel === "reminders" ? (
+        <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders" width={1040}>
+          <RemindersPage
+            searchParams={Promise.resolve(
+              Object.fromEntries(new URLSearchParams(params.panelQuery ?? "tab=customer")),
+            )}
+          />
+        </SettingsPanel>
+      ) : null}
     </PageShell>
   );
 }
