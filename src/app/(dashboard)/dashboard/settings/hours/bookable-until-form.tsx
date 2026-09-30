@@ -85,23 +85,23 @@ export function BookableUntilForm({
   }
 
   return (
-    <section className={direct ? "border-b border-earth-100 py-3" : "rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm"}>
-      <header className={direct ? "grid min-h-14 items-center gap-2 md:grid-cols-[minmax(140px,0.72fr)_minmax(220px,1.28fr)_auto]" : "flex items-center justify-between gap-3"}>
+    <section className={direct ? "border-b border-earth-100" : "rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm"}>
+      <header className={direct ? "grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]" : "flex items-center justify-between gap-3"}>
         <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
-        <p className="text-sm text-earth-600">
+        <p className="min-w-0 truncate text-sm tabular-nums text-earth-600">
           {savedMode === "fixed" && savedDate
             ? `開放至 ${formatDateZh(savedDate)}`
             : `未來 ${savedDays} 天・自動延長`}
         </p>
         {canManage && (
-          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">
+          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-10 min-w-24 shrink-0 justify-self-end rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">
             {expanded ? "取消" : "修改"}
           </button>
         )}
       </header>
 
-      {expanded && dirty && <p role="status" className="mt-2 text-sm font-medium text-amber-700">未儲存</p>}
-      {expanded && <fieldset className={direct ? "mt-2 grid gap-2 text-sm text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
+      {expanded && dirty && <p role="status" className={direct ? "ml-[216px] mt-2 text-sm font-medium text-amber-700" : "mt-2 text-sm font-medium text-amber-700"}>未儲存</p>}
+      {expanded && <fieldset className={direct ? "ml-[216px] mt-2 grid gap-2 text-sm text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
         <legend className="sr-only">預約開放方式</legend>
         <label
           className={`block cursor-pointer rounded-lg border px-3 py-2 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
@@ -160,7 +160,7 @@ export function BookableUntilForm({
         </label>
       </fieldset>}
       {canManage && expanded && (
-        <div className="mt-2 flex justify-end gap-2">
+        <div className={direct ? "ml-[216px] mt-2 flex justify-end gap-2" : "mt-2 flex justify-end gap-2"}>
           {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>}
           <button
             type="button"
