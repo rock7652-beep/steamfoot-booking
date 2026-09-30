@@ -24,7 +24,9 @@ import {
   SettingsNavSection,
   SettingsActionCard,
   SettingsSidePanel,
+  SettingsPanel,
 } from "@/components/settings";
+import RemindersPage from "../reminders/page";
 
 /**
  * /dashboard/settings — 設定控制台（PR5 重構）
@@ -38,7 +40,12 @@ import {
  *   - 所有 summary 都走既有 query，並行取得
  *   - 取不到資料時以保守字串取代，不報錯
  */
-export default async function SettingsIndexPage() {
+interface SettingsPageProps {
+  searchParams: Promise<Record<string, string | undefined>>;
+}
+
+export default async function SettingsIndexPage({ searchParams }: SettingsPageProps) {
+  const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
@@ -198,7 +205,7 @@ export default async function SettingsIndexPage() {
         ...(canManageTrial
           ? [{ label: "體驗課設定", href: "/dashboard/settings/trial" }]
           : []),
-        { label: "提醒管理", href: "/dashboard/reminders" },
+        { label: "提醒管理", href: "/dashboard/settings?panel=reminders&panelQuery=tab%3Dcustomer" },
         ...(hasDigitalButler
           ? [
               { label: "數位管家流程", href: "/dashboard/settings/digital-butler" },
@@ -410,10 +417,10 @@ export default async function SettingsIndexPage() {
           title="提醒管理"
           description="LINE 提醒模板與自動通知"
           iconPath="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          primaryHref="/dashboard/reminders"
+          primaryHref="/dashboard/settings?panel=reminders&panelQuery=tab%3Dcustomer"
           primaryLabel="設定提醒"
-          secondaryHref="/dashboard/reminders?tab=templates"
-          secondaryLabel="查看模板"
+          secondaryHref="/dashboard/settings?panel=reminders&panelQuery=tab%3Dlogs"
+          secondaryLabel="發送紀錄"
           summary={
             <InfoList
               density="compact"
@@ -440,6 +447,16 @@ export default async function SettingsIndexPage() {
           />
         ) : null}
       </SettingsShell>
+
+      {params.panel === "reminders" ? (
+        <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders" width={1040}>
+          <RemindersPage
+            searchParams={Promise.resolve(
+              Object.fromEntries(new URLSearchParams(params.panelQuery ?? "tab=customer")),
+            )}
+          />
+        </SettingsPanel>
+      ) : null}
     </PageShell>
   );
 }
