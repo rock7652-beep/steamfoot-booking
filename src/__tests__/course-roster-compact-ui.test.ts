@@ -78,7 +78,9 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="曠課・扣堂")!.click());
   expect(m.status).toHaveBeenLastCalledWith({bookingId:"music-booking",status:"NO_SHOW",noShowChoice:"DEDUCTED"});
   expect(host.textContent).not.toContain("發補課券");
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="備註")!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
+  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="標籤與備註")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="編輯本堂備註")!.click());
   const save=[...host.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -134,7 +136,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   expect(host.textContent).not.toContain("共卡");
 
 
-  expect(host.querySelector('[aria-label="上課統計"]')?.textContent).toContain("已預約 20/20");
+  expect(host.querySelector('[aria-label="上課統計"]')?.textContent).toContain("待點名 20");
   expect(host.textContent).toContain("每 60 秒自動更新");
   expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeTruthy();
   const search = host.querySelector('input[aria-label="搜尋上課學員"]') as HTMLInputElement;
@@ -150,7 +152,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(0);
   expect([...host.querySelectorAll("button")].filter(b=>b.getAttribute("title")==="標記出席")).toHaveLength(20);
   expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="未到")).toHaveLength(0);
-  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label$="更多操作"]')!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員0 更多操作"]')!.click());
   const noShow=[...document.querySelectorAll("button")].find(b=>b.textContent==="缺席・扣堂");expect(noShow).toBeTruthy();
   await act(async()=>noShow!.click());
   expect(host.textContent).toContain("未到扣堂＋發補課券");
@@ -321,5 +323,22 @@ it("keeps shared post-class balance stable during attendance and rolls back a re
   await act(async()=>finish({success:false,error:"驗證拒絕"}));
   expect(rows()[0].querySelector('[aria-label="甲：待點名"]')).toBeTruthy();
   expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+it('groups trial payment with identity and separates full usual and class notes',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const roster=[{id:'dense',customerId:'dense-c',customerName:'示範學員',customerPhone:'0900000001',status:'RESERVED',bookingKind:'TRIAL',trialPrice:350,trialPayments:[],serviceNote:'長期提醒完整文字，膝蓋不適避免深蹲',notes:'今天提早離開',pointCost:0,termLessons:[],termPrivateLeaves:[],absenceHistory:[]}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:'2026-10-01T02:00:00Z',pointCost:2},roster,cards:[],trial:{canCollect:true,canCorrect:true,settings:{}}}});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'density',capacity:10,canCreate:false,canEdit:true})));
+  const row=host.querySelector('li')!;
+  expect(row.children[0].textContent).toContain('體驗');expect(row.children[0].textContent).toContain('待收 $350');
+  expect(row.textContent).toContain('平時：');expect(row.textContent).toContain('本堂：');
+  expect(host.textContent).not.toContain('已預約');expect(host.textContent).not.toContain('取消整堂課');
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="示範學員 標籤與備註"]')!.click());
+  expect(host.querySelector('[role="dialog"]')?.textContent).toContain('長期提醒完整文字，膝蓋不適避免深蹲');
+  await act(async()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
  }finally{await act(async()=>root.unmount());host.remove();}
 });

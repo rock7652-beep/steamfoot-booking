@@ -54,7 +54,7 @@ export function CustomerLabelsSettingsLink() {
   if(!ctx?.snapshot.available)return null;
   return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings/customer-labels"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
 }
-export function CustomerLabels({customerId,readOnly=false,displayOnly=false}:{customerId:string;readOnly?:boolean;displayOnly?:boolean}) {
+export function CustomerLabels({customerId,readOnly=false,displayOnly=false,variant="badge"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;variant?:"badge"|"dots"}) {
   const ctx=useContext(Context);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(""),[pending,setPending]=useState(false);
   const host=useRef<HTMLSpanElement>(null);
@@ -65,11 +65,11 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false}:{cu
   useEffect(()=>{
     if(!open)return;
     const close=(e:PointerEvent)=>{if(!host.current?.contains(e.target as Node)&&!dialog.current?.contains(e.target as Node))setOpen(false);};
-    const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();setOpen(false);}};
+    const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"){e.preventDefault();e.stopImmediatePropagation();setOpen(false);}};
     const dismiss=(e:Event)=>{if(e.target instanceof Node&&dialog.current?.contains(e.target))return;setOpen(false);};
     window.addEventListener("resize",dismiss);window.addEventListener("scroll",dismiss,true);
-    document.addEventListener("pointerdown",close);document.addEventListener("keydown",escape);
-    return ()=>{window.removeEventListener("resize",dismiss);window.removeEventListener("scroll",dismiss,true);document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape);};
+    document.addEventListener("pointerdown",close);document.addEventListener("keydown",escape,true);
+    return ()=>{window.removeEventListener("resize",dismiss);window.removeEventListener("scroll",dismiss,true);document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape,true);};
   },[open]);
   if(!ctx || !ctx.snapshot.enabled || !(customerId in ctx.snapshot.assignments))return null;
   const {snapshot,update}=ctx;
@@ -87,11 +87,13 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false}:{cu
     finally {setPending(false);ctx?.unlock(customerId);}
   }
   return <span ref={host} className="relative z-20 inline-flex max-w-full flex-wrap items-center gap-1" onClick={e=>e.stopPropagation()}>
+    {variant === "dots" ? chosen.length > 0 && <button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} disabled={displayOnly} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className="inline-flex min-h-6 max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-left text-xs focus-visible:outline-2 focus-visible:outline-primary-600">{chosen.slice(0,2).map(l=><span key={l.id} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${["bg-orange-500","bg-blue-500","bg-purple-500","bg-teal-500","bg-pink-500","bg-indigo-500","bg-amber-500","bg-slate-500"][((categories.find(c=>c.id===l.categoryId)?.number??1)-1)%8]}`} /><span className="text-earth-700">{l.name}</span></span>)}{chosen.length>2&&<span className="text-earth-500">＋{chosen.length-2}</span>}</button> : <>
     {chosen.slice(0,2).map(l=><span key={l.id} className={`rounded border px-1.5 py-0.5 text-[11px] ${labelColor(categories.find(c=>c.id===l.categoryId)?.number??1)}`}>{l.name}</span>)}
     {!displayOnly&&chosen.length>2&&<span className="text-xs text-earth-500" title={chosen.map(l=>l.name).join("、")}>＋{chosen.length-2}</span>}
     {!displayOnly&&(canEdit||chosen.length>2)&&<button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className="min-h-10 shrink-0 whitespace-nowrap rounded px-2 text-xs text-primary-700 hover:bg-primary-50">{canEdit?"＋標籤":"查看標籤"}</button>}
     {!displayOnly&&!canEdit&&<span className="sr-only">標籤僅供查看</span>}
     {displayOnly&&chosen.length>2&&<span className="text-xs text-earth-500" title={chosen.map(l=>l.name).join("、")}>＋{chosen.length-2}</span>}
+    </>}
     {open&&createPortal(<span ref={dialog} onClick={e=>e.stopPropagation()} style={position} role="dialog" aria-label="顧客標籤" className="fixed z-[200] block max-h-[calc(100dvh-1rem)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-earth-200 bg-white p-3 text-left shadow-lg">
       <input aria-label="搜尋標籤" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋標籤" className="mb-2 h-10 w-full rounded border px-2 text-sm" />
       <span className="block max-h-64 overflow-auto">

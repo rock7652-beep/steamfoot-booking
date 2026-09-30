@@ -2291,7 +2291,7 @@ export function CourseWorkspace({
             <RightSheet
               open
               presentation="centered"
-              fitContent={oneToOneMusicDialog}
+              fitContent={oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC")}
               onClose={() => setCourseDialog(null)}
               width={oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
