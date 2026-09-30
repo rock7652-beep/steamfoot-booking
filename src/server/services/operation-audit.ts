@@ -81,6 +81,7 @@ export type OperationAuditCenterFilters = {
   storeIds?: string[];
   actorUserId?: string;
   module?: OperationModule;
+  modules?: OperationModule[];
   keyword?: string;
   dateFrom: Date;
   dateTo: Date;
@@ -101,7 +102,11 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
         ? { storeId: { in: input.storeIds } }
         : {}),
     ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
-    ...(input.module ? { module: input.module } : {}),
+    ...(input.module
+      ? { module: input.module }
+      : input.modules?.length
+        ? { module: { in: input.modules } }
+        : {}),
     ...(keyword
       ? {
           OR: [
