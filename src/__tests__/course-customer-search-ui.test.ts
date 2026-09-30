@@ -3,6 +3,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ index:vi.fn().mockResolvedValue({success:false}), replace: vi.fn(), search: vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}), params: new URLSearchParams("view=customers&staff=owner&page=3"), path: "/s/course-test/admin/dashboard/courses" }));
+vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null, CustomerLabelFilter: () => null }));
 vi.mock("@/server/actions/course-browse", () => ({ searchCourseCustomers: m.search, loadCourseCustomerSearchIndex:m.index }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: m.replace }), usePathname: () => m.path, useSearchParams: () => m.params }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: ({ children }: { children: React.ReactNode }) => React.createElement("span", null, children) }));

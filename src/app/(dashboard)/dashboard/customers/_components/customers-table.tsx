@@ -1,6 +1,6 @@
 "use client";
 import { DashboardLink } from "@/components/dashboard-link";
-import { CustomerLabels } from "@/components/customer-labels";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
 
 import type { ReactNode } from "react";
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
@@ -92,12 +92,6 @@ interface Props {
  * 顯示用完整電話 — 後台列表店長需能撥打辨識顧客，不遮罩。
  * OAuth 佔位（`_oauth_line_xxx`）或空值回 `—`。
  */
-function formatPhoneForStaff(phone: string | null | undefined): string {
-  if (!phone) return "—";
-  if (phone.startsWith("_oauth_")) return "—";
-  return phone;
-}
-
 function lineNotificationShortLabel(status: LineNotificationStatus): string {
   switch (status) {
     case "enabled":
@@ -186,35 +180,13 @@ export function CustomersTable({
       key: "customer",
       header: "顧客",
       noLink: true,
-      width: stickyActions ? "min-w-[10rem] w-48" : undefined,
+      width: "min-w-[18rem] w-80",
       accessor: (c) => {
-        const phoneDisplay = formatPhoneForStaff(c.phone);
-        const subtitle = phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null;
         const inactive = isInactiveRow(c);
-        return (
-          <div className={`flex flex-col leading-tight ${inactive ? "opacity-60" : ""}`}>
-            <span className="flex items-center gap-1.5 text-sm font-medium text-earth-900">
-              <DashboardLink href={buildViewHref(c)} onClick={e=>{e.preventDefault();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className={inactive ? "pointer-events-none line-through decoration-earth-300" : ""}>{c.name}</DashboardLink><CustomerLabels customerId={c.id} readOnly={readOnly || inactive}/>
-              {inactive ? (
-                <span
-                  className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500"
-                  title={
-                    c.mergedIntoCustomerId
-                      ? "此顧客已被合併進其他顧客（audit 殘留）"
-                      : "對應的登入帳號已停用"
-                  }
-                >
-                  已合併帳號
-                </span>
-              ) : null}
-            </span>
-            {subtitle ? (
-              <span className="whitespace-nowrap text-[11px] text-earth-400 tabular-nums">{subtitle}</span>
-            ) : (
-              <span className="text-[11px] text-earth-300">—</span>
-            )}
-          </div>
-        );
+        return <CustomerListIdentity customerId={c.id} phone={c.phone} readOnly={readOnly || inactive} name={<>
+          <DashboardLink href={buildViewHref(c)} onClick={e=>{e.preventDefault();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className={inactive ? "pointer-events-none line-through decoration-earth-300" : ""}>{c.name}</DashboardLink>
+          {inactive && <span className="ml-1 text-[10px] text-earth-500">已合併帳號</span>}
+        </>}/>;
       },
     },
     {

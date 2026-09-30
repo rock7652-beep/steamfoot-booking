@@ -5,6 +5,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 
 
+vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null, CustomerLabelFilter: () => null }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/bookings",
 }));

@@ -174,9 +174,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   if (courseMode) {
     return (
       <div className="space-y-2 border-b border-earth-200 pb-3">
-        <CustomerLabelFilter />
       {isPending && <NavigationNotice />}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <CustomerLabelFilter />
           <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
             <input
               name="search"

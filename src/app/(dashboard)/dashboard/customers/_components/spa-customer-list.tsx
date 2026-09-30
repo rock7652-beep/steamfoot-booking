@@ -1,5 +1,6 @@
 "use client";
-import { CustomerLabels, CustomerLabelFilter } from "@/components/customer-labels";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { CustomerLabelFilter } from "@/components/customer-labels";
 import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -126,21 +127,17 @@ export function SpaCustomerList({
         </div>
         <div className="divide-y divide-earth-100">
           {visible.map((c) => (
-            <button
+            <div
               key={c.id}
+              role="button" tabIndex={0}
+              onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();onOpen(c);}}}
               onClick={() => onOpen(c)}
               onPointerEnter={() => onPrefetch(c.id)}
               onFocus={() => onPrefetch(c.id)}
               className="spa-customer-row grid w-full grid-cols-1 gap-2 px-4 py-4 text-left hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-earth-600 sm:grid-cols-2 lg:grid-cols-[1.1fr_1fr_1fr_1.2fr] lg:gap-4"
             >
-              <span className="min-w-0">
-                <strong className="block truncate">{c.name}</strong><CustomerLabels customerId={c.id} displayOnly readOnly/>
-                <span className="text-sm text-earth-500">
-                  {c.phone?.startsWith("_")
-                    ? "未填電話"
-                    : c.phone || "未填電話"}
-                </span>
-              </span>
+              <CustomerListIdentity customerId={c.id} name={c.name} phone={c.phone} readOnly={!permissions.canEdit}/>
+
               <span className="text-sm">
                 {permissions.canReadBookings ? (
                   <>
@@ -187,9 +184,9 @@ export function SpaCustomerList({
                 )}
               </span>
               <span className="line-clamp-2 text-sm text-earth-600">
-                {c.serviceNote || "尚無服務備註"}
+                {c.serviceNote || ""}
               </span>
-            </button>
+            </div>
           ))}
         </div>
         {!visible.length && (

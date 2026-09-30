@@ -1,4 +1,5 @@
 "use client";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabels } from "@/components/customer-labels";
 import { createCustomer } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
@@ -621,7 +622,6 @@ export function SpaScheduleWorkspace(props: Props) {
           >
             <span>
               {b.startTime}–{b.endTime}{" "}
-              {customers.find((c) => c.id === b.customerId)?.name ?? "顧客"} ·{" "}
               {b.serviceName}
               <small className="block text-earth-500">
                 {staff.find((p) => p.id === b.serviceStaffId)?.name ??
@@ -639,7 +639,7 @@ export function SpaScheduleWorkspace(props: Props) {
                 </span>
               )}
             </span>
-          </button><CustomerLabels customerId={b.customerId}/></div>
+          </button><CustomerListIdentity customerId={b.customerId} name={customers.find(c=>c.id===b.customerId)?.name ?? "顧客"} phone={customers.find(c=>c.id===b.customerId)?.phone}/></div>
         ))}
       </details>
       {checkout && (

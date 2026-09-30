@@ -1,5 +1,5 @@
 "use client";
-import { CustomerLabels } from "@/components/customer-labels";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
@@ -704,13 +704,12 @@ export function BookingsManager({
         </div>
         <BookingSearchResultsScroll key={`${year}-${month}-${JSON.stringify(filters)}`}>
           {monthSearchResults.length === 0 ? <p role="status" className="p-4 text-sm text-earth-500">本月沒有符合的預約，可調整關鍵字或篩選條件，或切換月份。</p>
-            : monthSearchResults.map(({ date, booking }) => <button key={booking.id} type="button"
-              onClick={() => openBooking(booking.id)}
+            : monthSearchResults.map(({ date, booking }) => <div key={booking.id}
+              role="button" tabIndex={0} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openBooking(booking.id);}}} onClick={() => openBooking(booking.id)}
               className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-earth-100 px-4 py-2 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
-              <span><span className="font-medium text-earth-900">{booking.customer.name}</span><CustomerLabels customerId={booking.customer.id} readOnly={readOnly}/>
-                <span className="ml-3 text-sm text-earth-500">{booking.customer.phone}</span></span>
+              <CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/>
               <span className="text-sm text-earth-700">{date} · {booking.slotTime} · {booking.servicePlan?.name ?? "未指定服務"} · {STATUS_OPTIONS.find((s) => s.value === booking.bookingStatus)?.label ?? booking.bookingStatus}</span>
-            </button>)}
+            </div>)}
         </BookingSearchResultsScroll>
       </section>}
 

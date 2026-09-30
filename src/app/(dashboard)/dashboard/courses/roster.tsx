@@ -1,5 +1,5 @@
 "use client";
-import { CustomerLabels } from "@/components/customer-labels";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 
 import { CollectTrialModal } from "../bookings/collect-trial-modal";
@@ -1155,7 +1155,7 @@ export function CourseRoster({
 
         </div>
       ) : <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
-        <div className="grid min-w-[760px] grid-cols-[1.4fr_1.5fr_1fr_0.8fr_2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+        <div className="grid min-w-[760px] grid-cols-[minmax(17rem,2fr)_1.5fr_1fr_0.7fr_1.8fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>學員／電話</span>
           <span>方案／收費</span>
           <span>備註</span>
@@ -1188,7 +1188,7 @@ export function CourseRoster({
             return (
               <li
                 key={booking.id}
-                className="grid min-h-12 grid-cols-[1.4fr_1.5fr_1fr_0.8fr_2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
+                className="grid min-h-12 grid-cols-[minmax(17rem,2fr)_1.5fr_1fr_0.7fr_1.8fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
               >
                 <div className="flex items-start gap-2">
                   {canEdit && booking.status !== "CANCELLED" && (
@@ -1207,30 +1207,10 @@ export function CourseRoster({
                       }
                     />
                   )}
-                  <div className="min-w-0">
-                    <p className="flex min-w-0 items-center gap-1">
-                      <strong className="truncate" title={booking.customerName}>
-                        {booking.customerName}
-                      </strong>
-                      <CustomerLabels customerId={booking.customerId} readOnly={!canEdit}/>
-                      {booking.sharedCard && (
-                        <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800">
-                          共卡
-                        </span>
-                      )}
-                    </p>
-                    <a
-                      className="block truncate text-xs text-primary-700 hover:underline"
-                      href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}
-                    >
-                      {booking.customerPhone || "未填電話"}
-                    </a>
-                    <span className="block truncate text-[11px] text-earth-500">
-                      {booking.bookingSource}
-                    </span>
-                  </div>
+                  <div className="min-w-0 flex-1"><CustomerListIdentity customerId={booking.customerId} name={booking.customerName} phone={booking.customerPhone} readOnly={!canEdit}/>{booking.bookingSource && booking.bookingSource !== "店長建立" && <span className="text-[11px] text-earth-500">{booking.bookingSource}</span>}</div>
                 </div>
                 <div className="min-w-0">
+                  {booking.sharedCard && <span className="mr-1 text-xs text-primary-700">共卡</span>}
                   {booking.bookingKind === "TRIAL" ? (
                     <div
                       className="flex flex-wrap items-center gap-1.5"
@@ -1296,7 +1276,7 @@ export function CourseRoster({
                   className="truncate text-earth-600"
                   title={`店內：${booking.serviceNote || "—"}｜本次：${booking.notes || "—"}`}
                 >
-                  店內：{booking.serviceNote || "—"}｜本次：{booking.notes || "—"}
+                  {[booking.serviceNote && `店內：${booking.serviceNote}`, booking.notes && `本次：${booking.notes}`].filter(Boolean).join("｜")}
                 </p>
                 <div>
                   <span className={`inline-flex rounded-full px-2 py-1 text-xs ${statusClass}`}>
