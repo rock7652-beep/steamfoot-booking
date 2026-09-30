@@ -25,17 +25,17 @@ interface SettingsShellProps {
 
 export function SettingsShell({ nav, side, children }: SettingsShellProps) {
   return (
-    <div className="grid grid-cols-12 gap-3 xl:gap-4">
+    <div className="grid grid-cols-12 gap-2.5 xl:gap-3">
       <aside className="col-span-12 md:col-span-3 lg:col-span-2">
-        <div className="sticky top-4 space-y-3">{nav}</div>
+        <div className="sticky top-4 space-y-2">{nav}</div>
       </aside>
 
       <main className="col-span-12 md:col-span-9 lg:col-span-10 xl:col-span-8">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">{children}</div>
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">{children}</div>
       </main>
 
       {side ? (
-        <aside className="col-span-12 space-y-3 md:col-span-9 md:col-start-4 lg:col-span-10 lg:col-start-3 xl:col-span-2 xl:col-start-auto">
+        <aside className="col-span-12 space-y-2 md:col-span-9 md:col-start-4 lg:col-span-10 lg:col-start-3 xl:col-span-2 xl:col-start-auto">
           {side}
         </aside>
       ) : null}

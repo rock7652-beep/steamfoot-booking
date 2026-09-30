@@ -32,6 +32,12 @@
     max-height: calc(100% - 3rem);
     overflow-y: auto;
   }
+
+  .centered[data-compact="true"][data-fixed-height="true"] {
+    height: calc(100% - 3rem);
+    max-height: 900px;
+    overflow: hidden;
+  }
 }
 
 .centered > header { flex-shrink: 0; }
