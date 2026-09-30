@@ -36,7 +36,7 @@ export function LabelManager({initial}:{initial:LabelSnapshot}) {
       if(await save({action:editing.kind,id:editing.id,name:editing.name,...(editing.categoryId?{categoryId:editing.categoryId}:{})},"已儲存"))setEditing(null);
     }}>
       <label className="space-y-1"><span>名稱</span><input aria-label="修改名稱" maxLength={8} required value={editing.name} onChange={e=>setEditing({...editing,name:e.target.value})} className={field}/></label>
-      {editing.kind==="label"&&<label className="space-y-1"><span>所屬分類</span><select aria-label="修改所屬分類" value={editing.categoryId} onChange={e=>setEditing({...editing,categoryId:e.target.value})} className={field}>{categories.filter(c=>c.active||c.id===editing.categoryId).map(c=><option key={c.id} value={c.id}>{c.name}<span className="ml-2 text-xs font-normal opacity-60">{String(c.number).padStart(2,"0")}</span>{!c.active?"（已停用）":""}</option>)}</select></label>}
+      {editing.kind==="label"&&<label className="space-y-1"><span>所屬分類</span><select aria-label="修改所屬分類" value={editing.categoryId} onChange={e=>setEditing({...editing,categoryId:e.target.value})} className={field}>{categories.filter(c=>c.active||c.id===editing.categoryId).map(c=><option key={c.id} value={c.id}>{c.name} · {String(c.number).padStart(2,"0")}{!c.active?"（已停用）":""}</option>)}</select></label>}
       <div className="flex gap-2 sm:col-span-2"><button disabled={pending} className={button}>{pending?"儲存中…":"儲存"}</button><button type="button" disabled={pending} className={button} onClick={()=>setEditing(null)}>取消</button></div>
     </form>;
   }
