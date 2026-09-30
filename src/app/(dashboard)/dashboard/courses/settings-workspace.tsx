@@ -51,7 +51,12 @@ function SectionGuard({ section, context, children }: { section: string; context
   const scoped = useMemo(() => ({ report: scopedReport, navigate }), [scopedReport, navigate]);
   return <SettingsPanelContext.Provider value={scoped}>{children}</SettingsPanelContext.Provider>;
 }
-const lead = (minutes: number) => minutes ? "上課前 " + minutes + " 分鐘" : "上課開始前";
+const lead = (minutes: number) => {
+  if (!minutes) return "上課開始前";
+  if (minutes % 60 === 0) return `${minutes / 60} 小時前`;
+  if (minutes > 60) return `${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分前`;
+  return `${minutes} 分鐘前`;
+};
 
 export function CourseSettingsWorkspace(props: Props) {
   const router = useRouter();
