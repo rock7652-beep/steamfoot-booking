@@ -69,6 +69,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           params.tab === "templates"
         ? "customer"
         : "manager";
+  const customerSection =
+    params.section === "trial-care"
+      ? "trial-care"
+      : params.section === "plan-reminders"
+        ? "plan-reminders"
+        : "booking-reminders";
   const previewBlocked = isPreviewExternalIntegrationBlocked();
   const health = previewBlocked
     ? null
@@ -99,48 +105,58 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         prisma.trialCareLog.findMany({ where: { storeId }, orderBy: { createdAt: "desc" }, take: 50, include: { customer: { select: { name: true } } } }),
         prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true, shopConfig: { select: { lineOfficialUrl: true } } } }),
       ]);
+    const customerSections = [
+      { key: "booking-reminders", label: "預約前提醒" },
+      { key: "trial-care", label: "體驗後關懷" },
+      { key: "plan-reminders", label: "方案使用提醒" },
+    ] as const;
+
     content = (
-      <section key={`${storeId}-customer`} className="space-y-6">
-        <nav aria-label="顧客提醒分類" className="flex flex-wrap gap-2">
-          {[["booking-reminders", "預約前提醒"], ["trial-care", "體驗後關懷"], ["plan-reminders", "方案使用提醒"]].map(([id, label]) => (
-            <a key={id} href={`#${id}`} className="rounded-full border border-earth-200 bg-white px-4 py-2 text-sm text-primary-700 hover:bg-primary-50">{label}</a>
+      <section key={`${storeId}-customer-${customerSection}`} className="space-y-5">
+        <nav aria-label="顧客提醒分類" className="inline-flex max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-earth-50 p-1">
+          {customerSections.map((item) => (
+            <Link
+              key={item.key}
+              href={`/dashboard/reminders?tab=customer&section=${item.key}`}
+              aria-current={customerSection === item.key ? "page" : undefined}
+              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-1 ${
+                customerSection === item.key
+                  ? "bg-white text-primary-800 shadow-sm"
+                  : "text-earth-600 hover:bg-white/70 hover:text-primary-700"
+              }`}
+            >
+              {item.label}
+            </Link>
           ))}
         </nav>
-        <section id="booking-reminders" aria-labelledby="booking-reminders-title" className="scroll-mt-28 space-y-3">
-          <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
-          <CronRunBanner data={cron} />
-          <div className="grid items-start gap-3 md:grid-cols-2">
-          <PackageLineCardReminderSettingCard
-            key={`${storeId}-package`}
-            initialBody={packageBody}
-            hasMapLink={!!trial.mapUrl}
-            initialEnabled={state.packageBookingEnabled}
-          />
-          <TrialLineCardReminderSettingCard
-            key={`${storeId}-trial`}
-            initialBody={trial.body}
-            initialMapUrl={trial.mapUrl}
-            initialEnabled={state.trialBookingEnabled}
-          />
-          </div>
-        </section>
-        <section id="trial-care" aria-labelledby="trial-care-title" className="scroll-mt-28 space-y-3">
-          <div><h3 id="trial-care-title" className="font-semibold text-earth-900">體驗後關懷</h3><p className="mt-1 text-sm text-earth-500">完成體驗後，依序關心感受、邀請回訪。</p></div>
-          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
-        </section>
-        <section id="plan-reminders" aria-labelledby="plan-reminders-title" className="scroll-mt-28 space-y-3">
-          <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案使用提醒</h3><p className="mt-1 text-sm text-earth-500">依剩餘堂數與有效期限，提醒顧客安排後續服務。</p></div>
-          <div className="grid items-start gap-3 lg:grid-cols-3">
-          <SimpleSessionBalanceReminders
-            key={`${storeId}-balance`}
-            initialSetting={balance}
-          />
-          <PlanExpiryReminderSettingCard
-            key={`${storeId}-expiry`}
-            initialEnabled={expiry}
-          />
-          </div>
-        </section>
+
+        {customerSection === "booking-reminders" ? (
+          <section aria-labelledby="booking-reminders-title" className="space-y-3">
+            <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
+            <CronRunBanner data={cron} />
+            <div className="grid items-start gap-3 md:grid-cols-2">
+              <PackageLineCardReminderSettingCard key={`${storeId}-package`} initialBody={packageBody} hasMapLink={!!trial.mapUrl} initialEnabled={state.packageBookingEnabled} />
+              <TrialLineCardReminderSettingCard key={`${storeId}-trial`} initialBody={trial.body} initialMapUrl={trial.mapUrl} initialEnabled={state.trialBookingEnabled} />
+            </div>
+          </section>
+        ) : null}
+
+        {customerSection === "trial-care" ? (
+          <section aria-labelledby="trial-care-title" className="space-y-3">
+            <div><h3 id="trial-care-title" className="font-semibold text-earth-900">體驗後關懷</h3><p className="mt-1 text-sm text-earth-500">完成體驗後，依序關心感受、邀請回訪。</p></div>
+            <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
+          </section>
+        ) : null}
+
+        {customerSection === "plan-reminders" ? (
+          <section aria-labelledby="plan-reminders-title" className="space-y-3">
+            <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案使用提醒</h3><p className="mt-1 text-sm text-earth-500">依剩餘堂數與有效期限，提醒顧客安排後續服務。</p></div>
+            <div className="grid items-start gap-3 lg:grid-cols-3">
+              <SimpleSessionBalanceReminders key={`${storeId}-balance`} initialSetting={balance} />
+              <PlanExpiryReminderSettingCard key={`${storeId}-expiry`} initialEnabled={expiry} />
+            </div>
+          </section>
+        ) : null}
       </section>
     );
   }
