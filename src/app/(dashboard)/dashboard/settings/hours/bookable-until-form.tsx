@@ -86,29 +86,27 @@ export function BookableUntilForm({
 
   return (
     <section className={direct ? "border-b border-earth-100 py-3" : "rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm"}>
-      <header className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
-          <p className="mt-0.5 text-xs text-earth-500">
-            {savedMode === "fixed" && savedDate
-              ? `開放至 ${formatDateZh(savedDate)}`
-              : `未來 ${savedDays} 天・自動延長`}
-          </p>
-        </div>
+      <header className={direct ? "grid min-h-14 items-center gap-2 md:grid-cols-[minmax(140px,0.72fr)_minmax(220px,1.28fr)_auto]" : "flex items-center justify-between gap-3"}>
+        <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
+        <p className="text-sm text-earth-600">
+          {savedMode === "fixed" && savedDate
+            ? `開放至 ${formatDateZh(savedDate)}`
+            : `未來 ${savedDays} 天・自動延長`}
+        </p>
         {canManage && (
-          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-9 shrink-0 rounded-lg border border-earth-300 px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50">
+          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">
             {expanded ? "取消" : "修改"}
           </button>
         )}
       </header>
 
-      {expanded && dirty && <p role="status" className="mt-2 text-[11px] font-medium text-amber-700">未儲存</p>}
-      {expanded && <fieldset className={direct ? "mt-2 grid gap-2 text-xs text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
+      {expanded && dirty && <p role="status" className="mt-2 text-sm font-medium text-amber-700">未儲存</p>}
+      {expanded && <fieldset className={direct ? "mt-2 grid gap-2 text-sm text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
         <legend className="sr-only">預約開放方式</legend>
         <label
           className={`block cursor-pointer rounded-lg border px-3 py-2 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
         >
-          <span className="flex items-center gap-2 text-xs font-medium text-earth-800">
+          <span className="flex items-center gap-2 text-sm font-medium text-earth-800">
             <input
               type="radio"
               name={radioGroup}
@@ -134,7 +132,7 @@ export function BookableUntilForm({
         <label
           className={`block cursor-pointer rounded-lg border px-3 py-2 ${mode === "rolling" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
         >
-          <span className="flex items-center gap-2 text-xs font-medium text-earth-800">
+          <span className="flex items-center gap-2 text-sm font-medium text-earth-800">
             <input
               type="radio"
               name={radioGroup}
@@ -163,12 +161,12 @@ export function BookableUntilForm({
       </fieldset>}
       {canManage && expanded && (
         <div className="mt-2 flex justify-end gap-2">
-          {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-9 rounded-lg border px-3 text-xs disabled:opacity-40">還原修改</button>}
+          {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>}
           <button
             type="button"
             disabled={pending || !dirty || (mode === "fixed" && !fixedDate)}
             onClick={save}
-            className="min-h-9 rounded-lg bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
+            className="min-h-10 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
           >
             {pending ? "儲存中..." : "儲存設定"}
           </button>
