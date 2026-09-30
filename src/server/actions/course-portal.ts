@@ -1,4 +1,5 @@
 "use server";
+import {musicPurchaseTerms} from "@/lib/music-course-products";
 import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
 import {validateCourseTerm,enrollCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
@@ -153,8 +154,10 @@ export async function purchaseCoursePlan(input: unknown) {
           customerId: customer.id,
           name: plan.name,
           unit: plan.unit,
+          ...(plan.musicTerms ? musicPurchaseTerms(plan) : {}),
           points: plan.points,
           price: plan.price,
+          listPrice: plan.price,
           validDays: plan.validDays,
           templateIds: plan.templateIds,
         },
@@ -202,6 +205,7 @@ export async function confirmCoursePurchase(input: unknown) {
           unit: order.unit,
           templateIds: order.templateIds,
           remaining: order.points,
+          musicTermSizes:order.musicTermSizes,musicBonusLessons:order.musicBonusLessons,
           expiresAt: musicCard ? dayRange("2099-12-31").end : dayRange(
             addTaiwanDuration(toLocalDateStr(), order.validDays, "DAY"),
           ).end,

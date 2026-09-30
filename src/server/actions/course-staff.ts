@@ -1,11 +1,13 @@
 "use server";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
+import { canMusicFinance, requireMusicFinance, isMusicFinanceStore, readMusicFinanceScope } from "@/server/services/music-finance-access";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { compensationRule, type CompensationRule } from "@/lib/course-compensation";
@@ -22,21 +24,22 @@ import { revalidatePath } from "next/cache";
 const id = z.string().min(1).max(180);
 const teachingFee = z.object({
   templateId: id,
-  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬"),
+  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬").nullable(),
   revision: z.number().int().min(0),
 });
 export async function readCourseStaffTeaching(staffId: string) {
   try {
-    const { user, storeId } = await courseManager("staff.manage");
+    const { user, storeId } = await courseManager("staff.view");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
     id.parse(staffId);
-    const data = await prisma.$transaction(async tx => {
-      await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
-      const staff = await tx.staff.findFirst({ where: { id: staffId, storeId } });
-      if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
-      const fees = await tx.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
-      return { version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees };
-    });
+    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
+    const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
+    if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
+    const [fees,settings]=canReadFees ? await Promise.all([
+      prisma.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
+      prisma.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
+    ]) : [[],[]] as const;
+    const data={ version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
     return { success: true as const, ...data };
   } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }
 }
@@ -57,8 +60,10 @@ export async function saveCourseStaff(input: unknown) {
     const d = z
       .object({
         id: id.optional(),
+        linkedStaffId: z.union([id,z.literal("")]).optional(),
         name: z.string().trim().min(1).max(80),
         phone: z.string().trim().max(30).default(""),
+        defaultClassFee:z.number().int().min(0).max(1000000).nullable().optional(),
         emergencyContactName: z.string().trim().max(80).default(""),
         emergencyContactPhone: z.string().trim().max(30).default(""),
         kind: z.enum(["manager", "coach"]),
@@ -67,10 +72,13 @@ export async function saveCourseStaff(input: unknown) {
         qualificationsConfirmed: z.boolean().optional(),
         teachingVersion: z.string().datetime().optional(),
         teachingFees: z.array(teachingFee).max(500).optional(),
+        musicSettings: musicTeacherSettings.optional(),
+        financeTeacherIds: z.array(id).max(500).nullable().optional(),
         birthday: z.string().optional(),
         emergencyContactRelation: z.string().trim().max(40).default(""),
         confirmDeactivate: z.boolean().default(false),
         email: z.string().email().optional(),
+        contactEmail: z.union([z.string().email(), z.literal("")]).optional(),
         password: z.string().min(8).max(100).optional(),
         customerId: id.optional(),
         active: z.boolean().default(true),
@@ -79,10 +87,18 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
+    if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
+    if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動教練才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
-    if (d.teachingFees?.some(f=>f.value.mode==="SHARE") && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
+    if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
+    // Resolve access outside the transaction. Production uses a one-connection
+    // pool, so querying through the global client while a transaction owns that
+    // connection would wait on itself until the pool timeout.
+    const musicFinanceStore = d.kind === "manager" ? await isMusicFinanceStore(storeId) : false;
+    const actorFinanceScope = musicFinanceStore ? await readMusicFinanceScope(user,storeId) : null;
+    if(!d.id && d.kind==="manager" && d.coachEnabled)throw new AppError("VALIDATION","店務與授課請分別建立帳號");
     if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
     const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
@@ -118,6 +134,7 @@ export async function saveCourseStaff(input: unknown) {
             (d.permissions && !d.permissions.includes("staff.manage")))
         )
           throw new AppError("FORBIDDEN", "不能停用自己或移除自己的管理權限");
+        if(d.kind==="manager" && d.coachEnabled && !existing?.courseCoachEnabled)throw new AppError("VALIDATION","店務與授課請分別建立帳號");
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
         const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
         const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
@@ -126,6 +143,11 @@ export async function saveCourseStaff(input: unknown) {
           if(rows.length!==qualificationIds.length) throw new AppError("FORBIDDEN","授課資格包含非本店課程");
         }
         if(existing?.status === "ACTIVE" && !d.active && !d.confirmDeactivate) throw new AppError("CONFLICT","請確認停用：所有工作存取立即撤銷，既有課次保留待交接");
+        if(existing?.status === "ACTIVE" && !d.active) {
+          const [impact]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP`;
+          const unfinished=Number(impact?.count??0);
+          if(unfinished) throw new AppError("CONFLICT",`仍有 ${unfinished} 堂未結束課次，請先完成改派或取消後再停用`);
+        }
         const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
         if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || removed.length)) {
           const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
@@ -193,11 +215,13 @@ export async function saveCourseStaff(input: unknown) {
             );
         }
         if (existing) {
+          const beforeStaff={displayName:existing.displayName,status:existing.status,phone:existing.phone,courseBirthday:existing.courseBirthday,emergencyContactName:existing.emergencyContactName,emergencyContactPhone:existing.emergencyContactPhone,emergencyContactRelation:existing.emergencyContactRelation,courseCoachEnabled:existing.courseCoachEnabled,courseQualifiedTemplateIds:existing.courseQualifiedTemplateIds,courseDefaultClassFee:existing.courseDefaultClassFee?.toString()??null};
           await tx.staff.update({
             where: { id: existing.id },
             data: {
               ...contacts,
               ...courseFields,
+              ...(d.defaultClassFee!==undefined?{courseDefaultClassFee:d.defaultClassFee}:{}),
               displayName: d.name,
               status: d.active ? "ACTIVE" : "INACTIVE",
               spaceFeeEnabled: false,
@@ -205,17 +229,24 @@ export async function saveCourseStaff(input: unknown) {
           });
           // Only operational synthetic accounts are edited for coaches. A real
           // member account remains untouched when work access is disabled.
-          if (d.kind === "manager")
+          const nextEmail=d.kind==="manager"?d.email:d.contactEmail;
+          const accountChanged=
+            existing.user.name!==d.name ||
+            (d.kind==="manager"&&d.active&&existing.user.status!=="ACTIVE") ||
+            (nextEmail!==undefined&&(nextEmail||null)!==existing.user.email) ||
+            (d.kind==="manager"&&passwordHash!==null);
+          if ((d.kind === "manager" || d.contactEmail !== undefined) && accountChanged)
             await tx.user.update({
               where: { id: existing.userId },
-              data: { name: d.name, ...(d.active?{status:"ACTIVE" as const}:{}), ...(d.email ? { email: d.email } : {}), ...(passwordHash ? { passwordHash } : {}) },
+              data: { name: d.name, ...(d.kind==="manager"&&d.active?{status:"ACTIVE" as const}:{}), ...(nextEmail!==undefined ? { email: nextEmail||null } : {}), ...(d.kind==="manager"&&passwordHash ? { passwordHash } : {}) },
             });
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'Staff',${staffId},'UPDATE',${JSON.stringify(beforeStaff)}::jsonb,${JSON.stringify({storeId,displayName:d.name,status:d.active?"ACTIVE":"INACTIVE",...contacts,...courseFields,...(d.defaultClassFee!==undefined?{courseDefaultClassFee:d.defaultClassFee}:{})})}::jsonb,now())`;
         } else
           await tx.user.create({
             data: {
               id: `course-user:${storeId}:${d.requestKey}`,
               name: d.name,
-              email: d.kind === "manager" ? d.email : null,
+              email: (d.kind === "manager" ? d.email : d.contactEmail) || null,
               passwordHash: d.kind === "manager" ? passwordHash : null,
               role: d.kind === "manager" ? "OWNER" : "CUSTOMER",
               status: d.kind === "manager" ? "ACTIVE" : "SUSPENDED",
@@ -225,6 +256,7 @@ export async function saveCourseStaff(input: unknown) {
                   storeId,
                   ...contacts,
               ...courseFields,
+              ...(d.defaultClassFee!==undefined?{courseDefaultClassFee:d.defaultClassFee}:{}),
               displayName: d.name,
                   colorCode: colors[count % colors.length],
                   spaceFeeEnabled: false,
@@ -233,24 +265,83 @@ export async function saveCourseStaff(input: unknown) {
               },
             },
           });
+        if (d.linkedStaffId !== undefined) {
+          const prior=await tx.courseStaffPersonLink.findFirst({
+            where:{storeId,OR:[{managerStaffId:staffId},{instructorStaffId:staffId}]},
+          });
+          const expectedManagerId=d.kind==="manager"?staffId:d.linkedStaffId;
+          const expectedInstructorId=d.kind==="coach"?staffId:d.linkedStaffId;
+          if(prior && d.linkedStaffId && (prior.managerStaffId!==expectedManagerId || prior.instructorStaffId!==expectedInstructorId))
+            throw new AppError("CONFLICT","請先解除舊連結並儲存，再連結另一人");
+          if(prior && !d.linkedStaffId) {
+            await tx.courseStaffPersonLink.delete({where:{id:prior.id}});
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseStaffPersonLink',${prior.id},'DELETE',${JSON.stringify({storeId,managerStaffId:prior.managerStaffId,instructorStaffId:prior.instructorStaffId})}::jsonb,'null'::jsonb,now())`;
+          }
+          if(d.linkedStaffId && !prior) {
+            if(d.linkedStaffId===staffId)throw new AppError("VALIDATION","不能連結自己的帳號");
+            const counterpart=await tx.staff.findFirst({where:{id:d.linkedStaffId,storeId},include:{user:true}});
+            if(!counterpart || (counterpart.user.role==="CUSTOMER")!==(d.kind==="manager"))throw new AppError("VALIDATION","請選擇本店另一種身分的帳號");
+            const occupied=await tx.courseStaffPersonLink.findFirst({where:{storeId,OR:[{managerStaffId:d.linkedStaffId},{instructorStaffId:d.linkedStaffId}]}});
+            if(occupied)throw new AppError("CONFLICT","此人已連結其他身分，請先核對");
+            const link=await tx.courseStaffPersonLink.create({data:{storeId,managerStaffId:expectedManagerId,instructorStaffId:expectedInstructorId,linkedByUserId:user.id}});
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseStaffPersonLink',${link.id},'CREATE','null'::jsonb,${JSON.stringify({storeId,managerStaffId:link.managerStaffId,instructorStaffId:link.instructorStaffId})}::jsonb,now())`;
+          }
+          if(d.linkedStaffId) {
+            // Only shared contact fields are synced; login email, LINE binding,
+            // permissions, teaching fees and monthly records remain independent.
+            const counterpart=await tx.staff.findFirst({where:{id:d.linkedStaffId,storeId},select:{id:true,userId:true,displayName:true,phone:true,courseBirthday:true,emergencyContactName:true,emergencyContactPhone:true,emergencyContactRelation:true,user:{select:{name:true}}}});
+            if(!counterpart)throw new AppError("NOT_FOUND","找不到本店已連結人員");
+            const before={displayName:counterpart.displayName,phone:counterpart.phone,courseBirthday:counterpart.courseBirthday,emergencyContactName:counterpart.emergencyContactName,emergencyContactPhone:counterpart.emergencyContactPhone,emergencyContactRelation:counterpart.emergencyContactRelation};
+            const after={displayName:d.name,...contacts};
+            if(JSON.stringify(before)!==JSON.stringify(after)){
+              await tx.staff.update({where:{id:counterpart.id},data:after});
+              await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'Staff',${counterpart.id},'UPDATE',${JSON.stringify(before)}::jsonb,${JSON.stringify({...after,storeId,linkedFromStaffId:staffId})}::jsonb,now())`;
+            }
+            if(counterpart.user.name!==d.name)await tx.user.update({where:{id:counterpart.userId},data:{name:d.name}});
+          }
+        }
+        if(d.musicSettings) {
+          const before=await tx.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
+          if((before[0]?.revision??0)!==d.musicSettings.revision)throw new AppError("CONFLICT","老師拆帳設定已更新，請重新開啟核對");
+          const ids=Object.keys(d.musicSettings.subjectRules);
+          if(ids.length){const subjects=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "MusicSubject" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[])`;if(subjects.length!==ids.length)throw new AppError("FORBIDDEN","科目包含非本店資料");}
+          await tx.$executeRaw`INSERT INTO "CourseTeacherCompensationSetting" ("storeId","staffId","defaultRatio","subjectRules",revision) VALUES (${storeId},${staffId},${d.musicSettings.defaultRatio},${JSON.stringify(d.musicSettings.subjectRules)}::jsonb,1) ON CONFLICT ("storeId","staffId") DO UPDATE SET "defaultRatio"=EXCLUDED."defaultRatio","subjectRules"=EXCLUDED."subjectRules",revision="CourseTeacherCompensationSetting".revision+1,"updatedAt"=now()`;
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherCompensationSetting',${staffId},'UPDATE',${JSON.stringify(before[0]??null)}::jsonb,${JSON.stringify({...d.musicSettings,storeId,scope:"NEW_SESSIONS"})}::jsonb,now())`;
+        }
         if (d.teachingFees) {
+          const priorFees=await tx.$queryRaw<Array<{templateId:string;rules:unknown;revision:number}>>`SELECT "templateId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseCompensation',${staffId},'UPDATE',${JSON.stringify(priorFees)}::jsonb,${JSON.stringify({storeId,fees:d.teachingFees,scope:"NEW_SESSIONS"})}::jsonb,now())`;
           for (const fee of d.teachingFees) {
-            const rules = JSON.stringify([fee.value]);
+            const rules = JSON.stringify(fee.value ? [fee.value] : []);
             await tx.$executeRaw`INSERT INTO "CourseCompensation" ("storeId","templateId","staffId",rules,revision) VALUES (${storeId},${fee.templateId},${staffId},${rules}::jsonb,1) ON CONFLICT ("storeId","templateId","staffId") DO UPDATE SET rules=EXCLUDED.rules,revision="CourseCompensation".revision+1,"updatedAt"=NOW()`;
           }
         }
         if (d.kind === "manager") {
-          const granted = d.permissions ?? [...COURSE_PERMISSIONS];
+          const actorStaff=await tx.staff.findFirst({where:{id:user.staffId??"",storeId,userId:user.id},include:{permissions:{where:{granted:true}}}});
+          if(!actorStaff)throw new AppError("FORBIDDEN","找不到本店授權人員");
+          if(existing?.isOwner && !actorStaff.isOwner)throw new AppError("FORBIDDEN","不能修改店主帳號");
+          const priorPermissions=existing?await tx.staffPermission.findMany({where:{staffId},select:{permission:true,granted:true}}):[];
+          const granted = d.permissions ?? priorPermissions.filter(p=>p.granted).map(p=>p.permission);
+          if(!actorStaff.isOwner && granted.some(code=>!actorStaff.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
+          if(musicFinanceStore) {
+            const existingScope=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+            if(d.financeTeacherIds===undefined)d.financeTeacherIds=existingScope[0]?.teacherIds??null;
+            if(existing?.isOwner && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
+            const teacherIds=d.financeTeacherIds===null?null:[...new Set(d.financeTeacherIds)];
+            if(teacherIds!==null && granted.includes("teacher.settlement.confirm"))throw new AppError("VALIDATION","確認全店月結需要全店教師範圍；請改選全店或關閉該權限");
+            if(actorFinanceScope!==null && (teacherIds===null || teacherIds.some(id=>!actorFinanceScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");
+            if(teacherIds?.length){const found=await tx.staff.count({where:{storeId,id:{in:teacherIds},courseCoachEnabled:true}});if(found!==teacherIds.length)throw new AppError("FORBIDDEN","指定教師包含非本店教師");}
+            const before=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+            await tx.$executeRaw`INSERT INTO "CourseTeacherFinanceScope" ("storeId","staffId","teacherIds") VALUES (${storeId},${staffId},${teacherIds}::text[]) ON CONFLICT ("storeId","staffId") DO UPDATE SET "teacherIds"=EXCLUDED."teacherIds","updatedAt"=now()`;
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherFinanceScope',${staffId},'UPDATE',${JSON.stringify(before[0]??null)}::jsonb,${JSON.stringify({storeId,teacherIds})}::jsonb,now())`;
+          }
           for (const permission of ALL_PERMISSIONS)
             await tx.staffPermission.upsert({
               where: { staffId_permission: { staffId, permission } },
-              create: {
-                staffId,
-                permission,
-                granted: granted.includes(permission),
-              },
+              create: { staffId, permission, granted: granted.includes(permission) },
               update: { granted: granted.includes(permission) },
             });
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffPermission',${staffId},'UPDATE',${JSON.stringify(priorPermissions)}::jsonb,${JSON.stringify({storeId,granted})}::jsonb,now())`;
         }
         if (memberUserId) {
           const priorLink=await tx.staffMemberLink.findUnique({where:{uq_staff_member_link_staff_store:{staffId,storeId}}});

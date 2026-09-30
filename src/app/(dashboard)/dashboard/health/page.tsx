@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { HealthCustomerSearch } from "./health-customer-search";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -84,13 +85,13 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
         }
       />
 
-      <form method="get" className="min-w-0 rounded-xl border border-earth-200 bg-white p-4">
+      <InstantFilterForm className="min-w-0 rounded-xl border border-earth-200 bg-white p-4">
         <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <HealthCustomerSearch key={`${storeId}-${params.search ?? ""}-${params.customerId ?? ""}`}
+          <HealthCustomerSearch key={storeId}
             storeId={storeId} search={params.search} customerId={params.customerId} />
           <div className="flex gap-2">
             <Link href="/dashboard/health" className="inline-flex min-h-10 items-center rounded-md border border-earth-200 px-4 text-sm text-earth-700">清除</Link>
-            <button type="submit" className="min-h-10 rounded-md bg-primary-600 px-5 text-sm font-semibold text-white">套用篩選</button>
+
           </div>
         </div>
         <details open={hasAdvancedFilters} className="group mt-3 border-t border-earth-100">
@@ -123,7 +124,7 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
             </label>
           </div>
         </details>
-      </form>
+      </InstantFilterForm>
 
       <div className="text-xs text-earth-500">共 {result.total} 筆量測紀錄</div>
       <div className="grid gap-3 md:hidden">

@@ -307,6 +307,10 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // /hq/* — 總部路由
   // ==========================================================
   if (pathname.startsWith("/hq")) {
+    // 店長信箱重設需在未登入時可用；只開放這兩個明確頁面。
+    if (pathname === "/hq/forgot-password" || pathname === "/hq/reset-password") {
+      return withDomainCookie(NextResponse.next(), domainStoreId);
+    }
     // /hq/login → public
     if (pathname === "/hq/login" || pathname.startsWith("/hq/login/")) {
       const storeParam = req.nextUrl.searchParams.get("store");

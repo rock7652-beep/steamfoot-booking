@@ -15,3 +15,15 @@ it("payment changes do not change confirmed obligation fingerprint; refund does"
  const second=await readCourseMonthlySettlement(tx,"A","2026-09");expect(second.fingerprint).toBe(first.fingerprint);expect(second.lines[0].paid).toBe(600);
  order.refunds=[{amount:1150}];const third=await readCourseMonthlySettlement(tx,"A","2026-09");expect(third.fingerprint).not.toBe(first.fingerprint);expect(third.lines[0].amount).toBe(800);
 });
+it("monthly uses the same per-pupil calculator as payment and preserves ending time",async()=>{
+ const rule={mode:"SHARE",value:65,calculationVersion:2};
+ raw.mockImplementation(async(strings:TemplateStringsArray)=>{
+  const sql=strings.join("");
+  if(sql.includes('FROM "CourseSession" s LEFT JOIN'))return [{id:"lesson",staffId:"teacher",name:"吉他",startsAt:new Date("2026-09-01T10:00Z"),endsAt:new Date("2026-09-01T11:00Z"),cancelledAt:null,teacherAttendance:"ATTENDED",rule,revision:1}];
+  if(sql.includes('FROM "CourseBooking" b'))return ["a","b"].map(id=>({id,sessionId:"lesson",customerName:id,status:"ATTENDED",bookingKind:"CARD",absenceKind:null,purchaseCount:BigInt(1),listPrice:2600,points:4,musicBonusLessons:0}));
+  return [];
+ });
+ const report=await readCourseMonthlySettlement(tx,"A","2026-09");
+ expect(report.lines[0]).toMatchObject({amount:846,endsAt:"2026-09-01T11:00:00.000Z",issue:null});
+ expect(report.lines[0].feeDetails?.map(d=>d.amount)).toEqual([423,423]);
+});

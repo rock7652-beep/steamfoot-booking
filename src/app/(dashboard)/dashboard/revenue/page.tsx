@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -407,7 +408,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 </p>
               </div>
 
-              <form method="GET" className="mt-2.5 grid gap-1.5 sm:mt-3 sm:gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
+              <InstantFilterForm className="mt-2.5 grid gap-1.5 sm:mt-3 sm:gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
                 <label className="text-[11px] text-earth-500">
                   開始日期
                   <input
@@ -456,19 +457,14 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                     ))}
                   </select>
                 </label>
-                <button
-                  type="submit"
-                  className="min-h-10 rounded-lg bg-earth-800 px-4 text-sm font-medium text-white hover:bg-earth-900"
-                >
-                  查詢
-                </button>
+
                 <Link
                   href="/dashboard/revenue"
                   className="flex min-h-10 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm text-earth-500 hover:bg-earth-50"
                 >
                   清除
                 </Link>
-              </form>
+              </InstantFilterForm>
 
               <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-primary-50 px-2.5 py-2 text-xs text-primary-800 sm:mt-3 sm:gap-2 sm:px-3">
                 <span>

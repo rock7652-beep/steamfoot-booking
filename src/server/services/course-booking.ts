@@ -71,6 +71,7 @@ export async function reserveCourse(
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
+    allowOverCapacity?: boolean;
   },
 ) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
@@ -93,6 +94,7 @@ export async function reserveCourseMembers(
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
+    allowOverCapacity?: boolean;
   },
 ) {
   const customers = [...new Set(input.customerIds)].sort();
@@ -128,7 +130,7 @@ export async function reserveCourseMembers(
   });
 }
 
-export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; trialPrice: number }) {
+export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number }) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null }, limits.maxMonthlyBookings));
 }
@@ -144,6 +146,7 @@ export async function reserveCourseInTransaction(
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
+    allowOverCapacity?: boolean;
   },
   maxMonthlyBookings: number | null,
 ) {
@@ -173,7 +176,7 @@ export async function reserveCourseInTransaction(
   const [session, card, rule, customers] = await Promise.all([
     tx.courseSession.findFirst({
       where: { id: input.sessionId, storeId, cancelledAt: null },
-      include: { template: {select:{visibility:true,isActive:true}} },
+      include: { template: {select:{visibility:true,isActive:true,musicSubject:{select:{isActive:true}}}} },
     }),
     input.cardId ? tx.coursePointCard.findFirst({
       where: { id: input.cardId, storeId },
@@ -187,7 +190,7 @@ export async function reserveCourseInTransaction(
   if (!session || (input.cardId !== null && !card) || !customers.length)
     return fail("請選擇本店有效課程、方案與上課人");
   if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
-  if (!session.template.isActive || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
+  if (!session.template.isActive || session.template.musicSubject?.isActive===false || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
   if (card && (
     !card.members.some((m) => m.customerId === input.customerId) ||
     (actor.customerId &&
@@ -201,6 +204,10 @@ export async function reserveCourseInTransaction(
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  if(card?.musicJoinSessionId) {
+    const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
+    if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
+  }
   if (input.makeupForBookingId) {
     if (actor.customerId || !card || card.unit !== "SESSION") return fail("補課僅由店長使用原堂數方案安排");
     const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
@@ -253,12 +260,17 @@ export async function reserveCourseInTransaction(
     }) : Promise.resolve({_sum:{pointCost:0}}),
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
-  if (occupied >= session.capacity) return fail("本堂課已滿班");
+  if (occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId && session.template.musicSubject)) return fail("本堂課已滿班，請由店長確認加人");
+  if (session.template.musicSubject) {
+    const overlap = await tx.courseBooking.findFirst({where:{storeId,customerId:input.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:session.endsAt},endsAt:{gt:session.startsAt}}},select:{id:true}});
+    if(overlap) return fail("學員同時段已有課程，請先調整上課時間");
+  }
   if (card && card.remaining - (held._sum.pointCost ?? 0) < bookingCost)
     return fail(card.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
   const booking = await tx.courseBooking.create({
     data: {
-      ...input,
+      sessionId:input.sessionId,cardId:input.cardId,customerId:input.customerId,requestKey:input.requestKey,
+      notes:input.notes,makeupForBookingId:input.makeupForBookingId,trialPrice:input.trialPrice,
       bookingKind: card ? "CARD" : "TRIAL",
       storeId,
       pointCost: bookingCost,

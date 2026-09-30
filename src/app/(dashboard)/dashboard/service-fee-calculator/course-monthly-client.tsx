@@ -1,4 +1,5 @@
 "use client";
+import {CourseFeePaymentButton} from "../revenue/_components/course-fee-payment-button";
 import { Children, type ReactNode, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmCourseMonthlySettlement, saveCourseSettlementSettings, payCourseProfit, correctCourseProfit } from "@/server/actions/course-monthly-settlement";
@@ -26,7 +27,7 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL"}:{e
  </div></section>;
 }
 
-export function CourseMonthlyReport({lines,status,confirm,actions}:{lines:SettlementLine[];status?:ReactNode;confirm?:ReactNode;actions?:ReactNode}){
+export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false}:{lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode}){
  const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">("ALL");
  const filtered=lines.filter(line=>category==="ALL"||line.kind===category);
  const people=summarizeSettlement(filtered);
@@ -49,7 +50,7 @@ export function CourseMonthlyReport({lines,status,confirm,actions}:{lines:Settle
  <span className="text-xs text-earth-500 md:hidden">{person.issues>0?`${person.issues} 筆待核對`:`${person.lines.length} 筆明細`}</span>
  <span className="text-right text-xs text-primary-700"><span className="group-open/person:hidden">明細 ＋</span><span className="hidden group-open/person:inline">收合 －</span></span>
  </summary>
- <div className="divide-y divide-earth-100 border-t border-earth-100 bg-earth-50 px-4 md:px-6">{person.lines.map(line=><article key={line.kind+line.id} className="space-y-1 py-3 text-sm"><div className="flex items-start justify-between gap-4"><p className="min-w-0 font-medium">{line.label}</p><strong className="shrink-0 tabular-nums">{line.amount===null?"待核對":money(line.amount)}</strong></div><p className="text-xs text-earth-500">{line.kind==="PROFIT"?"店長利潤":"授課費"} · {formatTWDateTime(new Date(line.date))}</p>{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}</article>)}</div>
+ <div className="divide-y divide-earth-100 border-t border-earth-100 bg-earth-50 px-4 md:px-6">{person.lines.map(line=><article key={line.kind+line.id} className="space-y-1 py-3 text-sm"><div className="flex items-start justify-between gap-4"><p className="min-w-0 font-medium">{line.label}</p><strong className="shrink-0 tabular-nums">{line.amount===null?"待核對":money(line.amount)}</strong></div><p className="text-xs text-earth-500">{line.kind==="PROFIT"?"店長利潤":"授課費"} · {formatTWDateTime(new Date(line.date))}</p>{line.endsAt&&<p className="text-xs text-earth-500">下課：{formatTWDateTime(new Date(line.endsAt))}</p>}<p>已付 {money(line.paid)} · 未付 {line.amount===null?"待核對":money(Math.max(0,line.amount-line.paid))}{line.amount!==null&&line.paid>line.amount?` · 溢付 ${money(line.paid-line.amount)}`:""}</p>{!!line.feeDetails?.length&&<details><summary>計算明細</summary>{line.feeDetails.map((d,i)=><p key={i}>{d.name} · {d.reason} {d.base===null?"待核對":money(d.base)} → {d.amount===null?"待核對":money(d.amount)}</p>)}</details>}{line.issue&&<p role="alert" className="text-amber-800">{line.issue}</p>}{canPay&&line.kind==="FEE"&&!line.issue&&line.amount!==null&&line.amount>line.paid&&<CourseFeePaymentButton sessionId={line.id} amount={line.amount} paid={line.paid}/>}</article>)}</div>
  </details>)}
  </CourseMonthlyPeople>
  </>;

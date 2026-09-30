@@ -17,7 +17,7 @@ const steam: GuideAccess = {
 
 describe("September 29 guide review", () => {
   it("adds the checkout, term history, makeup and renewal workflows", () => {
-    expect(operationGuides).toHaveLength(160);
+    expect(operationGuides).toHaveLength(167);
     expect(availableGuides(steam).map(item => item.id)).toContain("A12");
     expect(availableGuides(course).map(item => item.id)).toEqual(expect.arrayContaining(["C150", "C151", "C152"]));
     expect(findOperationGuides("同行 多人 799", steam).map(item => item.id)).toContain("A12");

@@ -355,7 +355,7 @@ describe("member plan and purchase navigation", () => {
     expect(host.textContent).not.toContain("過期點數方案");
   });
   it("shows pending orders first and exposes completed orders only in history", async () => {
-    const order=(id:string,status:string)=>({id,name:id,status,price:500,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
+    const order=(id:string,status:string)=>({id,name:id,status,price:500,listPrice:null,points:4,unit:"SESSION",termSizes:[],bonus:0,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
     await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",orders:[order("等待確認購買","PENDING"),order("先前核帳購買","CONFIRMED")] as unknown as CoursePortalData["orders"]})));
     await click("購買方案"); await click("查看購買進度");
     expect(host.textContent).toContain("等待確認購買");

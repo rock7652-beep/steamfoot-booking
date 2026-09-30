@@ -1,4 +1,8 @@
 "use server";
+import {readCourseOrders} from "@/server/services/course-display-order";
+import {orderCourseRows} from "@/lib/course-display-order";
+import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
+import { resolveMusicSubjectRule } from "@/server/services/music-subject-rule";
 import { courseHistoryRange } from "@/lib/course-history-range";
 import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
@@ -26,6 +30,7 @@ import {
   syncCourseRelease,
   type CourseActor,
 } from "@/server/services/course-booking";
+import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 
 const id = z.string().min(1).max(100);
 function refresh() {
@@ -109,6 +114,7 @@ export async function saveCoursePointPlan(input: unknown) {
       .object({
         id: id.optional(),
         expectedSnapshot: z.string().max(30000).optional(),
+        musicSetup: musicSubjectRuleSchema.optional(),
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
@@ -119,12 +125,14 @@ export async function saveCoursePointPlan(input: unknown) {
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
+        musicBonusLessons:z.number().int().min(0).max(1000).default(0),
+        musicTermSizes:z.array(z.number().int().min(1).max(1000)).max(100).default([]),
         musicTerms:z.number().int().min(1).max(100).nullable().default(null),
         templateIds: z.array(id).max(200).default([]),
       })
 ;
-    const { id: planId, expectedSnapshot, ...data } = schema.parse(input);
-    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true}).parse(JSON.parse(expectedSnapshot)) : null;
+    const { id: planId, expectedSnapshot, musicSetup, ...data } = schema.parse(input);
+    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId } = await courseManager("plans.edit");
     const isMusic = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.music", status: "ENABLED" },
@@ -132,25 +140,37 @@ export async function saveCoursePointPlan(input: unknown) {
     });
     if (isMusic && data.unit !== "SESSION")
       throw new AppError("VALIDATION", "音樂教室方案以堂數計算；每次上課使用 1 堂");
-    if (isMusic) {
-      if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種吉他課與購買期數");
+    if (isMusic && !musicSetup) {
+      if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種課程與購買期數");
       const template=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateIds[0],storeId,isActive:true},select:{musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true}});
-      if (!template || template.musicTrialMode) throw new AppError("VALIDATION","體驗課不建立期數方案，請選擇一般吉他課");
+      if (!template || template.musicTrialMode) throw new AppError("VALIDATION","體驗課不建立期數方案，請選擇一般課程");
       const {musicPlanQuote}=await import("@/lib/music-course-products");
       let quote:ReturnType<typeof musicPlanQuote>;
       try { quote=musicPlanQuote(template,data.musicTerms); } catch(error) {throw new AppError("VALIDATION",error instanceof Error ? error.message : "課程設定不完整");}
-      data.points=quote.lessons;data.price=quote.price;data.validDays=quote.validDays;
+      data.points=quote.lessons+data.musicBonusLessons;data.price=quote.price;data.validDays=quote.validDays;
+      data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
+      if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
       if (data.termSessionIds.length) throw new AppError("VALIDATION","音樂固定時段由課表管理，購買方案不預先綁定指定課次");
-    } else if (data.musicTerms!==null) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
+    } else if (!isMusic && (musicSetup || data.musicBonusLessons || data.musicTermSizes.length || data.musicTerms!==null)) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
+    if(isMusic && musicSetup){
+      if(data.musicTerms===null || data.termSessionIds.length)throw new AppError("VALIDATION","請設定購買期數；實際上課日期由課表安排");
+      const template=await resolveMusicSubjectRule(tx,storeId,musicSetup);
+      const {musicPlanQuote}=await import("@/lib/music-course-products");
+      const quote=musicPlanQuote(template,data.musicTerms);
+      data.templateIds=[template.id];data.points=quote.lessons+data.musicBonusLessons;
+      data.price=quote.price;data.validDays=quote.validDays;
+      data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
+      if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
+    }
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
     const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
     if(previous?.termSessionIds.length&&!sameTerm&&await tx.coursePurchase.count({where:{storeId,planId}}))throw new AppError("CONFLICT","此期課已有購買紀錄，請新增下一期方案，保留原期別課次。");
     data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
     if (planId) {
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId, ...(expected ? {...expected,templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
+        where: { id: planId, storeId, ...(expected ? {...expected,musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
         data,
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
@@ -195,7 +215,7 @@ export async function assignCoursePointCard(input: unknown) {
       .parse(input);
     await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
-    if (checkout.discountValue > 0) await courseManager("transaction.discount");
+    if (checkout.discountValue > 0 || (checkout.musicManualBonus??0)>0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
       const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
       const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
@@ -203,8 +223,12 @@ export async function assignCoursePointCard(input: unknown) {
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
     });
-    for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
-    refresh();
+    // The transaction is committed. Cache invalidation must not delay the
+    // checkout response or turn a successful payment into a reported failure.
+    after(() => {
+      for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
+      refresh();
+    });
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
@@ -226,14 +250,14 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     const [plans, customer, canDiscount] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
         where: { storeId, isActive: true, unit: "SESSION", templateIds: { has: booking.session.templateId } },
-        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true },
+        select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
       prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } }),
       checkPermission(user.role, user.staffId, "transaction.discount"),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
-    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans, canDiscount } };
+    return { success: true as const, data: { customerId: booking.customerId, customerName: booking.customerName, plans:orderCourseRows(plans,(await readCourseOrders(storeId)).plan?.ids??[]), canDiscount } };
   } catch (error) {
     return handleActionError(error);
   }
@@ -302,8 +326,9 @@ export async function createCourseBooking(input: unknown) {
     const { user, storeId } = await courseManager("booking.create");
     const booking = await reserveCourse(
       { userId: user.id, storeId, name: user.name ?? "店長" },
-      bookingInput.parse(input),
+      bookingInput.extend({allowOverCapacity:z.boolean().optional()}).parse(input),
     );
+    await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" });
     scheduleCourseLowBalanceCheck(storeId,[booking.id]);
     refresh();
     return { success: true as const };
@@ -328,6 +353,9 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
+    for (const booking of bookings) {
+      await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "顧客建立課程預約" });
+    }
     scheduleCourseLowBalanceCheck(storeId,bookings.map(b=>b.id));
     after(async () => {
       const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
@@ -379,6 +407,15 @@ export async function updateCourseBookingStatus(input: unknown) {
         data.status,
         data.noShowChoice,
       );
+    });
+    await recordOperationAudit({
+      actorUserId: actor.userId,
+      storeId: actor.storeId,
+      module: "COURSE",
+      targetType: "CourseBooking",
+      targetId: data.bookingId,
+      action: data.status,
+      summary: ({ CANCELLED: "取消課程預約", ATTENDED: "標記課程出席", CHECKED_IN: "課程報到", NO_SHOW: "標記課程未到", STUDENT_LEAVE: "記錄學員請假" } as const)[data.status],
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
@@ -716,6 +753,13 @@ export async function updateCourseRosterBatch(input: unknown) {
       writeMs = Date.now() - writeStartedAt;
     });
     transactionMs = Date.now() - transactionStartedAt;
+    for (const booking of data.bookings) {
+      await recordOperationAuditBestEffort({
+        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        targetId: booking.id, action: data.target,
+        summary: ({ CHECKED_IN: "課程報到", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到", RESERVED: "恢復待點名" } as const)[data.target],
+      });
+    }
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     const refreshStartedAt = Date.now();
     if (!(await musicLookup)) refresh();
@@ -754,6 +798,13 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
     });
+    for (const booking of data.bookings) {
+      await recordOperationAuditBestEffort({
+        actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
+        targetId: booking.id, action: data.target,
+        summary: ({ RESERVED: "恢復待點名", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到" } as const)[data.target],
+      });
+    }
     scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();return {success:true as const};
   }catch(error){return handleActionError(error);}
@@ -768,8 +819,26 @@ export async function saveCourseLeaveNote(input: unknown) {
       if(!booking)throw new AppError("CONFLICT","請假狀態已變更，請重新核對");
       if(booking.notes===data.note)return;
       await tx.courseBooking.update({where:{id:booking.id},data:{notes:data.note}});
-      await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseBooking',${booking.id},'COURSE_LEAVE_NOTE',${JSON.stringify({storeId,note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;
+      await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,"targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${storeId},'COURSE','CourseBooking',${booking.id},'COURSE_LEAVE_NOTE','修改請假備註',${JSON.stringify({note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;
     });
     refresh();return {success:true as const};
+  }catch(error){return handleActionError(error);}
+}
+
+export async function loadMusicJoinOptions(planId:string) {
+  try {
+    id.parse(planId);
+    const {storeId}=await courseManager("wallet.create");
+    const plan=await coursePrisma.coursePointPlan.findFirst({where:{id:planId,storeId,isActive:true}});
+    if(!plan || plan.musicTerms!==1 || plan.templateIds.length!==1)return {success:true as const,options:[]};
+    const template=await coursePrisma.courseTemplate.findFirst({where:{id:plan.templateIds[0],storeId,classType:"GROUP"}});
+    if(!template?.musicTermLessons)return {success:true as const,options:[]};
+    const sessions=await coursePrisma.courseSession.findMany({where:{storeId,templateId:template.id,cancelledAt:null,startsAt:{gte:new Date()}},orderBy:{startsAt:"asc"},take:200,select:{id:true,startsAt:true,requestIndex:true,requestKey:true}});
+    const size=template.musicTermLessons;
+    const options=sessions.filter(first=>{
+      const end=(Math.floor(first.requestIndex/size)+1)*size;
+      return sessions.filter(s=>s.requestKey===first.requestKey&&s.requestIndex>=first.requestIndex&&s.requestIndex<end).length===end-first.requestIndex;
+    }).map(first=>({id:first.id,startsAt:first.startsAt.toISOString(),remaining:size-first.requestIndex%size}));
+    return {success:true as const,options};
   }catch(error){return handleActionError(error);}
 }

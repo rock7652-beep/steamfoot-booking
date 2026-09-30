@@ -12,6 +12,8 @@ import {
   getMonthScheduleSummary,
   getDaySlotDetails,
   copySettingsToFutureWeeks,
+  copySettingsToDates,
+  undoCopySettingsToDates,
   toggleSlotOverride,
   overrideSlotCapacity,
   applyWeeklyTemplate,
@@ -172,13 +174,20 @@ export function ScheduleManager({
   const [editCloseTime, setEditCloseTime] = useState("22:00");
   const [editReason, setEditReason] = useState("");
   const [copyWeeks, setCopyWeeks] = useState(0);
+  const [targetDates, setTargetDates] = useState<string[]>([]);
+  const [dateConflictMode, setDateConflictMode] = useState<"skip" | "replace">("skip");
+  const [includeSlotOverrides, setIncludeSlotOverrides] = useState(false);
+  const [dateSelectionAttempted, setDateSelectionAttempted] = useState(false);
+  const [pickerYear, setPickerYear] = useState(initialYear);
+  const [pickerMonth, setPickerMonth] = useState(initialMonth);
   const [editInterval, setEditInterval] = useState(60);
   const [editCapacity, setEditCapacity] = useState(6);
   const [editPeriods, setEditPeriods] = useState<BusinessPeriod[]>([
     { openTime: "10:00", closeTime: "22:00", slotInterval: 60, defaultCapacity: 6 },
   ]);
-  // applyMode: "day" = 只改這天, "copy" = 複製到未來N週, "permanent" = 設為每週固定規則, "template" = 排班模板（含時段開關）
-  const [applyMode, setApplyMode] = useState<"day" | "copy" | "permanent" | "template">("day");
+  // applyMode: "day" = 只改這天, "copy" = 複製到未來N週, "dates" = 任選日期,
+  // "permanent" = 設為每週固定規則, "template" = 排班模板（含時段開關）
+  const [applyMode, setApplyMode] = useState<"day" | "copy" | "dates" | "permanent" | "template">("day");
   const [templateWeeks, setTemplateWeeks] = useState(52);
 
   // 月曆摘要 — 用 server-cache 給的 initialSummary 當啟動值，第一次 render 已正確
@@ -199,6 +208,9 @@ export function ScheduleManager({
   const monthRequestIdRef = useRef(0);
   const dayRequestIdRef = useRef(0);
   const [isMonthLoading, setIsMonthLoading] = useState(false);
+  const [pickerSummary, setPickerSummary] = useState<MonthSummary>({});
+  const [pickerSpecialDays, setPickerSpecialDays] = useState<SpecialDay[]>([]);
+  const pickerRequestIdRef = useRef(0);
 
   const dayDraftDirty = useMemo(() => {
     if (!dayDetail) return false;
@@ -216,18 +228,43 @@ export function ScheduleManager({
     );
   }, [editPeriods, editStatus]);
 
-  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, templateWeeks, dayDetail?.slots]);
+  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, targetDates, dateConflictMode, includeSlotOverrides, templateWeeks, dayDetail?.slots]);
   const reviewing = reviewedDraft === draftKey;
   const periodValidation = editStatus === "custom" || (editStatus === "open" && applyMode !== "day")
     ? validateServicePeriods(editPeriods,isCourseStore) : { valid: true };
+  const dateSelectionValid = applyMode !== "dates" || targetDates.length > 0;
   const currentTimes = new Set(dayDetail?.slots.filter((slot) => slot.isEnabled).map((slot) => slot.startTime));
   const previewTimes = new Set(draftSlotPreview.map((slot) => slot.startTime));
   const addedTimes = [...previewTimes].filter((time) => !currentTimes.has(time));
   const removedTimes = [...currentTimes].filter((time) => !previewTimes.has(time));
   const scopeLabel = applyMode === "day" ? `只改 ${selectedDate}，其他日期不變`
     : applyMode === "copy" ? `${selectedDate}，以及未來 ${copyWeeks} 週的${dayDetail?.dayName}`
+    : applyMode === "dates" ? `${selectedDate}，以及指定的 ${targetDates.length} 個日期`
     : applyMode === "permanent" ? `更新每${dayDetail?.dayName}固定時段`
     : `更新每${dayDetail?.dayName}固定排班（${templateWeeks} 週）`;
+  const sourceOverrideCount = dayDetail?.slots.filter((slot) => slot.override).length ?? 0;
+
+  useEffect(() => {
+    if (applyMode !== "dates" || isCourseStore) return;
+    const cached = monthCacheRef.current.get(monthKey(pickerYear, pickerMonth));
+    if (cached) {
+      setPickerSummary(cached.summary);
+      setPickerSpecialDays(cached.specialDays);
+      return;
+    }
+    const requestId = ++pickerRequestIdRef.current;
+    void Promise.all([
+      getMonthSpecialDays(pickerYear, pickerMonth),
+      getMonthScheduleSummary(pickerYear, pickerMonth),
+    ]).then(([pickerSpecialDays, summary]) => {
+      if (requestId !== pickerRequestIdRef.current) return;
+      monthCacheRef.current.set(monthKey(pickerYear, pickerMonth), { specialDays: pickerSpecialDays, summary });
+      setPickerSummary(summary);
+      setPickerSpecialDays(pickerSpecialDays);
+    }).catch(() => {
+      if (requestId === pickerRequestIdRef.current) toast.error("套用日期的設定標記載入失敗");
+    });
+  }, [applyMode, isCourseStore, pickerMonth, pickerYear]);
 
   useEffect(() => {
     if (!dayDraftDirty) return;
@@ -354,6 +391,26 @@ export function ScheduleManager({
   const lastDay = new Date(Date.UTC(year, month, 0));
   const daysInMonth = lastDay.getUTCDate();
   const startDow = firstDay.getUTCDay();
+  const pickerFirstDay = new Date(Date.UTC(pickerYear, pickerMonth - 1, 1));
+  const pickerDaysInMonth = new Date(Date.UTC(pickerYear, pickerMonth, 0)).getUTCDate();
+  const pickerStartDow = pickerFirstDay.getUTCDay();
+
+  function changePickerMonth(dir: 1 | -1) {
+    let nextMonth = pickerMonth + dir;
+    let nextYear = pickerYear;
+    if (nextMonth < 1) { nextMonth = 12; nextYear--; }
+    if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+    setPickerYear(nextYear);
+    setPickerMonth(nextMonth);
+  }
+
+  function toggleTargetDate(date: string) {
+    if (date === selectedDate || date < toLocalDateStr()) return;
+    setDateSelectionAttempted(false);
+    setTargetDates((dates) => dates.includes(date)
+      ? dates.filter((item) => item !== date)
+      : [...dates, date].sort());
+  }
 
   const specialMap = new Map(specialDays.map((s) => [s.date, s]));
 
@@ -409,6 +466,8 @@ export function ScheduleManager({
       if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
       setSaveError(null);
+      setDateSelectionAttempted(false);
+      setIncludeSlotOverrides(false);
       setSelectedDate(dateStr);
       setSelectedSlot(null);
 
@@ -427,6 +486,7 @@ export function ScheduleManager({
           setEditCapacity(cached.defaultCapacity);
           setEditPeriods(editablePeriods(cached.periods, cached.slotInterval, cached.defaultCapacity));
           setCopyWeeks(0);
+          setTargetDates([]);
           setApplyMode("day");
           setLoadingDay(false);
           return;
@@ -447,6 +507,7 @@ export function ScheduleManager({
         setEditCapacity(preview.defaultCapacity);
         setEditPeriods(editablePeriods(preview.periods, preview.slotInterval, preview.defaultCapacity));
         setCopyWeeks(0);
+        setTargetDates([]);
         setApplyMode("day");
       }
       setLoadingDay(true);
@@ -477,7 +538,7 @@ export function ScheduleManager({
 
   // ── 儲存日設定 ──
   const saveDay = useCallback(async () => {
-    if (!selectedDate || !canManage || isPending || loadingDay || !periodValidation.valid) return;
+    if (!selectedDate || !canManage || isPending || loadingDay || !periodValidation.valid || !dateSelectionValid) return;
 
     startTransition(async () => {
       try {
@@ -561,30 +622,69 @@ export function ScheduleManager({
           );
           toast.success(`${dayDetail.dayName} 每週固定規則已更新`);
         } else {
-          // 非永久模式：操作特殊日期
-          if (editStatus === "open") {
-            // 回復為每週預設 → 移除特殊設定
-            await removeSpecialDayByDate(selectedDate);
-          } else {
-            // 新增/更新特殊日期
-            const result = await addSpecialDay({
-              date: selectedDate,
-              type: editStatus === "custom" ? "custom" : editStatus,
+          // 任選日期由單一交易同時寫入來源日與目標日，避免只成功一半。
+          if (applyMode === "dates" && targetDates.length > 0) {
+            const copyResult = await copySettingsToDates({
+              sourceDate: selectedDate,
+              targetDates,
+              type: editStatus === "open" || editStatus === "custom" ? "custom" : editStatus,
               reason: editReason || undefined,
-              openTime: editStatus === "custom" ? firstPeriod?.openTime : undefined,
-              closeTime: editStatus === "custom" ? lastPeriod?.closeTime : undefined,
-              defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
-              periods: editStatus === "custom" ? sortedPeriods : undefined,
-              resetSlotOverrides: true,
+              openTime: editStatus === "open" || editStatus === "custom" ? firstPeriod?.openTime : undefined,
+              closeTime: editStatus === "open" || editStatus === "custom" ? lastPeriod?.closeTime : undefined,
+              defaultCapacity: editStatus === "open" || editStatus === "custom" ? editCapacity : undefined,
+              periods: editStatus === "open" || editStatus === "custom" ? sortedPeriods : undefined,
+              conflictMode: dateConflictMode,
+              includeSlotOverrides,
             });
-            if (!result.success) {
-              toast.error(result.error);
+            if (!copyResult.success) {
+              setSaveError(copyResult.error ?? "套用日期失敗");
+              toast.error(copyResult.error);
               return;
             }
-          }
+            const skippedText = copyResult.data.skipped.length > 0
+              ? `；略過：${copyResult.data.skipped.map((item) => `${item.date.slice(5).replace("-", "/")}（${item.reason}）`).join("、")}`
+              : "";
+            const operationId = copyResult.data.operationId;
+            toast.success(`來源日與 ${copyResult.data.count} 個日期已完成${skippedText}`, {
+              duration: 10000,
+              action: {
+                label: "復原",
+                onClick: () => startTransition(async () => {
+                  const undoResult = await undoCopySettingsToDates(operationId);
+                  if (!undoResult.success) {
+                    toast.error(undoResult.error);
+                    return;
+                  }
+                  dayDetailCacheRef.current.clear();
+                  monthCacheRef.current.clear();
+                  await invalidateAndReloadCurrentMonth();
+                  await selectDate(selectedDate, { bypassCache: true });
+                  toast.success(`已復原 ${undoResult.data.count} 個日期`);
+                }),
+              },
+            });
+          } else {
+            // 其他非永久模式先儲存來源日，再視需要複製到後續週次。
+            if (editStatus === "open") {
+              await removeSpecialDayByDate(selectedDate);
+            } else {
+              const result = await addSpecialDay({
+                date: selectedDate,
+                type: editStatus === "custom" ? "custom" : editStatus,
+                reason: editReason || undefined,
+                openTime: editStatus === "custom" ? firstPeriod?.openTime : undefined,
+                closeTime: editStatus === "custom" ? lastPeriod?.closeTime : undefined,
+                defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
+                periods: editStatus === "custom" ? sortedPeriods : undefined,
+                resetSlotOverrides: true,
+              });
+              if (!result.success) {
+                toast.error(result.error);
+                return;
+              }
+            }
 
-          // 複製到未來 N 週
-          if (applyMode === "copy" && copyWeeks > 0 && editStatus !== "open") {
+            if (applyMode === "copy" && copyWeeks > 0 && editStatus !== "open") {
             const copyResult = await copySettingsToFutureWeeks({
               sourceDate: selectedDate,
               type: editStatus === "custom" ? "custom" : editStatus,
@@ -599,8 +699,9 @@ export function ScheduleManager({
             if (copyResult.success) {
               toast.success(`已套用到未來 ${copyResult.data.count} 週`);
             }
-          } else {
-            toast.success("設定已儲存");
+            } else {
+              toast.success("設定已儲存");
+            }
           }
         }
 
@@ -612,6 +713,8 @@ export function ScheduleManager({
         } else {
           dayDetailCacheRef.current.clear();
         }
+        // 任選日期可能跨月；已看過月份的摘要也必須失效，避免切回時顯示舊時段。
+        if (applyMode === "dates") monthCacheRef.current.clear();
         // 失效當月 cache 並重抓（其他月份保留 cache，不必清）
         await invalidateAndReloadCurrentMonth();
         await selectDate(selectedDate, { bypassCache: true });
@@ -620,7 +723,7 @@ export function ScheduleManager({
         toast.error("儲存失敗");
       }
     });
-  }, [isCourseStore, selectedDate, canManage, isPending, loadingDay, periodValidation.valid, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
+  }, [isCourseStore, selectedDate, canManage, isPending, loadingDay, periodValidation.valid, dateSelectionValid, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, targetDates, dateConflictMode, includeSlotOverrides, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
 
   // ── 儲存每週固定設定 ──
   const saveWeeklyDay = useCallback(async (
@@ -764,7 +867,9 @@ export function ScheduleManager({
                   }`}
                 >
                   <span className="leading-tight">{day}</span>
-                  {summary?.status !== "closed" && summary?.status !== "training" && summary?.openTime && summary?.closeTime ? (
+                  {summary?.status === "custom" ? (
+                    <span className="text-[9px] font-bold leading-tight">特殊時段</span>
+                  ) : summary?.status !== "closed" && summary?.status !== "training" && summary?.openTime && summary?.closeTime ? (
                     <span className="text-[9px] leading-tight opacity-70">
                       {summary.openTime.slice(0, 5)}–{summary.closeTime.slice(0, 5)}
                     </span>
@@ -857,7 +962,7 @@ export function ScheduleManager({
 
               {saveError && <p role="alert" className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
               {/* 時段設定：custom 模式、permanent+open、template+open 都顯示 */}
-              {(editStatus === "custom" || (editStatus === "open" && (applyMode === "permanent" || applyMode === "template"))) && (
+              {(editStatus === "custom" || (editStatus === "open" && (applyMode === "dates" || applyMode === "permanent" || applyMode === "template"))) && (
                 <div className="mb-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <div>
                     <p className="text-xs font-semibold text-blue-900">服務時間</p>
@@ -1115,7 +1220,95 @@ export function ScheduleManager({
                     <details open={applyMode !== "day"}>
                       <summary className="cursor-pointer text-xs text-earth-700">套用其他日期</summary>
                       <div className="mt-3 space-y-3">
-                    {editStatus !== "open" && (
+                    {!isCourseStore && (
+                      <div className="rounded-lg border border-earth-200 bg-earth-50 p-2.5">
+                        <label className="flex items-center gap-2 text-xs font-medium text-earth-700">
+                          <input
+                            type="radio"
+                            name="applyMode"
+                            value="dates"
+                            checked={applyMode === "dates"}
+                            onChange={() => {
+                              setApplyMode("dates");
+                              setDateSelectionAttempted(false);
+                              setPickerYear(year);
+                              setPickerMonth(month);
+                            }}
+                            className="accent-primary-600"
+                          />
+                          套用到指定日期
+                          {targetDates.length > 0 && <span className="ml-auto text-primary-700">已選 {targetDates.length} 日</span>}
+                        </label>
+                        {applyMode === "dates" && (
+                          <div className="mt-3 rounded-lg border border-earth-200 bg-white p-2.5">
+                            <div className="mb-2 flex items-center justify-between">
+                              <button type="button" onClick={() => changePickerMonth(-1)} className="rounded px-2 py-1 text-earth-600 hover:bg-earth-100">←</button>
+                              <span className="text-xs font-semibold text-earth-800">{pickerYear} 年 {pickerMonth} 月</span>
+                              <button type="button" onClick={() => changePickerMonth(1)} className="rounded px-2 py-1 text-earth-600 hover:bg-earth-100">→</button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                              {DAY_NAMES.map((name) => <span key={name} className="py-1 text-center text-[10px] text-earth-400">{name}</span>)}
+                              {Array.from({ length: pickerStartDow }).map((_, index) => <span key={`picker-empty-${index}`} />)}
+                              {Array.from({ length: pickerDaysInMonth }).map((_, index) => {
+                                const day = index + 1;
+                                const date = `${pickerYear}-${String(pickerMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                                const chosen = targetDates.includes(date);
+                                const isSource = date === selectedDate;
+                                const disabled = isSource || date < toLocalDateStr();
+                                const pickerDay = pickerSummary[date];
+                                const hasExistingSetting = pickerSpecialDays.some((item) => item.date === date);
+                                return <button
+                                  key={date}
+                                  type="button"
+                                  disabled={disabled}
+                                  aria-pressed={chosen}
+                                  onClick={() => toggleTargetDate(date)}
+                                  className={`relative min-h-9 rounded text-xs font-medium ${chosen ? "bg-primary-600 text-white" : isSource ? "bg-blue-100 text-blue-800 ring-1 ring-blue-300" : "bg-earth-50 text-earth-700 hover:bg-primary-50"} disabled:cursor-not-allowed ${!isSource && disabled ? "opacity-30" : ""}`}
+                                >
+                                  <span>{day}</span>
+                                  {isSource ? <span className="block text-[8px] leading-none">來源</span> : (
+                                    <span className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
+                                      {hasExistingSetting && <span title="已有整日設定" className="h-1 w-1 rounded-full bg-blue-500" />}
+                                      {(pickerDay?.overrideCount ?? 0) > 0 && <span title="已有單一時段調整" className="h-1 w-1 rounded-full bg-amber-500" />}
+                                    </span>
+                                  )}
+                                </button>;
+                              })}
+                            </div>
+                            {targetDates.length > 0 ? (
+                              <div className="mt-2">
+                                <div className="mb-1 flex items-center justify-between text-[10px] text-earth-600">
+                                  <span>已選 {targetDates.length} 日</span>
+                                  <button type="button" onClick={() => { setTargetDates([]); setDateSelectionAttempted(false); }} className="underline">全部清除</button>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {targetDates.slice(0, 8).map((date) => <button key={date} type="button" onClick={() => toggleTargetDate(date)} className="rounded-full bg-primary-50 px-2 py-1 text-[10px] text-primary-800">{date.slice(5).replace("-", "/")} ×</button>)}
+                                  {targetDates.length > 8 && <span className="rounded-full bg-earth-100 px-2 py-1 text-[10px] text-earth-600">另 {targetDates.length - 8} 日</span>}
+                                </div>
+                              </div>
+                            ) : <p className="mt-2 text-[10px] text-earth-500">可跨月複選；來源日期不會重複選取。</p>}
+                            <div className="mt-2 flex flex-wrap gap-3 text-[9px] text-earth-500">
+                              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />已有整日設定</span>
+                              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />已有單一時段調整</span>
+                            </div>
+                            {sourceOverrideCount > 0 && (
+                              <label className="mt-3 flex items-start gap-2 rounded bg-amber-50 p-2 text-[11px] text-amber-900">
+                                <input type="checkbox" checked={includeSlotOverrides} onChange={(event) => setIncludeSlotOverrides(event.target.checked)} className="mt-0.5 accent-primary-600" />
+                                一併複製來源日的 {sourceOverrideCount} 個單一時段調整
+                              </label>
+                            )}
+                            <div className="mt-3 border-t border-earth-100 pt-2">
+                              <p className="mb-1 text-[10px] font-medium text-earth-600">若日期已有整日設定或單一時段調整</p>
+                              <div className="flex flex-wrap gap-3 text-[11px] text-earth-700">
+                                <label className="flex items-center gap-1"><input type="radio" checked={dateConflictMode === "skip"} onChange={() => setDateConflictMode("skip")} className="accent-primary-600" />保留原設定並略過</label>
+                                <label className="flex items-center gap-1"><input type="radio" checked={dateConflictMode === "replace"} onChange={() => setDateConflictMode("replace")} className="accent-primary-600" />覆蓋原設定</label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {applyMode !== "dates" && editStatus !== "open" && (
                       <label className="flex items-center gap-2 text-xs text-earth-700">
                         <input
                           type="radio"
@@ -1138,7 +1331,7 @@ export function ScheduleManager({
                         </select>
                       </label>
                     )}
-                    {(editStatus === "open" || editStatus === "custom") && (
+                    {applyMode !== "dates" && (editStatus === "open" || editStatus === "custom") && (
                       <>
                         <label className="flex items-center gap-2 text-xs text-earth-700">
                           <input
@@ -1192,6 +1385,7 @@ export function ScheduleManager({
               {canManage && (
                 <div>
                   {!periodValidation.valid && <p role="alert" className="mb-2 text-sm text-red-700">{periodValidation.error}</p>}
+                  {dateSelectionAttempted && !dateSelectionValid && <p role="alert" className="mb-2 text-sm text-red-700">請至少選擇一個套用日期</p>}
                   {reviewing && (
                     <section aria-label="儲存前確認" className="mb-3 space-y-2 rounded-lg border border-primary-300 bg-primary-50 p-3 text-sm">
                       <h4 className="font-bold text-primary-900">請確認這次調整</h4>
@@ -1201,7 +1395,14 @@ export function ScheduleManager({
                         <p>新增開放：{addedTimes.join("、") || "無"}</p>
                         <p>停止開放：{removedTimes.join("、") || "無"}</p>
                         <p className="text-xs text-amber-800">重新設定服務時間會清除套用日期原有的臨時時段調整，以上方預覽為準。</p>
-                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `固定時段：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
+                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `套用時段：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。`}</p>}
+                      {applyMode === "dates" && (
+                        <div className="space-y-1 text-xs text-earth-700">
+                          <p>來源：{selectedDate}；目標：{targetDates.join("、")}</p>
+                          <p>只建立這些日期的特殊設定，不會變更每週固定規則。</p>
+                          <p>{dateConflictMode === "skip" ? "已有設定或單一時段調整的日期會保留並略過。" : "已有設定或單一時段調整會被本次內容覆蓋。"}{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}</p>
+                        </div>
+                      )}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
                       <p className="text-xs text-earth-600">{isCourseStore?"若有已排課程衝突，本批不會儲存；請先調整課表。預約與額度紀錄保留。":"既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。"}</p>
                       <button type="button" disabled={isPending} onClick={() => setReviewedDraft(null)} className="underline text-primary-800">返回修改</button>
@@ -1211,7 +1412,13 @@ export function ScheduleManager({
                   <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { if (reviewing) void saveDay(); else setReviewedDraft(draftKey); }}
+                    onClick={() => {
+                      if (!dateSelectionValid) {
+                        setDateSelectionAttempted(true);
+                        return;
+                      }
+                      if (reviewing) void saveDay(); else setReviewedDraft(draftKey);
+                    }}
                     disabled={isPending || loadingDay || !dayDraftDirty || !periodValidation.valid}
                     className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                   >

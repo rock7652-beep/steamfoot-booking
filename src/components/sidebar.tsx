@@ -575,6 +575,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  musicEnabled?:boolean;
   operationGuidePreview?: boolean;
   industryModule?: IndustryModuleId;
   isOwner: boolean;
@@ -606,6 +607,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  musicEnabled=false,
   operationGuidePreview = false,
   industryModule = "steamfoot",
   isOwner,
@@ -722,6 +724,7 @@ export default function DashboardShell({
 { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=catalog", label: "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
 { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "教室管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
+        {...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,href:"/dashboard/teachers",label:musicEnabled?"教師管理":"教練管理"},
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/device-preview")!,
@@ -760,7 +763,7 @@ export default function DashboardShell({
         items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation]);
+  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation,musicEnabled]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {

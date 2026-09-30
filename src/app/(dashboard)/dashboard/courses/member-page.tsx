@@ -1,3 +1,5 @@
+import {readCourseOrders} from "@/server/services/course-display-order";
+import {orderCourseRows} from "@/lib/course-display-order";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -96,15 +98,19 @@ export async function CourseMemberPage({
   }));
   const assignmentStaff = await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{role:"OWNER",status:"ACTIVE"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}});
   const termSessions=(view === "plans" && await checkPermission(user.role,user.staffId,"booking.read")) ? await coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [];
-  const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true},orderBy:[{category:"asc"},{name:"asc"}]});
+  const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]});
+  const subjects=music?await coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}):[];
+  const displayOrders=await readCourseOrders(storeId);
+  plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
+  subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
   const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !(await resolveStoreViewContextFromCookie(user))?.isViewMode && await hasDataExportFeature(storeId);
   return (
-    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
+    <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-6"}`}>
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} actions={canExport ? <a href="/api/export/customers" download className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-700">匯出全部顧客 CSV</a> : undefined} />
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
-      <CourseMemberWorkspace profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"}
+      <CourseMemberWorkspace key={storeId} displayOrder={displayOrders.plan} profitEnabled={(await readSettlementSettings(coursePrisma,storeId)).profitEnabled} canDelete={user.role==="OWNER"}
         canMerge={(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
         customerPage={customerPage}
@@ -114,6 +120,7 @@ export async function CourseMemberPage({
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
         termSessions={termSessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString()}))}
         templates={templates}
+        subjects={subjects}
         view={view}
         canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}

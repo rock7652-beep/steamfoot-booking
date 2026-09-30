@@ -56,7 +56,7 @@ it.each(["feature","settings","link"])("denies access when %s is unavailable bef
 it("derives identity and store from session; requires active same-store unrevoked link",async()=>{
  const view=await readMyCourseIncome("2026-08");
  expect(view.lines).toHaveLength(1);
- expect(mocks.link).toHaveBeenCalledWith({where:{userId:"member",storeId:"store-a",revokedAt:null,staff:{storeId:"store-a",status:"ACTIVE"}},select:{staffId:true}});
+ expect(mocks.link).toHaveBeenCalledWith({where:{userId:"member",storeId:"store-a",revokedAt:null,staff:{storeId:"store-a",status:"ACTIVE",courseCoachEnabled:true}},select:{staffId:true}});
  expect(mocks.report).toHaveBeenCalledWith({},"store-a","2026-08");
 });
 it("rejects unauthenticated or deactivated accounts without querying income",async()=>{

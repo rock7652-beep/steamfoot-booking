@@ -1,4 +1,10 @@
 "use client";
+import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
+import type {CourseOrderSnapshot} from "@/lib/course-display-order";
+
+import {CourseTestDataFilter,isCourseTestData} from "@/components/admin/course-test-data-filter";
+import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-status-button";
+import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
 import { saveCourseCustomerNote } from "@/server/actions/course-customer-note";
 import { useRetainedState, retainedString, retainedPage } from "@/components/operations/operation-scope";
@@ -9,13 +15,13 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { Fragment, useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
-  setCoursePointPlanStatus,
+
 
   assignCoursePointCard,
   setCourseCardMembers,
@@ -40,13 +46,15 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
+  displayOrder,
+  subjects=[],
   profitEnabled=true,
   canDelete=false,
   termSessions=[],
   view,
   templates,
   people,
-  plans,
+  plans: sourcePlans,
   cards,
   canEdit,
   canCreate,
@@ -64,10 +72,12 @@ export function CourseMemberWorkspace({
   canDiscount = false,
   music = false,
 }: {
+  displayOrder?:CourseOrderSnapshot;
+  subjects?:{id:string;name:string;category:string;isActive:boolean}[];
   profitEnabled?:boolean;
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
-  templates: {id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null}[];
+  templates: {id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicScheduleMode?:string|null;classType?:string|null;musicSubjectId?:string|null}[];
   people: Person[];
   plans: Plan[];
   cards: CourseCardView[];
@@ -92,9 +102,13 @@ export function CourseMemberWorkspace({
   const params = useSearchParams();
   const pathname=usePathname();
   function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
+  const [templateFilter, setTemplateFilter] = useState(params.get("subjectId") ?? params.get("templateId") ?? "all");
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
 
 
+  const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourcePlans);
+ const [hideTestData,setHideTestData]=useState(false);
+ const [showInactive,setShowInactive]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
   const [search, setSearch] = useRetainedState(`course-${view}:search`, "", retainedString);
@@ -155,7 +169,7 @@ export function CourseMemberWorkspace({
     return true;
   }
 
-  function preparePlan(next: Plan | null) { setPlan(next); }
+  function preparePlan(next: Plan | null) { if(open("plan"))setPlan(next); }
   const [formPending,setFormPending]=useState(false);
   function finishDraftForm(){setDirty(false);setPanel(null);router.refresh();}
 
@@ -178,78 +192,76 @@ export function CourseMemberWorkspace({
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
-        router.refresh();
+        window.dispatchEvent(new Event("customer-search-invalidated"));
+        setTimeout(() => router.refresh(), 0);
       } catch {
         setError("連線中斷，請重試");
       }
     });
   }
+  const order=useCourseDisplayOrder("plan",plans,displayOrder,canEdit&&!search&&status==="all"&&templateFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive);
   const filteredPlans = plans
     .filter(
       (p) =>
-        p.name.includes(search.trim()) &&
+        (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        (templateFilter === "all" || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
-    .sort((a, b) => Number(b.isActive) - Number(a.isActive));
-  function changePlanStatus(item: Plan) {
-    if (pending) return;
-    setError("");
-    setNotice("");
-    start(async () => {
-      try {
-        const result = await setCoursePointPlanStatus({id:item.id,isActive:!item.isActive});
-        if (!result.success) { setError(result.error ?? "狀態更新失敗"); return; }
-        setNotice(`${item.name} 已${item.isActive ? "下架" : "上架"}；既有持有方案不受影響。`);
-        router.refresh();
-      } catch { setError("連線中斷，請重試"); }
-    });
-  }
-  const totalRows = filteredPlans.length;
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive)||order.compare(a,b));
+  const activeFilteredPlans=filteredPlans.filter(p=>p.isActive),inactiveFilteredPlans=filteredPlans.filter(p=>!p.isActive);
+  const inactiveForced=status==="inactive"||!!search||templateFilter!=="all"||planUnit!=="all";
+  const inactiveExpanded=inactiveForced||showInactive;
+  const totalRows = activeFilteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
-  const activePlans = plans.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
+  const visiblePlans=[...activeFilteredPlans.slice(currentPage*20,(currentPage+1)*20),...(inactiveExpanded?inactiveFilteredPlans:[])];
+  const activePlans = order.rows.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
 
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
-        <nav aria-label="方案管理分區" className="mb-4 flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
+        <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
           <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
           {canReadCards && <button type="button" aria-pressed={planArea === "cards"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "cards" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("cards")}>顧客持有方案</button>}
         </nav>
       )}
       {view === "plans" && planArea === "catalog" && (
-        <section aria-label="方案摘要" className="mb-3 flex flex-wrap gap-2">
+        <section aria-label="方案摘要" className="flex flex-wrap gap-2">
           {[
             ["全部方案", music ? plans.filter((plan) => plan.unit === "SESSION").length : plans.length],
             ["上架中", activePlans.length],
-            ...(music ? [["堂數方案", activePlans.filter(item => item.unit === "SESSION").length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
+            ...(music ? [] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm"><strong className="mr-2 tabular-nums text-primary-800">{value}</strong><span className="text-earth-500">{label}</span></div>)}
         </section>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
           placeholder="搜尋方案"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+          onChange={(e) => { setSelected([]);setSearch(e.target.value); setPage(0); }}
         />}
         {view === "plans" && planArea === "catalog" && (
           <select
             className={`${field} max-w-36`}
             aria-label="狀態篩選"
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(0); }}
+            onChange={(e) => { setSelected([]);setStatus(e.target.value); setPage(0); }}
           >
             <option value="all">全部狀態</option>
             <option value="active">上架</option>
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && music && <select aria-label="適用課程篩選" className={`${field} max-w-72`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">全部課程</option>{(music?subjects:templates).map(t=><option key={t.id} value={t.id}>{t.category || "未分類"} · {t.name}</option>)}</select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
@@ -279,7 +291,10 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
-      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+<div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+      {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
+      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+</div>
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
@@ -288,39 +303,44 @@ export function CourseMemberWorkspace({
         onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-        <table className="min-w-[820px] w-full text-left text-sm">
-          <thead className="bg-earth-50">
+        <table className={`${music ? "block sm:table" : "min-w-[820px]"} w-full text-left text-sm`}>
+          <thead className={`${music?"hidden sm:table-header-group":""} bg-earth-50`}>
             <tr>
-              {["方案／適用課程", "額度", "售價", "單位價格", "有效天數", "狀態", "操作"].map((h) => (
+              {(music ? ["方案／適用課程", "堂數", "售價", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "單位價格", "有效天數", "狀態", "操作"]).map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-earth-100">
-            {!filteredPlans.length && <tr><td colSpan={7} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
-            {filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
+          <tbody className={`${music?"block sm:table-row-group":""} divide-y divide-earth-100`}>
+            {!filteredPlans.length && <tr><td colSpan={music ? 5 : 7} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
+            {visiblePlans.map((p,index) => (
+                  <Fragment key={p.id}>
+                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music?5:7} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                   <tr
-                    key={p.id}
-                    className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
+                    {...order.rowProps(p.id)}
+                    className={`${music?"grid grid-cols-[1fr_auto] sm:table-row":""} ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
-                    <td className="max-w-72 px-3 py-2">{canEdit && <input type="checkbox" className="mr-2" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><span className="ml-2 text-xs text-earth-500">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span><p className="truncate pl-5 text-xs text-earth-500" title={p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") : "本店所有課程"}>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
-                    <td className="whitespace-nowrap px-3 py-2">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
-                    <td className="whitespace-nowrap px-3 py-2">NT$ {p.price.toLocaleString("zh-TW")}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
-                    <td className="whitespace-nowrap px-3 py-2">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
-                    <td className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>
+                    <td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="min-w-0 break-words font-medium">{p.name}</span></div><div className="mt-1 flex flex-wrap gap-x-2 text-xs text-earth-500"><span className="whitespace-nowrap">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span><span>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</span></div>{music&&<p className="mt-1 flex flex-wrap gap-x-2 text-xs sm:hidden"><span>{p.points} 堂 · {p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</span><span>NT$ {p.price.toLocaleString("zh-TW")} · 每堂 {Math.round(p.price/Math.max(1,p.points)).toLocaleString("zh-TW")}</span></p>}</td>
+                    <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}{music && <p className="text-xs text-earth-500">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</p>}</td>
+                    <td className={`${music?"hidden sm:table-cell":""} whitespace-nowrap px-3 py-2`}>NT$ {p.price.toLocaleString("zh-TW")}{music && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／堂</p>}</td>
+                    {!music && <><td className="whitespace-nowrap px-3 py-2 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td></>}
+                    <td className={`${music?"hidden sm:table-cell":""} px-3 py-2`}><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>
                     <td className="whitespace-nowrap px-3 py-1.5">
+                      {music&&<div className="sm:hidden"><span className="text-xs text-earth-500">{p.isActive?"上架":"下架"}</span>{canEdit&&<details><summary aria-label={`${p.name}操作`} className="flex min-h-11 cursor-pointer items-center justify-center rounded border border-earth-200 px-3">⋯</summary><div className="flex flex-col gap-1 py-1"><button className="min-h-11 rounded border px-2" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></div></details>}</div>}
                       {canEdit && (
-                        <div className="flex gap-1">
-                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={pending} onClick={() => preparePlan(p)}>編輯</button>
-                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm text-primary-800" disabled={pending} onClick={() => changePlanStatus(p)}>{p.isActive ? "下架" : "上架"}</button>
+                        <div className={`${music?"hidden sm:flex":"flex"} gap-1`}>
+                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={busyIds.includes(p.id)} onClick={() => preparePlan(p)}>編輯</button>
+                          <CourseStatusButton kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/>
                         </div>
                       )}
                     </td>
                   </tr>
+                  </Fragment>
                 ))}
+            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music?5:7} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div> : canReadCards ? <CourseCardBrowser canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
@@ -411,7 +431,7 @@ export function CourseMemberWorkspace({
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
               <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
-              <RetainedNoteEditor key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
+              <RetainedNoteEditor optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />
@@ -425,7 +445,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
 
-              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} termSessions={termSessions} profitEnabled={profitEnabled} music={music} onPending={setFormPending} onSaved={finishDraftForm} />
+              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && (
@@ -439,6 +459,10 @@ export function CourseMemberWorkspace({
                       planId,
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
+                      musicPurchaseTerms:music?Number(d.get("musicPurchaseTerms")??1):undefined,
+                      musicValidityDays:d.get("musicValidityDays")?Number(d.get("musicValidityDays")):undefined,
+                      musicManualBonus:music?Number(d.get("musicManualBonus")??0):undefined,
+                      musicJoinSessionId:music?String(d.get("musicJoinSessionId")??"")||undefined:undefined,
                       expectedListPrice: Number(d.get("expectedListPrice")),
                       expectedStoreCost: Number(d.get("expectedStoreCost")),
                       revenueStaffId: music ? "" : String(d.get("revenueStaffId")??""),
@@ -460,7 +484,7 @@ export function CourseMemberWorkspace({
                 </label>}
                 <label className="block">
                   方案
-                  <CourseOptionSelect label="方案" required value={planId} options={plans.filter(p=>p.isActive && (!music || p.unit==="SESSION")).map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
+                  <CourseOptionSelect label="方案" required value={planId} options={activePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
 
                 </label>
                 {music ? <p className="text-sm text-earth-600"><input type="hidden" name="expires" value="2099-12-31"/>從第一堂實際上課日起算，依方案有效天數自動到期。</p> : <label className="block" key={planId}>
@@ -487,7 +511,7 @@ export function CourseMemberWorkspace({
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
-                  <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>
+                  {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
                 </fieldset>
               </form>
             )}

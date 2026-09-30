@@ -12,7 +12,7 @@ const date = z
 export const courseTemplateInput = z.object({
   classType: z.enum(["PRIVATE","SELF_ORGANIZED","GROUP"]).nullable().default(null),
   musicPricePerLesson: z.number().int().min(0).max(1000000).nullable().default(null),
-  musicTermLessons: z.union([z.literal(4),z.literal(8)]).nullable().default(null),
+  musicTermLessons: z.number().int().min(1).max(1000).nullable().default(null),
   musicValidityDaysPerTerm: z.number().int().min(1).max(3650).nullable().default(null),
   musicScheduleMode: z.enum(["FIXED","APPOINTMENT"]).nullable().default(null),
   musicTrialMode: z.enum(["FREE","PAID"]).nullable().default(null),

@@ -68,7 +68,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   const [composing, setComposing] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const current = useMemo(
+  const serverCurrent = useMemo(
     () => ({
       search: searchParams.get("search") ?? "",
       status: searchParams.get("status") ?? "",
@@ -80,6 +80,12 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
     [searchParams]
   );
 
+  const [filterDraft,setFilterDraft]=useState<typeof serverCurrent|null>(null);
+  const [lastServer,setLastServer]=useState(serverCurrent);
+  if(lastServer!==serverCurrent&&!isPending){setLastServer(serverCurrent);if(filterDraft)setFilterDraft(null);}
+  const current=filterDraft??serverCurrent;
+  const latestParams=useRef(new URLSearchParams(searchParams.toString()));
+  useEffect(()=>{if(!isPending){latestParams.current=new URLSearchParams(searchParams.toString());}},[searchParams,isPending]);
   const [draft, setDraft] = useState({source:current.search,value:current.search});
   const searchDraft = instantStoreId || courseMode || draft.source === current.search ? draft.value : current.search;
   const instantQuery = normalizeCustomerSearch(searchDraft);
@@ -93,8 +99,8 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   // Local suggestions are immediate; serialize list navigations and retain the
   // latest input while the previous server-rendered list is still pending.
   useEffect(() => {
-    if ((!instantStoreId && !courseMode) || composing || isPending || instantQuery === current.search) return;
-    const params = new URLSearchParams(searchParams.toString());
+    if (composing || isPending || instantQuery === current.search) return;
+    const params = new URLSearchParams(latestParams.current.toString());
     if (instantQuery) params.set("search", instantQuery);
     else params.delete("search");
     params.delete("page");
@@ -103,7 +109,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
     const timer = setTimeout(() => {
       lastListRequest.current = url;
       startTransition(() => router.replace(url, { scroll: false }));
-    }, courseMode ? 250 : 0);
+    }, 250);
     return () => clearTimeout(timer);
   }, [instantStoreId, courseMode, composing, isPending, instantQuery, current.search, searchParams, pathname, router]);
 
@@ -133,7 +139,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   ].filter((label): label is string => !!label && !label.startsWith("全部")).map(courseLabel);
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(latestParams.current.toString());
     if (instantStoreId || courseMode) {
       if (instantQuery) params.set("search", instantQuery);
       else params.delete("search");
@@ -141,6 +147,8 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
     mutate(params);
     // 任何篩選/排序變更都重置分頁
     params.delete("page");
+    latestParams.current=params;
+    setFilterDraft({search:params.get("search")??"",status:params.get("status")??"",visit:params.get("visit")??"",referral:params.get("referral")??"",staff:params.get("staff")??"",sort:params.get("sort")??"recent"});
     const qs = params.toString();
     startTransition(() => {
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -181,15 +189,6 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
               placeholder="輸入姓名、電話或 LINE 名稱"
               className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
             />
-            {searchDraft !== current.search ? (
-              <button
-                type="submit"
-                disabled={isPending}
-                className="min-h-11 shrink-0 rounded-md bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
-              >
-                搜尋
-              </button>
-            ) : null}
           </form>
           <button
             type="button"
@@ -218,26 +217,26 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-sm text-earth-600">
                 <span>顧客狀態</span>
-                <select value={current.status} onChange={(e) => setParam("status", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                <select value={current.status} onChange={(e) => setParam("status", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
                   {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
                 </select>
               </label>
               <label className="space-y-1 text-sm text-earth-600">
                 <span>上課狀態</span>
-                <select value={current.visit} onChange={(e) => setParam("visit", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                <select value={current.visit} onChange={(e) => setParam("visit", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
                   {VISIT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
                 </select>
               </label>
               <label className="space-y-1 text-sm text-earth-600">
                 <span>推薦紀錄</span>
-                <select value={current.referral} onChange={(e) => setParam("referral", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                <select value={current.referral} onChange={(e) => setParam("referral", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
                   {REFERRAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               {staffOptions.length > 0 ? (
                 <label className="space-y-1 text-sm text-earth-600">
                   <span>直屬店長</span>
-                  <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
                     <option value="">全部店長</option>
                     {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
                   </select>
@@ -245,7 +244,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
               ) : null}
               <label className="space-y-1 text-sm text-earth-600">
                 <span>排序方式</span>
-                <select value={current.sort} onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                <select value={current.sort} onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
                   {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
                 </select>
               </label>
@@ -288,7 +287,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
         {searchDraft !== current.search ? (
           <button
             type="submit"
-            disabled={isPending}
+
             className="rounded-md bg-primary-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
             搜尋
@@ -300,7 +299,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
       <select
         value={current.status}
         onChange={(e) => setParam("status", e.target.value)}
-        disabled={isPending}
+
         className={selectClass}
         aria-label="狀態"
       >
@@ -314,7 +313,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
       <select
         value={current.visit}
         onChange={(e) => setParam("visit", e.target.value)}
-        disabled={isPending}
+
         className={selectClass}
         aria-label={courseMode ? "上課" : "來店"}
       >
@@ -328,7 +327,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
       <select
         value={current.referral}
         onChange={(e) => setParam("referral", e.target.value)}
-        disabled={isPending}
+
         className={selectClass}
         aria-label="推薦"
       >
@@ -343,7 +342,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
         <select
           value={current.staff}
           onChange={(e) => setParam("staff", e.target.value)}
-          disabled={isPending}
+
           className={selectClass}
           aria-label="直屬店長"
         >
@@ -361,7 +360,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
         <select
           value={current.sort}
           onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)}
-          disabled={isPending}
+
           className={selectClass}
           aria-label="排序"
         >

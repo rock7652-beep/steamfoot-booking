@@ -1,3 +1,4 @@
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import { beforeEach,describe,expect,it,vi } from 'vitest';
 import { noticeRetryState,notificationId,recipientHash,monthlyNotificationBody,type NoticeRecord } from '@/lib/course-monthly-notification';
 const m=vi.hoisted(()=>({report:vi.fn(),query:vi.fn(),exec:vi.fn(),transaction:vi.fn(),link:vi.fn(),member:vi.fn(),customer:vi.fn(),central:vi.fn(),route:vi.fn(),push:vi.fn(),preview:vi.fn(),quota:vi.fn(),manager:vi.fn(),feature:vi.fn(),writable:vi.fn()}));

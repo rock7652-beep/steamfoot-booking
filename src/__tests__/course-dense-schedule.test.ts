@@ -49,8 +49,9 @@ it("adaptive cards prioritize private members while group cards show capacity", 
   expect(page).toContain("bookingKind: true");
 });
 
-it("course operations use the shared right sheet instead of another centered modal", () => {
-  expect(workspace).toContain('courseDialog.kind === "roster" ? 820 : 560');
+it("course operations use the shared centered dialog", () => {
+  expect(workspace).toContain('courseDialog.kind === "roster" ? 1200 : 560');
+  expect(workspace).toContain('presentation="centered"');
   expect(workspace).toContain('labelledById="course-operation-title"');
   expect(workspace).not.toContain('className="fixed inset-0 z-[80] flex items-center justify-center');
 });
@@ -68,8 +69,9 @@ it("day timetable balances width by active resource count", () => {
   expect(board).toContain('resourceCount === 1');
   expect(board).toContain('musicDense');
   expect(board).toContain(': resourceCount === 2');
-  expect(board).toContain('? "64%"');
-  expect(board).toContain('? "80%"');
+  expect(board).not.toContain('? "64%"');
+  expect(board).not.toContain('? "80%"');
+  expect(board).toContain(': "100%"');
   expect(board).toContain("width: timetableWidth");
   expect(board).toContain("minWidth: timetableMinWidth");
   expect(board).toContain('musicResourceWidth');

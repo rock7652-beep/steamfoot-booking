@@ -29,9 +29,27 @@ model CourseRoom {
   @@unique([storeId, name])
 }
 
+model MusicSubject {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  category String @default("")
+  description String @default("")
+  isActive Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  templates CourseTemplate[]
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+}
+
 model CourseTemplate {
+  musicSubjectId String?
+  musicSubject MusicSubject? @relation(fields: [musicSubjectId, storeId], references: [id, storeId])
+  @@index([musicSubjectId])
+
   visibility String @default("PUBLIC")
   classType String?
+  musicTeacherShare Float?
   musicPricePerLesson Int?
   musicTermLessons Int?
   musicValidityDaysPerTerm Int?
@@ -122,6 +140,8 @@ model CourseSessionMove {
 }
 
 model CoursePointPlan {
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   musicTerms Int?
   storeCost Int @default(0)
   termSessionIds String[] @default([])
@@ -154,6 +174,10 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  musicJoinSessionId String?
+  musicManualBonus Int @default(0)
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   musicValidityDays Int?
   musicActivatedAt DateTime? @db.Timestamptz(3)
   termSessionIds String[] @default([])
@@ -260,6 +284,10 @@ model CourseBookingRule {
 }
 
 model CoursePurchase {
+  musicJoinSessionId String?
+  musicManualBonus Int @default(0)
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   storeCostSnapshot Int?
   developerProfitSnapshot Int?
   developerNameSnapshot String?
@@ -416,4 +444,13 @@ model CourseMonthlyNotification {
   actorUserId String
   @@unique([storeId, settlementId, staffId])
   @@index([storeId, status], map: "CourseMonthlyNotification_store_status")
+}
+
+// Server-only per-store display order; SQL migration owns FK and RLS.
+model CourseDisplayOrder {
+  storeId String
+  kind String
+  ids String[] @default([])
+  revision Int @default(0)
+  @@id([storeId, kind])
 }

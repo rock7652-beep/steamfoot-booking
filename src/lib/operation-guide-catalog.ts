@@ -1410,30 +1410,39 @@ export const additionalGuides: OperationGuide[] = [
   {
     "id": "G04",
     "category": "staff",
-    "title": "員工忘記密碼或離職，怎麼處理？",
-    "summary": "忘記密碼可重設；離職則停用帳號，保留既有服務及交易紀錄。",
-    "path": "人員管理 → 人員基本資料",
+    "title": "忘記後台密碼，或人員離職，怎麼處理？",
+    "summary": "本人可從所屬門市登入頁申請重設連結；離職則由管理者停用帳號並保留歷史。",
+    "path": "後台登入 → 忘記密碼；人員管理 → 人員基本資料",
     "steps": [
-      "選正確人員，核對手機與角色。",
-      "忘記密碼時，由可操作的人員使用重設密碼；離職則使用停用。",
-      "核對成功提示與帳號狀態，再通知本人或管理者。"
+      "確認使用所屬門市的後台登入頁，點「忘記密碼」，輸入原本綁定的登入 Email。",
+      "從信箱開啟一小時內有效的連結，設定 10 至 128 字元、同時含英文字母與數字的新密碼。",
+      "若是離職，由有權限者到人員管理停用帳號；重新查看狀態並保留既有服務、交易及操作紀錄。"
     ],
-    "important": "不刪除歷史紀錄來處理離職；不同角色可管理的人員範圍不同。",
-    "success": "人員狀態或密碼重設結果可確認。",
-    "keywords": "忘記密碼 停用 離職",
-    "details": [],
+    "important": "重設連結限所屬門市、有效後台帳號且只能使用一次；更新成功後舊登入狀態會失效。不要刪除歷史來處理離職。",
+    "success": "本人能用新密碼登入正確門市；或離職人員已停用且舊紀錄仍可追查。",
+    "keywords": "忘記密碼 重設密碼 沒收到信 垃圾郵件 連結過期 新密碼 停用 離職",
+    "details": [
+      "畫面固定顯示已受理，不會透露 Email 是否存在；五分鐘內重複申請不會再寄一封。先檢查垃圾郵件、門市是否正確及是否輸入原綁定信箱。",
+      "預覽環境會封鎖外部寄信，不能用預覽沒收到信判定正式站故障。連結失效或用過後請從原門市登入頁重新申請。",
+      "只有啟用中的店長／合作店長後台帳號可自助重設；停用帳號不會因申請重設而重新啟用。"
+    ],
     "modules": [
-      "steamfoot"
+      "steamfoot",
+      "spa",
+      "course"
     ],
-    "permission": "staff.manage",
+    "permission": "",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
-      "src/lib/permissions.ts"
+      "src/app/hq/login/page.tsx",
+      "src/app/hq/forgot-password/page.tsx",
+      "src/app/hq/reset-password/page.tsx",
+      "src/server/actions/backoffice-password-reset.ts",
+      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "忘記密碼可重設；離職則停用帳號，保留既有服務及交易紀錄。"
+    "answer": "從正確門市登入頁申請重設；離職帳號則停用，不刪除服務、交易或操作歷史。"
   },
   {
     "id": "H01",

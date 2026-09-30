@@ -134,12 +134,12 @@ export const courseOperationGuides: OperationGuide[] = [
   },
   {
     id: "C114", category: "staff", title: "新增教練後，為什麼還不能排課或登入我的工作？",
-    summary: "授課資格、每堂固定費、教練工作身分與會員登入連結是分開設定。", answer: "先啟用教練身分、可教授課程與每堂固定費；要登入「我的工作」還需連結本店既有顧客帳號。",
-    keywords: "新增教練 授課資格 可教授課程 每堂固定費 授課費 我的工作 登入 會員連結 店長兼教練", path: "店務設定 → 人員與權限 → 新增／編輯人員 → 授課費設定",
-    steps: ["新增或打開人員，啟用教練工作身分並設定緊急聯絡資料。", "在授課費設定勾選可教授課程，逐項填每堂固定費後一次儲存。", "需要使用教練前台時，連結已完成本店會員登入的顧客，再核對「已開通教練登入」。"],
-    important: "授課資格不會自動建立登入；連結顧客也不會自動授予店長後台權限。",
+    summary: "人員管理與教練管理已分開；授課資格、計酬及會員登入連結也要各自完成。", answer: "先到教練／教師管理建立授課身分及可教授課程；要登入「我的工作」還需連結本店會員帳號。",
+    keywords: "新增教練 新增老師 教師管理 人員管理 身分分離 授課資格 可教授課程 每堂固定費 拆帳 我的工作 登入 會員連結 店長兼教練 同一人連結", path: "教練管理／教師管理 → 新增／編輯 → 授課與拆帳／工作與授課安排",
+    steps: ["到教練／教師管理新增授課身分，填基本及緊急聯絡資料；不要在後台人員帳號直接開啟新兼任身分。", "勾選可教授課程；運動課設定每堂授課費，音樂課依授權設定預設或彈性拆帳。", "需要使用教練前台時，連結已完成本店會員登入的顧客，再核對「已開通教練／老師登入」。"],
+    important: "授課身分不會自動取得店長後台權限；店長與教練是兩筆獨立身分，同一人可選擇連結，但登入、權限與歷史仍分開。",
     success: "排課可選到該教練；有登入需求者能從自己的課程店入口開啟「我的工作」。",
-    details: ["停用或移除授課資格前，先處理尚未結束的課次與交接清單；新費率只套用之後排出的課次，不回寫既有課次快照。", "只有店主且具人員管理權限可管理此頁；教練不建立蒸足 PARTNER 帳號。設定 0 元表示該課程不另領授課費。"],
+    details: ["停用或移除授課資格前，先處理尚未結束的課次與交接清單；新費率只套用之後排出的課次，不回寫既有課次快照。", "只有店主且具人員管理權限可管理此頁。運動教練設定 0 元表示不另領固定授課費；音樂老師依拆帳規則另行計算。", "舊資料若顯示店長兼任，請先另建授課身分並核對同一人連結與交接；系統不會自動合併或刪除舊身分。"],
     permission: "staff.manage", additionalPermissions: ["staff.view"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/staff-workspace.tsx", "src/server/actions/course-staff.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -219,7 +219,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["選日期範圍並展開授課費，核對課次、教練、固定費與付款狀態。", "在待付課次點登錄已付，選現金或非現金並填付款備註後確認。", "若只是誤登，點更正誤登並填原因；另行確認實際匯款或款項收回。"],
     important: "登錄或更正都不是銀行付款／退款。現金付款需今日抽屜已開啟；連線中斷先重新整理查結果。",
     success: "付款狀態與備註正確，現金帳有對應支出；更正保留原付款及反向沖回紀錄。",
-    details: ["只有已結束、未取消、費率為正整數且教練與快照一致的課次可登錄；0 元表示不另領。", "舊課次缺費率或小數金額會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。", "新版每月收入結算不再提供新增付款入口；原授課費付款仍從營運處理。月結可查看歷史付款，兩處共用同一紀錄，不要重複新增支出。"],
+    details: ["運動課依每堂固定費；只有已結束、未取消、費率為正且教練與快照一致的課次可登錄，0 元表示不另領。音樂老師另依老師／科目／方案的拆帳或固定費快照計算。", "舊課次缺費率或金額無法證明時會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。", "新版每月收入結算不再提供新增利潤付款入口；授課費付款仍從營運處理。音樂授課費可分次登錄，但每次不得超過未付餘額；月結與營運共用同一付款紀錄，不要重複新增支出。"],
     permission: "cashbook.read", additionalPermissions: ["cashbook.create"], feature: null, sources: ["src/app/(dashboard)/dashboard/revenue/_components/course-fees.tsx", "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx", "src/server/services/course-fee-payment.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -235,11 +235,11 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C124", category: "booking", title: "怎麼從課表替既有學員或新體驗客預約？",
     summary: "打開課次後選學員預約；找不到既有顧客時再切換建立新體驗客。", answer: "既有學員需選有效方案；新顧客可在名單直接建檔並建立未收款體驗預約。",
-    keywords: "學員預約 新增體驗客 建立新顧客 有效方案 最快到期 直接預約 名單", path: "課表排程 → 打開課次 → ＋學員預約／＋體驗客",
+    keywords: "學員預約 新增體驗客 建立新顧客 有效方案 最快到期 直接預約 名單 滿班 強制加入 確認超額", path: "課表排程 → 打開課次 → ＋學員預約／＋體驗客",
     steps: ["打開正確日期與課次，選「＋學員預約」後搜尋姓名、電話或 LINE。", "選到既有學員後核對系統列出的可用方案；多張適用卡會優先帶入最快到期者，仍可手動更換。", "找不到顧客時切換建立新體驗客，填姓名、電話與體驗金額後確認；再回名單核對。"],
     important: "不要為找不到的人重複建檔；先改用電話或姓名搜尋。體驗預約只保留名額，收款與出席仍分開處理。",
     success: "學員出現在正確課次名單；一般預約占用正確方案，體驗客顯示尚未收款。",
-    details: ["沒有適用方案時先到顧客詳情「購買方案」並確認結帳，不能用不適用或已到期卡硬約；送出時系統仍會重查額度與容量。", "新體驗客建檔需顧客建立及體驗預約權限；不會自動發卡或登記收款。"],
+    details: ["沒有適用方案時先到顧客詳情「購買方案」並確認結帳，不能用不適用或已到期卡硬約；送出時系統仍會重查額度與容量。", "音樂課滿班時，具權限的店長可在看過警告後明確確認加入既有學員或體驗客；這不會提高公開名額，會員端也不能繞過滿班限制。重複報名、學員撞堂、方案效期與餘額仍會阻擋。", "新體驗客建檔需顧客建立及體驗預約權限；不會自動發卡或登記收款。"],
     permission: "booking.create", additionalPermissions: ["booking.read", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/server/actions/course-members.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

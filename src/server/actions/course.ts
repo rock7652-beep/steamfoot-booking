@@ -53,14 +53,12 @@ async function writableStore(
   return courseManager(permission);
 }
 
-async function validateMusicTemplate(storeId:string,data:{classType:string|null;pointCost:number;musicPricePerLesson:number|null;musicTermLessons:4|8|null;musicValidityDaysPerTerm:number|null;musicScheduleMode:"FIXED"|"APPOINTMENT"|null;musicTrialMode:"FREE"|"PAID"|null;musicTeacherFeeBase:number|null;durationMinutes:number}) {
+async function validateMusicTemplate(storeId:string,data:{classType:string|null;pointCost:number;musicPricePerLesson:number|null;musicTermLessons:number|null;musicValidityDaysPerTerm:number|null;musicScheduleMode:"FIXED"|"APPOINTMENT"|null;musicTrialMode:"FREE"|"PAID"|null;musicTeacherFeeBase:number|null;durationMinutes:number}) {
   const music=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
   if (!music) return;
   if (!data.classType || data.musicPricePerLesson===null || data.musicTermLessons===null || data.musicValidityDaysPerTerm===null || !data.musicScheduleMode)
     throw new AppError("VALIDATION","音樂課程需設定課型、每堂售價、每期堂數、有效天數與排課方式");
   if (data.pointCost!==1) throw new AppError("VALIDATION","音樂課程只使用堂數，每次預約固定 1 堂");
-  if (data.musicTermLessons !== (data.classType==="GROUP" ? 8 : 4))
-    throw new AppError("VALIDATION",data.classType==="GROUP" ? "團體班每期 8 堂" : "個別課與自組班每期 4 堂");
   if (data.musicTrialMode==="FREE" && (data.durationMinutes!==30 || data.musicTeacherFeeBase===null))
     throw new AppError("VALIDATION","免費體驗為 30 分鐘，需設定老師拆帳計算基礎");
   if (data.musicTrialMode==="PAID" && data.durationMinutes<60)
@@ -670,7 +668,7 @@ export async function setCourseCatalogStatus(input: unknown) {
       >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
       if (!stores.length)
         throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
-      if (data.kind === "room" && !data.isActive) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});
+      if (data.kind === "room" && !data.isActive && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}})) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});
       const result =
         data.kind === "room"
           ? await tx.courseRoom.updateMany({
@@ -728,7 +726,7 @@ export async function previewCourseSchedule(input: unknown) {
         where: { id: d.roomId, storeId },
         select: { capacity: true },
       }),
-      coursePrisma.courseTemplate.findFirst({ where: { id: d.templateId, storeId }, select: { musicScheduleMode: true } }),
+      coursePrisma.courseTemplate.findFirst({ where: { id: d.templateId, storeId }, select: { musicScheduleMode: true, musicSubjectId:true } }),
     ]);
     const originals = dates.length > 1 || targetTemplate?.musicScheduleMode === "FIXED"
       ? await coursePrisma.courseSession.findMany({ where: {
@@ -763,7 +761,7 @@ export async function previewCourseSchedule(input: unknown) {
           })),
         })),
         capacityWarning:
-          room?.capacity && d.capacity > room.capacity
+          !targetTemplate?.musicSubjectId && room?.capacity && d.capacity > room.capacity
             ? `排課 ${d.capacity} 人超過教室容納 ${room.capacity} 人，請確認容量`
             : null,
       },

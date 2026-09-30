@@ -10,25 +10,27 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
   onSelect:(card:CourseCardView)=>void;revision?:number;
 }) {
   const [retry,setRetry]=useState(0);
-  const [result,setResult]=useState<{key:string;rows:CourseCardView[];hasMore:boolean;error?:string}|null>(null);
+  const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;error?:string}|null>(null);
   const key=JSON.stringify([customerId,state,revision,retry]);
   useEffect(()=>{
     let active=true;
     const timer=setTimeout(()=>{browseCourseCards({customerId,...state}).then(r=>{
-      if(active)setResult(r.success ? {key,rows:r.rows,hasMore:r.hasMore} : {key,rows:[],hasMore:false,error:r.error});
-    }).catch(()=>{if(active)setResult({key,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},200);
+      if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore} : {key,customerId,rows:[],hasMore:false,error:r.error});
+    }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},200);
     return ()=>{active=false;clearTimeout(timer);};
   },[customerId,state,key]);
   const ready=result?.key===key;
+  const visible=result?.customerId===customerId?result:null;
   return <section className="space-y-3">
     <div className="flex flex-wrap items-center gap-2">
       <input aria-label="搜尋持有方案或共卡成員" className="min-h-10 min-w-0 flex-1 rounded-lg border px-3 text-base" placeholder="搜尋方案／共卡成員" value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
       <select aria-label="方案效期" className="min-h-10 rounded-lg border px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
     </div>
-    {!ready ? <p role="status">讀取中…</p> : result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
+    {!ready && <p role="status">更新中…</p>}
+    {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
       <div className="divide-y rounded-lg border bg-white">
 
-        {result?.rows.map(c=>{
+        {visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?"堂":"點";
           const inactive=c.closed||c.expired;
           const status=c.closed?"已停用":c.expired?"已到期":c.remaining>0&&c.available===0&&c.held>=c.remaining?"額度已全數預約":c.remaining===0?"額度已用完":null;
@@ -41,9 +43,9 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
           </div>;
         })}
 
-        {!result?.rows.length && <p className="p-4 text-sm text-earth-500">沒有符合的方案，請調整搜尋或效期。</p>}
+        {ready && !visible?.rows.length && <p className="p-4 text-sm text-earth-500">沒有符合的方案，請調整搜尋或效期。</p>}
       </div>
-      {(state.page>0 || result?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-10 rounded border px-3 disabled:opacity-40" disabled={!state.page} onClick={()=>onChange({...state,page:state.page-1})}>上一頁</button><button className="min-h-10 rounded border px-3 disabled:opacity-40" disabled={!result?.hasMore} onClick={()=>onChange({...state,page:state.page+1})}>下一頁</button></nav>}
-    </>}
+      {(state.page>0 || visible?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-10 rounded border px-3 disabled:opacity-40" disabled={!state.page} onClick={()=>onChange({...state,page:state.page-1})}>上一頁</button><button className="min-h-10 rounded border px-3 disabled:opacity-40" disabled={!visible?.hasMore} onClick={()=>onChange({...state,page:state.page+1})}>下一頁</button></nav>}
+    </fieldset>}
   </section>;
 }

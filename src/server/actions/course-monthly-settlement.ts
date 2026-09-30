@@ -1,4 +1,5 @@
 "use server";
+import {requireMusicFinance} from "@/server/services/music-finance-access";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -19,6 +20,7 @@ async function actor(permission:PermissionCode){
 function refresh(){revalidatePath("/dashboard","layout");}
 export async function saveCourseSettlementSettings(input:unknown){try{
  const d=settlementSettingsInput.parse(input),a=await actor("staff.manage");
+ await requireMusicFinance(a.user,a.storeId,"teacher.settlement.confirm");
  await courseTransaction(a.storeId,async tx=>{
   const current=await readSettlementSettings(tx,a.storeId);
   if(current.revision!==d.revision)throw new AppError("CONFLICT","設定已變更，請重新整理");
@@ -29,6 +31,7 @@ export async function saveCourseSettlementSettings(input:unknown){try{
 }catch(e){return handleActionError(e);}}
 export async function confirmCourseMonthlySettlement(input:unknown){try{
  const d=settlementConfirmInput.parse(input),a=await actor("report.read");
+ await requireMusicFinance(a.user,a.storeId,"teacher.settlement.confirm");
  await courseTransaction(a.storeId,async tx=>{
   const report=await readCourseMonthlySettlement(tx,a.storeId,d.month);
   if(report.fingerprint!==d.fingerprint)throw new AppError("CONFLICT","明細已變更，請重新整理核對");

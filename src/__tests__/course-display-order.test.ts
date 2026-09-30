@@ -1,0 +1,15 @@
+import {beforeEach,it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({manager:vi.fn(),find:vi.fn(),raw:vi.fn(),execute:vi.fn()}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_s:string,fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,$executeRaw:m.execute,musicSubject:{findMany:m.find},courseRoom:{findMany:m.find},coursePointPlan:{findMany:m.find}})}));
+vi.mock("@/server/services/course-resources",()=>({handleCourseActionError:(e:Error)=>({success:false,error:e.message})}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
+import {saveCourseDisplayOrder} from "@/server/actions/course-display-order";
+import {moveCourseRow,orderCourseRows} from "@/lib/course-display-order";
+beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"A",user:{role:"OWNER"}});m.find.mockResolvedValue([{id:"one"},{id:"two"}]);m.raw.mockResolvedValue([]);});
+it("keeps new items while applying saved ordering",()=>expect(orderCourseRows([{id:"new"},{id:"one"},{id:"two"}],["two","one"]).map(r=>r.id)).toEqual(["two","one","new"]));
+it("moves both up and down without changing the original array",()=>{const ids=["one","two","three"];expect(moveCourseRow(ids,"one","three")).toEqual(["two","three","one"]);expect(moveCourseRow(ids,"three","one")).toEqual(["three","one","two"]);expect(ids).toEqual(["one","two","three"]);});
+it("saves only to the resolved store with the right permission",async()=>{expect(await saveCourseDisplayOrder({kind:"plan",ids:["two","one"],revision:0})).toEqual({success:true,revision:1});expect(m.manager).toHaveBeenCalledWith("plans.edit");expect(m.find).toHaveBeenCalledWith({where:{storeId:"A"},select:{id:true}});expect(m.execute.mock.calls[0].slice(1)).toEqual(["A","plan",["two","one"]]);});
+it("rejects foreign rows without writing",async()=>{expect((await saveCourseDisplayOrder({kind:"room",ids:["foreign"],revision:0})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
+it("does not overwrite a newer order",async()=>{m.raw.mockResolvedValue([{ids:["two","one"],revision:3}]);expect((await saveCourseDisplayOrder({kind:"plan",ids:["one","two"],revision:2})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
+it("rejects duplicate IDs and non-owner staff ordering",async()=>{expect((await saveCourseDisplayOrder({kind:"plan",ids:["one","one"],revision:0})).success).toBe(false);m.manager.mockResolvedValue({storeId:"A",user:{role:"STAFF"}});expect((await saveCourseDisplayOrder({kind:"staff",ids:["one"],revision:0})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
+it("retains newly added rows omitted by an older page",async()=>{expect((await saveCourseDisplayOrder({kind:"subject",ids:["two"],revision:0})).success).toBe(true);expect(m.execute.mock.calls[0].slice(1)).toEqual(["A","subject",["two","one"]]);});

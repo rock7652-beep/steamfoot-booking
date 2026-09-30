@@ -366,6 +366,8 @@ export async function loadCoursePortal(requestedMonth?: string) {
     })),
     orders: orders.map((o) => ({
       id:o.id,name:o.name,price:o.price,status:o.status,transferLastFive:o.transferLastFive,
+      points:o.points,unit:o.unit,termSizes:o.musicTermSizes,bonus:o.musicBonusLessons,listPrice:o.listPrice,
+      paymentMethod:o.paymentMethod,transferLastFour:o.transferLastFour,voidReason:o.voidReason,
       refunds: (o.refunds??[]).map(r=>({...r,createdAt:r.createdAt.toISOString()})),
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,

@@ -5,6 +5,8 @@ export const courseFeePaymentInput = z.object({
   sessionId: z.string().min(1).max(180),
   requestKey: z.string().uuid(),
   expectedAmount: z.number().int().positive().max(1000000),
+  amount: z.number().int().positive().max(1000000).optional(),
+  expectedRemaining: z.number().int().positive().max(1000000).optional(),
   method: z.enum(["CASH", "OTHER"]),
   note: z.string().trim().min(1, "請填寫付款備註").max(500),
 });

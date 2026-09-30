@@ -3,6 +3,7 @@ import {createElement,act} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {readFileSync} from "node:fs";
+vi.mock("@/server/actions/course-fee-payment",()=>({payCourseFee:vi.fn(),correctCourseFee:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course-monthly-settlement",()=>({confirmCourseMonthlySettlement:vi.fn(),saveCourseSettlementSettings:vi.fn(),payCourseProfit:vi.fn(),correctCourseProfit:vi.fn()}));
 import {CourseMonthlyReport,CourseMonthlyPeople,CourseMonthlyConfirm,CourseProfitCorrect} from "@/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client";

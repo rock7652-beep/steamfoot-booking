@@ -26,10 +26,12 @@ describe("course UI final fixes", () => {
 
   it("shows textual session states in addition to color", () => {
     const workspace = read("src/app/(dashboard)/dashboard/courses/workspace.tsx");
+    const states = read("src/lib/course-session-status.ts");
     for (const label of ["未開始", "進行中", "待點名", "已完成", "未到", "已結束"]) {
-      expect(workspace).toContain(label);
+      expect(states).toContain(label);
     }
-    expect(workspace).toContain('["待點名", "bg-violet-50 text-violet-800"]');
+    expect(states).toContain('badgeClass: "bg-violet-50 text-violet-800"');
+    expect(workspace).toContain("courseSessionStatus(");
   });
 
   it("clarifies closed-day conflicts and trial payment counts", () => {
@@ -58,5 +60,10 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain("!memberBookingReady");
     expect(roster).toContain("沒有可用方案，請先指派方案。");
     expect(roster).not.toContain("改用體驗預約");
+  });
+
+  it("shows per-record operation history in both fitness and music rosters", () => {
+    const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
+    expect(roster.match(/OperationHistoryButton targetType="CourseBooking"/g)).toHaveLength(2);
   });
 });

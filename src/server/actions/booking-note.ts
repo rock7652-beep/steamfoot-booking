@@ -9,6 +9,7 @@ import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { revalidateBookings } from "@/lib/revalidation";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 const schema = z.object({
   bookingId: z.string().min(1),
@@ -29,7 +30,7 @@ export async function updateBookingNoteAction(input: {
     const { bookingId, notes, expectedNotes } = schema.parse(input);
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { id: true, storeId: true, customerId: true },
+      select: { id: true, storeId: true, customerId: true, notes: true },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
     assertStoreAccess(user, booking.storeId);
@@ -46,14 +47,18 @@ export async function updateBookingNoteAction(input: {
         where: { id: booking.id },
         data: { notes: notes?.trim() || null },
       });
-      await tx.auditLog.create({
-        data: {
-          actorUserId: user.id,
-          targetType: "Booking",
-          targetId: booking.id,
-          action: "BOOKING_NOTE_UPDATED",
-        },
-      });
+      await recordOperationAudit({
+        actorUserId: user.id,
+        actorNameSnapshot: user.name,
+        storeId: booking.storeId,
+        module: "STEAM",
+        targetType: "Booking",
+        targetId: booking.id,
+        action: "BOOKING_NOTE_UPDATED",
+        summary: "修改預約備註",
+        before: { notes: expectedNotes === undefined ? booking.notes : expectedNotes },
+        after: { notes: notes?.trim() || null },
+      }, tx);
       return null;
     });
     if (outcome) return { success: false, error: "備註已由其他人更新，你的輸入已保留。", ...outcome };
