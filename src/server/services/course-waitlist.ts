@@ -93,8 +93,9 @@ export async function joinCourseWaitlist(
       `,
       tx.courseBookingRule.findUnique({ where: { storeId: actor.storeId } }),
     ]);
-    if (!session || !card || customers.length !== customerIds.length)
-      fail("請選擇本店有效課程、方案與候補人");
+    if (!session) fail("找不到本店有效課程");
+    if (!card) fail("找不到本店有效方案");
+    if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
     if (!session.template.waitlistEnabled) fail("本課程未開放候補");
     if (session.releasedAt || !session.template.isActive || session.template.visibility !== "PUBLIC")
       fail("本課程目前不開放候補");
@@ -192,8 +193,9 @@ export async function cancelMemberCourseWaitlist(
       select: { groupKey: true },
     });
     if (!own) fail("找不到目前候補紀錄");
+    const groupKey = own.groupKey;
     const result = await tx.courseWaitlistEntry.updateMany({
-      where: { storeId: actor.storeId, sessionId: input.sessionId, groupKey: own.groupKey, status: "WAITING" },
+      where: { storeId: actor.storeId, sessionId: input.sessionId, groupKey, status: "WAITING" },
       data: { status: "CANCELLED", failureReason: "會員取消", updatedAt: new Date() },
     });
     return { count: result.count };
