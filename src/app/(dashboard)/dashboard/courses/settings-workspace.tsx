@@ -149,7 +149,12 @@ export function CourseSettingsWorkspace(props: Props) {
           <details className="mt-2 text-sm text-earth-500"><summary className="min-h-10 cursor-pointer py-2">扣堂規則</summary><p className="leading-6">{props.music ? "預約先保留堂數，報到即出席並扣 1 堂；曠課扣 1 堂。自組班請假保留補課資格，團體班請假記錄並扣 1 堂。音樂教室沒有補課券。" : "自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。"}</p></details>
         </Row>
         {props.waitlistFeatureAvailable && props.waitlistSettings && (
-          <Row title="候補" summary={props.waitlistSettings.enabled ? `開啟・${props.waitlistSettings.defaultLimit} 人・${props.waitlistSettings.autoPromoteStopMinutes === 0 ? "不停止" : `前 ${props.waitlistSettings.autoPromoteStopMinutes / 60} 小時停止`}` : "關閉"}>
+          <Row
+            title="候補"
+            summary={props.waitlistSettings.enabled ? `開啟・${props.waitlistSettings.defaultLimit} 人・${props.waitlistSettings.autoPromoteStopMinutes === 0 ? "不停止" : `${props.waitlistSettings.autoPromoteStopMinutes / 60} 小時前停止`}` : "關閉"}
+            expanded={expandedRow === "waitlist"}
+            onEdit={props.canEdit ? () => openRow("waitlist") : undefined}
+          >
             <CourseWaitlistSettings initial={props.waitlistSettings} canEdit={props.canEdit} />
           </Row>
         )}
@@ -160,7 +165,12 @@ export function CourseSettingsWorkspace(props: Props) {
           {editor({ section: "payment", bankName: props.bankName, bankCode: props.bankCode, bankAccountNumber: props.bankAccountNumber }, true)}
           <p className="mt-2 text-sm text-earth-500">付款聯繫：{props.lineOfficialUrl ? "沿用店家官方 LINE" : "尚未設定官方 LINE"} <button type="button" className="min-h-10 px-2 text-primary-700 underline" onClick={() => select("store")}>前往店家資料</button></p>
         </Row> : <p className="py-5 text-sm text-earth-500">目前帳號沒有付款設定權限。</p>}
-        {props.canTrial && props.trialSettings ? <Row title="體驗設定" summary="體驗價格・可調整範圍"><TrialSettingsForm storeId={props.storeId} initial={props.trialSettings} saveAction={saveCourseTrialSettings} courseMode compact /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
+        {props.canTrial && props.trialSettings ? <Row
+          title="體驗設定"
+          summary={`${props.trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${props.trialSettings.trialDefaultPrice}・調價 ${props.trialSettings.trialAllowPriceEdit ? `NT$ ${props.trialSettings.trialMinPrice}–${props.trialSettings.trialMaxPrice}` : "關閉"}`}
+          expanded={expandedRow === "trial"}
+          onEdit={() => openRow("trial")}
+        ><TrialSettingsForm storeId={props.storeId} initial={props.trialSettings} saveAction={saveCourseTrialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
         {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="站內待辦：查看尚無方案紀錄的顧客；排除待核帳、已加入共用方案及到期／用完的方案。本階段不自動傳送 LINE。" action="查看待辦名單" href="/dashboard/courses/unassigned-plans" />}
