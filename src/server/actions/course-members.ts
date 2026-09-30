@@ -642,9 +642,10 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       "booking.create",
     );
     const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true}} } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+    const waitlistSetting = await coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true}});
     const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
@@ -687,7 +688,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
           customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistStopMinutes: session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
@@ -708,23 +709,24 @@ export async function loadCourseRosterQuick(sessionId: string) {
     const { storeId } = await courseManager("booking.read");
     authMs = Date.now() - startedAt;
     id.parse(sessionId);
-    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true}});
+    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,template:{select:{waitlistStopMinutes:true}}}});
     sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
-    const [roster, waitlistRows] = await Promise.all([
+    const [roster, waitlistRows, waitlistSetting] = await Promise.all([
       getCourseRoster(storeId,sessionId),
       coursePrisma.courseWaitlistEntry.findMany({
         where:{storeId,sessionId,status:"WAITING"},
         orderBy:[{createdAt:"asc"},{id:"asc"}],
         select:{id:true,customerId:true,customerName:true,groupKey:true,createdAt:true},
       }),
+      coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true}}),
     ]);
     rosterMs = Date.now() - startedAt - authMs - sessionMs;
     const groups=[...new Map(waitlistRows.map(item=>[item.groupKey,item.createdAt])).entries()].sort((a,b)=>a[1].getTime()-b[1].getTime()||a[0].localeCompare(b[0]));
     const waitlist=waitlistRows.map(row=>({id:row.id,customerId:row.customerId,customerName:row.customerName,groupKey:row.groupKey,position:groups.findIndex(([key])=>key===row.groupKey)+1,createdAt:row.createdAt.toISOString()}));
     console.info("[course-roster-read]", { outcome: "success", count: roster.length, waitlistCount: waitlist.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
-    return {success:true as const, data:{roster,waitlist,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
+    return {success:true as const, data:{roster,waitlist,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason,waitlistStopMinutes:session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240}};
   } catch(error) {
     console.info("[course-roster-read]", { outcome: "error", authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);
