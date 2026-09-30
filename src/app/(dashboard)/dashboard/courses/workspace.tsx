@@ -1408,6 +1408,9 @@ export function CourseWorkspace({
                               pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
                               ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {}),
                               capacity: Number(data.get("capacity")),
+                              waitlistEnabled: waitlistEnabled && data.get("waitlistEnabled") === "yes",
+                              waitlistLimit: Number(data.get("waitlistLimit") || 5),
+                              waitlistStopMinutes: data.get("waitlistStopMinutes") === "" || data.get("waitlistStopMinutes") === null ? null : Number(data.get("waitlistStopMinutes")),
                             }),
                           )
                         }
@@ -1468,6 +1471,19 @@ export function CourseWorkspace({
                             required
                           />
                         </label>
+                        {waitlistEnabled && (
+                          <fieldset className="col-span-full rounded-lg border border-earth-200 p-3">
+                            <legend className="px-1 text-sm font-medium">候補設定</legend>
+                            <label className="flex min-h-11 items-center gap-2">
+                              <input type="checkbox" name="waitlistEnabled" value="yes" />
+                              本課程允許滿班候補
+                            </label>
+                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                              <label>候補人數上限<input className={field} name="waitlistLimit" type="number" min={1} max={100} defaultValue={5}/></label>
+                              <label>停止自動遞補（分鐘）<input className={field} name="waitlistStopMinutes" type="number" min={0} max={10080} placeholder="留白沿用店家設定"/></label>
+                            </div>
+                          </fieldset>
+                        )}
                         <label>
                           預設教室
                           <select className={field} name="roomId">
