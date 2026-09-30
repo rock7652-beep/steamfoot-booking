@@ -28,6 +28,7 @@ export function RightSheet({
   width = 460,
   compact = false,
   fitContent = false,
+  fixedHeight = false,
   labelledById,
   closeOnEscape = true,
 }: RightSheetProps) {
