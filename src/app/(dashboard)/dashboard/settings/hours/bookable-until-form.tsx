@@ -37,7 +37,7 @@ export function BookableUntilForm({
   const [savedMode, setSavedMode] = useState<"fixed" | "rolling">(initialMode);
   const [savedDate, setSavedDate] = useState(initialDate);
   const [savedDays, setSavedDays] = useState(initialDays);
-  const [expanded, setExpanded] = useState(direct);
+  const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const saving = useRef(false);
@@ -49,7 +49,7 @@ export function BookableUntilForm({
     setMode(savedMode);
     setFixedDate(savedDate ?? "");
     setDays(savedDays);
-    setExpanded(direct);
+    setExpanded(false);
   }
 
   function save() {
@@ -74,7 +74,7 @@ export function BookableUntilForm({
             ? `已開放預約至 ${formatDateZh(fixedDate)}`
             : `已設定自動開放未來 ${days} 天`,
         );
-        setExpanded(direct);
+        setExpanded(false);
         router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
@@ -95,7 +95,7 @@ export function BookableUntilForm({
               : `未來 ${savedDays} 天・自動延長`}
           </p>
         </div>
-        {canManage && !direct && (
+        {canManage && (
           <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-9 shrink-0 rounded-lg border border-earth-300 px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50">
             {expanded ? "取消" : "修改"}
           </button>
