@@ -20,11 +20,13 @@ export function OperationAuditFilters({
   cacheKey,
   defaults,
   hasExplicitFilters,
+  fixedModuleLabel,
 }: {
   actors: ActorOption[];
   cacheKey: string;
   defaults: FilterValues;
   hasExplicitFilters: boolean;
+  fixedModuleLabel?: string;
 }) {
   const router = useRouter();
   const restored = useRef(false);
@@ -68,15 +70,23 @@ export function OperationAuditFilters({
           {actors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}
         </select>
       </label>
-      <label className="text-xs text-earth-600">模組
-        <select className="mt-1 h-9 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="module" defaultValue={defaults.module}>
-          <option value="">全部模組</option>
-          <option value="STEAM">蒸足</option>
-          <option value="SPA">SPA</option>
-          <option value="COURSE">課程</option>
-          <option value="SHARED">共用</option>
-        </select>
-      </label>
+      {fixedModuleLabel ? (
+        <div className="text-xs text-earth-600">紀錄範圍
+          <div className="mt-1 flex h-9 items-center rounded-lg border border-earth-200 bg-earth-50 px-2 text-sm font-medium text-earth-800">
+            {fixedModuleLabel}
+          </div>
+        </div>
+      ) : (
+        <label className="text-xs text-earth-600">模組
+          <select className="mt-1 h-9 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="module" defaultValue={defaults.module}>
+            <option value="">全部模組</option>
+            <option value="STEAM">蒸足</option>
+            <option value="SPA">SPA</option>
+            <option value="COURSE">課程</option>
+            <option value="SHARED">店務共用</option>
+          </select>
+        </label>
+      )}
       <label className="text-xs text-earth-600">關鍵字
         <div className="mt-1 flex gap-1.5">
           <input className="h-9 min-w-0 flex-1 rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="q" defaultValue={defaults.q} placeholder="操作或資料類型" maxLength={80} />
