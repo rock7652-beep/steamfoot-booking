@@ -106,6 +106,7 @@ export function SettingsPanel({
         presentation="centered"
         open
         compact
+        fixedHeight
         width={width}
         closeOnEscape={false}
         onClose={() => request(closeHref)}
