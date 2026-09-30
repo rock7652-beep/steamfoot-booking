@@ -86,7 +86,7 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false}:{cu
     catch {update(customerId,old);toast.error("儲存失敗，已還原");}
     finally {setPending(false);ctx?.unlock(customerId);}
   }
-  return <span ref={host} className="relative inline-flex max-w-full flex-wrap items-center gap-1" onClick={e=>e.stopPropagation()}>
+  return <span ref={host} className="relative z-20 inline-flex max-w-full flex-wrap items-center gap-1" onClick={e=>e.stopPropagation()}>
     {chosen.slice(0,2).map(l=><span key={l.id} className={`rounded border px-1.5 py-0.5 text-[11px] ${labelColor(categories.find(c=>c.id===l.categoryId)?.number??1)}`}>{l.name}</span>)}
     {!displayOnly&&chosen.length>2&&<span className="text-xs text-earth-500" title={chosen.map(l=>l.name).join("、")}>＋{chosen.length-2}</span>}
     {!displayOnly&&(canEdit||chosen.length>2)&&<button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className="min-h-10 shrink-0 whitespace-nowrap rounded px-2 text-xs text-primary-700 hover:bg-primary-50">{canEdit?"＋標籤":"查看標籤"}</button>}
