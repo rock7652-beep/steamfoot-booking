@@ -1547,9 +1547,15 @@ export function CourseWorkspace({
                           defaultRoomId: data.get("roomId") || null,
                           description: data.get("description") || "",
                           precautions: data.get("precautions") || "",
-                          waitlistEnabled: waitlistEnabled && data.get("waitlistEnabled") === "yes",
-                          waitlistLimit: Number(data.get("waitlistLimit") || 5),
-                          waitlistStopMinutes: data.get("waitlistStopMinutes") === "" || data.get("waitlistStopMinutes") === null ? null : Number(data.get("waitlistStopMinutes")),
+                          waitlistEnabled: waitlistEnabled
+                            ? data.get("waitlistEnabled") === "yes"
+                            : editing.value.waitlistEnabled ?? false,
+                          waitlistLimit: waitlistEnabled
+                            ? Number(data.get("waitlistLimit") || 5)
+                            : editing.value.waitlistLimit ?? 5,
+                          waitlistStopMinutes: waitlistEnabled
+                            ? (data.get("waitlistStopMinutes") === "" || data.get("waitlistStopMinutes") === null ? null : Number(data.get("waitlistStopMinutes")))
+                            : editing.value.waitlistStopMinutes ?? null,
                               classType:data.get("classType") || null,
                         });
                       return (
