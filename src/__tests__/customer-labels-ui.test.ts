@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import {act,createElement,type ComponentProps} from 'react';
+import {act} from 'react';
+import {jsx} from 'react/jsx-runtime';
 import {createRoot, type Root} from 'react-dom/client';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import type {LabelSnapshot} from '@/lib/customer-labels';
@@ -13,7 +14,7 @@ const data:LabelSnapshot={available:true,enabled:true,canEdit:true,canManage:tru
 let root:Root,host:HTMLDivElement;
 beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockResolvedValue(data);m.save.mockResolvedValue({success:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function render(initial=data,readOnly=false){await act(async()=>root.render(createElement(CustomerLabelsProvider,{key:String(initial.enabled),initial} as ComponentProps<typeof CustomerLabelsProvider>,createElement(CustomerLabels,{customerId:"customer",readOnly}))));}
+async function render(initial=data,readOnly=false){await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial,children:jsx(CustomerLabels,{customerId:"customer",readOnly})},String(initial.enabled))));}
 async function click(label:string){const button=document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);expect(button).toBeTruthy();await act(async()=>button!.click());}
 it('shows two labels and remaining count, and portals the dialog outside a clipped row',async()=>{await render();expect(host.textContent).toContain('＋1');expect(host.textContent).not.toContain('重點');await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')).toBeTruthy();expect(host.querySelector('[role="dialog"]')).toBeNull();});
 it('updates immediately, retains the dialog, and rolls back failed saves',async()=>{await render();await click('查看或修改顧客標籤');let finish!:(v:{success:boolean,error:string})=>void;m.save.mockReturnValue(new Promise(resolve=>finish=resolve));const button=[...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].find(b=>b.textContent?.includes('重點'))!;await act(async()=>button.click());expect(host.textContent).not.toContain('＋1');expect(document.querySelector('[role="dialog"]')).toBeTruthy();await act(async()=>finish({success:false,error:'失敗'}));expect(host.textContent).toContain('＋1');expect(m.error).toHaveBeenCalledWith('失敗');expect(m.save).toHaveBeenCalledWith({customerId:'customer',labelId:'c',selected:false});});
