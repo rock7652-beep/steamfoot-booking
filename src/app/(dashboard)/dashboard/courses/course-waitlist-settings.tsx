@@ -16,6 +16,7 @@ export function CourseWaitlistSettings({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const dirty = enabled !== initial.enabled || defaultLimit !== initial.defaultLimit || stopMinutes !== initial.autoPromoteStopMinutes;
 
   function save() {
     setMessage("");
@@ -30,67 +31,64 @@ export function CourseWaitlistSettings({
         setError(result.error ?? "儲存失敗");
         return;
       }
-      setMessage("候補設定已儲存");
+      setMessage("已儲存");
     });
   }
 
   return (
-    <div className="mt-3 space-y-3">
-      <label className="flex min-h-11 items-center gap-2">
-        <input
-          type="checkbox"
-          checked={enabled}
-          disabled={!canEdit || pending}
-          onChange={(event) => setEnabled(event.target.checked)}
-        />
-        啟用候補功能
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm text-earth-700">
-          預設候補名額
+    <div className="mt-2">
+      <div className="grid items-end gap-2 sm:grid-cols-[auto_minmax(110px,0.55fr)_minmax(150px,0.8fr)_auto]">
+        <label className="flex min-h-9 items-center gap-2 text-xs font-medium text-earth-700">
           <input
-            className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3"
+            type="checkbox"
+            checked={enabled}
+            disabled={!canEdit || pending}
+            onChange={(event) => { setEnabled(event.target.checked); setMessage(""); }}
+          />
+          啟用
+        </label>
+        <label className={`block text-xs text-earth-600 ${enabled ? "" : "opacity-45"}`}>
+          候補名額
+          <input
+            className="mt-1 min-h-9 w-full rounded-lg border border-earth-200 bg-white px-2.5 text-sm"
             type="number"
             min={1}
             max={100}
             value={defaultLimit}
-            disabled={!canEdit || pending}
-            onChange={(event) => setDefaultLimit(Number(event.target.value))}
+            disabled={!canEdit || pending || !enabled}
+            onChange={(event) => { setDefaultLimit(Number(event.target.value)); setMessage(""); }}
           />
         </label>
-        <label className="block text-sm text-earth-700">
-          開課前停止自動遞補
+        <label className={`block text-xs text-earth-600 ${enabled ? "" : "opacity-45"}`}>
+          停止遞補
           <select
-            className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3"
+            className="mt-1 min-h-9 w-full rounded-lg border border-earth-200 bg-white px-2.5 text-sm"
             value={stopMinutes}
-            disabled={!canEdit || pending}
-            onChange={(event) => setStopMinutes(Number(event.target.value))}
+            disabled={!canEdit || pending || !enabled}
+            onChange={(event) => { setStopMinutes(Number(event.target.value)); setMessage(""); }}
           >
             <option value={0}>不停止</option>
-            <option value={60}>1 小時</option>
-            <option value={120}>2 小時</option>
-            <option value={240}>4 小時</option>
-            <option value={360}>6 小時</option>
-            <option value={720}>12 小時</option>
-            <option value={1440}>24 小時</option>
+            <option value={60}>1 小時前</option>
+            <option value={120}>2 小時前</option>
+            <option value={240}>4 小時前</option>
+            <option value={360}>6 小時前</option>
+            <option value={720}>12 小時前</option>
+            <option value={1440}>24 小時前</option>
           </select>
         </label>
+        {canEdit && (
+          <button
+            type="button"
+            disabled={pending || !dirty}
+            onClick={save}
+            className="min-h-9 rounded-lg bg-primary-700 px-3 text-xs font-semibold text-white disabled:opacity-30"
+          >
+            {pending ? "儲存中…" : "儲存"}
+          </button>
+        )}
       </div>
-      <p className="text-xs leading-5 text-earth-500">
-        關閉後不接受新候補，也不會自動遞補；既有候補紀錄保留。每個課程可另外決定是否開放候補與名額上限。
-      </p>
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
-      {canEdit && (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={save}
-          className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {pending ? "儲存中…" : "儲存候補設定"}
-        </button>
-      )}
+      {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
+      {message && <p role="status" className="mt-2 text-xs text-primary-700">{message}</p>}
     </div>
   );
 }
