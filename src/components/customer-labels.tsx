@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { courseSettingsPanelHref } from "@/lib/course-settings-panels";
+import { LabelManager } from "@/app/(dashboard)/dashboard/settings/customer-labels/label-manager";
 import { DashboardLink } from "@/components/dashboard-link";
 type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
 const Context = createContext<ContextValue|null>(null);
@@ -38,6 +39,15 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   const lock=useCallback((id:string)=>{if(pendingRef.current.has(id))return false;pendingRef.current.add(id);setPendingIds(new Set(pendingRef.current));return true;},[]);
   const unlock=useCallback((id:string)=>{pendingRef.current.delete(id);setPendingIds(new Set(pendingRef.current));if(!pendingRef.current.size)void refresh();},[refresh]);
   return <Context.Provider value={{snapshot,register,refresh,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
+}
+export function CustomerLabelsSettings() {
+  const ctx=useContext(Context);
+  if(!ctx?.snapshot.available)return null;
+  return <section aria-label="顧客標籤設定" className="min-w-0 border-b border-earth-100 py-5">
+    <h3 className="font-medium text-primary-900">顧客標籤</h3>
+    <p className="mt-1 mb-3 text-sm text-earth-600">同一家店的各模組共用；在顧客與預約名單快速加上標籤。</p>
+    <LabelManager initial={ctx.snapshot}/>
+  </section>;
 }
 export function CustomerLabelsSettingsLink() {
   const ctx=useContext(Context),pathname=usePathname();

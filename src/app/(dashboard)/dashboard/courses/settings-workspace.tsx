@@ -1,5 +1,5 @@
 "use client";
-import { CustomerLabelsSettingsLink } from "@/components/customer-labels";
+import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -89,7 +89,7 @@ export function CourseSettingsWorkspace(props: Props) {
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
   const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
-  return <SettingsPanelContext.Provider value={context}><div className="grid min-w-0 gap-4 md:grid-cols-[190px_minmax(0,1fr)]"><div className="col-span-full"><CustomerLabelsSettingsLink /></div>
+  return <SettingsPanelContext.Provider value={context}><div className="grid min-w-0 gap-4 md:grid-cols-[190px_minmax(0,1fr)]">
     <nav aria-label="設定分類" className="min-w-0">
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
       <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 md:block">{COURSE_SETTINGS_SECTIONS.map(section => <button type="button" key={section.id} aria-current={active === section.id ? "page" : undefined} onClick={() => select(section.id)} className={"min-h-11 w-full rounded-lg px-3 py-3 text-left text-sm " + (active === section.id ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-earth-50")}>{section.label}{sectionDirty(section.id) && <span className="ml-1 text-xs text-amber-700">未儲存</span>}</button>)}</div>
@@ -123,6 +123,7 @@ export function CourseSettingsWorkspace(props: Props) {
         {props.canTrial && props.trialSettings ? <Row title="體驗設定" summary="體驗價格與可調整範圍；儲存後套用新體驗單。"><TrialSettingsForm storeId={props.storeId} initial={props.trialSettings} saveAction={saveCourseTrialSettings} courseMode compact /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
+        <CustomerLabelsSettings />
         {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="站內待辦：查看尚無方案紀錄的顧客；排除待核帳、已加入共用方案及到期／用完的方案。本階段不自動傳送 LINE。" action="查看待辦名單" href="/dashboard/courses/unassigned-plans" />}
         {props.canReminders && <Row title="提醒管理" summary="選擇要管理的提醒或查看發送結果。"><div className="mt-3 flex flex-wrap gap-2">{[["customer", "顧客提醒"], ["manager", "人員通知"], ["logs", "發送紀錄"]].map(([tab, label]) => <DashboardLink key={tab} href={courseSettingsPanelHref(`/dashboard/courses/reminders?tab=${tab}`)} scroll={false} className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm text-primary-700">{label}</DashboardLink>)}</div></Row>}
         {props.canCare && <Row title="顧客關懷" summary="查看生日、未回課與方案關懷名單；清單不等同自動發訊。" action="查看關懷名單" href="/dashboard/growth" />}

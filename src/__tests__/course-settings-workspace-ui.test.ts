@@ -2,7 +2,7 @@
 import { act, createElement, type ComponentProps, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
-vi.mock("@/components/customer-labels", () => ({ CustomerLabelsSettingsLink: () => null }));
+vi.mock("@/components/customer-labels", () => ({ CustomerLabelsSettings: () => createElement("section", {"aria-label":"顧客標籤設定"}, "顧客標籤") }));
 vi.mock("@/app/(dashboard)/dashboard/courses/course-waitlist-settings", () => ({ CourseWaitlistSettings: () => null }));
 const m = vi.hoisted(() => ({ save: vi.fn(), windowSave: vi.fn(), trialSave: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, push: vi.fn() }), usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
@@ -123,4 +123,14 @@ it("converts hours without changing saved minutes on unit switches, validates an
   await click("取消"); await click("捨棄本區修改"); expect(field.value).toBe("1.5"); expect(field.checkValidity()).toBe(true);
   await input("bookingLeadMinutes", ""); await submit(); expect(m.save).toHaveBeenCalledTimes(1);
   await input("bookingLeadMinutes", "0"); await submit(); expect(m.save).toHaveBeenLastCalledWith({ section: "booking", bookingLeadMinutes: 0, cancellationLeadMinutes: 30 });
+});
+
+it("keeps customer labels inside the customer settings category rather than above all settings",async()=>{
+  await render();
+  const labels=host.querySelector('[aria-label="顧客標籤設定"]')!;
+  expect(labels.closest('section[aria-label="通知與顧客經營"]')).toBeTruthy();
+  expect(labels.closest('[hidden]')).toBeTruthy();
+  await select("通知與顧客經營");
+  expect(labels.closest('[hidden]')).toBeNull();
+  expect(host.querySelector('nav[aria-label="設定分類"]')?.textContent).not.toContain("顧客標籤設定");
 });
