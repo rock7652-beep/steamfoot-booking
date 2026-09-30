@@ -166,16 +166,6 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    href: "/dashboard/operation-audits",
-    label: "操作紀錄",
-    permission: "audit.read",
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6M9 8h3m-5 13h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
     href: "/dashboard/settings",
     label: "設定",
     ownerOnly: true,
@@ -747,7 +737,6 @@ export default function DashboardShell({
         {...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,href:"/dashboard/teachers",label:musicEnabled?"教師管理":"教練管理"},
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/operation-audits")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/device-preview")!,
       ] }];
     }
