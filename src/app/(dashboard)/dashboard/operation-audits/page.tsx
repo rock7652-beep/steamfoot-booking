@@ -7,6 +7,7 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { listOperationAudits, type OperationModule } from "@/server/services/operation-audit";
 import { OperationAuditFilters } from "./operation-audit-filters";
 
@@ -14,7 +15,13 @@ const MODULE_LABELS: Record<OperationModule, string> = {
   STEAM: "蒸足",
   SPA: "SPA",
   COURSE: "課程",
-  SHARED: "共用",
+  SHARED: "店務",
+};
+
+const STORE_MODULE_SCOPE: Record<string, { modules: OperationModule[]; label: string }> = {
+  steamfoot: { modules: ["STEAM", "SHARED"], label: "本店蒸足＋本店店務" },
+  spa: { modules: ["SPA", "SHARED"], label: "本店 SPA＋本店店務" },
+  course: { modules: ["COURSE", "SHARED"], label: "本店課程＋本店店務" },
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -61,10 +68,15 @@ export default async function OperationAuditsPage({
   const activeStoreId = await getActiveStoreForRead(user);
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const storeId = storeIdForViewContext(activeStoreId, viewContext);
+  const isHeadquarters = user.role === "ADMIN";
+  const storeModuleScope = !isHeadquarters && storeId
+    ? STORE_MODULE_SCOPE[await getStoreIndustryModule(storeId)] ?? STORE_MODULE_SCOPE.steamfoot
+    : null;
   const result = await listOperationAudits({
     storeId,
     actorUserId: params.actor || undefined,
-    module: moduleFilter,
+    module: isHeadquarters ? moduleFilter : undefined,
+    modules: storeModuleScope?.modules,
     keyword: params.q,
     dateFrom: from,
     dateTo: to,
@@ -100,6 +112,7 @@ export default async function OperationAuditsPage({
         cacheKey={`operation-audit-filters:${storeId ?? "all"}`}
         defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
         hasExplicitFilters={hasExplicitFilters}
+        fixedModuleLabel={storeModuleScope?.label}
       />
 
       <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">
