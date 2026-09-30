@@ -11,6 +11,9 @@ vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,l
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:m.collectModal}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:m.correctModal}));
+vi.mock("@/components/customer-labels",()=>({CustomerLabels:()=>null}));
+vi.mock("@/components/operation-history-button",()=>({OperationHistoryButton:()=>null}));
+vi.mock("@/server/actions/course-waitlist",()=>({promoteCourseWaitlistManually:vi.fn()}));
 import {CourseRoster} from "@/app/(dashboard)/dashboard/courses/roster";
 it("shows each group learner's own term, dates and distinct leave/no-show counts", async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});

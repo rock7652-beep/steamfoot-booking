@@ -2360,7 +2360,7 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? oneToOneMusicDialog ? "overflow-y-auto" : "overflow-y-auto sm:overflow-hidden"
+                    ? oneToOneMusicDialog ? "overflow-y-auto" : "overflow-y-auto lg:overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >
