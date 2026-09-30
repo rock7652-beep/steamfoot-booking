@@ -88,7 +88,7 @@ export async function joinCourseWaitlist(
       }),
       tx.$queryRaw<Array<{ id: string; name: string }>>`
         SELECT id,name FROM "Customer"
-        WHERE "storeId"=${actor.storeId} AND id = ANY(${customerIds}::text[])
+        WHERE "storeId"=${actor.storeId} AND id IN (${Prisma.join(customerIds)})
           AND "mergedIntoCustomerId" IS NULL
       `,
       tx.courseBookingRule.findUnique({ where: { storeId: actor.storeId } }),
