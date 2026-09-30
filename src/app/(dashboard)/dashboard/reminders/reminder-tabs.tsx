@@ -45,7 +45,7 @@ export function ReminderTabs({
           key={t.key}
           href={`${baseHref}?tab=${t.key}`}
           aria-current={active === t.key ? "page" : undefined}
-          className={`flex-1 border-b-2 px-3 py-3 text-center text-sm font-medium sm:flex-none ${active === t.key ? "border-primary-700 text-primary-700" : "border-transparent text-earth-500"}`}
+          className={`flex-1 border-b-2 px-3 py-3 text-center text-sm font-medium outline-none transition-colors focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-1 sm:flex-none ${active === t.key ? "border-primary-700 text-primary-700" : "border-transparent text-earth-500 hover:text-primary-700"}`}
         >
           {t.label}
         </DashboardLink>
