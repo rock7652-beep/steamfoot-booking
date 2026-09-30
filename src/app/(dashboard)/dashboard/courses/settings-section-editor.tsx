@@ -19,14 +19,14 @@ function DurationInput({ name, label, value, onChange }: { name: string; label: 
     const minutes = Number(text) * unit;
     input.current?.setCustomValidity(text !== "" && Math.abs(minutes - Math.round(minutes)) > 0.000001 ? "請輸入可換算為整數分鐘的時間，例如 1.5 小時。" : "");
   }, [text, unit]);
-  return <div className="min-w-0 text-xs"><label htmlFor={name} className="text-earth-600">{label}</label><div className="mt-1 flex items-center gap-1.5"><span className="shrink-0 text-earth-500">前</span>
+  return <div className="min-w-0 text-sm"><label htmlFor={name} className="text-earth-700">{label}</label><div className="mt-1 flex items-center gap-2"><span className="shrink-0 text-earth-500">前</span>
     <input ref={input} id={name} name={name} type="number" required min={0} max={43200 / unit} step="any" value={text} onChange={event => {
       const next = event.target.value;
       const minutes = Number(next) * unit;
       const canonical = next === "" ? "" : String(Math.abs(minutes - Math.round(minutes)) < 0.000001 ? Math.round(minutes) : minutes);
       setDisplay({ canonical, text: next }); onChange(canonical);
-    }} className="min-h-9 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm" />
-    <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-9 shrink-0 rounded-lg border border-earth-300 bg-white px-2 text-sm"><option value={60}>小時</option><option value={1}>分鐘</option></select>
+    }} className="min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm" />
+    <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-10 shrink-0 rounded-lg border border-earth-300 bg-white px-3 text-sm"><option value={60}>小時</option><option value={1}>分鐘</option></select>
   </div></div>;
 }
 type Props = { initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
@@ -59,16 +59,16 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
     });
   }}>
     <fieldset disabled={pending} className={section === "payment" ? "grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_90px_minmax(0,1.4fr)]" : "grid min-w-0 gap-2 sm:grid-cols-2"}>
-      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-xs text-earth-600 ${field.type === "url" ? "sm:col-span-2" : ""}`}>
-        {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-9 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-900" />
+      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" ? "sm:col-span-2" : ""}`}>
+        {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-900" />
       </label>)}
     </fieldset>
-    {message && <p role="status" className="mt-2 text-xs text-primary-700">{message}</p>}
-    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-9 rounded border px-3 text-xs">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-9 rounded border px-3 text-xs">捨棄本區修改</button></div></div>}
+    {message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}
+    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
     <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-      <span className="mr-auto text-[11px] text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
-      <button type="button" disabled={pending || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-9 shrink-0 whitespace-nowrap rounded-lg border px-3 text-xs disabled:opacity-40">取消</button>
-      <button type="submit" disabled={pending || !dirty} className="min-h-9 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-xs text-white disabled:opacity-30">{pending ? "儲存中…" : "儲存"}</button>
+      <span className="mr-auto text-sm text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
+      <button type="button" disabled={pending || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-10 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
+      <button type="submit" disabled={pending || !dirty} className="min-h-10 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-30">{pending ? "儲存中…" : "儲存"}</button>
     </div>
   </form>;
 }
