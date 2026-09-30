@@ -86,6 +86,12 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     description: "每月服務金額、固定月費、加扣項與月結紀錄。",
   },
   {
+    key: FEATURES.COURSE_WAITLIST,
+    label: "課程候補",
+    module: "營運",
+    description: "課程滿班後依順位候補、自動遞補與 LINE 通知；可由店家獨立開關。",
+  },
+  {
     key: FEATURES.DATA_EXPORT,
     label: "資料匯出",
     module: "營運",
