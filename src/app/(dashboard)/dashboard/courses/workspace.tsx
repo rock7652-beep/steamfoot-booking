@@ -59,6 +59,9 @@ type Template = Omit<Room, "capacity"> & {
   defaultRoomId: string | null;
   description?: string;
   precautions?: string;
+  waitlistEnabled?: boolean;
+  waitlistLimit?: number;
+  waitlistStopMinutes?: number | null;
 };
 type Session = {
   bookings: {
@@ -113,6 +116,7 @@ type Props = {
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
   businessProfile: "FITNESS" | "MUSIC";
+  waitlistEnabled?: boolean;
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
@@ -137,6 +141,7 @@ export function CourseWorkspace({
   canEdit,
   cashbookShortcut,
   businessProfile,
+  waitlistEnabled = false,
   staffAvailability,
   staffAvailabilityExceptions,
   view,
@@ -1526,6 +1531,9 @@ export function CourseWorkspace({
                           defaultRoomId: data.get("roomId") || null,
                           description: data.get("description") || "",
                           precautions: data.get("precautions") || "",
+                          waitlistEnabled: waitlistEnabled && data.get("waitlistEnabled") === "yes",
+                          waitlistLimit: Number(data.get("waitlistLimit") || 5),
+                          waitlistStopMinutes: data.get("waitlistStopMinutes") === "" || data.get("waitlistStopMinutes") === null ? null : Number(data.get("waitlistStopMinutes")),
                               classType:data.get("classType") || null,
                         });
                       return (
@@ -1708,6 +1716,46 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
+                    {editing.kind === "template" && waitlistEnabled && (
+                      <fieldset className="col-span-full rounded-lg border border-earth-200 p-3">
+                        <legend className="px-1 text-sm font-medium">候補設定</legend>
+                        <label className="flex min-h-11 items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="waitlistEnabled"
+                            value="yes"
+                            defaultChecked={editing.value.waitlistEnabled ?? false}
+                          />
+                          本課程允許滿班候補
+                        </label>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          <label>
+                            候補人數上限
+                            <input
+                              className={field}
+                              name="waitlistLimit"
+                              type="number"
+                              min={1}
+                              max={100}
+                              defaultValue={editing.value.waitlistLimit ?? 5}
+                            />
+                          </label>
+                          <label>
+                            停止自動遞補（分鐘）
+                            <input
+                              className={field}
+                              name="waitlistStopMinutes"
+                              type="number"
+                              min={0}
+                              max={10080}
+                              placeholder="留白沿用店家設定"
+                              defaultValue={editing.value.waitlistStopMinutes ?? ""}
+                            />
+                          </label>
+                        </div>
+                        <p className="mt-2 text-xs text-earth-500">兩人同行會視為同一組；名額不足整組不會拆開遞補。</p>
+                      </fieldset>
+                    )}
                     {businessProfile !== "MUSIC" && <label>
                       點數卡每人扣點
                       <input
