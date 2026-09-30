@@ -52,4 +52,21 @@ describe("shared operation audit", () => {
     }));
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 100, take: 100 }));
   });
+
+  it("enforces a store module allowlist on the server", async () => {
+    mocks.count.mockResolvedValue(0);
+    mocks.findMany.mockResolvedValue([]);
+    await listOperationAudits({
+      storeId: "course-store",
+      modules: ["COURSE", "SHARED"],
+      dateFrom: new Date("2026-09-01T00:00:00.000Z"),
+      dateTo: new Date("2026-09-30T23:59:59.999Z"),
+    });
+    expect(mocks.count).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        storeId: "course-store",
+        module: { in: ["COURSE", "SHARED"] },
+      }),
+    }));
+  });
 });
