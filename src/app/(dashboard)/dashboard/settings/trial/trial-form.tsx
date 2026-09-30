@@ -13,6 +13,7 @@ interface Props {
   saveAction?: (input:TrialSettings)=>Promise<{success:boolean;error?:string}>;
   courseMode?: boolean;
   compact?: boolean;
+  forceExpanded?: boolean;
 }
 
 const inputCls =
@@ -24,7 +25,7 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false, compact = false }: Props) {
+export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false, compact = false, forceExpanded = false }: Props) {
   const formId = useId();
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
@@ -32,7 +33,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
   const [minPrice, setMinPrice] = useState(String(initial.trialMinPrice));
   const [maxPrice, setMaxPrice] = useState(String(initial.trialMaxPrice));
   const [pending, startTransition] = useTransition();
-  const [expanded, setExpanded] = useState(!compact);
+  const [expanded, setExpanded] = useState(forceExpanded || !compact);
   const router = useRouter();
   const saving = useRef(false);
   const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
@@ -85,7 +86,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       aria-label="體驗設定"
       className={compact ? "mt-2" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
     >
-      {compact && !expanded && (
+      {compact && !forceExpanded && !expanded && (
         <div className="flex justify-end">
           <button type="button" onClick={() => setExpanded(true)} className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">修改</button>
         </div>
