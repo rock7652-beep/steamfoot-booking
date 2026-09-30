@@ -46,13 +46,17 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
     ]);
-    const [usage, digitalButler, referralShare, lineReminder, customerCare] = await Promise.all([
+    const [usage, digitalButler, referralShare, lineReminder, customerCare, waitlistFeature] = await Promise.all([
       canPayment ? getStoreUsage(storeId) : null,
       hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER),
       hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE),
       hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
       hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE),
+      hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST),
     ]);
+    const waitlistSetting = waitlistFeature
+      ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
+      : null;
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
@@ -86,6 +90,12 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
         canDutyRead={await checkPermission(user.role,user.staffId,"duty.read")}
         canDutyManage={!readOnly && await checkPermission(user.role,user.staffId,"duty.manage")}
         canHours={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.view")}
+        waitlistFeatureAvailable={waitlistFeature}
+        waitlistSettings={waitlistFeature ? {
+          enabled: waitlistSetting?.enabled ?? false,
+          defaultLimit: waitlistSetting?.defaultLimit ?? 5,
+          autoPromoteStopMinutes: waitlistSetting?.autoPromoteStopMinutes ?? 240,
+        } : undefined}
       />
     );
 
