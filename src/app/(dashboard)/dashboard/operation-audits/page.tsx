@@ -8,6 +8,7 @@ import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { listOperationAudits, type OperationModule } from "@/server/services/operation-audit";
+import { OperationAuditFilters } from "./operation-audit-filters";
 
 const MODULE_LABELS: Record<OperationModule, string> = {
   STEAM: "蒸足",
@@ -68,7 +69,7 @@ export default async function OperationAuditsPage({
     dateFrom: from,
     dateTo: to,
     page,
-    pageSize: 30,
+    pageSize: 50,
   });
   const storeIds = Array.from(new Set(result.items.flatMap((item) => item.storeId ? [item.storeId] : [])));
   const stores = storeIds.length
@@ -76,6 +77,8 @@ export default async function OperationAuditsPage({
     : [];
   const storeNames = new Map(stores.map((store) => [store.id, store.name]));
   const totalPages = Math.max(Math.ceil(result.total / result.pageSize), 1);
+  const hasExplicitFilters = [params.dateFrom, params.dateTo, params.actor, params.module, params.q]
+    .some((value) => typeof value === "string");
 
   const pageHref = (nextPage: number) => {
     const query = new URLSearchParams();
@@ -92,35 +95,15 @@ export default async function OperationAuditsPage({
     <PageShell>
       <PageHeader title="操作紀錄" subtitle="查詢本店的資料異動與跨店查看紀錄；紀錄僅供查閱，不能修改或刪除" />
 
-      <form className="grid gap-3 rounded-2xl border border-earth-200 bg-white p-4 md:grid-cols-5" method="get">
-        <label className="text-sm text-earth-600">開始日期
-          <input className="mt-1 w-full rounded-lg border border-earth-200 px-3 py-2 text-earth-900" type="date" name="dateFrom" defaultValue={dateFrom} />
-        </label>
-        <label className="text-sm text-earth-600">結束日期
-          <input className="mt-1 w-full rounded-lg border border-earth-200 px-3 py-2 text-earth-900" type="date" name="dateTo" defaultValue={dateTo} />
-        </label>
-        <label className="text-sm text-earth-600">操作人
-          <select className="mt-1 w-full rounded-lg border border-earth-200 px-3 py-2 text-earth-900" name="actor" defaultValue={params.actor ?? ""}>
-            <option value="">全部操作人</option>
-            {result.actors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}
-          </select>
-        </label>
-        <label className="text-sm text-earth-600">模組
-          <select className="mt-1 w-full rounded-lg border border-earth-200 px-3 py-2 text-earth-900" name="module" defaultValue={moduleFilter ?? ""}>
-            <option value="">全部模組</option>
-            {Object.entries(MODULE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label className="text-sm text-earth-600">關鍵字
-          <div className="mt-1 flex gap-2">
-            <input className="min-w-0 flex-1 rounded-lg border border-earth-200 px-3 py-2 text-earth-900" name="q" defaultValue={params.q ?? ""} placeholder="操作或資料類型" maxLength={80} />
-            <button className="rounded-lg bg-primary-700 px-4 py-2 font-medium text-white" type="submit">查詢</button>
-          </div>
-        </label>
-      </form>
+      <OperationAuditFilters
+        actors={result.actors}
+        cacheKey={`operation-audit-filters:${storeId ?? "all"}`}
+        defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
+        hasExplicitFilters={hasExplicitFilters}
+      />
 
       <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">
-        <div className="flex items-center justify-between border-b border-earth-100 px-4 py-3 text-sm text-earth-600">
+        <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-xs text-earth-600">
           <span>共 {result.total} 筆</span><span>第 {result.page}／{totalPages} 頁</span>
         </div>
         {result.items.length === 0 ? (
@@ -128,20 +111,20 @@ export default async function OperationAuditsPage({
         ) : (
           <div className="divide-y divide-earth-100">
             {result.items.map((item) => (
-              <details key={item.id} className="group px-4 py-4 open:bg-earth-50/60">
-                <summary className="grid cursor-pointer list-none gap-2 md:grid-cols-[170px_120px_100px_1fr_120px] md:items-center">
-                  <time className="text-sm tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
-                  <span className="font-medium text-earth-900">{item.actorNameSnapshot ?? item.actor.name}</span>
-                  <span className="w-fit rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-800">{MODULE_LABELS[item.module as OperationModule] ?? item.module ?? "系統"}</span>
-                  <span className="min-w-0 text-earth-800">{item.summary ?? `${item.targetType} ${ACTION_LABELS[item.action] ?? item.action}`}</span>
-                  <span className="text-sm text-earth-500 md:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
+              <details key={item.id} className="group px-3 py-2 open:bg-earth-50/60">
+                <summary className="grid cursor-pointer list-none gap-1.5 text-sm md:grid-cols-[145px_105px_72px_1fr_105px] md:items-center">
+                  <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
+                  <span className="truncate font-medium text-earth-900">{item.actorNameSnapshot ?? item.actor.name}</span>
+                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-xs text-primary-800">{MODULE_LABELS[item.module as OperationModule] ?? item.module ?? "系統"}</span>
+                  <span className="min-w-0 truncate text-earth-800">{item.summary ?? `${item.targetType} ${ACTION_LABELS[item.action] ?? item.action}`}</span>
+                  <span className="truncate text-xs text-earth-500 md:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>
-                <div className="mt-4 grid gap-3 border-t border-earth-100 pt-4 text-sm md:grid-cols-2">
+                <div className="mt-2 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
                   <div><span className="text-earth-500">動作：</span>{ACTION_LABELS[item.action] ?? item.action}</div>
                   <div><span className="text-earth-500">身分：</span>{ROLE_LABELS[item.actor.role] ?? item.actor.role}</div>
                   <div className="md:col-span-2"><span className="text-earth-500">資料：</span>{item.targetType} · {item.targetId}</div>
-                  <div><p className="mb-1 font-medium text-earth-700">異動前</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-3 text-xs">{jsonText(item.beforeJson)}</pre></div>
-                  <div><p className="mb-1 font-medium text-earth-700">異動後</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-3 text-xs">{jsonText(item.afterJson)}</pre></div>
+                  <div><p className="mb-1 font-medium text-earth-700">異動前</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-2 text-xs">{jsonText(item.beforeJson)}</pre></div>
+                  <div><p className="mb-1 font-medium text-earth-700">異動後</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-2 text-xs">{jsonText(item.afterJson)}</pre></div>
                 </div>
               </details>
             ))}
