@@ -543,23 +543,35 @@ export async function stopFutureCourseLessons(input: unknown) {
       expectedBookingIds: z.array(id).max(1000),
     }).parse(input);
     const { user, storeId } = await courseManager("booking.update");
-    await courseTransaction(storeId, async tx => {
+    const promoted = await courseTransaction(storeId, async tx => {
       const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId);
       if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
           scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
         throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
       if (!scope.sessionIds.length || data.bookingId && !scope.bookingIds.length)
         throw new AppError("VALIDATION", "沒有可停止的後續已排課");
-      for (const bookingId of scope.bookingIds)
-        await settleCourseBooking(tx,
+      const affectedSessionIds = new Set<string>();
+      for (const bookingId of scope.bookingIds) {
+        const settled = await settleCourseBooking(tx,
           { storeId, userId: user.id, name: user.name ?? "店長" },
           bookingId, "CANCELLED");
-      if (!data.bookingId)
+        affectedSessionIds.add(settled.sessionId);
+      }
+      if (!data.bookingId) {
         await tx.courseSession.updateMany({
           where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
           data: { cancelledAt: new Date() },
         });
+        for (const sessionId of scope.sessionIds)
+          await cancelCourseWaitlistForSession(tx, storeId, sessionId);
+        return [];
+      }
+      const results = [];
+      for (const sessionId of affectedSessionIds)
+        results.push(...await promoteCourseWaitlistForSession(tx, storeId, sessionId));
+      return results;
     });
+    if (promoted.length) after(() => notifyCourseWaitlistPromotions(storeId, promoted));
     refresh();
     return { success: true as const };
   } catch (error) {
