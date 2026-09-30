@@ -121,14 +121,14 @@ describe("organization store authorization", () => {
     },
   );
 
-  it("lets an entitled mother OWNER read, switch to, and write TRIAL descendants", async () => {
+  it("lets an entitled mother OWNER read and switch to descendants but blocks writes", async () => {
     const { getAccessibleStoreIds, validateStoreAccess } = await import("@/lib/store");
     const user = { role: "OWNER", storeId: "hq" };
     await expect(getAccessibleStoreIds(user)).resolves.toEqual(["hq", "branch-a", "branch-b"]);
     await expect(validateStoreAccess(user, "branch-b", "read")).resolves.toBe("branch-b");
     await expect(validateStoreAccess(user, "branch-b", "switch")).resolves.toBe("branch-b");
-    await expect(validateStoreAccess(user, "branch-b", "write")).resolves.toBe("branch-b");
-    await expect(validateStoreAccess(user, "branch-a", "write")).resolves.toBe("branch-a");
+    await expect(validateStoreAccess(user, "branch-b", "write")).rejects.toThrow("僅供查閱");
+    await expect(validateStoreAccess(user, "branch-a", "write")).rejects.toThrow("僅供查閱");
     await expect(validateStoreAccess(user, "other", "read")).rejects.toThrow("無權存取");
     await expect(validateStoreAccess(user, "inactive", "read")).rejects.toThrow("無權存取");
     await expect(validateStoreAccess(user, "paused", "read")).rejects.toThrow("無權存取");
@@ -157,19 +157,19 @@ describe("organization store authorization", () => {
       .rejects.toThrow("無權存取");
   });
 
-  it("uses the OWNER viewed cookie for both reads and writes without fallback", async () => {
+  it("uses the OWNER viewed cookie for reads and blocks writes", async () => {
     const { getActiveStoreForRead, resolveWriteStoreId } = await import("@/lib/store");
     mockCookieGet.mockImplementation((name: string) => name === "viewed-store-id" ? { value: "branch-b" } : undefined);
     const user = { role: "OWNER", storeId: "hq" };
     await expect(getActiveStoreForRead(user)).resolves.toBe("branch-b");
-    await expect(resolveWriteStoreId(user)).resolves.toBe("branch-b");
+    await expect(resolveWriteStoreId(user)).rejects.toThrow("僅供查閱");
 
     mockCookieGet.mockImplementation(() => ({ value: "other" }));
     await expect(getActiveStoreForRead(user)).rejects.toThrow("無權存取");
     await expect(resolveWriteStoreId(user)).rejects.toThrow("無權存取");
   });
 
-  it("prefers an authorized route store over mother and forged cookies", async () => {
+  it("prefers an authorized route store for reads but blocks route writes", async () => {
     const { getActiveStoreForRead, resolveWriteStoreId } = await import("@/lib/store");
     mockHeaderGet.mockImplementation((name: string) => {
       if (name === "x-next-pathname") return "/s/branch-b/admin/dashboard/reminders";
@@ -180,7 +180,7 @@ describe("organization store authorization", () => {
     const user = { role: "OWNER", storeId: "hq" };
 
     await expect(getActiveStoreForRead(user)).resolves.toBe("branch-b");
-    await expect(resolveWriteStoreId(user)).resolves.toBe("branch-b");
+    await expect(resolveWriteStoreId(user)).rejects.toThrow("僅供查閱");
   });
 
   it("rejects an unauthorized route even when the cookie is the own store", async () => {
