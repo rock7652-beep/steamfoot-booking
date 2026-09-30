@@ -56,7 +56,11 @@ describe("pricing and growth plan copy", () => {
   it.each(PLAN_PAGES)("keeps the alliance plan focused on multi-store and monthly settlement on %s", (path) => {
     const source = readSource(path);
 
-    expect(source).toContain("分店系統月費另計");
+    expect(source).toContain(path === PUBLIC_PRICING_PAGE ? "分店系統月費另計" : "分店串接費與系統月費另計");
+    if (path === PUBLIC_PRICING_PAGE) {
+      expect(source).toContain("總部管理<br />分店另計");
+      expect(source).not.toContain("總部＋首家");
+    }
     expect(source).toContain("ALLIANCE_BRANCH_PRICING_COPY");
     expect(source).not.toContain("每家 +$1,000");
     expect(source).not.toContain("30 家以上");
