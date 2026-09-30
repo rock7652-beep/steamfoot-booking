@@ -8,6 +8,7 @@ import { getStoreLimitsByStoreId, hasStoreFeature } from "@/lib/feature-gate";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
 import { AppError } from "@/lib/errors";
 import { reserveCourseInTransaction, type CourseActor } from "@/server/services/course-booking";
+import { lockCourseStore } from "@/server/services/course-store-lock";
 import type { Prisma } from "../../../generated/course-client";
 
 export type CourseWaitlistSettings = {
@@ -74,7 +75,7 @@ export async function joinCourseWaitlist(
   if (!settings.featureAvailable || !settings.enabled) fail("本店目前未開放候補");
 
   return coursePrisma.$transaction(async tx => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`course-waitlist:${actor.storeId}`}))`;
+    await lockCourseStore(tx, actor.storeId);
 
     const [session, card, customers, rule] = await Promise.all([
       tx.courseSession.findFirst({
@@ -185,7 +186,7 @@ export async function cancelMemberCourseWaitlist(
 ) {
   if (!actor.customerId) fail("只有會員可以取消自己的候補");
   return coursePrisma.$transaction(async tx => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`course-waitlist:${actor.storeId}`}))`;
+    await lockCourseStore(tx, actor.storeId);
     const own = await tx.courseWaitlistEntry.findFirst({
       where: { storeId: actor.storeId, sessionId: input.sessionId, customerId: actor.customerId, status: "WAITING" },
       select: { groupKey: true },
