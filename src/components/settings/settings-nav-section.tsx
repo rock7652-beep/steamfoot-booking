@@ -29,9 +29,9 @@ export function SettingsNavSection({ title, items }: SettingsNavSectionProps) {
       <ul className="mt-1 space-y-0.5">
         {items.map((item) => (
           <li key={item.href}>
-            {item.onSelect ? <button type="button" onClick={item.onSelect} className="block min-h-9 w-full rounded-md px-2 py-1.5 text-left text-sm font-medium text-earth-700 hover:bg-earth-50">{item.label}</button> : <Link
+            {item.onSelect ? <button type="button" onClick={item.onSelect} className="block min-h-10 w-full rounded-md px-2.5 py-1.5 text-left text-sm font-medium text-earth-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-100">{item.label}</button> : <Link
               href={item.href}
-              className="block min-h-10 rounded-md px-2 py-1.5 text-sm font-medium leading-7 text-earth-700 hover:bg-earth-50 hover:text-earth-900"
+              className="block min-h-10 rounded-md px-2.5 py-1.5 text-sm font-medium leading-7 text-earth-700 hover:bg-earth-50 hover:text-earth-900 focus:outline-none focus:ring-2 focus:ring-primary-100"
             >
               {item.label}
             </Link>}
