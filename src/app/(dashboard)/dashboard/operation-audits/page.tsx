@@ -18,10 +18,10 @@ const MODULE_LABELS: Record<OperationModule, string> = {
   SHARED: "店務",
 };
 
-const STORE_MODULE_SCOPE: Record<string, { modules: OperationModule[]; label: string }> = {
-  steamfoot: { modules: ["STEAM", "SHARED"], label: "本店蒸足＋本店店務" },
-  spa: { modules: ["SPA", "SHARED"], label: "本店 SPA＋本店店務" },
-  course: { modules: ["COURSE", "SHARED"], label: "本店課程＋本店店務" },
+const STORE_MODULE_SCOPE: Record<string, OperationModule[]> = {
+  steamfoot: ["STEAM", "SHARED"],
+  spa: ["SPA", "SHARED"],
+  course: ["COURSE", "SHARED"],
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -70,7 +70,7 @@ export default async function OperationAuditsPage({
   const storeId = storeIdForViewContext(activeStoreId, viewContext);
   const isHeadquarters = user.role === "ADMIN";
   const storeModuleScope = !isHeadquarters && storeId
-    ? STORE_MODULE_SCOPE[await getStoreIndustryModule(storeId)] ?? STORE_MODULE_SCOPE.steamfoot
+    ? { modules: STORE_MODULE_SCOPE[await getStoreIndustryModule(storeId)] ?? STORE_MODULE_SCOPE.steamfoot }
     : null;
   const result = await listOperationAudits({
     storeId,
@@ -112,7 +112,7 @@ export default async function OperationAuditsPage({
         cacheKey={`operation-audit-filters:${storeId ?? "all"}`}
         defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
         hasExplicitFilters={hasExplicitFilters}
-        fixedModuleLabel={storeModuleScope?.label}
+        showModuleFilter={isHeadquarters}
       />
 
       <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">
