@@ -25,6 +25,7 @@ it("shows each group learner's own term, dates and distinct leave/no-show counts
   {id:"c",customerId:"c",customerName:"丙",...base,termIndex:4,termCount:7,termLeaveCount:1,termNoShowCount:1,termLessons:[8,15,22,29].map((day,index)=>({date:date(day),status:["已出席","請假","曠課","待上課"][index]}))},
  ];
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:date(29),pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group-term",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
@@ -44,6 +45,7 @@ it("shows private makeup and renewal without combining leave with paid lessons",
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const roster=[{id:"private",customerId:"student",customerName:"學員",customerPhone:"",sharedCard:false,bookingSource:"店長建立",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"四堂一期",termIndex:4,termCount:4,termLeaveCount:1,termNoShowCount:0,termLessons:["01","15","22","29"].map(day=>({date:`2026-09-${day}T10:00:00.000Z`,status:"已出席"})),termPrivateLeaves:["2026-09-08T10:00:00.000Z"],nextPaidLessons:8,termPayment:{date:"2026-09-01T10:00:00.000Z",amount:3200,method:"CASH"},nextTerm:{payment:{date:"2026-09-29T10:00:00.000Z",amount:6400,method:"BANK_TRANSFER"},lessons:[{date:"2026-10-06T10:00:00.000Z",status:"待上課"}]},absenceCount:1,absenceHistory:[],available:0,unit:"SESSION",notes:"",pointCost:1}];
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-29T10:00:00.000Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"private-term",capacity:1,canCreate:false,canEdit:true,musicLayout:true,classType:"PRIVATE",teacherName:"老師"})));
@@ -63,14 +65,17 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-27T05:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
  m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
  m.batch.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:1,canCreate:false,canEdit:true,musicLayout:true,teacherName:"老師"})));
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="批次點名")!.click());
   expect([...host.querySelectorAll<HTMLOptionElement>('select[aria-label="批次點名狀態"] option')].map(option=>option.value)).toEqual(["ATTENDED","RESERVED","NO_SHOW"]);
   await act(async()=>host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="套用 1 人")!.click());
   expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"}]});
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="曠課扣堂")!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
+  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="曠課・扣堂")!.click());
   expect(m.status).toHaveBeenLastCalledWith({bookingId:"music-booking",status:"NO_SHOW",noShowChoice:"DEDUCTED"});
   expect(host.textContent).not.toContain("發補課券");
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="備註")!.click());
@@ -96,13 +101,16 @@ it("keeps other music learners interactive while one restoration is saving", asy
  const first=new Promise<{success:true}>(resolve=>{finishFirst=resolve;});
  const second=new Promise<{success:true}>(resolve=>{finishSecond=resolve;});
  m.batch.mockReset().mockReturnValueOnce(first).mockReturnValueOnce(second);
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
   const items=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
-  act(()=>{[...items()[0].querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!.click();});
+  await act(async()=>items()[0].querySelector<HTMLButtonElement>('button[aria-label="學員1 更多操作"]')!.click());
+  act(()=>{[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!.click();});
   expect(items()[0].textContent).toContain("儲存中");
-  const secondButton=[...items()[1].querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!;
+  await act(async()=>items()[1].querySelector<HTMLButtonElement>('button[aria-label="學員2 更多操作"]')!.click());
+  const secondButton=[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!;
   expect(secondButton.disabled).toBe(false);
   act(()=>secondButton.click());
   expect(m.batch).toHaveBeenCalledTimes(2);
@@ -115,14 +123,17 @@ it("shows all twenty compact rows and selects them for one batch without cancell
  const roster=Array.from({length:21},(_,i)=>({id:`b${i}`,customerName:`學員${i}`,customerId:`c${i}`,customerPhone:`09000000${String(i).padStart(2,"0")}`,sharedCard:i===0,bookingSource:i===0?"黃教練代約":"本人預約",status:i===20?"CANCELLED":"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"十堂",available:10,expiresAt:"2099-01-01T00:00:00Z",serviceNote:"內部備註",notes:"本次備註",pointCost:1}));
  m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T00:00:00Z",pointCost:1},roster,cards:[],trial:null}});m.batch.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:false,canEdit:true})));
+  expect(host.querySelectorAll('input[aria-label^="選取 "]')).toHaveLength(0);
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="批次點名")!.click());
   expect(host.querySelectorAll('input[aria-label^="選取 "]')).toHaveLength(20);
   expect(host.querySelectorAll('a[href^="tel:"]')).toHaveLength(20);
-  expect(host.textContent).toContain("共卡");
-  expect(host.textContent).toContain("黃教練代約");
-  expect(host.textContent).toContain("本人預約");
+  expect(host.textContent).not.toContain("共卡");
+
+
   expect(host.querySelector('[aria-label="上課統計"]')?.textContent).toContain("已預約 20/20");
   expect(host.textContent).toContain("每 60 秒自動更新");
   expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeTruthy();
@@ -137,11 +148,10 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(1);
   await setSearch("");
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(0);
-  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="簽到")).toHaveLength(20);
-  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="未到")).toHaveLength(20);
-  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="取消")).toHaveLength(20);
-  expect(host.querySelectorAll("details[open]")).toHaveLength(0);
-  const noShow=[...host.querySelectorAll("button")].find(b=>b.textContent==="未到");expect(noShow).toBeTruthy();
+  expect([...host.querySelectorAll("button")].filter(b=>b.getAttribute("title")==="標記出席")).toHaveLength(20);
+  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="未到")).toHaveLength(0);
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label$="更多操作"]')!.click());
+  const noShow=[...document.querySelectorAll("button")].find(b=>b.textContent==="缺席・扣堂");expect(noShow).toBeTruthy();
   await act(async()=>noShow!.click());
   expect(host.textContent).toContain("未到扣堂＋發補課券");
   const grant=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("未到扣堂＋發補課券"));expect(grant).toBeTruthy();
@@ -167,6 +177,7 @@ it("finds a learner by partial phone and submits the selected earliest-expiry pl
   expiresAt:"2026-12-01T00:00:00Z",members:[{id:"customer-1",name:"陳小美",phone:"0912345678"}],entries:[],
  }];
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards,trial:null}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onMemberBookingReadyChange})));
@@ -197,6 +208,7 @@ it("keeps member booking unavailable when the learner has no eligible plan",asyn
   expiresAt:"2026-09-01T00:00:00Z",members:[{id:"customer-2",name:"林小華",phone:"0987654321"}],entries:[],
  }];
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards,trial:null}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onMemberBookingReadyChange})));
@@ -218,6 +230,7 @@ it("offers an in-flow new customer path from member booking",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const onCreateCustomer=vi.fn();
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards:[],trial:null}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onCreateCustomer})));
@@ -239,23 +252,25 @@ it.each([
  const payment={id:"receipt",status:"SUCCESS",amount:300,paymentMethod:"CASH",createdAt:"2026-09-01T00:00:00Z"};
  const booking={id:"trial-booking",customerId:"customer",customerName:"體驗學員",customerPhone:"0900000000",status:"RESERVED",bookingKind:"TRIAL",trialPrice:300,trialPayments:paid?[payment]:[],checkedInAt:null,serviceNote:"",notes:"",pointCost:1};
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T00:00:00Z",pointCost:1},roster:[booking],cards:[],trial:{canCollect,canCorrect:true,customers:[],settings:{trialAllowPriceEdit:true,trialDefaultPrice:300,trialMinPrice:0,trialMaxPrice:1000}}}});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:false,canEdit:true,allowTrialActions:allow})));
   const row=host.querySelector("li")!;
   const buttons=[...row.querySelectorAll("button")];
-  const collect=buttons.find(b=>b.textContent?.trim()==="收款");
-  const correct=buttons.find(b=>b.textContent?.trim()==="更正收款");
-  expect(row.textContent).toContain(paid?"✓ 已收 NT$ 300":"未收款");
+  const collect=buttons.find(b=>b.textContent?.trim()==="待收 $300");
+  const correct=buttons.find(b=>b.getAttribute("aria-label")==="更正 體驗學員 收款");
+  expect(row.textContent).toContain(paid?"已收 $300":"待收 $300");
   if(action==="收款"){
    expect(collect).toBeTruthy();expect(correct).toBeUndefined();
-   expect(collect!.parentElement!.textContent).toContain("NT$ 300");
+   expect(collect!.parentElement!.textContent).toContain("$300");
    await act(async()=>collect!.click());
    expect(m.collectModal).toHaveBeenCalledWith(expect.objectContaining({bookingId:"trial-booking",expectedAmount:300}),undefined);
    expect(m.correctModal).not.toHaveBeenCalled();
   }else if(action==="更正收款"){
    expect(collect).toBeUndefined();expect(correct).toBeTruthy();
    await act(async()=>correct!.click());
+   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="更正收款")!.click());
    expect(m.correctModal).toHaveBeenCalledWith(expect.objectContaining({bookingId:"trial-booking",originalTransactionId:"receipt",originalAmount:300}),undefined);
    expect(m.collectModal).not.toHaveBeenCalled();
   }else{expect(collect).toBeUndefined();expect(correct).toBeUndefined();}
@@ -267,6 +282,7 @@ it("preselects pending makeup on the original card and allows removing the link"
  const card={id:"original",name:"原四堂",unit:"SESSION",available:1,expiresAt:"2099-01-01T00:00:00.000Z",expired:false,closed:false,members:[{id:"learner",name:"補課學員",phone:"0900"}]};
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2090-01-02T10:00:00.000Z",pointCost:1},roster:[],cards:[card,{...card,id:"renewal",name:"下期八堂",available:8,expiresAt:"2098-01-01T00:00:00.000Z"}],trial:null,pendingMakeups:[{id:"leave",customerId:"learner",cardId:"original",date:"2090-01-01T10:00:00.000Z"}]}});
  m.create.mockResolvedValue({success:false,error:"test stopped before write"});
+ vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"new",capacity:1,canCreate:true,canEdit:true,musicLayout:true,classType:"PRIVATE",view:"member-booking"})));
@@ -282,5 +298,28 @@ it("preselects pending makeup on the original card and allows removing the link"
  await act(async()=>{select.value="";select.dispatchEvent(new Event("change",{bubbles:true}));});
  await act(async()=>{submit();});expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({makeupForBookingId:null}));
  confirm.mockRestore();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("keeps shared post-class balance stable during attendance and rolls back a rejected save",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const base={customerPhone:"0912345678",sharedCard:true,cardId:"shared",cardRemaining:5,assignedCoachName:"黃教練",status:"RESERVED",bookingKind:"CARD",trialPayments:[],checkedInAt:null,serviceNote:"肩膀留意",notes:"",pointCost:2,available:0,unit:"POINT",termCount:0};
+ const roster=[{...base,id:"one",customerId:"c1",customerName:"甲"},{...base,id:"two",customerId:"c2",customerName:"乙"}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T10:00:00Z",pointCost:2},roster,cards:[],trial:null}});
+ m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
+ let finish!:(value:{success:false,error:string})=>void;
+ m.status.mockReset().mockReturnValueOnce(new Promise(resolve=>{finish=resolve;}));
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"shared-session",capacity:5,canCreate:false,canEdit:true})));
+  const rows=()=>[...host.querySelectorAll("li")];
+  expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
+  expect(rows()[0].textContent).toContain("黃教練");expect(rows()[0].textContent).toContain("肩膀留意");
+  act(()=>rows()[0].querySelector<HTMLButtonElement>('button[title="標記出席"]')!.click());
+  expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
+  expect(rows()[0].querySelector('[aria-label="甲：已出席"]')).toBeTruthy();
+  await act(async()=>finish({success:false,error:"驗證拒絕"}));
+  expect(rows()[0].querySelector('[aria-label="甲：待點名"]')).toBeTruthy();
+  expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
  }finally{await act(async()=>root.unmount());host.remove();}
 });

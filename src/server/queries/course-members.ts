@@ -96,7 +96,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     : Promise.resolve(0),
     prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
-    select: { id: true, phone: true, serviceNote: true, notes: true },
+    select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { displayName: true, storeId: true } } },
   }),
   coursePrisma.courseBooking.groupBy({
     by: ["customerId"],
@@ -200,6 +200,9 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         : `${b.operatorName ?? "共卡成員"}代約`
       : "店長建立",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
+    cardId: b.cardId,
+    cardRemaining: card?.remaining ?? null,
+    assignedCoachName: (customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.displayName : "") ?? "",
     expiresAt: card?.expiresAt.toISOString() ?? null,
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
