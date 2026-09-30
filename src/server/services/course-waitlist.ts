@@ -9,7 +9,7 @@ import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "
 import { AppError } from "@/lib/errors";
 import { reserveCourseInTransaction, type CourseActor } from "@/server/services/course-booking";
 import { lockCourseStore } from "@/server/services/course-store-lock";
-import type { Prisma } from "../../../generated/course-client";
+import { Prisma } from "../../../generated/course-client";
 import { waitlistGroups, withinAutoPromoteWindow } from "@/lib/course-waitlist";
 
 export type CourseWaitlistSettings = {
@@ -80,24 +80,26 @@ export async function joinCourseWaitlist(
     ]);
     if (!session) fail("找不到本店有效課程");
     if (!card) fail("找不到本店有效方案");
+    const activeSession = session!;
+    const activeCard = card!;
     if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
-    if (!session.template.waitlistEnabled) fail("本課程未開放候補");
-    if (session.releasedAt || !session.template.isActive || session.template.visibility !== "PUBLIC")
+    if (!activeSession.template.waitlistEnabled) fail("本課程未開放候補");
+    if (activeSession.releasedAt || !activeSession.template.isActive || activeSession.template.visibility !== "PUBLIC")
       fail("本課程目前不開放候補");
-    if (session.startsAt <= new Date()) fail("課程已開始，不能加入候補");
-    if (card.closedAt) fail("方案已退款或結清，不能候補");
-    if (card.expiresAt < session.startsAt) fail("方案不涵蓋上課日期，不能候補");
-    if (card.templateIds.length && !card.templateIds.includes(session.templateId))
+    if (activeSession.startsAt <= new Date()) fail("課程已開始，不能加入候補");
+    if (activeCard.closedAt) fail("方案已退款或結清，不能候補");
+    if (activeCard.expiresAt < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
+    if (activeCard.templateIds.length && !activeCard.templateIds.includes(activeSession.templateId))
       fail("此方案不適用本堂課");
-    if (card.termSessionIds.length && !card.termSessionIds.includes(session.id))
+    if (activeCard.termSessionIds.length && !activeCard.termSessionIds.includes(activeSession.id))
       fail("此方案僅能使用指定課次");
-    if (!customerIds.every(customerId => card.members.some(member => member.customerId === customerId)))
+    if (!customerIds.every(customerId => activeCard.members.some(member => member.customerId === customerId)))
       fail("僅能替此共卡的授權成員候補");
-    if (actor.customerId && !card.members.some(member => member.customerId === actor.customerId))
+    if (actor.customerId && !activeCard.members.some(member => member.customerId === actor.customerId))
       fail("無權使用此共卡候補");
 
     const now = new Date();
-    if (session.startsAt.getTime() <= now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60_000)
+    if (activeSession.startsAt.getTime() <= now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60_000)
       fail("已超過候補截止時間");
     if (actor.customerId) {
       const configs = await tx.$queryRaw<CustomerBookingWindowConfig[]>`
@@ -105,34 +107,34 @@ export async function joinCourseWaitlist(
         FROM "ShopConfig" WHERE "storeId"=${actor.storeId}
       `;
       const window = resolveCustomerBookingWindow(configs[0], now);
-      if ((window.opensAt && now < window.opensAt) || session.startsAt > window.closesAt)
+      if ((window.opensAt && now < window.opensAt) || activeSession.startsAt > window.closesAt)
         fail("此課程尚未開放會員候補");
     }
 
-    const bookingCost = card.unit === "SESSION" ? 1 : session.pointCost;
+    const bookingCost = activeCard.unit === "SESSION" ? 1 : activeSession.pointCost;
     const [occupied, waitingCount, existingBookings, existingWaitlist, held] = await Promise.all([
-      tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: session.id, status: { not: "CANCELLED" } } }),
-      tx.courseWaitlistEntry.count({ where: { storeId: actor.storeId, sessionId: session.id, status: "WAITING" } }),
+      tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: activeSession.id, status: { not: "CANCELLED" } } }),
+      tx.courseWaitlistEntry.count({ where: { storeId: actor.storeId, sessionId: activeSession.id, status: "WAITING" } }),
       tx.courseBooking.findMany({
-        where: { storeId: actor.storeId, sessionId: session.id, customerId: { in: customerIds }, status: { not: "CANCELLED" } },
+        where: { storeId: actor.storeId, sessionId: activeSession.id, customerId: { in: customerIds }, status: { not: "CANCELLED" } },
         select: { customerId: true },
       }),
       tx.courseWaitlistEntry.findMany({
-        where: { storeId: actor.storeId, sessionId: session.id, customerId: { in: customerIds }, status: "WAITING" },
+        where: { storeId: actor.storeId, sessionId: activeSession.id, customerId: { in: customerIds }, status: "WAITING" },
         select: { customerId: true },
       }),
       tx.courseBooking.aggregate({
-        where: { storeId: actor.storeId, cardId: card.id, status: "RESERVED" },
+        where: { storeId: actor.storeId, cardId: activeCard.id, status: "RESERVED" },
         _sum: { pointCost: true },
       }),
     ]);
-    if (occupied < session.capacity) fail("本堂課還有名額，請直接預約");
+    if (occupied < activeSession.capacity) fail("本堂課還有名額，請直接預約");
     if (existingBookings.length) fail("選擇的人員中已有本堂正式預約");
     if (existingWaitlist.length) fail("選擇的人員中已有本堂候補");
-    const limit = session.template.waitlistLimit || settings.defaultLimit;
+    const limit = activeSession.template.waitlistLimit || settings.defaultLimit;
     if (waitingCount + customerIds.length > limit) fail("本堂候補名額已滿");
-    if (card.remaining - (held._sum.pointCost ?? 0) < bookingCost * customerIds.length)
-      fail(card.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
+    if (activeCard.remaining - (held._sum.pointCost ?? 0) < bookingCost * customerIds.length)
+      fail(activeCard.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
 
     const groupKey = groupKeyFor(input.requestKey, customerIds);
     const people = new Map(customers.map(person => [person.id, person.name]));
@@ -142,8 +144,8 @@ export async function joinCourseWaitlist(
         data: {
           id: crypto.randomUUID(),
           storeId: actor.storeId,
-          sessionId: session.id,
-          cardId: card.id,
+          sessionId: activeSession.id,
+          cardId: activeCard.id,
           customerId,
           customerName: people.get(customerId) ?? "學員",
           groupKey,
@@ -157,7 +159,7 @@ export async function joinCourseWaitlist(
       rows.push(row);
     }
     const all = await tx.courseWaitlistEntry.findMany({
-      where: { storeId: actor.storeId, sessionId: session.id, status: "WAITING" },
+      where: { storeId: actor.storeId, sessionId: activeSession.id, status: "WAITING" },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       select: { id: true, groupKey: true, createdAt: true },
     });
