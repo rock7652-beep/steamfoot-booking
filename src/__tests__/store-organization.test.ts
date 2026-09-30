@@ -177,7 +177,7 @@ describe("store organization foundation", () => {
     ).rejects.toThrow("店舖組織不可形成循環關係");
   });
 
-  it("allows an authorized mother OWNER to write a descendant", async () => {
+  it("blocks an authorized mother OWNER from writing a descendant", async () => {
     const { requireWritablePermission } = await import("@/lib/permissions");
     mockRequireStaffSession.mockResolvedValue({
       id: "user-a",
@@ -191,10 +191,10 @@ describe("store organization foundation", () => {
 
     await expect(
       requireWritablePermission("customer.create", { viewedStoreId: "store-b" }),
-    ).resolves.toMatchObject({ role: "OWNER", storeId: "store-a" });
+    ).rejects.toThrow("查看模式下不可執行操作");
   });
 
-  it("allows authorized descendant writes from the validated viewed-store cookie", async () => {
+  it("blocks descendant writes from the validated viewed-store cookie", async () => {
     const { requireWritablePermission } = await import("@/lib/permissions");
     mockRequireStaffSession.mockResolvedValue({
       id: "user-a",
@@ -209,10 +209,8 @@ describe("store organization foundation", () => {
       "store-a": ["store-b"],
     });
 
-    await expect(requireWritablePermission("customer.create")).resolves.toMatchObject({
-      role: "OWNER",
-      storeId: "store-a",
-    });
+    await expect(requireWritablePermission("customer.create"))
+      .rejects.toThrow("查看模式下不可執行操作");
   });
 
   it("resolves view context fields for own store and descendant view mode", async () => {
@@ -238,7 +236,7 @@ describe("store organization foundation", () => {
       ownStoreId: "store-a",
       viewedStoreId: "store-b",
       isViewMode: true,
-      canWrite: true,
+      canWrite: false,
     });
   });
 
