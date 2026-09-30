@@ -31,6 +31,8 @@ import {
   type CourseActor,
 } from "@/server/services/course-booking";
 import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
+import { cancelCourseWaitlistForSession, promoteCourseWaitlistForSession } from "@/server/services/course-waitlist";
+import { notifyCourseWaitlistPromotions } from "@/server/services/course-waitlist-notifications";
 
 const id = z.string().min(1).max(100);
 function refresh() {
@@ -395,19 +397,23 @@ export async function updateCourseBookingStatus(input: unknown) {
       const { user, storeId } = await courseManager("booking.update");
       actor = { userId: user.id, storeId, name: user.name ?? "店長" };
     }
-    await courseTransaction(actor.storeId, async (tx) => {
+    const promoted = await courseTransaction(actor.storeId, async (tx) => {
       if (!data.member && (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
       }
-      return settleCourseBooking(
+      const settled = await settleCourseBooking(
         tx,
         actor,
         data.bookingId,
         data.status,
         data.noShowChoice,
       );
+      return data.status === "CANCELLED" || data.status === "STUDENT_LEAVE"
+        ? promoteCourseWaitlistForSession(tx, actor.storeId, settled.sessionId)
+        : [];
     });
+    if (promoted.length) after(() => notifyCourseWaitlistPromotions(actor.storeId, promoted));
     await recordOperationAudit({
       actorUserId: actor.userId,
       storeId: actor.storeId,
@@ -456,6 +462,7 @@ export async function cancelCourseSession(input: unknown) {
         where: { id: session.id },
         data: { cancelledAt: new Date() },
       });
+      await cancelCourseWaitlistForSession(tx, storeId, session.id);
     });
     refresh();
     return { success: true as const };
