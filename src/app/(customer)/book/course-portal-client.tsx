@@ -1366,6 +1366,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {waitlistAlready && (
             <div className="cp-important">
               <p>目前候補第 {session.waitlistPosition} 位。</p>
+              <p>遞補成功後會透過 LINE 通知，不需要一直回來查看。</p>
               <p>取消候補會連同本次同行候補者一起退出。</p>
             </div>
           )}
