@@ -17,6 +17,7 @@ import { TrialSettingsForm } from "../settings/trial/trial-form";
 import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import type { TrialSettings } from "@/lib/shop-config";
 import { CourseWaitlistSettings } from "./course-waitlist-settings";
+import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@/components/settings";
 
 type Props = {
   music?:boolean;
@@ -51,19 +52,19 @@ function Row({
   onEdit?: () => void;
   children?: ReactNode;
 }) {
-  const showChildren = expanded === undefined ? true : expanded;
-  return <section className="min-w-0 border-b border-earth-100 last:border-0">
-    <div className="grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]">
-      <h3 className="truncate text-sm font-semibold text-primary-900">{title}</h3>
-      <p className="min-w-0 truncate text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>
-      <div className="flex w-[200px] items-center justify-end gap-2">
-        {controls}
-        {onEdit && !expanded && <button type="button" onClick={onEdit} className="inline-flex min-h-10 min-w-24 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">修改</button>}
-        {href && <DashboardLink href={courseSettingsPanelHref(href)} scroll={false} prefetch={false} aria-label={`開啟${title}`} className="inline-flex min-h-10 min-w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">{action}</DashboardLink>}
-      </div>
-    </div>
-    {showChildren && children ? <div className="border-t border-earth-100 pb-3 pt-3 md:ml-[216px]">{children}</div> : null}
-  </section>;
+  return (
+    <SettingsListRow
+      title={title}
+      summary={summary}
+      href={href ? courseSettingsPanelHref(href) : undefined}
+      action={action}
+      controls={controls}
+      expanded={expanded}
+      onEdit={onEdit}
+    >
+      {children}
+    </SettingsListRow>
+  );
 }
 function SectionGuard({ section, context, children }: { section: string; context: NonNullable<ContextType<typeof SettingsPanelContext>>; children: ReactNode }) {
   const report = context.report;
@@ -131,13 +132,17 @@ export function CourseSettingsWorkspace(props: Props) {
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
   const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
-  return <SettingsPanelContext.Provider value={context}><div className="grid min-w-0 gap-3 md:grid-cols-[170px_minmax(0,1fr)]">
-    <nav aria-label="設定分類" className="min-w-0">
+  return <SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
+    nav={<>
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
-      <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 md:block">{COURSE_SETTINGS_SECTIONS.map(section => <button type="button" key={section.id} aria-current={active === section.id ? "page" : undefined} onClick={() => select(section.id)} className={"min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm " + (active === section.id ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-earth-50")}>{section.label}{sectionDirty(section.id) && <span className="ml-1 text-xs text-amber-700">未儲存</span>}</button>)}</div>
-    </nav>
-    <div className="min-w-0 rounded-xl border border-earth-200 bg-white px-4 py-1 sm:px-5">
-      <p className="border-b border-earth-100 py-2.5 text-sm text-earth-500">{props.name} · 課程模組{hasDirty ? " · 有未儲存修改" : ""}</p>
+      <SettingsWorkspaceNav
+        items={COURSE_SETTINGS_SECTIONS.map(section => ({ id: section.id, label: section.label, status: sectionDirty(section.id) ? "未儲存" : undefined }))}
+        activeId={active}
+        onSelect={id => select(courseSettingsSection(id))}
+      />
+    </>}
+    header={<>{props.name} · 課程模組{hasDirty ? " · 有未儲存修改" : ""}</>}
+  >
       <section hidden={active !== "store"} aria-label="店家資料">
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定")} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
       </section>
@@ -187,5 +192,5 @@ export function CourseSettingsWorkspace(props: Props) {
     </div>
     {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
     {isCourseSettingsPanel(panel) && <CourseSettingsPanel key={panel} panel={panel}>{props.panelContent}</CourseSettingsPanel>}
-  </div></SettingsPanelContext.Provider>;
+  </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
 }
