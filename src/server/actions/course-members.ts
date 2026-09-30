@@ -31,12 +31,57 @@ import {
   type CourseActor,
 } from "@/server/services/course-booking";
 import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
+import { cancelCourseWaitlistForSession } from "@/server/services/course-waitlist";
 
 const id = z.string().min(1).max(100);
 function refresh() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/courses");
   revalidatePath("/book");
+}
+
+function scheduleCourseWaitlistPromotion(
+  storeId: string,
+  sessionIds: string[],
+  trigger: { actorUserId: string; actorNameSnapshot?: string | null },
+) {
+  const uniqueSessionIds = [...new Set(sessionIds)].filter(Boolean);
+  if (!uniqueSessionIds.length) return;
+  after(async () => {
+    try {
+      const [{ promoteCourseWaitlistForSession }, { notifyCourseWaitlistPromotions }] = await Promise.all([
+        import("@/server/services/course-waitlist"),
+        import("@/server/services/course-waitlist-notifications"),
+      ]);
+      for (const sessionId of uniqueSessionIds) {
+        const promoted = await courseTransaction(storeId, tx =>
+          promoteCourseWaitlistForSession(tx, storeId, sessionId),
+        );
+        if (promoted.length) {
+          await Promise.all([
+            notifyCourseWaitlistPromotions(storeId, promoted),
+            recordOperationAuditBestEffort({
+              actorUserId: trigger.actorUserId,
+              actorNameSnapshot: trigger.actorNameSnapshot,
+              storeId,
+              module: "COURSE",
+              targetType: "CourseWaitlist",
+              targetId: sessionId,
+              action: "AUTO_PROMOTE",
+              summary: `候補自動遞補（${promoted.length} 人）`,
+              after: { bookingIds: promoted.map(item => item.bookingId) },
+            }),
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error("[course-waitlist] post-cancel promotion failed", {
+        storeId,
+        sessionIds: uniqueSessionIds,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 }
 
 // The music roster updates itself optimistically and reconciles through a direct roster read.
@@ -395,19 +440,25 @@ export async function updateCourseBookingStatus(input: unknown) {
       const { user, storeId } = await courseManager("booking.update");
       actor = { userId: user.id, storeId, name: user.name ?? "店長" };
     }
-    await courseTransaction(actor.storeId, async (tx) => {
+    const settledSessionId = await courseTransaction(actor.storeId, async (tx) => {
       if (!data.member && (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
       }
-      return settleCourseBooking(
+      const settled = await settleCourseBooking(
         tx,
         actor,
         data.bookingId,
         data.status,
         data.noShowChoice,
       );
+      return settled.sessionId;
     });
+    if (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")
+      scheduleCourseWaitlistPromotion(actor.storeId, [settledSessionId], {
+        actorUserId: actor.userId,
+        actorNameSnapshot: actor.name,
+      });
     await recordOperationAudit({
       actorUserId: actor.userId,
       storeId: actor.storeId,
@@ -456,6 +507,7 @@ export async function cancelCourseSession(input: unknown) {
         where: { id: session.id },
         data: { cancelledAt: new Date() },
       });
+      await cancelCourseWaitlistForSession(tx, storeId, session.id);
     });
     refresh();
     return { success: true as const };
@@ -536,22 +588,34 @@ export async function stopFutureCourseLessons(input: unknown) {
       expectedBookingIds: z.array(id).max(1000),
     }).parse(input);
     const { user, storeId } = await courseManager("booking.update");
-    await courseTransaction(storeId, async tx => {
+    const releasedSessionIds = await courseTransaction(storeId, async tx => {
       const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId);
       if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
           scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
         throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
       if (!scope.sessionIds.length || data.bookingId && !scope.bookingIds.length)
         throw new AppError("VALIDATION", "沒有可停止的後續已排課");
-      for (const bookingId of scope.bookingIds)
-        await settleCourseBooking(tx,
+      const affectedSessionIds = new Set<string>();
+      for (const bookingId of scope.bookingIds) {
+        const settled = await settleCourseBooking(tx,
           { storeId, userId: user.id, name: user.name ?? "店長" },
           bookingId, "CANCELLED");
-      if (!data.bookingId)
+        affectedSessionIds.add(settled.sessionId);
+      }
+      if (!data.bookingId) {
         await tx.courseSession.updateMany({
           where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
           data: { cancelledAt: new Date() },
         });
+        for (const sessionId of scope.sessionIds)
+          await cancelCourseWaitlistForSession(tx, storeId, sessionId);
+        return [];
+      }
+      return [...affectedSessionIds];
+    });
+    if (data.bookingId) scheduleCourseWaitlistPromotion(storeId, releasedSessionIds, {
+      actorUserId: user.id,
+      actorNameSnapshot: user.name,
     });
     refresh();
     return { success: true as const };
@@ -578,10 +642,11 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       "booking.create",
     );
     const canPurchase = await checkPermission(user.role, user.staffId, "wallet.create") && await checkPermission(user.role, user.staffId, "transaction.create");
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, templateId: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true, template:{select:{waitlistStopMinutes:true}} } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
-    const [roster, cards, pendingMakeups] = await Promise.all([
+    const waitlistSetting = await coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true}});
+    const [roster, cards, pendingMakeups, waitlistRows] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
       canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
@@ -592,6 +657,11 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         const linked = new Set(used.map(item=>item.makeupForBookingId));
         return leaves.filter(leave=>!linked.has(leave.id)).map(leave=>({id:leave.id,customerId:leave.customerId,cardId:leave.cardId!,date:leave.session.startsAt.toISOString()}));
       }) : [],
+      coursePrisma.courseWaitlistEntry.findMany({
+        where: { storeId, sessionId, status: "WAITING" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { id: true, customerId: true, customerName: true, groupKey: true, createdAt: true },
+      }),
     ]);
     return {
       success: true as const,
@@ -599,6 +669,18 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
         roster,
         canPurchase,
         pendingMakeups,
+        waitlist: waitlistRows.map((row, index, all) => {
+          const groups = [...new Map(all.map(item => [item.groupKey, item.createdAt])).entries()]
+            .sort((a, b) => a[1].getTime() - b[1].getTime() || a[0].localeCompare(b[0]));
+          return {
+            id: row.id,
+            customerId: row.customerId,
+            customerName: row.customerName,
+            groupKey: row.groupKey,
+            position: groups.findIndex(([key]) => key === row.groupKey) + 1,
+            createdAt: row.createdAt.toISOString(),
+          };
+        }),
         trial: {
           settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
@@ -606,7 +688,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
           customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistStopMinutes: session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => !musicStore || card.unit === "SESSION").map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
@@ -627,14 +709,24 @@ export async function loadCourseRosterQuick(sessionId: string) {
     const { storeId } = await courseManager("booking.read");
     authMs = Date.now() - startedAt;
     id.parse(sessionId);
-    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true}});
+    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,template:{select:{waitlistStopMinutes:true}}}});
     sessionMs = Date.now() - startedAt - authMs;
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
-    const roster = await getCourseRoster(storeId,sessionId);
+    const [roster, waitlistRows, waitlistSetting] = await Promise.all([
+      getCourseRoster(storeId,sessionId),
+      coursePrisma.courseWaitlistEntry.findMany({
+        where:{storeId,sessionId,status:"WAITING"},
+        orderBy:[{createdAt:"asc"},{id:"asc"}],
+        select:{id:true,customerId:true,customerName:true,groupKey:true,createdAt:true},
+      }),
+      coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true}}),
+    ]);
     rosterMs = Date.now() - startedAt - authMs - sessionMs;
-    console.info("[course-roster-read]", { outcome: "success", count: roster.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
-    return {success:true as const, data:{roster,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
+    const groups=[...new Map(waitlistRows.map(item=>[item.groupKey,item.createdAt])).entries()].sort((a,b)=>a[1].getTime()-b[1].getTime()||a[0].localeCompare(b[0]));
+    const waitlist=waitlistRows.map(row=>({id:row.id,customerId:row.customerId,customerName:row.customerName,groupKey:row.groupKey,position:groups.findIndex(([key])=>key===row.groupKey)+1,createdAt:row.createdAt.toISOString()}));
+    console.info("[course-roster-read]", { outcome: "success", count: roster.length, waitlistCount: waitlist.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
+    return {success:true as const, data:{roster,waitlist,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason,waitlistStopMinutes:session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240}};
   } catch(error) {
     console.info("[course-roster-read]", { outcome: "error", authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);

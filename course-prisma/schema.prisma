@@ -56,6 +56,9 @@ model CourseTemplate {
   musicScheduleMode String?
   musicTrialMode String?
   musicTeacherFeeBase Int?
+  waitlistEnabled Boolean @default(false)
+  waitlistLimit Int @default(5)
+  waitlistStopMinutes Int?
   id              String @id @default(cuid())
   storeId         String
   name            String
@@ -453,4 +456,37 @@ model CourseDisplayOrder {
   ids String[] @default([])
   revision Int @default(0)
   @@id([storeId, kind])
+}
+
+
+model CourseWaitlistSetting {
+  storeId String @id
+  enabled Boolean @default(false)
+  defaultLimit Int @default(5)
+  autoPromoteStopMinutes Int @default(240)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+}
+
+model CourseWaitlistEntry {
+  id String @id
+  storeId String
+  sessionId String
+  cardId String
+  customerId String
+  customerName String
+  groupKey String
+  requestKey String
+  operatorUserId String
+  operatorCustomerId String?
+  operatorName String
+  pointCost Int
+  status String @default("WAITING")
+  promotedBookingId String?
+  failureReason String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([storeId, requestKey])
+  @@index([storeId, sessionId, status, createdAt, id])
+  @@index([storeId, sessionId, groupKey])
 }

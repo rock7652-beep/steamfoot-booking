@@ -25,6 +25,9 @@ export const courseTemplateInput = z.object({
   durationMinutes: z.number().int().min(1).max(480),
   pointCost: z.number().int().min(1).max(10000),
   capacity: z.number().int().min(1).max(500),
+  waitlistEnabled: z.boolean().default(false),
+  waitlistLimit: z.number().int().min(1).max(100).default(5),
+  waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
   templateId: id,

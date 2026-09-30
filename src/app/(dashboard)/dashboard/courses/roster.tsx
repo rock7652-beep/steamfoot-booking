@@ -34,6 +34,7 @@ import {
 import type { CourseCardView } from "./member-workspace";
 import type { getCourseRoster } from "@/server/queries/course-members";
 import { OperationHistoryButton } from "@/components/operation-history-button";
+import { promoteCourseWaitlistManually } from "@/server/actions/course-waitlist";
 
 const button =
   "min-h-10 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-sm disabled:opacity-50";
@@ -124,6 +125,7 @@ export function CourseRoster({
     Awaited<ReturnType<typeof getCourseRoster>>
   >([]);
   const [pendingMakeups, setPendingMakeups] = useState<Array<{id:string;customerId:string;cardId:string;date:string}>>([]);
+  const [waitlist, setWaitlist] = useState<Array<{id:string;customerId:string;customerName:string;groupKey:string;position:number;createdAt:string}>>([]);
   const [makeupForBookingId, setMakeupForBookingId] = useState("");
   const [cards, setCards] = useState<CourseCardView[]>([]);
   const [session, setSession] = useState<{
@@ -133,6 +135,7 @@ export function CourseRoster({
     teacherAttendance:string;
     teacherAttendanceReason:string;
     teacherMakeupForSessionId:string|null;
+    waitlistStopMinutes:number;
   } | null>(null);
   const [trial, setTrial] = useState<
     Extract<
@@ -189,7 +192,8 @@ export function CourseRoster({
 
     if (result.success) {
       setRoster(result.data.roster);
-      setSession(old=>old ? {...old,teacherNote:result.data.teacherNote,teacherAttendance:result.data.teacherAttendance,teacherAttendanceReason:result.data.teacherAttendanceReason}:old);
+      setWaitlist(result.data.waitlist ?? []);
+      setSession(old=>old ? {...old,teacherNote:result.data.teacherNote,teacherAttendance:result.data.teacherAttendance,teacherAttendanceReason:result.data.teacherAttendanceReason,waitlistStopMinutes:result.data.waitlistStopMinutes}:old);
       setLoaded(true);
     } else {
       setMessage(result.error);
@@ -212,6 +216,7 @@ export function CourseRoster({
             setRoster(result.data.roster);
             setCards(result.data.cards);
             setPendingMakeups(result.data.pendingMakeups ?? []);
+            setWaitlist(result.data.waitlist ?? []);
             setCanPurchase(result.data.canPurchase);
             setLoaded(true);
             setRequestKey((current) => current || crypto.randomUUID());
@@ -941,6 +946,49 @@ export function CourseRoster({
         {unpaidTrialCount>0&&<span className="whitespace-nowrap font-medium text-amber-800">未收款 {unpaidTrialCount} 人</span>}</div>}
 
       {teacherAbsent && <p className="rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">老師{session?.teacherAttendance === "LEAVE" ? "請假" : "曠課"}：本堂學員免點名，不新增學員出勤紀錄，也不扣堂。</p>}
+
+      {waitlist.length > 0 && (
+        <details className="rounded-lg border border-amber-200 bg-amber-50/60">
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-amber-900">
+            <span>候補名單 · {waitlist.length} 人</span>
+            <span className="text-xs font-normal">依加入順序</span>
+          </summary>
+          <div className="border-t border-amber-100 px-3 py-2">
+            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-amber-900">
+              <span>目前空位 {Math.max(0, capacity - activeRows.length)}</span>
+              <span>開課前 {Math.round((session?.waitlistStopMinutes ?? 240) / 60)} 小時停止自動遞補</span>
+            </div>
+            <ol className="space-y-1 text-sm text-earth-800">
+              {waitlist.map((entry, index) => (
+                <li key={entry.id} className="flex items-center gap-2 rounded-md bg-white/80 px-2 py-1.5">
+                  <span className="w-10 shrink-0 font-semibold text-amber-900">#{entry.position}</span>
+                  <span className="min-w-0 flex-1 truncate">{entry.customerName}</span>
+                  {waitlist.filter(item => item.groupKey === entry.groupKey).length > 1 && (
+                    <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">同行</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+            {canEdit && (
+              activeRows.length >= capacity ? (
+                <p className="mt-3 rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-amber-900">目前滿班，暫無可遞補名額</p>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 min-h-10 rounded-lg border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 disabled:opacity-50"
+                  disabled={pending}
+                  onClick={() => run(
+                    () => promoteCourseWaitlistManually({ sessionId }),
+                    "已依順位處理候補",
+                  )}
+                >
+                  依順位立即遞補
+                </button>
+              )
+            )}
+          </div>
+        </details>
+      )}
 
       {<div className="flex flex-wrap items-center gap-2">
         <button
