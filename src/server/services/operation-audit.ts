@@ -141,6 +141,11 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
           : input.storeIds
             ? { storeId: { in: input.storeIds } }
             : {}),
+        ...(input.module
+          ? { module: input.module }
+          : input.modules?.length
+            ? { module: { in: input.modules } }
+            : {}),
       },
       distinct: ["actorUserId"],
       orderBy: { createdAt: "desc" },
