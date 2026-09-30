@@ -405,18 +405,18 @@ export function CourseRoster({
   useEffect(() => {
     if (!openActionMenu) return;
     const close = () => setOpenActionMenu(null);
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); close(); } };
     const outside = (event: PointerEvent) => {
       const target = event.target;
       if (target instanceof Element && (target.closest("[data-roster-action-menu]") || target.closest("[data-roster-action-trigger]"))) return;
       close();
     };
-    document.addEventListener("keydown", escape);
+    document.addEventListener("keydown", escape, true);
     document.addEventListener("pointerdown", outside);
     document.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     return () => {
-      document.removeEventListener("keydown", escape);
+      document.removeEventListener("keydown", escape, true);
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
@@ -1036,7 +1036,7 @@ export function CourseRoster({
         </p>
       )}
 
-      {canEdit && !oneToOneMusic && !showCancelled && !teacherAbsent && <button type="button" className={button} onClick={() => { setBatchMode(!batchMode); setSelected([]); }}>{batchMode ? "結束批次" : "批次點名"}</button>}
+      {canEdit && !oneToOneMusic && !showCancelled && !teacherAbsent && <button type="button" className={`${button} self-start`} onClick={() => { setBatchMode(!batchMode); setSelected([]); }}>{batchMode ? "結束批次" : "批次點名"}</button>}
       {canEdit && batchMode && !oneToOneMusic && !showCancelled && !teacherAbsent && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-earth-50/60 px-3 py-2">
           <label className="flex min-h-10 items-center gap-2">
@@ -1158,7 +1158,7 @@ export function CourseRoster({
         <div className="grid min-w-[960px] grid-cols-[minmax(18rem,2.5fr)_6rem_5rem_5rem_9rem_minmax(10rem,1.5fr)_3rem] items-center gap-2 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>學員／電話</span><span>所屬教練</span><span className="text-center">該堂點數</span><span className="text-center">課後剩餘</span><span>收款</span><span>備註</span><span />
         </div>
-        <ul className="max-h-[calc(100dvh-22rem)] min-h-48 min-w-[960px] divide-y overflow-y-auto overscroll-contain">
+        <ul className="max-h-[calc(100dvh-22rem)] min-h-48 min-w-[960px] divide-y divide-earth-100 overflow-y-auto overscroll-contain">
           {searchedRows.map(booking => {
             const paid = booking.trialPayments.find(payment => payment.status === "SUCCESS");
             const leave = ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "");
