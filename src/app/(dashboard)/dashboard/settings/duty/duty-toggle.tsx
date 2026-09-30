@@ -77,12 +77,11 @@ export function DutySchedulingToggle({ enabled, compact = false, course = false 
 
   return <div className="min-w-0 max-w-md space-y-3">
     <div className="flex items-center gap-2">
-      {compact && <span className={`text-[11px] font-medium ${isEnabled ? "text-primary-700" : "text-earth-500"}`}>{isEnabled ? "已啟用" : "停用中"}</span>}
       {switchEl}
     </div>
-    {course && confirming && <div className="rounded-lg border border-earth-200 p-3 text-sm">
+    {course && confirming && <div className="rounded-lg border border-earth-200 p-2.5 text-xs">
       <p>啟用前將檢查教練值班是否涵蓋全部未結束課程。有衝突會列出並阻擋，不取消課程或預約。</p>
-      <div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={isPending} onClick={()=>handleToggle(true)} className="min-h-11 rounded bg-primary-700 px-3 text-white">確認啟用</button><button type="button" onClick={()=>setConfirming(false)} className="min-h-11 rounded border px-3">取消</button></div>
+      <div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={isPending} onClick={()=>handleToggle(true)} className="min-h-9 rounded bg-primary-700 px-3 text-xs text-white">確認啟用</button><button type="button" onClick={()=>setConfirming(false)} className="min-h-9 rounded border px-3 text-xs">取消</button></div>
     </div>}
     {course && error && <p role="alert" className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
   </div>;
