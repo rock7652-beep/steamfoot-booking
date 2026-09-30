@@ -11,6 +11,7 @@ import { requirePermission, type PermissionCode } from "@/lib/permissions";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { getStoreContext } from "@/lib/store-context";
 import { AppError, handleActionError } from "@/lib/errors";
+import { getActiveStoreForRead } from "@/lib/store";
 
 export async function spaResourceStore(permission: PermissionCode) {
   const user = await requirePermission(permission);
@@ -19,6 +20,29 @@ export async function spaResourceStore(permission: PermissionCode) {
   if (user.role !== "ADMIN" && !await prisma.staff.findFirst({where:{userId:user.id,storeId:context.storeId,status:"ACTIVE"},select:{id:true}})) throw new AppError("FORBIDDEN", "無權管理這家店");
   await requireSpaStore(context.storeId);
   return context.storeId;
+}
+
+/** Read SPA resources, including an OWNER's authorized child-store view. */
+export async function spaResourceStoreRead(permission: PermissionCode) {
+  const user = await requirePermission(permission, undefined, {
+    deferSubscriptionGuard: true,
+  });
+  const storeId = await getActiveStoreForRead(user);
+  if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
+  await requireSpaStore(storeId);
+  const isChildStoreView =
+    user.role === "OWNER" && !!user.storeId && storeId !== user.storeId;
+  if (
+    user.role !== "ADMIN" &&
+    !isChildStoreView &&
+    !(await prisma.staff.findFirst({
+      where: { userId: user.id, storeId, status: "ACTIVE" },
+      select: { id: true },
+    }))
+  ) {
+    throw new AppError("FORBIDDEN", "無權查看這家店");
+  }
+  return { storeId, isChildStoreView };
 }
 
 const locationSchema = z.object({id:z.string().optional(),name:z.string().trim().min(1,"請填位置名稱").max(60),isActive:z.boolean(),treatmentIds:z.array(z.string()).max(200)});

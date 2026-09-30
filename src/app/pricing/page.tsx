@@ -70,7 +70,7 @@ function FeatureComparison() {
           const value = PLAN_LIMITS[plan.id][item.field];
           return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-4 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-4 text-left font-normal sm:px-4">多店管理</th><td className="bg-white px-1 py-4 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-4 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-4 text-center leading-6">總部＋首家<br />分店串接</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-4 text-left font-normal sm:px-4">多店管理</th><td className="bg-white px-1 py-4 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-4 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-4 text-center leading-6">總部管理<br />分店另計</td></tr>
       </tbody>
     </table>
   </section>;
@@ -94,7 +94,7 @@ export default function PricingPage() {
             <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
             <p className="mt-1 text-sm leading-6">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
           </div>
-          {plan.id === "ALLIANCE" && <p className="mt-2 text-sm leading-6">含首間分店串接；各分店系統月費另計。</p>}
+          {plan.id === "ALLIANCE" && <p className="mt-2 text-sm leading-6">串接費依實際分店數另計；各分店系統月費另計。</p>}
            <div className="mt-auto pt-3"><TrialLink /></div>
         </article>)}
       </section>
@@ -113,7 +113,7 @@ export default function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li>限時優惠：主方案繳 12 個月，使用 14 個月；優惠結束後依正式原價調整。</li>
-            <li>展店版每月 $4,990，含總部管理及首間分店串接。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,300／月。</li>
+            <li>展店版每月 $4,990，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,800／月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計，贈送期間於開通前確認。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>

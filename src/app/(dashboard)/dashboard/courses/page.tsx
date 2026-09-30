@@ -315,7 +315,7 @@ export default async function CoursesPage({
           }
         />
       )}
-      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"}
+      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}
         selectedDate={selected}

@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { courseManager, courseTransaction } from "@/server/services/course-access";
+import { courseManager, courseManagerRead, courseTransaction } from "@/server/services/course-access";
 import { handleActionError, AppError } from "@/lib/errors";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
@@ -28,14 +28,14 @@ async function courseStartInterval(storeId:string) {
   return music ? 30 : 60;
 }
 export async function getCourseMonthSpecialDays(year:number, month:number) {
-  const {storeId}=await courseManager("business_hours.view");
+  const {storeId}=await courseManagerRead("business_hours.view");
   const {specials}=await rows(storeId);
   const prefix=`${year}-${String(month).padStart(2,"0")}`;
   return specials.filter(s=>s.date.toISOString().startsWith(prefix)).map(s=>({...s,date:s.date.toISOString().slice(0,10)}));
 }
 export async function getCourseMonthScheduleSummary(year:number,month:number) {
   z.number().int().min(2000).max(2100).parse(year); z.number().int().min(1).max(12).parse(month);
-  const {storeId}=await courseManager("business_hours.view");
+  const {storeId}=await courseManagerRead("business_hours.view");
   const {hours,specials}=await rows(storeId);
   const result:Record<string,{status:"open"|"closed"|"training"|"custom";openTime:string|null;closeTime:string|null;slotCount:number;overrideCount:number}>={};
   for(let n=1;n<=new Date(Date.UTC(year,month,0)).getUTCDate();n++) {
@@ -45,7 +45,7 @@ export async function getCourseMonthScheduleSummary(year:number,month:number) {
   return result;
 }
 export async function getCourseDayHours(date:string) {
-  dateSchema.parse(date); const {storeId}=await courseManager("business_hours.view");
+  dateSchema.parse(date); const {storeId}=await courseManagerRead("business_hours.view");
   const {hours,specials}=await rows(storeId); const value=resolvedCourseHours(date,hours,specials);
   return {...value,specialDayId:specials.find(s=>s.date.toISOString().slice(0,10)===date)?.id??null,
     slots:[] as {startTime:string;capacity:number;templateCapacity:number;isEnabled:boolean;inRange:boolean;override:string|null;overrideReason:string|null}[],

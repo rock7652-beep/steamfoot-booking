@@ -4,15 +4,15 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { courseManager } from "@/server/services/course-access";
+import { courseManagerRead } from "@/server/services/course-access";
 import { courseHistoryRange } from "@/lib/course-history-range";
 
 export async function loadCourseCustomerPurchases(input: unknown, offset = 0, range: {from?:string;to?:string} = {}) {
   try {
     const skip = z.number().int().min(0).max(1000000).parse(offset);
     const customerId = z.string().min(1).max(100).parse(input);
-    const { storeId } = await courseManager("customer.read");
-    await courseManager("transaction.read");
+    const { storeId } = await courseManagerRead("customer.read");
+    await courseManagerRead("transaction.read");
     const customer = await prisma.customer.findFirst({
       where: { id: customerId, storeId, mergedIntoCustomerId: null }, select: { id: true },
     });

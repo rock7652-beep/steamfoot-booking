@@ -5,7 +5,7 @@ import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-tea
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { courseManager } from "@/server/services/course-access";
+import { courseManager, courseManagerRead } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { canMusicFinance, requireMusicFinance, isMusicFinanceStore, readMusicFinanceScope } from "@/server/services/music-finance-access";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
@@ -29,7 +29,7 @@ const teachingFee = z.object({
 });
 export async function readCourseStaffTeaching(staffId: string) {
   try {
-    const { user, storeId } = await courseManager("staff.view");
+    const { user, storeId } = await courseManagerRead("staff.view");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
     id.parse(staffId);
     const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);

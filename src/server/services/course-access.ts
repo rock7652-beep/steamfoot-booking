@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { requirePermission, type PermissionCode } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
-import { resolveWriteStoreId } from "@/lib/store";
+import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError } from "@/lib/errors";
 import { resolveMemberRequestStoreId } from "./member-request-store";
@@ -45,6 +45,33 @@ export async function courseManager(permission: PermissionCode) {
     });
   }
   return { user, storeId };
+}
+
+/** Read counterpart that permits an OWNER to inspect a direct child store. */
+export async function courseManagerRead(permission: PermissionCode) {
+  const user = await requirePermission(permission, undefined, {
+    deferSubscriptionGuard: true,
+  });
+  const storeId = await getActiveStoreForRead(user);
+  if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
+  await requireCourseStore(storeId);
+
+  const isChildStoreView =
+    user.role === "OWNER" && !!user.storeId && storeId !== user.storeId;
+  if (user.role !== "ADMIN" && !isChildStoreView) {
+    const staff = await prisma.staff.findFirst({
+      where: {
+        id: user.staffId ?? "",
+        storeId,
+        userId: user.id,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+      },
+      select: { id: true },
+    });
+    if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
+  }
+  return { user, storeId, isChildStoreView };
 }
 
 export async function courseAccount(options: { write?: boolean } = {}) {

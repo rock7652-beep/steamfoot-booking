@@ -137,6 +137,11 @@ export async function validateStoreAccess(
   if (!accessibleIds.includes(requestedStoreId)) {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
   }
+  // Store organization grants descendant visibility, never operating authority.
+  // Check accessibility first so unrelated store ids do not leak information.
+  if (mode === "write" && user.role !== "ADMIN") {
+    throw new AppError("FORBIDDEN", "子店查看模式僅供查閱，不可執行操作");
+  }
   return requestedStoreId;
 }
 

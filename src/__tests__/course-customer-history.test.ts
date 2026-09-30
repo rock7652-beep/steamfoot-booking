@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), orders: vi.fn() }));
-vi.mock("@/server/services/course-access", () => ({ courseManager: mocks.manager }));
+vi.mock("@/server/services/course-access", () => ({ courseManagerRead: mocks.manager }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: mocks.customer } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePurchase: { findMany: mocks.orders } } }));
 import { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";

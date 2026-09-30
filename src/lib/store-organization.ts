@@ -19,7 +19,7 @@ export interface StoreViewContext {
   viewedStoreId: string | null;
   /** True only when a non-ADMIN staff user is reading a descendant store. */
   isViewMode: boolean;
-  /** Mutations are allowed only outside descendant view mode. */
+  /** Descendant stores are always read-only. */
   canWrite: boolean;
 }
 
@@ -146,7 +146,7 @@ export async function resolveStoreViewContext(
     ownStoreId: user.storeId,
     viewedStoreId,
     isViewMode,
-    canWrite: user.role === "OWNER" || !isViewMode,
+    canWrite: !isViewMode,
   };
 }
 
