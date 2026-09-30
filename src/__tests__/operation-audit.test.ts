@@ -68,5 +68,11 @@ describe("shared operation audit", () => {
         module: { in: ["COURSE", "SHARED"] },
       }),
     }));
+    expect(mocks.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      where: expect.objectContaining({
+        storeId: "course-store",
+        module: { in: ["COURSE", "SHARED"] },
+      }),
+    }));
   });
 });
