@@ -898,7 +898,8 @@ export function CourseWorkspace({
               sessions={filteredScheduleSessions.map(session=>({...session,
                 teacherAttendance:pendingTeacherAttendance[session.id]??session.teacherAttendance,
                 previewStudentNames:session.bookings.length?undefined:cancelledBookings.filter(booking=>booking.sessionId===session.id&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")).map(booking=>booking.customerName),
-                bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking)}))}
+                bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking),
+                displayBookings:session.displayBookings?.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking)}))}
               leaveCounts={[...cancelledBookings,...pendingLeaveIds.filter(id=>!cancelledBookings.some(booking=>booking.id===id)).flatMap(id=>{
                 const session=sessions.find(item=>item.bookings.some(booking=>booking.id===id));
                 return session?[{id,sessionId:session.id,absenceKind:"STUDENT_LEAVE"}]:[];

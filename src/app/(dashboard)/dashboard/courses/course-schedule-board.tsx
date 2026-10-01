@@ -159,11 +159,11 @@ function firstCustomer(session: Session) {
 }
 
 function isTrial(session: Session) {
-  return session.bookings.some((booking) => booking.bookingKind === "TRIAL");
+  return (session.displayBookings ?? scheduleRosterBookings(session.bookings)).some((booking) => booking.bookingKind === "TRIAL");
 }
 
 function pendingCheckins(session: Session) {
-  return session.bookings.filter(
+  return (session.displayBookings ?? session.bookings).filter(
     (booking) => !["CHECKED_IN", "ATTENDED", "NO_SHOW", "CANCELLED"].includes(booking.status),
   ).length;
 }
@@ -697,7 +697,7 @@ export function CourseScheduleBoard({
   const nearFull = capacitySessions.filter(isNearFull).length;
   const full = capacitySessions.filter(isFull).length;
   const pendingCount = visibleDaySessions.reduce(
-    (sum, session) => sum + pendingCheckins({ ...session, bookings: session.displayBookings ?? session.bookings }),
+    (sum, session) => sum + pendingCheckins(session),
     0,
   );
 
