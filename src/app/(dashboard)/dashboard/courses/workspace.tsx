@@ -42,7 +42,7 @@ import { courseClassPresentation } from "@/lib/course-class-presentation";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { courseAttendanceState } from "@/lib/course-attendance-visual";
 import { courseSessionStatus } from "@/lib/course-session-status";
-import { scheduleRosterBookings, scheduleOccupiedCount, scheduleAssignedBookings } from "@/lib/course-schedule-counts";
+import { scheduleRosterBookings, scheduleAssignedBookings } from "@/lib/course-schedule-counts";
 import { buildCourseOccurrences } from "@/lib/course-scheduling";
 import { scheduleTotals } from "@/lib/music-schedule-audit";
 
@@ -1275,10 +1275,11 @@ export function CourseWorkspace({
                 const daySessions = byDate.get(selectedDate) ?? [];
                 const dayTotals = scheduleTotals(daySessions);
                 const booked = dayTotals.people;
-                const liveDaySessions = daySessions.filter(item => !item.previewFaded);
-                const fullClasses = liveDaySessions.filter(
-                  (item) => item.previewKind !== "RENTAL" && scheduleOccupiedCount(item.bookings) >= item.capacity,
-                ).length;
+                const pendingCount = daySessions.filter(item => !item.previewFaded && item.previewKind !== "RENTAL").reduce((count, source) => {
+                  const session = withPendingAttendance(source);
+                  const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
+                  return count + (attendance.teacherAbsent ? 0 : attendance.total - attendance.processed);
+                }, 0);
                 return (
                   <>
                     <div className="flex items-center justify-between gap-3 text-xs text-earth-500">
@@ -1303,7 +1304,7 @@ export function CourseWorkspace({
                         立即更新
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 divide-x rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center">
+                    <div className={`grid ${pendingCount > 0 ? "grid-cols-3" : "grid-cols-2"} divide-x rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center`}>
                       <p>
                         <strong className="block text-base text-primary-800">
                           {dayTotals.classes}
@@ -1316,12 +1317,10 @@ export function CourseWorkspace({
                         </strong>
                         <span className="text-xs text-earth-600">{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬人次" : "名單人次"}</span>
                       </p>
-                      <p>
-                        <strong className="block text-base text-primary-800">
-                          {fullClasses}
-                        </strong>
-                        <span className="text-xs text-earth-600">堂已滿</span>
-                      </p>
+                      {pendingCount > 0 && <p>
+                        <strong className="block text-base text-primary-800">{pendingCount}</strong>
+                        <span className="text-xs text-earth-600">待點名</span>
+                      </p>}
                     </div>
                     {(calendarDays[selectedDate]?.status === "closed" ||
                       calendarDays[selectedDate]?.status === "training") && (
@@ -1347,17 +1346,11 @@ export function CourseWorkspace({
                       const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
                       const template = allTemplates.find(item => item.id === session.templateId);
                       const presentation = courseClassPresentation(template?.classType, Boolean(template?.musicTrialMode), rental);
-                      const isFull =
-                        scheduleOccupiedCount(session.bookings) >= session.capacity;
                       const sessionState = courseSessionStatus(session, nowIso);
-                      const openSeats = Math.max(
-                        0,
-                        session.capacity - scheduleOccupiedCount(session.bookings),
-                      );
                       return (
                         <article
                           key={session.id}
-                          className={`rounded-xl border border-l-4 border-earth-200 bg-white px-3 py-2.5 ${sessionState.accentClass}`}
+                          className="rounded-xl border border-earth-200 bg-white px-3 py-2.5"
                         >
                           <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-primary-900">
                             <span className="whitespace-nowrap tabular-nums">
@@ -1374,19 +1367,16 @@ export function CourseWorkspace({
                             {" · "}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
-                            {" · "}{sessionState.label}
-                            {!rental && <span className="ml-2 text-xs text-earth-500">{isFull ? "滿班" : `餘 ${openSeats} 位`}</span>}
+                            {["upcoming", "ongoing", "ended"].includes(sessionState.kind) && <span>{" · "}{sessionState.label}</span>}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
                               className={`${button} border-primary-300 bg-primary-50 text-primary-800`}
-                              onClick={() =>
-                                setCourseDialog({
+                              onClick={() => { setPanel(null); setCourseDialog({
                                   sessionId: session.id,
                                   kind: "roster",
-                                })
-                              }
+                                }); }}
                             >
                               {rental ? "租借資訊" : session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `上課名單 ${scheduleRosterBookings(session.bookings).length}`}
                             </button>
@@ -1395,24 +1385,20 @@ export function CourseWorkspace({
                                 <button
                                   type="button"
                                   className={button}
-                                  onClick={() =>
-                                    setCourseDialog({
+                                  onClick={() => { setPanel(null); setCourseDialog({
                                       sessionId: session.id,
                                       kind: "member-booking",
-                                    })
-                                  }
+                                    }); }}
                                 >
                                   ＋ 學員預約
                                 </button>
                                 <button
                                   type="button"
                                   className={button}
-                                  onClick={() =>
-                                    setCourseDialog({
+                                  onClick={() => { setPanel(null); setCourseDialog({
                                       sessionId: session.id,
                                       kind: "trial-booking",
-                                    })
-                                  }
+                                    }); }}
                                 >
                                   ＋ 體驗客
                                 </button>
