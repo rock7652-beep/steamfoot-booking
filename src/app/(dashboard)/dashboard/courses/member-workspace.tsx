@@ -243,7 +243,7 @@ export function CourseMemberWorkspace({
       )}
       </div>}
       <div className="flex flex-wrap items-center gap-2">
-        {view === "customers" && <h1 className="mr-auto text-lg font-semibold text-primary-900">顧客管理</h1>}
+        {view === "customers" && <h1 className="mr-auto text-base font-semibold leading-6 text-primary-900">顧客管理</h1>}
 
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
