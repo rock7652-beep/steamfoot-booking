@@ -41,3 +41,20 @@ it("fitness group/private cards have different fills and readable text",async()=
   expect(group.querySelector("div")?.className).toContain("text-sm");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+it("day statistics use visible ownership matches but capacity and hidden slot conflicts use the whole class",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const book=(customerId:string)=>({customerId,customerName:customerId,status:"RESERVED",bookingKind:"TRIAL"});
+ const whole=[book("mine"),book("other")];
+ const filtered={...session,capacity:2,bookings:whole,displayBookings:[whole[0]]};
+ try {
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,mode:"day",assignedFiltered:true,sessions:[filtered],occupiedSessions:[filtered],onOpenEmpty:vi.fn()})));
+  expect(host.textContent).toContain("所屬 1 人次");
+  expect(host.textContent).toContain("滿班1");
+  expect(host.textContent).toContain("體驗1");
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,mode:"day",assignedFiltered:true,sessions:[],occupiedSessions:[filtered],onOpenEmpty:vi.fn()})));
+  expect(host.textContent).toContain("所屬 0 人次");
+  expect(host.textContent).toContain("今日課程0");
+  expect(host.querySelector<HTMLButtonElement>('button[aria-label="10:00 已有課"]')?.disabled).toBe(true);
+ } finally {await act(async()=>root.unmount());host.remove();}
+});

@@ -54,7 +54,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
     {canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}
     <details className="text-xs text-earth-500"><summary className="cursor-pointer">額度與最近上課說明</summary><p>最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p></details>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable assignedStaffLabel="所屬教練" hideAssignedStaff={music} stickyActions rows={pageRows}
+    <CustomersTable assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
@@ -73,7 +73,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</button>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</button>
     </nav>}
-    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar staffLabel="所屬教練" inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
+    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar staffLabel="所屬店長" inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
       onCancel={() => setSelected(new Set())}
       onSubmit={async assignedStaffId => {
         const response = await bulkAssignCourseCustomers({ customerIds: [...selectedIds], assignedStaffId });

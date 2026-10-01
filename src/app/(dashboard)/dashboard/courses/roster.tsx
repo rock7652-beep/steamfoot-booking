@@ -186,6 +186,7 @@ export function CourseRoster({
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [kindFilter, setKindFilter] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [assignedFilter, setAssignedFilter] = useState(initialAssignedCoach);
   const [retainedRows, setRetainedRows] = useState<string[]>([]);
   function resetFilterSelection() { setSelected([]); setRetainedRows([]); }
@@ -504,7 +505,7 @@ export function CourseRoster({
   const rosterFiltered = !!normalizedRosterQuery || statusFilter !== "all" || paymentFilter !== "all" || kindFilter !== "all" || !musicLayout && assignedFilter !== "all";
   const clearRosterFilters = () => {setMemberQuery("");setStatusFilter("all");setPaymentFilter("all");setKindFilter("all");setAssignedFilter("all");resetFilterSelection();};
   const rosterFilterClass = (value: string) => `${button} mt-1 block min-h-11 bg-white ${value !== "all" ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : ""}`;
-  const activeFilterLabels = [normalizedRosterQuery && `搜尋：${memberQuery.trim()}`, statusFilter !== "all" && `點名：${({pending:"待點名",attended:"已出席",deducted:"缺席・扣堂",leave:"缺席・不扣堂"} as Record<string,string>)[statusFilter]}`, paymentFilter !== "all" && `收款：${paymentFilter === "unpaid" ? "體驗未收款" : "體驗已收款"}`, kindFilter !== "all" && `類型：${({CARD:"一般",TRIAL:"體驗",TEACHER_MAKEUP:"免費券"} as Record<string,string>)[kindFilter]}`, !musicLayout && assignedFilter !== "all" && `所屬：${assignedFilter === "none" ? "未指定" : coachOptions.find(([id]) => id === assignedFilter)?.[1] ?? "所選教練"}`].filter((label): label is string => Boolean(label));
+  const activeFilterLabels = [normalizedRosterQuery && `搜尋：${memberQuery.trim()}`, statusFilter !== "all" && `點名：${({pending:"待點名",attended:"已出席",deducted:"缺席・扣堂",leave:"缺席・不扣堂"} as Record<string,string>)[statusFilter]}`, paymentFilter !== "all" && `收款：${paymentFilter === "unpaid" ? "體驗未收款" : "體驗已收款"}`, kindFilter !== "all" && `類型：${({CARD:"一般",TRIAL:"體驗",TEACHER_MAKEUP:"免費券"} as Record<string,string>)[kindFilter]}`, !musicLayout && assignedFilter !== "all" && `所屬店長：${assignedFilter === "none" ? "未指定" : coachOptions.find(([id]) => id === assignedFilter)?.[1] ?? "所選店長"}`].filter((label): label is string => Boolean(label));
   const trialBadge = (booking: typeof roster[number]) => {
     if (booking.bookingKind !== "TRIAL") return null;
     const paid = booking.trialPayments.find(payment => payment.status === "SUCCESS");
@@ -960,7 +961,7 @@ export function CourseRoster({
   return (
 
     <section className={`flex min-h-0 w-full flex-col gap-2 ${oneToOneMusic ? "" : "flex-1 overflow-hidden"}`}>
-      <aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
+      <aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? "老師" : "授課教練"}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
         {canEdit ? <button className="min-h-11 max-w-64 truncate text-xs text-earth-600" title={session?.teacherNote || "教師備註"} onClick={() => {setEditingNote({name:teacherName,value:session?.teacherNote??""});setNoteDraft(session?.teacherNote??"");}}>{session?.teacherNote || "備註 ✎"}</button> : session?.teacherNote && <span className="max-w-64 truncate text-xs">{session.teacherNote}</span>}
@@ -978,7 +979,7 @@ export function CourseRoster({
           </summary>
           <div className="border-t border-amber-100 px-3 py-2">
             <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-amber-900">
-              <span>目前空位 {Math.max(0, capacity - activeRows.length)}</span>
+              <span>目前空位 {Math.max(0, capacity - activeRows.filter(row => row.status !== "CANCELLED").length)}</span>
               <span>開課前 {Math.round((session?.waitlistStopMinutes ?? 240) / 60)} 小時停止自動遞補</span>
             </div>
             <ol className="space-y-1 text-sm text-earth-800">
@@ -993,7 +994,7 @@ export function CourseRoster({
               ))}
             </ol>
             {canEdit && (
-              activeRows.length >= capacity ? (
+              activeRows.filter(row => row.status !== "CANCELLED").length >= capacity ? (
                 <p className="mt-3 rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-amber-900">目前滿班，暫無可遞補名額</p>
               ) : (
                 <button
@@ -1030,16 +1031,16 @@ export function CourseRoster({
         >
           已取消（{cancelledRows.length}）
         </button>}
-        <div className="basis-full" />
         {<input
-          className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-xs"
+          className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]"
           value={memberQuery}
           onChange={(event) => { setMemberQuery(event.target.value); resetFilterSelection(); }}
           placeholder="搜尋姓名或手機"
           aria-label="搜尋上課學員"
         />}
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-primary-200 bg-primary-50/50 px-2 py-1.5" aria-label="名單篩選條件">
-          {!musicLayout && <label className="text-xs font-medium text-earth-700">學員所屬教練<select aria-label="所屬教練篩選" className={rosterFilterClass(assignedFilter)} value={assignedFilter} onChange={event => {setAssignedFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option>{coachOptions.map(([id,name]) => <option key={id} value={id}>{name}（{activeRows.filter(row => row.assignedCoachId === id).length}）</option>)}<option value="none">未指定（{activeRows.filter(row => !row.assignedCoachId).length}）</option></select></label>}
+        <button type="button" className={`${button} ${rosterFiltered ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} aria-expanded={filtersOpen} aria-controls="roster-filters" onClick={() => setFiltersOpen(value => !value)}>篩選{activeFilterLabels.length > 0 ? ` ${activeFilterLabels.length}` : ""}</button>
+        <div id="roster-filters" hidden={!filtersOpen} className={`${filtersOpen ? "flex" : "hidden"} order-last w-full flex-wrap items-end gap-2 rounded-lg border border-primary-200 bg-primary-50/50 px-2 py-1.5`} aria-label="名單篩選條件">
+          {!musicLayout && <label className="text-xs font-medium text-earth-700">學員所屬店長<select aria-label="所屬店長篩選" className={rosterFilterClass(assignedFilter)} value={assignedFilter} onChange={event => {setAssignedFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option>{coachOptions.map(([id,name]) => <option key={id} value={id}>{name}（{activeRows.filter(row => row.assignedCoachId === id).length}）</option>)}<option value="none">未指定（{activeRows.filter(row => !row.assignedCoachId).length}）</option></select></label>}
           <label className="text-xs font-medium text-earth-700">點名狀態<select aria-label="點名狀態篩選" className={rosterFilterClass(statusFilter)} value={statusFilter} onChange={event => {setStatusFilter(event.target.value);resetFilterSelection();}}>{[["all","全部"],["pending","待點名"],["attended","已出席"],["deducted","缺席・扣堂"],["leave","缺席・不扣堂"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label className="text-xs font-medium text-earth-700">收款狀態<select aria-label="收款狀態篩選" className={rosterFilterClass(paymentFilter)} value={paymentFilter} onChange={event => {setPaymentFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option><option value="unpaid">體驗未收款</option><option value="paid">體驗已收款</option></select></label>
           <label className="text-xs font-medium text-earth-700">預約類型<select aria-label="預約類型篩選" className={rosterFilterClass(kindFilter)} value={kindFilter} onChange={event => {setKindFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option><option value="CARD">一般</option><option value="TRIAL">體驗</option><option value="TEACHER_MAKEUP">免費券</option></select></label>
@@ -1048,7 +1049,7 @@ export function CourseRoster({
         {canEdit && <button type="button" aria-label="課程更多操作" className={`${button} min-w-11`} aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget)}>⋯</button>}
       </div>}
 
-      {rosterFiltered && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-700" role="status"><strong>符合 {scopedRows.filter(row => matchesStatus(row,statusFilter)).length}／全班 {activeRows.length} 位</strong>{activeFilterLabels.map(label => <span key={label} className="rounded border border-primary-300 bg-primary-50 px-2 py-1 text-primary-800">{label}</span>)}<button type="button" className="min-h-11 rounded px-2 font-medium text-primary-800 underline" onClick={clearRosterFilters}>清除篩選</button>{searchedRows.some(row => !matchesStatus(row,statusFilter)) && <span>已操作學員暫留，方便更正</span>}</div>}
+      {rosterFiltered && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-700" role="status"><strong>符合 {scopedRows.filter(row => matchesStatus(row,statusFilter)).length}／全班 {activeRows.length} 位</strong>{activeFilterLabels.map(label => <button type="button" key={label} aria-label={`移除${label}`} className="min-h-11 rounded px-2 text-primary-800" onClick={() => {if(label.startsWith("搜尋：")) setMemberQuery(""); else if(label.startsWith("點名：")) setStatusFilter("all"); else if(label.startsWith("收款：")) setPaymentFilter("all"); else if(label.startsWith("類型：")) setKindFilter("all"); else setAssignedFilter("all"); resetFilterSelection();}}>{label} ×</button>)}<button type="button" className="min-h-11 rounded px-2 font-medium text-primary-800 underline" onClick={clearRosterFilters}>清除篩選</button>{searchedRows.some(row => !matchesStatus(row,statusFilter)) && <span>已操作學員暫留，方便更正</span>}</div>}
 
       {message && (
         <p
@@ -1178,7 +1179,7 @@ export function CourseRoster({
         </div>
       ) : <div className="min-h-0 flex-1 overflow-auto overscroll-contain rounded-xl border border-earth-200 [overflow-anchor:none]" aria-label="學員名單捲動區" tabIndex={0}>
         <div className="grid min-w-[960px] grid-cols-[minmax(20rem,2fr)_6rem_5rem_5rem_minmax(16rem,2fr)_3rem] items-center gap-2 sticky top-0 z-10 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
-          <span>學員／電話</span><span>所屬教練</span><span className="text-center">本堂點數</span><span className="text-center">課後剩餘</span><span>標籤／備註</span><span />
+          <span>學員／電話</span><span>所屬店長</span><span className="text-center">本堂點數</span><span className="text-center">課後剩餘</span><span>標籤／備註</span><span />
         </div>
         <ul className="min-w-[960px] divide-y divide-earth-100">
           {searchedRows.map(booking => {

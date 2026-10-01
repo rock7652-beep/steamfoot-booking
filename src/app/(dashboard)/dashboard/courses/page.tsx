@@ -179,6 +179,7 @@ export default async function CoursesPage({
               customerId: true,
               customerName: true,
               status: true,
+              absenceKind: true,
               checkedInAt: true,
               bookingKind: true,
             },

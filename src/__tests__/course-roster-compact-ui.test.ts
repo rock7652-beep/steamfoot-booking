@@ -368,7 +368,7 @@ it("music uses shared teacher controls and hides the ownership filter", async()=
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:10,canCreate:false,canEdit:true,musicLayout:true,teacherName:"林老師"})));
   expect(host.querySelector('select[aria-label="教師出勤狀態"]')).toBeTruthy();
-  expect(host.querySelector('select[aria-label="所屬教練篩選"]')).toBeNull();
+  expect(host.querySelector('select[aria-label="所屬店長篩選"]')).toBeNull();
   expect(host.textContent).toContain("本堂免點名");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
@@ -383,7 +383,10 @@ it("combines pending attendance with unpaid trials and keeps whole-class counter
  const click=async(text:string)=>act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent===text)!.click());
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"filter-combined",capacity:10,canCreate:false,canEdit:true})));
-  expect(host.querySelector('[aria-label="名單篩選條件"] details')).toBeNull();
+  const filters=host.querySelector<HTMLElement>('[aria-label="名單篩選條件"]')!;
+  expect(filters.hidden).toBe(true);
+  await click("篩選");expect(filters.hidden).toBe(false);
+  await click("篩選");expect(filters.hidden).toBe(true);
   await click("待點名 2");await click("未收款 2");
   expect(host.querySelectorAll("li")).toHaveLength(1);
   expect(host.querySelector("li")?.textContent).toContain("待點名未收款");
@@ -396,6 +399,9 @@ it("combines pending attendance with unpaid trials and keeps whole-class counter
   const selectAll=host.querySelector<HTMLInputElement>('input[aria-label="全選搜尋結果中可操作的學員"]')!;
   await act(async()=>selectAll.click());
   expect(host.textContent).toContain("點名這 1 人");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="移除點名：待點名"]')!.click());
+  expect(host.querySelectorAll("li")).toHaveLength(2);
+  expect(filters.hidden).toBe(true);
   await click("清除篩選");expect(host.querySelectorAll("li")).toHaveLength(3);
   expect(host.textContent).toContain("已選 0 人");
  } finally {await act(async()=>root.unmount());host.remove();}

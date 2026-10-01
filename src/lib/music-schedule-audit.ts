@@ -1,3 +1,4 @@
+import { scheduleRosterBookings } from "@/lib/course-schedule-counts";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 type ScheduleSession = {
@@ -9,7 +10,8 @@ type ScheduleSession = {
   isFixed?: boolean;
   previewFaded?: string;
   previewKind?: string;
-  bookings: { status: string; customerId: string }[];
+  bookings: { status: string; customerId: string; absenceKind?: string | null }[];
+  displayBookings?: { status: string; customerId: string; absenceKind?: string | null }[];
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;
@@ -22,12 +24,12 @@ export function scheduleTotals(sessions: ScheduleSession[]) {
   const classes = live.filter((session) => session.previewKind !== "RENTAL");
   return {
     classes: classes.length,
-    people: classes.reduce((sum, session) => sum + session.bookings.filter((booking) => booking.status !== "CANCELLED").length, 0),
+    people: classes.reduce((sum, session) => sum + (session.displayBookings ?? scheduleRosterBookings(session.bookings)).length, 0),
     rentals: rentals.length,
   };
 }
 
-export function scheduleOnDate(sessions: ScheduleSession[], date: string) {
+export function scheduleOnDate<T extends ScheduleSession>(sessions: T[], date: string) {
   return sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === date);
 }
 
