@@ -54,7 +54,7 @@ it("day statistics use visible ownership matches but capacity and hidden slot co
   expect(host.textContent).toContain("體驗客1");
   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,mode:"day",assignedFiltered:true,sessions:[],occupiedSessions:[filtered],onOpenEmpty:vi.fn()})));
   expect(host.textContent).toContain("所屬 0 人次");
-  expect(host.textContent).toContain("今日課程0");
+  expect(host.textContent).toContain("今日安排0");
   expect(host.querySelector<HTMLButtonElement>('button[aria-label="10:00 已有課"]')?.disabled).toBe(true);
  } finally {await act(async()=>root.unmount());host.remove();}
 });

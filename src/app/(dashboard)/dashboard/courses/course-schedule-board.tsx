@@ -693,11 +693,11 @@ export function CourseScheduleBoard({
   );
 
   const filters: Array<{ id: QuickFilter; label: string; value: number }> = [
-    { id: "all", label: "今日課程", value: visibleDaySessions.length },
+    { id: "all", label: "今日安排", value: visibleDaySessions.length },
     { id: "trial", label: "體驗客", value: trials },
     { id: "near-full", label: "快滿", value: nearFull },
     { id: "full", label: "滿班", value: full },
-    { id: "pending", label: "待報到", value: pendingCount },
+    { id: "pending", label: businessProfile === "MUSIC" ? "待報到" : "待點名", value: pendingCount },
   ];
 
   return (
