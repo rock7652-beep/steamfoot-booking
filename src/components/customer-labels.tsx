@@ -8,37 +8,96 @@ import { toast } from "sonner";
 import { courseSettingsPanelHref } from "@/lib/course-settings-panels";
 import { LabelManager } from "@/app/(dashboard)/dashboard/settings/customer-labels/label-manager";
 import { DashboardLink } from "@/components/dashboard-link";
-type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
+type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; seed:(snapshot:LabelSnapshot)=>void; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
 const Context = createContext<ContextValue|null>(null);
+const LABEL_CACHE_MS = 60_000;
 export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children:ReactNode;initial?:LabelSnapshot}) {
   const [snapshot,setSnapshot]=useState(initial);
   const [pendingIds,setPendingIds]=useState(new Set<string>());
   const pendingRef=useRef(new Set<string>());
   const ids=useRef(new Map<string,number>());
+  const loaded=useRef(new Map(Object.keys(initial.assignments).map(id=>[id,Date.now()])));
+  const revisions=useRef(new Map<string,number>());
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const generation=useRef(0);
-  const refresh=useCallback(async()=>{
-    if(pendingRef.current.size)return;
-    const version=++generation.current;
-    try {
-      const allIds=[...ids.current.keys()];
-      const batches=await Promise.all(Array.from({length:Math.max(1,Math.ceil(allIds.length/500))},(_,i)=>loadCustomerLabels(allIds.slice(i*500,(i+1)*500))));
-      const result={...batches[0],assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
-      if(version===generation.current)setSnapshot(result);
-    } catch {if(version===generation.current)toast.error("標籤讀取失敗，請重新整理");}
+  const inFlight=useRef<Promise<void>|null>(null);
+  const queued=useRef(false);
+  const mounted=useRef(true);
+  const fetchLabels=useCallback((force=false):Promise<void>=>{
+    if(force){loaded.current.clear();queued.current=true;}
+    if(pendingRef.current.size)return Promise.resolve();
+    if(inFlight.current){queued.current=true;return inFlight.current;}
+    const requested=[...ids.current.keys()].filter(id=>Date.now()-(loaded.current.get(id)??0)>=LABEL_CACHE_MS);
+    if(!requested.length&&!force)return Promise.resolve();
+    const versions=new Map(requested.map(id=>[id,revisions.current.get(id)??0]));
+    queued.current=false;
+    const run=(async()=>{
+      try {
+        const batches=await Promise.all(Array.from({length:Math.max(1,Math.ceil(requested.length/500))},(_,i)=>loadCustomerLabels(requested.slice(i*500,(i+1)*500))));
+        if(!mounted.current)return;
+        const result={...batches[0],assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
+        setSnapshot(old=>{
+          if(!result.enabled)return {...result,assignments:{}};
+          const assignments={...old.assignments};
+          for(const id of requested){
+            if(pendingRef.current.has(id)||(revisions.current.get(id)??0)!==versions.get(id))continue;
+            loaded.current.set(id,Date.now());
+            delete assignments[id];
+            if(id in result.assignments)assignments[id]=result.assignments[id];
+          }
+          return {...result,assignments};
+        });
+      } catch {if(mounted.current)toast.error("標籤讀取失敗，請重新整理");}
+      finally {
+        inFlight.current=null;
+        if(queued.current&&mounted.current){queued.current=false;timer.current=setTimeout(()=>void fetchLabels(),0);}
+      }
+    })();
+    inFlight.current=run;
+    return run;
   },[]);
-  useEffect(()=>{const changed=()=>void refresh();window.addEventListener("customer-labels:refresh",changed);return()=>window.removeEventListener("customer-labels:refresh",changed);},[refresh]);
+  const refresh=useCallback(()=>fetchLabels(true),[fetchLabels]);
+  useEffect(()=>{
+    setSnapshot(old=>({...initial,assignments:initial.enabled?{...old.assignments,...initial.assignments}:{}}));
+    if(!initial.enabled)loaded.current.clear();
+  },[initial]);
+  const seed=useCallback((data:LabelSnapshot)=>{
+    const accepted=Object.fromEntries(Object.entries(data.assignments).filter(([id])=>!pendingRef.current.has(id)));
+    for(const id of Object.keys(accepted)){loaded.current.set(id,Date.now());revisions.current.set(id,(revisions.current.get(id)??0)+1);}
+    setSnapshot(old=>({...data,assignments:data.enabled?{...old.assignments,...accepted}:{}}));
+  },[]);
+  useEffect(()=>{
+    const changed=()=>void refresh();
+    const focus=()=>void fetchLabels();
+    window.addEventListener("customer-labels:refresh",changed);window.addEventListener("focus",focus);
+    return()=>{window.removeEventListener("customer-labels:refresh",changed);window.removeEventListener("focus",focus);};
+  },[refresh,fetchLabels]);
   const register=useCallback((id:string)=>{
     ids.current.set(id,(ids.current.get(id)??0)+1);
-    if(timer.current)clearTimeout(timer.current);
-    timer.current=setTimeout(()=>void refresh(),30);
+    if(Date.now()-(loaded.current.get(id)??0)>=LABEL_CACHE_MS){
+      if(timer.current)clearTimeout(timer.current);
+      timer.current=setTimeout(()=>void fetchLabels(),30);
+    }
     return ()=>{const count=(ids.current.get(id)??1)-1;if(count)ids.current.set(id,count);else ids.current.delete(id);};
-  },[refresh]);
-  useEffect(()=>()=>{generation.current++;if(timer.current)clearTimeout(timer.current);},[]);
-  const update=useCallback((id:string,labels:string[])=>{generation.current++;setSnapshot(old=>({...old,assignments:{...old.assignments,[id]:labels}}));},[]);
+  },[fetchLabels]);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;if(timer.current)clearTimeout(timer.current);};},[]);
+  const update=useCallback((id:string,labels:string[])=>{
+    revisions.current.set(id,(revisions.current.get(id)??0)+1);loaded.current.set(id,Date.now());
+    setSnapshot(old=>({...old,assignments:{...old.assignments,[id]:labels}}));
+  },[]);
   const lock=useCallback((id:string)=>{if(pendingRef.current.has(id))return false;pendingRef.current.add(id);setPendingIds(new Set(pendingRef.current));return true;},[]);
-  const unlock=useCallback((id:string)=>{pendingRef.current.delete(id);setPendingIds(new Set(pendingRef.current));if(!pendingRef.current.size)void refresh();},[refresh]);
-  return <Context.Provider value={{snapshot,register,refresh,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
+  const unlock=useCallback((id:string)=>{pendingRef.current.delete(id);setPendingIds(new Set(pendingRef.current));if(!pendingRef.current.size)void fetchLabels();},[fetchLabels]);
+  return <Context.Provider value={{snapshot,register,refresh,seed,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
+}
+/** Supply row labels with the server-rendered list, then retain them across shared views. */
+export function CustomerLabelsSeed({initial,children}:{initial:LabelSnapshot;children:ReactNode}) {
+  const ctx=useContext(Context);
+  const seed=ctx?.seed;
+  const [seeded,setSeeded]=useState(false);
+  // Hydrate server row assignments into the shared layout once; keep the first SSR render complete.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(()=>{seed?.(initial);setSeeded(true);},[seed,initial]);
+  if(!ctx)return <CustomerLabelsProvider initial={initial}>{children}</CustomerLabelsProvider>;
+  return <Context.Provider value={{...ctx,snapshot:seeded?ctx.snapshot:{...ctx.snapshot,assignments:{...initial.assignments,...ctx.snapshot.assignments}}}}>{children}</Context.Provider>;
 }
 export function CustomerLabelsSettings() {
   const ctx=useContext(Context);
@@ -71,7 +130,8 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hide
     document.addEventListener("pointerdown",close);document.addEventListener("keydown",escape,true);
     return ()=>{window.removeEventListener("resize",dismiss);window.removeEventListener("scroll",dismiss,true);document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape,true);};
   },[open]);
-  if(!ctx || !ctx.snapshot.enabled || !(customerId in ctx.snapshot.assignments))return null;
+  if(!ctx || !ctx.snapshot.enabled)return null;
+  if(!(customerId in ctx.snapshot.assignments))return <span role="status" aria-label="標籤載入中" className="inline-block h-3 w-16 animate-pulse rounded bg-earth-100"/>;
   const {snapshot,update}=ctx;
   const selected=snapshot.assignments[customerId]??[];
   const categories=[...snapshot.categories].sort((a,b)=>a.position-b.position||a.number-b.number);

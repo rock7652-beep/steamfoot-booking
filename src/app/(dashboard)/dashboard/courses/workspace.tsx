@@ -781,12 +781,12 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {<div className="relative z-10 flex flex-wrap items-end gap-2 rounded-xl border border-primary-200 bg-primary-50/50 px-2 py-2">
-            <label className="text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
+          {<div className="relative z-10 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
             <select
               id="course-coach-filter"
               aria-label="教練篩選"
-              className={`${button} mt-1 block min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+              className={`${button} min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
@@ -797,11 +797,11 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label><label className="text-xs font-medium text-earth-700" htmlFor="course-room-filter">教室
+            </label><label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-room-filter">教室
             <select
               id="course-room-filter"
               aria-label="教室篩選"
-              className={`${button} mt-1 block min-h-11 bg-white py-1 ${roomFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+              className={`${button} min-h-11 bg-white py-1 ${roomFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={roomFilter}
               onChange={(e)=>{setSelectedIds([]);setRoomFilter(e.target.value);}}
             >
@@ -812,11 +812,11 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label><label className="text-xs font-medium text-earth-700" htmlFor="course-category-filter">課程分類
+            </label><label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-category-filter">課程分類
             <select
               id="course-category-filter"
               aria-label="課程分類篩選"
-              className={`${button} mt-1 block min-h-11 bg-white py-1 ${category !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+              className={`${button} min-h-11 bg-white py-1 ${category !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={category}
               onChange={(e)=>{setSelectedIds([]);setCategory(e.target.value);}}
             >
@@ -827,7 +827,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label>{businessProfile !== "MUSIC" && <label className="text-xs font-medium text-earth-700">學員所屬店長<select aria-label="課表所屬店長篩選" className={`${button} mt-1 block min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
+            </label>{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">學員所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
             <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
             {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
               <button
@@ -1208,7 +1208,7 @@ export function CourseWorkspace({
           compact
           open
           onClose={closePanel}
-          width={520}
+          width={panel === "day" ? 720 : 520}
           labelledById="course-panel-title"
         >
           <div
@@ -1362,9 +1362,7 @@ export function CourseWorkspace({
                             {!rental && (attendance.total > 0 || attendance.teacherAbsent) && <span title="點名完成度" className={`text-sm tabular-nums ${attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500"}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}`}</span>}
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            {allCoaches.find((coach) => coach.id === session.coachId)
-                              ?.displayName ?? "未指定教練"}
-                            {" · "}
+                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定教練"}{" · "}</>}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
                             {["upcoming", "ongoing", "ended"].includes(sessionState.kind) && <span>{" · "}{sessionState.label}</span>}
@@ -1380,32 +1378,14 @@ export function CourseWorkspace({
                             >
                               {rental ? "租借資訊" : session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `上課名單 ${scheduleRosterBookings(session.bookings).length}`}
                             </button>
-                            {canCreate && !rental && (
-                              <>
-                                <button
-                                  type="button"
-                                  className={button}
-                                  onClick={() => { setPanel(null); setCourseDialog({
-                                      sessionId: session.id,
-                                      kind: "member-booking",
-                                    }); }}
-                                >
-                                  ＋ 學員預約
-                                </button>
-                                <button
-                                  type="button"
-                                  className={button}
-                                  onClick={() => { setPanel(null); setCourseDialog({
-                                      sessionId: session.id,
-                                      kind: "trial-booking",
-                                    }); }}
-                                >
-                                  ＋ 體驗客
-                                </button>
-                              </>
-                            )}
+                            {canCreate && !rental && <ExclusiveMenu label="新增預約" triggerText="＋預約" quiet>
+                              <div className="grid gap-1">
+                                <button type="button" className="min-h-11 rounded px-3 text-left text-sm text-primary-700 hover:bg-primary-50" onClick={()=>{setPanel(null);setCourseDialog({sessionId:session.id,kind:"member-booking"});}}>學員預約</button>
+                                <button type="button" className="min-h-11 rounded px-3 text-left text-sm text-primary-700 hover:bg-primary-50" onClick={()=>{setPanel(null);setCourseDialog({sessionId:session.id,kind:"trial-booking"});}}>體驗預約</button>
+                              </div>
+                            </ExclusiveMenu>}
                             {(canCreate || canEdit) && (
-                              <ExclusiveMenu label="更多" className="ml-auto">
+                              <ExclusiveMenu label="更多" triggerText="⋯" quiet className="ml-auto">
                                                                 <div className="grid gap-1">
                                   {canCreate && (
                                     <button

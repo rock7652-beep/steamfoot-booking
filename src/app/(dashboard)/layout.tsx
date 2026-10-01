@@ -225,7 +225,7 @@ export default async function DashboardLayout({
       }
     >
       <PreviewNavigationReporter />
-      <CustomerLabelsProvider initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{children}</CustomerLabelsProvider>
+      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{children}</CustomerLabelsProvider>
     </DashboardShell>
     </OperationScope>
   );

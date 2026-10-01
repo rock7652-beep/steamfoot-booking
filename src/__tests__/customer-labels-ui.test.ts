@@ -9,7 +9,7 @@ vi.mock('@/server/actions/customer-labels',()=>({loadCustomerLabels:m.load,setCu
 vi.mock('next/navigation',()=>({usePathname:()=>'/dashboard/customers',useRouter:()=>({replace:vi.fn()}),useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:()=>null}));
 vi.mock('sonner',()=>({toast:{error:m.error}}));
-import {CustomerLabelsProvider,CustomerLabels} from '@/components/customer-labels';
+import {CustomerLabelsProvider,CustomerLabels,CustomerLabelsSeed} from '@/components/customer-labels';
 const data:LabelSnapshot={available:true,enabled:true,canEdit:true,canManage:true,categories:[{id:'cat',name:'需求',number:1,position:0,active:true}],labels:[{id:'a',name:'初次',categoryId:'cat',active:true},{id:'b',name:'常客',categoryId:'cat',active:true},{id:'c',name:'重點',categoryId:'cat',active:true}],assignments:{customer:['a','b','c']}};
 let root:Root,host:HTMLDivElement;
 beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockResolvedValue(data);m.save.mockResolvedValue({success:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);});
@@ -50,4 +50,51 @@ it('fits up to five labels and reserves the overflow count when the column narro
   expect(visible().children[2].textContent).toBe('＋4');
   await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')?.textContent).toContain('標籤5');
  } finally {rect.mockRestore();vi.unstubAllGlobals();}
+});
+
+it('uses server-supplied row assignments immediately without a second client request',async()=>{
+ vi.useFakeTimers();
+ try {
+  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:{...data,assignments:{}},children:jsx(CustomerLabelsSeed,{initial:data,children:jsx(CustomerLabels,{customerId:'customer'})})})));
+  expect(host.textContent).toContain('初次');expect(host.querySelector('[aria-label="標籤載入中"]')).toBeNull();
+  await act(async()=>vi.advanceTimersByTimeAsync(50));expect(m.load).not.toHaveBeenCalled();
+ } finally {vi.useRealTimers();}
+});
+it('retains cached labels when remounting a roster and refreshes in place after expiry',async()=>{
+ vi.useFakeTimers();
+ try {
+  await render();await act(async()=>vi.advanceTimersByTimeAsync(40));expect(m.load).not.toHaveBeenCalled();
+  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:data,children:null})));
+  await render();expect(host.textContent).toContain('初次');await act(async()=>vi.advanceTimersByTimeAsync(40));expect(m.load).not.toHaveBeenCalled();
+  let finish!:(value:LabelSnapshot)=>void;m.load.mockReturnValue(new Promise(resolve=>finish=resolve));
+  await act(async()=>{vi.advanceTimersByTime(60_001);window.dispatchEvent(new Event('focus'));});
+  expect(m.load).toHaveBeenCalledTimes(1);expect(host.textContent).toContain('初次');
+  await act(async()=>finish({...data,assignments:{customer:['b']}}));expect(host.textContent).toBe('常客');
+ } finally {vi.useRealTimers();}
+});
+it('batches new rows and preserves previously loaded customers while fetching another',async()=>{
+ vi.useFakeTimers();
+ try {
+  let finish!:(value:LabelSnapshot)=>void;m.load.mockReturnValue(new Promise(resolve=>finish=resolve));
+  const rows=(second:boolean)=>jsx(CustomerLabelsProvider,{initial:data,children:[jsx(CustomerLabels,{customerId:'customer'},'first'),second?jsx(CustomerLabels,{customerId:'other'},'second'):null]});
+  await act(async()=>root.render(rows(true)));expect(host.querySelector('[aria-label="標籤載入中"]')).toBeTruthy();
+  await act(async()=>vi.advanceTimersByTimeAsync(40));expect(m.load).toHaveBeenCalledWith(['other']);
+  expect(host.textContent).toContain('初次');
+  await act(async()=>finish({...data,assignments:{other:['b']}}));expect(host.textContent).toContain('初次');expect(host.textContent).toContain('常客');
+  await act(async()=>root.render(rows(false)));await act(async()=>root.render(rows(true)));
+  await act(async()=>vi.advanceTimersByTimeAsync(40));expect(m.load).toHaveBeenCalledTimes(1);
+ } finally {vi.useRealTimers();}
+});
+it('does not let a late refresh overwrite an optimistic label edit',async()=>{
+ vi.useFakeTimers();
+ try {
+  await render();let finish!:(value:LabelSnapshot)=>void;m.load.mockReturnValue(new Promise(resolve=>finish=resolve));
+  await act(async()=>window.dispatchEvent(new Event('customer-labels:refresh')));
+  await click('查看或修改顧客標籤');
+  let save!:(value:{success:boolean})=>void;m.save.mockReturnValue(new Promise(resolve=>save=resolve));
+  const target=[...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].find(b=>b.textContent?.includes('重點'))!;
+  await act(async()=>target.click());expect(host.textContent).not.toContain('＋1');
+  await act(async()=>finish(data));expect(host.textContent).not.toContain('＋1');
+  await act(async()=>save({success:true}));expect(host.textContent).not.toContain('＋1');
+ } finally {vi.useRealTimers();}
 });

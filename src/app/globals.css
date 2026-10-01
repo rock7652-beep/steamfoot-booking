@@ -309,16 +309,6 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   opacity: 1;
 }
 
-/* Customer detail cards stay equal inside their grid without adding unnecessary
-   vertical whitespace. */
-[data-dashboard-content] .course-customer-detail-field {
-  min-height: 60px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-earth-200);
-  border-radius: var(--admin-control-radius);
-  background: var(--brand-card);
-}
-
 @media (max-width: 767px) {
   [data-dashboard-content] :where(
     input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]),

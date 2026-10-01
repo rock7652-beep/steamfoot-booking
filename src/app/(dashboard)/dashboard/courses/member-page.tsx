@@ -1,3 +1,6 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
+import { EMPTY_LABELS } from "@/lib/customer-labels";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
@@ -108,7 +111,9 @@ export async function CourseMemberPage({
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
   const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId);
+  const labelSnapshot = canReadPeople ? await customerLabelSnapshot(customerRows.map(c=>c.id)) : EMPTY_LABELS;
   return (
+    <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view === "plans" ? "gap-1 py-1" : "gap-2 py-2"}`}>
       {view === "plans" && <PageHeader title="方案管理" />}
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
@@ -138,5 +143,6 @@ export async function CourseMemberPage({
         music={music}
       />
     </PageShell>
+    </CustomerLabelsSeed>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
@@ -358,8 +359,8 @@ export function CourseMemberWorkspace({
           fitContent={panel === "assign" || panel === "person"}
           labelledById="course-member-sheet"
         >
-          <header className="flex shrink-0 items-center justify-between border-b p-4">
-            <h2 id="course-member-sheet" className="font-semibold">
+          <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
+            <h2 id="course-member-sheet" className="text-base font-semibold text-primary-900">
               {panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
@@ -370,6 +371,8 @@ export function CourseMemberWorkspace({
                       ? "加入為教練"
                       : "方案與共卡"}
             </h2>
+            <div className="flex shrink-0 items-center gap-2">
+              {panel === "person" && person && personTab === "info" && !editingPerson && canEdit && <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             <button
               type="button"
               className={button}
@@ -378,10 +381,11 @@ export function CourseMemberWorkspace({
             >
               關閉
             </button>
+            </div>
           </header>
           {panel === "person" && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
-            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={personTab===value} className={`${button} ${personTab===value?"border-primary-600 bg-primary-50 font-medium text-primary-800":"bg-white"}`} onClick={()=>setPersonTab(value as typeof personTab)}>{label}</button>)}
-            {healthEnabled && <button type="button" className={button} onClick={()=>open("health")}>健康追蹤</button>}
+            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setPersonTab(value as typeof personTab)}>{label}</button>)}
+            {healthEnabled && <button type="button" className="min-h-11 rounded-lg px-3 text-sm text-primary-700 hover:bg-primary-50" onClick={()=>open("health")}>健康追蹤</button>}
           </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
@@ -418,29 +422,35 @@ export function CourseMemberWorkspace({
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
             {panel === "person" && person && <section className="mb-4 space-y-3">
-              <div className="flex flex-wrap gap-2">
-
-                {personTab === "info" && canManageStaff && <button className={button} onClick={() => open("coach")}>加入為教練</button>}
-                {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
-              </div>
+              {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
                 <CourseCardBrowser canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
-              {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
-                <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
-              </dl>
-                <CustomerLabels customerId={person.id} readOnly={!canEdit}/><CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
-              </details>}
+
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
-              <RetainedNoteEditor optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
+              <CustomerDetailFields items={[
+                {label:"電話",value:<CustomerPhoneLink phone={person.phone}/>},
+                ...(!music?[{label:"所屬店長",value:customerRows.find(c=>c.id===person.id)?.assignedStaff?.displayName??null}]:[]),
+                {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
+                {label:"性別",value:({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender??""]},
+                {label:"緊急聯絡人",value:person.emergencyContactName},
+                {label:"緊急聯絡電話",value:person.emergencyContactPhone?<CustomerPhoneLink phone={person.emergencyContactPhone}/>:null},
+                {label:"地址",value:person.address,full:true},
+              ]}/>
+              <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
+
+              <RetainedNoteEditor quiet optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />
-              {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
+              {personTab === "info" && <details className="border-b border-earth-100 pb-2"><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
+                <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
+              </dl>
+                {canManageStaff && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => open("coach")}>加入為教練</button>}<CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
+              </details>}
             </section>}
             {panel === "person" && (
               <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />

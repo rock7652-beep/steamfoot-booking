@@ -1087,7 +1087,7 @@ export function CourseRoster({
           <label className="text-xs font-medium text-earth-700">收款狀態<select aria-label="收款狀態篩選" className={rosterFilterClass(paymentFilter)} value={paymentFilter} onChange={event => {setPaymentFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option><option value="unpaid">體驗未收款</option><option value="paid">體驗已收款</option></select></label>
           <label className="text-xs font-medium text-earth-700">預約類型<select aria-label="預約類型篩選" className={rosterFilterClass(kindFilter)} value={kindFilter} onChange={event => {setKindFilter(event.target.value);resetFilterSelection();}}><option value="all">全部</option><option value="CARD">一般</option><option value="TRIAL">體驗</option><option value="TEACHER_MAKEUP">免費券</option></select></label>
         </div>
-        {canEdit && !oneToOneMusic && !showCancelled && !teacherAbsent && activeRows.length > 0 && <button type="button" className={`${button} self-start`} onClick={() => { setBatchMode(!batchMode); setSelected([]); }}>{batchMode ? "結束批次" : "批次點名"}</button>}
+        {canEdit && !oneToOneMusic && !showCancelled && !teacherAbsent && activeRows.length > 1 && <button type="button" className={`${button} self-start`} onClick={() => { setBatchMode(!batchMode); setSelected([]); }}>{batchMode ? "結束批次" : "批次點名"}</button>}
         {canEdit && <button type="button" aria-label="課程更多操作" className={`${button} min-w-11`} aria-expanded={!!openActionMenu && !openActionMenu.bookingId} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget)}>⋯</button>}
       </div>}
 

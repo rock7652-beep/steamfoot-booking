@@ -1,3 +1,5 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import {SpaCustomers} from "./_components/spa-customers";
 import { listCustomersForUser } from "@/server/queries/customer";
@@ -204,7 +206,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     ? DATA_EXPORT_LOCKED_MESSAGE
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
+  const labelSnapshot = await customerLabelSnapshot(rows.map(c=>c.id));
   return (
+    <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell>
       <FormSuccessToast />
       <PageHeader
@@ -309,6 +313,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         ) : null}
       </div>
     </PageShell>
+    </CustomerLabelsSeed>
   );
 }
 

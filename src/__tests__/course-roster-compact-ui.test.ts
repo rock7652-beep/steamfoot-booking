@@ -63,18 +63,19 @@ it("shows private makeup and renewal without combining leave with paid lessons",
 it("signs in music learners as attended in one batch and gives no makeup coupon for absence",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const roster=[{id:"music-booking",customerName:"小安",customerId:"customer",customerPhone:"0900000000",sharedCard:false,bookingSource:"店長建立",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"四堂一期",termCount:4,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:4,unit:"SESSION",notes:"",pointCost:1}];
+ roster.push({...roster[0],id:"music-second",customerId:"second",customerName:"小美"});
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-27T05:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
  m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
  m.batch.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});
  vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:1,canCreate:false,canEdit:true,musicLayout:true,teacherName:"老師"})));
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:2,canCreate:false,canEdit:true,musicLayout:true,teacherName:"老師"})));
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="批次點名")!.click());
   expect([...host.querySelectorAll<HTMLOptionElement>('select[aria-label="批次點名狀態"] option')].map(option=>option.value)).toEqual(["ATTENDED","RESERVED","NO_SHOW"]);
   await act(async()=>host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="點名這 1 人")!.click());
-  expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"}]});
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="點名這 2 人")!.click());
+  expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"},{id:"music-second",status:"RESERVED"}]});
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="曠課・扣堂")!.click());
   expect(m.status).toHaveBeenLastCalledWith({bookingId:"music-booking",status:"NO_SHOW",noShowChoice:"DEDUCTED"});

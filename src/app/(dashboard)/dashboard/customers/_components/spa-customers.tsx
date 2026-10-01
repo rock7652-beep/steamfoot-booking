@@ -1,3 +1,5 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
 import { spaCustomerSummaries } from "@/server/queries/spa-customer-summary";
@@ -57,12 +59,13 @@ export async function SpaCustomers({
         )
       : null,
   }));
+  const labels = await customerLabelSnapshot(rows.map(c=>c.id));
   return (
-    <SpaCustomersWorkspace
+    <CustomerLabelsSeed initial={labels}><SpaCustomersWorkspace
       key={storeId}
       customers={rows}
       search={search}
       {...permissions}
-    />
+    /></CustomerLabelsSeed>
   );
 }

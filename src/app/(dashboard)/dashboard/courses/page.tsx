@@ -1,3 +1,6 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
+import { EMPTY_LABELS } from "@/lib/customer-labels";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import { MusicSubjectCatalog } from "./music-subject-catalog";
@@ -286,7 +289,9 @@ export default async function CoursesPage({
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
     && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
+  const labelSnapshot = await checkPermission(user.role,user.staffId,"customer.read") ? await customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS;
   return (
+    <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell
       className={
         view === "schedule"
@@ -360,5 +365,6 @@ export default async function CoursesPage({
         cancelledBookings={cancelledBookings}
       />
     </PageShell>
+    </CustomerLabelsSeed>
   );
 }

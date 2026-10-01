@@ -500,11 +500,11 @@ export function CourseScheduleBoard({
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section className="space-y-2" aria-label="教室週課表">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-white px-2 py-1 text-sm text-earth-800">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700">
           <label htmlFor="course-week-room" className="font-medium">教室</label>
-          <select id="course-week-room" aria-label="選擇週表教室" value={roomId ?? ""} onChange={(event) => setWeekRoomId(event.target.value)} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
+          {activeRooms.length > 1 ? <select id="course-week-room" aria-label="選擇週表教室" value={roomId ?? ""} onChange={(event) => setWeekRoomId(event.target.value)} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {activeRooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
-          </select>
+          </select> : <span className="font-medium text-primary-900">{activeRooms[0]?.name ?? "—"}</span>}
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
         </div>
         <div className="max-h-[calc(100dvh-18rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
