@@ -355,7 +355,7 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={panel === "assign" ? 880 : 640}
-          fitContent={panel === "assign"}
+          fitContent={panel === "assign" || panel === "person"}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b p-4">

@@ -318,8 +318,8 @@ function SessionCard({
       <span className="sr-only">{presentation.label}</span>
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
       {dense && businessProfile !== "MUSIC" ? <>
-        <div className="flex items-center justify-between gap-1 text-sm leading-4 tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</span>{progressText && <span className={`shrink-0 font-semibold ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 flex-1 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong></div>
+        <div className="whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
         {!brief && <div className="truncate text-sm leading-5">{rental ? copy.room : copy.coach}{teacherState ? ` · ${teacherState}` : ""}</div>}
       </> : musicDense ? (
         <>
@@ -694,7 +694,7 @@ export function CourseScheduleBoard({
 
   const filters: Array<{ id: QuickFilter; label: string; value: number }> = [
     { id: "all", label: "今日課程", value: visibleDaySessions.length },
-    { id: "trial", label: "體驗", value: trials },
+    { id: "trial", label: "體驗客", value: trials },
     { id: "near-full", label: "快滿", value: nearFull },
     { id: "full", label: "滿班", value: full },
     { id: "pending", label: "待報到", value: pendingCount },

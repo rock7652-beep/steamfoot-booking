@@ -1064,7 +1064,7 @@ export function CourseRoster({
         >
           上課名單 {activeRows.length}
         </button>
-        {!teacherAbsent && activeRows.length > 0 && <button type="button" aria-pressed={statusFilter === "pending"} className={`${button} min-h-11 ${statusFilter === "pending" ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : ""}`} onClick={() => {setShowCancelled(false);setStatusFilter(statusFilter === "pending" ? "all" : "pending");resetFilterSelection();}}>待點名 <strong>{waitingCount}</strong></button>}
+        {!teacherAbsent && waitingCount > 0 && <button type="button" aria-pressed={statusFilter === "pending"} className={`${button} min-h-11 ${statusFilter === "pending" ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : ""}`} onClick={() => {setShowCancelled(false);setStatusFilter(statusFilter === "pending" ? "all" : "pending");resetFilterSelection();}}>待點名 <strong>{waitingCount}</strong></button>}
         {unpaidTrialCount > 0 && <button type="button" aria-pressed={paymentFilter === "unpaid"} className={`${button} min-h-11 text-amber-800 ${paymentFilter === "unpaid" ? "border-primary-500 bg-primary-50 font-semibold" : ""}`} onClick={() => {setShowCancelled(false);setPaymentFilter(paymentFilter === "unpaid" ? "all" : "unpaid");resetFilterSelection();}}>未收款 {unpaidTrialCount}</button>}
         {musicLayout && groupCohortProgress && <span className="text-xs text-primary-800">整班第 {groupCohortProgress.index}/{groupCohortProgress.count} 堂</span>}
         {(showCancelled || cancelledRows.length > 0) && <button
@@ -1248,7 +1248,7 @@ export function CourseRoster({
           })}
           {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">{rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"}</li>}
         </ul>
-        <p className="px-3 py-1 text-[11px] text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本堂扣點後餘額</p>
+        {activeRows.length > 0 && <p className="px-3 py-1 text-[11px] text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本堂扣點後餘額</p>}
       </div>}
 
 

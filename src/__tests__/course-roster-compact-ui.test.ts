@@ -407,3 +407,20 @@ it("combines pending attendance with unpaid trials and keeps whole-class counter
   expect(host.textContent).toContain("已選 0 人");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+
+it("hides zero pending counts and hides the legend on an empty fitness roster", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const session={startsAt:"2026-10-01T02:00:00.000Z",pointCost:2,teacherAttendance:"SCHEDULED",teacherNote:""};
+ const data=(roster:unknown[])=>({success:true,data:{session,roster,cards:[],trial:null}});
+ m.load.mockResolvedValue(data([]));
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{key:"empty",sessionId:"empty",capacity:10,canCreate:false,canEdit:true})));
+  expect(host.textContent).not.toContain("○ 待點名");
+  expect([...host.querySelectorAll("button")].some(b=>b.textContent?.startsWith("待點名"))).toBe(false);
+  m.load.mockResolvedValue(data([{id:"attended",customerId:"one",customerName:"已處理",customerPhone:"",status:"ATTENDED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],available:8,unit:"POINT",notes:"",pointCost:2}]));
+  await act(async()=>root.render(createElement(CourseRoster,{key:"complete",sessionId:"complete",capacity:10,canCreate:false,canEdit:true})));
+  expect([...host.querySelectorAll("button")].some(b=>b.textContent?.startsWith("待點名"))).toBe(false);
+  expect(host.textContent).toContain("○ 待點名");
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

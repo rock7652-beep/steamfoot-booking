@@ -40,6 +40,7 @@ import {
 } from "@/server/actions/course";
 import { courseClassPresentation } from "@/lib/course-class-presentation";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
+import { courseAttendanceState } from "@/lib/course-attendance-visual";
 import { courseSessionStatus } from "@/lib/course-session-status";
 import { scheduleRosterBookings, scheduleOccupiedCount, scheduleAssignedBookings } from "@/lib/course-schedule-counts";
 import { buildCourseOccurrences } from "@/lib/course-scheduling";
@@ -413,6 +414,13 @@ export function CourseWorkspace({
       ? "RENTAL" as const
       : undefined,
   }));
+  const withPendingAttendance = (session: Session) => ({
+    ...session,
+    teacherAttendance: pendingTeacherAttendance[session.id] ?? session.teacherAttendance,
+    previewStudentNames: session.bookings.length ? undefined : cancelledBookings.filter(booking => booking.sessionId === session.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map(booking => booking.customerName),
+    bookings: session.bookings.map(booking => pendingAttendance[booking.id] ? { ...booking, status: pendingAttendance[booking.id], absenceKind: pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind } : booking),
+    displayBookings: session.displayBookings?.map(booking => pendingAttendance[booking.id] ? { ...booking, status: pendingAttendance[booking.id], absenceKind: pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind } : booking),
+  });
   const monthSessions = filteredScheduleSessions.filter((session) =>
     !session.previewFaded && toLocalDateStr(new Date(session.startsAt)).startsWith(month),
   ).map((session) => ({ ...session,
@@ -930,11 +938,7 @@ export function CourseWorkspace({
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
-              sessions={filteredScheduleSessions.map(session=>({...session,
-                teacherAttendance:pendingTeacherAttendance[session.id]??session.teacherAttendance,
-                previewStudentNames:session.bookings.length?undefined:cancelledBookings.filter(booking=>booking.sessionId===session.id&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")).map(booking=>booking.customerName),
-                bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id],absenceKind:pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind}:booking),
-                displayBookings:session.displayBookings?.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id],absenceKind:pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind}:booking)}))}
+              sessions={filteredScheduleSessions.map(withPendingAttendance)}
               leaveCounts={[...cancelledBookings,...pendingLeaveIds.filter(id=>!cancelledBookings.some(booking=>booking.id===id)).flatMap(id=>{
                 const session=sessions.find(item=>item.bookings.some(booking=>booking.id===id));
                 return session?[{id,sessionId:session.id,absenceKind:"STUDENT_LEAVE"}]:[];
@@ -1269,10 +1273,11 @@ export function CourseWorkspace({
             {panel === "day" &&
               (() => {
                 const daySessions = byDate.get(selectedDate) ?? [];
-                const booked = scheduleTotals(daySessions).people;
+                const dayTotals = scheduleTotals(daySessions);
+                const booked = dayTotals.people;
                 const liveDaySessions = daySessions.filter(item => !item.previewFaded);
                 const fullClasses = liveDaySessions.filter(
-                  (item) => scheduleOccupiedCount(item.bookings) >= item.capacity,
+                  (item) => item.previewKind !== "RENTAL" && scheduleOccupiedCount(item.bookings) >= item.capacity,
                 ).length;
                 return (
                   <>
@@ -1301,9 +1306,9 @@ export function CourseWorkspace({
                     <div className="grid grid-cols-3 divide-x rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center">
                       <p>
                         <strong className="block text-base text-primary-800">
-                          {liveDaySessions.length}
+                          {dayTotals.classes}
                         </strong>
-                        <span className="text-xs text-earth-600">堂課</span>
+                        <span className="text-xs text-earth-600">堂課{dayTotals.rentals > 0 ? ` · ${dayTotals.rentals} 租借` : ""}</span>
                       </p>
                       <p>
                         <strong className="block text-base text-primary-800">
@@ -1336,7 +1341,12 @@ export function CourseWorkspace({
                         當日尚無課程
                       </p>
                     )}
-                    {daySessions.map((session, index) => {
+                    {daySessions.map((sourceSession) => {
+                      const session = withPendingAttendance(sourceSession);
+                      const rental = session.previewKind === "RENTAL";
+                      const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
+                      const template = allTemplates.find(item => item.id === session.templateId);
+                      const presentation = courseClassPresentation(template?.classType, Boolean(template?.musicTrialMode), rental);
                       const isFull =
                         scheduleOccupiedCount(session.bookings) >= session.capacity;
                       const sessionState = courseSessionStatus(session, nowIso);
@@ -1349,35 +1359,14 @@ export function CourseWorkspace({
                           key={session.id}
                           className={`rounded-xl border border-l-4 border-earth-200 bg-white px-3 py-2.5 ${sessionState.accentClass}`}
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800">
-                              第 {index + 1} 堂
-                            </span>
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
-                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${sessionState.badgeClass}`}>{sessionState.label}</span>
-                              <span
-                                className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                isFull
-                                  ? "bg-primary-100 text-primary-900"
-                                  : "bg-earth-100 text-earth-700"
-                              }`}
-                              >
-                                {isFull
-                                  ? `已滿 ${scheduleOccupiedCount(session.bookings)}/${session.capacity}`
-                                  : `尚有 ${openSeats} 位 · ${scheduleOccupiedCount(session.bookings)}/${session.capacity}`}
-                              </span>
-                            </div>
-                          </div>
-                          <h3 className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-primary-900">
-                            <span>
+                          <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-primary-900">
+                            <span className="whitespace-nowrap tabular-nums">
                               {formatTWDateTime(new Date(session.startsAt)).slice(11)}–
-                              {formatTWDateTime(new Date(session.endsAt)).slice(0, 10) !==
-                              selectedDate
-                                ? "翌日 "
-                                : ""}
+                              {formatTWDateTime(new Date(session.endsAt)).slice(0, 10) !== selectedDate ? "翌日 " : ""}
                               {formatTWDateTime(new Date(session.endsAt)).slice(11)}
                             </span>
-                            <span>{session.nameSnapshot}</span>
+                            <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />{session.nameSnapshot}</span>
+                            {!rental && (attendance.total > 0 || attendance.teacherAbsent) && <span title="點名完成度" className={`text-sm tabular-nums ${attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500"}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}`}</span>}
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
                             {allCoaches.find((coach) => coach.id === session.coachId)
@@ -1385,8 +1374,8 @@ export function CourseWorkspace({
                             {" · "}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
-                            {" · "}
-                            {businessProfile === "MUSIC" ? "每位學員 1 堂" : `點數卡 ${session.pointCost} 點／堂數卡 1 堂`}
+                            {" · "}{sessionState.label}
+                            {!rental && <span className="ml-2 text-xs text-earth-500">{isFull ? "滿班" : `餘 ${openSeats} 位`}</span>}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <button
@@ -1399,9 +1388,9 @@ export function CourseWorkspace({
                                 })
                               }
                             >
-                              {session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `上課名單 ${scheduleRosterBookings(session.bookings).length}`}
+                              {rental ? "租借資訊" : session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `上課名單 ${scheduleRosterBookings(session.bookings).length}`}
                             </button>
-                            {canCreate && (
+                            {canCreate && !rental && (
                               <>
                                 <button
                                   type="button"
