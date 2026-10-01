@@ -1015,8 +1015,8 @@ export function CourseRoster({
 
       {<div className="flex flex-wrap items-center gap-2" aria-label="上課統計">
         <button
-          className={`${button} ${!showCancelled && statusFilter === "all" && paymentFilter === "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-          aria-pressed={!showCancelled && statusFilter === "all" && paymentFilter === "all"}
+          className={`${button} ${!showCancelled && !rosterFiltered ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+          aria-pressed={!showCancelled && !rosterFiltered}
           onClick={() => {setShowCancelled(false);clearRosterFilters();}}
         >
           上課名單 {activeRows.length}
