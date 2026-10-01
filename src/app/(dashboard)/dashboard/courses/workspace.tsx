@@ -559,6 +559,38 @@ export function CourseWorkspace({
       }
     });
   }
+  function updateScheduleForm(e: FormEvent<HTMLFormElement>) {
+    const fields = new FormData(e.currentTarget);
+    const templateChanged = e.target instanceof HTMLSelectElement && e.target.name === "templateId";
+    const nextTemplate = templates.find(item => item.id === fields.get("templateId"));
+    if (templateChanged && nextTemplate) {
+      // Template-dependent controls remount after this event; preview their new defaults.
+      fields.set("duration", String(scheduleSeed.durationMinutes ?? nextTemplate.durationMinutes));
+      fields.set("capacity", String(nextTemplate.capacity));
+      fields.set("roomId", scheduleSeed.roomId ?? nextTemplate.defaultRoomId ?? rooms[0]?.id ?? "");
+    }
+    try {
+      const occurrences = buildCourseOccurrences({
+        templateId: String(fields.get("templateId") || chosen),
+        roomId: String(fields.get("roomId") || ""),
+        coachId: String(fields.get("coachId") || ""),
+        date: String(fields.get("date") || ""),
+        time: String(fields.get("time") || ""),
+        durationMinutes: Number(fields.get("duration")),
+        capacity: Number(fields.get("capacity")),
+        requestKey,
+        repeatUntil: fields.get("repeatMode") === "weekly" ? String(fields.get("until") || "") : undefined,
+        weekdays: fields.getAll("weekday").length ? fields.getAll("weekday").map(Number) : undefined,
+        additionalDates: fields.get("repeatMode") === "dates" ? fields.getAll("additionalDates").map(String) : undefined,
+      });
+      const first = occurrences[0];
+      setScheduleSummary(`共 ${occurrences.length} 堂 · ${formatTWDateTime(first.startsAt)}–${formatTWDateTime(first.endsAt).slice(11)}${occurrences.length > 1 ? ` · 至 ${toLocalDateStr(occurrences[occurrences.length - 1].startsAt)}` : ""}`);
+    } catch {
+      setScheduleSummary("請完成日期與時段，確認排課範圍");
+    }
+    const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
+    setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
+  }
   function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
     setScheduleSeed(seed);
@@ -848,7 +880,7 @@ export function CourseWorkspace({
                             : "bg-white text-earth-400"
                     }`}
                   >
-                    <button type="button" disabled={pending} aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.people} 人次`}`} className="absolute inset-0 focus-visible:ring-2 focus-visible:ring-primary-500" onClick={() => {go(date);open("day");}} />
+                    <button type="button" disabled={pending} aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.people} 人次`}`} className="absolute inset-x-0 top-0 h-11 focus-visible:ring-2 focus-visible:ring-primary-500" onClick={() => {go(date);open("day");}} />
                     <span className={`pointer-events-none shrink-0 text-sm font-medium leading-5 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
@@ -1939,29 +1971,8 @@ export function CourseWorkspace({
                 ) : (
                   <form
                     id="course-schedule-form"
-                    onChange={(e) => {
-                      const fields = new FormData(e.currentTarget);
-                      const templateChanged = e.target instanceof HTMLSelectElement && e.target.name === "templateId";
-                      const nextTemplate = templates.find(item => item.id === fields.get("templateId"));
-                      if (templateChanged && nextTemplate) {
-                        fields.set("duration", String(scheduleSeed.durationMinutes ?? nextTemplate.durationMinutes));
-                        fields.set("capacity", String(nextTemplate.capacity));
-                        fields.set("roomId", scheduleSeed.roomId ?? nextTemplate.defaultRoomId ?? rooms[0]?.id ?? "");
-                      }
-                      try {
-                        const occurrences = buildCourseOccurrences({templateId: String(fields.get("templateId") || chosen), roomId: String(fields.get("roomId") || ""), coachId: String(fields.get("coachId") || ""), date: String(fields.get("date") || ""), time: String(fields.get("time") || ""), durationMinutes: Number(fields.get("duration")), capacity: Number(fields.get("capacity")), requestKey, repeatUntil: fields.get("repeatMode") === "weekly" ? String(fields.get("until") || "") : undefined, weekdays: fields.getAll("weekday").length ? fields.getAll("weekday").map(Number) : undefined, additionalDates: fields.get("repeatMode") === "dates" ? fields.getAll("additionalDates").map(String) : undefined});
-                        const first = occurrences[0];
-                        setScheduleSummary(`共 ${occurrences.length} 堂 · ${formatTWDateTime(first.startsAt)}–${formatTWDateTime(first.endsAt).slice(11)}${occurrences.length > 1 ? ` · 至 ${toLocalDateStr(occurrences[occurrences.length-1].startsAt)}` : ""}`);
-                      } catch { setScheduleSummary("請完成日期與時段，確認排課範圍"); }
-                      const limit = rooms.find(
-                        (r) => r.id === fields.get("roomId"),
-                      )?.capacity;
-                      setRoomCapacityNotice(
-                        limit && Number(fields.get("capacity")) > limit
-                          ? `人數上限超過教室容納 ${limit} 人，請確認容量`
-                          : "",
-                      );
-                    }}
+                    onChange={updateScheduleForm}
+                    onInput={updateScheduleForm}
                     className="grid grid-cols-1 gap-3 min-[500px]:grid-cols-6"
                     onSubmit={(e) =>
                       submit(
