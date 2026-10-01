@@ -162,11 +162,11 @@ function pendingCheckins(session: Session) {
 }
 
 function openSeats(session: Session) {
-  return Math.max(0, session.capacity - session.bookings.length);
+  return Math.max(0, session.capacity - session.bookings.filter(booking => booking.status !== "CANCELLED").length);
 }
 
 function isFull(session: Session) {
-  return session.bookings.length >= session.capacity;
+  return session.bookings.filter(booking => booking.status !== "CANCELLED").length >= session.capacity;
 }
 
 function isNearFull(session: Session) {
@@ -265,7 +265,8 @@ function SessionCard({
   const attendance = courseAttendanceState(session.bookings, leaveCount, session.teacherAttendance);
   const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
-  const teacherState=session.teacherAttendance==="LEAVE"?"老師請假":session.teacherAttendance==="NO_SHOW"?"老師曠課":"";
+  const teacherTitle = businessProfile === "MUSIC" ? "老師" : "教練";
+  const teacherState=session.teacherAttendance==="LEAVE"?`${teacherTitle}請假`:session.teacherAttendance==="NO_SHOW"?`${teacherTitle}曠課`:"";
   const attendanceComplete = businessProfile === "MUSIC"
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
@@ -318,7 +319,10 @@ function SessionCard({
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
-      {musicDense ? (
+      {dense && businessProfile !== "MUSIC" ? <>
+        <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
+        <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.bookings.length}/{session.capacity}{teacherState ? ` · ${teacherState}` : ""}</span></div>
+      </> : musicDense ? (
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
@@ -499,18 +503,18 @@ export function CourseScheduleBoard({
           </select>
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
         </div>
-        <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
+        <div className="max-h-[calc(100dvh-18rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-max min-w-full" style={{ gridTemplateColumns: "64px repeat(7, minmax(132px, 1fr))" }}>
-            <div className="sticky left-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
+            <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
               const total = scheduleTotals(scheduleOnDate(weekSessions, date));
-              return <button key={date} type="button" onClick={() => onSelectDate(date)} className={`border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
+              return <button key={date} type="button" onClick={() => onSelectDate(date)} className={`sticky top-0 z-20 border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
                 <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}</strong>
                 <span>{total.classes} 堂｜{total.people} 人次</span>
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>
-              <div className="sticky left-0 z-20 h-[50px] border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">
+              <div className="sticky left-0 z-20 h-[60px] border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">
                 {String(hour).padStart(2, "0")}:00
               </div>
               {dates.map((date) => {
@@ -519,15 +523,15 @@ export function CourseScheduleBoard({
                   session.rescheduledFromRoomId === roomId &&
                   toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
                   Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
-                return <div key={`${date}:${hour}`} className="relative h-[50px] border-b border-r border-earth-100 bg-white">
-                  <div className="pointer-events-none absolute inset-x-0 top-[25px] border-t border-dashed border-earth-200" />
+                return <div key={`${date}:${hour}`} className="relative h-[60px] border-b border-r border-earth-100 bg-white">
+                  <div className="pointer-events-none absolute inset-x-0 top-[30px] border-t border-dashed border-earth-200" />
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: hhmm(original.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(original) * 50 / 60 - 4) }}>
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: hhmm(original.startsAt).endsWith(":30") ? 30 : 2, height: Math.max(26, sessionDurationMinutes(original) * 60 / 60 - 4) }}>
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 50 / 60, height: Math.max(21, sessionDurationMinutes(session) * 50 / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 60 / 60, height: Math.max(26, sessionDurationMinutes(session) * 60 / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly || Boolean(session.previewFaded)} onOpen={() => onOpenSession(session.id, date)} />
                   </div>)}
                 </div>;
@@ -660,7 +664,7 @@ export function CourseScheduleBoard({
           ? 780
           : 72 + resourceCount * 220;
 
-  const booked = daySessions.reduce((sum, session) => sum + session.bookings.length, 0);
+  const booked = daySessions.reduce((sum, session) => sum + session.bookings.filter(booking => booking.status !== "CANCELLED").length, 0);
   const trials = daySessions.reduce(
     (sum, session) => sum + session.bookings.filter((booking) => booking.bookingKind === "TRIAL").length,
     0,

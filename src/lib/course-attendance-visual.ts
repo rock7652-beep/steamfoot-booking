@@ -16,7 +16,7 @@ export function courseAttendanceProgress(bookings: BookingAttendance[], leaveCou
   return { total, processed, complete: total > 0 && processed === total };
 }
 
-/** A recorded teacher absence closes attendance for the session without changing learner bookings. */
+/** A recorded teacher absence closes attendance for the session while the teacher action returns learner quota. */
 export function courseAttendanceState(bookings: BookingAttendance[], leaveCount = 0, teacherAttendance = "SCHEDULED") {
   const progress = courseAttendanceProgress(bookings, leaveCount);
   const teacherAbsent = teacherAttendance === "LEAVE" || teacherAttendance === "NO_SHOW";

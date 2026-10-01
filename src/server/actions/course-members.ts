@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
 import {
   courseManager,
   courseMember,
@@ -28,6 +28,7 @@ import {
   settleCourseBooking,
   correctCourseAttendance,
   syncCourseRelease,
+  refundTeacherAbsentSession,
   type CourseActor,
 } from "@/server/services/course-booking";
 import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
@@ -522,6 +523,7 @@ async function futureMusicCourseScope(
   storeId: string,
   sessionId: string,
   bookingId?: string,
+  effectiveDate?: string,
 ) {
   const source = await tx.courseSession.findFirst({
     where: { id: sessionId, storeId, cancelledAt: null },
@@ -532,7 +534,7 @@ async function futureMusicCourseScope(
     where: { storeId, featureKey: "business.music", status: "ENABLED" },
     select: { storeId: true },
   });
-  if (!music) throw new AppError("VALIDATION", "此操作只適用音樂教室");
+  if (bookingId && !music) throw new AppError("VALIDATION", "學員停課只適用音樂教室");
   let customerId: string | undefined;
   let customerName: string | undefined;
   if (bookingId) {
@@ -545,9 +547,10 @@ async function futureMusicCourseScope(
     customerName = learner.customerName;
   }
   const after = new Date(Math.max(Date.now(), source.startsAt.getTime()));
+  const effectiveStart = effectiveDate ? dayRange(effectiveDate).start : undefined;
   const sessions = await tx.courseSession.findMany({
     where: { storeId, requestKey: source.requestKey, templateId: source.templateId,
-      startsAt: { gt: after }, cancelledAt: null, releasedAt: null },
+      startsAt: { gt: after, ...(effectiveStart ? { gte: effectiveStart } : {}) }, cancelledAt: null, releasedAt: null },
     select: { id: true, startsAt: true },
     orderBy: { startsAt: "asc" },
     take: 501,
@@ -570,10 +573,10 @@ async function futureMusicCourseScope(
 
 export async function previewFutureCourseStop(input: unknown) {
   try {
-    const data = z.object({ sessionId: id, bookingId: id.optional() }).parse(input);
+    const data = z.object({ sessionId: id, bookingId: id.optional(), effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => Boolean(parseTaipeiDateTime(value, "00:00")), "日期無效").optional() }).parse(input);
     const { storeId } = await courseManager("booking.read");
     const scope = await courseTransaction(storeId, tx =>
-      futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId));
+      futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId, data.effectiveDate));
     return { success: true as const, data: scope };
   } catch (error) {
     return handleActionError(error);
@@ -583,13 +586,13 @@ export async function previewFutureCourseStop(input: unknown) {
 export async function stopFutureCourseLessons(input: unknown) {
   try {
     const data = z.object({
-      sessionId: id, bookingId: id.optional(),
+      sessionId: id, bookingId: id.optional(), effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => Boolean(parseTaipeiDateTime(value, "00:00")), "日期無效").optional(),
       expectedSessionIds: z.array(id).max(500),
       expectedBookingIds: z.array(id).max(1000),
     }).parse(input);
     const { user, storeId } = await courseManager("booking.update");
     const releasedSessionIds = await courseTransaction(storeId, async tx => {
-      const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId);
+      const scope = await futureMusicCourseScope(tx, storeId, data.sessionId, data.bookingId, data.effectiveDate);
       if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
           scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
         throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
@@ -750,14 +753,21 @@ export async function saveCourseRosterNote(input: unknown) {
 
 export async function markCourseTeacherAttendance(input: unknown) {
   try {
-    const data=z.object({sessionId:id,status:z.enum(["SCHEDULED","NO_SHOW","LEAVE"]),reason:z.string().trim().max(500).default("")}).parse(input);
+    const data=z.object({sessionId:id,status:z.enum(["SCHEDULED","NO_SHOW","LEAVE"]),reason:z.string().trim().max(500).default(""),expectedStatus:z.enum(["SCHEDULED","NO_SHOW","LEAVE"]).optional()}).parse(input);
     const {user,storeId}=await courseManager("booking.update");
     await courseTransaction(storeId,async(tx)=>{
       const existing=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{id:true,teacherAttendance:true,teacherAttendanceReason:true,teacherAttendanceAt:true,teacherAttendanceById:true}});
       if(!existing)throw new AppError("NOT_FOUND","找不到本店課程");
+      if (data.expectedStatus && data.expectedStatus !== existing.teacherAttendance) throw new AppError("CONFLICT", "教師狀態已更新，請重新確認");
       const result=await tx.courseSession.updateMany({where:{id:data.sessionId,storeId,teacherAttendance:existing.teacherAttendance},data:{teacherAttendance:data.status,teacherAttendanceReason:data.status==="SCHEDULED"?"":data.reason,teacherAttendanceAt:data.status==="SCHEDULED"?null:new Date(),teacherAttendanceById:data.status==="SCHEDULED"?null:user.id}});
       if(!result.count)throw new AppError("CONFLICT","老師狀態已更新，請重新整理");
       await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseSession',${data.sessionId},'COURSE_TEACHER_ATTENDANCE',${JSON.stringify({storeId,status:existing.teacherAttendance,reason:existing.teacherAttendanceReason,at:existing.teacherAttendanceAt,byId:existing.teacherAttendanceById})}::jsonb,${JSON.stringify({storeId,status:data.status,reason:data.status==="SCHEDULED"?"":data.reason,byId:user.id})}::jsonb,NOW())`;
+      const actor = { storeId, userId: user.id, name: user.name ?? "店長" };
+      if (data.status !== "SCHEDULED") await refundTeacherAbsentSession(tx, actor, data.sessionId);
+      else if (existing.teacherAttendance !== "SCHEDULED") {
+        const bookings = await tx.courseBooking.findMany({ where: { storeId, sessionId: data.sessionId, status: "CANCELLED", absenceKind: "TEACHER_ABSENT" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true } });
+        for (const booking of bookings) await correctCourseAttendance(tx, actor, booking.id, "RESERVED", "CANCELLED");
+      }
       await syncCourseRelease(tx, storeId, data.sessionId);
     });
     refresh();return {success:true as const};

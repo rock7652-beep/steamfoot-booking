@@ -26,7 +26,7 @@ export async function scheduleTeacherMakeup(input: unknown) {
     const startsAt=parseTaipeiDateTime(data.date,data.time);
     if(!startsAt || startsAt <= new Date())throw new AppError("VALIDATION","請選擇未來的補課時段");
     const created=await courseTransaction(storeId,async(tx)=>{
-      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{status:{not:"CANCELLED"}}}}});
+      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:"TEACHER_ABSENT"}]}}}});
       if(!source || source.teacherAttendance!=="NO_SHOW")throw new AppError("VALIDATION","請先記錄老師曠課");
       if(!source.bookings.length)throw new AppError("VALIDATION","這堂沒有需要補課的學員");
       if(source.bookings.some(booking=>booking.status==="ATTENDED"))throw new AppError("CONFLICT","這堂已有出席紀錄，請先核對再安排免費補課");

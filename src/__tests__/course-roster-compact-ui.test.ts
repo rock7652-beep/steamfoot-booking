@@ -342,3 +342,33 @@ it('groups trial payment with identity and separates full usual and class notes'
   expect(host.querySelector('[role="dialog"]')).toBeNull();
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("scopes ownership counts and retains a row after quick pending attendance", async () => {
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const base={customerPhone:"0900000000",bookingKind:"CARD",status:"RESERVED",checkedInAt:null,trialPayments:[],pointCost:2,cardId:null,cardRemaining:null,notes:"",serviceNote:"",assignedCoachName:"林教練",assignedCoachId:"coach-a"};
+ const roster=[{...base,id:"owned",customerId:"one",customerName:"自己的學員"},{...base,id:"other",customerId:"two",customerName:"其他學員",assignedCoachId:"coach-b",assignedCoachName:"陳教練"}];
+ const data={session:{startsAt:"2026-10-01T02:00:00Z",pointCost:2,teacherAttendance:"SCHEDULED"},roster,cards:[],trial:null};
+ m.load.mockResolvedValue({success:true,data});m.quick.mockResolvedValue({success:true,data:{...data,teacherAttendance:"SCHEDULED"}});
+ m.status.mockImplementation(async()=>{const updated = {...data,teacherAttendance:"SCHEDULED",roster:roster.map(row=>row.id==="owned"?{...row,status:"ATTENDED"}:row)};m.load.mockResolvedValue({success:true,data:updated});m.quick.mockResolvedValue({success:true,data:updated});return {success:true};});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"fitness",capacity:10,canCreate:false,canEdit:true,initialAssignedCoach:"coach-a"})));
+  expect(host.textContent).toContain("符合 1／全班 2 位");
+  expect(host.textContent).not.toContain("其他學員");
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="待點名 1")!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="自己的學員：待點名"]')!.click());
+  expect(host.querySelector('button[aria-label="自己的學員：已出席"]')).toBeTruthy();
+  expect(host.textContent).toContain("符合 0／全班 2 位");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+it("music uses shared teacher controls and hides the ownership filter", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-01T02:00:00Z",pointCost:1,teacherAttendance:"LEAVE"},roster:[],cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:10,canCreate:false,canEdit:true,musicLayout:true,teacherName:"林老師"})));
+  expect(host.querySelector('select[aria-label="教師出勤狀態"]')).toBeTruthy();
+  expect(host.querySelector('select[aria-label="所屬教練篩選"]')).toBeNull();
+  expect(host.textContent).toContain("本堂免點名");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});

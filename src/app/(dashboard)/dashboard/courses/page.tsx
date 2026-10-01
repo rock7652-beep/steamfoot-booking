@@ -173,7 +173,7 @@ export default async function CoursesPage({
           rescheduledAt: true,
           releasedAt: true,
           bookings: {
-            where: { status: { not: "CANCELLED" } },
+            where: { OR: [{ status: { not: "CANCELLED" } }, { absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"] } }] },
             select: {
               id: true,
               customerId: true,
@@ -205,6 +205,8 @@ export default async function CoursesPage({
         SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
         WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`,
     ]);
+  const rosterCustomers = await prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId)))] } }, select: { id: true, assignedStaffId: true } });
+  const assignedByCustomer = new Map(rosterCustomers.map(customer => [customer.id, customer.assignedStaffId]));
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
     .split("-")
@@ -345,6 +347,7 @@ export default async function CoursesPage({
           endsAt: s.endsAt.toISOString(),
           bookings: s.bookings.map((booking) => ({
             ...booking,
+            assignedCoachId: assignedByCustomer.get(booking.customerId) ?? null,
             checkedInAt: booking.checkedInAt?.toISOString() ?? null,
           })),
           rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,

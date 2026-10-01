@@ -68,6 +68,7 @@ type Session = {
     id: string;
     customerId: string;
     customerName: string;
+    assignedCoachId?: string | null;
     status: string;
     checkedInAt?: string | null;
     bookingKind: string;
@@ -315,6 +316,8 @@ export function CourseWorkspace({
   const [roomFilter, setRoomFilter] = useState(params.get("room") ?? "all");
   const [classFilter, setClassFilter] = useState("all");
   const [coachFilter, setCoachFilter] = useState("all");
+  const [assignedCoachFilter, setAssignedCoachFilter] = useState("all");
+  const [scheduleQuery, setScheduleQuery] = useState("");
   const [hideTestData,setHideTestData]=useState(false);
   const [showInactive,setShowInactive]=useState(false);
   const catalogItems = view === "rooms" ? allRooms : allTemplates;
@@ -387,20 +390,20 @@ export function CourseWorkspace({
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
-  const showAllMusicSessions = businessProfile === "MUSIC";
   const filteredScheduleSessions = sessions.filter(
     (s) =>
-      (showAllMusicSessions || roomFilter === "all" || s.roomId === roomFilter) &&
-      (showAllMusicSessions || coachFilter === "all" || s.coachId === coachFilter) &&
-      (showAllMusicSessions || category === "all" ||
-        allTemplates.find((t) => t.id === s.templateId)?.category === category),
+      (roomFilter === "all" || s.roomId === roomFilter) &&
+      (coachFilter === "all" || s.coachId === coachFilter) &&
+      (category === "all" || allTemplates.find((t) => t.id === s.templateId)?.category === category) &&
+      (businessProfile === "MUSIC" || assignedCoachFilter === "all" || s.bookings.some(booking => assignedCoachFilter === "none" ? !booking.assignedCoachId : booking.assignedCoachId === assignedCoachFilter)) &&
+      (!scheduleQuery.trim() || [s.nameSnapshot, ...s.bookings.map(booking => booking.customerName)].some(text => text.toLocaleLowerCase().includes(scheduleQuery.trim().toLocaleLowerCase()))),
   ).map((session) => ({
     ...session,
     previewKind: /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
       ? "RENTAL" as const
       : undefined,
   }));
-  const monthSessions = sessions.filter((session) =>
+  const monthSessions = filteredScheduleSessions.filter((session) =>
     toLocalDateStr(new Date(session.startsAt)).startsWith(month),
   ).map((session) => ({ ...session,
     previewKind: /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
@@ -724,7 +727,7 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {businessProfile !== "MUSIC" && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
+          {<div className="relative z-10 flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
             <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
             <label className="sr-only" htmlFor="course-coach-filter">教練</label>
             <select
@@ -734,7 +737,7 @@ export function CourseWorkspace({
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">全部教練</option>
+              <option value="all">{businessProfile === "MUSIC" ? "全部授課老師" : "全部授課教練"}</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
@@ -771,11 +774,15 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            {(coachFilter !== "all" || roomFilter !== "all" || category !== "all") && (
+            {businessProfile !== "MUSIC" && <select aria-label="課表所屬教練篩選" className={`${button} min-h-9 bg-white py-1`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬教練</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬教練</option></select>}
+            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-9 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
+            {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
               <button
                 type="button"
                 className="min-h-9 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
                 onClick={() => {
+                  setAssignedCoachFilter("all");
+                  setScheduleQuery("");
                   setCoachFilter("all");
                   setRoomFilter("all");
                   setCategory("all");
@@ -887,7 +894,7 @@ export function CourseWorkspace({
                 }
                 return counts;
               }, {})}
-              rooms={allRooms}
+              rooms={roomFilter === "all" ? allRooms : allRooms.filter(room => room.id === roomFilter)}
               coaches={allCoaches}
               templates={allTemplates}
               pending={pending}
@@ -2371,6 +2378,7 @@ export function CourseWorkspace({
                   canCreate={canCreate}
                   canEdit={canEdit}
                   view={courseDialog.kind}
+                  initialAssignedCoach={businessProfile === "MUSIC" ? "all" : assignedCoachFilter}
                   musicLayout={businessProfile === "MUSIC"}
                   classType={allTemplates.find(template=>template.id===dialogSession.templateId)?.classType}
                   teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
