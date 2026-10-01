@@ -13,7 +13,7 @@ vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>nul
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
 const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:vi.fn()}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
-vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children}:{children:unknown})=>children}));
+vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent}:{children:unknown;width:number;fitContent:boolean})=>createElement("aside",{"data-width":width,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:vi.fn(),setCourseCardMembers:vi.fn()}));
@@ -53,4 +53,24 @@ it("separates plan products and held plans into compact views",async()=>{
  expect(host.querySelector('input[placeholder="搜尋方案／共卡成員"]')).not.toBeNull();
  expect([...host.querySelectorAll("button")].map(button=>button.textContent)).toContain("購買方案");
  expect(host.textContent).not.toContain("單位價格");
+});
+
+it("keeps the customer shell and navigation stable across internal pages",async()=>{
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,props)));
+ const shell=host.querySelector("aside");
+ expect(shell?.getAttribute("data-width")).toBe("880");
+ expect(shell?.getAttribute("data-fit-content")).toBe("false");
+ for(const label of ["持有方案","購買與上課","健康追蹤","基本資料"]){
+  await click(label);
+  expect(host.querySelector("aside")).toBe(shell);
+  expect(shell?.getAttribute("data-width")).toBe("880");
+  expect(shell?.getAttribute("data-fit-content")).toBe("false");
+  expect(host.querySelector("h2")?.textContent).toBe("測試學員");
+  expect(host.querySelector('nav[aria-label="顧客詳細資料分區"]')).not.toBeNull();
+ }
+ await click("編輯顧客資料");
+ expect(host.querySelector('input[name="name"]')).not.toBeNull();
+ await click("返回基本資料");
+ expect([...host.querySelectorAll("button")].map(b=>b.textContent)).toContain("編輯顧客資料");
+ expect(host.querySelector("aside")).toBe(shell);
 });

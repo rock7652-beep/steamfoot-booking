@@ -9,11 +9,18 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import type { SaveCustomerHealthRecordState } from "@/server/actions/customer-health-record";
 
 type Data = Extract<Awaited<ReturnType<typeof loadCourseHealth>>, { success: true }>['data'];
-type Props = { member: true; customerId?: never; canEdit?: never } | { member?: false; customerId: string; canEdit: boolean };
+type Props = ({ member: true; customerId?: never; canEdit?: never } | { member?: false; customerId: string; canEdit: boolean }) & { onDirtyChange?: (value: boolean) => void; onPending?: (value: boolean) => void };
 
 /** Mature measurement form + assessment/history/trend, with explicit scoped adapters. */
 export function CourseHealthWorkspace(props: Props) {
-  const { member, customerId } = props;
+  const { member, customerId, onDirtyChange, onPending } = props;
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  function markDirty(value: boolean) { setDirty(value); onDirtyChange?.(value); }
+  function returnToRecords() {
+    if (saving || (dirty && !window.confirm("尚有未儲存的變更，確定離開？"))) return;
+    markDirty(false); setEdit(undefined);
+  }
   const canEdit = member || props.canEdit;
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
@@ -39,26 +46,29 @@ export function CourseHealthWorkspace(props: Props) {
     return () => { active = false; };
   }, [load]);
   const onSaved = useCallback(() => {
+    setDirty(false); onDirtyChange?.(false);
     setEdit(undefined);
     setNotice("量測紀錄已儲存");
     void refresh();
-  }, [refresh]);
+  }, [refresh, onDirtyChange]);
   async function submit(_state: SaveCustomerHealthRecordState, form: FormData) {
     const values = { ...healthRecordFormData(form), id: edit?.id };
+    setSaving(true); onPending?.(true);
     try {
       const result = member ? await saveCourseMemberHealth(values) : await saveCourseHealth({ ...values, customerId });
       return result.success ? { error: null, saved: true } : { error: result.error };
     } catch { return { error: "連線中斷，已填資料仍保留，請重試" }; }
+    finally { setSaving(false); onPending?.(false); }
   }
   return <section className="min-w-0 space-y-4">
     {notice && <p role="status" className="text-sm text-primary-700">{notice}</p>}
     {error ? <div role="alert"><p>{error}</p><button type="button" className="min-h-11 px-3" onClick={refresh}>重新讀取</button></div> : edit !== undefined ? <>
-      <button type="button" className="min-h-11 px-3 text-primary-700" onClick={() => setEdit(undefined)}>返回量測紀錄</button>
-      <HealthRecordForm requestId={requestId} today={toLocalDateStr()} mode={edit ? "edit" : "create"} initialValues={edit ?? undefined} submitAction={submit} onSaved={onSaved} notePlaceholder="例如：上課前量測" />
+      <button type="button" className="min-h-11 px-3 text-primary-700" disabled={saving} onClick={returnToRecords}>返回量測紀錄</button>
+      <div onChangeCapture={() => markDirty(true)}><HealthRecordForm requestId={requestId} today={toLocalDateStr()} mode={edit ? "edit" : "create"} initialValues={edit ?? undefined} submitAction={submit} onSaved={onSaved} notePlaceholder="例如：上課前量測" /></div>
     </> : !data ? <p role="status">讀取健康紀錄…</p> : <>
       {canEdit && <button type="button" className="min-h-11 rounded-lg bg-primary-700 px-4 text-white" onClick={() => { setEdit(null); setRequestId(crypto.randomUUID()); setNotice(""); }}>新增量測</button>}
       {data.summary.latest ? <HealthAssessmentCard summary={data.summary} compact={!member} /> : <p>尚無量測紀錄，可新增第一筆量測。</p>}
-      {canEdit && <details><summary className="min-h-11 cursor-pointer py-3 font-medium">編輯量測紀錄（最近 100 筆）</summary>
+      {canEdit && data.records.length > 0 && <details><summary className="min-h-11 cursor-pointer py-3 font-medium">編輯量測紀錄（最近 100 筆）</summary>
         <ul className="divide-y divide-earth-100">{data.records.map(record => <li key={record.id} className="flex min-w-0 items-center justify-between gap-2 py-2 text-sm">
           <span className="min-w-0 break-words">{record.measuredAt} · {record.weight == null ? "體重未填" : `${record.weight} kg`}</span>
           <button type="button" className="min-h-11 shrink-0 px-3 text-primary-700" onClick={() => { setEdit(record); setRequestId(crypto.randomUUID()); setNotice(""); }}>編輯</button>

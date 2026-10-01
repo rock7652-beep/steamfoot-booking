@@ -162,6 +162,7 @@ export function CourseMemberWorkspace({
   function open(value: typeof panel) {
     if (!canLeave()) return false;
     setDirty(false);
+    if(value === "assign" || value === "card")setPersonTab("plans");
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
     if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
@@ -175,7 +176,13 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null) { if(open("plan"))setPlan(next); }
   const [formPending,setFormPending]=useState(false);
-  function finishDraftForm(){setDirty(false);setPanel(null);router.refresh();}
+  function finishDraftForm(){setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  const customerPanel = !!person && view === "customers" && panel !== "plan";
+  function switchPersonTab(value: typeof personTab) {
+    if (pending || formPending) return;
+    if (panel !== "person" && !open("person")) return;
+    setPersonTab(value);
+  }
 
   function submit(
     event: FormEvent<HTMLFormElement>,
@@ -355,13 +362,13 @@ export function CourseMemberWorkspace({
         <RightSheet presentation="centered"
           open
           onClose={close}
-          width={panel === "assign" ? 880 : 640}
-          fitContent={panel === "assign" || panel === "person" || panel === "health" || panel === "card"}
+          width={customerPanel || panel === "assign" ? 880 : 640}
+          fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
             <h2 id="course-member-sheet" className="text-base font-semibold text-primary-900">
-              {panel === "person"
+              {customerPanel ? person.name : panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? plan ? "編輯方案" : "新增方案"
@@ -373,6 +380,7 @@ export function CourseMemberWorkspace({
             </h2>
             <div className="flex shrink-0 items-center gap-2">
               {panel === "person" && person && personTab === "info" && !editingPerson && canEdit && <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
+              {panel === "person" && person && editingPerson && <button type="button" className="min-h-11 px-3 text-sm text-primary-700" onClick={()=>{if(canLeave()){setEditingPerson(false);setDirty(false);}}}>返回基本資料</button>}
             <button
               type="button"
               className={button}
@@ -383,9 +391,9 @@ export function CourseMemberWorkspace({
             </button>
             </div>
           </header>
-          {panel === "person" && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
-            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setPersonTab(value as typeof personTab)}>{label}</button>)}
-            {healthEnabled && <button type="button" className="min-h-11 rounded-lg px-3 text-sm text-primary-700 hover:bg-primary-50" onClick={()=>open("health")}>健康追蹤</button>}
+          {(customerPanel || panel === "person") && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
+            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
+            {healthEnabled && <button type="button" aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
@@ -420,7 +428,7 @@ export function CourseMemberWorkspace({
                 <p className="text-sm">建立後請到人員管理一次設定授課資格，再新增排課。</p>
               </form>
             )}
-            {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
+            {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel === "person" && person && personTab === "plans" && <section className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
@@ -429,7 +437,7 @@ export function CourseMemberWorkspace({
               </section>}
 
             </section>}
-            {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
+            {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>switchPersonTab(panel === "card" || panel === "assign" ? "plans" : "info")}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
               <CustomerDetailFields items={[
                 {label:"電話",value:<CustomerPhoneLink phone={person.phone}/>},
