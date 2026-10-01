@@ -33,12 +33,22 @@ it("teacher absence completes a private or group class without marking or chargi
   expect(bookings.every(booking=>booking.status==="RESERVED")).toBe(true);
 });
 
-it("uses a gray pending edge and a course-colored completed edge without a separate dash", () => {
+it("counts both kinds of leave once, excludes cancelled reservations, and reverses corrections", () => {
+  const bookings = [
+    ...Array.from({length: 7}, () => ({status: "ATTENDED"})),
+    {status: "NO_SHOW"},
+    {status: "CANCELLED", absenceKind: "STUDENT_LEAVE"},
+    {status: "CANCELLED", absenceKind: "GROUP_LEAVE_FORFEITED"},
+    {status: "CANCELLED"},
+  ];
+  expect(courseAttendanceProgress(bookings, 2)).toEqual({total: 10, processed: 10, complete: true});
+  expect(courseAttendanceProgress([{status: "RESERVED"}, ...bookings.slice(1)])).toEqual({total: 10, processed: 9, complete: false});
+  expect(courseAttendanceProgress(bookings.slice(8, 10))).toEqual({total: 2, processed: 2, complete: true});
+});
+
+it("fitness cards show attendance progress using the ownership-filtered roster", () => {
   const board = readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
-  expect(board).toContain("border-l-slate-400");
-  for (const color of ["sky", "emerald", "violet", "pink", "orange"]) {
-    expect(board).toContain(`border-l-${color}-600`);
-  }
-  expect(board).not.toContain('className="h-[3px] w-2 shrink-0 rounded bg-emerald-600"');
-  expect(board).toContain("leaveCount={leaveCounts[session.id] ?? 0}");
+  expect(board).toContain("courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance)");
+  expect(board).toContain('title="點名完成度"');
+  expect(board).not.toContain('activeBookings.every');
 });

@@ -360,8 +360,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   };
 
   return (
-    <PageShell>
-      <PageHeader
+    <PageShell compact>
+      <PageHeader compact
         title="營運"
         subtitle="營收指標、交易查詢與修正都在這一頁完成"
         actions={

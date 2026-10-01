@@ -355,6 +355,7 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={panel === "assign" ? 880 : 640}
+          fitContent={panel === "assign"}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b p-4">
@@ -510,7 +511,7 @@ export function CourseMemberWorkspace({
                   />
 
                 </label>}
-                {profitEnabled&&!music&&<label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>}
+                {profitEnabled&&!music&&<label className="block">所屬店長<CourseOptionSelect label="所屬店長" name="revenueStaffId" placeholder="請選擇所屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>}
 
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>

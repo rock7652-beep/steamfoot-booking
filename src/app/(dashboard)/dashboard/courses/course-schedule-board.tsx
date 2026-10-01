@@ -270,15 +270,14 @@ function SessionCard({
     ? `調至 ${hhmm(session.previewDestinationStartsAt)} · 教室 ${rooms.find(room=>room.id===session.previewDestinationRoomId)?.name??"待核對"}` : null;
   const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
-  const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
-  const attendance = courseAttendanceState(session.bookings, leaveCount, session.teacherAttendance);
+  const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
   const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
   const teacherTitle = businessProfile === "MUSIC" ? "老師" : "教練";
   const teacherState=session.teacherAttendance==="LEAVE"?`${teacherTitle}請假`:session.teacherAttendance==="NO_SHOW"?`${teacherTitle}曠課`:"";
-  const attendanceComplete = businessProfile === "MUSIC"
-    ? attendance.complete
-    : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
+  const attendanceComplete = attendance.complete;
+  const progressText = rental ? "" : attendance.teacherAbsent ? "免點名" : attendance.total ? `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}` : "";
+  const progressColor = attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500";
   const attendanceLabel = session.previewFaded ? `${session.previewFaded}（原課已釋出；${session.isFixed ? "僅可排單次臨時課" : "可核對後排固定課"}）`
     : session.previewRosterUnknown ? "截圖未顯示學員名單"
     : session.previewAttendanceUnknown ? "原圖未提供點名資料"
@@ -319,9 +318,9 @@ function SessionCard({
       <span className="sr-only">{presentation.label}</span>
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
       {dense && businessProfile !== "MUSIC" ? <>
-        <div className="text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
+        <div className="flex items-center justify-between gap-1 text-sm leading-4 tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</span>{progressText && <span className={`shrink-0 font-semibold ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
         <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 flex-1 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong></div>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><span className="min-w-0 flex-1 truncate">{rental ? copy.room : copy.coach}</span>{!rental && <span className="shrink-0">{session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length}/${session.capacity}`}{teacherState ? ` · ${teacherState}` : ""}</span>}</div>
+        {!brief && <div className="truncate text-sm leading-5">{rental ? copy.room : copy.coach}{teacherState ? ` · ${teacherState}` : ""}</div>}
       </> : musicDense ? (
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
@@ -365,7 +364,7 @@ function SessionCard({
         {substitute && (
           <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">代課</span>
         )}
-        {attendanceComplete && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">{businessProfile === "MUSIC" ? teacherState ? `${teacherState} · 已記錄` : "點名完成" : "已出席"}</span>}
+        {progressText && <span className={`text-xs font-semibold ${progressColor}`} title="點名完成度">{progressText}</span>}
         {fixed && businessProfile === "MUSIC" && (
           <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${session.isBiweekly ? "bg-blue-100 text-blue-900 ring-1 ring-blue-200" : "bg-teal-100 text-teal-900 ring-1 ring-teal-200"}`}>
             {session.isBiweekly ? "隔週固定" : "每週固定"}
@@ -501,7 +500,7 @@ export function CourseScheduleBoard({
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section className="space-y-2" aria-label="教室週課表">
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-800">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-white px-2 py-1 text-sm text-earth-800">
           <label htmlFor="course-week-room" className="font-medium">教室</label>
           <select id="course-week-room" aria-label="選擇週表教室" value={roomId ?? ""} onChange={(event) => setWeekRoomId(event.target.value)} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {activeRooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}

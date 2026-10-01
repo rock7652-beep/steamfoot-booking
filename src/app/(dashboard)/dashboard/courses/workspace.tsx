@@ -900,7 +900,7 @@ export function CourseWorkspace({
                       const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${session.nameSnapshot}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className="relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
-                    {list.length > 2 && <span className="pointer-events-none text-xs text-primary-800">另 {list.length-2} 筆</span>}
+                    {list.length > 2 && <button type="button" className="relative text-xs text-primary-800 hover:underline" onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-2} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
                   </div>
                 );
@@ -933,8 +933,8 @@ export function CourseWorkspace({
               sessions={filteredScheduleSessions.map(session=>({...session,
                 teacherAttendance:pendingTeacherAttendance[session.id]??session.teacherAttendance,
                 previewStudentNames:session.bookings.length?undefined:cancelledBookings.filter(booking=>booking.sessionId===session.id&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")).map(booking=>booking.customerName),
-                bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking),
-                displayBookings:session.displayBookings?.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking)}))}
+                bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id],absenceKind:pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind}:booking),
+                displayBookings:session.displayBookings?.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id],absenceKind:pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind}:booking)}))}
               leaveCounts={[...cancelledBookings,...pendingLeaveIds.filter(id=>!cancelledBookings.some(booking=>booking.id===id)).flatMap(id=>{
                 const session=sessions.find(item=>item.bookings.some(booking=>booking.id===id));
                 return session?[{id,sessionId:session.id,absenceKind:"STUDENT_LEAVE"}]:[];
