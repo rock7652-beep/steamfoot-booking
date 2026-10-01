@@ -410,6 +410,7 @@ export function CourseWorkspace({
       ? "RENTAL" as const : undefined,
   }));
   const monthTotals = scheduleTotals(monthSessions);
+  const scheduleFiltered = coachFilter !== "all" || roomFilter !== "all" || category !== "all" || businessProfile !== "MUSIC" && assignedCoachFilter !== "all" || !!scheduleQuery.trim();
   const dailySessions = sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === selectedDate);
   const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => {
     const teacherStatus = pendingTeacherAttendance[session.id] ?? session.teacherAttendance;
@@ -476,7 +477,7 @@ export function CourseWorkspace({
     }
   }, [businessProfile, moveClipboard, moveClipboardLoaded, moveStorageKey]);
 
-  const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
@@ -551,7 +552,7 @@ export function CourseWorkspace({
       }
     });
   }
-  function openSchedule(seed: {time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
+  function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
     setScheduleSeed(seed);
     setChosen(templates[0]?.id ?? "");
@@ -792,10 +793,11 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
+          {businessProfile !== "MUSIC" && <div className="flex flex-wrap items-center gap-3 text-xs text-earth-700" aria-label="課表課型圖例"><span className="rounded border border-violet-300 bg-violet-100 px-2 py-1 text-violet-950">團課</span><span className="rounded border border-sky-300 bg-sky-100 px-2 py-1 text-sky-950">私課</span><span className="rounded border border-emerald-300 bg-emerald-100 px-2 py-1 text-emerald-950">一般／自組班</span>{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>}
           {scheduleMode === "month" ? (
             <>
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
-                本月已排課程 {monthTotals.classes} 堂｜預約學員 {monthTotals.people} 人次｜租借 {monthTotals.rentals} 次
+                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂｜預約學員 {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
               </p>
               <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
@@ -818,7 +820,8 @@ export function CourseWorkspace({
               )}
               {Array.from({ length: days }, (_, i) => {
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
-                  list = byDate.get(date) ?? [],
+                  list = (byDate.get(date) ?? []).filter(session => !session.previewFaded),
+                  total = scheduleTotals(list),
                   calendarDay = calendarDays[date],
                   isClosed =
                     calendarDay?.status === "closed" ||
@@ -834,17 +837,17 @@ export function CourseWorkspace({
                       go(date);
                       changeScheduleMode("day");
                     }}
-                    className={`relative flex min-w-0 h-16 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
+                    className={`relative flex min-w-0 h-24 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
                           ? "bg-primary-50"
                           : list.length
-                            ? "bg-white"
-                            : "bg-earth-50 text-earth-600"
+                            ? "bg-primary-50/60 text-primary-900"
+                            : "bg-white text-earth-400"
                     }`}
                   >
-                    <span className={`shrink-0 text-xs font-medium leading-4 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
+                    <span className={`shrink-0 text-sm font-medium leading-5 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
                         className="mt-1 max-w-full truncate rounded bg-earth-200 px-1.5 py-0.5 text-[10px] font-medium text-earth-700"
@@ -853,7 +856,15 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    <span className="mt-1 text-[11px] font-medium text-earth-700">{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次</span>
+                    {total.classes > 0 && <span className="text-xs font-semibold text-primary-900">{total.classes} 堂｜{total.people} 人次</span>}
+                    {list.slice(0,2).map(session => {
+                      const type = allTemplates.find(template => template.id === session.templateId)?.classType;
+                      const color = type === "GROUP" ? "border-violet-300 bg-violet-100 text-violet-950" : type === "PRIVATE" ? "border-sky-300 bg-sky-100 text-sky-950" : "border-emerald-300 bg-emerald-100 text-emerald-950";
+                      const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"} · ${session.nameSnapshot}`;
+                      return <span key={session.id} title={label} className={`mt-0.5 block w-full truncate rounded border px-1 text-xs leading-4 ${color}`}>{label}</span>;
+                    })}
+                    {list.length > 2 && <span className="text-xs text-primary-800">另 {list.length-2} 堂</span>}
+                    {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="mt-1 text-xs text-earth-400">無符合課程</span>}
                   </button>
                 );
               })}
@@ -901,7 +912,10 @@ export function CourseWorkspace({
               staffAvailability={staffAvailability}
               staffAvailabilityExceptions={staffAvailabilityExceptions}
               storePeriods={calendarDays[selectedDate]?.periods ?? []}
-              onOpenEmpty={({time,roomId,coachId,durationMinutes})=>openSchedule({time,roomId,coachId,durationMinutes})}
+              canCreate={canCreate}
+              calendarDays={calendarDays}
+              occupiedSessions={sessions}
+              onOpenEmpty={({date,time,roomId,coachId,durationMinutes})=>openSchedule({date,time,roomId,coachId:coachId ?? (coachFilter !== "all" ? coachFilter : undefined),durationMinutes})}
               moveClipboard={moveClipboard}
               onPasteMove={pasteMove}
               onSelectDate={go}
@@ -1892,7 +1906,7 @@ export function CourseWorkspace({
                 templates={templates}
                 rooms={rooms}
                 coaches={coaches}
-                initialDate={selectedDate}
+                initialDate={scheduleSeed.date ?? selectedDate}
                 initialTemplateId={copySource?.templateId}
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}
@@ -2013,7 +2027,7 @@ export function CourseWorkspace({
                         className={field}
                         name="date"
                         type="date"
-                        defaultValue={copySource ? "" : selectedDate}
+                        defaultValue={copySource ? "" : scheduleSeed.date ?? selectedDate}
                         required
                       />
                     </label>
@@ -2083,7 +2097,7 @@ export function CourseWorkspace({
                         {roomCapacityNotice}
                       </p>
                     )}
-                    <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : template?.durationMinutes} 分鐘）</summary>
+                    <details className="col-span-full" open={scheduleSeed.durationMinutes !== undefined || undefined}><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : scheduleSeed.durationMinutes ?? template?.durationMinutes} 分鐘）</summary>
                     <label key={`duration-${chosen}`}>
                       時長（分鐘）
                         <input
@@ -2093,7 +2107,7 @@ export function CourseWorkspace({
                           defaultValue={
                             copySource
                               ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
-                              : template?.durationMinutes
+                              : scheduleSeed.durationMinutes ?? template?.durationMinutes
                           }
                           min={1}
                           max={480}
@@ -2367,7 +2381,7 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? oneToOneMusicDialog ? "overflow-y-auto" : "overflow-y-auto lg:overflow-hidden"
+                    ? oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >

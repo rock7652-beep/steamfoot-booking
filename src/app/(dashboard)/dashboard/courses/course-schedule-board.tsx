@@ -99,10 +99,13 @@ type Props = {
   coaches: Coach[];
   templates: Template[];
   pending?: boolean;
+  canCreate?: boolean;
+  occupiedSessions?: Session[];
+  calendarDays?: Record<string, {status: string; periods: {openTime:string;closeTime:string}[]}>;
   storePeriods: {openTime:string;closeTime:string}[];
   staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
   staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
-  onOpenEmpty: (value:{time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
+  onOpenEmpty: (value:{date?:string;time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
   moveClipboard?: CourseMoveClipboard | null;
   onPasteMove?: (value:{time:string;roomId:string;coachId:string})=>void;
   onSelectDate: (date: string) => void;
@@ -288,6 +291,7 @@ function SessionCard({
       : trialClass ? "border-l-orange-600"
         : alteredSchedule ? "border-l-emerald-600" : "border-l-sky-600";
   const musicColor = `${musicTypeColor} border-l-[4px] ${musicAttendanceColor}`;
+  const fitnessColor = rental ? "border-pink-400 bg-pink-100" : copy.groupClass ? "border-violet-400 bg-violet-100" : copy.privateClass ? "border-sky-400 bg-sky-100" : "border-emerald-400 bg-emerald-100";
   const showCapacityState = !musicDense || !copy.privateClass;
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = rental || !copy.privateClass && !session.bookings.length
@@ -315,13 +319,13 @@ function SessionCard({
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : fitnessColor} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       {dense && businessProfile !== "MUSIC" ? <>
-        <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
-        <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.bookings.filter(booking => booking.status !== "CANCELLED").length}/{session.capacity}{teacherState ? ` · ${teacherState}` : ""}</span></div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.bookings.filter(booking => booking.status !== "CANCELLED").length}/{session.capacity}{teacherState ? ` · ${teacherState}` : ""}</span></div>
       </> : musicDense ? (
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
@@ -423,6 +427,9 @@ export function CourseScheduleBoard({
   coaches,
   templates,
   pending = false,
+  canCreate = true,
+  occupiedSessions,
+  calendarDays,
   storePeriods,
   staffAvailability,
   staffAvailabilityExceptions,
@@ -441,7 +448,7 @@ export function CourseScheduleBoard({
   const [resourceView, setResourceView] = React.useState<ResourceView>(businessProfile === "MUSIC" && !replica ? "coach" : "room");
   const [weekRoomId, setWeekRoomId] = React.useState(initialWeekRoomId ?? activeRooms[0]?.id ?? "");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
-  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
+  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(businessProfile === "MUSIC" ? 60 : 30);
   const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
   const [matchError, setMatchError] = React.useState("");
   const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
@@ -472,7 +479,8 @@ export function CourseScheduleBoard({
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  const musicResourceWidth = 132;
+  const musicResourceWidth = businessProfile === "MUSIC" ? 132 : 200;
+  const hourHeight = businessProfile === "MUSIC" ? 50 : 96;
   function snapDayScroll() {
     const element = dayScrollRef.current;
     if (!element || businessProfile !== "MUSIC") return;
@@ -504,7 +512,7 @@ export function CourseScheduleBoard({
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
         </div>
         <div className="max-h-[calc(100dvh-18rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
-          <div className="grid w-max min-w-full" style={{ gridTemplateColumns: "64px repeat(7, minmax(132px, 1fr))" }}>
+          <div className="grid w-max min-w-full" style={{ gridTemplateColumns: "64px repeat(7, minmax(170px, 1fr))" }}>
             <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
               const total = scheduleTotals(scheduleOnDate(weekSessions, date));
@@ -514,7 +522,7 @@ export function CourseScheduleBoard({
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>
-              <div className="sticky left-0 z-20 h-[60px] border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">
+              <div className="sticky left-0 z-20 h-[96px] border-b border-r border-earth-200 bg-white px-2 py-1 text-xs text-earth-600">
                 {String(hour).padStart(2, "0")}:00
               </div>
               {dates.map((date) => {
@@ -523,15 +531,23 @@ export function CourseScheduleBoard({
                   session.rescheduledFromRoomId === roomId &&
                   toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
                   Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
-                return <div key={`${date}:${hour}`} className="relative h-[60px] border-b border-r border-earth-100 bg-white">
-                  <div className="pointer-events-none absolute inset-x-0 top-[30px] border-t border-dashed border-earth-200" />
+                return <div key={`${date}:${hour}`} className="relative h-[96px] border-b border-r border-earth-100 bg-white">
+                  <div className="absolute inset-0 grid grid-rows-2">{["00","30"].map(minute => {
+                    const time = `${String(hour).padStart(2,"0")}:${minute}`;
+                    const day = calendarDays?.[date];
+                    const periods = normalizeAvailabilityPeriods(day ? day.periods : storePeriods);
+                    const conflict = (occupiedSessions ?? sessions).some(session => !session.previewFaded && session.roomId === roomId && sessionDate(session) === date && minuteOfDay(time) < minuteOfDay(hhmm(session.endsAt)) && minuteOfDay(time) + 30 > minuteOfDay(hhmm(session.startsAt)));
+                    const available = periodContains(periods,time,30) && !conflict && day?.status !== "closed" && day?.status !== "training";
+                    const reason = conflict ? "已有課程" : "店家未開放";
+                    return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? "排課" : reason}`} title={available ? `${date} ${time} · 排課 30 分鐘` : reason} onClick={() => onOpenEmpty({date,time,roomId,durationMinutes:30})} className={`group relative min-h-11 border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">＋ {time}</span></button>;
+                  })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: hhmm(original.startsAt).endsWith(":30") ? 30 : 2, height: Math.max(26, sessionDurationMinutes(original) * 60 / 60 - 4) }}>
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * 96 / 60 - 4) }}>
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 `} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 60 / 60, height: Math.max(26, sessionDurationMinutes(session) * 60 / 60 - 4) }}>
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 `} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(session) * 96 / 60 - 4) }}>
                     <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => onOpenSession(session.id, date)} />
                   </div>)}
                 </div>;
@@ -599,11 +615,11 @@ export function CourseScheduleBoard({
     );
   }
 
-  const daySessions = sessions
+  const daySessions = (occupiedSessions ?? sessions)
     .filter((session) => sessionDate(session) === selectedDate)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const dayTotals = scheduleTotals(scheduleOnDate(sessions, selectedDate));
-  const filtered = daySessions.filter((session) => filterSession(session, quickFilter));
+  const filtered = sessions.filter(session => sessionDate(session) === selectedDate && filterSession(session, quickFilter));
   const resources =
     resourceView === "room"
       ? activeRooms.map((room) => ({ id: room.id, name: room.name }))
@@ -611,8 +627,8 @@ export function CourseScheduleBoard({
   const normalizedStorePeriods = normalizeAvailabilityPeriods(storePeriods);
   const boundaryMinutes = normalizedStorePeriods.flatMap((period)=>[minuteOfDay(period.openTime),minuteOfDay(period.closeTime)]);
   const sessionMinutes = filtered.flatMap((session)=>[minuteOfDay(hhmm(session.startsAt)),minuteOfDay(hhmm(session.endsAt))]);
-  const minMinute = Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]), ...(businessProfile === "MUSIC" ? [9*60] : []));
-  const maxMinute = Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]), ...(businessProfile === "MUSIC" ? [22*60] : []));
+  const minMinute = Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]), ...[9*60]);
+  const maxMinute = Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]), ...[22*60]);
   const firstHour = Math.floor(minMinute/60);
   const lastHour = Math.max(firstHour,Math.ceil(maxMinute/60)-1);
   const times = Array.from({length:lastHour-firstHour+1},(_,index)=>`${String(firstHour+index).padStart(2,"0")}:00`);
@@ -651,6 +667,7 @@ export function CourseScheduleBoard({
   const matchedPair = (roomId:string,time:string) => matchedSlots?.find(s => s.roomId === roomId && s.time === time);
   const resourceCount = Math.max(resources.length, 1);
   const musicDense = businessProfile === "MUSIC";
+  const timelineDense = true;
   const timetableWidth = musicDense
     ? 64 + resourceCount * musicResourceWidth
     : "100%";
@@ -712,7 +729,7 @@ export function CourseScheduleBoard({
           </span></>}
         </div>}
 
-        {musicDense && !moveClipboard && !replica && (
+        {!moveClipboard && !replica && (
           <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
@@ -775,17 +792,13 @@ export function CourseScheduleBoard({
         </details>
       )}
 
-      {!daySessions.length && !musicDense ? (
-        <div className="rounded-xl border border-dashed border-earth-200 bg-white p-10 text-center text-earth-500">
-          當日尚無課程
-        </div>
-      ) : !filtered.length && !(musicDense && quickFilter === "all") ? (
+      {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
           此篩選目前沒有課程
         </div>
       ) : (
-        <div className={musicDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
-          {musicDense && (
+        <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
+          {timelineDense && (
             <div className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
               <div className="absolute inset-y-0 left-0 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
                 時間
@@ -795,7 +808,7 @@ export function CourseScheduleBoard({
                 style={{
                   width: timetableWidth,
                   minWidth: timetableMinWidth,
-                  gridTemplateColumns: `64px repeat(${resourceCount}, ${musicResourceWidth}px)`,
+                  gridTemplateColumns: businessProfile === "MUSIC" ? `64px repeat(${resourceCount}, ${musicResourceWidth}px)` : `64px repeat(${resourceCount}, minmax(200px, 1fr))`,
                   transform: `translateX(-${dayScrollLeft}px)`,
                 }}
               >
@@ -813,14 +826,14 @@ export function CourseScheduleBoard({
             </div>
           )}
           <div
-            ref={musicDense ? dayScrollRef : undefined}
-            onScroll={musicDense ? (event) => setDayScrollLeft(event.currentTarget.scrollLeft) : undefined}
+            ref={timelineDense ? dayScrollRef : undefined}
+            onScroll={timelineDense ? (event) => setDayScrollLeft(event.currentTarget.scrollLeft) : undefined}
             onPointerUp={musicDense ? snapDayScroll : undefined}
             onTouchEnd={musicDense ? snapDayScroll : undefined}
-            className={musicDense ? "max-w-full overflow-x-auto overscroll-x-contain scroll-smooth pb-1" : "max-w-full overflow-x-auto pb-1"}
+            className={timelineDense ? "max-w-full overflow-x-auto overscroll-x-contain scroll-smooth pb-1" : "max-w-full overflow-x-auto pb-1"}
           >
             <div
-              className={musicDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
+              className={timelineDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
               style={{
                 width: timetableWidth,
                 minWidth: timetableMinWidth,
@@ -831,10 +844,10 @@ export function CourseScheduleBoard({
                 style={{
                   gridTemplateColumns: musicDense
                     ? `64px repeat(${resourceCount}, ${musicResourceWidth}px)`
-                    : `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
+                    : `64px repeat(${resourceCount}, minmax(200px, 1fr))`,
                 }}
               >
-                {!musicDense && (
+                {!timelineDense && (
                   <>
                     <div className="sticky left-0 top-0 z-50 border-b border-r border-earth-200 bg-earth-50 px-2 py-3 text-xs font-medium text-earth-500">
                       時間
@@ -853,7 +866,7 @@ export function CourseScheduleBoard({
 
                 {times.map((time) => (
               <React.Fragment key={time}>
-                <div className={`sticky left-0 z-30 border-b border-r border-earth-100 bg-white px-2 text-xs font-medium text-earth-600 ${musicDense ? "py-2" : "py-3"}`}>
+                <div className={`sticky left-0 z-30 border-b border-r border-earth-100 bg-white px-2 text-xs font-medium text-earth-600 ${timelineDense ? "py-2" : "py-3"}`}>
                   {time}
                 </div>
                 {(resources.length ? resources : [{ id: "__none", name: "" }]).map((resource) => {
@@ -875,9 +888,9 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className={`relative border-b border-r border-earth-100 ${musicDense ? "h-[50px]" : "min-h-20 space-y-2 p-2"}`}
+                      className="relative border-b border-r border-earth-100" style={{height:hourHeight}}
                     >
-                      {musicDense && resource.id !== "__none" && (
+                      {timelineDense && resource.id !== "__none" && (
                         <div className="absolute inset-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
@@ -925,7 +938,7 @@ export function CourseScheduleBoard({
                               <button
                                 key={minute}
                                 type="button"
-                                disabled={!available||pending||readOnly}
+                                disabled={!available||pending||readOnly||!canCreate}
                                  title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
                                  aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
@@ -946,21 +959,21 @@ export function CourseScheduleBoard({
                           })}
                         </div>
                       )}
-                      {musicDense && movedShadows.map((session) => {
+                      {timelineDense && movedShadows.map((session) => {
                         const original = originalPlace(session);
-                        return original && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: hhmm(original.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(original) * 50 / 60 - 4) }}>
+                        return original && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(21, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
                           <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} businessProfile={businessProfile} fixed={session.isFixed} dense resourceView={resourceView} onOpen={() => {}} readOnly />
                         </div>;
                       })}
 
-                      <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
+                      <div className={timelineDense?"relative z-10 p-1 pointer-events-none":"contents"}>
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={musicDense ? `absolute left-1 right-1 z-10 pointer-events-auto` : "pointer-events-auto"}
-                            style={musicDense ? {
-                              top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2,
-                              height: Math.max(21, sessionDurationMinutes(session) * (50 / 60) - 4),
+                            className={timelineDense ? `absolute left-1 right-1 z-10 pointer-events-auto` : "pointer-events-auto"}
+                            style={timelineDense ? {
+                              top: minuteOfDay(hhmm(session.startsAt)) % 60 * hourHeight / 60 + 2,
+                              height: Math.max(21, sessionDurationMinutes(session) * (hourHeight / 60) - 4),
                             } : undefined}
                           >
                             <SessionCard
@@ -972,7 +985,7 @@ export function CourseScheduleBoard({
                               fixed={session.isFixed}
                               leaveCount={leaveCounts[session.id] ?? 0}
                               readOnly={readOnly}
-                              dense={musicDense}
+                              dense={timelineDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}
                             />
