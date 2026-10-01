@@ -64,16 +64,32 @@ it("music shares readable white cards, class dots and attendance progress",async
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   const item={...session,endsAt:"2026-10-01T03:30:00Z",isFixed:true,isBiweekly:true,bookings:[{customerId:"learner",customerName:"小安",status:"ATTENDED",bookingKind:"PLAN"}]};
-  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"week",sessions:[item],onOpenEmpty:vi.fn()})));
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",initialResourceView:"room",mode:"week",sessions:[item],onOpenEmpty:vi.fn()})));
   const card=host.querySelector<HTMLButtonElement>('button[data-schedule-card="tracking"]')!;
   expect(card.className).toContain("bg-white");
   expect(card.className).not.toContain("border-l-4");
   expect(card.querySelector('[aria-hidden="true"]')?.className).toContain("bg-emerald-600");
   expect(card.textContent).toContain("10:00–11:30");
   expect(card.textContent).toContain("✓ 1/1");
-  expect(card.textContent).toContain("隔週固定");
+  expect(card.textContent).toContain("隔週");
   expect(card.querySelector("strong")?.parentElement?.className).toContain("text-sm");
   expect(host.textContent).toContain("今天");
   expect(host.textContent).not.toContain("0 堂｜0 人次");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("music keeps inactive historical rooms in the timeline and expands teacher columns",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"week",initialResourceView:"room",sessions:[{...session,roomId:"old"}],rooms:[...base.rooms,{id:"old",name:"02",isActive:false}],initialWeekRoomId:"old",onOpenEmpty:vi.fn()})));
+  expect(host.querySelector('[aria-label="教室週課表"]')).not.toBeNull();
+  expect(host.textContent).toContain("10:00–11:00");
+  expect(host.querySelector<HTMLButtonElement>('button[aria-label="2026-10-01 09:00 資源未啟用"]')?.disabled).toBe(true);
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"day",sessions:[session],coaches:[...base.coaches,{...base.coaches[0],id:"two",displayName:"老師二"}],onOpenEmpty:vi.fn()})));
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="老師視角")!.click());
+  expect(host.querySelector('[aria-label="日表日期"]')?.textContent).toContain("2026-10-01");
+  expect(host.querySelector('[style*="grid-template-columns: 64px repeat(2, minmax(200px, 1fr))"]')).not.toBeNull();
  } finally {await act(async()=>root.unmount());host.remove();}
 });

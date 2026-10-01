@@ -218,7 +218,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
 
         {filtersOpen ? (
           <div id="course-customer-filters" className="rounded-lg border border-earth-200 bg-earth-50/50 p-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <label className="space-y-1 text-sm text-earth-600">
                 <span>顧客狀態</span>
                 <select value={current.status} onChange={(e) => setParam("status", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
@@ -260,7 +260,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
                 </Link>
               ) : null}
               <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-md border border-earth-300 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">
-                完成
+                收合
               </button>
             </div>
           </div>

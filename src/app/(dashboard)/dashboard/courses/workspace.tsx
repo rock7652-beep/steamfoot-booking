@@ -905,7 +905,8 @@ export function CourseWorkspace({
                     {list.slice(0,2).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
                       const color = courseClassPresentation(type, !!allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode, session.previewKind === "RENTAL").dot;
-                      const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${session.nameSnapshot}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
+                      const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
+                      const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className="relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
                     {list.length > 2 && <button type="button" className="relative text-xs text-primary-800 hover:underline" onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-2} 筆</button>}
@@ -935,6 +936,9 @@ export function CourseWorkspace({
             <CourseScheduleBoard
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
+              initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}
+              initialWeekRoomId={params.get("resourceId") ?? undefined}
+              onResourceChange={(view,resourceId)=>{ const next=new URLSearchParams(window.location.search);next.set("resourceView",view);if(resourceId) next.set("resourceId",resourceId);else next.delete("resourceId");window.history.replaceState(null,"",`${pathname}?${next}`); }}
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}

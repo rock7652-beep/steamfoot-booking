@@ -302,7 +302,7 @@ export default async function CoursesPage({
       }
     >
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
-        <div className="flex flex-wrap gap-2">
+        <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
           {showLubyReplica && (
             <a href="/dashboard/courses?showcase=luby-day&date=2026-09-26" className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
               查看 9/26 陸比原課表對照（9/12 截圖移日）
@@ -311,7 +311,7 @@ export default async function CoursesPage({
           <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
             查看 9/26 七種班型示意（49 堂）
           </a>
-        </div>
+        </div></details>
       )}
       {view !== "schedule" && (
         <PageHeader
