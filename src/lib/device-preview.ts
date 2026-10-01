@@ -65,8 +65,8 @@ export const DEVICE_PRESETS = {
   },
   tablet: {
     label: "平板",
-    width: 768,
-    height: 1024,
+    width: 1024,
+    height: 768,
   },
   desktop: {
     label: "桌機",
