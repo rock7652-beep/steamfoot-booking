@@ -12,14 +12,14 @@ CREATE TEMP TABLE demo_people(n int,name text,staff text,note text) ON COMMIT DR
 INSERT INTO demo_people VALUES
 (1,'陳品妤','cmu6dappt0004l804my3ll2oy','規律訓練，注意肩頸放鬆'),
 (2,'林宥辰',NULL,'首次參加自組班，先說明器材使用'),
-(3,'王若晴','course-person:store-course-start-0918-a:48243adc-4fda-44fe-8645-d0134c9a4f00','以核心穩定訓練為主'),
+(3,'王若晴','cmu6dappt0004l804my3ll2oy','以核心穩定訓練為主'),
 (4,'李承恩','cmu6dappt0004l804my3ll2oy','久坐工作，需觀察肩頸與腰部代償；動作先降低強度，遇到不舒服時立即調整，課後再確認恢復情況。'),
 (5,'張語涵',NULL,NULL),(6,'黃柏翰','cmu6dappt0004l804my3ll2oy','喜歡循序漸進的訓練'),
-(7,'吳芷萱','course-person:store-course-start-0918-a:48243adc-4fda-44fe-8645-d0134c9a4f00',NULL),
+(7,'吳芷萱','cmu6dappt0004l804my3ll2oy',NULL),
 (8,'蔡宗佑','cmu6dappt0004l804my3ll2oy','個別課：調整呼吸與動作節奏'),
 (9,'周子瑜',NULL,'留意左膝活動範圍'),(10,'許宇軒','cmu6dappt0004l804my3ll2oy','方案餘額較少，可展示續購流程'),
 (11,'鄭羽彤',NULL,'本次使用免費券'),(12,'楊心怡','cmu6dappt0004l804my3ll2oy','體驗課，請先介紹課程流程'),
-(13,'劉祐安',NULL,NULL),(14,'謝佳穎','course-person:store-course-start-0918-a:48243adc-4fda-44fe-8645-d0134c9a4f00','首次體驗，偏好低強度');
+(13,'劉祐安',NULL,NULL),(14,'謝佳穎','cmu6dappt0004l804my3ll2oy','首次體驗，偏好低強度');
 INSERT INTO "Customer"(id,"storeId",name,phone,"assignedStaffId","serviceNote",notes,"updatedAt")
 SELECT 'qa-demo-1001-c'||n,'store-course-start-0918-a',name,'09000010'||lpad(n::text,2,'0'),staff,note,NULL,NOW() FROM demo_people
 ON CONFLICT(id) DO NOTHING;
