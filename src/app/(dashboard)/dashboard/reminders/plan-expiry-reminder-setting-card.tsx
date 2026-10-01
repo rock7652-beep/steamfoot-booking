@@ -27,10 +27,10 @@ export function PlanExpiryReminderSettingCard({ initialEnabled, course=false, mu
 
   return (
     <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
-        <div>
-          <h2 className="text-base font-semibold text-earth-900">方案即將到期提醒</h2>
-          <p className="mt-1 text-sm text-earth-500">{course?"依下方各方案天數，於 18:00 發送；":"到期前 14 天、7 天於 18:00 發送；"}{course?"剩餘額度已全部占用、已結清或已退款時不發送。":"剩餘堂數已全部預約時不發送。"}</p>
+      <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
+        <div className="min-w-0">
+          <h2 className={`${course ? "text-sm" : "text-base"} font-semibold text-earth-900`}>方案即將到期提醒</h2>
+          <p className={`${course ? "mt-0.5 truncate" : "mt-1"} text-sm text-earth-500`}>{course?"18:00・依各方案天數・額度全占用時不發送":"到期前 14 天、7 天於 18:00 發送；剩餘堂數已全部預約時不發送。"}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -46,7 +46,7 @@ export function PlanExpiryReminderSettingCard({ initialEnabled, course=false, mu
           <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
         </div>
       </summary>
-      <div className="border-t border-earth-100 p-4">
+      <div className={`border-t border-earth-100 ${course ? "p-3" : "p-4"}`}>
         <LineCardPreview title="方案提醒" subtitle="方案將於 14 天後到期" actions={[{ label: course?"查看方案與期限":"立即預約" }, { label: "諮詢店長", variant: "link" }]}>
           <p className="font-semibold">王小美 您好</p><p>方案名稱　{music?"吉他個別課 4 堂":course?"課程點數方案":"蒸足保養 5 堂"}</p><p>{music?"剩餘 5 堂／占用 3 堂／可用 2 堂":course?"剩餘 5 點／占用 3 點／可用 2 點":"剩餘堂數　2 堂"}</p><p>方案到期日　2026/09/30</p><p>課程需於方案有效期限內完成，預約日期不可晚於到期日。</p>
         </LineCardPreview>

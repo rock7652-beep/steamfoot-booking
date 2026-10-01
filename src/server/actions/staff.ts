@@ -12,6 +12,7 @@ import {
   createDefaultPermissions,
   checkPermission,
   assertNotLastStoreManager,
+  getStaffPermissions,
   updateStaffPermissions,
   type PermissionCode,
 } from "@/lib/permissions";
@@ -471,15 +472,23 @@ export async function updateStaffPermissionsAction(
       user: { role: staff.user.role },
     });
 
+    const beforePermissions = Array.from(await getStaffPermissions(staffId, writeStoreId)).sort();
     await updateStaffPermissions(staffId, permissions);
+    const afterPermissions = Object.entries(permissions)
+      .filter(([, granted]) => granted)
+      .map(([permission]) => permission)
+      .sort();
     await recordOperationAudit({
       actorUserId: sessionUser.id,
+      actorNameSnapshot: sessionUser.name,
       storeId: writeStoreId,
-      module: "SHARED",
+      module: "SYSTEM",
       targetType: "StaffPermission",
       targetId: staffId,
       action: "UPDATE",
       summary: "調整人員權限",
+      before: { permissions: beforePermissions },
+      after: { permissions: afterPermissions },
     });
     revalidateStaffPermissions();
     revalidateStaff();

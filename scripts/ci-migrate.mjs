@@ -5,6 +5,22 @@ import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
+// Unified operation-audit preview must never read from or write to production.
+// Fail the deployment before Prisma migrations/build queries when the branch
+// override is missing or points at any non-isolated database.
+if (
+  process.env.VERCEL_ENV === "preview" &&
+  process.env.VERCEL_GIT_COMMIT_REF === "feat/unified-operation-audit-center"
+) {
+  if (
+    !isIsolatedCourseConnection(process.env.DATABASE_URL) ||
+    !isIsolatedCourseConnection(process.env.DIRECT_URL)
+  ) {
+    throw new Error("Operation audit Preview requires the isolated preview database for both connections.");
+  }
+  console.info("[operation-audit-preview-preflight] isolated_database=true");
+}
+
 // Steamfoot rent preview must never run against the production database.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "codex/steamfoot-rent-monthly") {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))

@@ -339,6 +339,16 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
+        href: "/dashboard/operation-audits",
+        label: "操作紀錄",
+        permission: "audit.read",
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6M9 8h3m-5 13h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+        ),
+      },
+      {
         href: "/dashboard/reconciliation",
         label: "對帳中心",
         ownerOnly: true,

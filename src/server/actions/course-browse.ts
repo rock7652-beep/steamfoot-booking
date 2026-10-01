@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { courseManager } from "@/server/services/course-access";
+import { courseManagerRead } from "@/server/services/course-access";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { getCourseCards } from "@/server/queries/course-members";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -15,7 +15,7 @@ function failure(error: unknown) {
 export async function searchCourseCustomers(input: unknown) {
   try {
     const query = z.string().trim().max(200).parse(input);
-    const { user, storeId } = await courseManager("customer.read");
+    const { user, storeId } = await courseManagerRead("customer.read");
     const rows = await prisma.customer.findMany({
       where: { ...getManagerCustomerWhere(user.role,user.staffId,storeId), storeId, mergedIntoCustomerId: null,
         OR: ["name", "phone", "lineName"].map(key => ({ [key]: { contains: query, mode: "insensitive" } })) },
@@ -29,8 +29,8 @@ export async function browseCourseCards(input: unknown) {
   try {
     const data = z.object({ customerId: z.string().min(1).optional(), cardId: z.string().min(1).optional(),
       search: z.string().trim().max(200).default(""), history: z.boolean().default(false), page: z.number().int().min(0).max(50000).default(0) }).parse(input);
-    const { user, storeId } = await courseManager("wallet.read");
-    await courseManager("customer.read");
+    const { user, storeId } = await courseManagerRead("wallet.read");
+    await courseManagerRead("customer.read");
     const visibility = getManagerCustomerWhere(user.role,user.staffId,storeId);
     if (data.customerId && !await prisma.customer.findFirst({where:{...visibility,storeId,id:data.customerId,mergedIntoCustomerId:null},select:{id:true}}))
       throw new AppError("NOT_FOUND","找不到本店顧客");
@@ -55,7 +55,7 @@ export async function browseCourseCards(input: unknown) {
 /** Lightweight, permission-scoped index. Kept only in the mounted picker. */
 export async function loadCourseCustomerSearchIndex() {
   try {
-    const { user, storeId } = await courseManager("customer.read");
+    const { user, storeId } = await courseManagerRead("customer.read");
     const rows = await prisma.customer.findMany({
       where: { ...getManagerCustomerWhere(user.role,user.staffId,storeId), storeId, mergedIntoCustomerId: null },
       select: { id: true, name: true, phone: true, lineName: true },

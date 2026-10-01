@@ -11,6 +11,7 @@ interface RightSheetProps {
   presentation?: "side" | "centered";
   compact?: boolean;
   fitContent?: boolean;
+  fixedHeight?: boolean;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -27,6 +28,7 @@ export function RightSheet({
   width = 460,
   compact = false,
   fitContent = false,
+  fixedHeight = false,
   labelledById,
   closeOnEscape = true,
 }: RightSheetProps) {
@@ -93,6 +95,7 @@ export function RightSheet({
       <aside
         data-compact={compact || undefined}
         data-fit-content={fitContent || undefined}
+        data-fixed-height={fixedHeight || undefined}
         ref={panelRef}
         tabIndex={compact || centered ? -1 : undefined}
         role="dialog"

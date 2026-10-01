@@ -7,7 +7,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -59,6 +59,9 @@ type Template = Omit<Room, "capacity"> & {
   defaultRoomId: string | null;
   description?: string;
   precautions?: string;
+  waitlistEnabled?: boolean;
+  waitlistLimit?: number;
+  waitlistStopMinutes?: number | null;
 };
 type Session = {
   bookings: {
@@ -113,6 +116,9 @@ type Props = {
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
   businessProfile: "FITNESS" | "MUSIC";
+  waitlistEnabled?: boolean;
+  waitlistDefaultLimit?: number;
+  waitlistDefaultStopMinutes?: number;
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
@@ -120,6 +126,69 @@ const button =
 const primary = `${button} bg-primary-700 text-white`;
 const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
+
+const waitlistStopChoices = [0, 60, 120, 240, 360, 720, 1440];
+function waitlistStopLabel(minutes: number) {
+  if (minutes === 0) return "不停止";
+  return `${minutes / 60} 小時`;
+}
+
+function WaitlistFields({
+  defaultEnabled,
+  defaultLimit,
+  defaultStopMinutes,
+}: {
+  defaultEnabled: boolean;
+  defaultLimit: number;
+  defaultStopMinutes: number;
+}) {
+  const [enabled, setEnabled] = useState(defaultEnabled);
+  const stopChoices = waitlistStopChoices.includes(defaultStopMinutes)
+    ? waitlistStopChoices
+    : [...waitlistStopChoices, defaultStopMinutes].sort((a, b) => a - b);
+  return (
+    <fieldset className="col-span-full rounded-lg border border-earth-200 p-3">
+      <legend className="px-1 text-sm font-medium">候補設定</legend>
+      <label className="flex min-h-11 items-center gap-2">
+        <input
+          type="checkbox"
+          name="waitlistEnabled"
+          value="yes"
+          checked={enabled}
+          onChange={(event) => setEnabled(event.target.checked)}
+        />
+        本課程允許滿班候補
+      </label>
+      <div className={`mt-2 grid gap-3 sm:grid-cols-2 ${enabled ? "" : "opacity-45"}`}>
+        <label>
+          候補人數上限
+          <input
+            className={field}
+            name="waitlistLimit"
+            type="number"
+            min={1}
+            max={100}
+            defaultValue={defaultLimit}
+            disabled={!enabled}
+          />
+        </label>
+        <label>
+          停止自動遞補
+          <select
+            className={field}
+            name="waitlistStopMinutes"
+            defaultValue={String(defaultStopMinutes)}
+            disabled={!enabled}
+          >
+            {stopChoices.map((minutes) => (
+              <option key={minutes} value={minutes}>{waitlistStopLabel(minutes)}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </fieldset>
+  );
+}
 
 export function CourseWorkspace({
   displayOrder,
@@ -137,6 +206,9 @@ export function CourseWorkspace({
   canEdit,
   cashbookShortcut,
   businessProfile,
+  waitlistEnabled = false,
+  waitlistDefaultLimit = 5,
+  waitlistDefaultStopMinutes = 240,
   staffAvailability,
   staffAvailabilityExceptions,
   view,
@@ -224,6 +296,14 @@ export function CourseWorkspace({
     };
   }, [panel, router, view]);
   const [dirty, setDirty] = useState(false);
+  const restoreScrollY = useRef<number | null>(null);
+  useEffect(() => {
+    if (restoreScrollY.current === null) return;
+    const y = restoreScrollY.current;
+    restoreScrollY.current = null;
+    window.requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
+  }, [allTemplates, sourceRooms]);
+
   function closePanel() {
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
     setDirty(false);
@@ -507,6 +587,9 @@ export function CourseWorkspace({
         setDirty(false);
         form.reset();
         after?.(data);
+        if (panel === "catalog" || (panel === "edit" && editing?.kind !== "session")) {
+          restoreScrollY.current = window.scrollY;
+        }
         if (panel === "catalog") setPanel(null);
         router.refresh();
       } catch {
@@ -1403,6 +1486,9 @@ export function CourseWorkspace({
                               pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
                               ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {}),
                               capacity: Number(data.get("capacity")),
+                              waitlistEnabled: waitlistEnabled && data.get("waitlistEnabled") === "yes",
+                              waitlistLimit: Number(data.get("waitlistLimit") || waitlistDefaultLimit),
+                              waitlistStopMinutes: Number(data.get("waitlistStopMinutes") ?? waitlistDefaultStopMinutes),
                             }),
                           )
                         }
@@ -1463,6 +1549,14 @@ export function CourseWorkspace({
                             required
                           />
                         </label>
+                        {waitlistEnabled && (
+                          <WaitlistFields
+                            key={`create:${waitlistDefaultLimit}:${waitlistDefaultStopMinutes}`}
+                            defaultEnabled={false}
+                            defaultLimit={waitlistDefaultLimit}
+                            defaultStopMinutes={waitlistDefaultStopMinutes}
+                          />
+                        )}
                         <label>
                           預設教室
                           <select className={field} name="roomId">
@@ -1485,7 +1579,7 @@ export function CourseWorkspace({
               <dl className="divide-y divide-earth-100">{[
                 ["名稱",editing.value.name],["分類",editing.value.category || "未分類"],
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
-                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "SELF_ORGANIZED" ? "自組班" : editing.value.classType === "GROUP" ? "團體班":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
+                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "SELF_ORGANIZED" ? "自組班" : editing.value.classType === "GROUP" ? "團體班":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
               {editing.kind === "template" && <DebitRule music={businessProfile === "MUSIC"}/>}
               <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
@@ -1526,6 +1620,15 @@ export function CourseWorkspace({
                           defaultRoomId: data.get("roomId") || null,
                           description: data.get("description") || "",
                           precautions: data.get("precautions") || "",
+                          waitlistEnabled: waitlistEnabled
+                            ? data.get("waitlistEnabled") === "yes"
+                            : editing.value.waitlistEnabled ?? false,
+                          waitlistLimit: waitlistEnabled
+                            ? Number(data.get("waitlistLimit") || editing.value.waitlistLimit || waitlistDefaultLimit)
+                            : editing.value.waitlistLimit ?? waitlistDefaultLimit,
+                          waitlistStopMinutes: waitlistEnabled
+                            ? Number(data.get("waitlistStopMinutes") ?? editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)
+                            : editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes,
                               classType:data.get("classType") || null,
                         });
                       return (
@@ -1708,6 +1811,14 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
+                    {editing.kind === "template" && waitlistEnabled && (
+                      <WaitlistFields
+                        key={`edit:${editing.value.id}`}
+                        defaultEnabled={editing.value.waitlistEnabled ?? false}
+                        defaultLimit={editing.value.waitlistLimit ?? waitlistDefaultLimit}
+                        defaultStopMinutes={editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes}
+                      />
+                    )}
                     {businessProfile !== "MUSIC" && <label>
                       點數卡每人扣點
                       <input

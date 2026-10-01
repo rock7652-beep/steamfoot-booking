@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { coursePortalRoleCookie, resolveCoursePortalRole } from "@/lib/course-portal-role";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { prisma } from "@/lib/db";
 import { resolveCustomerBookingWindow } from "@/lib/shop-config";
@@ -74,10 +76,15 @@ export async function loadCoursePortal(requestedMonth?: string) {
   ]);
   const memberEnabled = identity?.courseMemberEnabled !== false;
   const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+  const waitlistFeature = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
+  const waitlistSetting = waitlistFeature
+    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
+    : null;
+  const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
   const sessionInclude = {
     room: { select: { name: true } },
-    template: { select: { precautions: true } },
+    template: { select: { precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
     _count: {
       select: { bookings: { where: { status: { not: "CANCELLED" } } } },
     },
@@ -231,6 +238,25 @@ export async function loadCoursePortal(requestedMonth?: string) {
         })
       : null,
   ]);
+  const waitlistRows = waitlistEnabled && sessions.length
+    ? await coursePrisma.courseWaitlistEntry.findMany({
+        where: { storeId, sessionId: { in: sessions.map(session => session.id) }, status: "WAITING" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { id: true, sessionId: true, customerId: true, operatorCustomerId: true, groupKey: true, createdAt: true },
+      })
+    : [];
+  const waitlistMeta = new Map<string, { count: number; ownPosition: number | null }>();
+  for (const session of sessions) {
+    const rows = waitlistRows.filter(row => row.sessionId === session.id);
+    const groups = new Map<string, typeof rows>();
+    for (const row of rows) groups.set(row.groupKey, [...(groups.get(row.groupKey) ?? []), row]);
+    const ordered = [...groups.values()].sort((a, b) =>
+      a[0].createdAt.getTime() - b[0].createdAt.getTime() || a[0].id.localeCompare(b[0].id),
+    );
+    const ownIndex = ordered.findIndex(group => group.some(row => row.operatorCustomerId === customer.id || row.customerId === customer.id));
+    waitlistMeta.set(session.id, { count: rows.length, ownPosition: ownIndex >= 0 ? ownIndex + 1 : null });
+  }
+
   const coachIds = [...new Set([
     ...sessions.map((session) => session.coachId),
     ...bookings.map((booking) => booking.session.coachId),
@@ -266,7 +292,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
     where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
     select:{id:true, serviceNote:true, notes:true},
   }) : [];
+  const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
+  const initialRole = resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
   return {
+    rolePreferenceKey,
+    initialRole,
     referralShare: referralShare?.available ? referralShare : null,
     month,
     serverNow: now.getTime(),
@@ -280,6 +310,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     incomeAvailable: !!incomeAccess,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
+    waitlistEnabled,
     config,
     cards,
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
@@ -321,6 +352,10 @@ export async function loadCoursePortal(requestedMonth?: string) {
       capacity: s.capacity,
       occupied: s._count.bookings,
       precautions: s.template.precautions,
+      waitlistAllowed: waitlistEnabled && s.template.waitlistEnabled,
+      waitlistCount: waitlistMeta.get(s.id)?.count ?? 0,
+      waitlistPosition: waitlistMeta.get(s.id)?.ownPosition ?? null,
+      waitlistRemaining: Math.max(0, (s.template.waitlistLimit || waitlistSetting?.defaultLimit || 5) - (waitlistMeta.get(s.id)?.count ?? 0)),
     })),
     bookings: bookings.map((b) => ({
       id: b.id,
@@ -391,5 +426,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
 export type CoursePortalData = Awaited<ReturnType<typeof loadCoursePortal>>;
 export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
   const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
-  return <CoursePortalClient {...await loadCoursePortal(selectedDate?.slice(0,7) ?? month)} initialDate={selectedDate} initialView={view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
+  const data = await loadCoursePortal(selectedDate?.slice(0,7) ?? month);
+  return <CoursePortalClient key={data.rolePreferenceKey} {...data} initialDate={selectedDate} initialView={view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
 }
+

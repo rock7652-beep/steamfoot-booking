@@ -5,7 +5,7 @@ import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-tea
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { courseManager } from "@/server/services/course-access";
+import { courseManager, courseManagerRead } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { canMusicFinance, requireMusicFinance, isMusicFinanceStore, readMusicFinanceScope } from "@/server/services/music-finance-access";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
@@ -29,7 +29,7 @@ const teachingFee = z.object({
 });
 export async function readCourseStaffTeaching(staffId: string) {
   try {
-    const { user, storeId } = await courseManager("staff.view");
+    const { user, storeId } = await courseManagerRead("staff.view");
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
     id.parse(staffId);
     const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
@@ -118,7 +118,7 @@ export async function saveCourseStaff(input: unknown) {
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
         if (!d.id && existing) return;
-        if (d.teachingFees && existing && d.teachingVersion !== existing.updatedAt.toISOString())
+        if ((d.teachingFees || d.defaultClassFee !== undefined) && existing && d.teachingVersion !== existing.updatedAt.toISOString())
           throw new AppError("CONFLICT", "人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (
           existing &&

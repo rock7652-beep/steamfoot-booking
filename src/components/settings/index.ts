@@ -10,3 +10,8 @@ export type { SettingsNavItem } from "./settings-nav-section";
 export { SettingsActionCard } from "./settings-action-card";
 export { SettingsSidePanel } from "./settings-side-panel";
 export type { SidePanelQuickAction } from "./settings-side-panel";
+
+export { SettingsWorkspaceFrame, SettingsWorkspaceNav, SettingsListRow, SettingsModuleWorkspace } from "./settings-workspace";
+export type { SettingsWorkspaceNavItem } from "./settings-workspace";
+
+export { SettingsPanel } from "./settings-panel";

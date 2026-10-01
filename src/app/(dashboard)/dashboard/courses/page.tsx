@@ -25,6 +25,8 @@ import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 export default async function CoursesPage({
   searchParams,
@@ -133,6 +135,9 @@ export default async function CoursesPage({
           durationMinutes: true,
           capacity: true,
           pointCost: true,
+          waitlistEnabled: true,
+          waitlistLimit: true,
+          waitlistStopMinutes: true,
           defaultRoomId: true,
           description: true,
           precautions: true,
@@ -226,6 +231,13 @@ export default async function CoursesPage({
     ),
   );
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  const waitlistFeatureAvailable = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
+  const waitlistStoreSetting = waitlistFeatureAvailable
+    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true, defaultLimit: true, autoPromoteStopMinutes: true } })
+    : null;
+  const waitlistEnabled = waitlistFeatureAvailable && (waitlistStoreSetting?.enabled ?? false);
+  const waitlistDefaultLimit = waitlistStoreSetting?.defaultLimit ?? 5;
+  const waitlistDefaultStopMinutes = waitlistStoreSetting?.autoPromoteStopMinutes ?? 240;
   const displayOrders=await readCourseOrders(storeId);
   rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
   coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
@@ -303,7 +315,7 @@ export default async function CoursesPage({
           }
         />
       )}
-      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"}
+      <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}
         selectedDate={selected}
@@ -322,6 +334,9 @@ export default async function CoursesPage({
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
+        waitlistEnabled={waitlistEnabled}
+        waitlistDefaultLimit={waitlistDefaultLimit}
+        waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
         sessions={sessions.map((s) => ({
           ...s,
           isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",

@@ -7,6 +7,7 @@ import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionErr
 import { courseTransaction } from "@/server/services/course-access";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
@@ -51,6 +52,54 @@ async function writableStore(
   permission: "booking.create" | "booking.update" = "booking.create",
 ) {
   return courseManager(permission);
+}
+
+function scheduleCapacityWaitlistPromotion(
+  storeId: string,
+  sessionIds: string[],
+  actor: { id: string; name?: string | null },
+) {
+  const uniqueSessionIds = [...new Set(sessionIds)].filter(Boolean);
+  if (!uniqueSessionIds.length) return;
+  after(async () => {
+    try {
+      const [
+        { promoteCourseWaitlistForSession },
+        { notifyCourseWaitlistPromotions },
+        { recordOperationAuditBestEffort },
+      ] = await Promise.all([
+        import("@/server/services/course-waitlist"),
+        import("@/server/services/course-waitlist-notifications"),
+        import("@/server/services/operation-audit"),
+      ]);
+      for (const sessionId of uniqueSessionIds) {
+        const promoted = await courseTransaction(storeId, tx =>
+          promoteCourseWaitlistForSession(tx, storeId, sessionId),
+        );
+        if (!promoted.length) continue;
+        await Promise.all([
+          notifyCourseWaitlistPromotions(storeId, promoted),
+          recordOperationAuditBestEffort({
+            actorUserId: actor.id,
+            actorNameSnapshot: actor.name,
+            storeId,
+            module: "COURSE",
+            targetType: "CourseWaitlist",
+            targetId: sessionId,
+            action: "CAPACITY_AUTO_PROMOTE",
+            summary: `課程增額自動遞補（${promoted.length} 人）`,
+            after: { bookingIds: promoted.map(item => item.bookingId) },
+          }),
+        ]);
+      }
+    } catch (error) {
+      console.error("[course-waitlist] capacity promotion failed", {
+        storeId,
+        sessionIds: uniqueSessionIds,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 }
 
 async function validateMusicTemplate(storeId:string,data:{classType:string|null;pointCost:number;musicPricePerLesson:number|null;musicTermLessons:number|null;musicValidityDaysPerTerm:number|null;musicScheduleMode:"FIXED"|"APPOINTMENT"|null;musicTrialMode:"FREE"|"PAID"|null;musicTeacherFeeBase:number|null;durationMinutes:number}) {
@@ -136,7 +185,7 @@ export async function updateCourseTemplate(input: unknown) {
 
 export async function updateCourseSession(input: unknown) {
   try {
-    const { storeId } = await writableStore("booking.update");
+    const { user, storeId } = await writableStore("booking.update");
     const data = courseScheduleInput
       .omit({ templateId: true, requestKey: true, repeatUntil: true })
       .extend({
@@ -151,7 +200,7 @@ export async function updateCourseSession(input: unknown) {
       templateId: "edit",
       requestKey: "00000000-0000-4000-8000-000000000000",
     });
-    await coursePrisma.$transaction(
+    const capacityIncreased = await coursePrisma.$transaction(
       async (tx) => {
         const stores = await tx.$queryRaw<
           Array<{ id: string }>
@@ -229,9 +278,11 @@ export async function updateCourseSession(input: unknown) {
             pointCost: data.pointCost,
           },
         });
+        return data.capacity > session.capacity ? session.id : null;
       },
       { timeout: 15000 },
     );
+    if (capacityIncreased) scheduleCapacityWaitlistPromotion(storeId, [capacityIncreased], user);
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
@@ -773,7 +824,7 @@ export async function previewCourseSchedule(input: unknown) {
 
 export async function updateCourseSeries(input: unknown) {
   try {
-    const { storeId } = await writableStore("booking.update");
+    const { user, storeId } = await writableStore("booking.update");
     const d = courseScheduleInput
       .omit({ templateId: true, requestKey: true, repeatUntil: true })
       .extend({
@@ -791,7 +842,7 @@ export async function updateCourseSeries(input: unknown) {
     });
     const { courseTransaction } =
       await import("@/server/services/course-access");
-    await courseTransaction(storeId, async (tx) => {
+    const capacityIncreasedSessionIds = await courseTransaction(storeId, async (tx) => {
       const source = await tx.courseSession.findFirst({
         where: { id: d.id, storeId, cancelledAt: null },
       });
@@ -900,7 +951,12 @@ export async function updateCourseSeries(input: unknown) {
             cancelledAt: null,
           },
         });
+      return changes
+        .filter(change => d.capacity > change.session.capacity)
+        .map(change => change.session.id);
     });
+    if (capacityIncreasedSessionIds.length)
+      scheduleCapacityWaitlistPromotion(storeId, capacityIncreasedSessionIds, user);
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/book");

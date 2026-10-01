@@ -37,7 +37,7 @@ export function BookableUntilForm({
   const [savedMode, setSavedMode] = useState<"fixed" | "rolling">(initialMode);
   const [savedDate, setSavedDate] = useState(initialDate);
   const [savedDays, setSavedDays] = useState(initialDays);
-  const [expanded, setExpanded] = useState(direct);
+  const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const saving = useRef(false);
@@ -49,7 +49,7 @@ export function BookableUntilForm({
     setMode(savedMode);
     setFixedDate(savedDate ?? "");
     setDays(savedDays);
-    setExpanded(direct);
+    setExpanded(false);
   }
 
   function save() {
@@ -74,7 +74,7 @@ export function BookableUntilForm({
             ? `已開放預約至 ${formatDateZh(fixedDate)}`
             : `已設定自動開放未來 ${days} 天`,
         );
-        setExpanded(direct);
+        setExpanded(false);
         router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
@@ -85,28 +85,26 @@ export function BookableUntilForm({
   }
 
   return (
-    <section className="rounded-xl border border-earth-200 bg-white px-5 py-4 shadow-sm">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
-          <p className="mt-0.5 text-[11px] text-earth-500">
-            目前生效：{savedMode === "fixed" && savedDate
-              ? `開放至 ${formatDateZh(savedDate)}`
-              : `自動開放未來 ${savedDays} 天`}
-          </p>
-        </div>
-        {canManage && !direct && (
-          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="shrink-0 rounded border border-earth-300 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50">
+    <section className={direct ? "border-b border-earth-100" : "rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm"}>
+      <header className={direct ? "grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]" : "flex items-center justify-between gap-3"}>
+        <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
+        <p className="min-w-0 truncate text-sm tabular-nums text-earth-600">
+          {savedMode === "fixed" && savedDate
+            ? `開放至 ${formatDateZh(savedDate)}`
+            : `未來 ${savedDays} 天・自動延長`}
+        </p>
+        {canManage && (
+          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-10 min-w-24 shrink-0 justify-self-end rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">
             {expanded ? "取消" : "修改"}
           </button>
         )}
       </header>
 
-      {expanded && dirty && <p role="status" className="mt-3 text-xs font-medium text-amber-700">尚未儲存</p>}
-      {expanded && <fieldset className={direct ? "mt-3 grid gap-2 text-xs text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
-        <legend className="mb-1">顧客可以預約到何時？</legend>
+      {expanded && dirty && <p role="status" className={direct ? "mt-2 md:ml-[216px] text-sm font-medium text-amber-700" : "mt-2 text-sm font-medium text-amber-700"}>未儲存</p>}
+      {expanded && <fieldset className={direct ? "mt-2 md:ml-[216px] grid gap-2 text-sm text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
+        <legend className="sr-only">預約開放方式</legend>
         <label
-          className={`block cursor-pointer rounded-lg border px-3 py-3 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
+          className={`block cursor-pointer rounded-lg border px-3 py-2 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
         >
           <span className="flex items-center gap-2 text-sm font-medium text-earth-800">
             <input
@@ -126,16 +124,13 @@ export function BookableUntilForm({
               value={fixedDate}
               disabled={!canManage || pending}
               onChange={(event) => setFixedDate(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 disabled:opacity-60 sm:max-w-sm"
+              className="mt-1.5 min-h-9 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1 text-sm text-earth-800 disabled:opacity-60"
             />
           )}
-          <span className="mt-1 block text-[11px] leading-relaxed text-earth-500">
-            適合每月排班。
-          </span>
         </label>
 
         <label
-          className={`block cursor-pointer rounded-lg border px-3 py-3 ${mode === "rolling" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
+          className={`block cursor-pointer rounded-lg border px-3 py-2 ${mode === "rolling" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
         >
           <span className="flex items-center gap-2 text-sm font-medium text-earth-800">
             <input
@@ -153,7 +148,7 @@ export function BookableUntilForm({
               value={days}
               disabled={!canManage || pending}
               onChange={(event) => setDays(Number(event.target.value))}
-              className="mt-2 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 disabled:opacity-60 sm:max-w-sm"
+              className="mt-1.5 min-h-9 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1 text-sm text-earth-800 disabled:opacity-60"
             >
               {[7, 14, 21, 30, 60, 90].map((value) => (
                 <option key={value} value={value}>
@@ -162,29 +157,24 @@ export function BookableUntilForm({
               ))}
             </select>
           )}
-          <span className="mt-1 block text-[11px] leading-relaxed text-earth-500">
-            每天自動延長。
-          </span>
         </label>
       </fieldset>}
       {canManage && expanded && (
-        <div className="mt-3 flex justify-end gap-3">
-          {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">還原修改</button>}
+        <div className={direct ? "mt-2 md:ml-[216px] flex justify-end gap-2" : "mt-2 flex justify-end gap-2"}>
+          {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>}
           <button
             type="button"
             disabled={pending || !dirty || (mode === "fixed" && !fixedDate)}
             onClick={save}
-            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
+            className="min-h-10 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
           >
             {pending ? "儲存中..." : "儲存設定"}
           </button>
         </div>
       )}
 
-      {expanded && <p className="mt-2 text-[11px] text-earth-500">
-        目前生效至：
-        <span className="font-semibold text-earth-800">{` ${formatDateZh(savedMode === "fixed" && savedDate ? savedDate : addTaiwanDuration(today, savedDays, "DAY"))}`}</span>
-        {savedMode === "rolling" && `（未來 ${savedDays} 天，自動延長）`}
+      {!direct && expanded && <p className="mt-2 text-[11px] text-earth-500">
+        目前生效至 <span className="font-semibold text-earth-800">{formatDateZh(savedMode === "fixed" && savedDate ? savedDate : addTaiwanDuration(today, savedDays, "DAY"))}</span>
       </p>}
     </section>
   );

@@ -59,10 +59,10 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
 
   return (
     <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
-        <div className="md:col-span-2">
-          <h2 className="text-base font-semibold text-earth-900">{title}</h2>
-          <p className="mt-1 text-sm text-earth-500">{course ? "前一日 18:00 發送給實際上課者；取消的預約不發送。" : "前一日 18:00 發送；只影響方案與單次預約。"}</p>
+      <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
+        <div className="min-w-0 md:col-span-2">
+          <h2 className={`${course ? "text-sm" : "text-base"} font-semibold text-earth-900`}>{title}</h2>
+          <p className={`${course ? "mt-0.5 truncate" : "mt-1"} text-sm text-earth-500`}>{course ? "前一日 18:00・實際上課者・取消不發送" : "前一日 18:00 發送；只影響方案與單次預約。"}</p>
         </div>
         <div className="flex items-center gap-3">
           <button type="button" onClick={(event) => { event.preventDefault(); toggle(); }} disabled={pending} aria-label={`${title}開關`} aria-pressed={enabled} className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}>
@@ -71,7 +71,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
           <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
         </div>
       </summary>
-      <div className="border-t border-earth-100 p-4">
+      <div className={`border-t border-earth-100 ${course ? "p-3" : "p-4"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-earth-800">通知內容與底部按鈕</h3>
@@ -89,7 +89,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         </button>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className={`${course ? "mt-3" : "mt-4"} grid gap-3 md:grid-cols-2`}>
         <div className="md:col-span-2">
           <label htmlFor="package-line-card-reminder" className="mb-1 block text-xs font-medium text-earth-700">
             店長自訂提醒
@@ -98,7 +98,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
             id="package-line-card-reminder"
             value={body}
             maxLength={PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH}
-            rows={4}
+            rows={course ? 3 : 4}
             onChange={(event) => setBody(event.target.value)}
             placeholder={defaultBody}
             className="w-full rounded-lg border border-earth-300 px-3 py-2 text-sm leading-relaxed text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
@@ -119,7 +119,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         </details>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className={`${course ? "mt-3" : "mt-4"} flex justify-end`}>
         <button
           type="button"
           disabled={pending || !canSave}

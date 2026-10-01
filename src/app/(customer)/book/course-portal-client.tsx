@@ -1,4 +1,5 @@
 "use client";
+import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
 import { findCoursePortalGuides } from "@/lib/course-portal-guides";
 import { ShareReferral } from "@/components/share-referral";
 import { trackCourseShare } from "@/server/actions/course-referral-share";
@@ -29,6 +30,10 @@ import {
   createMemberCourseBooking,
   updateCourseBookingStatus,
 } from "@/server/actions/course-members";
+import {
+  joinMemberCourseWaitlist,
+  cancelMemberCourseWaitlistAction,
+} from "@/server/actions/course-waitlist";
 import {
   saveCourseAttendance,
   saveCourseCoachNote,
@@ -190,8 +195,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [role, setRole] = useState(p.memberEnabled ? "member" : "coach"),
-    [page, setPage] = useState<Page>(p.initialView ?? "home"),
+  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialRole);
+  const role = resolveCoursePortalRole(preferredRole, p.memberEnabled, p.hasWork);
+  const [page, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
     [history, setHistory] = useState(false),
@@ -226,6 +232,13 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   const [saving, setSaving] = useState(false);
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const [confirmedAttendance, setConfirmedAttendance] = useState<Record<string, AttendanceUpdate>>({});
+  useEffect(() => {
+    if (preferredRole === role) return;
+    rememberCoursePortalRole(p.rolePreferenceKey, role);
+    setRole(role);
+    setPage("home");
+    setRoster(null);
+  }, [preferredRole, role, p.rolePreferenceKey]);
   const pending = saving || (role !== "coach" && refreshing);
   // Keep confirmed writes visible across an older in-flight refresh; newer server rows win.
   const work = p.work.map(s => ({ ...s, bookings: s.bookings.map(b => {
@@ -249,6 +262,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     today = toLocalDateStr(new Date(now)),
     selected = date.startsWith(p.month) ? date : p.month + "-01",
     card = p.cards.find((c) => c.id === cardId),
+    waitlistMode = !!session && session.occupied >= session.capacity && session.waitlistAllowed,
+    waitlistAlready = !!session?.waitlistPosition,
     modal = !!(session || attendance || cancelId || buy);
   const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
   const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
@@ -306,7 +321,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         ["account", "我的", "account"],
       ];
   function switchRole(next: "member" | "coach") {
-    if (role === next || !leaveNote()) return;
+    if (role === next || resolveCoursePortalRole(next, p.memberEnabled, p.hasWork) !== next || !leaveNote()) return;
+    rememberCoursePortalRole(p.rolePreferenceKey, next);
     setRole(next);
     setDate(today);
     if (next === "coach" && !today.startsWith(p.month)) month(today.slice(0, 7));
@@ -577,16 +593,18 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             disabled={
               pending ||
               new Date(s.startsAt).getTime() <= now ||
-              s.occupied >= s.capacity ||
+              (s.occupied >= s.capacity && !(s.waitlistAllowed && (s.waitlistPosition || s.waitlistRemaining > 0))) ||
               closed(courseDate(s.startsAt)) || notOpenYet(s)
             }
             onClick={() => book(s)}
           >
             {new Date(s.startsAt).getTime() <= now
               ? "已開始"
-              : s.occupied >= s.capacity
-                ? "滿班"
-                : notOpenYet(s) ? "尚未開放" : closed(courseDate(s.startsAt)) ? "公休" : "預約"}
+              : s.waitlistPosition
+                ? `候補中・第 ${s.waitlistPosition} 位`
+                : s.occupied >= s.capacity
+                  ? s.waitlistAllowed && s.waitlistRemaining > 0 ? "候補" : "滿班"
+                  : notOpenYet(s) ? "尚未開放" : closed(courseDate(s.startsAt)) ? "公休" : "預約"}
           </button>
         </article>
       ))
@@ -1282,7 +1300,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       </div>
       {session && !buy && (
         <Sheet
-          title={confirm ? "確認預約" : "選擇上課人"}
+          title={waitlistAlready ? "候補狀態" : waitlistMode ? (confirm ? "確認候補" : "選擇候補人") : (confirm ? "確認預約" : "選擇上課人")}
           busy={pending}
           close={() => setSession(null)}
           footer={
@@ -1293,35 +1311,56 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               >
                 返回
               </button>
-              <button
-                className="primary"
-                disabled={
-                  pending ||
-                  !card ||
-                  !learners.length ||
-                  card.available < amount(session, card) * learners.length
-                }
-                onClick={() =>
-                  confirm
-                    ? run(
-                        () =>
-                          createMemberCourseBooking({
-                            sessionId: session.id,
-                            cardId,
-                            customerIds: learners,
-                            requestKey: key,
-                            notes,
-                          }),
-                        () => {
-                          setSession(null);
-                          setPage("bookings");
-                        },
-                      )
-                    : setConfirm(true)
-                }
-              >
-                {pending ? "處理中…" : confirm ? "確認預約" : "下一步"}
-              </button>
+              {waitlistAlready ? (
+                <button
+                  className="primary"
+                  disabled={pending}
+                  onClick={() => run(
+                    () => cancelMemberCourseWaitlistAction({ sessionId: session.id }),
+                    () => setSession(null),
+                    "已取消候補",
+                  )}
+                >
+                  {pending ? "處理中…" : "取消候補"}
+                </button>
+              ) : (
+                <button
+                  className="primary"
+                  disabled={
+                    pending ||
+                    !card ||
+                    !learners.length ||
+                    card.available < amount(session, card) * learners.length
+                  }
+                  onClick={() =>
+                    confirm
+                      ? run(
+                          () => waitlistMode
+                            ? joinMemberCourseWaitlist({
+                                sessionId: session.id,
+                                cardId,
+                                customerIds: learners,
+                                requestKey: key,
+                              })
+                            : createMemberCourseBooking({
+                                sessionId: session.id,
+                                cardId,
+                                customerIds: learners,
+                                requestKey: key,
+                                notes,
+                              }),
+                          () => {
+                            setSession(null);
+                            if (!waitlistMode) setPage("bookings");
+                          },
+                          waitlistMode ? "已加入候補" : "已更新",
+                        )
+                      : setConfirm(true)
+                  }
+                >
+                  {pending ? "處理中…" : confirm ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
+                </button>
+              )}
             </>
           }
         >
@@ -1334,7 +1373,20 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {error}
             </p>
           )}
-          {eligible(session).length ? (
+          {waitlistAlready && (
+            <div className="cp-important">
+              <p>目前候補第 {session.waitlistPosition} 位。</p>
+              <p>遞補成功後會透過 LINE 通知，不需要一直回來查看。</p>
+              <p>取消候補會連同本次同行候補者一起退出。</p>
+            </div>
+          )}
+          {waitlistMode && !waitlistAlready && (
+            <div className="cp-important">
+              <p>本堂已滿班，現在加入候補。</p>
+              <p>候補不先扣堂；有空位時依順位直接遞補，成功後才正式保留方案額度並發送 LINE 通知。</p>
+            </div>
+          )}
+          {!waitlistAlready && (eligible(session).length ? (
             <>
               <label>
                 使用方案
@@ -1389,8 +1441,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             </>
           ) : (
             <p>沒有適用本堂課的有效方案。</p>
-          )}
-          <label>
+          ))}
+          {!waitlistAlready && !waitlistMode && <label>
             本次預約備註
             <textarea
               maxLength={1000}
@@ -1398,8 +1450,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               disabled={confirm || pending}
               onChange={(e) => setNotes(e.target.value)}
             />
-          </label>
-          {(!card || card.available < amount(session, card) * Math.max(learners.length, 1)) && (
+          </label>}
+          {!waitlistAlready && (!card || card.available < amount(session, card) * Math.max(learners.length, 1)) && (
             <div className="cp-no-plan">
               {shop.length ? <button className="primary" onClick={() => { setSession(null); go("shop"); }}>查看可購買方案</button> : <p>目前沒有適用的販售方案，請聯絡店家協助。</p>}
             </div>

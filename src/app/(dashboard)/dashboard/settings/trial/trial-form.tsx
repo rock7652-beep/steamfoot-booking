@@ -13,6 +13,7 @@ interface Props {
   saveAction?: (input:TrialSettings)=>Promise<{success:boolean;error?:string}>;
   courseMode?: boolean;
   compact?: boolean;
+  forceExpanded?: boolean;
 }
 
 const inputCls =
@@ -24,7 +25,7 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false, compact = false }: Props) {
+export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false, compact = false, forceExpanded = false }: Props) {
   const formId = useId();
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
@@ -32,6 +33,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
   const [minPrice, setMinPrice] = useState(String(initial.trialMinPrice));
   const [maxPrice, setMaxPrice] = useState(String(initial.trialMaxPrice));
   const [pending, startTransition] = useTransition();
+  const [expanded, setExpanded] = useState(forceExpanded || !compact);
   const router = useRouter();
   const saving = useRef(false);
   const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
@@ -82,10 +84,16 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       data-store-id={storeId}
       onSubmit={handleSubmit}
       aria-label="體驗設定"
-      className={compact ? "mt-4 space-y-3" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
+      className={compact ? "mt-2" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
     >
+      {compact && !forceExpanded && !expanded && (
+        <div className="flex justify-end">
+          <button type="button" onClick={() => setExpanded(true)} className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">修改</button>
+        </div>
+      )}
+
       {/* Left: form */}
-      <fieldset disabled={pending} className={compact ? "min-w-0" : "min-w-0 lg:col-span-7"}>
+      <fieldset disabled={pending} hidden={compact && !expanded} className={compact ? "min-w-0" : "min-w-0 lg:col-span-7"}>
         <section className={compact ? "bg-white" : "rounded-xl border border-earth-200 bg-white p-5 shadow-sm"}>
           <header hidden={compact} className="mb-4">
             <h2 data-panel-secondary-title className="text-sm font-semibold text-earth-900">體驗課設定</h2>
@@ -94,11 +102,11 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             </p>
           </header>
 
-          <div className={compact ? "grid gap-4 sm:grid-cols-2" : "space-y-4"}>
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2.5">
+          <div className={compact ? "grid gap-2 sm:grid-cols-2" : "space-y-4"}>
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2">
               <span>
                 <span className="text-sm font-medium text-earth-800">啟用體驗單功能</span>
-                <span className="mt-0.5 block text-[11px] text-earth-500">
+                <span className="hidden">
                   關閉後，顧客頁與月曆將隱藏「建立體驗單」入口
                 </span>
               </span>
@@ -122,17 +130,17 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
                 onChange={(e) => setDefaultPrice(e.target.value)}
                 className={inputCls}
               />
-              <p className="mt-1 text-xs text-earth-400">
+              <p className="mt-1 text-sm text-earth-400">
                 建立體驗單時預設帶入此價格，可依活動調整
               </p>
             </div>
 
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2.5">
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2">
               <span>
                 <span className="text-sm font-medium text-earth-800">
                   允許建立時調整價格
                 </span>
-                <span className="mt-0.5 block text-[11px] text-earth-500">
+                <span className="hidden">
                   關閉後，建立體驗單一律使用預設價格
                 </span>
               </span>
@@ -144,7 +152,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               />
             </label>
 
-            <div className={compact ? "grid grid-cols-2 gap-3 sm:col-span-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
+            <div className={compact ? "grid grid-cols-2 gap-2 sm:col-span-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
               <div>
                 <label htmlFor={`${formId}-最低可輸入價格`} className={labelCls}>最低可輸入價格</label>
 
@@ -184,15 +192,15 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             ) : null}
           </div>
 
-          <div className={`${compact ? "" : "sticky bottom-0 z-10"} mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 bg-white py-3`}>
-            <span className="text-[11px] text-earth-400">
-              {pending ? "儲存中..." : draft !== savedDraft ? "尚未儲存" : "尚未變更"}
+          <div className={`${compact ? "" : "sticky bottom-0 z-10"} mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2`}>
+            <span className="text-sm text-earth-500">
+              {pending ? "儲存中..." : draft !== savedDraft ? "未儲存" : ""}
             </span>
-            <button type="button" disabled={pending || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">還原修改</button>
+            <button type="button" disabled={pending || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
             <button
               type="submit"
               disabled={pending || invalid || draft === savedDraft}
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
+              className="min-h-10 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
             >
               {pending ? "儲存中..." : courseMode ? "儲存體驗設定" : "儲存"}
             </button>
@@ -201,8 +209,8 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       </fieldset>
 
       {/* Right: behavior preview */}
-      <details open={compact ? undefined : true} className={compact ? "text-sm" : "lg:col-span-5"}>
-        <summary className={compact ? "min-h-11 cursor-pointer py-3 text-primary-700" : "hidden"}>建立體驗單預覽</summary>
+      <details hidden={compact && !expanded} open={compact ? undefined : true} className={compact ? "text-sm" : "lg:col-span-5"}>
+        <summary className={compact ? "min-h-10 cursor-pointer py-2 text-sm text-primary-700" : "hidden"}>建立體驗單預覽</summary>
         <section className="lg:sticky lg:top-4 rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-earth-900">建立體驗單預覽</h2>
@@ -243,9 +251,9 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             )}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-earth-500">
+          {!compact && <p className="mt-3 text-[11px] leading-relaxed text-earth-500">
             {courseMode ? "每位實際上課者各有體驗預約與金額快照；收款與出席分開，不使用點數卡。調整預設價不影響舊單。" : "體驗課只有一個。每筆體驗單在建立當下記錄金額快照，日後調整預設價不影響舊單。"}
-          </p>
+          </p>}
         </section>
       </details>
     </form>

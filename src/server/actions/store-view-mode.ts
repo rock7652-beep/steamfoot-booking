@@ -7,6 +7,7 @@ import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
+import { recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 
 /**
  * Switch a non-HQ staff user into a descendant read-only view context.
@@ -53,6 +54,21 @@ export async function switchViewedStore(
         path: "/",
         sameSite: "lax",
         httpOnly: true,
+      });
+      await recordOperationAuditBestEffort({
+        actorUserId: user.id,
+        actorNameSnapshot: user.name,
+        storeId: authorizedStore.id,
+        module: "SHARED",
+        targetType: "StoreView",
+        targetId: authorizedStore.id,
+        action: "VIEW_CROSS_STORE",
+        summary: `跨店查看「${authorizedStore.name}」`,
+        after: {
+          ownStoreId: user.storeId,
+          viewedStoreId: authorizedStore.id,
+          viewedStoreName: authorizedStore.name,
+        },
       });
     }
 

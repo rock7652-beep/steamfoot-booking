@@ -86,6 +86,7 @@ import { dailyOperationGuides20260927 } from "./operation-guide-daily-20260927";
 import { dailyOperationGuides20260928 } from "./operation-guide-daily-20260928";
 import { dailyOperationGuides20260929 } from "./operation-guide-daily-20260929";
 import { dailyOperationGuides20260930 } from "./operation-guide-daily-20260930";
+import { dailyOperationGuides20261001 } from "./operation-guide-daily-20261001";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 export const operationGuides: OperationGuide[] = [
@@ -99,6 +100,7 @@ export const operationGuides: OperationGuide[] = [
   ...dailyOperationGuides20260928,
   ...dailyOperationGuides20260929,
   ...dailyOperationGuides20260930,
+  ...dailyOperationGuides20261001,
 ];
 export function availableGuides(access: GuideAccess) {
   return operationGuides.filter(g => g.modules.includes(access.module) &&

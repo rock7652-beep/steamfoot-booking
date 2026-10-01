@@ -21,7 +21,7 @@ const steam: GuideAccess = {
 
 describe("September 30 guide review", () => {
   it("adds selected-date hours, operation history and the new music workflows", () => {
-    expect(operationGuides).toHaveLength(167);
+    expect(operationGuides).toHaveLength(171);
     expect(findOperationGuides("跨月 複選 覆蓋 復原", steam).map(item => item.id)).toContain("B11");
     expect(findOperationGuides("誰修改 最後操作", steam).map(item => item.id)).toContain("I11");
     expect(findOperationGuides("課程 科目 收費方案 分開", course).map(item => item.id)).toContain("C153");

@@ -20,3 +20,11 @@ it("does not pay fixed class fees again for free teacher makeup or non-chargeabl
  expect(calculateTeacherFee({rule:fixed,seats:[{...seat,status:"CANCELLED",absenceKind:"GROUP_LEAVE_FORFEITED"}]}).amount).toBe(1200);
  expect(calculateTeacherFee({rule:fixed,seats:[seat,{...seat,id:"makeup",bookingKind:"TEACHER_MAKEUP"}]}).amount).toBe(1200);
 });
+
+import { capturedTeacherFee } from "@/server/services/course-teacher-fee";
+it("keeps zero, fixed amount and unset fee distinct in a settlement snapshot",()=>{
+ const attended=[seat];
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:0},revision:1},attended)).toMatchObject({amount:0,issue:null});
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:500},revision:1},attended)).toMatchObject({amount:500,issue:null});
+ expect(capturedTeacherFee({rule:null,revision:1},attended).amount).toBeNull();
+});
