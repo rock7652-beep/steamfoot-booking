@@ -959,7 +959,7 @@ export function CourseRoster({
 
   return (
 
-    <section className={`flex min-h-0 w-full flex-col gap-2 ${oneToOneMusic ? "" : "h-full"}`}>
+    <section className={`flex min-h-0 w-full flex-col gap-2 ${oneToOneMusic ? "" : "flex-1 overflow-hidden"}`}>
       <aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? "老師" : "授課教練"}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
