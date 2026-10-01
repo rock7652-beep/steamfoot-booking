@@ -901,7 +901,7 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {(total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none text-xs font-semibold text-primary-900">{total.classes} 堂{total.rentals > 0 && `・${total.rentals} 筆租借`}｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬 " : ""}{total.people} 人次</span>}
+                    {(total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes} 堂{total.rentals > 0 && `・${total.rentals} 筆租借`}｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬 " : ""}{total.people} 人次</span>}
                     {list.slice(0,2).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
                       const color = courseClassPresentation(type, !!allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode, session.previewKind === "RENTAL").dot;
