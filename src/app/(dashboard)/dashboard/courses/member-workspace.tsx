@@ -321,7 +321,7 @@ export function CourseMemberWorkspace({
           <thead className={`${music?"hidden sm:table-header-group":""} bg-earth-50`}>
             <tr>
               {(music ? ["方案／適用課程", "堂數", "售價", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "有效天數", "操作"]).map((h) => (
-                <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">
+                <th key={h} className={`whitespace-nowrap px-3 py-2 font-medium ${!music&&h==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {h}
                 </th>
               ))}
@@ -342,8 +342,8 @@ export function CourseMemberWorkspace({
                     {!music && <>
                     <td className="whitespace-nowrap px-3 py-2">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td></>}
                     {music&&(<td className={`${music?"hidden sm:table-cell":""} px-3 py-2`}><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>)}
-                    <td className="whitespace-nowrap px-3 py-2 align-top">
-                      {!music ? <div className="flex justify-end">{canEdit&&<ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton quiet kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></ExclusiveMenu>}</div> : <>                      {music&&<div className="sm:hidden"><span className="text-xs text-earth-500">{p.isActive?"上架":"下架"}</span>{canEdit&&<details><summary aria-label={`${p.name}操作`} className="flex min-h-11 cursor-pointer items-center justify-center rounded border border-earth-200 px-3">⋯</summary><div className="flex flex-col gap-1 py-1"><button className="min-h-11 rounded border px-2" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></div></details>}</div>}
+                    <td className={`whitespace-nowrap px-3 py-2 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                      {!music ? <div className="flex items-center justify-center">{canEdit&&<ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton quiet kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></ExclusiveMenu>}</div> : <>                      {music&&<div className="sm:hidden"><span className="text-xs text-earth-500">{p.isActive?"上架":"下架"}</span>{canEdit&&<details><summary aria-label={`${p.name}操作`} className="flex min-h-11 cursor-pointer items-center justify-center rounded border border-earth-200 px-3">⋯</summary><div className="flex flex-col gap-1 py-1"><button className="min-h-11 rounded border px-2" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></div></details>}</div>}
                       {canEdit && (
                         <div className={`${music?"hidden sm:flex":"flex"} gap-1`}>
                           <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={busyIds.includes(p.id)} onClick={() => preparePlan(p)}>編輯</button>

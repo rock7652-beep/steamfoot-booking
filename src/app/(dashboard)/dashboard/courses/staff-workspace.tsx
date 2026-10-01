@@ -246,7 +246,7 @@ export function CourseStaffWorkspace({
           <thead className="bg-earth-50">
             <tr>
               {["姓名", "聯絡方式", "身分", "系統通知", "操作"].map((t) => (
-                <th key={t} className="px-3 py-2 font-medium">
+                <th key={t} className={`px-3 py-2 font-medium ${!music&&t==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {t}
                 </th>
               ))}
@@ -264,8 +264,8 @@ export function CourseStaffWorkspace({
                 <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 truncate text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td>
                 <td className="px-3 py-2">{identity(p,music)}<span className="block whitespace-nowrap text-xs text-earth-600">{!p.active?"停用":music?"啟用":""}{p.coachEnabled?` · ${p.qualificationsConfirmed&&p.qualificationIds.length?"授課已設定":"授課待補"}`:""}</span></td>
                 <td className="px-3 py-2"><span className={p.notificationsEnabled!==false&&p.coachLoginReady?"text-primary-800":"text-earth-500"}>{p.notificationsEnabled===false?"已關閉":p.coachLoginReady?"可通知":"待連結 LINE"}</span></td>
-                <td className="whitespace-nowrap px-3 py-2 align-top">
-                  {!music ? <div className="flex justify-end"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage?"編輯":"查看"}</button>{canManage&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {canManage&&p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab("qualifications");}}>授課設定</button>}</ExclusiveMenu></div> : <>                  {canManage&&<CourseStatusButton kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>}
+                <td className={`whitespace-nowrap px-3 py-2 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                  {!music ? <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>edit(p)}>{canManage?"編輯":"查看"}</button>{canManage&&<CourseStatusButton quiet kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>} {canManage&&p.coachEnabled&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{edit(p);setTab("qualifications");}}>授課設定</button>}</ExclusiveMenu></div> : <>                  {canManage&&<CourseStatusButton kind="staff" id={p.id} disabled={busyIds.includes(p.id)} active={p.active} onApplied={applyStatus} onPendingChange={setStatusBusy}/>}
                   <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={busyIds.includes(p.id)} onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
                   {canManage && p.coachEnabled && <button className="ml-1 min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
 </>}

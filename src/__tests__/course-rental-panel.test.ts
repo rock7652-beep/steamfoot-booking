@@ -13,7 +13,7 @@ const permissions={customerRead:true,customerCreate:true,collect:true,correct:tr
 const record={id:"r",roomId:"room",customerId:"c",customerName:"小安",customerPhone:"0900000000",startsAt:"2026-10-02T02:00:00Z",endsAt:"2026-10-02T03:00:00Z",amount:600,note:"",revision:1,cancelledAt:null,hourlyRateSnapshot:600,payment:{id:"p",amount:600,paymentMethod:"CASH"}};
 beforeEach(()=>{vi.resetAllMocks();m.get.mockResolvedValue(record);m.search.mockResolvedValue([]);m.save.mockResolvedValue({success:false,error:"時間衝突，輸入已保留"});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function mount(id?:string){await act(async()=>root.render(React.createElement(RentalPanel,{id,rooms,permissions,seed:{date:"2026-10-02",time:"10:00"}})));}
+async function mount(id?:string){await act(async()=>root.render(React.createElement(RentalPanel,{id,rooms,permissions,customers:[{id:"c1",name:"黃小安",phone:"0912-345-678"},{id:"c2",name:"林小美",phone:"0922222222"}],seed:{date:"2026-10-02",time:"10:00"}})));}
 async function click(text:string){await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent===text)!.click());}
 async function input(el:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(el,value);el.dispatchEvent(new Event("input",{bubbles:true}));});}
 async function submit(){await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
@@ -31,4 +31,11 @@ it("places the correction pencil beside the paid amount and keeps the same panel
 });
 it("quotes a thirty-minute rental at half the hourly rate",async()=>{
  await mount();const length=Array.from(host.querySelectorAll("label")).find(l=>l.textContent?.startsWith("時長"))!.querySelector("input")!;await input(length,"30");await submit();expect(m.save.mock.calls[0][0]).toMatchObject({durationMinutes:30,amount:300});
+});
+
+it("filters the preloaded authorized customers immediately without a search request",async()=>{
+ await mount();const search=host.querySelector<HTMLInputElement>('[aria-label="搜尋租借人"]')!;
+ await input(search,"黃");expect(host.textContent).toContain("黃小安");expect(host.textContent).not.toContain("林小美");
+ await input(search,"345 678");expect(host.textContent).toContain("黃小安");expect(m.search).not.toHaveBeenCalled();
+ await click("黃小安0912-345-678");await submit();expect(m.save.mock.calls[0][0]).toMatchObject({customerId:"c1",customerName:"黃小安"});
 });

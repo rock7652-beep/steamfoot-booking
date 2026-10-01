@@ -92,6 +92,7 @@ export default async function CoursesPage({
   const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
   const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
   const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
+  const rentalCustomers=rentalPermissions.customerRead?await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}):[];
   const cancelledBookings = await coursePrisma.courseBooking.findMany({
     where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
     select: { id: true, customerName: true, sessionId: true, absenceKind: true, notes: true },
@@ -344,6 +345,7 @@ export default async function CoursesPage({
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
+        rentalCustomers={rentalCustomers}
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && (user.role === "ADMIN" || user.storeId === storeId) && !viewContext?.isViewMode}}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
         businessProfile={businessProfile}

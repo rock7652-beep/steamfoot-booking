@@ -1,5 +1,5 @@
 "use client";
-import {RentalPanel,RentalHistory,type RentalPermissions} from "./rental-panel";
+import {RentalPanel,RentalHistory,type RentalPermissions,type RentalCustomer} from "./rental-panel";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
 
@@ -110,6 +110,7 @@ type Session = {
 };
 type Props = {
   rentalPermissions?:RentalPermissions;
+  rentalCustomers?:RentalCustomer[];
   displayOrder?:CourseOrderSnapshot;
   selectedDate: string;
   today: string;
@@ -218,6 +219,7 @@ export function CourseWorkspace({
   coaches: allCoaches,
   canCreate,
   canEdit,
+  rentalCustomers=[],
   rentalPermissions={customerRead:false,customerCreate:false,collect:false,correct:false,edit:false},
   cashbookShortcut,
   businessProfile,
@@ -1115,7 +1117,7 @@ export function CourseWorkspace({
                     <th
                       key={label}
                       scope="col"
-                      className={`whitespace-nowrap px-3 py-2 font-medium ${label==="操作"?"text-right":""}`}
+                      className={`whitespace-nowrap px-3 py-2 font-medium ${label==="操作"&&businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}
                     >
                       {label}
                     </th>
@@ -1169,9 +1171,9 @@ export function CourseWorkspace({
                           {template ? ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[template.visibility ?? "PUBLIC"]) : item.isActive ? "啟用":"停用"}
                         </span>
                       </td>)}
-                      <td className="whitespace-nowrap px-3 py-2 align-top">
+                      <td className={`whitespace-nowrap px-3 py-2 align-middle ${businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
 {businessProfile !== "MUSIC" ? <>
-                        <div className="flex justify-end"><ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
+                        <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${item.name}操作`}>
 
                           {canEdit && <button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open("edit");}}>編輯</button>}
                           {canEdit && (template ? <>{[...["PUBLIC","HIDDEN","OFF"]].filter(v=>v!==(template.visibility??"PUBLIC")).map(v=><button type="button" key={v} className="min-h-11 w-full px-3 text-left text-sm" disabled={pending} onClick={()=>changeStatus(item,v)}>{v==="PUBLIC"?"上架":v==="HIDDEN"?"隱藏":"下架"}</button>)}{canCreate&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:template.name+"（複製）"}});open("edit");}}>複製</button>}</> : <><CourseStatusButton quiet kind="room" id={item.id} disabled={busyIds.includes(item.id)} active={item.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button></>)}
@@ -1263,7 +1265,7 @@ export function CourseWorkspace({
                   : panel === "schedule"
                     ? copySource
                       ? "複製排課"
-                      : "新增排課"
+                      : arrangement==="rental"?"新增租借":arrangement==="trial"?"新增體驗課":"新增排課"
                     : selectedDate}
             </h2>
             {
@@ -1605,7 +1607,7 @@ export function CourseWorkspace({
               {editing.kind === "template" && <DebitRule music={businessProfile === "MUSIC"}/>}
               <details name="course-workspace-details"><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
-            {panel === "edit" && editing?.kind === "room" && businessProfile!=="MUSIC" && <div><button type="button" className={button} onClick={()=>{if(rentalGuard.current.pending)return;if((dirty||rentalGuard.current.dirty)&&!window.confirm("放棄未儲存修改？"))return;setDirty(false);setRoomRentalHistory(v=>!v);}}>{roomRentalHistory?"← 空間設定":"租借紀錄 →"}</button>{roomRentalHistory&&<RentalHistory roomId={editing.value.id} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard}/>}</div>}
+            {panel === "edit" && editing?.kind === "room" && businessProfile!=="MUSIC" && <div><button type="button" className={button} onClick={()=>{if(rentalGuard.current.pending)return;if((dirty||rentalGuard.current.dirty)&&!window.confirm("放棄未儲存修改？"))return;setDirty(false);setRoomRentalHistory(v=>!v);}}>{roomRentalHistory?"← 空間設定":"租借紀錄 →"}</button>{roomRentalHistory&&<RentalHistory customers={rentalCustomers} roomId={editing.value.id} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard}/>}</div>}
             {panel === "edit" && editing && canEdit && !roomRentalHistory && (
               <form
                 id="course-edit-form"
@@ -1926,7 +1928,7 @@ export function CourseWorkspace({
             {panel === "schedule" && businessProfile !== "MUSIC" && <>
               <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
-              {arrangement === "rental" && <RentalPanel key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
+              {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
             {panel === "schedule" && businessProfile !== "MUSIC" && (arrangement==="class" || arrangement==="trial") && (
               <>
@@ -2330,12 +2332,12 @@ export function CourseWorkspace({
                   >
                     {dialogTitle}
                   </h2>
-                  <p className="mt-1 text-sm text-earth-600">
+                  {!rentalDialog&&<p className="mt-1 text-sm text-earth-600">
                     {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
                     {dialogSession.nameSnapshot} ·{" "}
                     {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
                       "未指定教室"}
-                  </p>
+                  </p>}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
@@ -2377,11 +2379,11 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
+                    ? rentalDialog?"overflow-y-auto":oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >
-                {rentalDialog && dialogSession.rentalId ? <RentalPanel id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <CourseRoster
+                {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <CourseRoster
                   key={`${dialogSession.id}-${courseDialog.kind}`}
                   sessionId={dialogSession.id}
                   capacity={dialogSession.capacity}
