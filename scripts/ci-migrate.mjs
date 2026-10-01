@@ -58,6 +58,12 @@ if (requiresCoursePreviewCheck(process.env)) {
     await checkClient.$queryRawUnsafe('SELECT "remaining", "expiresAt", "closedAt" FROM "CoursePointCard" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "operatorCustomerId", "status", "checkedInAt", notes FROM "CourseBooking" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "capacity", "details" FROM "CourseRoom" LIMIT 1');
+    if(process.env.VERCEL_GIT_COMMIT_REF === "feat/shared-customer-labels") {
+      await checkClient.$queryRawUnsafe('SELECT "rentalEnabled", "rentalHourlyRate", "rentalBufferMinutes" FROM "CourseRoom" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT "isTrial" FROM "CourseSession" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, revision FROM "CourseRental" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, status FROM "CourseRentalPayment" LIMIT 1');
+    }
     await checkClient.$queryRawUnsafe('SELECT "courseMemberEnabled" FROM "StaffMemberLink" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT phone, "emergencyContactName", "emergencyContactPhone" FROM "Staff" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "unit", "templateIds" FROM "CoursePointCard" LIMIT 1');

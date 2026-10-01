@@ -88,6 +88,10 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
+  const rentals = await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
+  const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
+  const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
+  const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
   const cancelledBookings = await coursePrisma.courseBooking.findMany({
     where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
     select: { id: true, customerName: true, sessionId: true, absenceKind: true, notes: true },
@@ -115,7 +119,7 @@ export default async function CoursesPage({
           isActive: true,
           capacity: true,
           details: true,
-          equipment:true,location:true,
+          equipment:true,location:true,rentalEnabled:true,rentalHourlyRate:true,rentalBufferMinutes:true,
           sessions: {
             where: { cancelledAt: null, endsAt: { gt: new Date() } },
             select: { id:true,nameSnapshot: true, startsAt: true },
@@ -135,6 +139,7 @@ export default async function CoursesPage({
           visibility:true,classType:true,musicSubjectId:true,musicSubject:{select:{id:true,name:true,isActive:true}},
           musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,
           musicScheduleMode:true,musicTrialMode:true,musicTeacherFeeBase:true,
+          _count:{select:{sessions:true}},
           durationMinutes: true,
           capacity: true,
           pointCost: true,
@@ -158,6 +163,7 @@ export default async function CoursesPage({
         },
         select: {
           id: true,
+          isTrial: true,
           nameSnapshot: true,
           templateId: true,
           startsAt: true,
@@ -315,7 +321,7 @@ export default async function CoursesPage({
       )}
       {view !== "schedule" && (
         <PageHeader
-          title={view === "catalog" ? "課程管理" : "教室管理"}
+          title={view === "catalog" ? "課程管理" : "空間管理"}
           subtitle={
             view === "catalog"
               ? "管理課程名稱、人數與排課預設"
@@ -334,10 +340,11 @@ export default async function CoursesPage({
           ...room,
           uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
         }))}
-        templates={templates}
+        templates={templates.map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
+        rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && (user.role === "ADMIN" || user.storeId === storeId) && !viewContext?.isViewMode}}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
@@ -345,7 +352,7 @@ export default async function CoursesPage({
         waitlistEnabled={waitlistEnabled}
         waitlistDefaultLimit={waitlistDefaultLimit}
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
-        sessions={sessions.map((s) => ({
+        sessions={[...sessions.map((s) => ({
           ...s,
           isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
           isBiweekly: biweeklyKeys.has(s.requestKey),
@@ -361,7 +368,7 @@ export default async function CoursesPage({
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
           previewFaded: s.releasedAt ? "異動／請假" as const : undefined,
           previewStudentNames: s.releasedAt ? cancelledBookings.filter((booking) => booking.sessionId === s.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map((booking) => booking.customerName) : undefined,
-        }))}
+        })),...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))]}
         cancelledBookings={cancelledBookings}
       />
     </PageShell>

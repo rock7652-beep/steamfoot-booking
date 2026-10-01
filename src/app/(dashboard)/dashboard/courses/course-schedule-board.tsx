@@ -51,6 +51,7 @@ type Session = {
   bookings: Booking[];
   displayBookings?: Booking[];
   // Display metadata for the read-only schedule replica; live sessions omit these fields.
+  isTrial?:boolean;
   previewKind?: "CHANGED" | "RENTAL";
   previewFaded?: "異動／請假" | "已調課";
   previewDestinationStartsAt?: string;
@@ -267,7 +268,7 @@ function SessionCard({
   const musicDense = dense && businessProfile === "MUSIC";
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
-  const trialClass = Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
+  const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
   const presentation = courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";

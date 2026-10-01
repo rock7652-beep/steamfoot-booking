@@ -126,6 +126,9 @@ export async function updateCourseRoom(input: unknown) {
         details: z.string().trim().max(5000).default(""),
         equipment: z.string().trim().max(1000).default(""),
         location: z.string().trim().max(500).default(""),
+        rentalEnabled: z.boolean().default(false),
+        rentalHourlyRate: z.number().int().min(0).max(1000000).default(0),
+        rentalBufferMinutes: z.number().int().min(0).max(120).default(0),
       })
       .parse(input);
     await courseTransaction(storeId, async tx => {
@@ -319,7 +322,7 @@ export async function updateCourseSession(input: unknown) {
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const { name, category, capacity, details, equipment, location } = z
+    const { name, category, capacity, details, equipment, location, rentalEnabled, rentalHourlyRate, rentalBufferMinutes } = z
       .object({
         name: z.string().trim().min(1, "請填寫教室名稱").max(80),
         category: z.string().trim().max(40).default(""),
@@ -327,10 +330,13 @@ export async function createCourseRoom(input: unknown) {
         details: z.string().trim().max(5000).default(""),
         equipment: z.string().trim().max(1000).default(""),
         location: z.string().trim().max(500).default(""),
+        rentalEnabled: z.boolean().default(false),
+        rentalHourlyRate: z.number().int().min(0).max(1000000).default(0),
+        rentalBufferMinutes: z.number().int().min(0).max(120).default(0),
       })
       .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
-      data: { name, category, capacity, details, equipment, location, storeId },
+      data: { name, category, capacity, details, equipment, location, storeId, rentalEnabled, rentalHourlyRate, rentalBufferMinutes },
       select: { id: true, name: true },
     });
     revalidatePath("/dashboard/courses");
@@ -402,6 +408,7 @@ export async function createCourseSchedule(input: unknown) {
                 session.roomId !== data.roomId ||
                 session.coachId !== data.coachId ||
                 session.capacity !== data.capacity ||
+                session.isTrial !== data.isTrial ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
                 session.endsAt.getTime() !==
@@ -510,6 +517,7 @@ export async function createCourseSchedule(input: unknown) {
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
+            isTrial:data.isTrial,
             templateId: template.id,
             nameSnapshot: source?.nameSnapshot ?? template.name,
             roomId: room.id,
