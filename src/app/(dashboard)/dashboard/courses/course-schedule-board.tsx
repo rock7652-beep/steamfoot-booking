@@ -214,7 +214,7 @@ function adaptiveCopy(
     primary: privateClass && customer ? customer : session.previewFaded && customer ? `${session.nameSnapshot} · ${customer}` : session.nameSnapshot,
     secondary: privateClass
       ? session.nameSnapshot
-      : `${session.bookings.length} / ${session.capacity} 人`,
+      : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length} / ${session.capacity} 人`,
     coach,
     room,
   };
@@ -531,8 +531,8 @@ export function CourseScheduleBoard({
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
-                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 60 / 60, height: Math.max(26, sessionDurationMinutes(session) * 60 / 60 - 4) }}>
-                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly || Boolean(session.previewFaded)} onOpen={() => onOpenSession(session.id, date)} />
+                  {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 `} style={{ top: Number(hhmm(session.startsAt).slice(3, 5)) * 60 / 60, height: Math.max(26, sessionDurationMinutes(session) * 60 / 60 - 4) }}>
+                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => onOpenSession(session.id, date)} />
                   </div>)}
                 </div>;
               })}
@@ -957,7 +957,7 @@ export function CourseScheduleBoard({
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={musicDense ? `absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}` : session.previewFaded ? "pointer-events-none" : "pointer-events-auto"}
+                            className={musicDense ? `absolute left-1 right-1 z-10 pointer-events-auto` : "pointer-events-auto"}
                             style={musicDense ? {
                               top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2,
                               height: Math.max(21, sessionDurationMinutes(session) * (50 / 60) - 4),
@@ -971,7 +971,7 @@ export function CourseScheduleBoard({
                               businessProfile={businessProfile}
                               fixed={session.isFixed}
                               leaveCount={leaveCounts[session.id] ?? 0}
-                              readOnly={readOnly || Boolean(session.previewFaded)}
+                              readOnly={readOnly}
                               dense={musicDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}
