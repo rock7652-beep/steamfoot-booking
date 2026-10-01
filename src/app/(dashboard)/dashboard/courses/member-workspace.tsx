@@ -363,6 +363,7 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={customerPanel || panel === "assign" ? 880 : 640}
+          maxHeight={customerPanel ? 720 : undefined}
           fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
           labelledById="course-member-sheet"
         >
