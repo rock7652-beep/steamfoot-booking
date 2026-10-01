@@ -72,7 +72,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="批次點名")!.click());
   expect([...host.querySelectorAll<HTMLOptionElement>('select[aria-label="批次點名狀態"] option')].map(option=>option.value)).toEqual(["ATTENDED","RESERVED","NO_SHOW"]);
   await act(async()=>host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="套用 1 人")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="點名這 1 人")!.click());
   expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"}]});
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="曠課・扣堂")!.click());
@@ -146,7 +146,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   });
   await setSearch("0900000019");
   await act(async()=>(host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]') as HTMLInputElement).click());
-  expect(host.textContent).toContain("套用 1 人");
+  expect(host.textContent).toContain("點名這 1 人");
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(1);
   await setSearch("");
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(0);
@@ -160,7 +160,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   await act(async()=>grant!.click());
   expect(m.status).toHaveBeenCalledWith({bookingId:"b0",status:"NO_SHOW",noShowChoice:"DEDUCTED_WITH_MAKEUP"});
   await act(async()=>(host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]') as HTMLInputElement).click());
-  const apply=[...host.querySelectorAll("button")].find(b=>b.textContent==="套用 20 人");expect(apply).toBeTruthy();
+  const apply=[...host.querySelectorAll("button")].find(b=>b.textContent==="點名這 20 人");expect(apply).toBeTruthy();
   await act(async()=>apply!.click());
   expect(m.batch).toHaveBeenCalledWith({sessionId:"session",target:"ATTENDED",bookings:roster.slice(0,20).map(b=>({id:b.id,status:b.status}))});
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -355,7 +355,7 @@ it("scopes ownership counts and retains a row after quick pending attendance", a
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"fitness",capacity:10,canCreate:false,canEdit:true,initialAssignedCoach:"coach-a"})));
   expect(host.textContent).toContain("符合 1／全班 2 位");
   expect(host.textContent).not.toContain("其他學員");
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="待點名 1")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="待點名 2")!.click());
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="自己的學員：待點名"]')!.click());
   expect(host.querySelector('button[aria-label="自己的學員：已出席"]')).toBeTruthy();
   expect(host.textContent).toContain("符合 0／全班 2 位");
@@ -370,5 +370,33 @@ it("music uses shared teacher controls and hides the ownership filter", async()=
   expect(host.querySelector('select[aria-label="教師出勤狀態"]')).toBeTruthy();
   expect(host.querySelector('select[aria-label="所屬教練篩選"]')).toBeNull();
   expect(host.textContent).toContain("本堂免點名");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("combines pending attendance with unpaid trials and keeps whole-class counters", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const base={customerPhone:"0900000000",bookingKind:"TRIAL",status:"RESERVED",checkedInAt:null,trialPayments:[],trialPrice:350,pointCost:0,notes:"",serviceNote:""};
+ const roster=[{...base,id:"pending-unpaid",customerId:"one",customerName:"待點名未收款"},{...base,id:"attended-unpaid",customerId:"two",customerName:"已出席未收款",status:"ATTENDED"},{...base,id:"pending-paid",customerId:"three",customerName:"待點名已收款",trialPayments:[{status:"SUCCESS",amount:350}]}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-01T02:00:00Z",pointCost:2,teacherAttendance:"SCHEDULED"},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const click=async(text:string)=>act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent===text)!.click());
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"filter-combined",capacity:10,canCreate:false,canEdit:true})));
+  expect(host.querySelector('[aria-label="名單篩選條件"] details')).toBeNull();
+  await click("待點名 2");await click("未收款 2");
+  expect(host.querySelectorAll("li")).toHaveLength(1);
+  expect(host.querySelector("li")?.textContent).toContain("待點名未收款");
+  expect(host.textContent).toContain("符合 1／全班 3 位");
+  expect(host.textContent).toContain("點名：待點名");expect(host.textContent).toContain("收款：體驗未收款");
+  const stats=host.querySelector('[aria-label="上課統計"]')!;
+  expect(stats.textContent).toContain("待點名 2");expect(stats.textContent).toContain("未收款 2");
+  expect(stats.querySelectorAll('button[aria-pressed="true"]')).toHaveLength(2);
+  await click("批次點名");
+  const selectAll=host.querySelector<HTMLInputElement>('input[aria-label="全選搜尋結果中可操作的學員"]')!;
+  await act(async()=>selectAll.click());
+  expect(host.textContent).toContain("點名這 1 人");
+  await click("清除篩選");expect(host.querySelectorAll("li")).toHaveLength(3);
+  expect(host.textContent).toContain("已選 0 人");
  } finally {await act(async()=>root.unmount());host.remove();}
 });

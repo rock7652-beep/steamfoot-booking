@@ -727,13 +727,13 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {<div className="relative z-10 flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
-            <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
-            <label className="sr-only" htmlFor="course-coach-filter">教練</label>
+          {<div className="relative z-10 flex flex-wrap items-end gap-2 rounded-xl border border-primary-200 bg-primary-50/50 px-2 py-2">
+            <span className="px-1 text-xs font-medium text-primary-800">課表篩選</span>
+            <label className="text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
             <select
               id="course-coach-filter"
               aria-label="教練篩選"
-              className={`${button} min-h-9 bg-white py-1`}
+              className={`${button} mt-1 block min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
@@ -744,11 +744,11 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            <label className="sr-only" htmlFor="course-room-filter">教室</label>
+            </label><label className="text-xs font-medium text-earth-700" htmlFor="course-room-filter">教室
             <select
               id="course-room-filter"
               aria-label="教室篩選"
-              className={`${button} min-h-9 bg-white py-1`}
+              className={`${button} mt-1 block min-h-11 bg-white py-1 ${roomFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={roomFilter}
               onChange={(e)=>{setSelectedIds([]);setRoomFilter(e.target.value);}}
             >
@@ -759,11 +759,11 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            <label className="sr-only" htmlFor="course-category-filter">分類</label>
+            </label><label className="text-xs font-medium text-earth-700" htmlFor="course-category-filter">課程分類
             <select
               id="course-category-filter"
               aria-label="課程分類篩選"
-              className={`${button} min-h-9 bg-white py-1`}
+              className={`${button} mt-1 block min-h-11 bg-white py-1 ${category !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={category}
               onChange={(e)=>{setSelectedIds([]);setCategory(e.target.value);}}
             >
@@ -774,12 +774,12 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            {businessProfile !== "MUSIC" && <select aria-label="課表所屬教練篩選" className={`${button} min-h-9 bg-white py-1`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬教練</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬教練</option></select>}
-            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-9 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
+            </label>{businessProfile !== "MUSIC" && <label className="text-xs font-medium text-earth-700">學員所屬教練<select aria-label="課表所屬教練篩選" className={`${button} mt-1 block min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬教練</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬教練</option></select></label>}
+            <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
             {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
               <button
                 type="button"
-                className="min-h-9 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
+                className="min-h-11 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
                 onClick={() => {
                   setAssignedCoachFilter("all");
                   setScheduleQuery("");
