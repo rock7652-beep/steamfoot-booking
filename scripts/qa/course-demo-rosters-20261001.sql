@@ -21,7 +21,7 @@ INSERT INTO demo_people VALUES
 (11,'鄭羽彤',NULL,'本次使用免費券'),(12,'楊心怡','cmu6dappt0004l804my3ll2oy','體驗課，請先介紹課程流程'),
 (13,'劉祐安',NULL,NULL),(14,'謝佳穎','course-person:store-course-start-0918-a:48243adc-4fda-44fe-8645-d0134c9a4f00','首次體驗，偏好低強度');
 INSERT INTO "Customer"(id,"storeId",name,phone,"assignedStaffId","serviceNote",notes,"updatedAt")
-SELECT 'qa-demo-1001-c'||n,'store-course-start-0918-a',name,'09000010'||lpad(n::text,2,'0'),staff,note,'隔離展示資料；不綁帳號、不發送通知',NOW() FROM demo_people
+SELECT 'qa-demo-1001-c'||n,'store-course-start-0918-a',name,'09000010'||lpad(n::text,2,'0'),staff,note,NULL,NOW() FROM demo_people
 ON CONFLICT(id) DO NOTHING;
 INSERT INTO "CoursePointPlan"(id,"storeId",name,points,price,"validDays","allowShared","customerPurchasable","lowBalanceEnabled") VALUES
 ('qa-demo-1001-plan','store-course-start-0918-a','展示20點方案',20,0,180,true,false,false),
