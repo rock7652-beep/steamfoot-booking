@@ -841,7 +841,7 @@ export function CourseWorkspace({
           {scheduleMode === "month" ? (
             <>
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
-                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬" : "名單"} {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
+                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬" : "名單"} {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
               </p>
               <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
@@ -893,14 +893,14 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {total.classes > 0 && <span className="pointer-events-none text-xs font-semibold text-primary-900">{total.classes} 堂｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬 " : ""}{total.people} 人次</span>}
+                    {(total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none text-xs font-semibold text-primary-900">{total.classes} 堂{total.rentals > 0 && `・${total.rentals} 筆租借`}｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬 " : ""}{total.people} 人次</span>}
                     {list.slice(0,2).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
-                      const color = courseClassPresentation(type, !!allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode).dot;
+                      const color = courseClassPresentation(type, !!allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode, session.previewKind === "RENTAL").dot;
                       const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${session.nameSnapshot}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className="relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
-                    {list.length > 2 && <span className="pointer-events-none text-xs text-primary-800">另 {list.length-2} 堂</span>}
+                    {list.length > 2 && <span className="pointer-events-none text-xs text-primary-800">另 {list.length-2} 筆</span>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
                   </div>
                 );
@@ -2324,10 +2324,11 @@ export function CourseWorkspace({
           const dialogSession = sessions.find(
             (session) => session.id === courseDialog.sessionId,
           )!;
+          const rentalDialog = dialogSession.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===dialogSession.templateId)?.category ?? "");
           const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
             && dialogSession.capacity === 1
             && allTemplates.find(template => template.id === dialogSession.templateId)?.classType === "PRIVATE";
-          const dialogTitle =
+          const dialogTitle = rentalDialog ? "租借資訊" :
             courseDialog.kind === "roster"
               ? businessProfile === "MUSIC" ? "課程詳情" : "上課名單"
               : courseDialog.kind === "member-booking"
@@ -2337,9 +2338,9 @@ export function CourseWorkspace({
             <RightSheet
               open
               presentation="centered"
-              fitContent={oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC")}
+              fitContent={rentalDialog || oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC")}
               onClose={() => setCourseDialog(null)}
-              width={oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
+              width={rentalDialog ? 640 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
             >
               <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
@@ -2359,10 +2360,10 @@ export function CourseWorkspace({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && dialogSession.rescheduledFromStartsAt && (
+                  {!rentalDialog && courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && dialogSession.rescheduledFromStartsAt && (
                     <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
                   )}
-                  {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && !moveClipboard && (
+                  {!rentalDialog && courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && !moveClipboard && (
                     <button type="button" className={primary} onClick={() => {
                       if (dialogSession.isFixed) {
                         setMoveChoice(dialogSession);
@@ -2374,13 +2375,13 @@ export function CourseWorkspace({
                       ✂ 調課
                     </button>
                   )}
-                  {courseDialog.kind === "roster" && canCreate && <><button type="button" className={primary} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋加入學員</button><button type="button" className={button} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋體驗客</button></>}
+                  {!rentalDialog && courseDialog.kind === "roster" && canCreate && <><button type="button" className={primary} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋加入學員</button><button type="button" className={button} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋體驗客</button></>}
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); setCourseDialog(null); }}>關閉</button>
                 </div>
 
               </header>
               {error && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
-              {courseDialog.kind === "roster" && dialogSession.isFixed && moveChoice?.id === dialogSession.id && !moveClipboard && (
+              {!rentalDialog && courseDialog.kind === "roster" && dialogSession.isFixed && moveChoice?.id === dialogSession.id && !moveClipboard && (
                 <div className="shrink-0 space-y-2 border-b border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <strong className="mr-1 text-indigo-900">要調整哪些課？</strong>
@@ -2401,7 +2402,7 @@ export function CourseWorkspace({
                     : "overflow-y-auto"
                 }`}
               >
-                <CourseRoster
+                {rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <CourseRoster
                   key={`${dialogSession.id}-${courseDialog.kind}`}
                   sessionId={dialogSession.id}
                   capacity={dialogSession.capacity}
@@ -2427,9 +2428,9 @@ export function CourseWorkspace({
                       kind: "trial-booking",
                     })
                   }
-                />
+                />}
               </div>
-              {courseDialog.kind !== "roster" && (
+              {!rentalDialog && courseDialog.kind !== "roster" && (
                 <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                   <button
                     type="submit"

@@ -5,7 +5,7 @@ import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import type { ReactNode } from "react";
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
-import { formatTWTime } from "@/lib/date-utils";
+import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import {
   getLineNotificationStatus,
@@ -181,7 +181,7 @@ export function CustomersTable({
       header: "姓名",
       noLink: true,
       width: "w-32",
-      accessor: (c) => <button type="button" disabled={isInactiveRow(c)} onClick={e=>{e.stopPropagation();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className="relative z-20 min-h-11 text-left text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600 disabled:text-earth-400">{c.name}</button>,
+      accessor: (c) => <button type="button" disabled={isInactiveRow(c)} onClick={e=>{e.stopPropagation();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className="relative z-20 min-h-11 whitespace-nowrap text-left text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600 disabled:text-earth-400">{c.name}</button>,
     },
     {
       key: "phone", header: "電話", noLink: true, width: "w-36",
@@ -269,9 +269,9 @@ export function CustomersTable({
       align: "right",
       width: "w-24",
       accessor: (c) => (
-        <span className="whitespace-nowrap tabular-nums">
+        <span title={c.lastVisitAt ? formatTWTime(c.lastVisitAt) : undefined} className="whitespace-nowrap tabular-nums">
           {c.lastVisitAt ? (
-            formatTWTime(c.lastVisitAt, { dateOnly: true })
+            toLocalDateStr(new Date(c.lastVisitAt)).slice(5).replace("-", "/")
           ) : (
             <span className="text-earth-400">—</span>
           )}
@@ -280,7 +280,7 @@ export function CustomersTable({
     },
     {
       key: "notes", header: "標籤／備註", noLink: true, width: "min-w-[14rem]",
-      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty variant="dots"/><p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p></div>,
+      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty maxVisible={5} variant="dots"/><p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p></div>,
     },
     {
       key: "actions",
@@ -305,12 +305,12 @@ export function CustomersTable({
                   e.preventDefault();
                   onQuickAssign(c);
                 }}
-                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "min-h-11 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
+                className={`rounded px-2 font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600 ${stickyActions ? "min-h-11 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
               >
                 {quickAssignLabel}
               </button>
             ) : null}
-            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
+            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
           </div>
         );
       },

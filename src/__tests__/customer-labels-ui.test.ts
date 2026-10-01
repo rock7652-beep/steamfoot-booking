@@ -34,3 +34,20 @@ it('keeps an add entry for editable empty labels and hides it in display-only li
  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:empty,children:jsx(CustomerLabels,{customerId:'customer',variant:'dots',displayOnly:true})})));
  expect(host.textContent).toBe('');expect(host.querySelector('button')).toBeNull();
 });
+
+it('fits up to five labels and reserves the overflow count when the column narrows',async()=>{
+ const many={...data,labels:Array.from({length:6},(_,i)=>({id:String(i),name:`標籤${i}`,categoryId:'cat',active:true})),assignments:{customer:['0','1','2','3','4','5']}};
+ m.load.mockResolvedValue(many);
+ let width=320,resize=()=>{};
+ vi.stubGlobal('ResizeObserver',class{constructor(callback:()=>void){resize=callback;}observe(){}disconnect(){}});
+ const rect=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(function(this:HTMLElement){return {width:this.classList.contains('overflow-hidden')?width:this.textContent?.startsWith('＋')?22:40,height:20,x:0,y:0,top:0,left:0,right:40,bottom:20,toJSON(){}};});
+ try {
+  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:many,children:jsx(CustomerLabels,{customerId:'customer',maxVisible:5})})));
+  const visible=()=>host.querySelector('button > span')!;
+  expect(visible().querySelectorAll(':scope > span:not([aria-hidden])').length).toBe(6);
+  expect(visible().children[5].textContent).toBe('＋1');
+  width=140;await act(async()=>resize());
+  expect(visible().children[2].textContent).toBe('＋4');
+  await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')?.textContent).toContain('標籤5');
+ } finally {rect.mockRestore();vi.unstubAllGlobals();}
+});

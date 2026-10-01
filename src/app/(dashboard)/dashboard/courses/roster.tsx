@@ -52,7 +52,7 @@ type RosterView = "roster" | "member-booking" | "trial-booking";
 type RosterBooking = Awaited<ReturnType<typeof getCourseRoster>>[number];
 function RosterReminders({booking,canEdit,onOpen}:{booking:RosterBooking;canEdit:boolean;onOpen:()=>void}) {
   return (<div className="flex min-h-11 min-w-0 flex-col justify-center py-0.5 text-xs">
-                <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} hideEmpty variant="dots" />
+                <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} hideEmpty maxVisible={5} variant="dots" />
                 {(booking.serviceNote?.trim() || booking.notes?.trim()) && <button type="button" className="block w-full space-y-0.5 text-left focus-visible:outline-2 focus-visible:outline-primary-600" aria-label={`${booking.customerName} 標籤與備註`} onClick={()=>onOpen()}>
                   {booking.serviceNote?.trim() && <span className="block truncate text-earth-600">平時：{booking.serviceNote.trim().replace(/\s+/g," ")}</span>}
                   {booking.notes?.trim() && <span className="block truncate font-medium text-earth-900">本堂：{booking.notes.trim().replace(/\s+/g," ")}</span>}
@@ -1214,7 +1214,7 @@ export function CourseRoster({
                   <TermPaymentHistory booking={booking} />
                 </details>)}
               </li>)}
-              {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">目前條件沒有符合的學員</li>}
+              {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">{rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"}</li>}
             </ul>
           </section>
 
@@ -1245,7 +1245,7 @@ export function CourseRoster({
               {canEdit && <button type="button" className="min-h-11 min-w-11 rounded text-earth-600 hover:bg-earth-100" aria-label={`${booking.customerName} 更多操作`} aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event => toggleRosterMenu(event.currentTarget,booking.id)}>⋯</button>}
             </li>;
           })}
-          {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">目前條件沒有符合的學員。</li>}
+          {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">{rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"}</li>}
         </ul>
         <p className="px-3 py-1 text-[11px] text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本堂扣點後餘額</p>
       </div>}

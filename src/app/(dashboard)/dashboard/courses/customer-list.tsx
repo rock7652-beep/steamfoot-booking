@@ -33,7 +33,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const sessionOwners = new Set<string>();
   const points = new Map<string, number>();
   const sessions = new Map<string, number>();
-  for (const card of cards) for (const member of card.members) {
+  for (const card of cards.filter(card=>!card.expired && !card.closed)) for (const member of card.members) {
     (card.unit === "SESSION" ? sessionOwners : pointOwners).add(member.id);
     const balances = card.unit === "SESSION" ? sessions : points;
     balances.set(member.id, (balances.get(member.id) ?? 0) + card.available);
@@ -65,7 +65,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
       lastVisitLabel="最近來店"
       balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
-        ? <span className="text-sm">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</span>
+        ? <button type="button" aria-label={`查看 ${row.name} 的有效方案`} onClick={()=>onView(row.id)} className="min-h-11 whitespace-nowrap text-sm text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />
     {pageCount > 1 && <nav aria-label="顧客分頁" className="flex items-center justify-end gap-3 text-sm">
       <span>共 {total} 人 · 第 {page}／{pageCount} 頁</span>

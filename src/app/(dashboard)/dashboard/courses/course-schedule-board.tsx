@@ -319,8 +319,9 @@ function SessionCard({
       <span className="sr-only">{presentation.label}</span>
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
       {dense && businessProfile !== "MUSIC" ? <>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 flex-1 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length}/${session.capacity}`}{teacherState ? ` · ${teacherState}` : ""}</span></div>
+        <div className="text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 flex-1 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong></div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><span className="min-w-0 flex-1 truncate">{rental ? copy.room : copy.coach}</span>{!rental && <span className="shrink-0">{session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length}/${session.capacity}`}{teacherState ? ` · ${teacherState}` : ""}</span>}</div>
       </> : musicDense ? (
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">

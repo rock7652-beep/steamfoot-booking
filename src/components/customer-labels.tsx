@@ -54,7 +54,7 @@ export function CustomerLabelsSettingsLink() {
   if(!ctx?.snapshot.available)return null;
   return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings/customer-labels"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
 }
-export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hideEmpty=false,variant="dots"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;hideEmpty?:boolean;variant?:"badge"|"dots"}) {
+export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hideEmpty=false,maxVisible=2,variant="dots"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;hideEmpty?:boolean;maxVisible?:number;variant?:"badge"|"dots"}) {
   const ctx=useContext(Context);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(""),[pending,setPending]=useState(false);
   const host=useRef<HTMLSpanElement>(null);
@@ -87,8 +87,8 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hide
     catch {update(customerId,old);toast.error("儲存失敗，已還原");}
     finally {setPending(false);ctx?.unlock(customerId);}
   }
-  return <span ref={host} className="relative z-20 inline-flex max-w-full flex-wrap items-center gap-1" onClick={e=>e.stopPropagation()}>
-    {variant === "dots" ? (chosen.length > 0 || canEdit && !displayOnly) && <button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} disabled={displayOnly} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className="inline-flex min-h-5 max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-left text-xs focus-visible:outline-2 focus-visible:outline-primary-600">{chosen.slice(0,2).map(l=><span key={l.id} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${["bg-orange-500","bg-blue-500","bg-purple-500","bg-teal-500","bg-pink-500","bg-indigo-500","bg-amber-500","bg-slate-500"][((categories.find(c=>c.id===l.categoryId)?.number??1)-1)%8]}`} /><span className="text-earth-700">{l.name}</span></span>)}{chosen.length>2&&<span className="text-earth-500">＋{chosen.length-2}</span>}{!chosen.length&&canEdit&&!displayOnly&&<span className="text-primary-700">＋標籤</span>}</button> : <>
+  return <span ref={host} className={`relative z-20 ${maxVisible > 2 ? "flex w-full min-w-0" : "inline-flex max-w-full flex-wrap"} items-center gap-1`} onClick={e=>e.stopPropagation()}>
+    {variant === "dots" ? (chosen.length > 0 || canEdit && !displayOnly) && <button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} disabled={displayOnly} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className={`inline-flex min-h-5 ${maxVisible > 2 ? "w-full min-w-0" : "max-w-full flex-wrap"} items-center gap-x-3 gap-y-1 text-left text-xs focus-visible:outline-2 focus-visible:outline-primary-600`}><ResponsiveDotLabels labels={chosen.map(l=>({id:l.id,name:l.name,color:["bg-orange-500","bg-blue-500","bg-purple-500","bg-teal-500","bg-pink-500","bg-indigo-500","bg-amber-500","bg-slate-500"][((categories.find(c=>c.id===l.categoryId)?.number??1)-1)%8]}))} maxVisible={maxVisible}/>{!chosen.length&&canEdit&&!displayOnly&&<span className="text-primary-700">＋標籤</span>}</button> : <>
     {chosen.slice(0,2).map(l=><span key={l.id} className={`rounded border px-1.5 py-0.5 text-[11px] ${labelColor(categories.find(c=>c.id===l.categoryId)?.number??1)}`}>{l.name}</span>)}
     {!displayOnly&&chosen.length>2&&<span className="text-xs text-earth-500" title={chosen.map(l=>l.name).join("、")}>＋{chosen.length-2}</span>}
     {!displayOnly&&(canEdit||chosen.length>2)&&<button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className="min-h-10 shrink-0 whitespace-nowrap rounded px-2 text-xs text-primary-700 hover:bg-primary-50">{canEdit?"＋標籤":"查看標籤"}</button>}
@@ -104,6 +104,41 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hide
       <span role="status" aria-live="polite" className="block text-xs text-earth-500">{pending?"儲存中…":canEdit?"勾選加入，再點一次移除":"僅供查看"}</span>
       <button type="button" onClick={()=>setOpen(false)} className="mt-2 min-h-9 w-full rounded border text-xs">關閉</button>
     </span>,document.body)}
+  </span>;
+}
+
+/** Measure text, including the overflow count, without wrapping the list row. */
+function ResponsiveDotLabels({labels,maxVisible}:{labels:{id:string;name:string;color:string}[];maxVisible:number}) {
+  const container=useRef<HTMLSpanElement>(null),measure=useRef<HTMLSpanElement>(null);
+  const [fit,setFit]=useState(maxVisible);
+  const signature=labels.map(label=>`${label.id}:${label.name}`).join("|");
+  useEffect(()=>{
+    if(maxVisible<=2)return;
+    const update=()=>{
+      const width=container.current?.getBoundingClientRect().width ?? 0;
+      if(!width || !measure.current)return;
+      const items=Array.from(measure.current.children) as HTMLElement[];
+      let count=Math.min(maxVisible,labels.length);
+      while(count>0){
+        const textWidth=items.slice(0,count).reduce((sum,item)=>sum+item.getBoundingClientRect().width,0);
+        const overflow=count<labels.length ? (items[items.length-1]?.getBoundingClientRect().width ?? 28)+12 : 0;
+        if(textWidth+Math.max(0,count-1)*12+overflow<=width)break;
+        count--;
+      }
+      setFit(count);
+    };
+    update();
+    const observer=typeof ResizeObserver!=="undefined" ? new ResizeObserver(update) : null;
+    if(container.current)observer?.observe(container.current);
+    window.addEventListener("resize",update);
+    void document.fonts?.ready.then(update);
+    return()=>{observer?.disconnect();window.removeEventListener("resize",update);};
+  },[signature,maxVisible,labels.length]);
+  const limit=maxVisible>2 ? Math.min(fit,maxVisible) : maxVisible;
+  const item=(label:typeof labels[number])=><span key={label.id} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${label.color}`} /><span className="text-earth-700">{label.name}</span></span>;
+  return <span ref={container} className={`relative flex min-w-0 items-center gap-x-3 ${maxVisible>2 ? "w-full overflow-hidden whitespace-nowrap" : "flex-wrap"}`} title={labels.map(label=>label.name).join("、")}>
+    {labels.slice(0,limit).map(item)}{labels.length>limit&&<span className="shrink-0 text-earth-500">＋{labels.length-limit}</span>}
+    {maxVisible>2&&<span ref={measure} aria-hidden="true" className="pointer-events-none absolute invisible flex w-max gap-x-3">{labels.slice(0,maxVisible).map(item)}<span>＋{labels.length}</span></span>}
   </span>;
 }
 
