@@ -70,6 +70,7 @@ export function CourseMemberWorkspace({
   assignmentStaff,
   canAssignManager,
   canMerge = false,
+  canExport = false,
   canDiscount = false,
   music = false,
 }: {
@@ -96,13 +97,14 @@ export function CourseMemberWorkspace({
   assignmentStaff: {id:string;displayName:string}[];
   canAssignManager: boolean;
   canMerge?: boolean;
+  canExport?: boolean;
   canDiscount?: boolean;
   music?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
   const pathname=usePathname();
-  function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
+  function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");window.history.replaceState(null,"",`${pathname}?${next}`);}
   const [templateFilter, setTemplateFilter] = useState(params.get("subjectId") ?? params.get("templateId") ?? "all");
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
 
@@ -223,7 +225,7 @@ export function CourseMemberWorkspace({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
+      {view === "plans" && <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
         <nav aria-label="方案管理分區" className="flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
           <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
@@ -239,8 +241,9 @@ export function CourseMemberWorkspace({
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm"><strong className="mr-2 tabular-nums text-primary-800">{value}</strong><span className="text-earth-500">{label}</span></div>)}
         </section>
       )}
-      </div>
+      </div>}
       <div className="flex flex-wrap items-center gap-2">
+        {view === "customers" && <h1 className="mr-auto text-lg font-semibold text-primary-900">顧客管理</h1>}
 
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
@@ -298,7 +301,7 @@ export function CourseMemberWorkspace({
 </div>
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
-        canMerge={canMerge}
+        canMerge={canMerge} canExport={canExport}
         onView={id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); open("person"); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
         onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}

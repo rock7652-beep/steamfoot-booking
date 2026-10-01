@@ -312,14 +312,14 @@ function SessionCard({
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 border-earth-200 bg-white ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 border-earth-300 bg-white ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       <span className="sr-only">{presentation.label}</span>
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
       {dense && businessProfile !== "MUSIC" ? <>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 flex-1 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
         <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length}/${session.capacity}`}{teacherState ? ` · ${teacherState}` : ""}</span></div>
       </> : musicDense ? (
         <>
@@ -508,7 +508,7 @@ export function CourseScheduleBoard({
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
         </div>
         <div className="max-h-[calc(100dvh-18rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
-          <div className="grid w-max min-w-full" style={{ gridTemplateColumns: "64px repeat(7, minmax(170px, 1fr))" }}>
+          <div className="grid w-full" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
               const total = scheduleTotals(scheduleOnDate(weekSessions, date));

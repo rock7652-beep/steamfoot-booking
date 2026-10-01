@@ -54,7 +54,7 @@ export function CustomerLabelsSettingsLink() {
   if(!ctx?.snapshot.available)return null;
   return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings/customer-labels"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
 }
-export function CustomerLabels({customerId,readOnly=false,displayOnly=false,variant="dots"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;variant?:"badge"|"dots"}) {
+export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hideEmpty=false,variant="dots"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;hideEmpty?:boolean;variant?:"badge"|"dots"}) {
   const ctx=useContext(Context);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(""),[pending,setPending]=useState(false);
   const host=useRef<HTMLSpanElement>(null);
@@ -78,6 +78,7 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false,vari
   const labels=categories.flatMap(category=>snapshot.labels.filter(label=>label.categoryId===category.id));
   const chosen=labels.filter(l=>selected.includes(l.id));
   const canEdit=snapshot.canEdit&&!readOnly;
+  if(hideEmpty && !chosen.length)return null;
   async function toggle(id:string) {
     if(pending||!canEdit||!ctx?.lock(customerId))return;
     const add=!selected.includes(id),old=selected;

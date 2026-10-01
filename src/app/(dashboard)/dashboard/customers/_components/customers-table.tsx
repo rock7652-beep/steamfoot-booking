@@ -1,6 +1,6 @@
 "use client";
-import { DashboardLink } from "@/components/dashboard-link";
-import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { CustomerLabels } from "@/components/customer-labels";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 
 import type { ReactNode } from "react";
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
@@ -178,16 +178,14 @@ export function CustomersTable({
     ...(selectionEnabled ? [checkboxColumn] : []),
     {
       key: "customer",
-      header: "顧客",
+      header: "姓名",
       noLink: true,
-      width: "min-w-[19rem] w-[28rem]",
-      accessor: (c) => {
-        const inactive = isInactiveRow(c);
-        return <CustomerListIdentity customerId={c.id} phone={c.phone} note={c.serviceNote} readOnly={readOnly || inactive} name={<>
-          <DashboardLink href={buildViewHref(c)} onClick={e=>{e.preventDefault();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className={inactive ? "pointer-events-none line-through decoration-earth-300" : ""}>{c.name}</DashboardLink>
-          {inactive && <span className="ml-1 text-[10px] text-earth-500">已合併帳號</span>}
-        </>}/>;
-      },
+      width: "w-32",
+      accessor: (c) => <button type="button" disabled={isInactiveRow(c)} onClick={e=>{e.stopPropagation();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className="relative z-20 min-h-11 text-left text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600 disabled:text-earth-400">{c.name}</button>,
+    },
+    {
+      key: "phone", header: "電話", noLink: true, width: "w-36",
+      accessor: c => c.phone && !c.phone.startsWith("_") ? <a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} aria-label={`撥打 ${c.phone}`} className="relative z-20 inline-flex min-h-11 items-center whitespace-nowrap text-sm tabular-nums text-primary-700">☎ {c.phone.replace(/^(09\d{2})(\d{3})(\d{3})$/, "$1-$2-$3")}</a> : <span className="text-earth-400">—</span>,
     },
     {
       key: "lineNotification",
@@ -218,7 +216,8 @@ export function CustomersTable({
       // 有效堂數：用「剩 N 堂」措辭，避免與方案名稱「10堂」混淆。
       // 1–3 堂亮黃並標「提醒」；無有效 PACKAGE 顯示「—」。
       key: "validSessions",
-      header: balanceColumn?.label ?? "有效堂數",
+      noLink: true,
+      header: <span title="有效方案可用額度；共卡由授權成員共用">{balanceColumn?.label ?? "有效堂數"} ⓘ</span>,
       width: "w-24",
       accessor: (c) => {
         if (balanceColumn) return balanceColumn.render(c);
@@ -242,6 +241,7 @@ export function CustomersTable({
     },
     {
       key: "assignedStaff",
+      noLink: true,
       header: assignedStaffLabel,
       width: "w-28",
       accessor: (c) => {
@@ -264,7 +264,8 @@ export function CustomersTable({
     },
     {
       key: "lastVisit",
-      header: lastVisitLabel,
+      noLink: true,
+      header: <span title="最近實際出席或完成服務的日期；不包含未來預約">{lastVisitLabel} ⓘ</span>,
       align: "right",
       width: "w-24",
       accessor: (c) => (
@@ -278,9 +279,14 @@ export function CustomersTable({
       ),
     },
     {
+      key: "notes", header: "標籤／備註", noLink: true, width: "min-w-[14rem]",
+      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty variant="dots"/><p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p></div>,
+    },
+    {
       key: "actions",
       sticky: stickyActions ? "right" : undefined,
-      header: "",
+      header: "操作",
+      noLink: true,
       align: "right",
       width: "w-28",
       accessor: (c) => {
@@ -304,7 +310,7 @@ export function CustomersTable({
                 {quickAssignLabel}
               </button>
             ) : null}
-
+            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
           </div>
         );
       },
@@ -331,7 +337,7 @@ export function CustomersTable({
 
   return (
     <DataTable
-      columns={columns.filter(column => !(hideAssignedStaff && column.key === "assignedStaff") && !(column.key === "actions" && !onQuickAssign))}
+      columns={[...columns].sort((a,b)=>["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(a.key)-["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(b.key)).filter(column => !(hideAssignedStaff && column.key === "assignedStaff"))}
       rows={rows}
       rowKey={(c) => c.id}
       rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}

@@ -52,7 +52,7 @@ type RosterView = "roster" | "member-booking" | "trial-booking";
 type RosterBooking = Awaited<ReturnType<typeof getCourseRoster>>[number];
 function RosterReminders({booking,canEdit,onOpen}:{booking:RosterBooking;canEdit:boolean;onOpen:()=>void}) {
   return (<div className="flex min-h-11 min-w-0 flex-col justify-center py-0.5 text-xs">
-                <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} variant="dots" />
+                <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} hideEmpty variant="dots" />
                 {(booking.serviceNote?.trim() || booking.notes?.trim()) && <button type="button" className="block w-full space-y-0.5 text-left focus-visible:outline-2 focus-visible:outline-primary-600" aria-label={`${booking.customerName} 標籤與備註`} onClick={()=>onOpen()}>
                   {booking.serviceNote?.trim() && <span className="block truncate text-earth-600">平時：{booking.serviceNote.trim().replace(/\s+/g," ")}</span>}
                   {booking.notes?.trim() && <span className="block truncate font-medium text-earth-900">本堂：{booking.notes.trim().replace(/\s+/g," ")}</span>}

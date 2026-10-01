@@ -12,12 +12,12 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, music = false }: {
+export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
-  canMerge?: boolean; music?: boolean;
+  canMerge?: boolean; canExport?: boolean; music?: boolean;
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
@@ -51,9 +51,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode />
-    {canMerge && <ExclusiveMenu label="更多"><DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink></ExclusiveMenu>}
-    <details className="text-xs text-earth-500"><summary className="cursor-pointer">額度與最近上課說明</summary><p>最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p></details>
+    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode trailing={canMerge || canExport ? <ExclusiveMenu label="更多">{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
     <CustomersTable assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
@@ -65,7 +63,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       quickAssignLabel="購買方案"
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
-      lastVisitLabel="最近上課"
+      lastVisitLabel="最近來店"
       balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
         ? <span className="text-sm">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</span>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />

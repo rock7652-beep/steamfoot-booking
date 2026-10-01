@@ -30,6 +30,7 @@ interface Props {
   courseMode?: boolean;
   musicMode?: boolean;
   instantStoreId?: string;
+  trailing?: React.ReactNode;
 }
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -61,7 +62,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
 
 const FILTER_KEYS = ["label", "search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
@@ -201,6 +202,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
           >
             篩選{advancedActiveCount > 0 ? `（${advancedActiveCount}）` : ""}
           </button>
+          {trailing}
         </div>
 
         {!filtersOpen && activeFilterLabels.length > 0 ? (

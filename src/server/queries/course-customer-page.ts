@@ -38,7 +38,7 @@ export async function getCourseCustomerPage(
     WITH attendance AS (
       SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
       FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
-      WHERE b."storeId"=${storeId} AND b.status='ATTENDED' GROUP BY b."customerId"
+      WHERE b."storeId"=${storeId} AND b.status='ATTENDED' AND s."startsAt" <= ${now} AND s."cancelledAt" IS NULL AND s."releasedAt" IS NULL GROUP BY b."customerId"
     ), held AS (
       SELECT "cardId", SUM("pointCost") AS amount FROM "CourseBooking"
       WHERE "storeId"=${storeId} AND status='RESERVED' AND ${canReadCards} GROUP BY "cardId"
