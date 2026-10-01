@@ -189,7 +189,7 @@ export function CustomersTable({
     },
     {
       key: "lineNotification",
-      header: "系統通知",
+      header: <span className="whitespace-nowrap">系統通知</span>,
       width: "w-24",
       noLink: true,
       accessor: (c) => {
@@ -206,7 +206,7 @@ export function CustomersTable({
                 ? "text-amber-700"
                 : "text-red-700";
         return (
-          <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
+          <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
             {lineNotificationShortLabel(status)}
           </span>
         );
@@ -265,7 +265,7 @@ export function CustomersTable({
     {
       key: "lastVisit",
       noLink: true,
-      header: <span title="最近實際出席或完成服務的日期；不包含未來預約">{lastVisitLabel} ⓘ</span>,
+      header: <span className="whitespace-nowrap" title="最近實際出席或完成服務的日期；不包含未來預約">{lastVisitLabel} ⓘ</span>,
       align: "right",
       width: "w-24",
       accessor: (c) => (

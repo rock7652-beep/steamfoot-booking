@@ -883,7 +883,7 @@ export function CourseWorkspace({
                             : "bg-white text-earth-400"
                     }`}
                   >
-                    <button type="button" disabled={pending} aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.people} 人次`}`} className="absolute inset-x-0 top-0 h-11 focus-visible:ring-2 focus-visible:ring-primary-500" onClick={() => {go(date);open("day");}} />
+                    <button type="button" disabled={pending} aria-label={`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}`} className="absolute inset-x-0 top-0 h-11 focus-visible:ring-2 focus-visible:ring-primary-500" onClick={() => {go(date);open("day");}} />
                     <span className={`pointer-events-none shrink-0 text-sm font-medium leading-5 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
