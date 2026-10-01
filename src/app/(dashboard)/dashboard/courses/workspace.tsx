@@ -32,11 +32,14 @@ import {
   createCourseSchedule,
   updateCourseRoom,
   updateCourseTemplate,
+  deleteUnusedCourseTemplate,
   updateCourseSession,
   moveCourseSessions,
   setCourseCatalogStatus,
   batchCourseTemplates,
 } from "@/server/actions/course";
+import { courseClassPresentation } from "@/lib/course-class-presentation";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { courseSessionStatus } from "@/lib/course-session-status";
 import { scheduleRosterBookings, scheduleOccupiedCount, scheduleAssignedBookings } from "@/lib/course-schedule-counts";
 import { buildCourseOccurrences } from "@/lib/course-scheduling";
@@ -834,7 +837,7 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
-          {businessProfile !== "MUSIC" && <div className="flex flex-wrap items-center gap-4 text-xs text-earth-700" aria-label="課表課型圖例">{[["團課","bg-violet-500"],["私課","bg-sky-500"],["一般／自組班","bg-emerald-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>}
+          {<div className="flex flex-wrap items-center gap-4 text-xs text-earth-700" aria-label="課表課型圖例">{[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>}
           {scheduleMode === "month" ? (
             <>
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
@@ -893,7 +896,7 @@ export function CourseWorkspace({
                     {total.classes > 0 && <span className="pointer-events-none text-xs font-semibold text-primary-900">{total.classes} 堂｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬 " : ""}{total.people} 人次</span>}
                     {list.slice(0,2).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
-                      const color = type === "GROUP" ? "bg-violet-500" : type === "PRIVATE" ? "bg-sky-500" : "bg-emerald-500";
+                      const color = courseClassPresentation(type, !!allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode).dot;
                       const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${session.nameSnapshot}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className="relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
@@ -915,7 +918,7 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
             )}
-            {businessProfile === "MUSIC" && <details className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
+            {businessProfile === "MUSIC" && <details name="course-workspace-details" className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
             </div></details>}
@@ -1020,7 +1023,7 @@ export function CourseWorkspace({
               </option>
               {view === "catalog" && <option value="HIDDEN">隱藏</option>}
             </select>
-            {view === "catalog" && businessProfile === "MUSIC" && <select aria-label="篩選班型" className={button} value={classFilter} onChange={e=>{setSelectedIds([]);setClassFilter(e.target.value);}}><option value="all">全部班型</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組班</option><option value="GROUP">團體班</option><option value="TRIAL">體驗課</option></select>}
+            {view === "catalog" && businessProfile === "MUSIC" && <select aria-label="篩選班型" className={button} value={classFilter} onChange={e=>{setSelectedIds([]);setClassFilter(e.target.value);}}><option value="all">全部班型</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option><option value="GROUP">團體課</option><option value="TRIAL">體驗課</option></select>}
             {view === "catalog" && (
               <select
                 aria-label="篩選預設教室"
@@ -1116,7 +1119,7 @@ export function CourseWorkspace({
                         className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
                       >
                         {view==="rooms"&&canEdit&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
-                        {template && <span className="ml-2 whitespace-nowrap text-xs font-normal text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="SELF_ORGANIZED"?"自組班":template.classType==="GROUP"?"團體班":"課型待補"}</span>}
+                        {template && <span className="ml-2 whitespace-nowrap text-xs font-normal text-earth-500">{template.classType==="PRIVATE"?"個別課":template.classType==="SELF_ORGANIZED"?"自組課":template.classType==="GROUP"?"團體課":"課型待補"}</span>}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">{item.category || "未分類"}</td>
                       {template ? (
@@ -1427,11 +1430,8 @@ export function CourseWorkspace({
                               </>
                             )}
                             {(canCreate || canEdit) && (
-                              <details className="relative ml-auto">
-                                <summary className={`${button} cursor-pointer list-none`}>
-                                  更多
-                                </summary>
-                                <div className="absolute right-0 z-10 mt-1 grid min-w-36 gap-1 rounded-xl border border-earth-200 bg-white p-2 shadow-lg">
+                              <ExclusiveMenu label="更多" className="ml-auto">
+                                                                <div className="grid gap-1">
                                   {canCreate && (
                                     <button
                                       type="button"
@@ -1468,7 +1468,7 @@ export function CourseWorkspace({
                                     </button>
                                   )}
                                 </div>
-                              </details>
+                              </ExclusiveMenu>
                             )}
                           </div>
                         </article>
@@ -1537,7 +1537,7 @@ export function CourseWorkspace({
                               classType:data.get("classType") || null,
                               durationMinutes: Number(data.get("duration")),
                               pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
-                              ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {}),
+                              ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {musicTrialMode:data.get("musicTrialMode") || null}),
                               capacity: Number(data.get("capacity")),
                               waitlistEnabled: waitlistEnabled && data.get("waitlistEnabled") === "yes",
                               waitlistLimit: Number(data.get("waitlistLimit") || waitlistDefaultLimit),
@@ -1556,7 +1556,7 @@ export function CourseWorkspace({
                           />
                         </label>
                         <ClassType required/>
-                        {businessProfile === "MUSIC" && <MusicCourseFields/>}
+                        {businessProfile === "MUSIC" ? <MusicCourseFields/> : <TrialClassField/>}
                         <label className="col-span-full">
                           分類
                           <input
@@ -1632,10 +1632,10 @@ export function CourseWorkspace({
               <dl className="divide-y divide-earth-100">{[
                 ["名稱",editing.value.name],["分類",editing.value.category || "未分類"],
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
-                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "SELF_ORGANIZED" ? "自組班" : editing.value.classType === "GROUP" ? "團體班":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
+                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "個別課" : editing.value.classType === "SELF_ORGANIZED" ? "自組課" : editing.value.classType === "GROUP" ? "團體課":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
               {editing.kind === "template" && <DebitRule music={businessProfile === "MUSIC"}/>}
-              <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
+              <details name="course-workspace-details"><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
             {panel === "edit" && editing && canEdit && (
               <form
@@ -1669,7 +1669,7 @@ export function CourseWorkspace({
                         return (copyTemplate?createCourseTemplate:updateCourseTemplate)({
                           ...common,
                           ...details,
-                          ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {}),
+                          ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {musicTrialMode:data.get("musicTrialMode") || null}),
                           defaultRoomId: data.get("roomId") || null,
                           description: data.get("description") || "",
                           precautions: data.get("precautions") || "",
@@ -1734,7 +1734,7 @@ export function CourseWorkspace({
                     }
                   />
                 </label>
-                {editing.kind === "template" && <ClassType value={editing.value.classType} required={copyTemplate}/>}
+                {editing.kind === "template" && <ClassType value={editing.value.classType} required={copyTemplate}/>}{editing.kind === "template" && businessProfile !== "MUSIC" && <TrialClassField value={editing.value.musicTrialMode}/>}
                 {editing.kind === "template" && businessProfile === "MUSIC" && <MusicCourseFields value={editing.value}/>}
                 {editing.kind !== "session" && (
                   <label className="col-span-full">
@@ -2042,7 +2042,7 @@ export function CourseWorkspace({
                       </select>
                       {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">開啟教練管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
                     </label>
-                    <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details><summary className="min-h-11 cursor-pointer inline-flex items-center">扣抵說明 ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
+                    <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary className="min-h-11 cursor-pointer inline-flex items-center">扣抵說明 ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
                       日期
                       <input
@@ -2257,7 +2257,7 @@ export function CourseWorkspace({
                 </button>
               </footer>
             )}
-          {panel === "inspect" && canEdit && <footer className="shrink-0 border-t bg-white p-4"><button className={`${primary} w-full`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button></footer>}
+          {panel === "inspect" && canEdit && <footer className="flex shrink-0 gap-2 border-t bg-white p-4"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
           {panel === "schedule" && businessProfile !== "MUSIC" && (
             <footer className="shrink-0 border-t bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>
@@ -2374,17 +2374,11 @@ export function CourseWorkspace({
                       ✂ 調課
                     </button>
                   )}
+                  {courseDialog.kind === "roster" && canCreate && <><button type="button" className={primary} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋加入學員</button><button type="button" className={button} onClick={()=>setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋體驗客</button></>}
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); setCourseDialog(null); }}>關閉</button>
                 </div>
 
               </header>
-              {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canCreate && (
-                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-earth-200 bg-white px-4 py-2 text-sm">
-                  {dialogSession.bookings.length === 0 && <strong className="mr-1 text-primary-900">最後一步：選學員</strong>}
-                  <button type="button" className={primary} onClick={() => setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋ 選學員</button>
-                  <button type="button" className={button} onClick={() => setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋ 新增體驗客</button>
-                </div>
-              )}
               {error && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
               {courseDialog.kind === "roster" && dialogSession.isFixed && moveChoice?.id === dialogSession.id && !moveClipboard && (
                 <div className="shrink-0 space-y-2 border-b border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
@@ -2423,7 +2417,7 @@ export function CourseWorkspace({
                   roomId={dialogSession.roomId}
                   roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
                   courseName={dialogSession.nameSnapshot}
-                  onDone={() => setCourseDialog(null)}
+                  onDone={() => setCourseDialog({sessionId:dialogSession.id,kind:"roster"})}
                   onAttendanceOptimistic={showPendingAttendance}
                   onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
                   onMemberBookingReadyChange={setMemberBookingReady}
@@ -2484,7 +2478,7 @@ function RoomMore({
           defaultValue={capacity ?? ""}
         />
       </label>}
-      <details className="col-span-full">
+      <details name="course-workspace-details" className="col-span-full">
         <summary className="min-h-11 cursor-pointer py-3">選填：設備、位置與備註</summary>
         <div className="grid gap-3 sm:grid-cols-2"><RoomFields equipment={equipment} location={location}/></div>
         <label>
@@ -2509,7 +2503,7 @@ function TemplateMore({
   precautions?: string;
 }) {
   return (
-    <details className="col-span-full">
+    <details name="course-workspace-details" className="col-span-full">
       <summary className="min-h-11 cursor-pointer py-3">選填：課程介紹與注意事項</summary>
       <label>
         課程介紹
@@ -2551,12 +2545,14 @@ function MusicCourseFields({value}:{value?:{musicPricePerLesson?:number|null;mus
     <label>每期有效天數<input className={field} name="musicValidityDaysPerTerm" type="number" min="1" max="3650" defaultValue={value?.musicValidityDaysPerTerm ?? 35} required/><span className="text-xs text-earth-500">固定課預設 35 天；約課預設 70 天，從第一次上課起算。</span></label>
     <label>體驗課<select className={field} name="musicTrialMode" defaultValue={value?.musicTrialMode ?? ""}><option value="">一般課程</option><option value="FREE">免費體驗（30 分鐘）</option><option value="PAID">付費體驗（完整一堂）</option></select></label>
     <label>免費體驗老師計費基礎（元）<input className={field} name="musicTeacherFeeBase" type="number" min="0" max="1000000" defaultValue={value?.musicTeacherFeeBase ?? ""} placeholder="例：個別 400、雙人每位 325"/><span className="text-xs text-earth-500">只供免費體驗計算老師分成，依實際報名座位計，不因曠課減少。</span></label>
-    <p className="col-span-full text-xs text-earth-600">音樂教室只使用堂數，每位學員每次上課使用 1 堂。團體班請假仍扣堂，自組班請假可在期限內補課。</p>
+    <p className="col-span-full text-xs text-earth-600">音樂教室只使用堂數，每位學員每次上課使用 1 堂。團體課請假仍扣堂，自組課請假可在期限內補課。</p>
   </>;
 }
-function ClassType({value,required=false}:{value?:string|null;required?:boolean}) {return <label className="col-span-full">課型{required ? "（必填）" : ""}<select className={field} name="classType" required={required} defaultValue={value ?? ""}><option value="">{required ? "請選擇課型" : "待補設定"}</option><option value="PRIVATE">私課</option><option value="SELF_ORGANIZED">自組班（自行組隊，請假可補）</option><option value="GROUP">團體班（店家開班，請假扣堂）</option></select></label>;}
+function ClassType({value,required=false}:{value?:string|null;required?:boolean}) {return <label className="col-span-full">課型{required ? "（必填）" : ""}<select className={field} name="classType" required={required} defaultValue={value ?? ""}><option value="">{required ? "請選擇課型" : "待補設定"}</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課（自行組隊，請假可補）</option><option value="GROUP">團體課（店家開班，請假扣堂）</option></select></label>;}
 function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></>;}
 
 function DebitRule({music=false}:{music?:boolean}) {
-  return <p className="col-span-full text-sm leading-relaxed text-earth-600">{music ? "只使用堂數方案：每位學員每次固定使用 1 堂；先保留額度，出席或曠課才扣堂。團體班請假也扣堂。" : "依使用卡別扣抵：點數卡每次扣課程設定點數；堂數卡每次固定扣 1 堂，不會同時扣兩種額度。須使用適用本課程的方案。預約先占用，出席才正式扣抵。"}</p>;
+  return <p className="col-span-full text-sm leading-relaxed text-earth-600">{music ? "只使用堂數方案：每位學員每次固定使用 1 堂；先保留額度，出席或曠課才扣堂。團體課請假也扣堂。" : "依使用卡別扣抵：點數卡每次扣課程設定點數；堂數卡每次固定扣 1 堂，不會同時扣兩種額度。須使用適用本課程的方案。預約先占用，出席才正式扣抵。"}</p>;
 }
+
+function TrialClassField({value}:{value?:string|null}) {return <label>班級性質<select className={field} name="musicTrialMode" defaultValue={value ?? ""}><option value="">一般課程</option><option value="PAID">體驗班</option></select></label>;}

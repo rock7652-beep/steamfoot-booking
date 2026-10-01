@@ -9,6 +9,7 @@ import { CustomersToolbar } from "../customers/_components/customers-toolbar";
 import { filterCourseCustomers } from "@/lib/course-customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CourseCardView } from "./member-workspace";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
 export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, music = false }: {
@@ -51,7 +52,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
     <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode />
-    {canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}
+    {canMerge && <ExclusiveMenu label="更多"><DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink></ExclusiveMenu>}
     <details className="text-xs text-earth-500"><summary className="cursor-pointer">額度與最近上課說明</summary><p>最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p></details>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
     <CustomersTable assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
@@ -66,7 +67,7 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
       lastVisitLabel="最近上課"
       balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
-        ? <span className="text-sm">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "無有效方案"}</span>
+        ? <span className="text-sm">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</span>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />
     {pageCount > 1 && <nav aria-label="顧客分頁" className="flex items-center justify-end gap-3 text-sm">
       <span>共 {total} 人 · 第 {page}／{pageCount} 頁</span>

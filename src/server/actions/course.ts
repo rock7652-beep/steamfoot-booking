@@ -183,6 +183,29 @@ export async function updateCourseTemplate(input: unknown) {
   }
 }
 
+export async function deleteUnusedCourseTemplate(input: unknown) {
+  try {
+    const {user,storeId}=await writableStore("booking.update");
+    const {id}=z.object({id:z.string().min(1).max(100)}).parse(input);
+    await courseTransaction(storeId,async tx=>{
+      const template=await tx.courseTemplate.findFirst({where:{id,storeId},select:{id:true}});
+      if(!template)throw new AppError("NOT_FOUND","找不到本店課程");
+      const uses=await Promise.all([
+        tx.courseSession.count({where:{storeId,templateId:id}}),
+        tx.coursePointPlan.count({where:{storeId,templateIds:{has:id}}}),
+        tx.coursePointCard.count({where:{storeId,templateIds:{has:id}}}),
+        tx.coursePurchase.count({where:{storeId,templateIds:{has:id}}}),
+        tx.courseCompensation.count({where:{storeId,templateId:id}}),
+      ]);
+      if(uses.some(Boolean))throw new AppError("VALIDATION","此課程已有排課、方案或拆帳設定，請使用下架保留紀錄");
+      await tx.courseTemplate.delete({where:{id,storeId}});
+    });
+    await (await import("@/server/services/operation-audit")).recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseTemplate",targetId:id,action:"DELETE",summary:"刪除未使用課程"});
+    revalidatePath("/dashboard/courses");revalidatePath("/book");
+    return {success:true as const};
+  }catch(error){return handleCourseActionError(error);}
+}
+
 export async function updateCourseSession(input: unknown) {
   try {
     const { user, storeId } = await writableStore("booking.update");

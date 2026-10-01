@@ -9,7 +9,7 @@ import type { Prisma } from "../../generated/course-client";
 const m = {
   courseSession: { findFirst: vi.fn(), update: vi.fn() },
   courseBooking: { findFirst: vi.fn(), aggregate: vi.fn(), count: vi.fn(), update: vi.fn() },
-  coursePointCard: { update: vi.fn() },
+  coursePointCard: { update: vi.fn(), findUnique: vi.fn() },
   coursePointEntry: { create: vi.fn() },
 };
 const tx = m as unknown as Prisma.TransactionClient;
@@ -24,10 +24,41 @@ const booking = (status: string, remaining = 7) => ({
 });
 beforeEach(() => {
   vi.clearAllMocks();
+  m.coursePointCard.findUnique.mockResolvedValue(null);
   m.courseBooking.aggregate.mockResolvedValue({ _sum: { pointCost: 0 } });
   m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 1);
   m.courseBooking.update.mockImplementation(async (x) => x.data);
   m.courseSession.findFirst.mockResolvedValue({teacherAttendance:"SCHEDULED",releasedAt:null,startsAt:new Date("2020-01-01"),endsAt:new Date("2020-01-01T01:00:00Z"),roomId:"room",coachId:"coach"});
+});
+
+describe("direct cancellation corrections",()=>{
+ it.each(["ATTENDED","NO_SHOW","GROUP_LEAVE_FORFEITED"])("refunds %s exactly once without reserving another seat",async(state)=>{
+  const row={...booking(state==="GROUP_LEAVE_FORFEITED"?"CANCELLED":state),sessionId:"session",absenceKind:state==="GROUP_LEAVE_FORFEITED"?state:null};
+  m.courseBooking.findFirst.mockResolvedValue(row);
+  m.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:100}});
+  await correctCourseAttendance(tx,actor,"b","CANCELLED",row.status);
+  expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:"c"},data:{remaining:{increment:3}}});
+  expect(m.courseBooking.update).toHaveBeenCalledWith({where:{id:"b"},data:{status:"CANCELLED",absenceKind:null,checkedInAt:null}});
+  m.courseBooking.findFirst.mockResolvedValue({...row,status:"CANCELLED",absenceKind:null});
+  await expect(correctCourseAttendance(tx,actor,"b","CANCELLED",row.status)).rejects.toThrow("無法更正");
+  expect(m.coursePointCard.update).toHaveBeenCalledTimes(1);
+ });
+ it("clears an undeducted leave without refunding twice",async()=>{
+  m.courseBooking.findFirst.mockResolvedValue({...booking("CANCELLED"),sessionId:"session",absenceKind:"STUDENT_LEAVE"});
+  await correctCourseAttendance(tx,actor,"b","CANCELLED","CANCELLED");
+  expect(m.coursePointCard.update).not.toHaveBeenCalled();
+ });
+ it("rejects stale attendance before refunding",async()=>{
+  m.courseBooking.findFirst.mockResolvedValue(booking("NO_SHOW"));
+  await expect(correctCourseAttendance(tx,actor,"b","CANCELLED","ATTENDED")).rejects.toThrow("另一位人員");
+  expect(m.coursePointCard.update).not.toHaveBeenCalled();
+ });
+ it("blocks cancellation when a no-show makeup coupon was used",async()=>{
+  m.courseBooking.findFirst.mockResolvedValue(booking("NO_SHOW"));
+  m.coursePointCard.findUnique.mockResolvedValue({id:"coupon",remaining:0,closedAt:null});
+  await expect(correctCourseAttendance(tx,actor,"b","CANCELLED","NO_SHOW")).rejects.toThrow("補課券已使用");
+  expect(m.coursePointCard.update).not.toHaveBeenCalled();
+ });
 });
 
 describe("restore music student leave", () => {

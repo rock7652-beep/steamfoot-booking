@@ -30,14 +30,14 @@ it("week honors each day's opening periods and creation permission",async()=>{
   expect(free.disabled).toBe(true);await act(async()=>free.click());expect(open).not.toHaveBeenCalled();
  } finally {await act(async()=>root.unmount());host.remove();}
 });
-it("fitness group/private cards have different fills and readable text",async()=>{
+it("fitness class dots distinguish group/private without coloured fills",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,mode:"week",sessions:[session,{...session,id:"private",templateId:"private",nameSnapshot:"私課",startsAt:"2026-10-01T03:00:00Z",endsAt:"2026-10-01T04:00:00Z"}],onOpenEmpty:vi.fn()})));
   const group=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.startsWith("團課，"))!;
   const individual=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.startsWith("私課，"))!;
-  expect(group.className).toContain("bg-violet-100");expect(individual.className).toContain("bg-sky-100");
+  expect(group.querySelector("span[aria-hidden]")?.className).toContain("bg-emerald-600");expect(individual.querySelector("span[aria-hidden]")?.className).toContain("bg-blue-600");expect(group.className).toContain("bg-white");
   expect(group.querySelector("div")?.className).toContain("text-sm");
  } finally {await act(async()=>root.unmount());host.remove();}
 });

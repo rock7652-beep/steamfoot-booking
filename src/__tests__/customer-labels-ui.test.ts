@@ -16,7 +16,7 @@ beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRO
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 async function render(initial=data,readOnly=false){await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial,children:jsx(CustomerLabels,{customerId:"customer",readOnly})},String(initial.enabled))));}
 async function click(label:string){const button=document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);expect(button).toBeTruthy();await act(async()=>button!.click());}
-it('shows two labels and remaining count, and portals the dialog outside a clipped row',async()=>{await render();expect(host.textContent).toContain('＋1');expect(host.textContent).toContain('＋標籤');expect(host.textContent).not.toContain('重點');await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')).toBeTruthy();expect(host.querySelector('[role="dialog"]')).toBeNull();});
+it('shows two labels and remaining count, and portals the dialog outside a clipped row',async()=>{await render();expect(host.textContent).toContain('＋1');expect(host.textContent).not.toContain('＋標籤');expect(host.textContent).not.toContain('重點');await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')).toBeTruthy();expect(host.querySelector('[role="dialog"]')).toBeNull();});
 it('updates immediately, retains the dialog, and rolls back failed saves',async()=>{await render();await click('查看或修改顧客標籤');let finish!:(v:{success:boolean,error:string})=>void;m.save.mockReturnValue(new Promise(resolve=>finish=resolve));const button=[...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].find(b=>b.textContent?.includes('重點'))!;await act(async()=>button.click());expect(host.textContent).not.toContain('＋1');expect(document.querySelector('[role="dialog"]')).toBeTruthy();await act(async()=>finish({success:false,error:'失敗'}));expect(host.textContent).toContain('＋1');expect(m.error).toHaveBeenCalledWith('失敗');expect(m.save).toHaveBeenCalledWith({customerId:'customer',labelId:'c',selected:false});});
 it('hides disabled tags without deleting and exposes no writable buttons to readonly users',async()=>{await render({...data,enabled:false});expect(host.textContent).toBe('');expect(m.save).not.toHaveBeenCalled();await render(data,true);await click('查看或修改顧客標籤');expect([...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].every(b=>b.disabled)).toBe(true);});
 
@@ -27,8 +27,10 @@ it('uses quiet dot labels without an add button and opens all labels on touch',a
  expect(host.querySelector('.bg-orange-500')).toBeTruthy();
  await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')?.textContent).toContain('重點');
 });
-it('does not reserve a dot-label row when there are no labels',async()=>{
+it('keeps an add entry for editable empty labels and hides it in display-only lists',async()=>{
  const empty={...data,assignments:{customer:[]}};m.load.mockResolvedValue(empty);
  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:empty,children:jsx(CustomerLabels,{customerId:'customer',variant:'dots'})})));
+ expect(host.textContent).toBe('＋標籤');expect(host.querySelector('button')).toBeTruthy();
+ await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:empty,children:jsx(CustomerLabels,{customerId:'customer',variant:'dots',displayOnly:true})})));
  expect(host.textContent).toBe('');expect(host.querySelector('button')).toBeNull();
 });

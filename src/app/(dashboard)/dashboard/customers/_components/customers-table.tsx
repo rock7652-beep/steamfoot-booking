@@ -180,10 +180,10 @@ export function CustomersTable({
       key: "customer",
       header: "顧客",
       noLink: true,
-      width: "min-w-[18rem] w-80",
+      width: "min-w-[19rem] w-[28rem]",
       accessor: (c) => {
         const inactive = isInactiveRow(c);
-        return <CustomerListIdentity customerId={c.id} phone={c.phone} readOnly={readOnly || inactive} name={<>
+        return <CustomerListIdentity customerId={c.id} phone={c.phone} note={c.serviceNote} readOnly={readOnly || inactive} name={<>
           <DashboardLink href={buildViewHref(c)} onClick={e=>{e.preventDefault();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className={inactive ? "pointer-events-none line-through decoration-earth-300" : ""}>{c.name}</DashboardLink>
           {inactive && <span className="ml-1 text-[10px] text-earth-500">已合併帳號</span>}
         </>}/>;
@@ -201,12 +201,12 @@ export function CustomersTable({
         });
         const tone =
           status === "enabled"
-            ? "bg-green-50 text-green-700"
+            ? "text-green-700"
             : status === "disabled"
-              ? "bg-earth-100 text-earth-600"
+              ? "text-earth-600"
               : status === "needs_review"
-                ? "bg-amber-50 text-amber-700"
-                : "bg-red-50 text-red-700";
+                ? "text-amber-700"
+                : "text-red-700";
         return (
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
             {lineNotificationShortLabel(status)}
@@ -256,11 +256,7 @@ export function CustomersTable({
             className="inline-flex max-w-full items-center gap-1.5 truncate text-[12px] text-earth-700"
             title={c.assignedStaff.displayName}
           >
-            <span
-              aria-hidden
-              className="inline-block h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: c.assignedStaff.colorCode }}
-            />
+
             <span className="truncate">{c.assignedStaff.displayName}</span>
           </span>
         );
@@ -282,25 +278,11 @@ export function CustomersTable({
       ),
     },
     {
-      key: "serviceNote",
-      header: "備註",
-      width: "w-44",
-      accessor: (c) =>
-        c.serviceNote ? (
-          // 一行截斷摘要（不加 title tooltip）— 完整內容於顧客 Drawer 查看。
-          <span className="block max-w-[11rem] truncate text-[12px] text-earth-600">
-            {c.serviceNote}
-          </span>
-        ) : (
-          <span className="text-[11px] text-earth-300">—</span>
-        ),
-    },
-    {
       key: "actions",
       sticky: stickyActions ? "right" : undefined,
       header: "",
       align: "right",
-      width: onQuickAssign ? "w-36" : "w-20",
+      width: "w-28",
       accessor: (c) => {
         if (isInactiveRow(c)) {
           return (
@@ -317,24 +299,12 @@ export function CustomersTable({
                   e.preventDefault();
                   onQuickAssign(c);
                 }}
-                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "h-8 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
+                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "min-h-11 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
               >
                 {quickAssignLabel}
               </button>
             ) : null}
-            <button
-              type="button"
-              onMouseEnter={() => onPrefetch?.(c)}
-              onFocus={() => onPrefetch?.(c)}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                onView(c);
-              }}
-              className={`rounded border border-earth-200 px-2 text-earth-700 hover:bg-earth-50 ${stickyActions ? "h-8 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
-            >
-              查看
-            </button>
+
           </div>
         );
       },
@@ -361,7 +331,7 @@ export function CustomersTable({
 
   return (
     <DataTable
-      columns={hideAssignedStaff ? columns.filter(column => column.key !== "assignedStaff") : columns}
+      columns={columns.filter(column => !(hideAssignedStaff && column.key === "assignedStaff") && !(column.key === "actions" && !onQuickAssign))}
       rows={rows}
       rowKey={(c) => c.id}
       rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}
