@@ -23,7 +23,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const validDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).valueOf()) && new Date(s).toISOString().slice(0, 10) === s;
   const from = validDate(params.dateFrom) ? params.dateFrom! : today.slice(0, 7) + "-01";
   const to = validDate(params.dateTo) ? params.dateTo! : today;
-  if (from > to) return <PageShell><PageHeader title="營運" /><p role="alert">開始日期不能晚於結束日期。</p><Link href={basePath}>重設日期</Link></PageShell>;
+  if (from > to) return <PageShell compact><PageHeader compact title="營運" /><p role="alert">開始日期不能晚於結束日期。</p><Link href={basePath}>重設日期</Link></PageShell>;
   const range = { gte: dayRange(from).start, lte: dayRange(to).end };
   if (params.summary === "receipts") {
     const [totals, report] = await Promise.all([getCourseReceiptTotals(storeId,from,to),getCourseRevenueReport(storeId,{startDate:from,endDate:to,storeFilter:{storeId}})]);
@@ -35,7 +35,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       { key:"kind",header:"異動",accessor:r=>r.netAmount<0 ? (r.id.endsWith(":void") ? "體驗沖銷" : "退款") : "收款入帳" },
       { key:"amount",header:"金額",accessor:r=>money(r.netAmount) },
     ];
-    return <PageShell><PageHeader title="收款明細" subtitle={`${from}–${to} · 依核帳、收款及沖回發生日`} actions={<Link href="/dashboard">返回首頁</Link>}/>
+    return <PageShell compact><PageHeader compact title="收款明細" subtitle={`${from}–${to} · 依核帳、收款及沖回發生日`} actions={<Link href="/dashboard">返回首頁</Link>}/>
       <p className="mb-3 text-sm">收款入帳合計 {money(totals.gross)} · 退款 {money(totals.refunds)} · 沖銷 {money(totals.voids)} · 淨收款 {money(totals.net)}</p>
       <DataTable columns={detailColumns} rows={detailRows} rowKey={r=>r.id}/>
       <Link className="mt-3 inline-flex min-h-11 items-center text-sm text-primary-700" href={`${basePath}?dateFrom=${from}&dateTo=${to}`}>前往營運交易工作台 →</Link>
@@ -89,15 +89,15 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const periodHref = (dateFrom: string, dateTo: string) => `${basePath}?${new URLSearchParams({dateFrom,dateTo,status:status??"",staff:staff??""})}`;
   const isToday = from === today && to === today;
   const isMonth = from === today.slice(0, 7) + "-01" && to === today;
-  return <PageShell>
-    <PageHeader title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({dateFrom:from,dateTo:to,status:"PENDING"})}`}>查看期間待核帳</Link>} />
+  return <PageShell compact>
+    <PageHeader compact title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" actions={<Link className="inline-flex min-h-11 items-center rounded-lg border border-primary-200 bg-primary-50 px-3 text-sm text-primary-800" href={`${basePath}?${new URLSearchParams({dateFrom:from,dateTo:to,status:"PENDING"})}`}>查看期間待核帳</Link>} />
     <RevenueTabs readOnly={readOnly} />
     <KpiStrip items={[{ label: "期間核帳收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "核帳訂單", value: `${receiptTotals.purchaseCount} 筆` }]} />
     <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">收款入帳合計 {money(receiptTotals.gross)} · 退款 {money(receiptTotals.refunds)} · 體驗沖銷 {money(receiptTotals.voids)} · <strong>淨收款 {money(receiptTotals.net)}</strong></p>
     <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計與日期說明</summary><p>摘要依核帳／退款發生日計算；下表依購買日期篩選。方案淨收入不重複加計現金帳的連動紀錄，也不包含手動收支。所有日期採台灣時間。</p></details>
     <div className="grid grid-cols-12 gap-3"><section className="col-span-12 rounded-xl border border-earth-200 bg-white lg:col-span-9">
       <div className="border-b p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-semibold">交易工作台</h2><p className="mt-0.5 text-[11px] text-earth-500">查詢購買、核帳及退款；交易處理集中在最右側。</p></div><nav aria-label="營運期間" className="flex rounded-lg bg-earth-100 p-1 text-sm"><Link className={`rounded-md px-3 py-1.5 ${isToday?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today,today)}>本日</Link><Link className={`rounded-md px-3 py-1.5 ${isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`} href={periodHref(today.slice(0,7)+"-01",today)}>本月</Link><span className={`rounded-md px-3 py-1.5 ${!isToday&&!isMonth?"bg-white font-medium text-primary-800 shadow-sm":"text-earth-600"}`}>任意區間</span></nav></div>
-        <InstantFilterForm className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]">
+        <InstantFilterForm className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]">
           <label className="text-xs">開始日期<input className={dateField} type="date" name="dateFrom" defaultValue={from} /></label>
           <label className="text-xs">結束日期<input className={dateField} type="date" name="dateTo" defaultValue={to} /></label>
           <label className="text-xs">狀態<select className={selectField} style={selectStyle} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
