@@ -762,32 +762,7 @@ export function CourseScheduleBoard({
         </div>
       </div>
 
-      {musicDense && (
-        <details className="max-w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-[11px] text-earth-700">
-          <summary className="cursor-pointer font-medium">顏色與點名說明</summary>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片底色表示課型">
-            <span className="font-semibold text-earth-800">底色＝課型</span>
-            {[
-              ["固定（含隔週）", "border-sky-300 bg-sky-100"],
-              ["異動／約課／調課／代課", "border-emerald-300 bg-emerald-100"],
-              ["團體班", "border-violet-300 bg-violet-100"],
-              ["體驗", "border-orange-400 bg-orange-100"],
-              ["租借", "border-pink-300 bg-pink-100"],
-            ].map(([label, color]) => (
-              <span key={label} className="inline-flex items-center gap-1 whitespace-nowrap">
-                <span className={`h-3 w-3 rounded-sm border ${color}`} aria-hidden="true" />{label}
-              </span>
-            ))}
-          </div>
-          {replica ? <span className="text-earth-600">左槓＝點名資料未見於原圖</span> : <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
-            <span className="font-semibold text-earth-800">左槓＝點名進度</span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色：尚有未處理</span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-sky-600 bg-white" aria-hidden="true" />對應亮色：全員已記錄，或老師請假／曠課已記錄</span>
-          </div>}
-          </div>
-        </details>
-      )}
+      {musicDense && <details name="course-workspace-details" className="text-xs text-earth-600"><summary className="min-h-9 cursor-pointer">點名與排課說明</summary><p>圓點表示班級課型；固定、隔週、調課與代課以文字標示。點名進度顯示已記錄人數，老師請假或曠課時顯示免點名。</p></details>}
 
       {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">

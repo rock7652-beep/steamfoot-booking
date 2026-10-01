@@ -106,7 +106,7 @@ export function CourseSettingsWorkspace(props: Props) {
         </Row>
         <Row title="預約與取消截止" summary={props.canEdit ? "直接調整截止時間，儲存後生效。" : "預約截止：" + lead(props.bookingLeadMinutes) + "；自行取消截止：" + lead(props.cancellationLeadMinutes)}>
           {editor({ section: "booking", bookingLeadMinutes: props.bookingLeadMinutes, cancellationLeadMinutes: props.cancellationLeadMinutes }, props.canEdit)}
-          <details className="mt-3 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">目前扣堂規則</summary><p>{props.music ? "預約先保留堂數，報到即出席並扣 1 堂；曠課扣 1 堂。自組班請假保留補課資格，團體班請假記錄並扣 1 堂。音樂教室沒有補課券。" : "自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。"}</p></details>
+          <details className="mt-3 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">目前扣堂規則</summary><p>{props.music ? "預約先保留堂數，報到即出席並扣 1 堂；曠課扣 1 堂。自組課請假保留補課資格，團體課請假記錄並扣 1 堂。音樂教室沒有補課券。" : "自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。"}</p></details>
         </Row>
         {props.waitlistFeatureAvailable && props.waitlistSettings && (
           <Row title="候補" summary={props.waitlistSettings.enabled ? "已啟用：滿班後可加入候補，空位依順位直接遞補。" : "未啟用：既有候補紀錄保留，不接受新候補或自動遞補。"}>
