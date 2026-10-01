@@ -134,7 +134,7 @@ const field =
 
 const waitlistStopChoices = [0, 60, 120, 240, 360, 720, 1440];
 function waitlistStopLabel(minutes: number) {
-  if (minutes === 0) return "不停止";
+  if (minutes === 0) return "至開課前";
   return `${minutes / 60} 小時`;
 }
 

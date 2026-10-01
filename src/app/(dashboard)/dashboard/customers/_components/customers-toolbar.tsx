@@ -237,9 +237,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
               </label>
               {staffOptions.length > 0 ? (
                 <label className="space-y-1 text-sm text-earth-600">
-                  <span>{courseMode ? "所屬教練" : "直屬店長"}</span>
+                  <span>{courseMode ? "所屬店長" : "直屬店長"}</span>
                   <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                    <option value="">{courseMode ? "全部所屬教練" : "全部店長"}</option>
+                    <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
                     {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
                   </select>
                 </label>
@@ -347,9 +347,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
           onChange={(e) => setParam("staff", e.target.value)}
 
           className={selectClass}
-          aria-label={courseMode ? "所屬教練" : "直屬店長"}
+          aria-label={courseMode ? "所屬店長" : "直屬店長"}
         >
-          <option value="">{courseMode ? "全部所屬教練" : "全部店長"}</option>
+          <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
           {staffOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}
