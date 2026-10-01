@@ -50,7 +50,7 @@ describe("teacher absence refunds", () => {
     expect(m.courseBooking.findFirst).toHaveBeenCalledOnce();
   });
   it("restoration reserves the returned quota without debiting it", async () => {
-    m.courseBooking.findFirst.mockResolvedValue({...row("booking","CANCELLED","TEACHER_ABSENT"),sessionId:"session",customerId:"student",session:{teacherAttendance:"SCHEDULED",cancelledAt:null,capacity:10,startsAt:new Date("2026-10-01")},card:{remaining:8,closedAt:null,expiresAt:new Date("2099-01-01")}});
+    m.courseBooking.findFirst.mockResolvedValueOnce({...row("booking","CANCELLED","TEACHER_ABSENT"),sessionId:"session",customerId:"student",session:{teacherAttendance:"SCHEDULED",cancelledAt:null,capacity:10,startsAt:new Date("2026-10-01")},card:{remaining:8,closedAt:null,expiresAt:new Date("2099-01-01")}});
     m.courseBooking.count.mockResolvedValue(0);
     m.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:0}});
     m.courseSession.findFirst.mockResolvedValue({teacherAttendance:"SCHEDULED",releasedAt:null});

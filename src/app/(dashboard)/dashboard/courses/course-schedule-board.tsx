@@ -321,7 +321,7 @@ function SessionCard({
     >
       {dense && businessProfile !== "MUSIC" ? <>
         <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong><span className="shrink-0">{hhmm(session.startsAt)}</span></div>
-        <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.bookings.length}/{session.capacity}{teacherState ? ` · ${teacherState}` : ""}</span></div>
+        <div className="flex min-w-0 items-center gap-1 text-[10px] leading-[11px]"><span className="min-w-0 flex-1 truncate">{copy.coach}</span><span className="shrink-0">{session.bookings.filter(booking => booking.status !== "CANCELLED").length}/{session.capacity}{teacherState ? ` · ${teacherState}` : ""}</span></div>
       </> : musicDense ? (
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">

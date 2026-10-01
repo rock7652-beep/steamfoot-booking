@@ -423,7 +423,7 @@ export async function correctCourseAttendance(
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
   if (restoringLeave) {
-    if (b.absenceKind === "STUDENT_LEAVE" && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,makeupForBookingId:b.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
+    if (["STUDENT_LEAVE", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,makeupForBookingId:b.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
     const [occupied, duplicate] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }),
@@ -432,6 +432,7 @@ export async function correctCourseAttendance(
     if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");
     if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
+  if (b.absenceKind === "TEACHER_ABSENT") await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},${actor.name},${actor.storeId},'COURSE','恢復授課：學員回到待點名，未重扣','CourseBooking',${b.id},'COURSE_TEACHER_ABSENCE_RESTORE',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,pointsUsed:0})}::jsonb,NOW())`;
   if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED";
@@ -481,7 +482,7 @@ export async function refundTeacherAbsentSession(tx: Prisma.TransactionClient, a
       if (debited && booking.card?.musicValidityDays) activationCards.set(booking.cardId, booking.card.musicValidityDays);
     }
     await tx.courseBooking.update({ where: { id: booking.id }, data: { status: "CANCELLED", absenceKind: "TEACHER_ABSENT", checkedInAt: null } });
-    await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},'CourseBooking',${booking.id},'COURSE_TEACHER_ABSENCE_REFUND',${JSON.stringify({storeId:actor.storeId,status:booking.status,absenceKind:booking.absenceKind,checkedInAt:booking.checkedInAt})}::jsonb,${JSON.stringify({status:"CANCELLED",absenceKind:"TEACHER_ABSENT",refundedPoints:refund,paymentUnchanged:true})}::jsonb,NOW())`;
+    await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},${actor.name},${actor.storeId},'COURSE','教師未授課：返還扣點與釋放預留','CourseBooking',${booking.id},'COURSE_TEACHER_ABSENCE_REFUND',${JSON.stringify({storeId:actor.storeId,status:booking.status,absenceKind:booking.absenceKind,checkedInAt:booking.checkedInAt})}::jsonb,${JSON.stringify({status:"CANCELLED",absenceKind:"TEACHER_ABSENT",refundedPoints:refund,paymentUnchanged:true})}::jsonb,NOW())`;
   }
   // Recompute after all shared-card bookings have been removed from the deducted sequence.
   for (const [cardId, days] of activationCards) {
