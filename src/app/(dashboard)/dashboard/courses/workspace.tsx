@@ -404,7 +404,7 @@ export function CourseWorkspace({
       : undefined,
   }));
   const monthSessions = filteredScheduleSessions.filter((session) =>
-    toLocalDateStr(new Date(session.startsAt)).startsWith(month),
+    !session.previewFaded && toLocalDateStr(new Date(session.startsAt)).startsWith(month),
   ).map((session) => ({ ...session,
     previewKind: /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
       ? "RENTAL" as const : undefined,
@@ -840,9 +840,7 @@ export function CourseWorkspace({
                     className={`relative flex min-w-0 h-24 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
-                        : date === selectedDate
-                          ? "bg-primary-50"
-                          : list.length
+                        : list.length
                             ? "bg-primary-50/60 text-primary-900"
                             : "bg-white text-earth-400"
                     }`}
