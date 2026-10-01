@@ -31,7 +31,7 @@ export function PageHeader({ title, subtitle, actions, compact = false }: PageHe
         ) : null}
       </div>
       {actions ? (
-        <div className={`flex shrink-0 items-center gap-1.5 self-start ${compact ? "[&>a]:inline-flex [&>a]:min-h-11 [&>a]:items-center [&>a]:text-sm" : ""}`}>
+        <div className={`flex shrink-0 items-center gap-1.5 self-start ${compact ? "[&>a]:min-h-11 [&>a]:items-center [&>a]:text-sm" : ""}`}>
           {actions}
         </div>
       ) : null}
