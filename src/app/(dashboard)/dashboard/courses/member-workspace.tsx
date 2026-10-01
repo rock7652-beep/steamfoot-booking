@@ -356,7 +356,7 @@ export function CourseMemberWorkspace({
           open
           onClose={close}
           width={panel === "assign" ? 880 : 640}
-          fitContent={panel === "assign" || panel === "person"}
+          fitContent={panel === "assign" || panel === "person" || panel === "health" || panel === "card"}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-100 bg-primary-50/60 px-4 py-2">
@@ -455,7 +455,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && (
               <CourseCustomerDraftForm key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
-            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`${button} ${recordTab===value ? "bg-primary-50 font-semibold":""}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
+            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
             {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (

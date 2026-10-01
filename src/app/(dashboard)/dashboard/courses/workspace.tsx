@@ -660,7 +660,7 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className={`flex flex-wrap items-center justify-between gap-2 ${scheduleMode === "day" ? "sticky top-14 z-50 min-h-14 bg-earth-50/95 py-1 backdrop-blur-sm" : ""}`}>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 min-w-[112px]">
                 <h1 className="text-base font-semibold leading-6 text-primary-900">{businessProfile === "MUSIC" ? "音樂課表" : "課表排程"}</h1>
@@ -1256,7 +1256,7 @@ export function CourseWorkspace({
             onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form")) setDirty(true); }}
             className={
               view === "schedule"
-                ? "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4"
+                ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4"
                 : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-10 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-10 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }
           >
@@ -1304,23 +1304,11 @@ export function CourseWorkspace({
                         立即更新
                       </button>
                     </div>
-                    <div className={`grid ${pendingCount > 0 ? "grid-cols-3" : "grid-cols-2"} divide-x divide-primary-100 rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center`}>
-                      <p>
-                        <strong className="block text-base text-primary-800">
-                          {dayTotals.classes}
-                        </strong>
-                        <span className="text-xs text-earth-600">堂課{dayTotals.rentals > 0 ? ` · ${dayTotals.rentals} 租借` : ""}</span>
-                      </p>
-                      <p>
-                        <strong className="block text-base text-primary-800">
-                          {booked}
-                        </strong>
-                        <span className="text-xs text-earth-600">{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬人次" : "名單人次"}</span>
-                      </p>
-                      {pendingCount > 0 && <p>
-                        <strong className="block text-base text-primary-800">{pendingCount}</strong>
-                        <span className="text-xs text-earth-600">待點名</span>
-                      </p>}
+                    <div aria-label="當日課程統計" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-600">
+                      <span><strong className="text-primary-800">{dayTotals.classes}</strong> 堂</span>
+                      {dayTotals.rentals > 0 && <span>租借 <strong className="text-primary-800">{dayTotals.rentals}</strong></span>}
+                      <span>{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬" : "名單"} <strong className="text-primary-800">{booked}</strong></span>
+                      {pendingCount > 0 && <span>待點名 <strong className="text-amber-700">{pendingCount}</strong></span>}
                     </div>
                     {(calendarDays[selectedDate]?.status === "closed" ||
                       calendarDays[selectedDate]?.status === "training") && (
@@ -1350,7 +1338,7 @@ export function CourseWorkspace({
                       return (
                         <article
                           key={session.id}
-                          className="rounded-xl border border-earth-200 bg-white px-3 py-2.5"
+                          className="rounded-xl border border-earth-200 bg-white px-3 py-2"
                         >
                           <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-primary-900">
                             <span className="whitespace-nowrap tabular-nums">
@@ -1367,7 +1355,7 @@ export function CourseWorkspace({
                               "未指定教室"}
                             {["upcoming", "ongoing", "ended"].includes(sessionState.kind) && <span>{" · "}{sessionState.label}</span>}
                           </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
                               className={`${button} border-primary-300 bg-primary-50 text-primary-800`}

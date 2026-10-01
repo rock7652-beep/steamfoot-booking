@@ -319,7 +319,7 @@ function SessionCard({
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
       {dense && businessProfile !== "MUSIC" ? <>
         <div className="whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className={`min-w-0 break-words ${brief ? "line-clamp-1" : "line-clamp-2"}`} title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
+        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
         {!brief && <div className="truncate text-sm leading-5">{rental ? copy.room : copy.coach}{teacherState ? ` · ${teacherState}` : ""}</div>}
       </> : musicDense ? (
         <>
@@ -771,7 +771,7 @@ export function CourseScheduleBoard({
       ) : (
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
-            <div className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
+            <div className="sticky top-[112px] z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
               <div className="absolute inset-y-0 left-0 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
                 時間
               </div>
