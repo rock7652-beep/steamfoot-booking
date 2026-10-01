@@ -2,6 +2,7 @@
 import { courseClassPresentation } from "@/lib/course-class-presentation";
 
 import React from "react";
+import { courseCardContentOffset } from "@/lib/course-card-content-offset";
 
 import {
   addTaiwanDuration,
@@ -236,6 +237,7 @@ function SessionCard({
   rooms,
   compact = false,
   dense = false,
+  wide = false,
   resourceView,
   businessProfile,
   fixed = false,
@@ -249,6 +251,7 @@ function SessionCard({
   rooms: Room[];
   compact?: boolean;
   dense?: boolean;
+  wide?: boolean;
   resourceView?: ResourceView;
   businessProfile: "FITNESS" | "MUSIC";
   fixed?: boolean;
@@ -275,7 +278,6 @@ function SessionCard({
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
   const teacherTitle = businessProfile === "MUSIC" ? "老師" : "教練";
   const teacherState=session.teacherAttendance==="LEAVE"?`${teacherTitle}請假`:session.teacherAttendance==="NO_SHOW"?`${teacherTitle}曠課`:"";
-  const attendanceComplete = attendance.complete;
   const progressText = rental ? "" : attendance.teacherAbsent ? "免點名" : attendance.total ? `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}` : "";
   const progressColor = attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500";
   const attendanceLabel = session.previewFaded ? `${session.previewFaded}（原課已釋出；${session.isFixed ? "僅可排單次臨時課" : "可核對後排固定課"}）`
@@ -288,57 +290,30 @@ function SessionCard({
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = rental || !copy.privateClass && !session.bookings.length
     ? copy.primary : copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
-  const cardName = musicDense ? copy.primary : !copy.privateClass && !brief ? copy.primary : studentLabel;
-  const groupProgress = businessProfile === "MUSIC" && copy.groupClass && !session.previewAttendanceUnknown && !session.previewFaded && attendance.total > 0;
-  const groupProgressColor = attendanceComplete ? "bg-emerald-700 text-white"
-    : attendance.processed > 0 ? "bg-emerald-100 text-emerald-950"
-    : "bg-slate-200 text-slate-700";
-  const secondaryLine = [
-    !copy.privateClass && !groupProgress && session.bookings.length ? `${attendance.total} 人` : "",
-    studentState,
-    !copy.privateClass && !groupProgress && attendance.total > 0 && !attendance.teacherAbsent ? attendanceLabel : "",
-  ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
-  const resourceLabel = rental ? "租借" : resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
-    ? `${copy.room.replace(/^教室\s*/, "")}室`
-    : resourceView === "coach" ? copy.room : copy.coach;
-  const readableCardSecondary = destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}`
-    : copy.privateClass ? copy.secondary
-    : groupProgress ? `${attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`} ${studentState}`.trim()
-    : secondaryLine || copy.secondary;
+  const resourceLabel = rental ? copy.room : resourceView === "coach" ? copy.room : copy.coach;
+  const musicContext = businessProfile === "MUSIC" ? [teacherState, primaryType, secondaryType, destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : ""].filter(Boolean).join(" · ") : teacherState;
   return (
     <button
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 border-earth-300 bg-white ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 border-earth-300 bg-white ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""}`}
+      data-schedule-card={dense && !brief ? "tracking" : undefined}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
-      <div className="min-w-0 w-full">
+      <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       <span className="sr-only">{presentation.label}</span>
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
-      {dense && businessProfile !== "MUSIC" ? <>
-        <div className="whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
-        <div className="flex min-w-0 items-center gap-1 text-sm leading-5"><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
-        {!brief && <div className="truncate text-sm leading-5">{rental ? copy.room : copy.coach}{teacherState ? ` · ${teacherState}` : ""}</div>}
-      </> : musicDense ? (
-        <>
-          <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
-            <span className="flex min-w-0 flex-1 items-center gap-1">
-              <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
-              {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{teacherState}</span>}
-              {brief&&groupProgress&&<span className={`shrink-0 rounded px-1 text-[10px] font-bold ${groupProgressColor}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.processed}/${attendance.total}`}</span>}
-              {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
-            </span>
-            {brief && <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>}
-          </div>
-          {!brief && <div className="flex min-w-0 items-center gap-1 leading-4">
-            <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-earth-700" title={readableCardSecondary}>{readableCardSecondary}</span>
-            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
-          </div>}
-        </>
-      ) : (
+      {dense ? <>
+        <div className={wide ? "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-sm" : "contents"}>
+          <div className="shrink-0 whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
+          <div className={`flex min-w-0 items-center gap-1 text-sm leading-5 ${wide ? "flex-1" : ""}`}><strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title="點名完成度">{progressText}</span>}</div>
+          {(!brief || wide) && <div className="truncate text-sm leading-5">{resourceLabel}{businessProfile !== "MUSIC" && teacherState ? ` · ${teacherState}` : ""}</div>}
+        </div>
+        {!brief && businessProfile === "MUSIC" && <div className="truncate text-xs leading-4 text-earth-600" title={musicContext}>{musicContext}</div>}
+      </> : (
       <>
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
@@ -360,14 +335,14 @@ function SessionCard({
       </p>
       <div className={`flex flex-wrap gap-1 ${dense ? "mt-1" : "mt-1.5"}`}>
         {moved && (
-          <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">調課</span>
+          <span className="text-xs font-medium text-earth-600">調課</span>
         )}
         {substitute && (
-          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">代課</span>
+          <span className="text-xs font-medium text-earth-600">代課</span>
         )}
         {progressText && <span className={`text-xs font-semibold ${progressColor}`} title="點名完成度">{progressText}</span>}
         {fixed && businessProfile === "MUSIC" && (
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${session.isBiweekly ? "bg-blue-100 text-blue-900 ring-1 ring-blue-200" : "bg-teal-100 text-teal-900 ring-1 ring-teal-200"}`}>
+          <span className={"text-xs font-medium text-earth-600"}>
             {session.isBiweekly ? "隔週固定" : "每週固定"}
           </span>
         )}
@@ -474,11 +449,36 @@ export function CourseScheduleBoard({
     }).catch(() => { if (current) setMatchError("空位暫時無法讀取，請重試"); });
     return () => { current = false; };
   }, [businessProfile, mode, selectedDate, moveClipboard]);
+  const boardRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    let frame = 0;
+    function update() {
+      frame = 0;
+      const header = board!.querySelector<HTMLElement>("[data-schedule-sticky-header]");
+      const boundary = Math.max(0, header?.getBoundingClientRect().bottom ?? 0);
+      const updates = Array.from(board!.querySelectorAll<HTMLElement>('[data-schedule-card="tracking"]')).map(card => {
+        const content = card.querySelector<HTMLElement>("[data-schedule-card-content]");
+        if (!content) return null;
+        const box = card.getBoundingClientRect();
+        return {content, offset: courseCardContentOffset(box.top, card.clientHeight, content.offsetHeight, boundary)};
+      });
+      for (const item of updates) if (item) item.content.style.transform = `translateY(${item.offset}px)`;
+    }
+    function schedule() { if (!frame) frame = window.requestAnimationFrame(update); }
+    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    observer?.observe(board);
+    schedule();
+    return () => { window.removeEventListener("scroll", schedule, true); window.removeEventListener("resize", schedule); observer?.disconnect(); window.cancelAnimationFrame(frame); };
+  }, [mode, selectedDate, weekRoomId, resourceView, sessions]);
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
   const musicResourceWidth = businessProfile === "MUSIC" ? 132 : 200;
-  const hourHeight = businessProfile === "MUSIC" ? 50 : 96;
+  const hourHeight = 96;
   function snapDayScroll() {
     const element = dayScrollRef.current;
     if (!element || businessProfile !== "MUSIC") return;
@@ -501,7 +501,7 @@ export function CourseScheduleBoard({
     const lastHour = Math.max(22, ...weekSessions.map(session => Number(hhmm(session.endsAt).slice(0, 2)) + 1));
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
-      <section className="space-y-2" aria-label="教室週課表">
+      <section ref={boardRef} className="space-y-1" aria-label="教室週課表">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700">
           <label htmlFor="course-week-room" className="font-medium">教室</label>
           {activeRooms.length > 1 ? <select id="course-week-room" aria-label="選擇週表教室" value={roomId ?? ""} onChange={(event) => setWeekRoomId(event.target.value)} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
@@ -509,14 +509,14 @@ export function CourseScheduleBoard({
           </select> : <span className="font-medium text-primary-900">{activeRooms[0]?.name ?? "—"}</span>}
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
         </div>
-        <div className="max-h-[calc(100dvh-18rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
+        <div className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-full" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
-            <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
+            <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
               const total = scheduleTotals(scheduleOnDate(weekSessions, date));
               return <button key={date} type="button" onClick={() => onSelectDate(date)} className={`sticky top-0 z-20 border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
-                <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}</strong>
-                <span>{total.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬 " : ""}{total.people} 人次</span>
+                <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}{date === today && <span className="ml-1 text-[10px] font-normal">今天</span>}</strong>
+                {(total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span>}
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>
@@ -666,10 +666,10 @@ export function CourseScheduleBoard({
   const resourceCount = Math.max(resources.length, 1);
   const musicDense = businessProfile === "MUSIC";
   const timelineDense = true;
-  const timetableWidth = musicDense
+  const timetableWidth = musicDense && resourceCount > 1
     ? 64 + resourceCount * musicResourceWidth
     : "100%";
-  const timetableMinWidth = musicDense
+  const timetableMinWidth = musicDense && resourceCount > 1
     ? timetableWidth
     : resourceCount === 1
       ? 420
@@ -703,7 +703,7 @@ export function CourseScheduleBoard({
   ];
 
   return (
-    <section className="space-y-2" aria-label="日課表">
+    <section ref={boardRef} className="space-y-1" aria-label="日課表">
       {businessProfile === "MUSIC" && !replica && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次｜租借 {dayTotals.rentals} 次</p>}
       <div className="flex max-w-full flex-wrap items-center gap-2">
         {(!musicDense || quickFilter !== "all") && !replica && <div
@@ -773,7 +773,7 @@ export function CourseScheduleBoard({
       ) : (
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
-            <div className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
+            <div data-schedule-sticky-header className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
               <div aria-label="日表日期" className="flex min-h-11 items-center gap-2 border-b border-earth-200 px-2 text-sm text-primary-900">
                 <button type="button" aria-label="日表前一天" disabled={pending} className="min-h-11 min-w-11 rounded hover:bg-primary-50" onClick={() => onSelectDate(addTaiwanDuration(selectedDate, -1, "DAY"))}>‹</button>
                 <strong className="tabular-nums">{selectedDate}</strong>
@@ -788,7 +788,7 @@ export function CourseScheduleBoard({
                 style={{
                   width: timetableWidth,
                   minWidth: timetableMinWidth,
-                  gridTemplateColumns: businessProfile === "MUSIC" ? `64px repeat(${resourceCount}, ${musicResourceWidth}px)` : `64px repeat(${resourceCount}, minmax(200px, 1fr))`,
+                  gridTemplateColumns: businessProfile === "MUSIC" && resourceCount > 1 ? `64px repeat(${resourceCount}, ${musicResourceWidth}px)` : `64px repeat(${resourceCount}, minmax(200px, 1fr))`,
                   transform: `translateX(-${dayScrollLeft}px)`,
                 }}
               >
@@ -822,7 +822,7 @@ export function CourseScheduleBoard({
               <div
                 className="grid w-full"
                 style={{
-                  gridTemplateColumns: musicDense
+                  gridTemplateColumns: musicDense && resourceCount > 1
                     ? `64px repeat(${resourceCount}, ${musicResourceWidth}px)`
                     : `64px repeat(${resourceCount}, minmax(200px, 1fr))`,
                 }}
@@ -932,7 +932,7 @@ export function CourseScheduleBoard({
                                    : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
                                  className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${readOnly ? available ? "bg-white" : "bg-earth-100" : available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
-                                 {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime} · ${availabilityDuration}分`}</span>}
+                                 {available&&!readOnly&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime}`}</span>}
                                  {!readOnly&&<span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100" aria-hidden="true">{minute}</span>}
                               </button>
                             );
@@ -965,6 +965,7 @@ export function CourseScheduleBoard({
                               fixed={session.isFixed}
                               leaveCount={leaveCounts[session.id] ?? 0}
                               readOnly={readOnly}
+                              wide={resourceCount === 1}
                               dense={timelineDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}

@@ -38,7 +38,7 @@ it("fitness class dots distinguish group/private without coloured fills",async()
   const group=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.startsWith("團課，"))!;
   const individual=[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")?.startsWith("私課，"))!;
   expect(group.querySelector("span[aria-hidden]")?.className).toContain("bg-emerald-600");expect(individual.querySelector("span[aria-hidden]")?.className).toContain("bg-blue-600");expect(group.className).toContain("bg-white");
-  expect(group.querySelector("div")?.className).toContain("text-sm");
+  expect(group.querySelector("strong")?.parentElement?.className).toContain("text-sm");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
 it("day statistics use visible ownership matches but capacity and hidden slot conflicts use the whole class",async()=>{
@@ -56,5 +56,24 @@ it("day statistics use visible ownership matches but capacity and hidden slot co
   expect(host.textContent).toContain("所屬 0 人次");
   expect(host.textContent).toContain("今日安排0");
   expect(host.querySelector<HTMLButtonElement>('button[aria-label="10:00 已有課"]')?.disabled).toBe(true);
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+it("music shares readable white cards, class dots and attendance progress",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  const item={...session,endsAt:"2026-10-01T03:30:00Z",isFixed:true,isBiweekly:true,bookings:[{customerId:"learner",customerName:"小安",status:"ATTENDED",bookingKind:"PLAN"}]};
+  await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",mode:"week",sessions:[item],onOpenEmpty:vi.fn()})));
+  const card=host.querySelector<HTMLButtonElement>('button[data-schedule-card="tracking"]')!;
+  expect(card.className).toContain("bg-white");
+  expect(card.className).not.toContain("border-l-4");
+  expect(card.querySelector('[aria-hidden="true"]')?.className).toContain("bg-emerald-600");
+  expect(card.textContent).toContain("10:00–11:30");
+  expect(card.textContent).toContain("✓ 1/1");
+  expect(card.textContent).toContain("隔週固定");
+  expect(card.querySelector("strong")?.parentElement?.className).toContain("text-sm");
+  expect(host.textContent).toContain("今天");
+  expect(host.textContent).not.toContain("0 堂｜0 人次");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
