@@ -660,7 +660,7 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
         <div className="flex flex-col gap-2">
-          <div className={`flex flex-wrap items-center justify-between gap-2 ${scheduleMode === "day" ? "sticky top-14 z-50 min-h-14 bg-earth-50/95 py-1 backdrop-blur-sm" : ""}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 min-w-[112px]">
                 <h1 className="text-base font-semibold leading-6 text-primary-900">{businessProfile === "MUSIC" ? "音樂課表" : "課表排程"}</h1>

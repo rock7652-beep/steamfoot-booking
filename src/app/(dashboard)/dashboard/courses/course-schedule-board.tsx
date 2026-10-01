@@ -771,8 +771,14 @@ export function CourseScheduleBoard({
       ) : (
         <div className={timelineDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {timelineDense && (
-            <div className="sticky top-[112px] z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
-              <div className="absolute inset-y-0 left-0 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
+            <div className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
+              <div aria-label="日表日期" className="flex min-h-11 items-center gap-2 border-b border-earth-200 px-2 text-sm text-primary-900">
+                <button type="button" aria-label="日表前一天" disabled={pending} className="min-h-11 min-w-11 rounded hover:bg-primary-50" onClick={() => onSelectDate(addTaiwanDuration(selectedDate, -1, "DAY"))}>‹</button>
+                <strong className="tabular-nums">{selectedDate}</strong>
+                <button type="button" aria-label="日表後一天" disabled={pending} className="min-h-11 min-w-11 rounded hover:bg-primary-50" onClick={() => onSelectDate(addTaiwanDuration(selectedDate, 1, "DAY"))}>›</button>
+                <button type="button" disabled={pending} className="min-h-11 rounded px-3 text-primary-700 hover:bg-primary-50" onClick={() => onSelectDate(today)}>今天</button>
+              </div>
+              <div className="absolute bottom-0 left-0 top-11 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
                 時間
               </div>
               <div
