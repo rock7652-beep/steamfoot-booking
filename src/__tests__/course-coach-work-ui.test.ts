@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), purchase: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));
+vi.mock("@/components/customer-labels", () => ({ CustomerLabelsProvider: ({children}: {children: unknown}) => children, CustomerLabels: () => null }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
 vi.mock("@/server/actions/course-referral-share", () => ({ trackCourseShare: vi.fn() }));
 vi.mock("@/components/steam-butler-logo", () => ({ SteamButlerLogo: () => null }));
@@ -14,6 +15,7 @@ vi.mock("@/components/course-member-contact-form", () => ({ CourseMemberContactF
 vi.mock("@/components/course-health-workspace", () => ({ CourseHealthWorkspace: () => null }));
 vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: vi.fn(), markCourseCoachAttendance: m.checkIn, updateCourseBookingStatus: vi.fn() }));
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: m.purchase }));
+vi.mock("@/server/actions/course-waitlist", () => ({joinMemberCourseWaitlist: vi.fn(), cancelMemberCourseWaitlistAction: vi.fn()}));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
@@ -78,14 +80,14 @@ describe("coach daily work interactions", () => {
     await click("已取消預約");
     expect(host.querySelector(".cp-roster-body")?.textContent).toContain("取消學員");
   });
-  it("shows future classes without check-in or attendance actions even for previously checked-in learners", async () => {
+  it("allows attendance before class starts without a separate check-in action", async () => {
     const data = props(); data.serverNow = Date.parse("2026-09-20T09:00:00+08:00");
     await act(async () => root.render(createElement(CoursePortalClient, data)));
     await click("伸展瑜珈");
-    expect(host.textContent).toContain("尚未開課");
+    expect(host.textContent).not.toContain("尚未開課");
     expect(host.textContent).not.toContain("報到");
-    expect(host.textContent).not.toContain("待點名 2 位");
-    expect(host.querySelectorAll(".cp-attendance-actions button")).toHaveLength(0);
+    expect(host.textContent).toContain("待點名 2 位");
+    expect(host.querySelectorAll(".cp-attendance-actions button")).toHaveLength(4);
     expect(m.attendance).not.toHaveBeenCalled();
   });
   it("lets a teacher correct attendance immediately after marking it", async () => {

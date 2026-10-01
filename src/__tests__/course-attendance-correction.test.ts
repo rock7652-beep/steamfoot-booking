@@ -149,3 +149,13 @@ it("does not restore the original leave while its makeup is booked",async()=>{
  await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("先取消補課");
  expect(m.courseBooking.update).not.toHaveBeenCalled();
 });
+
+it.each(["ATTENDED", "NO_SHOW"] as const)("batch can mark and restore %s before class starts", async (target) => {
+  const future = {...booking("RESERVED"), session: {startsAt: new Date("2099-01-01"), cancelledAt: null}};
+  m.courseBooking.findFirst.mockResolvedValue(future);
+  await correctCourseAttendance(tx, actor, "b", target, "RESERVED");
+  expect(m.coursePointCard.update).toHaveBeenLastCalledWith({where: {id: "c"}, data: {remaining: {increment: -3}}});
+  m.courseBooking.findFirst.mockResolvedValue({...future, status: target, card: {remaining: 4}});
+  await correctCourseAttendance(tx, actor, "b", "RESERVED", target);
+  expect(m.coursePointCard.update).toHaveBeenLastCalledWith({where: {id: "c"}, data: {remaining: {increment: 3}}});
+});

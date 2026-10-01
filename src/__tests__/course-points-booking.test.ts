@@ -323,15 +323,14 @@ describe("course attendance stages", () => {
       ).rejects.toThrow("僅限有權限");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
   });
-  it("no-show cannot be recorded before class starts", async () => {
+  it.each(["ATTENDED", "NO_SHOW"] as const)("staff can record %s before class starts and debit once", async (target) => {
     m.tx.courseBooking.findFirst.mockResolvedValue({
-      ...reserved(),
-      session: { startsAt: new Date("2026-09-16T00:00:00Z") },
+      ...reserved(), session: { startsAt: new Date("2099-01-01T00:00:00Z") },
     });
-    await expect(
-      settleCourseBooking(tx, manager, "booking", "NO_SHOW"),
-    ).rejects.toThrow("尚未開始");
-    expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
+    await settleCourseBooking(tx, manager, "booking", target);
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledOnce();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data: expect.objectContaining({kind: "DEBIT", points: 3})});
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where: {id: "booking"}, data: {status: target, absenceKind: null}});
   });
 });
 
