@@ -1,3 +1,5 @@
+import { getCourseSetup } from "@/server/queries/course-setup";
+import { CourseSetupGuide } from "@/components/admin/course-setup-guide";
 import { prisma } from "@/lib/db";
 import { Suspense, type ReactNode } from "react";
 import { getCurrentUser } from "@/lib/session";
@@ -65,6 +67,7 @@ export async function CourseHome({ user, storeId }: {
     return <PageShell><HomePosition>
     <PageHeader title="首頁" subtitle={`${date} · 今日工作`} actions={<div className="flex flex-wrap gap-2">{access.create && <><Link className={`${linkStyle} bg-primary-700 !text-white`} href={`${scheduleHref}&action=booking`}>替學員預約</Link><Link className={`${linkStyle} border border-earth-200`} href={`${scheduleHref}&action=schedule`}>新增排課</Link></>}</div>}/>
     <div className="space-y-3">
+      {!music && access.create && ["OWNER","ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupHome storeId={storeId} userId={user.id}/></Suspense>}
       {access.bookings && <Stream title="今日摘要" id="today" load={async () => { const row = await getCourseHomeToday(storeId, date); return <><HomeClockRefresh nextAt={Math.min(row.nextEnd?.getTime() ?? Infinity, dayRange(date).end.getTime() + 1)}/><div className="flex flex-wrap items-center gap-x-5 gap-y-1">{[["今日課程", row.sessions, "堂"], ["今日完成", row.ended, "堂"], ["今日預約", row.bookings, "人次"], ["今日完成", row.attended, "人次"]].map(([label, value, unit]) => <Link key={`${label}-${unit}`} href={`${scheduleHref}&action=booking`} className="inline-flex min-h-11 items-baseline gap-2 py-2 text-sm"><span className="text-earth-600">{label}</span><strong className="text-lg tabular-nums text-primary-900">{value}</strong><span>{unit}</span></Link>)}<div className="ml-auto flex items-center gap-1"><Link href={scheduleHref} className={linkStyle}>查看課表 →</Link><StatisticInfo id="today" title="今日摘要"/></div></div></>; }}/>}
       <div className="grid items-start gap-3 lg:grid-cols-2">
       {access.revenue && <Stream title="今日收款" id="receipts" load={async () => { const r = await getCourseReceiptTotals(storeId, date, date); return <><Link href={revenueHref} className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2 text-sm"><strong className="text-lg text-primary-900">{money(r.gross)}</strong><span>退款 {money(r.refunds)}</span><span>沖銷 {money(r.voids)}</span><span>淨收款 {money(r.net)}</span><span className="text-primary-700 underline">查看收款明細</span></Link></>; }}/>}
@@ -99,4 +102,10 @@ export function CourseTodoList({ result, showAll = true }: {
 }) {
     const labels: Record<string, string> = { payment: "待核帳", attendance: "課後待點名", followUp: "顧客跟進" };
     return <><p className="text-sm text-earth-600">共 {result.total} 件</p>{result.items.length ? <ul className="divide-y divide-earth-100">{result.items.map(item => <li key={`${item.kind}:${item.id}`}><Link href={item.href} prefetch={false} className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm"><span><span className="mr-2 text-primary-700">{labels[item.kind]}</span>{item.label}</span><span className="text-earth-500">{toLocalDateStr(new Date(item.date))} →</span></Link></li>)}</ul> : <p className="py-3 text-sm">目前沒有你可處理的待辦。</p>}{showAll && result.total > 0 && <Link className={linkStyle} href="/dashboard/courses/todos">查看全部待處理 →</Link>}</>;
+}
+
+async function CourseSetupHome({storeId,userId}:{storeId:string;userId:string}) {
+ let setup:Awaited<ReturnType<typeof getCourseSetup>>|null=null;
+ try {setup=await getCourseSetup(storeId,userId);} catch { /* Progress failure must not block daily operations. */ }
+ return setup?<CourseSetupGuide {...setup}/>:<p className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
 }

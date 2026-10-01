@@ -96,10 +96,10 @@ export async function saveCourseStaff(input: unknown) {
     // Resolve access outside the transaction. Production uses a one-connection
     // pool, so querying through the global client while a transaction owns that
     // connection would wait on itself until the pool timeout.
-    const musicFinanceStore = d.kind === "manager" ? await isMusicFinanceStore(storeId) : false;
-    const actorFinanceScope = musicFinanceStore ? await readMusicFinanceScope(user,storeId) : null;
+    const musicFinanceStore = await isMusicFinanceStore(storeId);
+    const actorFinanceScope = musicFinanceStore && d.kind === "manager" ? await readMusicFinanceScope(user,storeId) : null;
     if(!d.id && d.kind==="manager" && d.coachEnabled)throw new AppError("VALIDATION","店務與授課請分別建立帳號");
-    if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
+    if (!d.id && (d.kind === "manager" || musicFinanceStore) && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
     const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
     const limits = await getStoreLimitsByStoreId(storeId);
