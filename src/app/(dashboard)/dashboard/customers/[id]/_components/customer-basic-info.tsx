@@ -112,7 +112,7 @@ export function CustomerBasicInfo({
   ];
 
   return (
-    <SideCard title="基本資料" subtitle="顧客核心檔案" flush>
+    <SideCard title="基本資料" className="[&_h3]:text-sm [&_h3]:text-primary-900" flush>
       <div className="px-3 py-2">
         <CustomerDetailFields items={items} />
       </div>

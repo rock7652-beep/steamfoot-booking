@@ -1304,7 +1304,7 @@ export function CourseWorkspace({
                         立即更新
                       </button>
                     </div>
-                    <div className={`grid ${pendingCount > 0 ? "grid-cols-3" : "grid-cols-2"} divide-x rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center`}>
+                    <div className={`grid ${pendingCount > 0 ? "grid-cols-3" : "grid-cols-2"} divide-x divide-primary-100 rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center`}>
                       <p>
                         <strong className="block text-base text-primary-800">
                           {dayTotals.classes}

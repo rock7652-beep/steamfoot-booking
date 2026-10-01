@@ -421,7 +421,7 @@ export function CourseMemberWorkspace({
               </form>
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
-            {panel === "person" && person && <section className="mb-4 space-y-3">
+            {panel === "person" && person && personTab === "plans" && <section className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
                 <CourseCardBrowser canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
@@ -563,7 +563,7 @@ export function CourseMemberWorkspace({
             )}
           </div>
           {panel !== "health" && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || (canAssign && card?.allowShared)) && (
-            <footer className="shrink-0 border-t bg-white p-4">
+            <footer className="shrink-0 border-t border-earth-100 bg-white px-4 py-3">
               {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
               <button
                 form="course-member-form"
