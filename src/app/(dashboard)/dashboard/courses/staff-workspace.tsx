@@ -510,8 +510,8 @@ export function CourseStaffWorkspace({
               <div data-staff-tab="qualifications" hidden={tab!=="qualifications" || !coachEnabled} className="space-y-3">
                 <section className="space-y-2">
 
-                  <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>{!music&&<span className="text-sm text-earth-500">已選 {qualificationIds.length} 門</span>}</div>
-                  <p className={music?"text-xs text-earth-500":"text-sm text-earth-500"}>{music?"套用新課次　ⓘ":"僅套用新課次"}</p>
+                  <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium text-primary-900">{feeEnabled?(music?"可教授課程與每堂授課費":"授課課程／費用"):"可教授課程"}</h3>{!music&&<span className="text-sm text-earth-500">僅套用新課次 · 已選 {qualificationIds.length} 門</span>}</div>
+                  {music&&<p className="text-xs text-earth-500">套用新課次　ⓘ</p>}
                   {!music && feeEnabled && canEditFees && <label className="grid items-center gap-x-3 text-sm sm:grid-cols-[12rem_12rem_1fr]">預設授課費（元／堂）<input className={field} type="number" name="defaultClassFee" min="0" max="1000000" step="1" placeholder="未設定" defaultValue={person?.defaultClassFee??""} onChange={()=>{setDefaultFeeDirty(true);setTeachingDirty(true);}}/><span className="text-sm text-earth-500">留空沿用預設；0 不計費。</span></label>}
 
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
