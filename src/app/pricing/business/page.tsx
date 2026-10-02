@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 const LINE_URL = "https://lin.ee/SGy5UBz";
-const TRIAL_URL = "/pricing/trial";
+const TRIAL_URL = "/apply";
 function ConsultLink({ light = false }: { light?: boolean }) {
   return <a href={TRIAL_URL}
     className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-center text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B58C43] ${light ? "bg-[#F5EFE3] text-[#123E32] hover:bg-white" : "bg-[#123E32] text-white hover:bg-[#245A49]"}`}>

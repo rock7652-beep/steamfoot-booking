@@ -44,7 +44,7 @@ export default async function StoreCasesPage({
 }) {
   const selected = (await searchParams).store;
   const current = cases.find((item) => item.id === selected) ?? cases[0];
-  const trialUrl = "/pricing/trial?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=case-" + current.id;
+  const trialUrl = "/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=case-" + current.id;
 
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
