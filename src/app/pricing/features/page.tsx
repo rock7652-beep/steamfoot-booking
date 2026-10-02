@@ -1,3 +1,7 @@
+import { AddonRate } from "../pricing-offer";
+
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingNavigation } from "@/components/marketing-navigation";
@@ -129,7 +133,10 @@ function BeforeExample({ id }: { id: FeatureId }) {
   return <div className="space-y-3">{sheets[id].map(([title, content], i) => <div key={title} className={"rounded-lg border border-[#B48A42]/25 bg-white p-4 shadow-sm " + (i % 2 ? "ml-4" : "mr-4")}><p className="border-b border-[#153B31]/10 pb-2 text-sm font-medium text-[#74603C]">{title}</p><p className="mt-2 text-base leading-6">{content}</p></div>)}</div>;
 }
 
-export default function FeaturesPage() {
+export default async function FeaturesPage() {
+  // Request timestamp keeps server and client offer rendering consistent.
+  // eslint-disable-next-line react-hooks/purity
+  const initialNow = Date.now();
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <MarketingNavigation active="features" />
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
@@ -161,7 +168,7 @@ export default function FeaturesPage() {
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
         <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
-          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・額外加購每項 NT${fee}／月</p></div>)}
+          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
         </nav>
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
       </section>

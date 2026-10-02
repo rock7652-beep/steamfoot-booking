@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPublicPricingOffer, PUBLIC_PRICING_PLANS, YEAR_END_OFFER_END } from "@/lib/public-pricing-offer";
+import { getPublicAddonOffer, DOUBLE_TEN_OFFER_END, getPublicPricingOffer, PUBLIC_PRICING_PLANS, YEAR_END_OFFER_END } from "@/lib/public-pricing-offer";
 
 describe("public year-end payment offer", () => {
   it("ends at Taiwan midnight, with no grace period or negative countdown", () => {
@@ -15,5 +15,15 @@ describe("public year-end payment offer", () => {
   it("counts actual elapsed time even after returning from a background tab", () => {
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 90061000).countdown).toEqual([1, 1, 1, 1]);
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 60000).countdown).toEqual([0, 0, 1, 0]);
+  });
+});
+
+describe("Double Ten addon offer", () => {
+  it("discounts only during October in Taiwan", () => {
+    expect(getPublicAddonOffer(Date.parse("2026-09-30T23:59:59+08:00")).active).toBe(false);
+    expect(getPublicAddonOffer(Date.parse("2026-10-01T00:00:00+08:00")).toolMonthly).toBe(300);
+    expect(getPublicAddonOffer(DOUBLE_TEN_OFFER_END - 1000)).toMatchObject({active: true, toolMonthly: 300, businessMonthly: 500, months: 14, countdown: [0,0,0,1]});
+    expect(getPublicAddonOffer(DOUBLE_TEN_OFFER_END)).toMatchObject({active: false, toolMonthly: 500, businessMonthly: 800, months: 14, countdown: [0,0,0,0]});
+    expect(getPublicAddonOffer(YEAR_END_OFFER_END).months).toBe(12);
   });
 });

@@ -1,7 +1,7 @@
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { PricingOffer, PricingOfferTerms } from "./pricing-offer";
+import { AddonOffer, PricingOffer, PricingOfferTerms } from "./pricing-offer";
 import { PUBLIC_PRICING_PLANS as plans } from "@/lib/public-pricing-offer";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ import { PLAN_LIMITS } from "@/lib/feature-flags";
 
 export const metadata = {
   title: "方案與價格 — 蒸管家",
-  description: "蒸管家｜店務管理系統，適用於預約制門市、工作室與服務品牌。比較適合店家、價格與功能差異。",
+  description: "蒸管家｜店務管理系統，適用於預約制門市、工作室與服務品牌。新客 30 天免費體驗，單店功能完整開放，轉正式沿用原帳號與資料。比較方案價格、年繳省額與限時加購優惠。",
 };
 const TRIAL_URL = "/pricing/trial";
 const featureLinks: Record<string, string> = {
@@ -74,34 +74,37 @@ export default async function PricingPage() {
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <MarketingNavigation active="pricing" />
     <main id="plans" className="mx-auto max-w-6xl px-5 py-5 sm:px-8 sm:py-6">
-      <div className="mb-4">
-        <p className="text-sm text-[#74603C]">方案與價格</p>
-        <h1 className="mt-1 text-3xl font-semibold sm:text-4xl">選擇適合你門市的管家。</h1>
-        <p className="mt-2 text-base leading-7 text-[#4C6259]">從日常店務、顧客回訪到多店管理，依你的經營需要選擇。</p>
-      </div>
-      <PricingOffer initialNow={initialNow} trialUrl={TRIAL_URL} />
-      <section aria-label="試用說明" className="mt-5 rounded-xl bg-white p-4 text-base leading-7">
-        <h2 className="text-xl font-semibold">30 天完整單店體驗</h2>
-        <p className="mt-1 text-[#4C6259]">帳號開通後起算 30 天，轉正式沿用原帳號與資料。</p>
-        <details className="mt-2 border-t border-[#153B31]/15">
+      <section aria-labelledby="trial-title" className="mb-5">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          <div>
+            <p className="text-sm font-semibold text-[#74603C]">新客 30 天免費體驗</p>
+            <h1 id="trial-title" className="mt-1 text-3xl font-semibold leading-snug sm:text-4xl">先免費用 30 天，再決定。</h1>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-[#4C6259]">單店功能完整開放。體驗期間的顧客、預約與方案資料，轉正式直接沿用，不用重新建檔。</p>
+            <ul aria-label="免費體驗優勢" className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-base font-semibold">
+              {["30 天完全免費", "單店功能完整開放", "轉正式資料沿用"].map(text => <li key={text} className="flex items-center gap-2"><span aria-hidden="true" className="text-[#805C1B]">✓</span>{text}</li>)}
+            </ul>
+          </div>
+          <a href={TRIAL_URL} className="inline-flex min-h-11 shrink-0 items-center justify-center self-start rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 lg:self-center">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
+        </div>
+        <details className="mt-3 border-t border-[#153B31]/15 text-base leading-7">
           <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看體驗額度與使用說明</summary>
           <div className="space-y-2 pb-2 text-[#4C6259]">
-            <p>含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。從帳號可正常使用當天開通起算；網頁前台可先使用，LINE／LIFF 完成設定後接上。</p>
-            <p>到期後保留資料、後台改為唯讀；轉正式沿用原帳號與資料，功能及額度依購買方案。</p>
-            <p>試用不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，外部訊息費用於開通前確認。</p>
+            <p>所選模組的完整單店功能開放體驗，人員仍依店長／員工角色權限操作。含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。</p>
+            <p>從帳號可正常使用當天開通起算 30 天；網頁前台可先使用，LINE／LIFF 完成設定後接上。</p>
+            <p>到期後後台改為唯讀，資料保留 30 天；保留期間轉正式，可沿用原帳號與資料，功能及額度依購買方案。</p>
+            <p>30 天系統體驗免費，不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，LINE 訊息、金流等外部服務費用於開通前確認。</p>
           </div>
         </details>
       </section>
+      <h2 className="mb-3 text-2xl font-semibold">方案價格與優惠</h2>
+      <PricingOffer initialNow={initialNow} trialUrl={TRIAL_URL} />
       <FeatureComparison />
       <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
       <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <p className="rounded-xl border border-[#153B31]/15 bg-white p-4 text-base"><span className="font-semibold">工具功能</span><span className="ml-3">每項 NT$500／月</span></p>
-          <p className="rounded-xl border border-[#153B31]/15 bg-white p-4 text-base"><span className="font-semibold">經營功能</span><span className="ml-3">每項 NT$800／月</span></p>
-        </div>
+        <AddonOffer initialNow={initialNow} />
         <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或使用任選名額的功能不另收費，超出名額才加購。選定後由總部協助開通。</p>
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
