@@ -160,7 +160,7 @@ export function CourseStaffWorkspace({
   const rows = staff
     .filter(
       (s) =>
-        (!hideTestData||!isCourseTestData(s.name)) && `${s.name} ${s.phone} ${s.email}`.includes(search) &&
+        (!hideTestData||!isCourseTestData(s.name)) && `${s.name} ${s.phone} ${s.email} ${s.contactEmail ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
         (filter === "all" || s.active === (filter === "active")) &&
         (role === "all" || (role === "coach" ? s.coachEnabled : role === "both" ? s.kind === "manager" && s.coachEnabled : s.kind === role)),
     )
@@ -242,11 +242,11 @@ export function CourseStaffWorkspace({
       {canManage && <CourseBatchBar key={`${hideTestData}:${search}:${filter}:${role}:${inactiveExpanded}`} canDelete={canManage} names={Object.fromEntries(visibleRows.map(p=>[p.id,p.name]))} kind="staff" blockedIds={busyIds} states={Object.fromEntries(visibleRows.map(p=>[p.id,p.active]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visibleRows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
 </div>
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className="min-w-[720px] w-full text-left text-sm">
+        <table className={`${music ? "min-w-[720px]" : "min-w-[900px]"} w-full text-left text-sm`}>
           <thead className="bg-earth-50">
             <tr>
-              {["姓名", "聯絡方式", "身分", "系統通知", "操作"].map((t) => (
-                <th key={t} className={`px-3 py-2 font-medium ${!music&&t==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+              {(music ? ["姓名", "聯絡方式", "身分", "系統通知", "操作"] : ["姓名", "電話", "E-mail", "身分", "系統通知", "操作"]).map((t) => (
+                <th key={t} className={`px-3 py-2 font-medium ${!music ? ({"姓名":"w-[20%]","電話":"w-[16%]","E-mail":"w-[28%]","身分":"w-[18%]","系統通知":"w-[12%]"} as Record<string,string>)[t] ?? "" : ""} whitespace-nowrap ${!music&&t==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {t}
                 </th>
               ))}
@@ -255,13 +255,16 @@ export function CourseStaffWorkspace({
           <tbody className="divide-y divide-earth-100">
             {visibleRows.map((p,index) => (
               <Fragment key={p.id}>
-              {!p.active&&(index===0||visibleRows[index-1]?.active)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>停用人員（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+              {!p.active&&(index===0||visibleRows[index-1]?.active)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music ? 5 : 6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>停用人員（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
               <tr
                 {...order.rowProps(p.id)}
                 className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
               >
                 <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{music?<span className="font-medium">{p.name}</span>:<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(!canManage);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
-                <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 truncate text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td>
+                {music ? <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 truncate text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td> : <>
+                  <td className="whitespace-nowrap px-3 py-2">{p.phone ? <a className="inline-flex min-h-11 items-center text-primary-800 hover:underline" href={`tel:${p.phone}`}>{p.phone}</a> : "—"}</td>
+                  <td className="px-3 py-2"><span title={p.kind === "manager" ? p.email : p.contactEmail ?? ""} className="block max-w-64 truncate">{(p.kind === "manager" ? p.email : p.contactEmail) || "—"}</span></td>
+                </>}
                 <td className="px-3 py-2">{identity(p,music)}<span className="block whitespace-nowrap text-xs text-earth-600">{!p.active?"停用":music?"啟用":""}{p.coachEnabled?` · ${p.qualificationsConfirmed&&p.qualificationIds.length?"授課已設定":"授課待補"}`:""}</span></td>
                 <td className="px-3 py-2"><span className={p.notificationsEnabled!==false&&p.coachLoginReady?"text-primary-800":"text-earth-500"}>{p.notificationsEnabled===false?"已關閉":p.coachLoginReady?"可通知":"待連結 LINE"}</span></td>
                 <td className={`whitespace-nowrap px-3 py-2 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
@@ -273,7 +276,7 @@ export function CourseStaffWorkspace({
               </tr>
               </Fragment>
             ))}
-            {!inactiveExpanded&&inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>停用人員（{inactiveRows.length}）</span><span>展開</span></button></td></tr>}
+            {!inactiveExpanded&&inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={music ? 5 : 6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>停用人員（{inactiveRows.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div>

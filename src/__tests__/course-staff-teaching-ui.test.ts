@@ -17,11 +17,15 @@ const staff={id:"t",name:"老師",kind:"coach" as const,coachEnabled:true,qualif
 beforeEach(()=>{vi.resetAllMocks();m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
-async function click(text:string){const b=Array.from(host.querySelectorAll("button")).find(b=>b.textContent===text);expect(b).toBeTruthy();await act(async()=>b!.click());}
+async function click(text:string){
+ let b=Array.from(document.querySelectorAll("button")).find(b=>b.textContent===text&&!b.closest("[hidden]"));
+ if(!b){const menu=host.querySelector<HTMLButtonElement>('button[aria-label$="操作"]');if(menu)await act(async()=>menu.click());b=Array.from(document.querySelectorAll("button")).find(b=>b.textContent===text&&!b.closest("[hidden]"));}
+ expect(b).toBeTruthy();await act(async()=>b!.click());
+}
 it("opens teaching directly with inline fee and one save, disabled before changes",async()=>{await render();await click("授課設定");expect(m.read).toHaveBeenCalledTimes(1);expect((host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement).value).toBe("500");expect(host.querySelectorAll('button[type="submit"]')).toHaveLength(1);expect((host.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);expect(host.querySelector('[aria-label="瑜珈每堂授課費"]')?.closest("details")).toBeNull();});
-it("opens and saves basic data without loading or resending teaching fees",async()=>{m.save.mockResolvedValue({success:true});await render();await click("編輯");expect(m.read).not.toHaveBeenCalled();const phone=host.querySelector('input[name="phone"]') as HTMLInputElement;await inputValue(phone,"0911222333");await click("儲存變更");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({phone:"0911222333",teachingFees:undefined,musicSettings:undefined,defaultClassFee:undefined}));});
-it("submits qualifications and optional fees once without silently treating blank as zero",async()=>{await render();await click("授課設定");const label=Array.from(host.querySelectorAll("label")).find(l=>l.textContent==="肌力")!;await act(async()=>(label.querySelector("input") as HTMLInputElement).click());await click("儲存變更");expect(m.save).toHaveBeenCalledTimes(1);expect(m.save).toHaveBeenCalledWith(expect.objectContaining({qualificationIds:["y","s"],teachingFees:[{templateId:"y",value:{mode:"CLASS",value:500},revision:2},{templateId:"s",value:null,revision:0}]}));expect(host.textContent).toContain("儲存失敗");expect((host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement).value).toBe("500");});
-it("keeps an unset coach default distinct from an explicit zero",async()=>{await render();await click("授課設定");const input=host.querySelector('input[name="defaultClassFee"]') as HTMLInputElement;expect(input.value).toBe("");await inputValue(input,"0");await click("儲存變更");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({defaultClassFee:0}));});
+it("opens and saves basic data without loading or resending teaching fees",async()=>{m.save.mockResolvedValue({success:true});await render();await click("編輯");expect(m.read).not.toHaveBeenCalled();const phone=host.querySelector('input[name="phone"]') as HTMLInputElement;await inputValue(phone,"0911222333");await click("儲存");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({phone:"0911222333",teachingFees:undefined,musicSettings:undefined,defaultClassFee:undefined}));});
+it("submits qualifications and optional fees once without silently treating blank as zero",async()=>{await render();await click("授課設定");const label=Array.from(host.querySelectorAll("label")).find(l=>l.textContent==="肌力")!;await act(async()=>(label.querySelector("input") as HTMLInputElement).click());await click("儲存");expect(m.save).toHaveBeenCalledTimes(1);expect(m.save).toHaveBeenCalledWith(expect.objectContaining({qualificationIds:["y","s"],teachingFees:[{templateId:"y",value:{mode:"CLASS",value:500},revision:2},{templateId:"s",value:null,revision:0}]}));expect(host.textContent).toContain("儲存失敗");expect((host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement).value).toBe("500");});
+it("keeps an unset coach default distinct from an explicit zero",async()=>{await render();await click("授課設定");const input=host.querySelector('input[name="defaultClassFee"]') as HTMLInputElement;expect(input.value).toBe("");await inputValue(input,"0");await click("儲存");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({defaultClassFee:0}));});
 it("does not allow saving when fee loading fails",async()=>{m.read.mockResolvedValue({success:false,error:"無法讀取"});await render();await click("授課設定");expect((host.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);expect(host.textContent).toContain("無法讀取");expect(m.save).not.toHaveBeenCalled();});
 it("read-only accounts cannot load or edit compensation",async()=>{await render(false);await click("查看");expect(m.read).not.toHaveBeenCalled();expect(host.querySelector('button[type="submit"]')).toBeNull();});
 
@@ -37,12 +41,12 @@ it("preserves fee edits across 100 courses and includes selections from other pa
  await act(async()=>(label.querySelector("input") as HTMLInputElement).click());
  await inputValue(host.querySelector('[aria-label="課程9每堂授課費"]') as HTMLInputElement,"800");
  await click("上一頁");expect((host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement).value).toBe("650");
- await click("儲存變更");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({qualificationIds:["y","course-9"],teachingFees:[{templateId:"y",value:{mode:"CLASS",value:650},revision:2},{templateId:"course-9",value:{mode:"CLASS",value:800},revision:0}]}));
+ await click("儲存");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({qualificationIds:["y","course-9"],teachingFees:[{templateId:"y",value:{mode:"CLASS",value:650},revision:2},{templateId:"course-9",value:{mode:"CLASS",value:800},revision:0}]}));
 });
 it("blocks a negative fee on another page and reveals the course",async()=>{
  const templates=[{id:"y",name:"瑜珈"},...Array.from({length:30},(_,i)=>({id:`course-${i}`,name:`課程${i}`}))];
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates,customers:[],canManage:true,permissionGroups:[]})));
- await click("授課設定");await inputValue(host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"-1");await click("下一頁");await click("儲存變更");
+ await click("授課設定");await inputValue(host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"-1");await click("下一頁");await click("儲存");
  expect(m.save).not.toHaveBeenCalled();expect(host.textContent).toContain("請填寫「瑜珈」");expect(host.querySelector('[aria-label="瑜珈每堂授課費"]')).not.toBeNull();
 });
 
@@ -56,7 +60,7 @@ it("filters legacy permissions so renaming a manager can be saved from the compa
  await click("後台帳號／權限");
  expect(host.textContent).toContain("已開啟 1／2 項");
  expect(host.querySelector('[aria-label="搜尋權限"]')).not.toBeNull();
- await click("儲存變更");
+ await click("儲存");
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({name:"蔡店長（新）",permissions:["customer.read"]}));
 });
 
@@ -69,6 +73,16 @@ it("music qualification editors with read-only pay access can change qualificati
  const qualification=Array.from(host.querySelectorAll("label")).find(l=>l.textContent==="鋼琴")!.querySelector("input")!;
  expect(qualification.disabled).toBe(false);
  await act(async()=>qualification.click());
- await click("儲存變更");
+ await click("儲存");
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({qualificationIds:["y","s"],teachingFees:undefined,musicSettings:undefined}));
+});
+
+it("finds a coach by their contact email and keeps the direct-call link", async () => {
+ const coach={...staff,contactEmail:"coach@example.test"};
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+ await inputValue(host.querySelector('[aria-label="搜尋人員"]') as HTMLInputElement," COACH@EXAMPLE.TEST ");
+ expect(host.querySelector('a[href="tel:0900000000"]')?.textContent).toBe("0900000000");
+ expect(host.textContent).toContain("coach@example.test");
+ await inputValue(host.querySelector('[aria-label="搜尋人員"]') as HTMLInputElement,"no-match@example.test");
+ expect(host.querySelector('a[href="tel:0900000000"]')).toBeNull();
 });

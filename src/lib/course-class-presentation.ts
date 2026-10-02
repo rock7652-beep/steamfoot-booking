@@ -7,3 +7,13 @@ export function courseClassPresentation(classType?: string | null, trial = false
   if (classType === "SELF_ORGANIZED") return { label: "自組課", dot: "bg-yellow-600" };
   return { label: "課型待設定", dot: "bg-earth-400" };
 }
+
+/** Fitness filters use the same class identity across month, week and day views. */
+export function courseClassMatches(filter: string, classType?: string | null, trial = false, rental = false) {
+  if (filter === "all") return true;
+  if (filter === "RENTAL") return rental;
+  if (filter === "TRIAL") return !rental && trial;
+  if (rental || trial) return false;
+  if (filter === "unset") return !classType;
+  return classType === filter;
+}

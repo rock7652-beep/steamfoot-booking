@@ -101,7 +101,8 @@ export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,pro
  const selectedTemplateIds=parseIds(draft.values.templates),selectedTerms=parseIds(draft.values.terms);
  const setSelectedTemplateIds:Dispatch<SetStateAction<string[]>>=next=>draft.set("templates",JSON.stringify(typeof next==="function"?next(selectedTemplateIds):next));
  const visibleTemplates=templates.filter(t=>t.name.toLocaleLowerCase().includes(templateSearch.trim().toLocaleLowerCase()));
- const templateGroups=[...new Set(visibleTemplates.map(t=>t.category||"未分類"))];
+ const templateGroup=(t:typeof templates[number])=>music ? t.category||"未分類" : t.classType==="GROUP"?"團體課":t.classType==="PRIVATE"?"個別課":t.classType==="SELF_ORGANIZED"?"自組課":"未設定班別";
+ const templateGroups=[...new Set(visibleTemplates.map(templateGroup))];
  const musicQuote=music&&draft.values.subjectId?(()=>{try{return musicPlanQuote({musicPricePerLesson:Number(draft.values.musicPricePerLesson),musicTermLessons:Number(draft.values.musicTermLessons),musicValidityDaysPerTerm:Number(draft.values.musicValidityDaysPerTerm)},1);}catch{return null;}})():null;
  const unitPrice=music?Number(draft.values.musicPricePerLesson):Math.round(Number(draft.values.price)/Math.max(1,Number(draft.values.points)));
  const estimatedProfit=(music?musicQuote?.price??0:Number(draft.values.price))-Number(draft.values.storeCost);
@@ -166,7 +167,7 @@ export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,pro
                   <div className="max-h-64 space-y-3 overflow-y-auto overscroll-contain pr-1">
                     {templateGroups.map(group=><section key={group} aria-label={group}>
                       <h3 className="sticky top-0 bg-white py-1 text-xs font-semibold text-earth-500">{group}</h3>
-                      {visibleTemplates.filter(t=>(t.category||"未分類")===group).map(t=>{
+                      {visibleTemplates.filter(t=>templateGroup(t)===group).map(t=>{
                         const selected=selectedTemplateIds.includes(t.id);
                         return <label key={t.id} className={`flex min-h-10 items-center gap-2 rounded-md px-2 ${t.isActive?"hover:bg-earth-50":"bg-earth-50 text-earth-400"}`}>
                           <input type="checkbox" value={t.id} checked={selected} disabled={!t.isActive} onChange={e=>{setSelectedTemplateIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>
