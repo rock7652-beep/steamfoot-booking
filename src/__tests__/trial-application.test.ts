@@ -132,13 +132,13 @@ describe("receipt boundary", () => {
       resumeTokenHash: record.resumeTokenHash,
     });
     expect(mocks.create.mock.calls[0][0].data).not.toHaveProperty("token");
-    expect(mocks.update).toHaveBeenCalledWith({
-      where: { id: "test-id" },
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: "test-id", revision: 1, notificationStatus: "SENDING" },
       data: { notificationStatus: "FAILED" },
     });
   });
   it("returns durable receipt even if storing notification result fails", async () => {
-    mocks.update.mockRejectedValue(new Error("connection dropped"));
+    mocks.updateMany.mockResolvedValueOnce({ count: 1 }).mockRejectedValueOnce(new Error("connection dropped"));
     expect(
       (await POST(request({ requestId, token, action: "save", data }))).status,
     ).toBe(200);
@@ -173,7 +173,7 @@ describe("receipt boundary", () => {
       ...record,
       revision: 2,
       status: "CONFIGURING",
-      notificationStatus: "SENT",
+      notificationStatus: "PENDING",
     });
     const res = await POST(
       request({
@@ -190,5 +190,8 @@ describe("receipt boundary", () => {
       status: "CONFIGURING",
     });
     expect(mocks.updateMany.mock.calls[0][0].data).not.toHaveProperty("status");
+    expect(mocks.updateMany.mock.calls[0][0].data.notificationStatus).toBe("PENDING");
+    expect(mocks.notify).toHaveBeenCalledWith("test-id");
+    expect(mocks.updateMany).toHaveBeenCalledWith({where:{id:"test-id",revision:2,notificationStatus:"SENDING"},data:{notificationStatus:"SENT"}});
   });
 });

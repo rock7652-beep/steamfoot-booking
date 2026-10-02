@@ -11,7 +11,7 @@ vi.mock("@/server/services/trial-application-notification", () => ({ notifyTrial
 vi.mock("next/cache", () => ({ revalidatePath: m.revalidate }));
 vi.mock("@/lib/db", () => ({ prisma: {
   $transaction: m.transaction,
-  trialApplication: { updateMany: m.updateMany, update: m.update },
+  trialApplication: { updateMany: m.updateMany, update: m.update, findUniqueOrThrow: m.findUniqueOrThrow },
 } }));
 import { updateApplication, retryApplicationNotification } from "@/app/hq/dashboard/trial-applications/actions";
 const id = "d5e15c3e-0512-4c14-ad98-04fe7ce5b44a";
@@ -23,7 +23,7 @@ beforeEach(() => {
   m.session.mockResolvedValue({ id: "admin-id", role: "ADMIN" });
   m.permission.mockResolvedValue(undefined);
   m.allowed.mockReturnValue(true);
-  m.findUniqueOrThrow.mockResolvedValue({ status: "RECEIVED" });
+  m.findUniqueOrThrow.mockResolvedValue({ status: "RECEIVED", revision: 2 });
   m.transaction.mockImplementation(async (fn) => fn({
     trialApplication: { findUniqueOrThrow: m.findUniqueOrThrow, update: m.update },
     auditLog: { create: m.audit },
@@ -70,6 +70,6 @@ describe("HQ trial application authorization", () => {
   it("stores failed notification status so HQ can retry it", async () => {
     m.notify.mockResolvedValue("FAILED");
     await retryApplicationNotification(form());
-    expect(m.update).toHaveBeenCalledWith({ where: { id }, data: { notificationStatus: "FAILED" } });
+    expect(m.updateMany).toHaveBeenCalledWith({ where: { id, revision: 2, notificationStatus: "SENDING" }, data: { notificationStatus: "FAILED" } });
   });
 });

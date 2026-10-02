@@ -39,17 +39,19 @@ export async function retryApplicationNotification(form: FormData) {
   if (!trialApplicationDatabaseAllowed())
     throw new Error("預覽收件資料庫尚未設定");
   const id = String(form.get("id") ?? "");
+  const record = await prisma.trialApplication.findUniqueOrThrow({ where: { id } });
   const claimed = await prisma.trialApplication.updateMany({
     where: {
       id,
+      revision: record.revision,
       notificationStatus: { in: ["FAILED", "DISABLED", "PENDING"] },
     },
     data: { notificationStatus: "SENDING" },
   });
   if (claimed.count) {
     const notificationStatus = await notifyTrialApplication(id);
-    await prisma.trialApplication.update({
-      where: { id },
+    await prisma.trialApplication.updateMany({
+      where: { id, revision: record.revision, notificationStatus: "SENDING" },
       data: { notificationStatus },
     });
   }

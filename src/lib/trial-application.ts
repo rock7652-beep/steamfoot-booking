@@ -1,5 +1,6 @@
 import { z } from "zod";
 export const TRIAL_CONTACT_EMAIL = "rock7652@gmail.com";
+export const TRIAL_NOTIFICATION_EMAIL = "steambutler500@gmail.com";
 const text = z.string().trim().max(200);
 function link(hosts: string[]) {
   return z

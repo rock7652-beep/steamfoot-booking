@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
           storeName: data.storeName,
           contactEmail: data.email,
           revision: { increment: 1 },
+          notificationStatus: "PENDING",
         },
       });
       if (!changed.count)
@@ -141,13 +142,13 @@ export async function POST(req: NextRequest) {
     try {
       if (record.notificationStatus === "PENDING") {
         const claim = await prisma.trialApplication.updateMany({
-          where: { id: record.id, notificationStatus: "PENDING" },
+          where: { id: record.id, revision: record.revision, notificationStatus: "PENDING" },
           data: { notificationStatus: "SENDING" },
         });
         if (claim.count) {
           const notificationStatus = await notifyTrialApplication(record.id);
-          await prisma.trialApplication.update({
-            where: { id: record.id },
+          await prisma.trialApplication.updateMany({
+            where: { id: record.id, revision: record.revision, notificationStatus: "SENDING" },
             data: { notificationStatus },
           });
         }
@@ -155,7 +156,7 @@ export async function POST(req: NextRequest) {
     } catch {
       try {
         await prisma.trialApplication.updateMany({
-          where: { id: record.id, notificationStatus: "SENDING" },
+          where: { id: record.id, revision: record.revision, notificationStatus: "SENDING" },
           data: { notificationStatus: "FAILED" },
         });
       } catch {

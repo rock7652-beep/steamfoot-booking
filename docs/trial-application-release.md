@@ -5,7 +5,7 @@
 - 申請先收基本資訊，LINE 可後補；每階段與最後總清單分別顯示進度。
 - 本機暫存保留未完成欄位。補件連結使用 URL fragment；伺服器只存 token hash，讀取與修改必須驗證 token；修訂防止舊頁覆寫。
 - 邀請資料僅總部或持有專屬補件連結者可讀。Supabase Data API 的 anon/authenticated 權限已撤銷，RLS 已開啟。
-- 通知寄到 rock7652@gmail.com，只包含登入總部查看的連結，不含邀請網址或補件 token。
+- 通知寄到 steambutler500@gmail.com，包含店名、聯絡方式、缺件摘要、總表與總部連結；不含邀請網址或補件 token。LINE 管理授權仍用 rock7652@gmail.com。
 - 需設定有效 RESEND_API_KEY 與已驗證 RESEND_FROM。寄送失敗不影響收件；總部可重試。
 - 預覽通知停用；預覽收件僅允許既有獨立測試資料庫，不可沿用正式連線。
 
@@ -63,3 +63,7 @@
 - 總部進度更新為待補件，店家收件畫面同步顯示最新進度。
 - 桌機及 768px 平板寬度檢查收件明細；店名搜尋與待補件篩選均只返回符合的申請。平板驗證為瀏覽器寬度模擬，非實體 Safari。
 - 本次僅更新草稿分支與預覽，沒有正式合併、正式資料庫遷移或實際寄信。
+
+### Email 與 Sheet 收件（待一次性啟用）
+
+已建立原生 Google Sheet，新增 Apps Script 接收服務與網站 webhook 串接。補件重設通知待送，同列更新、版本防重送、自動失敗重試均有隔離測試。Google 寄信授權、部署與伺服器環境設定尚未完成；不能宣稱已同步或實際收到 Email。詳見 `trial-intake-google-setup.md`。
