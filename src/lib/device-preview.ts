@@ -43,7 +43,7 @@ export const COURSE_DEVICE_PREVIEW_PAGES = [
   { id: "bookings", label: "課表排程", path: "/dashboard/courses" },
   { id: "customers", label: "顧客管理", path: "/dashboard/courses?view=customers" },
   { id: "catalog", label: "課程設定", path: "/dashboard/courses?view=catalog" },
-  { id: "rooms", label: "教室管理", path: "/dashboard/courses?view=rooms" },
+  { id: "rooms", label: "空間管理", path: "/dashboard/courses?view=rooms" },
   { id: "staff", label: "人員管理", path: "/dashboard/staff" },
   { id: "plans", label: "方案管理", path: "/dashboard/courses?view=plans" },
   { id: "growth", label: "顧客經營", path: "/dashboard/growth" },
@@ -65,8 +65,8 @@ export const DEVICE_PRESETS = {
   },
   tablet: {
     label: "平板",
-    width: 768,
-    height: 1024,
+    width: 1024,
+    height: 768,
   },
   desktop: {
     label: "桌機",

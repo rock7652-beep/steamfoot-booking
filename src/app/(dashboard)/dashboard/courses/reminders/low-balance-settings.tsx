@@ -1,4 +1,5 @@
 "use client";
+import { NotificationSwitch } from "@/components/admin/notification-switch";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { saveCoursePlanReminderSetting } from "@/server/actions/course-plan-reminders";
@@ -328,7 +329,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                       <section className="rounded-lg border border-earth-200 bg-white p-3">
                         <label className="flex min-h-10 items-center justify-between gap-3">
                           <span className="text-sm font-medium text-earth-800">剩餘額度提醒</span>
-                          <input type="checkbox" checked={draft.enabled} onChange={event => update(plan.id, { enabled: event.target.checked })} />
+                          <NotificationSwitch aria-label={`${plan.name} 啟用提醒`} checked={draft.enabled} onChange={event => update(plan.id, { enabled: event.target.checked })} />
                         </label>
                         {draft.enabled ? (
                           <label className="mt-2 flex items-center gap-2 text-sm text-earth-600">
@@ -351,7 +352,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                       <section className="rounded-lg border border-earth-200 bg-white p-3">
                         <label className="flex min-h-10 items-center justify-between gap-3">
                           <span className="text-sm font-medium text-earth-800">到期提醒</span>
-                          <input type="checkbox" checked={draft.expiryEnabled} onChange={event => update(plan.id, { expiryEnabled: event.target.checked })} />
+                          <NotificationSwitch aria-label={`${plan.name} 啟用到期提醒`} checked={draft.expiryEnabled} onChange={event => update(plan.id, { expiryEnabled: event.target.checked })} />
                         </label>
                         {draft.expiryEnabled ? (
                           <label className="mt-2 flex items-center gap-2 text-sm text-earth-600">

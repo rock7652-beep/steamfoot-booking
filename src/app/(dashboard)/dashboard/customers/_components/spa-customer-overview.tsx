@@ -1,4 +1,6 @@
 "use client";
+import { CustomerDetailFields } from "@/components/customer-detail-fields";
+import { CustomerLabels } from "@/components/customer-labels";
 import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
 import { DashboardLink } from "@/components/dashboard-link";
 import {
@@ -31,6 +33,7 @@ export function SpaCustomerOverview({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
+        <CustomerLabels maxVisible={5} customerId={customer.id} readOnly={!canEdit}/>
         <div className="space-y-3">
           {canEdit && (
             <DashboardLink
@@ -43,15 +46,10 @@ export function SpaCustomerOverview({
           {canManageStaff && <AddSpaStaffButton customerId={customer.id} />}
           <section
             hidden={!canReadBookings}
-            className="rounded-xl border border-earth-200 p-4"
+            className="border-t border-earth-100 py-3"
           >
-            <h3 className="font-bold">來店與預約</h3>
-            <p className="mt-2 text-sm">
-              最近來店：{customer.lastVisit ?? "尚無完成服務紀錄"}
-            </p>
-            <p className="mt-1 text-sm">
-              下次預約：{customer.nextVisit ?? "尚未預約"}
-            </p>
+            <h3 className="text-sm font-semibold text-primary-900">來店與預約</h3>
+            <CustomerDetailFields items={[{label:"最近來店",value:customer.lastVisit},{label:"下次預約",value:customer.nextVisit}]}/>
             {canBook && (
               <DashboardLink
                 href={`/dashboard/spa-schedule?customerId=${encodeURIComponent(customer.id)}&new=1`}
@@ -62,7 +60,7 @@ export function SpaCustomerOverview({
             )}
           </section>
         </div>
-        <RetainedNoteEditor key={customer.id} stateKey={`customer-note:${customer.id}`} title="服務偏好與注意事項"
+        <RetainedNoteEditor quiet key={customer.id} stateKey={`customer-note:${customer.id}`} title="服務偏好與注意事項"
           hint="僅供店內服務參考，例如力道偏好、指定人員或需留意事項。"
           placeholder="例如：喜歡輕力道，服務前先確認當天需求。" maxLength={2000}
           value={profile.customer.serviceNote} canEdit={canEdit}

@@ -1,0 +1,5 @@
+import {it,expect} from "vitest";
+import {rentalPrice,rentalInput,rentalOccupation} from "@/lib/course-rental";
+it("computes half-hour and multiple-hour fees with integer currency",()=>{expect(rentalPrice(600,30)).toBe(300);expect(rentalPrice(600,90)).toBe(900);expect(rentalPrice(599,30)).toBe(300);});
+it("validates half-hour starts, duration and amounts",()=>{const input={requestKey:"f34a8337-9380-4bc4-b218-c450bb3c7aca",roomId:"r",customerName:"客",customerPhone:"0900000000",date:"2026-10-02",time:"10:00",durationMinutes:30,amount:300};expect(rentalInput.safeParse(input).success).toBe(true);for(const patch of [{time:"10:15"},{durationMinutes:45},{amount:-1},{customerPhone:"hello"}])expect(rentalInput.safeParse({...input,...patch}).success).toBe(false);});
+it("occupies the configured buffer before and after the rental",()=>{const r=rentalOccupation(new Date("2026-10-02T02:00:00Z"),new Date("2026-10-02T03:00:00Z"),10);expect(r.occupiedStartsAt.toISOString()).toBe("2026-10-02T01:50:00.000Z");expect(r.occupiedEndsAt.toISOString()).toBe("2026-10-02T03:10:00.000Z");});

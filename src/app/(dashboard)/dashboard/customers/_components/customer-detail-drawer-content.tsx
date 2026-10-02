@@ -1,4 +1,6 @@
 "use client";
+import { CustomerPhoneLink } from "@/components/customer-detail-fields";
+import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useRef, useState } from "react";
 import { BookingServiceNoteEditor } from "../../bookings/booking-service-note-editor";
@@ -86,7 +88,7 @@ function StatusItem({
           ? "text-red-700"
           : "text-earth-700";
   return (
-    <div className="rounded-md bg-earth-50 px-2.5 py-2">
+    <div className="py-1.5">
       <dt className="text-[11px] text-earth-500">{label}</dt>
       <dd className={`mt-0.5 font-medium ${toneClass}`}>{value}</dd>
     </div>
@@ -164,11 +166,11 @@ export function CustomerDetailDrawerContent({
         className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-4 outline-none"
       >
         <div className="min-w-0">
-          <h2 id={titleId} className="truncate text-lg font-semibold text-earth-900">
+          <h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
             {customer.name}
           </h2>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-earth-500">
-            {phoneDisplay !== "—" && <span>☎ {phoneDisplay}</span>}
+            {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
           </div>
           <div className="mt-2">
@@ -234,16 +236,16 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
-        {customer.recentConsumption && <section className="rounded-lg border border-earth-200 bg-white p-3">
+        {customer.recentConsumption && <section className="border-t border-earth-100 pt-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-earth-800">最近消費</h3>
+            <h3 className="text-sm font-semibold text-primary-900">最近消費</h3>
             <Link href={`/dashboard/customers/${customer.id}/records?type=transactions`} prefetch={false} className="text-xs font-medium text-primary-700">查看全部 →</Link>
           </div>
           {customer.recentConsumption.length ? <ul className="divide-y divide-earth-100">{customer.recentConsumption.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-xs"><span className="min-w-0"><strong className="block truncate text-earth-800">{item.label}</strong><span className="text-earth-500">{formatTWTime(item.date, { dateOnly: true })} · {item.payment}</span></span><strong className="shrink-0 tabular-nums text-primary-800">NT$ {item.amount.toLocaleString()}</strong></li>)}</ul> : <p className="py-2 text-xs text-earth-500">尚無消費紀錄</p>}
         </section>}
 
-        <section className="rounded-lg border border-earth-200 bg-white p-3">
-          <h3 className="mb-2 text-sm font-semibold text-earth-800">身份狀態</h3>
+        <section className="border-t border-earth-100 pt-3">
+          <h3 className="mb-2 text-sm font-semibold text-primary-900">身份狀態</h3>
           <dl className="grid grid-cols-2 gap-2 text-xs">
             <StatusItem label="顧客資料" value="已建立" tone="ok" />
             <StatusItem
@@ -268,12 +270,13 @@ export function CustomerDetailDrawerContent({
           </dl>
         </section>
 
+        <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
         <BookingServiceNoteEditor customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />
 
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
-          <h3 className="mb-2 text-sm font-semibold text-earth-800">課程方案</h3>
+          <h3 className="mb-2 text-sm font-semibold text-primary-900">課程方案</h3>
           {activeWallets.length === 0 ? (
             <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-xs text-earth-500">
               尚無使用中的方案
@@ -291,7 +294,7 @@ export function CustomerDetailDrawerContent({
                 return (
                   <li
                     key={w.id}
-                    className="rounded-lg border border-earth-200 bg-white p-3"
+                    className="border-t border-earth-100 pt-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -337,9 +340,9 @@ export function CustomerDetailDrawerContent({
           {!readOnly ? (
             <div className="mt-3">
             {assignOpen ? (
-              <div className="rounded-lg border border-earth-200 bg-white p-3">
+              <div className="border-t border-earth-100 pt-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-earth-800">＋ 指派新方案</h4>
+                  <h4 className="text-sm font-semibold text-primary-900">＋ 指派新方案</h4>
                   <button
                     type="button"
                     onClick={() => setAssignOpen(false)}
@@ -531,7 +534,7 @@ function CollapsibleSection({
 }) {
   return (
     <details className="group rounded-lg border border-earth-100 bg-white" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-earth-800 hover:bg-earth-50">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-primary-900 hover:bg-earth-50">
         <span className="flex items-center gap-2">
           {title}
           {badge}

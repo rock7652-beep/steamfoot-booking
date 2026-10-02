@@ -41,6 +41,7 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
+  { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
   {
     // Digital Butler is intentionally HQ-entitlement-only: no plan grants it
     // by default, but HQ must be able to grant or revoke a per-store override.

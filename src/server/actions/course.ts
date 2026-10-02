@@ -1,4 +1,5 @@
 "use server";
+import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { assertMusicCourseAvailability, assertMusicCourseDuration } from "@/server/services/course-availability";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
@@ -26,7 +27,7 @@ export async function scheduleTeacherMakeup(input: unknown) {
     const startsAt=parseTaipeiDateTime(data.date,data.time);
     if(!startsAt || startsAt <= new Date())throw new AppError("VALIDATION","請選擇未來的補課時段");
     const created=await courseTransaction(storeId,async(tx)=>{
-      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{status:{not:"CANCELLED"}}}}});
+      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:"TEACHER_ABSENT"}]}}}});
       if(!source || source.teacherAttendance!=="NO_SHOW")throw new AppError("VALIDATION","請先記錄老師曠課");
       if(!source.bookings.length)throw new AppError("VALIDATION","這堂沒有需要補課的學員");
       if(source.bookings.some(booking=>booking.status==="ATTENDED"))throw new AppError("CONFLICT","這堂已有出席紀錄，請先核對再安排免費補課");
@@ -44,7 +45,7 @@ export async function scheduleTeacherMakeup(input: unknown) {
       await tx.courseBooking.createMany({data:source.bookings.map(booking=>({storeId,sessionId:session.id,cardId:null,bookingKind:"TEACHER_MAKEUP",customerId:booking.customerId,operatorUserId:user.id,operatorCustomerId:null,operatorName:user.name??"店長",customerName:booking.customerName,pointCost:0,status:"RESERVED",notes:`原課 ${formatTWDateTime(source.startsAt)} 老師曠課補課`,requestKey:`teacher-makeup:${source.id}:${booking.customerId}`}))});
       return session.id;
     });
-    revalidatePath("/dashboard/courses");revalidatePath("/dashboard");return {success:true as const,sessionId:created};
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/dashboard");return {success:true as const,sessionId:created};
   }catch(error){return handleCourseActionError(error);}
 }
 
@@ -126,6 +127,9 @@ export async function updateCourseRoom(input: unknown) {
         details: z.string().trim().max(5000).default(""),
         equipment: z.string().trim().max(1000).default(""),
         location: z.string().trim().max(500).default(""),
+        rentalEnabled: z.boolean().default(false),
+        rentalHourlyRate: z.number().int().min(0).max(1000000).default(0),
+        rentalBufferMinutes: z.number().int().min(0).max(120).default(0),
       })
       .parse(input);
     await courseTransaction(storeId, async tx => {
@@ -138,7 +142,7 @@ export async function updateCourseRoom(input: unknown) {
       const result = await tx.courseRoom.updateMany({where:{id,storeId},data:fields});
       if (!result.count) throw new AppError("NOT_FOUND","找不到本店教室");
     });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -173,7 +177,7 @@ export async function updateCourseTemplate(input: unknown) {
     });
     if (!result.count)
       throw new AppError("VALIDATION", "找不到本店課程，請重新整理");
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -181,6 +185,29 @@ export async function updateCourseTemplate(input: unknown) {
   } catch (error) {
     return handleCourseActionError(error);
   }
+}
+
+export async function deleteUnusedCourseTemplate(input: unknown) {
+  try {
+    const {user,storeId}=await writableStore("booking.update");
+    const {id}=z.object({id:z.string().min(1).max(100)}).parse(input);
+    await courseTransaction(storeId,async tx=>{
+      const template=await tx.courseTemplate.findFirst({where:{id,storeId},select:{id:true}});
+      if(!template)throw new AppError("NOT_FOUND","找不到本店課程");
+      const uses=await Promise.all([
+        tx.courseSession.count({where:{storeId,templateId:id}}),
+        tx.coursePointPlan.count({where:{storeId,templateIds:{has:id}}}),
+        tx.coursePointCard.count({where:{storeId,templateIds:{has:id}}}),
+        tx.coursePurchase.count({where:{storeId,templateIds:{has:id}}}),
+        tx.courseCompensation.count({where:{storeId,templateId:id}}),
+      ]);
+      if(uses.some(Boolean))throw new AppError("VALIDATION","此課程已有排課、方案或拆帳設定，請使用下架保留紀錄");
+      await tx.courseTemplate.delete({where:{id,storeId}});
+    });
+    await (await import("@/server/services/operation-audit")).recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseTemplate",targetId:id,action:"DELETE",summary:"刪除未使用課程"});
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/book");
+    return {success:true as const};
+  }catch(error){return handleCourseActionError(error);}
 }
 
 export async function updateCourseSession(input: unknown) {
@@ -264,7 +291,8 @@ export async function updateCourseSession(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
           );
         await assertCourseSessionsFitHours(tx,storeId,[range]);
-        await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
+        if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
+          await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
         await tx.courseSession.update({
           where: { id: session.id, storeId },
@@ -283,7 +311,7 @@ export async function updateCourseSession(input: unknown) {
       { timeout: 15000 },
     );
     if (capacityIncreased) scheduleCapacityWaitlistPromotion(storeId, [capacityIncreased], user);
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -296,7 +324,7 @@ export async function updateCourseSession(input: unknown) {
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const { name, category, capacity, details, equipment, location } = z
+    const { name, category, capacity, details, equipment, location, rentalEnabled, rentalHourlyRate, rentalBufferMinutes } = z
       .object({
         name: z.string().trim().min(1, "請填寫教室名稱").max(80),
         category: z.string().trim().max(40).default(""),
@@ -304,13 +332,16 @@ export async function createCourseRoom(input: unknown) {
         details: z.string().trim().max(5000).default(""),
         equipment: z.string().trim().max(1000).default(""),
         location: z.string().trim().max(500).default(""),
+        rentalEnabled: z.boolean().default(false),
+        rentalHourlyRate: z.number().int().min(0).max(1000000).default(0),
+        rentalBufferMinutes: z.number().int().min(0).max(120).default(0),
       })
       .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
-      data: { name, category, capacity, details, equipment, location, storeId },
+      data: { name, category, capacity, details, equipment, location, storeId, rentalEnabled, rentalHourlyRate, rentalBufferMinutes },
       select: { id: true, name: true },
     });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     return { success: true as const, data: room };
   } catch (error) {
@@ -333,7 +364,7 @@ export async function createCourseTemplate(input: unknown) {
     if (data.defaultRoomId && !room)
       throw new AppError("VALIDATION", "請選擇本店可使用的教室");
     await coursePrisma.courseTemplate.create({ data: { ...data, storeId } });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     return { success: true as const };
   } catch (error) {
@@ -379,6 +410,7 @@ export async function createCourseSchedule(input: unknown) {
                 session.roomId !== data.roomId ||
                 session.coachId !== data.coachId ||
                 session.capacity !== data.capacity ||
+                session.isTrial !== data.isTrial ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
                 session.endsAt.getTime() !==
@@ -487,6 +519,7 @@ export async function createCourseSchedule(input: unknown) {
           data: occurrences.map((range, requestIndex) => ({
             ...range,
             storeId,
+            isTrial:data.isTrial,
             templateId: template.id,
             nameSnapshot: source?.nameSnapshot ?? template.name,
             roomId: room.id,
@@ -502,7 +535,7 @@ export async function createCourseSchedule(input: unknown) {
       },
       { timeout: 15000 },
     );
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     const firstSession = await coursePrisma.courseSession.findFirst({
       where: { storeId, requestKey: data.requestKey, cancelledAt: null },
@@ -692,7 +725,7 @@ export async function moveCourseSessions(input: unknown) {
       return { count: changes.length };
     });
 
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/book");
     return { success: true as const, data: result };
@@ -733,7 +766,7 @@ export async function setCourseCatalogStatus(input: unknown) {
       if (!result.count)
         throw new AppError("NOT_FOUND", "找不到本店資料，請重新整理");
     });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -928,7 +961,7 @@ export async function updateCourseSeries(input: unknown) {
           );
       }
       await assertCourseSessionsFitHours(tx,storeId,changes);
-      await assertMusicCourseAvailability(tx,storeId,d.coachId,changes);
+      await assertMusicCourseAvailability(tx,storeId,d.coachId,changes.filter(change=>change.session.coachId!==d.coachId||+change.session.startsAt!==+change.startsAt||+change.session.endsAt!==+change.endsAt));
       await assertCourseDutyCoverage(tx,storeId,changes.map(s=>({...s,coachId:d.coachId})));
       // Exclusion constraints are immediate. Temporarily release only these
       // rows inside the same transaction; other writers use the store lock.
@@ -957,7 +990,7 @@ export async function updateCourseSeries(input: unknown) {
     });
     if (capacityIncreasedSessionIds.length)
       scheduleCapacityWaitlistPromotion(storeId, capacityIncreasedSessionIds, user);
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/book");
     return { success: true as const };
@@ -976,7 +1009,7 @@ export async function batchCourseTemplates(input: unknown) {
       if (await tx.courseTemplate.count({where:{storeId,id:{in:ids}}})!==ids.length) throw new AppError("FORBIDDEN","包含非本店課程，整批未修改");
       await tx.courseTemplate.updateMany({where:{storeId,id:{in:ids}},data:{...(d.category!==undefined?{category:d.category}:{}),...(d.visibility?{visibility:d.visibility,isActive:d.visibility!=="OFF"}:{})}});
     });
-    revalidatePath("/dashboard/courses");revalidatePath("/book");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/book");
     return {success:true as const};
   } catch(e){return handleCourseActionError(e);}
 }

@@ -5,6 +5,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 
 
+vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null, CustomerLabelFilter: () => null }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/bookings",
 }));
@@ -180,7 +181,7 @@ describe("day booking contact actions", () => {
       expect(call).not.toBeNull();
       expect(call.closest("button")).toBeNull();
       expect(call.textContent).toContain("0912-345-678");
-      expect(call.textContent).toContain("撥打");
+      expect(call.textContent).not.toContain("撥打");
       expect(container.textContent).not.toContain("複製");
       // Avoid launching a real dialer in the test environment.
       call.addEventListener("click", event => event.preventDefault());

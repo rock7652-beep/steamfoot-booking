@@ -23,12 +23,12 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
   const visible=result?.customerId===customerId?result:null;
   return <section className="space-y-3">
     <div className="flex flex-wrap items-center gap-2">
-      <input aria-label="搜尋持有方案或共卡成員" className="min-h-10 min-w-0 flex-1 rounded-lg border px-3 text-base" placeholder="搜尋方案／共卡成員" value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
-      <select aria-label="方案效期" className="min-h-10 rounded-lg border px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
+      <input aria-label="搜尋持有方案或共卡成員" className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 text-base" placeholder="搜尋方案／共卡成員" value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
+      <select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
     </div>
     {!ready && <p role="status">更新中…</p>}
     {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
-      <div className="divide-y rounded-lg border bg-white">
+      <div className="divide-y divide-earth-100 bg-white">
 
         {visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?"堂":"點";
@@ -43,9 +43,9 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
           </div>;
         })}
 
-        {ready && !visible?.rows.length && <p className="p-4 text-sm text-earth-500">沒有符合的方案，請調整搜尋或效期。</p>}
+        {ready && !visible?.rows.length && <p className="py-3 text-sm text-earth-500">{state.search ? "沒有符合的方案" : state.history ? "尚無到期或停用方案" : "尚無有效方案"}</p>}
       </div>
-      {(state.page>0 || visible?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-10 rounded border px-3 disabled:opacity-40" disabled={!state.page} onClick={()=>onChange({...state,page:state.page-1})}>上一頁</button><button className="min-h-10 rounded border px-3 disabled:opacity-40" disabled={!visible?.hasMore} onClick={()=>onChange({...state,page:state.page+1})}>下一頁</button></nav>}
+      {(state.page>0 || visible?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!state.page} onClick={()=>onChange({...state,page:state.page-1})}>上一頁</button><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!visible?.hasMore} onClick={()=>onChange({...state,page:state.page+1})}>下一頁</button></nav>}
     </fieldset>}
   </section>;
 }

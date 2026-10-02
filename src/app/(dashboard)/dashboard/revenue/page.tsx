@@ -360,8 +360,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   };
 
   return (
-    <PageShell>
-      <PageHeader
+    <PageShell compact>
+      <PageHeader compact
         title="營運"
         subtitle="營收指標、交易查詢與修正都在這一頁完成"
         actions={
@@ -415,7 +415,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                     name="dateFrom"
                     type="date"
                     defaultValue={dateFrom}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
                 <label className="text-[11px] text-earth-500">
@@ -424,7 +424,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                     name="dateTo"
                     type="date"
                     defaultValue={dateTo}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
                 <label className="text-[11px] text-earth-500">
@@ -432,7 +432,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   <select
                     name="transactionType"
                     defaultValue={params.transactionType ?? ""}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   >
                     <option value="">所有類型</option>
                     {Object.entries(TX_TYPE_LABEL).map(([value, label]) => (
@@ -447,7 +447,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   <select
                     name="staff"
                     defaultValue={params.staff ?? ""}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   >
                     <option value="">全部店長</option>
                     {staffOptions.map((staff) => (
@@ -460,7 +460,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
                 <Link
                   href="/dashboard/revenue"
-                  className="flex min-h-10 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm text-earth-500 hover:bg-earth-50"
+                  className="flex min-h-11 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm text-earth-500 hover:bg-earth-50"
                 >
                   清除
                 </Link>

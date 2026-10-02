@@ -9,14 +9,15 @@ import { CustomersToolbar } from "../customers/_components/customers-toolbar";
 import { filterCourseCustomers } from "@/lib/course-customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CourseCardView } from "./member-workspace";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, music = false }: {
+export function CourseCustomerList({ rows, cards, customerPage, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false }: {
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
-  canMerge?: boolean; music?: boolean;
+  canMerge?: boolean; canExport?: boolean; music?: boolean;
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
@@ -28,13 +29,16 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const scope = scopeParams.toString();
   const selectedIds = selection.scope === scope ? selection.ids : new Set<string>();
   const setSelected = (ids: Set<string>) => setSelection({ scope, ids });
+  const pointOwners = new Set<string>();
+  const sessionOwners = new Set<string>();
   const points = new Map<string, number>();
   const sessions = new Map<string, number>();
-  for (const card of cards) for (const member of card.members) {
+  for (const card of cards.filter(card=>!card.expired && !card.closed)) for (const member of card.members) {
+    (card.unit === "SESSION" ? sessionOwners : pointOwners).add(member.id);
     const balances = card.unit === "SESSION" ? sessions : points;
     balances.set(member.id, (balances.get(member.id) ?? 0) + card.available);
   }
-  for (const row of customerPage?.rows ?? []) { points.set(row.id,row.points); sessions.set(row.id,row.sessions); }
+  for (const row of customerPage?.rows ?? []) { points.set(row.id,row.points); sessions.set(row.id,row.sessions); if(row.hasPoints)pointOwners.add(row.id); if(row.hasSessions)sessionOwners.add(row.id); }
   const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, new URLSearchParams(params.toString()), points);
   const total = customerPage?.total ?? filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / 20));
@@ -47,30 +51,28 @@ export function CourseCustomerList({ rows, cards, customerPage, canReadCards, on
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode />
-    {canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}
-    <p className="text-xs text-earth-500">最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p>
+    <CustomersToolbar musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath="/dashboard/courses?view=customers" courseMode trailing={canMerge || canExport ? <ExclusiveMenu label="更多">{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable hideAssignedStaff={music} stickyActions rows={pageRows}
+    <CustomersTable assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
-      hasActiveFilters={["search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
+      hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
       quickAssignLabel="購買方案"
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
-      lastVisitLabel="最近上課"
+      lastVisitLabel="最近來店"
       balanceColumn={{ label: music ? "可用堂數" : "可用額度", render: row => canReadCards
-        ? <span className="text-sm">{!music && <>{points.get(row.id) ?? 0} 點 · </>}{sessions.get(row.id) ?? 0} 堂</span>
+        ? <button type="button" aria-label={`查看 ${row.name} 的有效方案`} onClick={()=>onView(row.id)} className="min-h-11 whitespace-nowrap text-sm text-primary-700 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600">{[!music && pointOwners.has(row.id) ? `${points.get(row.id) ?? 0} 點` : null, sessionOwners.has(row.id) ? `${sessions.get(row.id) ?? 0} 堂` : null].filter(Boolean).join("・") || "—"}</button>
         : <span className="text-xs text-earth-400">無檢視權限</span> }} />
     {pageCount > 1 && <nav aria-label="顧客分頁" className="flex items-center justify-end gap-3 text-sm">
       <span>共 {total} 人 · 第 {page}／{pageCount} 頁</span>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</button>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</button>
     </nav>}
-    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
+    {!music && canAssignManager && selectedIds.size > 0 && <BulkAssignBar staffLabel="所屬店長" inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
       onCancel={() => setSelected(new Set())}
       onSubmit={async assignedStaffId => {
         const response = await bulkAssignCourseCustomers({ customerIds: [...selectedIds], assignedStaffId });

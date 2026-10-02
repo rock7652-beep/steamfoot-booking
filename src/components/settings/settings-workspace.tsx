@@ -68,6 +68,7 @@ export function SettingsListRow({
   action = "設定",
   controls,
   expanded,
+  keepMounted = false,
   onEdit,
   children,
 }: {
@@ -77,6 +78,7 @@ export function SettingsListRow({
   action?: string;
   controls?: ReactNode;
   expanded?: boolean;
+  keepMounted?: boolean;
   onEdit?: () => void;
   children?: ReactNode;
 }) {
@@ -108,8 +110,8 @@ export function SettingsListRow({
           ) : null}
         </div>
       </div>
-      {showChildren && children ? (
-        <div className="border-t border-earth-100 pb-3 pt-3 md:ml-[216px]">{children}</div>
+      {(showChildren || keepMounted) && children ? (
+        <div hidden={!showChildren} className="border-t border-earth-100 pb-3 pt-3 md:ml-[216px]">{children}</div>
       ) : null}
     </section>
   );

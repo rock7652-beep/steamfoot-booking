@@ -30,7 +30,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
   const all=user.role==="OWNER"||user.role==="ADMIN";
   let range,scope;
   try { range=courseAnalysisRange(params); scope=resolveBusinessScope(params,all,user.staffId,music); }
-  catch {return <PageShell><PageHeader title="營運分析"/><p role="alert">日期或分析對象不正確，或沒有檢視權限。</p><DashboardLink href="/dashboard/courses?view=analytics">返回本月分析</DashboardLink></PageShell>;}
+  catch {return <PageShell compact><PageHeader compact title="營運分析"/><p role="alert">日期或分析對象不正確，或沒有檢視權限。</p><DashboardLink href="/dashboard/courses?view=analytics">返回本月分析</DashboardLink></PageShell>;}
   const [money,customers,cash]=await Promise.all([checkPermission(user.role,user.staffId,"transaction.read"),checkPermission(user.role,user.staffId,"customer.read"),checkPermission(user.role,user.staffId,"cashbook.read")]);
   const canExport=!(await resolveStoreViewContextFromCookie(user))?.isViewMode && await checkPermission(user.role,user.staffId,"report.export") && await hasDataExportFeature(storeId);
   let data;
@@ -38,8 +38,8 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
   if(!all) data.staff=data.staff.filter(s=>s.id===user.staffId);
   const revenuePoints=money&&scope.view==="store" ? await getIndustrySixMonthRevenueMixTrend(storeId) : null;
   const query=new URLSearchParams({...range,perspective:scope.view,person:scope.person,report:"business"});
-  return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`}><PageShell>
-    <PageHeader title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
+  return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`}><PageShell compact>
+    <PageHeader compact title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
     <ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
     <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`} data={data} music={music} all={all} staffId={user.staffId}/>
     {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支"><RevenueMixTrend points={revenuePoints}/></section>}

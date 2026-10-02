@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -60,6 +61,7 @@ function Row({
       action={action}
       controls={controls}
       expanded={expanded}
+      keepMounted
       onEdit={onEdit}
     >
       {children}
@@ -122,11 +124,10 @@ export function CourseSettingsWorkspace(props: Props) {
   }, [hasDirty, pending, pathname]);
   function openRow(id: string) {
     if (pending) return;
-    if (hasDirty && !window.confirm("目前有尚未儲存的修改，要捨棄並開啟其他設定嗎？")) return;
     setExpandedRow(id);
   }
   function select(section: CourseSettingsSection) {
-    if (hasDirty || pending) return;
+    if (pending) return;
     setExpandedRow(null);
     const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
     window.history.replaceState(null, "", pathname + "?" + params.toString());
@@ -178,8 +179,9 @@ export function CourseSettingsWorkspace(props: Props) {
         ><TrialSettingsForm storeId={props.storeId} initial={props.trialSettings} saveAction={saveCourseTrialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
+        <CustomerLabelsSettings />
         {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="尚無方案顧客待辦" action="查看" href="/dashboard/courses/unassigned-plans" />}
-        {props.canReminders && <Row title="提醒管理" summary="顧客提醒・人員通知・發送紀錄" action="管理" href="/dashboard/courses/reminders?tab=customer" />}
+        {props.canReminders && <Row title="提醒管理" summary="顧客提醒・人員通知・教練通知・發送紀錄" action="管理" href="/dashboard/courses/reminders?tab=customer" />}
         {props.canCare && <Row title="顧客關懷" summary="生日・未回課・方案關懷" action="查看" href="/dashboard/growth" />}
         {props.canReferralShare && <Row title="推薦分享" summary="已開啟" action="編輯" href="/dashboard/settings/referral-share" />}
         {props.canDigitalButler && <Row title="數位管家" summary="已開啟" action="管理" href="/dashboard/settings/digital-butler" />}
@@ -190,6 +192,6 @@ export function CourseSettingsWorkspace(props: Props) {
         {props.usageMetrics && <Row title="目前用量" summary={props.usageMetrics.map(metric => `${metric.label} ${metric.current.toLocaleString("zh-TW")} / ${metric.limit === null ? "不限" : metric.limit.toLocaleString("zh-TW")}`).join("・")} />}
       </section>
     {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
-    {isCourseSettingsPanel(panel) && <CourseSettingsPanel key={panel} panel={panel}>{props.panelContent}</CourseSettingsPanel>}
+    {isCourseSettingsPanel(panel) && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
 }

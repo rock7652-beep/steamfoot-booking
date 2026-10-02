@@ -72,6 +72,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       customerId: true,
       operatorCustomerId: true,
       operatorName: true,
+      createdAt: true,
       customerName: true,
       status: true,
       absenceKind: true,
@@ -85,7 +86,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       checkedInAt: true,
       card: { select: { musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
@@ -96,7 +97,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     : Promise.resolve(0),
     prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
-    select: { id: true, phone: true, serviceNote: true, notes: true },
+    select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
   }),
   coursePrisma.courseBooking.groupBy({
     by: ["customerId"],
@@ -164,6 +165,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const termAbsences = periodLessons.filter((item) => item.status === "NO_SHOW" || item.absenceKind === "GROUP_LEAVE_FORFEITED");
     return ({
     ...b,
+    createdAt: b.createdAt.toISOString(),
     checkedInAt: checkedInAt?.toISOString() ?? null,
     groupCohortProgress,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
@@ -200,6 +202,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         : `${b.operatorName ?? "共卡成員"}代約`
       : "店長建立",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
+    cardId: b.cardId,
+    cardRemaining: card?.remaining ?? null,
+    assignedCoachId: customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.id ?? null : null,
+    assignedCoachName: (customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.displayName : "") ?? "",
     expiresAt: card?.expiresAt.toISOString() ?? null,
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,

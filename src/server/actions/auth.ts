@@ -1,5 +1,7 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { randomUUID } from "node:crypto";
 import { signIn, signOut } from "@/lib/auth";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/db";
@@ -107,6 +109,7 @@ export async function hqLoginAction(
     await clearStoreContextCookies();
   }
 
+  (await cookies()).set("course-setup-login-v1",randomUUID(),{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",path:"/"});
   try {
     await signIn("credentials", {
       email,

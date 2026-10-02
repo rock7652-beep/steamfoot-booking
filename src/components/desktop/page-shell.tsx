@@ -18,15 +18,16 @@ interface PageShellProps {
   children: React.ReactNode;
   /** 極罕見情況覆寫 layout。一般情況不要用 */
   className?: string;
+  compact?: boolean;
 }
 
-export function PageShell({ children, className }: PageShellProps) {
+export function PageShell({ children, className, compact = false }: PageShellProps) {
   return (
     <div
       data-page-shell
       className={
         className ??
-        "flex w-full min-w-0 flex-col gap-4 py-6"
+        (compact ? "flex w-full min-w-0 flex-col gap-2 py-2" : "flex w-full min-w-0 flex-col gap-4 py-6")
       }
     >
       {children}

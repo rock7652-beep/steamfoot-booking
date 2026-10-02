@@ -69,8 +69,8 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
   ]);
 
   return (
-    <PageShell>
-      <PageHeader
+    <PageShell compact>
+      <PageHeader compact
         title="數位管家名單"
         subtitle="查看顧客需求、指派負責人並更新處理進度"
       />

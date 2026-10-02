@@ -279,6 +279,26 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   text-align: center;
 }
 
+/* Keep native iPad date/time controls inside the fitness form's grid tracks. */
+[data-course-entry] input[type="date"],
+[data-course-entry] input[type="time"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+[data-course-entry] input[type="date"]::-webkit-date-and-time-value,
+[data-course-entry] input[type="date"]::-webkit-datetime-edit,
+[data-course-entry] input[type="time"]::-webkit-date-and-time-value,
+[data-course-entry] input[type="time"]::-webkit-datetime-edit {
+  min-width: 0;
+  text-align: left;
+  justify-content: flex-start;
+}
+
 /* The booking calendar toolbar is intentionally denser than data-entry forms.
    Do not let the shared 44px form rule stretch or clip its compact controls. */
 [data-booking-filter-bar] :where(input:not([type="checkbox"]):not([type="radio"]), select) {
@@ -309,16 +329,6 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   opacity: 1;
 }
 
-/* Customer detail cards stay equal inside their grid without adding unnecessary
-   vertical whitespace. */
-[data-dashboard-content] .course-customer-detail-field {
-  min-height: 60px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-earth-200);
-  border-radius: var(--admin-control-radius);
-  background: var(--brand-card);
-}
-
 @media (max-width: 767px) {
   [data-dashboard-content] :where(
     input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]),
@@ -327,4 +337,27 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   ) {
     font-size: 16px;
   }
+}
+
+/* Fitness editors retain visible keyboard focus in the Steamfoot palette. */
+.fitness-management-editor input:is([type="checkbox"], [type="radio"]) {
+  accent-color: var(--color-primary-700);
+}
+.fitness-management-editor :is(button, summary, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.fitness-management-editor footer button {
+  min-height: 2.75rem;
+}
+
+.fitness-management-editor summary {
+  border-radius: 0.5rem;
+}
+.fitness-management-editor summary:active {
+  background-color: var(--color-primary-50);
+}
+.fitness-management-editor summary:focus-visible {
+  outline-offset: -2px;
 }

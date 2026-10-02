@@ -29,3 +29,11 @@ describe("course availability",()=>{
     )).toEqual([{openTime:"10:30",closeTime:"12:00"},{openTime:"13:00",closeTime:"14:30"}]);
   });
 });
+
+import {availabilityPeriodErrors} from '@/lib/course-availability';
+it('returns original interval indexes for every overlap without marking valid adjacent intervals',()=>{
+ expect(availabilityPeriodErrors([{openTime:'18:00',closeTime:'21:00'},{openTime:'09:00',closeTime:'20:00'},{openTime:'10:00',closeTime:'12:00'},{openTime:'21:00',closeTime:'22:00'}])).toEqual({0:'與其他時段重疊',1:'與其他時段重疊',2:'與其他時段重疊'});
+});
+it('marks equal, reversed and incomplete times separately',()=>{
+ expect(availabilityPeriodErrors([{openTime:'09:00',closeTime:'09:00'},{openTime:'10:00',closeTime:'09:00'},{openTime:'',closeTime:'12:00'}])).toEqual({0:'結束需晚於開始',1:'結束需晚於開始',2:'請填完整時間'});
+});

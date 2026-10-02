@@ -38,6 +38,7 @@ export const FEATURES = {
   MEMBER_PORTAL: "member_portal",
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
+  CUSTOMER_LABELS: "customer_labels",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
   CUSTOMER_CARE: "customer_care",

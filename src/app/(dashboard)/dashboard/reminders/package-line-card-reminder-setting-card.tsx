@@ -65,7 +65,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
           <p className={`${course ? "mt-0.5 truncate" : "mt-1"} text-sm text-earth-500`}>{course ? "前一日 18:00・實際上課者・取消不發送" : "前一日 18:00 發送；只影響方案與單次預約。"}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={(event) => { event.preventDefault(); toggle(); }} disabled={pending} aria-label={`${title}開關`} aria-pressed={enabled} className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}>
+          <button type="button" onClick={(event) => { event.preventDefault(); toggle(); }} disabled={pending} aria-label={`${title}開關`} role="switch" aria-checked={enabled} className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}>
             <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? "translate-x-5" : ""}`} />
           </button>
           <span className="text-earth-400 transition group-open:rotate-180">⌄</span>

@@ -14,7 +14,7 @@
     transform: translate(-50%, -50%);
     width: min(var(--sheet-width), calc(100% - 3rem));
     height: calc(100% - 3rem);
-    max-height: 900px;
+    max-height: var(--sheet-max-height, 900px);
     border: 1px solid var(--color-earth-200);
     border-radius: 1rem;
   }
@@ -52,7 +52,7 @@
 
 /* Mobile Safari must always have a real scroll owner inside the body-locked sheet.
    Desktop keeps the existing fixed-header / inner-scroll layout. */
-@media (max-width: 639px) {
+@media (max-width: 639px), (max-height: 500px) and (pointer: coarse) {
   .mobileScrollable {
     height: 100dvh !important;
     max-height: 100dvh;
@@ -60,11 +60,30 @@
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior-y: contain;
-    touch-action: pan-y;
+    touch-action: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .centered.mobileScrollable {
     overflow-y: auto;
   }
+}
+
+@media (max-height: 500px) and (pointer: coarse) {
+  .centered.mobileScrollable {
+    inset: 0;
+    transform: none;
+    width: 100%;
+    border-radius: 0;
+  }
+  .mobileScrollable > div { flex-shrink: 0; }
+}
+
+/* Settings keep their outer geometry during loading and inner navigation. */
+@media (min-width: 640px) {
+ .centered[data-fixed-height="true"] {
+  height: min(var(--sheet-max-height, 900px), calc(100dvh - 3rem));
+  max-height: calc(100dvh - 3rem);
+  overflow: hidden;
+ }
 }

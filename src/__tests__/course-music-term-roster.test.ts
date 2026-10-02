@@ -32,7 +32,7 @@ const card = (student: string, lessons: ReturnType<typeof lesson>[], points: num
   entries: [{ points }], members: [{ customerId: student }], bookings: lessons,
 });
 const row = (student: string, current: ReturnType<typeof lesson>, enrollment: ReturnType<typeof card>, classType = "GROUP") => ({
-  ...current, operatorCustomerId: null, operatorName: null, customerName: student,
+  ...current, createdAt: day(1), operatorCustomerId: null, operatorName: null, customerName: student,
   cardId: `card-${student}`, card: enrollment, bookingKind: "CARD", checkedInAt: null,
   trialPrice: null, trialPayments: [], notes: "",
   session: { ...current.session, requestKey: "series", requestIndex: 4,
