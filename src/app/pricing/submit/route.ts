@@ -13,7 +13,8 @@ const payloadSchema = z.object({
   industry: z.string().trim().min(1).max(200),
   storeCount: text, staffCount: text, members: text, hasSystem: text,
   systemName: text, otherNeed: text, contactWay: text, time: text,
-  bookingMode: z.enum(["固定時段，每個時段可接待固定人數", "依服務項目，安排技師／芳療師與服務時間", "不確定，希望協助判斷"]).optional(),
+  bookingMode: z.enum(["固定時段，每個時段可接待固定人數", "依服務項目，安排技師／芳療師與服務時間", "依課表安排個別課或團體課", "不確定，希望協助判斷"]).optional(),
+  courseFormat: z.enum(["個別課", "團體課", "兩者都有", "尚未確定"]).optional(),
   phone: text, lineId: text, source: text, medium: text, campaign: text,
   content: text, landing: text, pageUrl: text, referrer: text, device: text,
   formVersion: z.literal("fitness-v2").optional(),
@@ -24,6 +25,7 @@ const payloadSchema = z.object({
   const fitness = data.formVersion === "fitness-v2" && data.source === "fitness-intake";
   const noContact = fitness && data.contactWay === "目前暫不考慮";
   const invalid = (message: string) => ctx.addIssue({ code: "custom", message });
+  if (data.courseFormat && !["運動教室／健身／瑜伽", "音樂／才藝／教育服務"].includes(data.industry)) invalid("Classroom industry required");
   if (data.formVersion && !fitness) invalid("Invalid form source");
   if (!fitness && data.needs.length > 3) invalid("Legacy forms allow three needs");
   if (new Set(data.needs).size !== data.needs.length) invalid("Duplicate needs");
@@ -74,8 +76,8 @@ export async function POST(request: Request) {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       // Keep the answer visible in the existing receiver's notes column too.
-      body: JSON.stringify({ ...payload, otherNeed: payload.bookingMode
-        ? [`預約方式：${payload.bookingMode}`, payload.otherNeed].filter(Boolean).join("\n")
+      body: JSON.stringify({ ...payload, otherNeed: payload.bookingMode || payload.courseFormat
+        ? [payload.bookingMode && `預約方式：${payload.bookingMode}`, payload.courseFormat && `授課型態：${payload.courseFormat}`, payload.otherNeed].filter(Boolean).join("\n")
         : payload.otherNeed }),
       cache: "no-store",
       signal: AbortSignal.timeout(50000),

@@ -70,6 +70,20 @@ describe("fitness v2 contract", () => {
     expect(fetch).toHaveBeenCalledTimes(1); expect(fetch.mock.calls[0][1].method).toBeUndefined();
   });
 });
+describe("classroom needs compatibility", () => {
+  it("keeps classroom answers in existing receiver notes", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await POST(request({ ...payload, industry: "音樂／才藝／教育服務", storeCount: "籌備中，尚未開店", bookingMode: "依課表安排個別課或團體課", courseFormat: "兩者都有", otherNeed: "老師排課" }))).status).toBe(200);
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ storeCount: "籌備中，尚未開店", courseFormat: "兩者都有", otherNeed: "預約方式：依課表安排個別課或團體課\n授課型態：兩者都有\n老師排課" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each([{ industry: "服務業", courseFormat: "個別課" }, { industry: "音樂／才藝／教育服務", courseFormat: "unknown" }])("rejects invalid classroom answers without forwarding", async answer => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    expect((await POST(request({ ...payload, ...answer }))).status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
 describe("store check save acknowledgement", () => {
   it("forwards booking style into existing notes without losing free text", async () => {
     const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true }));
