@@ -59,7 +59,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         </div>
         <ul className="my-3 space-y-1 text-sm leading-6">{plan.benefits.map(benefit => <li key={benefit} className="flex gap-2"><span aria-hidden="true" className="font-semibold text-[#805C1B]">✓</span><span>{benefit}</span></li>)}</ul>
         {plan.id === "ALLIANCE" && <p className="mb-3 text-sm leading-6 text-[#4C6259]">串接費依實際分店數另計；各分店系統月費另計。</p>}
-        <a href={trialUrl} className="mt-auto inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請體驗帳號<span aria-hidden="true" className="ml-2">→</span></a>
+        <a href={trialUrl} className="mt-auto inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
       </article>)}
     </section>
     <p className="mt-3 text-sm leading-6 text-[#4C6259]">年繳省額依原價月費 × 12 − 年繳總額計算，不含贈送月份價值。平均月費依年繳總額 ÷ {offer.months} 個月{offer.active ? "計算，四捨五入至整元" : "計算"}，採一次年繳。使用期間自正式啟用日起算。LINE 訊息、金流、加購功能與分店相關費用另計，開通前確認。</p>
