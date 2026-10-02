@@ -15,8 +15,8 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
   const device = devices.find(item => item.id === query.device) ?? devices[0];
-  const page = query.page === "features" ? "features" : "pricing";
-  const pageUrl = page === "features" ? "/pricing/features" : "/pricing";
+  const page = query.page === "features" ? "features" : query.page === "apply" ? "apply" : "pricing";
+  const pageUrl = page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
   return <main className="min-h-screen bg-[#F8F5EE] p-4 text-[#153B31]">
     <h1 className="text-xl font-semibold">價格頁裝置預覽</h1>
     <nav aria-label="裝置尺寸" className="my-3 flex flex-wrap gap-2">
@@ -25,7 +25,7 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
     </nav>
     <p className="mb-3 text-sm">{device.label}｜{device.width} × {device.height}</p>
     <div className="overflow-x-auto">
-      <iframe title={device.label + (page === "features" ? "功能頁" : "價格頁")} src={pageUrl} width={device.width} height={device.height} className="block rounded-xl border bg-white" />
+      <iframe title={device.label + (page === "features" ? "功能頁" : page === "apply" ? "需求問卷" : "價格頁")} src={pageUrl} width={device.width} height={device.height} className="block rounded-xl border bg-white" />
     </div>
   </main>;
 }
