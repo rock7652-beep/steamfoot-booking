@@ -39,13 +39,23 @@ export async function createRentalCustomer(input:unknown) {
 }
 export async function saveCourseRental(input:unknown) {
   try {
-    const d=rentalInput.parse(input);const {storeId,user}=await courseManager(d.id?"booking.update":"booking.create");
+    const d=rentalInput.extend({payment:z.object({amount:z.number().int().min(0).max(1000000),paymentMethod:z.enum(["CASH","OTHER"])}).optional()}).parse(input);const {storeId,user}=await courseManager(d.id?"booking.update":"booking.create");
+    if(d.payment){
+      if(d.id)throw new AppError("VALIDATION","已建立租借請使用收款或更正功能");
+      await courseManager("cashbook.create");
+      if(!await hasStoreFeature(storeId,FEATURES.CASHBOOK))throw new AppError("FORBIDDEN","尚未開通現金帳");
+    }
     if(d.customerId)await courseManager("customer.read");
     const start=parseTaipeiDateTime(d.date,d.time);if(!start)throw new AppError("VALIDATION","日期不正確");
     const end=new Date(start.getTime()+d.durationMinutes*60000);
     const id=await courseTransaction(storeId,async tx=>{
       const prior=await tx.courseRental.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
-      if(!d.id&&prior){if(prior.roomId!==d.roomId||prior.startsAt.getTime()!==start.getTime()||prior.endsAt.getTime()!==end.getTime()||prior.amount!==d.amount||prior.customerId!==d.customerId)throw new AppError("CONFLICT","這次租借已送出，請重新開啟表單");return prior.id;}
+      if(!d.id&&prior){
+        if(prior.roomId!==d.roomId||prior.startsAt.getTime()!==start.getTime()||prior.endsAt.getTime()!==end.getTime()||prior.amount!==d.amount||prior.customerId!==d.customerId||prior.customerName!==d.customerName||prior.customerPhone!==d.customerPhone||prior.note!==d.note)throw new AppError("CONFLICT","這次租借已送出，請重新開啟表單");
+        const receipt=await tx.courseRentalPayment.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
+        if(d.payment? !receipt||receipt.rentalId!==prior.id||receipt.amount!==d.payment.amount||receipt.paymentMethod!==d.payment.paymentMethod : !!receipt)throw new AppError("CONFLICT","這次收款已送出，請重新開啟表單");
+        return prior.id;
+      }
       const room=await tx.courseRoom.findFirst({where:{id:d.roomId,storeId,isActive:true,rentalEnabled:true}});
       if(!room)throw new AppError("VALIDATION","請選擇本店開放租借的空間");
       const existing=d.id?await tx.courseRental.findFirst({where:{id:d.id,storeId}}):null;
@@ -61,7 +71,14 @@ export async function saveCourseRental(input:unknown) {
       await assertCourseSessionsFitHours(tx,storeId,[{startsAt:start,endsAt:end}]);
       const fields={roomId:room.id,customerId:d.customerId,customerName:name,customerPhone:phone,startsAt:start,endsAt:end,...occupied,hourlyRateSnapshot:existing && existing.roomId===room.id && existing.startsAt.getTime()===start.getTime() && existing.endsAt.getTime()===end.getTime()?existing.hourlyRateSnapshot:room.rentalHourlyRate,amount:d.amount,note:d.note};
       const record=d.id?await tx.courseRental.update({where:{id:d.id,storeId},data:{...fields,revision:{increment:1}}}):await tx.courseRental.create({data:{...fields,storeId,requestKey:d.requestKey,createdById:user.id}});
-      await rentalAudit(tx,storeId,user.id,record.id,d.id?"UPDATE_RENTAL":"CREATE_RENTAL",existing,record);return record.id;
+      await rentalAudit(tx,storeId,user.id,record.id,d.id?"UPDATE_RENTAL":"CREATE_RENTAL",existing,record);
+      if(d.payment){
+        const payment=await tx.courseRentalPayment.create({data:{storeId,rentalId:record.id,amount:d.payment.amount,paymentMethod:d.payment.paymentMethod,requestKey:d.requestKey,actorUserId:user.id,note:"收款請求"}});
+        await rentalCash(tx,{storeId,userId:user.id,staffId:user.staffId},payment,record.customerId,`空間租借／${record.customerName}／${d.date}／${record.id}`);
+        await tx.courseRental.update({where:{id:record.id,storeId},data:{revision:{increment:1}}});
+        await rentalAudit(tx,storeId,user.id,record.id,"COLLECT_RENTAL_PAYMENT",null,{payment,automaticBankRefund:false});
+      }
+      return record.id;
     });refresh();return {success:true as const,id};
   }catch(error){return {success:false as const,error:handleCourseActionError(error).error??"操作失敗"};}
 }

@@ -140,7 +140,7 @@ const button =
   "min-h-10 rounded-lg border border-earth-200 px-3 py-1.5 text-sm disabled:opacity-50";
 const primary = `${button} bg-primary-700 text-white`;
 const field =
-  "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
+  "min-h-11 min-w-0 max-w-full w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 
 const waitlistStopChoices = [0, 60, 120, 240, 360, 720, 1440];
 function waitlistStopLabel(minutes: number) {
@@ -672,6 +672,7 @@ export function CourseWorkspace({
     });
   }
   const template = templates.find((t) => t.id === chosen);
+  const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
@@ -679,9 +680,9 @@ export function CourseWorkspace({
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <div className="mr-1 min-w-[112px]">
+              <div className="mr-1 shrink-0">
                 <h1 className="text-base font-semibold leading-6 text-primary-900">{businessProfile === "MUSIC" ? "音樂課表" : "課表排程"}</h1>
-                <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>
+                {businessProfile === "MUSIC" && <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>}
               </div>
               <div
                 className="inline-flex rounded-lg border border-earth-200 bg-white p-1"
@@ -798,7 +799,7 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {<div className="relative z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
+          {<div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
             <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
             <select
               id="course-coach-filter"
@@ -844,7 +845,7 @@ export function CourseWorkspace({
                 </option>
               ))}
             </select>
-            </label>{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">學員所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
+            </label>{businessProfile !== "MUSIC" && <label className="flex items-center gap-2 text-xs font-medium text-earth-700">所屬店長<select aria-label="課表所屬店長篩選" className={`${button} min-h-11 bg-white py-1 ${assignedCoachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`} value={assignedCoachFilter} onChange={event => setAssignedCoachFilter(event.target.value)}><option value="all">全部所屬店長</option>{allCoaches.filter(coach => sessions.some(session => session.bookings.some(booking => booking.assignedCoachId === coach.id))).map(coach => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}<option value="none">未指定所屬店長</option></select></label>}
             <input aria-label="課表搜尋" placeholder="搜尋課程或學員" className={`${button} min-h-11 w-44 bg-white py-1`} value={scheduleQuery} onChange={event => setScheduleQuery(event.target.value)} />
             {(coachFilter !== "all" || roomFilter !== "all" || category !== "all" || assignedCoachFilter !== "all" || !!scheduleQuery) && (
               <button
@@ -862,7 +863,7 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
-          {<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>}
+          {(scheduleMode !== "week" || businessProfile === "MUSIC") && scheduleLegend}
           {scheduleMode === "month" ? (
             <>
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
@@ -891,6 +892,7 @@ export function CourseWorkspace({
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
                   list = (byDate.get(date) ?? []).filter(session => !session.previewFaded),
                   total = scheduleTotals(list),
+                  visibleCount = businessProfile !== "MUSIC" && total.rentals > 0 ? 1 : 2,
                   calendarDay = calendarDays[date],
                   isClosed =
                     calendarDay?.status === "closed" ||
@@ -918,15 +920,15 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {(total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes}堂{total.rentals > 0 && `・租借${total.rentals}`}｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬" : ""}{total.people}人次</span>}
-                    {list.slice(0,2).map(session => {
+                    {businessProfile === "MUSIC" ? (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes}堂{total.rentals > 0 && `・租借${total.rentals}`}｜{assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span> : (total.classes > 0 || total.rentals > 0) && <div className="pointer-events-none w-full text-xs font-semibold leading-4 text-primary-900"><span className="block">{total.classes}堂 · {assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span>{total.rentals > 0 && <span className="block text-earth-600">租借 {total.rentals}</span>}</div>}
+                    {list.slice(0,visibleCount).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className="relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
-                    {list.length > 2 && <button type="button" className="relative text-xs text-primary-800 hover:underline" onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-2} 筆</button>}
+                    {list.length > visibleCount && <button type="button" className="relative text-xs text-primary-800 hover:underline" onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
                   </div>
                 );
@@ -951,6 +953,7 @@ export function CourseWorkspace({
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}} onAttendanceOptimistic={(items,status)=>items.forEach(item=>showPendingAttendance(item.id,status))}/>}
             {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard
+              legend={businessProfile !== "MUSIC" ? scheduleLegend : undefined}
               assignedFiltered={businessProfile !== "MUSIC" && assignedCoachFilter !== "all"}
               businessProfile={businessProfile}
               initialResourceView={params.get("resourceView") === "room" ? "room" : params.get("resourceView") === "coach" ? "coach" : undefined}
@@ -1231,7 +1234,8 @@ export function CourseWorkspace({
       )}
       {panel && (
         <RightSheet presentation="centered"
-          compact
+          compact={!(businessProfile !== "MUSIC" && (panel === "schedule" || roomRentalHistory))}
+          maxHeight={businessProfile !== "MUSIC" && (panel === "schedule" || roomRentalHistory) ? 680 : 900}
           open
           onClose={closePanel}
           width={panel === "day" ? 720 : businessProfile !== "MUSIC" ? 760 : 520}
@@ -1248,7 +1252,7 @@ export function CourseWorkspace({
               id="course-panel-title"
               className={
                 view === "schedule"
-                  ? "font-medium"
+                  ? "text-base font-semibold text-primary-900"
                   : "text-base font-semibold text-primary-900"
               }
             >
@@ -1281,8 +1285,10 @@ export function CourseWorkspace({
           <div
             onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form") && !(panel === "schedule" && arrangement === "rental") && !roomRentalHistory) setDirty(true); }}
             className={
-              view === "schedule"
-                ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4"
+              panel === "schedule" && arrangement === "rental" || roomRentalHistory
+                ? "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3"
+                : view === "schedule"
+                ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 [&_label]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input]:appearance-none"
                 : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-10 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-10 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }
           >
@@ -1950,10 +1956,11 @@ export function CourseWorkspace({
                   </p>
                 ) : (
                   <form
+                    data-course-entry
                     id="course-schedule-form"
                     onChange={updateScheduleForm}
                     onInput={updateScheduleForm}
-                    className="grid grid-cols-1 gap-3 min-[500px]:grid-cols-6"
+                    className="grid grid-cols-1 gap-x-3 gap-y-2 min-[500px]:grid-cols-6"
                     onSubmit={(e) =>
                       submit(
                         e,
@@ -2023,7 +2030,7 @@ export function CourseWorkspace({
                       </select>
                       {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">開啟教練管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
                     </label>
-                    <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary className="min-h-11 cursor-pointer inline-flex items-center">扣抵說明 ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
+                    <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary aria-label="扣抵說明" className="min-h-11 cursor-pointer inline-flex items-center px-2">ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
                       日期
                       <input
@@ -2216,7 +2223,7 @@ export function CourseWorkspace({
                     )}
                     <p className="col-span-full text-sm text-earth-500">
                       {waitlistEnabled && template?.waitlistEnabled ? `候補 ${template.waitlistLimit ?? waitlistDefaultLimit} 位 · ${(template.waitlistStopMinutes ?? waitlistDefaultStopMinutes) === 0 ? "自動遞補至開課前" : `開課前 ${waitlistStopLabel(template.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}停止自動遞補`}` : "候補未開放"}
-                      <span className="block mt-1 text-xs">沿用課程候補設定；停止自動遞補後保留候補名單。建立時檢查撞期。</span>
+                      <details name="course-workspace-details"><summary className="inline-flex min-h-11 cursor-pointer items-center text-xs">候補規則</summary><p className="text-xs">沿用課程候補設定；停止自動遞補後保留名單。建立時檢查撞期。</p></details>
                     </p>
                   </form>
                 )}
@@ -2240,7 +2247,7 @@ export function CourseWorkspace({
             )}
           {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
           {panel === "schedule" && businessProfile !== "MUSIC" && (arrangement==="class" || arrangement==="trial") && (
-            <footer className="shrink-0 border-t bg-white p-3">
+            <footer className="shrink-0 border-t border-earth-100 bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>
               <button
                 form="course-schedule-form"
@@ -2319,16 +2326,17 @@ export function CourseWorkspace({
             <RightSheet
               open
               presentation="centered"
-              fitContent={rentalDialog || oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC")}
+              fitContent={!rentalDialog && (oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC"))}
               onClose={closeRentalDialog}
-              width={rentalDialog ? 640 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
+              maxHeight={rentalDialog ? 680 : 900}
+              width={rentalDialog ? 760 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
             >
-              <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
+              <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : "items-start bg-primary-50 py-3"}`}>
                 <div className="min-w-0">
                   <h2
                     id="course-operation-title"
-                    className="truncate text-lg font-semibold text-primary-900"
+                    className={`truncate font-semibold text-primary-900 ${rentalDialog ? "text-base" : "text-lg"}`}
                   >
                     {dialogTitle}
                   </h2>
@@ -2379,7 +2387,7 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? rentalDialog?"overflow-y-auto":oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
+                    ? rentalDialog?"flex flex-col overflow-hidden":oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >

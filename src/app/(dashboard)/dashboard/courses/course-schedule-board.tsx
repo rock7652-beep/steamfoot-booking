@@ -100,6 +100,7 @@ type Props = {
   mode: Exclude<CourseScheduleMode, "month">;
   selectedDate: string;
   initialWeekRoomId?: string;
+  legend?: React.ReactNode;
   initialResourceView?: "room" | "coach";
   onResourceChange?: (view:"room"|"coach",resourceId?:string)=>void;
   today: string;
@@ -312,7 +313,7 @@ function SessionCard({
       <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
       {dense ? <>
         <div className={wide ? "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-sm" : "contents"}>
-          <div className="shrink-0 whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div>
+          {businessProfile === "MUSIC" ? <div className="shrink-0 whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div> : <div className="flex flex-wrap gap-x-0.5 text-sm leading-4 tabular-nums"><span className="whitespace-nowrap">{hhmm(session.startsAt)}</span><span className="whitespace-nowrap">–{hhmm(session.endsAt)}</span></div>}
           <div className={`flex min-w-0 items-center gap-1 text-sm leading-5 ${wide ? "max-w-[70%]" : ""}`}><strong className={`min-w-0 truncate ${wide ? "" : "flex-1"}`} title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}</div>
           {(!brief || wide) && <div className={`truncate text-sm leading-5 ${wide ? "ml-auto" : ""}`}>{resourceLabel}{businessProfile !== "MUSIC" && teacherState ? ` · ${teacherState}` : ""}</div>}
         </div>
@@ -392,6 +393,7 @@ function SessionCard({
 }
 
 export function CourseScheduleBoard({
+  legend,
   assignedFiltered = false,
   businessProfile,
   mode,
@@ -514,6 +516,7 @@ export function CourseScheduleBoard({
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
+          {legend && <div className="ml-auto">{legend}</div>}
         </div>
         <div className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-full" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
@@ -522,7 +525,7 @@ export function CourseScheduleBoard({
               const total = scheduleTotals(scheduleOnDate(weekSessions, date));
               return <button data-schedule-sticky-header key={date} type="button" onClick={() => onSelectDate(date)} className={`sticky top-0 z-20 border-b border-r border-earth-200 px-1 py-1 text-center text-xs ${date === today ? "bg-primary-50 text-primary-900" : "bg-earth-50 text-earth-700"}`}>
                 <strong className="block">{["一", "二", "三", "四", "五", "六", "日"][index]} {shortDate(date)}{date === today && <span className="ml-1 text-[10px] font-normal">今天</span>}</strong>
-                {(total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span>}
+                {businessProfile === "MUSIC" ? (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span>{total.classes > 0 ? `${total.classes} 堂` : ""}{total.rentals > 0 ? ` · 租借${total.rentals}` : ""}{total.people > 0 ? `｜${assignedFiltered ? "所屬 " : ""}${total.people} 人次` : ""}</span> : (total.classes > 0 || total.people > 0 || total.rentals > 0) && <span className="block"><span className="block">{total.classes} 堂 · {assignedFiltered ? "所屬 " : ""}{total.people} 人次</span>{total.rentals > 0 && <span className="block">租借 {total.rentals}</span>}</span>}
               </button>;
             })}
             {hours.map((hour) => <React.Fragment key={hour}>

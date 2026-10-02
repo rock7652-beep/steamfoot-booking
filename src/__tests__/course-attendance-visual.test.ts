@@ -1,4 +1,8 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { CourseScheduleBoard } from "@/app/(dashboard)/dashboard/courses/course-schedule-board";
+vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:vi.fn()}));
 import { readFileSync } from "node:fs";
 import { courseAttendanceProgress, courseAttendanceState } from "@/lib/course-attendance-visual";
 
@@ -49,6 +53,15 @@ it("counts both kinds of leave once, excludes cancelled reservations, and revers
 it("fitness cards show attendance progress using the ownership-filtered roster", () => {
   const board = readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
   expect(board).toContain("courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance)");
-  expect(board).toContain('title="點名完成度"');
+  const markup=renderToStaticMarkup(React.createElement(CourseScheduleBoard,{
+    businessProfile:"FITNESS",mode:"week",selectedDate:"2026-10-02",today:"2026-10-02",
+    rooms:[{id:"room",name:"A",isActive:true}],coaches:[{id:"coach",displayName:"教練",status:"ACTIVE",courseCoachEnabled:true}],templates:[{id:"t",name:"瑜珈",classType:"GROUP"}],
+    sessions:[{id:"s",templateId:"t",nameSnapshot:"瑜珈",roomId:"room",coachId:"coach",startsAt:"2026-10-02T02:00:00Z",endsAt:"2026-10-02T03:00:00Z",pointCost:2,capacity:10,
+      bookings:[{customerId:"1",customerName:"甲",status:"ATTENDED",bookingKind:"MEMBER"},{customerId:"2",customerName:"乙",status:"ATTENDED",bookingKind:"MEMBER"},{customerId:"3",customerName:"丙",status:"RESERVED",bookingKind:"MEMBER"}],
+      displayBookings:[{customerId:"1",customerName:"甲",status:"ATTENDED",bookingKind:"MEMBER"},{customerId:"3",customerName:"丙",status:"RESERVED",bookingKind:"MEMBER"}]}],
+    storePeriods:[],staffAvailability:[],staffAvailabilityExceptions:[],onOpenEmpty:()=>{},onSelectDate:()=>{},onOpenSession:()=>{},
+  }));
+  expect(markup).toContain('title="點名完成度"');
+  expect(markup).toContain('>1/2</span>');
   expect(board).not.toContain('activeBookings.every');
 });

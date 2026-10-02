@@ -39,3 +39,21 @@ it("filters the preloaded authorized customers immediately without a search requ
  await input(search,"345 678");expect(host.textContent).toContain("黃小安");expect(m.search).not.toHaveBeenCalled();
  await click("黃小安0912-345-678");await submit();expect(m.save.mock.calls[0][0]).toMatchObject({customerId:"c1",customerName:"黃小安"});
 });
+
+it("collects inline once and retains all inputs after failure",async()=>{
+ await mount();await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+ const method=host.querySelector<HTMLSelectElement>('[aria-label="租借付款方式"]')!;
+ await act(async()=>{method.value="OTHER";method.dispatchEvent(new Event("change",{bubbles:true}));});
+ await input(host.querySelector<HTMLInputElement>('[aria-label="租借實收金額"]')!,"550");
+ await submit();expect(m.save.mock.calls[0][0]).toMatchObject({payment:{amount:550,paymentMethod:"OTHER"}});
+ expect(method.value).toBe("OTHER");expect(host.querySelector<HTMLInputElement>('[aria-label="租借實收金額"]')!.value).toBe("550");
+ m.save.mockResolvedValue({success:true,id:"r"});await submit();
+ expect(host.textContent).toContain("已收 $600");expect(m.payment).not.toHaveBeenCalled();expect(host.querySelector("form")).toBeNull();
+});
+
+it("blocks a second submit while the first request is pending",async()=>{
+ await mount();let finish!:(value:unknown)=>void;m.save.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await act(async()=>{host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
+ expect(m.save).toHaveBeenCalledTimes(1);await act(async()=>finish({success:false,error:"失敗"}));
+ await submit();expect(m.save).toHaveBeenCalledTimes(2);await act(async()=>finish({success:false,error:"失敗"}));
+});

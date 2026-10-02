@@ -279,6 +279,23 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   text-align: center;
 }
 
+/* Keep native iPad date/time controls inside the fitness form's grid tracks. */
+[data-course-entry] input[type="date"],
+[data-course-entry] input[type="time"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+[data-course-entry] input::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+  justify-content: flex-start;
+}
+
 /* The booking calendar toolbar is intentionally denser than data-entry forms.
    Do not let the shared 44px form rule stretch or clip its compact controls. */
 [data-booking-filter-bar] :where(input:not([type="checkbox"]):not([type="radio"]), select) {

@@ -680,6 +680,17 @@ export default function DashboardShell({
     && pathname.startsWith("/dashboard/courses")
     && !["analytics", "customers", "plans", "settings", "operations", "catalog", "rooms"].includes(searchParams.get("view") ?? "schedule");
 
+  // Give the fitness timetable room on tablet widths; an explicit toggle wins.
+  const sidebarPreference = useRef<boolean | null>(null);
+  const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
+  useEffect(() => {
+    const tablet = window.matchMedia("(min-width: 1024px) and (max-width: 1366px)");
+    const update = () => setCollapsed(sidebarPreference.current ?? (compactCourseTablet && tablet.matches));
+    update();
+    tablet.addEventListener("change", update);
+    return () => tablet.removeEventListener("change", update);
+  }, [compactCourseTablet]);
+
   // isAdmin: ADMIN 才有 storeOptions（用於 HQ 專屬 UI）
   const isAdmin = !!storeOptions?.length;
 
@@ -1057,7 +1068,7 @@ export default function DashboardShell({
           )}
           <button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={() => { sidebarPreference.current = !collapsed; setCollapsed(!collapsed); }}
             className={`rounded-lg p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600 shrink-0 ${collapsed ? "mx-auto" : ""}`}
             aria-label={collapsed ? "展開側邊欄" : "收合側邊欄"}
           >
@@ -1244,7 +1255,7 @@ export default function DashboardShell({
 
         {/* Content */}
 
-        <main data-dashboard-content className="box-border w-full min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <main data-dashboard-content className={`box-border w-full min-w-0 px-4 sm:px-6 lg:px-8 ${compactCourseTablet ? "py-3" : "py-5 sm:py-6"}`}>
 
           {industryModule !== "course" && trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
             <div className="mb-3">

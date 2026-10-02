@@ -53,9 +53,34 @@ it("checks rental and class collisions including buffers, preserves quote and re
  const input={requestKey:key,roomId:"room",customerId:null,customerName:"租借人",customerPhone:"0900000000",date:"2026-10-02",time:"10:00",durationMinutes:60,amount:600};
  tx.courseSession.findFirst.mockResolvedValue({id:"occupied"});expect((await saveCourseRental(input)).success).toBe(false);expect(tx.courseRental.create).not.toHaveBeenCalled();
  tx.courseSession.findFirst.mockResolvedValue(null);expect((await saveCourseRental(input)).success).toBe(true);expect(tx.courseRental.create.mock.calls[0][0].data).toMatchObject({storeId:"s",amount:600,hourlyRateSnapshot:600,occupiedStartsAt:new Date("2026-10-02T01:50:00Z"),occupiedEndsAt:new Date("2026-10-02T03:10:00Z")});
- tx.courseRental.findUnique.mockResolvedValue({...rental,requestKey:key,customerId:null});expect((await saveCourseRental(input)).success).toBe(true);expect(tx.courseRental.create).toHaveBeenCalledTimes(1);
+ tx.courseRental.findUnique.mockResolvedValue({...rental,requestKey:key,customerId:null,customerName:"租借人",note:""});expect((await saveCourseRental(input)).success).toBe(true);expect(tx.courseRental.create).toHaveBeenCalledTimes(1);
  expect((await saveCourseRental({...input,amount:999})).success).toBe(false);
 });
 it("search scopes customers to the authorized store and merged accounts are excluded",async()=>{
  m.customer.mockResolvedValue([]);await searchRentalCustomers("0900");expect(m.read).toHaveBeenCalledWith("customer.read");expect(m.customer.mock.calls[0][0].where).toMatchObject({storeId:"s",mergedIntoCustomerId:null});
+});
+
+const rentalInput=()=>({requestKey:key,roomId:"room",customerId:null,customerName:"租借人",customerPhone:"0900000000",date:"2026-10-02",time:"10:00",durationMinutes:60,amount:600,payment:{amount:550,paymentMethod:"OTHER"}});
+it("creates rental and collection in one transaction, with exact retry protection",async()=>{
+ const input=rentalInput();expect((await saveCourseRental(input)).success).toBe(true);
+ expect(m.transaction).toHaveBeenCalledTimes(1);expect(m.manager).toHaveBeenCalledWith("cashbook.create");
+ expect(tx.courseRentalPayment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({rentalId:"r",amount:550,paymentMethod:"OTHER",requestKey:key})}));
+ const writes=m.execute.mock.calls.filter(c=>c[0].join("").includes('"CashbookEntry"'));expect(writes).toHaveLength(1);expect(writes[0]).toContain(550);
+ tx.courseRental.findUnique.mockResolvedValue({...rental,customerId:null,customerName:"租借人",note:""});
+ expect((await saveCourseRental(input)).success).toBe(true);expect(tx.courseRentalPayment.create).toHaveBeenCalledTimes(1);
+ expect((await saveCourseRental({...input,payment:{amount:999,paymentMethod:"OTHER"}})).success).toBe(false);
+ expect((await saveCourseRental({...input,payment:undefined})).success).toBe(false);
+});
+it("validates inline payment and its permission before creating a rental",async()=>{
+ expect((await saveCourseRental({...rentalInput(),payment:{amount:600,paymentMethod:""}})).success).toBe(false);
+ expect(m.transaction).not.toHaveBeenCalled();
+ m.manager.mockImplementation(async p=>{if(p==="cashbook.create")throw new Error("denied");return {storeId:"s",user:{id:"u"}};});
+ expect((await saveCourseRental(rentalInput())).success).toBe(false);expect(tx.courseRental.create).not.toHaveBeenCalled();
+});
+it("rolls back the new rental and receipt when the cash ledger rejects collection",async()=>{
+ const committed:unknown[]=[];
+ m.transaction.mockImplementation(async(_store,work)=>{const pending:unknown[]=[];tx.courseRental.create.mockImplementation(async args=>{pending.push(args.data);return {id:"r",...args.data};});tx.courseRentalPayment.create.mockImplementation(async args=>{pending.push(args.data);return {id:"p",...args.data};});const value=await work(tx);committed.push(...pending);return value;});
+ m.raw.mockResolvedValue([{status:"CLOSED"}]);
+ expect((await saveCourseRental({...rentalInput(),payment:{amount:600,paymentMethod:"CASH"}})).success).toBe(false);
+ expect(committed).toHaveLength(0);expect(m.execute.mock.calls.filter(c=>c[0].join("").includes('"CashbookEntry"'))).toHaveLength(0);
 });
