@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DayStory } from "../business/day-story";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
+import { BOOKING_TYPES } from "../booking-types";
 
 const stories = {
   slots: {
@@ -22,6 +23,24 @@ const stories = {
     ],
     details: "店長可管理療程規格、人員專業、固定班表與請假等例外，並安排服務位置。依店內方案使用療程扣次或儲值結帳；會員與人員入口需完成對應身分設定，LINE 入口另需完成串接。",
   },
+  fitness: {
+    name: "運動教室", title: "課表、名額與出席，一起掌握。", intro: "適合運動教室、瑜珈與皮拉提斯。學員自己預約，教練查看行程，店長集中管理課表與堂數。",
+    scenes: [
+      { question: "學員一直問，明天還有哪堂課？", answer: "學員從顧客入口查看課表、剩餘名額與自己的預約，依店家規則預約或取消，減少來回確認。", caption: "學員｜選擇課程", rows: [["09:00 瑜珈", "剩餘 3 位"], ["11:00 皮拉提斯", "已額滿"], ["我的預約", "明天 09:00"]] },
+      { question: "今天誰來上課？還剩幾堂？", answer: "店長與教練查看當堂學員名單、堂數與備註，記錄出席、請假或未到，依課程規則核對扣堂。", caption: "教練｜當堂學員", rows: [["範例學員 A", "出席・剩餘 5 堂"], ["範例學員 B", "請假"], ["範例學員 C", "待確認"]] },
+      { question: "老師請假，課表怎麼調整？", answer: "從日、週、月課表查看老師與教室安排，處理單堂或後續課程異動。教練也能從「我的工作」核對自己的授課行程。", caption: "店長｜課表安排", rows: [["原課程", "週三 18:00"], ["調整後", "週四 19:00"], ["教練行程", "查看異動後課程"]] },
+    ],
+    details: "可安排個別與團體課程，管理老師、教室、學員方案與課程容量。預約及取消期限依店家設定；出席、請假、未到與扣堂依課型規則處理。LINE 顧客入口需完成串接，進階功能依購買方案開通。",
+  },
+  music: {
+    name: "音樂教室", title: "學員、老師與每堂課，清楚接起來。", intro: "適合音樂教室、樂器教學與才藝課程。從固定課表、調課補課到續報與老師鐘點，接起櫃檯每天的工作。",
+    scenes: [
+      { question: "這位學員，每週跟誰上課？", answer: "固定課表集中顯示學員、老師與教室，可查看日、週、月安排；個別課與團體課各自保留上課規則。", caption: "櫃檯｜固定課表", rows: [["週二 18:00", "範例學員 A・吉他"], ["授課老師", "範例老師 B"], ["上課教室", "教室 1"]] },
+      { question: "臨時請假或調課，怕漏掉哪一堂？", answer: "保留請假與課程異動紀錄，依課型處理補課。調課可選這堂、連續幾週或之後的課程，讓櫃檯核對原課與新安排。", caption: "櫃檯｜核對課程異動", rows: [["原固定課", "週二 18:00"], ["這堂調整", "週四 19:00"], ["後續固定課", "維持原時段"]] },
+      { question: "上到第幾堂？老師鐘點怎麼算？", answer: "查看學員本期進度與下期繳費，續報沿用原資料。已開通月結管理時，可核對老師授課明細與鐘點，依店內設定計算。", caption: "櫃檯｜進度與帳務", rows: [["本期進度", "第 4／4 堂"], ["下期繳費", "已繳 8 堂"], ["老師鐘點", "月結明細核對"]] },
+    ],
+    details: "可安排個別、雙人與團體課程，管理固定課與約課、期數、方案期限及續報。請假、未到與補課依課型規則處理；老師鐘點或拆帳依店內設定，月結管理依方案內含或另外加購。",
+  },
 } as const;
 
 export function BookingStory({ kind }: { kind: keyof typeof stories }) {
@@ -30,8 +49,7 @@ export function BookingStory({ kind }: { kind: keyof typeof stories }) {
     <MarketingNavigation active="features" />
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
       <nav aria-label="預約方式" className="flex flex-wrap gap-2 text-sm">
-        {([["slots", "時段預約"], ["services", "服務預約"]] as const).map(([id, label]) => <Link key={id} href={`/pricing/features/${id}`} aria-current={kind === id ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-full border border-[#153B31]/20 px-4 ${kind === id ? "bg-[#123E32] text-white" : "bg-white"}`}>{label}</Link>)}
-        <Link href="/pricing/fitness.html" className="inline-flex min-h-11 items-center px-2 underline underline-offset-4">課程預約・籌備中 →</Link>
+        {BOOKING_TYPES.map(({ id, name }) => <Link key={id} href={`/pricing/features/${id}`} aria-current={kind === id ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-full border border-[#153B31]/20 px-4 focus-visible:outline-2 focus-visible:outline-offset-4 ${kind === id ? "bg-[#123E32] text-white" : "bg-white"}`}>{name}</Link>)}
       </nav>
       <p className="mt-8 text-sm font-medium text-[#74603C]">{story.name}</p>
       <h1 className="mt-3 text-balance text-3xl font-semibold leading-snug sm:text-4xl">{kind === "services" ? <><span className="inline-block">服務、人員與時間，</span><span className="inline-block">一起安排。</span></> : story.title}</h1>
