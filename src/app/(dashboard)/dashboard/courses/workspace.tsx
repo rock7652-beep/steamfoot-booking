@@ -1506,6 +1506,7 @@ export function CourseWorkspace({
                     {view === "rooms" && (
                       <form
                         id="course-room-create-form"
+                        onInvalidCapture={businessProfile === "MUSIC" ? undefined : e=>{const target=e.target as HTMLElement;const section=target.closest("details");if(section)section.open=true;target.scrollIntoView?.({block:"nearest"});}}
                         onSubmit={(e) =>
                           submit(e, async (data) =>
                             createCourseRoom({
@@ -1520,10 +1521,10 @@ export function CourseWorkspace({
                             }),
                           )
                         }
-                        className="grid gap-2 sm:grid-cols-2"
+                        className={businessProfile === "MUSIC" ? "grid gap-2 sm:grid-cols-2" : "grid gap-2 sm:grid-cols-[2fr_1fr_1fr]"}
                       >
                         <label>
-                          空間名稱
+                          空間名稱{businessProfile!=="MUSIC"&&" *"}
                           <input
                             className={field}
                             name="name"
@@ -1547,6 +1548,7 @@ export function CourseWorkspace({
                     {view !== "rooms" && (
                       <form
                         id="course-template-create-form"
+                        onInvalidCapture={businessProfile === "MUSIC" ? undefined : e=>{const target=e.target as HTMLElement;const section=target.closest("details");if(section)section.open=true;target.scrollIntoView?.({block:"nearest"});}}
                         className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?"sm:grid-cols-6":""}`}
                         onSubmit={(e) =>
                           submit(e, (data) =>
@@ -1569,7 +1571,7 @@ export function CourseWorkspace({
                         }
                       >
                         <label className={businessProfile!=="MUSIC"?"sm:col-span-4":"col-span-full"}>
-                          課程名稱
+                          課程名稱{businessProfile!=="MUSIC"&&" *"}
                           <input
                             className={field}
                             name="name"
@@ -1664,8 +1666,9 @@ export function CourseWorkspace({
             {panel === "edit" && editing && canEdit && !roomRentalHistory && (
               <form
                 id="course-edit-form"
+                        onInvalidCapture={businessProfile === "MUSIC" ? undefined : e=>{const target=e.target as HTMLElement;const section=target.closest("details");if(section)section.open=true;target.scrollIntoView?.({block:"nearest"});}}
                 key={`${editing.kind}-${editing.value.id}`}
-                className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${editing.kind==="template" && businessProfile!=="MUSIC"?"sm:grid-cols-6":""}`}
+                className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:grid-cols-6":editing.kind==="room"?"sm:grid-cols-[2fr_1fr_1fr]":""):""}`}
                 onSubmit={(event) =>
                   submit(
                     event,
@@ -1746,7 +1749,7 @@ export function CourseWorkspace({
                 </div>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
-                  {editing.kind === "room" ? "空間名稱" : "課程名稱"}
+                  {editing.kind === "room" ? "空間名稱" : "課程名稱"}{businessProfile!=="MUSIC"&&" *"}
                   <input
                     className={field}
                     name="name"
@@ -2516,7 +2519,7 @@ function DebitRule({music=false}:{music?:boolean}) {
 
 function FitnessClassField({classType,trialMode,locked=false}:{classType?:string|null;trialMode?:string|null;locked?:boolean}) {
   const [kind,setKind]=useState(classType===null?"":classType??"GROUP");
-  return <label className="sm:col-span-2">班別<select className={field} required disabled={locked} value={kind} onChange={e=>setKind(e.target.value)}>{kind===""&&<option value="">請選班別</option>}<option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option></select><input type="hidden" name="classType" value={kind}/><input type="hidden" name="musicTrialMode" value={trialMode??""}/></label>;
+  return <label className="sm:col-span-2">班別 *<select className={field} required disabled={locked} value={kind} onChange={e=>setKind(e.target.value)}>{kind===""&&<option value="">請選班別</option>}<option value="GROUP">團體課</option><option value="PRIVATE">個別課</option><option value="SELF_ORGANIZED">自組課</option></select><input type="hidden" name="classType" value={kind}/><input type="hidden" name="musicTrialMode" value={trialMode??""}/></label>;
 }
 
 function SpaceRentalFields({enabled,rate,buffer}:{enabled:boolean;rate:number;buffer:number}) {

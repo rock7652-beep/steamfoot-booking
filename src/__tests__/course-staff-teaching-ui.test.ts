@@ -101,3 +101,31 @@ it("view-only permission preset removes write access and respects allowed permis
  await click("編輯");await click("後台帳號／權限");await click("套用僅查看");await click("儲存");
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({permissions:["customer.read","staff.view"]}));
 });
+
+it("saves the single coach contact email field without a duplicate stale value",async()=>{
+ await render();await click("編輯");
+ expect(host.querySelectorAll('input[name="contactEmail"]')).toHaveLength(1);
+ await inputValue(host.querySelector('input[name="contactEmail"]') as HTMLInputElement,"new@example.test");
+ await click("儲存");
+ expect(m.save).toHaveBeenCalledWith(expect.objectContaining({contactEmail:"new@example.test"}));
+});
+
+it("shows only time-specific saves on availability and no save on assignments, preserving basic edits",async()=>{
+ await render();await click("編輯");
+ await inputValue(host.querySelector('input[name="phone"]') as HTMLInputElement,"0911222444");
+ await click("可授課時間");
+ expect(host.querySelector('footer button[type="submit"]')).toBeNull();
+ expect(Array.from(host.querySelectorAll('button')).filter(b=>b.textContent==="儲存時間"&&!b.closest('[hidden]'))).toHaveLength(1);
+ await click("已排課程");expect(host.querySelector('footer button[type="submit"]')).toBeNull();
+ await click("基本資料");await click("儲存");
+ expect(m.save).toHaveBeenCalledWith(expect.objectContaining({phone:"0911222444"}));
+});
+
+it("shows assigned course dates, times and actual booking counts in a compact table",async()=>{
+ const coach={...staff,assignments:[{id:"session",name:"肌力",startsAt:"2026-10-03T04:00:00.000Z",endsAt:"2026-10-03T04:30:00.000Z",capacity:10,bookedCount:3}]};
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+ await click("編輯");await click("已排課程");
+ const table=host.querySelector('table[aria-label="已排課程"]');
+ expect(table?.textContent).toContain("3／10");expect(table?.textContent).toContain("12:00–12:30");
+ expect(table?.querySelector('a')?.getAttribute('href')).toContain("session=session");
+});

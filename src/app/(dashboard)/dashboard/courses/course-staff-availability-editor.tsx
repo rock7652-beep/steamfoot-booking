@@ -81,10 +81,10 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
     });
   }
 
-  return <section className="space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3">
+  return <section className={fitness?"space-y-3":"space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3"}>
     <CourseConflicts items={conflicts}/>
     <div>
-      <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">此頁獨立儲存；設定完成請按下方儲存時間。</p>}
+      <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
     </div>
     <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
