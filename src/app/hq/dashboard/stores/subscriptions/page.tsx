@@ -173,7 +173,7 @@ export default async function StoreSubscriptionsListPage({
       </div>
 
       <section className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="w-full min-w-[1020px] text-[13px]">
+        <table className="admin-list-table w-full min-w-[1020px] text-[13px]">
           <thead>
             <tr className="border-b border-earth-100 text-left text-[11px] text-earth-500">
               <th className="px-4 py-2.5 font-medium">店家</th>

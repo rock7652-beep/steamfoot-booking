@@ -29,10 +29,10 @@ export default async function StoresPage() {
   const stores = result.success ? result.data : [];
 
   return (
-    <div className="w-full min-w-0 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="w-full min-w-0 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">店舖管理</h1>
+          <h1 className="admin-page-title">店舖管理</h1>
           <p className="mt-1 text-sm text-earth-500">管理所有分店，建立新店或查看交付狀態</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -59,7 +59,7 @@ export default async function StoresPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
-        <table className="w-full text-sm">
+        <table className="admin-list-table w-full text-sm">
           <thead className="border-b border-earth-200 bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>

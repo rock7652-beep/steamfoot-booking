@@ -216,7 +216,7 @@ export default async function CustomerRecordsPage({ params, searchParams }: {
   return <main className="mx-auto max-w-4xl space-y-4 p-4 sm:space-y-5 sm:p-6">
     <Link href={`/dashboard/customers/${id}#bookings`} className="inline-flex min-h-11 items-center text-primary-700">← 返回顧客資料</Link>
     <header>
-      <h1 className="text-2xl font-semibold text-earth-900">{customer.name}的{transactions ? "消費" : "預約"}紀錄</h1>
+      <h1 className="admin-page-title">{customer.name}的{transactions ? "消費" : "預約"}紀錄</h1>
       <p className="mt-1 text-sm text-earth-500">僅顯示此顧客的資料</p>
     </header>
     <nav className="grid grid-cols-2 rounded-xl bg-earth-100 p-1" aria-label="顧客紀錄類型">

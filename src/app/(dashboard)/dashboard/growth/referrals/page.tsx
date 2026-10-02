@@ -65,7 +65,7 @@ export default async function GrowthReferralsPage({ searchParams }: PageProps) {
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h1 className="text-lg font-bold text-earth-900">推薦追蹤</h1>
+        <h1 className="admin-page-title">推薦追蹤</h1>
         <p className="mt-0.5 text-sm text-earth-500">推薦 → 到店 → 轉化 的完整流程</p>
       </div>
 

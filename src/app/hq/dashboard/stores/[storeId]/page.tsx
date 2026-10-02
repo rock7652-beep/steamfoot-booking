@@ -51,7 +51,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
       {retention && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{trialRetentionMessage(retention)}{retention.state === "PENDING_CLEANUP" && " 尚未自動刪除；清理前須重新確認未升級及資料範圍。"}</p>}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>
+          <h1 className="admin-page-title">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
             <span>{summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>

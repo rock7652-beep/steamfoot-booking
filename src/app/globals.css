@@ -78,6 +78,31 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Shared dashboard title, including legacy pages and portal-mounted editors.
+   Customer/LIFF titles opt out by never using this class. */
+.admin-page-title {
+  color: var(--color-primary-900);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+/* Explicitly opted-in data lists only; never target schedule/calendar tables. */
+.admin-list-table {
+  font-size: 14px;
+}
+.admin-list-table thead,
+.admin-list-table thead th {
+  background: var(--color-primary-50);
+  color: var(--color-primary-900);
+  font-size: 14px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.admin-list-table td {
+  vertical-align: middle;
+}
+
 /* Shared premium surfaces for the manager dashboard. */
 .steamfoot-brand-card {
   background: var(--brand-card);

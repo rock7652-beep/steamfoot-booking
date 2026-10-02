@@ -24,7 +24,7 @@ export default async function DevicePreviewPage({ searchParams }: DevicePreviewP
     return (
       <div className="mx-auto flex min-h-dvh max-w-xl items-center justify-center p-6 text-center">
         <div className="rounded-xl border border-earth-200 bg-white p-6 shadow-sm">
-          <h1 className="text-lg font-bold text-earth-900">此頁面目前尚未支援裝置預覽</h1>
+          <h1 className="admin-page-title">此頁面目前尚未支援裝置預覽</h1>
           <p className="mt-2 text-sm text-earth-600">請從裝置預覽工具選擇支援的頁面。</p>
         </div>
       </div>

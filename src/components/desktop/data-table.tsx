@@ -8,8 +8,8 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
  * 規格（對齊 design/04-phase2-plan.md §2.4）：
  *   row height: 44px (h-11)
  *   hover: bg-primary-50/40
- *   header: bg-earth-50, 11px earth-500
- *   cell: 14px earth-800（主欄） / 11px earth-500（次欄）
+ *   header: bg-primary-50, 14px primary-900
+ *   cell: 14px earth-800（主欄） / 14px earth-500（次欄）
  *   行可點 → `rowHref(row)` 回 string；會整 row 當 <a>
  *   欄位可排序（UI 提示，排序邏輯在呼叫端做 — 本版不含自動排序）
  *
@@ -28,7 +28,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 
 export type ColumnAlign = "left" | "right" | "center";
 
-/** priority = secondary：用小字/淺色呈現，降低視覺權重（次要欄位如「最近來店 / 積分」） */
+/** priority = secondary：用淺色呈現（保持可讀字級），降低視覺權重（次要欄位如「最近來店 / 積分」） */
 export type ColumnPriority = "primary" | "secondary";
 
 export interface Column<Row> {
@@ -91,7 +91,7 @@ export function DataTable<Row>({
         {empty ?? (
           <div className="px-4 py-8 text-center">
             <p className="text-sm text-earth-700">目前沒有資料</p>
-            <p className="mt-1 text-[11px] text-earth-400">資料累積後會出現在這裡</p>
+            <p className="mt-1 text-sm text-earth-400">資料累積後會出現在這裡</p>
           </div>
         )}
       </div>
@@ -100,13 +100,13 @@ export function DataTable<Row>({
 
   return (
     <div className={`overflow-x-auto rounded-xl border border-earth-200 bg-white ${className ?? ""}`}>
-      <table className="min-w-[720px] w-full text-left text-sm">
-        <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
+      <table data-admin-table className="min-w-[720px] w-full text-left text-sm">
+        <thead className="bg-primary-50 text-sm font-semibold text-primary-900">
           <tr>
             {columns.map((c) => (
               <th
                 key={c.key}
-                className={`px-3 py-2 ${c.width ?? ""} ${c.sticky === "right" ? "sticky right-0 z-10 bg-earth-50" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""}`}
+                className={`px-3 align-middle py-2 ${c.width ?? ""} ${c.sticky === "right" ? "sticky right-0 z-10 bg-primary-50" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""}`}
               >
                 {c.header}
               </th>
@@ -123,12 +123,12 @@ export function DataTable<Row>({
               const content = columns.map((c) => {
                 const priorityClass =
                   c.priority === "secondary"
-                    ? "text-[11px] text-earth-500"
+                    ? "text-sm text-earth-500"
                     : "text-sm text-earth-800";
                 return (
                   <td
                     key={c.key}
-                    className={`px-3 ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                    className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                   >
                     {c.accessor(row, i)}
                   </td>
@@ -144,12 +144,12 @@ export function DataTable<Row>({
                     {columns.map((c, colIdx) => {
                       const priorityClass =
                         c.priority === "secondary"
-                          ? "text-[11px] text-earth-500"
+                          ? "text-sm text-earth-500"
                           : "text-sm text-earth-800";
                       return (
                         <td
                           key={c.key}
-                          className={`px-3 ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                          className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                         >
                           {colIdx === firstLinkColIdx ? (
                             <Link

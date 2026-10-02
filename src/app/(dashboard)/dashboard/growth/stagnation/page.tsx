@@ -50,7 +50,7 @@ export default async function GrowthStagnationPage({ searchParams }: PageProps) 
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h1 className="text-lg font-bold text-earth-900">停滯名單</h1>
+        <h1 className="admin-page-title">停滯名單</h1>
         <p className="mt-0.5 text-sm text-earth-500">
           合作店長 / 準店長 近 30 天未到店且無推薦行動 · 共 {result.total} 位
         </p>
@@ -111,11 +111,16 @@ export default async function GrowthStagnationPage({ searchParams }: PageProps) 
   );
 }
 
+/** Request-time calculation stays outside the synchronous presentation component. */
+function readDaysSinceLastVisit(lastActionAt: Date | null) {
+  return lastActionAt
+    ? Math.floor((Date.now() - lastActionAt.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+}
+
 /** 卡片上方的原因提示列 */
 function StagnationReason({ candidate: c }: { candidate: GrowthCandidate }) {
-  const daysSinceLastVisit = c.lastActionAt
-    ? Math.floor((Date.now() - c.lastActionAt.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
+  const daysSinceLastVisit = readDaysSinceLastVisit(c.lastActionAt);
 
   const reasons: string[] = [];
   if (daysSinceLastVisit == null) {

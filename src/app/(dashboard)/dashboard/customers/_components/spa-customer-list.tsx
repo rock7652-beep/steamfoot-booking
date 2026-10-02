@@ -63,7 +63,7 @@ export function SpaCustomerList({
       <CustomerLabelFilter />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">顧客管理</h1>
+          <h1 className="admin-page-title">顧客管理</h1>
           <p className="mt-1 text-sm text-earth-500">
             點選顧客，查看需求、方案或安排預約。
           </p>

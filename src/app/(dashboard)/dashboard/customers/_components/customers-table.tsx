@@ -287,7 +287,7 @@ export function CustomersTable({
       sticky: stickyActions ? "right" : undefined,
       header: "操作",
       noLink: true,
-      align: "right",
+      align: "center",
       width: "w-28",
       accessor: (c) => {
         if (isInactiveRow(c)) {
@@ -296,7 +296,7 @@ export function CustomersTable({
           );
         }
         return (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex items-center justify-center gap-1.5">
             {onQuickAssign ? (
               <button
                 type="button"

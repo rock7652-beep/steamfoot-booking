@@ -276,7 +276,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
 
       <CustomerLabelsSettingsLink />
       {params.panel === "reminders" ? (
-        <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders" width={1040}>
+        <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders">
           <RemindersPage
             searchParams={Promise.resolve(
               Object.fromEntries(new URLSearchParams(params.panelQuery ?? "tab=customer")),

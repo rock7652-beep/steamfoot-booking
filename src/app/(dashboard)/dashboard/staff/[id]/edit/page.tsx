@@ -125,7 +125,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
       <div className={`grid grid-cols-1 gap-6 ${!staff.isOwner ? "lg:grid-cols-3" : ""}`}>
         {/* 基本資料 */}
         <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-1 lg:self-start">
-        <h1 className="mb-1 text-lg font-bold text-earth-900">編輯員工資料</h1>
+        <h1 className="admin-page-title mb-1">編輯員工資料</h1>
         <p className="mb-5 text-sm text-earth-400">
           {staff.user.name}（{staff.user.email}）
           <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${

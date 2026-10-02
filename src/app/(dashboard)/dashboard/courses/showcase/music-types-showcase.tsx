@@ -77,7 +77,7 @@ export function MusicTypesShowcase({ date, showLubyReplica = false }: { date: st
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
         <div>
-          <h1 className="text-base font-semibold text-earth-900">{month}/{day}（{weekday}）音樂課表 · 班型驗收</h1>
+          <h1 className="admin-page-title">{month}/{day}（{weekday}）音樂課表 · 班型驗收</h1>
           <p className="text-xs text-earth-700">純示意資料：七種型態各 7 堂，共 49 堂、63 位學員；老師輪換教室，部分課已點名（含請假、曠課）。這頁不會建立預約或修改店家資料。</p>
         </div>
         <div className="flex flex-wrap gap-2">

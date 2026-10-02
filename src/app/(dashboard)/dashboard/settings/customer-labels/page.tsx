@@ -8,5 +8,5 @@ export default async function CustomerLabelsPage() {
   if(!user || !await checkPermission(user.role,user.staffId,"customer.read"))notFound();
   const data=await loadCustomerLabels();
   if(!data.available)notFound();
-  return <section className="space-y-3 p-4"><h1 className="text-xl font-semibold">顧客標籤</h1><LabelManager initial={data}/></section>;
+  return <section className="space-y-3 p-4"><h1 className="admin-page-title">顧客標籤</h1><LabelManager initial={data}/></section>;
 }
