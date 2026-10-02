@@ -184,7 +184,7 @@ export default async function Page({
                   </ul>
                 </>
               )}
-              <form action={updateApplication} className="flex flex-wrap gap-3">
+              <form key={item.status} action={updateApplication} className="flex flex-wrap gap-3">
                 <input type="hidden" name="id" value={item.id} />
                 <select
                   name="status"

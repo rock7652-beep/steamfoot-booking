@@ -31,6 +31,7 @@ export function DeviceReview() {
           <option value="/pricing/trial">申請表單</option>
           <option value="/pricing/trial/guide/oa-admin">官方 LINE 授權教學</option>
           <option value="/pricing/trial/guide/developers">Developers 授權教學</option>
+          <option value="/hq/dashboard/trial-applications">總部收件（需管理員登入）</option>
         </select>
         <a
           className="text-sm underline"

@@ -50,3 +50,9 @@
 ### HQ 收件路由修正
 
 登入實測發現 `/hq/dashboard/trial-applications` 被共用 HQ rewrite 導向不存在的 `/dashboard/trial-applications` 而 404。已在 ADMIN 驗證後將該收件路由保留為 HQ 專用頁，不放寬登入或角色權限。新增收件頁 ADMIN pass-through／未登入／店長拒絕與 5 張圖片路由回歸檢查。6 個測試檔合計 102 項通過。
+
+### HQ 登入後操作驗收
+
+- 固定分支預覽網址已完成 ADMIN 登入，HQ 收件清單可查看既有虛構申請及修訂 2 的补件結果。
+- 將測試申請從已收件改為設定中，資料庫與 AuditLog 已確認写入；通知重試仍維持 Preview 停用。
+- 發現 React Server Action 完成後將未受控選單 reset 為舊值，已用狀態作為進度表單 key 使儲存後顯示最新值；需在新預覽確認更新後與重載後一致。
