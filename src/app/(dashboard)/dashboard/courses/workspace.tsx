@@ -1,4 +1,5 @@
 "use client";
+import { MultiDateCalendar } from "@/components/admin/multi-date-calendar";
 import {RentalPanel,RentalHistory,type RentalPermissions,type RentalCustomer} from "./rental-panel";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
@@ -511,6 +512,7 @@ export function CourseWorkspace({
   }, [businessProfile, moveClipboard, moveClipboardLoaded, moveStorageKey]);
 
   const [arrangement,setArrangement]=useState<"choose"|"class"|"trial"|"rental">("class");
+  const [scheduleDate, setScheduleDate] = useState(selectedDate);
   const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
@@ -587,8 +589,15 @@ export function CourseWorkspace({
     });
   }
   function updateScheduleForm(e: FormEvent<HTMLFormElement>) {
-    const fields = new FormData(e.currentTarget);
-    const templateChanged = e.target instanceof HTMLSelectElement && e.target.name === "templateId";
+    previewSchedule(e.currentTarget, e.target);
+  }
+  function previewSchedule(form: HTMLFormElement, target?: EventTarget | null, dates?: string[]) {
+    const fields = new FormData(form);
+    if (dates) {
+      fields.delete("additionalDates");
+      dates.forEach(date => fields.append("additionalDates", date));
+    }
+    const templateChanged = target instanceof HTMLSelectElement && target.name === "templateId";
     const nextTemplate = templates.find(item => item.id === fields.get("templateId"));
     if (templateChanged && nextTemplate) {
       // Template-dependent controls remount after this event; preview their new defaults.
@@ -622,6 +631,7 @@ export function CourseWorkspace({
     setCopySource(null);
     setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
     setScheduleSeed(seed);
+    setScheduleDate(seed.date ?? selectedDate);
     setChosen(templates[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
     setRepeat(false);
@@ -1413,7 +1423,7 @@ export function CourseWorkspace({
                                       className={button}
                                       disabled={pending}
                                       onClick={() => {
-                                        setCopySource(session);setArrangement(session.isTrial?"trial":"class");
+                                        setCopySource(session);setScheduleDate("");setArrangement(session.isTrial?"trial":"class");
                                         setChosen(session.templateId);
                                         setRepeat(false);
                                         setMultipleDates(false);
@@ -2037,7 +2047,8 @@ export function CourseWorkspace({
                         className={`${field} min-h-11`}
                         name="date"
                         type="date"
-                        defaultValue={copySource ? "" : scheduleSeed.date ?? selectedDate}
+                        value={scheduleDate}
+                        onChange={event => {setScheduleDate(event.target.value);setExtraDateKeys(current => current.filter(date => date !== event.target.value));}}
                         required
                       />
                     </label>
@@ -2139,53 +2150,19 @@ export function CourseWorkspace({
                     </label>
                     {!repeat && multipleDates && (
                       <div className="col-span-full space-y-2">
-                        {extraDateKeys.map((dateKey, index) => (
-                          <div
-                            key={dateKey}
-                            className="flex items-center gap-2"
-                          >
-                            <label className="flex-1">
-                              其他日期 {index + 1}
-                              <input
-                                className={`${field} min-h-11`}
-                                aria-label={`其他日期 ${index + 1}`}
-                                type="date"
-                                required
-                                name="additionalDates"
-                                defaultValue=""
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              className={button}
-                              onClick={() => {
-                                setExtraDateKeys((current) =>
-                                  current.filter((_, i) => i !== index),
-                                );
-                              }}
-                            >
-                              移除
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          className={button}
-                          disabled={extraDateKeys.length >= 52}
-                          onClick={() => {
-                            setExtraDateKeys((current) => [
-                              ...current,
-                              crypto.randomUUID(),
-                            ]);
+                        <MultiDateCalendar
+                          baseDate={scheduleDate}
+                          initialMonth={scheduleSeed.date ?? selectedDate}
+                          dates={extraDateKeys}
+                          disabled={pending}
+                          onChange={dates => {
+                            setExtraDateKeys(dates);
+                            const form = document.getElementById("course-schedule-form");
+                            if (form instanceof HTMLFormElement) previewSchedule(form, undefined, dates);
                           }}
-                        >
-                          ＋ 加入排課日期
-                        </button>
-                        {extraDateKeys.length > 0 && (
-                          <p className="text-sm text-earth-500">
-                            以上日期使用相同時間、教練與教室；重複日期只建立一堂。如有撞期，整批不會建立。
-                          </p>
-                        )}
+                        />
+                        {extraDateKeys.map(date => <input key={date} type="hidden" name="additionalDates" value={date} />)}
+                        <p className="text-xs text-earth-500">同時間、教練與空間；如有撞期，整批不會建立。</p>
                       </div>
                     )}
                     {repeat && (
@@ -2326,10 +2303,10 @@ export function CourseWorkspace({
             <RightSheet
               open
               presentation="centered"
-              fitContent={!rentalDialog && (oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC"))}
+              fitContent={rentalDialog ? !dialogSession.rentalId : (oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC"))}
               onClose={closeRentalDialog}
-              maxHeight={rentalDialog ? 680 : 900}
-              width={rentalDialog ? 760 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
+              maxHeight={rentalDialog ? 400 : 900}
+              width={rentalDialog ? 640 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
             >
               <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : "items-start bg-primary-50 py-3"}`}>

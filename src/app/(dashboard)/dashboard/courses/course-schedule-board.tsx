@@ -722,7 +722,7 @@ export function CourseScheduleBoard({
   ];
 
   const resourceViewControls = (
-    <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
+    <div className={musicDense ? "inline-flex rounded-lg border border-earth-200 bg-white p-0.5" : "inline-flex shrink-0 gap-1"} aria-label="課表資源視角">
           <button
             type="button"
             className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
@@ -743,10 +743,10 @@ export function CourseScheduleBoard({
   return (
     <section ref={boardRef} className="space-y-1" aria-label="日課表">
 
-      <div className="flex max-w-full flex-wrap items-center gap-2">
+      <div className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : "flex max-w-full items-center gap-1.5 overflow-x-auto pb-0.5"}>
         {musicDense && !replica && <span className="text-sm text-earth-700">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
         {(!musicDense || quickFilter !== "all") && !replica && <div
-          className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
+          className={musicDense ? "flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5" : "flex shrink-0 items-center gap-0.5 whitespace-nowrap"}
           aria-label="今日狀態快速篩選"
         >
           {filters.map((filter) => (
@@ -755,7 +755,7 @@ export function CourseScheduleBoard({
               type="button"
               disabled={pending}
               onClick={() => setQuickFilter(filter.id)}
-              className={`${tab} ${quickFilter === filter.id ? "bg-primary-50 text-primary-900" : "text-earth-600 hover:bg-earth-50"}`}
+              className={`${tab} ${!musicDense ? "!px-1.5" : ""} ${quickFilter === filter.id ? "bg-primary-50 text-primary-900" : "text-earth-600 hover:bg-earth-50"}`}
             >
               <span>{filter.label}</span>
               <strong className="ml-1">{filter.value}</strong>
@@ -768,7 +768,7 @@ export function CourseScheduleBoard({
         </div>}
 
         {!moveClipboard && !replica && (
-          <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
+          <label className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
               aria-label="找空位所需時長"
@@ -785,12 +785,9 @@ export function CourseScheduleBoard({
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
         </span>}
 
-        {musicDense && resourceViewControls}
-      </div>
-      {!musicDense && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {resourceViewControls}
-        {legend && <div className="ml-auto">{legend}</div>}
-      </div>}
+        {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
+      </div>
 
       {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
