@@ -3107,3 +3107,19 @@ model StaffRentTerm {
   @@unique([staffId, startMonth])
   @@index([storeId, startMonth])
 }
+
+model TrialApplication {
+  id                 String   @id @default(uuid())
+  requestId          String   @unique
+  resumeTokenHash    String
+  storeName          String
+  contactEmail       String
+  payload            Json
+  status             String   @default("RECEIVED")
+  notificationStatus String   @default("PENDING")
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
