@@ -72,3 +72,12 @@
   }
   .mobileScrollable > div { flex-shrink: 0; }
 }
+
+/* Settings keep their outer geometry during loading and inner navigation. */
+@media (min-width: 640px) {
+ .centered[data-fixed-height="true"] {
+  height: min(var(--sheet-max-height, 900px), calc(100dvh - 3rem));
+  max-height: calc(100dvh - 3rem);
+  overflow: hidden;
+ }
+}

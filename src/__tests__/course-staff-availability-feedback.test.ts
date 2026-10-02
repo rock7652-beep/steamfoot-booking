@@ -23,7 +23,9 @@ it("shows overlapping-time rejection immediately and preserves the added period"
  await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="新增時段"]')!.click());
  m.save.mockResolvedValue({success:false,error:"可授課時段不可重疊，且結束時間需晚於開始時間"});
  await act(async()=>button("儲存時間").click());
- expect(m.error).toHaveBeenCalledWith("可授課時段不可重疊，且結束時間需晚於開始時間");
+ expect(m.error).toHaveBeenCalledWith("週日時段有誤，請修改紅框時間");
+ expect(m.save).not.toHaveBeenCalled();
+ expect(host.querySelectorAll('[aria-invalid="true"]')).toHaveLength(4);
  expect(host.querySelectorAll('input[type="time"]')).toHaveLength(16);
  expect(m.guard).toHaveBeenLastCalledWith({dirty:true,pending:false});
 });
@@ -45,4 +47,14 @@ it("keeps affected existing classes visible after a successful weekly save",asyn
  expect(host.textContent).toContain("以下 1 堂超出新時段，仍保留原安排");
  expect(host.textContent).toContain("舊課");
  expect(m.guard).toHaveBeenLastCalledWith({dirty:false,pending:false});
+});
+
+it("marks only equal-time rows and clears red borders when corrected",async()=>{
+ const inputs=host.querySelectorAll<HTMLInputElement>('input[type="time"]');
+ await act(async()=>{const input=inputs[5];Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'09:00');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));});
+ await act(async()=>button("儲存時間").click());
+ expect(m.save).not.toHaveBeenCalled();expect(m.error).toHaveBeenCalledWith("週二時段有誤，請修改紅框時間");
+ expect(host.querySelectorAll('[aria-invalid="true"]')).toHaveLength(2);
+ await act(async()=>{const input=inputs[5];Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'21:00');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(host.querySelectorAll('[aria-invalid="true"]')).toHaveLength(0);
 });

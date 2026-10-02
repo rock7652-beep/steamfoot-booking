@@ -38,7 +38,7 @@ export function PlanExpiryReminderSettingCard({ initialEnabled, course=false, mu
             onClick={(event) => { event.preventDefault(); toggle(); }}
             disabled={pending}
             aria-label="切換方案即將到期提醒"
-            aria-pressed={enabled}
+            role="switch" aria-checked={enabled}
             className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}
           >
             <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? "translate-x-5" : ""}`} />
