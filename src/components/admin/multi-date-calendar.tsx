@@ -16,7 +16,8 @@ export function MultiDateCalendar({ baseDate, initialMonth, dates, onChange, dis
   const count = Number(addTaiwanDuration(next, -1, "DAY").slice(8));
   const offset = parseLocalDate(first).getDay();
   const selected = new Set([baseDate, ...dates].filter(Boolean));
-  return <fieldset className="max-w-md rounded-lg border border-earth-200 bg-white p-2" disabled={disabled}>
+  return <div className="mx-auto grid w-full max-w-xl gap-3 min-[640px]:grid-cols-[minmax(0,1fr)_144px]">
+  <fieldset className="min-w-0 rounded-lg border border-earth-200 bg-white p-2" disabled={disabled}>
     <legend className="px-1 text-sm">點選日期 · 已選 {selected.size} 天</legend>
     <div className="flex items-center justify-between">
       <button type="button" aria-label="上個月" className="min-h-11 min-w-11 rounded hover:bg-primary-50" onClick={() => setMonth(addTaiwanDuration(first, -1, "MONTH").slice(0, 7))}>‹</button>
@@ -40,5 +41,12 @@ export function MultiDateCalendar({ baseDate, initialMonth, dates, onChange, dis
       <span>{baseDate ? "起始日保留；再點取消，可跨月選取" : "請先選擇起始日期"}</span>
       {!!dates.length && <button type="button" className="min-h-11 shrink-0 px-2 text-primary-800" onClick={() => onChange([])}>清除其他日期</button>}
     </div>
-  </fieldset>;
+  </fieldset>
+  <div aria-label="已選排課日期" className="min-w-0 rounded-lg bg-primary-50/50 px-3 py-2 text-sm text-earth-700">
+    <p className="mb-2 font-medium text-primary-900">已選 {selected.size} 天</p>
+    <div className="flex max-h-28 flex-wrap gap-x-3 gap-y-2 overflow-y-auto min-[640px]:max-h-80 min-[640px]:flex-col">
+      {[...selected].sort().map(date => <span key={date} title={date} className="tabular-nums">{date.slice(5).replace("-", "/")}{date === baseDate && <span className="ml-1 text-xs text-earth-500">起始日</span>}</span>)}
+    </div>
+  </div>
+  </div>;
 }

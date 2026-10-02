@@ -687,6 +687,21 @@ export function CourseWorkspace({
   }
   const template = templates.find((t) => t.id === chosen);
   const scheduleLegend = <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700" aria-label="課表課型圖例">{[["團體課","bg-emerald-600"],["個別課","bg-blue-600"],["自組課","bg-yellow-600"],["體驗","bg-orange-500"],["空間租借","bg-pink-500"]].map(([label,color]) => <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${color}`} />{label}</span>)}{scheduleFiltered && <strong className="text-primary-800">僅顯示符合目前條件的課程</strong>}</div>;
+  const repeatControl = (
+    <label className="min-w-0 flex-1">
+      重複
+      <select
+        className={`${field} min-h-11`}
+        name="repeatMode"
+        value={repeatMode}
+        onChange={(e) => {setRepeatMode(e.target.value as "once" | "weekly" | "dates");setExtraDateKeys([]);}}
+      >
+        <option value="once">僅此一堂</option>
+        <option value="weekly">每週重複</option>
+        <option value="dates">指定多日</option>
+      </select>
+    </label>
+  );
   return (
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
@@ -913,7 +928,7 @@ export function CourseWorkspace({
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
                   list = (byDate.get(date) ?? []).filter(session => !session.previewFaded),
                   total = scheduleTotals(list),
-                  visibleCount = businessProfile !== "MUSIC" && total.rentals > 0 ? 1 : 2,
+                  visibleCount = 2,
                   calendarDay = calendarDays[date],
                   isClosed =
                     calendarDay?.status === "closed" ||
@@ -941,7 +956,7 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {businessProfile === "MUSIC" ? (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes}堂{total.rentals > 0 && `・租借${total.rentals}`}｜{assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span> : (total.classes > 0 || total.rentals > 0) && <div className="pointer-events-none w-full text-xs font-semibold leading-4 text-primary-900"><span className="block">{total.classes}堂 · {assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span>{total.rentals > 0 && <span className="block text-earth-600">租借 {total.rentals}</span>}</div>}
+                    {businessProfile === "MUSIC" ? (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none max-w-full truncate text-xs font-semibold text-primary-900">{total.classes}堂{total.rentals > 0 && `・租借${total.rentals}`}｜{assignedCoachFilter !== "all" ? "所屬" : ""}{total.people}人次</span> : (total.classes > 0 || total.rentals > 0) && <span className="pointer-events-none block w-full whitespace-nowrap text-[11px] font-semibold leading-4 tabular-nums text-primary-900">{total.classes}堂・{total.people}人次{total.rentals > 0 && `・租借${total.rentals}`}</span>}
                     {list.slice(0,visibleCount).map(session => {
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
@@ -2138,19 +2153,7 @@ export function CourseWorkspace({
                         {roomCapacityNotice}
                       </p>
                     )}
-                    <label className="col-span-full">
-                      重複
-                      <select
-                        className={`${field} min-h-11`}
-                        name="repeatMode"
-                        value={repeatMode}
-                        onChange={(e) => {setRepeatMode(e.target.value as "once" | "weekly" | "dates");setExtraDateKeys([]);}}
-                      >
-                        <option value="once">僅此一堂</option>
-                        <option value="weekly">每週重複</option>
-                        <option value="dates">指定多日</option>
-                      </select>
-                    </label>
+                    {!repeat && <div className="col-span-full">{repeatControl}</div>}
                     {!repeat && multipleDates && (
                       <div className="col-span-full space-y-2">
                         <MultiDateCalendar
@@ -2168,7 +2171,7 @@ export function CourseWorkspace({
                         <p className="text-xs text-earth-500">同時間、教練與空間；如有撞期，整批不會建立。</p>
                       </div>
                     )}
-                    {repeat && <WeeklyRepeatFields date={scheduleDate} disabled={pending} onChange={(weeks, weekdays) => {
+                    {repeat && <WeeklyRepeatFields repeatControl={repeatControl} date={scheduleDate} disabled={pending} onChange={(weeks, weekdays) => {
                       const form = document.getElementById("course-schedule-form");
                       if (form instanceof HTMLFormElement) previewSchedule(form, undefined, undefined, {weeks, weekdays});
                     }} />}
