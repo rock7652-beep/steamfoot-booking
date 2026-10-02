@@ -8,7 +8,7 @@ export const metadata = {
   title: "方案與價格 — 蒸管家",
   description: "蒸管家｜店務管理系統，適用於預約制門市、工作室與服務品牌。比較適合店家、價格與功能差異。",
 };
-const TRIAL_URL = "/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=pricing";
+const TRIAL_URL = "/pricing/trial";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
   "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis",
