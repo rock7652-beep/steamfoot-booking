@@ -44,7 +44,7 @@ describe("pricing and growth plan copy", () => {
   });
 
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
-    const source = readSource(path);
+    const source = readSource(path) + (path === PUBLIC_PRICING_PAGE ? readSource("src/app/pricing/pricing-offer.tsx") : "");
 
     expect(source).toContain(path === PUBLIC_PRICING_PAGE ? 'label: "健康追蹤"' : "健康評估與體態追蹤");
     expect(source).toContain("LINE 顧客入口（LIFF）");
@@ -54,7 +54,7 @@ describe("pricing and growth plan copy", () => {
   });
 
   it.each(PLAN_PAGES)("keeps the alliance plan focused on multi-store and monthly settlement on %s", (path) => {
-    const source = readSource(path);
+    const source = readSource(path) + (path === PUBLIC_PRICING_PAGE ? readSource("src/app/pricing/pricing-offer.tsx") : "");
 
     expect(source).toContain(path === PUBLIC_PRICING_PAGE ? "分店系統月費另計" : "分店串接費與系統月費另計");
     if (path === PUBLIC_PRICING_PAGE) {
