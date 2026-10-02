@@ -1,4 +1,6 @@
 "use client";
+import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
+import { courseScheduleFormFields, courseScheduleCreatedDates } from "@/lib/course-schedule-form";
 import { MultiDateCalendar } from "@/components/admin/multi-date-calendar";
 import {RentalPanel,RentalHistory,type RentalPermissions,type RentalCustomer} from "./rental-panel";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
@@ -402,8 +404,10 @@ export function CourseWorkspace({
   const [error, setError] = useState("");
   const [chosen, setChosen] = useState(templates[0]?.id ?? "");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
-  const [repeat, setRepeat] = useState(false);
-  const [multipleDates, setMultipleDates] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<"once" | "weekly" | "dates">("once");
+  const repeat = repeatMode === "weekly";
+  const multipleDates = repeatMode === "dates";
+  const [scheduleCreated, setScheduleCreated] = useState<string[] | null>(null);
   const [scheduleSummary, setScheduleSummary] = useState("");
   const [editing, setEditing] = useState<
     | { kind: "room"; value: Room }
@@ -606,19 +610,8 @@ export function CourseWorkspace({
       fields.set("roomId", scheduleSeed.roomId ?? nextTemplate.defaultRoomId ?? rooms[0]?.id ?? "");
     }
     try {
-      const occurrences = buildCourseOccurrences({
-        templateId: String(fields.get("templateId") || chosen),
-        roomId: String(fields.get("roomId") || ""),
-        coachId: String(fields.get("coachId") || ""),
-        date: String(fields.get("date") || ""),
-        time: String(fields.get("time") || ""),
-        durationMinutes: Number(fields.get("duration")),
-        capacity: Number(fields.get("capacity")),
-        requestKey,
-        repeatUntil: fields.get("repeatMode") === "weekly" ? String(fields.get("until") || "") : undefined,
-        weekdays: fields.getAll("weekday").length ? fields.getAll("weekday").map(Number) : undefined,
-        additionalDates: fields.get("repeatMode") === "dates" ? fields.getAll("additionalDates").map(String) : undefined,
-      });
+      if (fields.get("repeatMode") === "weekly" && !fields.get("until")) throw new Error("請選擇結束日期");
+      const occurrences = buildCourseOccurrences(courseScheduleFormFields(fields, {templateId: chosen, requestKey}));
       const first = occurrences[0];
       setScheduleSummary(`共 ${occurrences.length} 堂 · ${formatTWDateTime(first.startsAt)}–${formatTWDateTime(first.endsAt).slice(11)}${occurrences.length > 1 ? ` · 至 ${toLocalDateStr(occurrences[occurrences.length - 1].startsAt)}` : ""}`);
     } catch {
@@ -634,8 +627,8 @@ export function CourseWorkspace({
     setScheduleDate(seed.date ?? selectedDate);
     setChosen(templates[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
-    setRepeat(false);
-    setMultipleDates(false);
+    setRepeatMode("once");
+    setScheduleCreated(null);
     setExtraDateKeys([]);
     setScheduleSummary("");
     open("schedule");
@@ -873,12 +866,19 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
-          {(scheduleMode === "month" || businessProfile === "MUSIC") && scheduleLegend}
+          {businessProfile === "MUSIC" && scheduleLegend}
           {scheduleMode === "month" ? (
             <>
+              {businessProfile === "MUSIC" ? (
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
-                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜{assignedCoachFilter !== "all" && businessProfile !== "MUSIC" ? "所屬" : "名單"} {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
+                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜名單 {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
               </p>
+              ) : <CourseScheduleToolbar>
+                <span className="font-medium text-earth-800" aria-label="本月課表總計">
+                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜{assignedCoachFilter !== "all" ? "所屬" : "名單"} {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
+                </span>
+                <div className="ml-auto [&>div]:flex-nowrap">{scheduleLegend}</div>
+              </CourseScheduleToolbar>}
               <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
             aria-busy={pending}
@@ -1245,7 +1245,7 @@ export function CourseWorkspace({
       {panel && (
         <RightSheet presentation="centered"
           compact={!(businessProfile !== "MUSIC" && (panel === "schedule" || roomRentalHistory))}
-          maxHeight={businessProfile !== "MUSIC" && (panel === "schedule" || roomRentalHistory) ? 680 : 900}
+          maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" && (panel === "schedule" || roomRentalHistory) ? 680 : 900}
           open
           onClose={closePanel}
           width={panel === "day" ? 720 : businessProfile !== "MUSIC" ? 760 : 520}
@@ -1277,7 +1277,7 @@ export function CourseWorkspace({
                     ? "新增空間"
                     : "新增課程"
                   : panel === "schedule"
-                    ? copySource
+                    ? scheduleCreated ? "排課成功" : copySource
                       ? "複製排課"
                       : arrangement==="rental"?"新增租借":arrangement==="trial"?"新增體驗課":"新增排課"
                     : selectedDate}
@@ -1307,7 +1307,7 @@ export function CourseWorkspace({
                 {error}
               </p>
             )}
-            {notice && (
+            {notice && !scheduleCreated && (
               <p role="status" className="text-sm text-primary-700">
                 {notice}
               </p>
@@ -1425,8 +1425,8 @@ export function CourseWorkspace({
                                       onClick={() => {
                                         setCopySource(session);setScheduleDate("");setArrangement(session.isTrial?"trial":"class");
                                         setChosen(session.templateId);
-                                        setRepeat(false);
-                                        setMultipleDates(false);
+                                        setRepeatMode("once");
+                                        setScheduleCreated(null);
                                         setScheduleSummary("");
                                         setRequestKey(crypto.randomUUID());
                                         open("schedule");
@@ -1941,12 +1941,18 @@ export function CourseWorkspace({
                 }}
               />
             )}
-            {panel === "schedule" && businessProfile !== "MUSIC" && <>
+            {panel === "schedule" && scheduleCreated && <section className="space-y-3" role="status" aria-label="排課成功日期">
+              <h3 className="text-base font-semibold text-primary-900">已成功建立 {scheduleCreated.length} 堂課程</h3>
+              <p className="text-sm text-earth-600">{templates.find(item => item.id === chosen)?.name} · 以下日期已建立</p>
+              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">{scheduleCreated.map(date => <span key={date} className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-900">{date}</span>)}</div>
+              <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
+            </section>}
+            {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && <>
               <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
-            {panel === "schedule" && businessProfile !== "MUSIC" && (arrangement==="class" || arrangement==="trial") && (
+            {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
               <>
                 {!templates.length ? (
                   <>
@@ -1969,33 +1975,18 @@ export function CourseWorkspace({
                     data-course-entry
                     id="course-schedule-form"
                     onChange={updateScheduleForm}
-                    onInput={updateScheduleForm}
                     className="grid grid-cols-1 gap-x-3 gap-y-2 min-[500px]:grid-cols-6"
                     onSubmit={(e) =>
                       submit(
                         e,
                         (data) =>
                           createCourseSchedule({
-                            isTrial:arrangement==="trial",
-                            templateId: chosen,
+                            ...courseScheduleFormFields(data, {templateId: chosen, requestKey}),
+                            isTrial: arrangement === "trial",
                             sourceSessionId: copySource?.id,
-                            roomId: data.get("roomId"),
-                            coachId: data.get("coachId"),
-                            date: data.get("date"),
-                            time: data.get("time"),
-                            durationMinutes: Number(data.get("duration")),
-                            capacity: Number(data.get("capacity")),
-                            additionalDates: !repeat && multipleDates ? data.getAll("additionalDates").map(String) : undefined,
-                            repeatUntil: repeat ? data.get("until") : undefined,
-                            weekdays:
-                              repeat && data.getAll("weekday").length
-                                ? data.getAll("weekday").map(Number)
-                                : undefined,
-                            requestKey,
                           }),
                         (data) => {
-                          go(String(data.get("date")));
-                          setPanel("day");
+                          setScheduleCreated(courseScheduleCreatedDates(data, {templateId: chosen, requestKey}));
                         },
                       )
                     }
@@ -2140,8 +2131,8 @@ export function CourseWorkspace({
                       <select
                         className={`${field} min-h-11`}
                         name="repeatMode"
-                        value={repeat ? "weekly" : multipleDates ? "dates" : "once"}
-                        onChange={(e) => {setRepeat(e.target.value === "weekly");setMultipleDates(e.target.value === "dates");setExtraDateKeys([]);}}
+                        value={repeatMode}
+                        onChange={(e) => {setRepeatMode(e.target.value as "once" | "weekly" | "dates");setExtraDateKeys([]);}}
                       >
                         <option value="once">僅此一堂</option>
                         <option value="weekly">每週重複</option>
@@ -2198,10 +2189,10 @@ export function CourseWorkspace({
                         />
                       </label>
                     )}
-                    <p className="col-span-full text-sm text-earth-500">
+                    <div className="col-span-full text-sm text-earth-500">
                       {waitlistEnabled && template?.waitlistEnabled ? `候補 ${template.waitlistLimit ?? waitlistDefaultLimit} 位 · ${(template.waitlistStopMinutes ?? waitlistDefaultStopMinutes) === 0 ? "自動遞補至開課前" : `開課前 ${waitlistStopLabel(template.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}停止自動遞補`}` : "候補未開放"}
                       <details name="course-workspace-details"><summary className="inline-flex min-h-11 cursor-pointer items-center text-xs">候補規則</summary><p className="text-xs">沿用課程候補設定；停止自動遞補後保留名單。建立時檢查撞期。</p></details>
-                    </p>
+                    </div>
                   </form>
                 )}
               </>
@@ -2223,7 +2214,7 @@ export function CourseWorkspace({
               </footer>
             )}
           {panel === "inspect" && canEdit && <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3"><button className={`${primary} flex-1`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button>{editing?.kind === "template" && <button type="button" className={`${button} text-red-700`} disabled={pending} onClick={()=>{if(!window.confirm("確認刪除此課程？已有排課或方案紀錄的課程會保留，請改用下架。"))return;startTransition(async()=>{const result=await deleteUnusedCourseTemplate({id:editing.value.id});if(!result.success){setError(result.error ?? "刪除失敗");return;}setPanel(null);setEditing(null);setNotice("已刪除未使用課程");router.refresh();});}}>刪除</button>}</footer>}
-          {panel === "schedule" && businessProfile !== "MUSIC" && (arrangement==="class" || arrangement==="trial") && (
+          {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
             <footer className="shrink-0 border-t border-earth-100 bg-white p-3">
               <p className="mb-2 text-xs text-earth-700" aria-live="polite">{scheduleSummary || (copySource ? "請選擇新日期與時段" : (() => {const date = scheduleSeed.date ?? selectedDate;const time = scheduleSeed.time ?? "18:00"; const start = parseTaipeiDateTime(date,time); return start ? `共 1 堂 · ${date} ${time}–${formatTWDateTime(new Date(start.getTime() + (scheduleSeed.durationMinutes ?? template?.durationMinutes ?? 60)*60000)).slice(11)}` : "請選擇日期與時段";})())}</p>
               <button

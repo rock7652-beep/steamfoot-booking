@@ -1,4 +1,5 @@
 "use client";
+import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
 import { courseClassPresentation } from "@/lib/course-class-presentation";
 
 import React from "react";
@@ -507,6 +508,8 @@ export function CourseScheduleBoard({
 
   const hourHeight = 96;
 
+  const Toolbar = businessProfile === "MUSIC" ? "div" : CourseScheduleToolbar;
+
   // Keep the all-room list when historical sessions have no active room.
   // A room-only grid must never silently hide those sessions.
   if (mode === "week" && (activeRooms.length > 0 || activeCoaches.length > 0)) {
@@ -524,15 +527,15 @@ export function CourseScheduleBoard({
     const hours = Array.from({ length: lastHour - firstHour }, (_, index) => firstHour + index);
     return (
       <section ref={boardRef} className="space-y-1" aria-label="教室週課表">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700">
+        <Toolbar className={businessProfile === "MUSIC" ? "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-700" : undefined}>
           <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>教室視角</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{businessProfile === "MUSIC" ? "老師視角" : "教練視角"}</button></div>
           <label htmlFor="course-week-room" className="font-medium">{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "老師" : "教練"}</label>
           {weekResources.length > 1 ? <select id="course-week-room" aria-label={resourceView === "room" ? "選擇週表教室" : "選擇週表老師"} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</span>
-          {legend && <div className="ml-auto">{legend}</div>}
-        </div>
+          {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
+        </Toolbar>
         <div className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
           <div className="grid w-full" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
@@ -725,14 +728,14 @@ export function CourseScheduleBoard({
     <div className={musicDense ? "inline-flex rounded-lg border border-earth-200 bg-white p-0.5" : "inline-flex shrink-0 gap-1"} aria-label="課表資源視角">
           <button
             type="button"
-            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            className={`${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("room")}
           >
             教室視角
           </button>
           <button
             type="button"
-            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            className={`${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
             {businessProfile === "MUSIC" ? "老師視角" : "教練視角"}
@@ -743,7 +746,8 @@ export function CourseScheduleBoard({
   return (
     <section ref={boardRef} className="space-y-1" aria-label="日課表">
 
-      <div className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : "flex max-w-full items-center gap-1.5 overflow-x-auto pb-0.5"}>
+      <Toolbar className={musicDense ? "flex max-w-full flex-wrap items-center gap-2" : undefined}>
+        {!musicDense && resourceViewControls}
         {musicDense && !replica && <span className="text-sm text-earth-700">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次{dayTotals.rentals > 0 ? `｜租借 ${dayTotals.rentals}` : ""}</span>}
         {(!musicDense || quickFilter !== "all") && !replica && <div
           className={musicDense ? "flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5" : "flex shrink-0 items-center gap-0.5 whitespace-nowrap"}
@@ -785,9 +789,9 @@ export function CourseScheduleBoard({
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
         </span>}
 
-        {resourceViewControls}
+        {musicDense && resourceViewControls}
         {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
-      </div>
+      </Toolbar>
 
       {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
