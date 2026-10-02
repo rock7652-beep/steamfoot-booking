@@ -12,7 +12,7 @@
 4. 將部署的 `/exec` URL 設為網站伺服器 `TRIAL_INTAKE_WEBHOOK_URL`；將 Apps Script「專案設定 → 指令碼屬性」的 `INTAKE_SECRET` 存到 `TRIAL_INTAKE_WEBHOOK_SECRET`。密鑰不貼在聊天、申請表或 GitHub。另設 `TRIAL_INTAKE_SHEET_ID=1EANSmhtID5pPWj8_OSUvcH-1TprClsCheFDPeW9td5k`。
 5. 網站需有有效 `NEXTAUTH_URL`。重新部署後，用虛構資料確認 Sheet 寫入、新申請 Email 與同列補件 Email，再開放店家使用。
 
-Google Drive 連接器可建立總表，但不能代替網站長期串接的授權，也未提供 Apps Script 部署或 Vercel 環境變數寫入。本次程式已備妥，尚未部署 Google 接收服務、設定密鑰或實際寄送通知。
+2026-10-02：帳號持有人已執行 setupIntake，畫面確認設定完成；Google 網頁應用程式已部署。Vercel 畫面確認三項變數已存於 Production，密鑰隱藏。變數實際內容、部署存取範圍與系統寄信仍待端到端驗收，尚未實際投遞。setupIntake 使用 console.log，支援無試算表 UI 的執行情境。
 
 ## 收件行為
 

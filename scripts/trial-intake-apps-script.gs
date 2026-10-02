@@ -18,7 +18,7 @@ function setupIntake() {
   SpreadsheetApp.openById(INTAKE_SHEET_ID).setSpreadsheetTimeZone('Asia/Taipei');
   // Authorize sending once; no message is sent by setup.
   MailApp.getRemainingDailyQuota();
-  SpreadsheetApp.getUi().alert('設定完成。請在「專案設定 → 指令碼屬性」查看 INTAKE_SECRET，僅填入網站環境設定，勿貼在聊天或申請頁。');
+  console.log('設定完成。請在「專案設定 → 指令碼屬性」查看 INTAKE_SECRET，僅填入網站環境設定，勿貼在聊天或申請頁。');
 }
 
 function intakeReply(body) {

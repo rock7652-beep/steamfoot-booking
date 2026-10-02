@@ -31,6 +31,27 @@ function fixture() {
   return {rows,send,release,submit,application};
 }
 describe("Google Sheet and mail receiver", () => {
+  it("sets up without an editor UI and reuses the existing secret", () => {
+    const props = new Map<string, string>();
+    const log = vi.fn(), quota = vi.fn(), send = vi.fn();
+    const range = {setValues: vi.fn(), setNumberFormat: vi.fn(), createFilter: vi.fn(), setBackground: () => ({setFontColor: () => ({setFontWeight: vi.fn()})})};
+    const sheet = {getRange: () => range, setFrozenRows: vi.fn(), getFilter: () => true};
+    const setup = runInNewContext(source + "\nsetupIntake;", {
+      console: {log},
+      PropertiesService: {getScriptProperties: () => ({getProperty: (key: string) => props.get(key), setProperty: (key: string, value: string) => props.set(key, value)})},
+      Utilities: {getUuid: () => "01234567-89ab-cdef-0123-456789abcdef"},
+      SpreadsheetApp: {openById: () => ({getSheetByName: () => sheet, setSpreadsheetTimeZone: vi.fn()})},
+      MailApp: {getRemainingDailyQuota: quota, sendEmail: send},
+    });
+    setup();
+    expect(props.get("INTAKE_SECRET")).toHaveLength(64);
+    const secret = props.get("INTAKE_SECRET");
+    setup();
+    expect(props.get("INTAKE_SECRET")).toBe(secret);
+    expect(quota).toHaveBeenCalledTimes(2);
+    expect(send).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledTimes(2);
+  });
   it("adds one row and sends directly to the official mailbox", () => {
     const f = fixture();
     expect(f.submit()).toMatchObject({ok:true,sheet:"SAVED",mail:"SENT",revision:1});
