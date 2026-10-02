@@ -1,3 +1,5 @@
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { notFound } from "next/navigation";
@@ -30,6 +32,7 @@ export default async function DevicePreviewPage({ searchParams }: DevicePreviewP
   }
 
   const storeId = await getActiveStoreForRead(user);
+  if (storeId && !await hasStoreFeature(storeId, FEATURES.DEVICE_PREVIEW)) notFound();
   const moduleId = storeId ? await getStoreIndustryModule(storeId) : "steamfoot";
   return <DevicePreview moduleId={moduleId} />;
 }

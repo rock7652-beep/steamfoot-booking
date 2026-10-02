@@ -373,6 +373,8 @@ enum IndustryModule {
 enum StoreFeatureEntitlementStatus {
   ENABLED
   DISABLED
+  LOCKED
+  HIDDEN
 }
 
 enum StoreFeatureEntitlementSource {

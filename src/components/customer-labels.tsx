@@ -1,4 +1,7 @@
 "use client";
+
+import { FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
+import { FEATURES } from "@/lib/feature-flags";
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { loadCustomerLabels, setCustomerLabel } from "@/server/actions/customer-labels";
 import { EMPTY_LABELS, labelColor, type LabelSnapshot } from "@/lib/customer-labels";
@@ -100,6 +103,9 @@ export function CustomerLabelsSeed({initial,children}:{initial:LabelSnapshot;chi
   return <Context.Provider value={{...ctx,snapshot:seeded?ctx.snapshot:{...ctx.snapshot,assignments:{...initial.assignments,...ctx.snapshot.assignments}}}}>{children}</Context.Provider>;
 }
 export function CustomerLabelsSettings() {
+  return <FeatureEntry feature={FEATURES.CUSTOMER_LABELS} label="顧客標籤"><CustomerLabelsSettingsContent /></FeatureEntry>;
+}
+function CustomerLabelsSettingsContent() {
   const ctx=useContext(Context);
   if(!ctx?.snapshot.available)return null;
   return <section aria-label="顧客標籤設定" className="min-w-0 border-b border-earth-100 py-5">
@@ -110,6 +116,8 @@ export function CustomerLabelsSettings() {
 }
 export function CustomerLabelsSettingsLink() {
   const ctx=useContext(Context),pathname=usePathname();
+  const state=useFeaturePresentation(FEATURES.CUSTOMER_LABELS);
+  if(state === "HIDDEN" || state === "LOCKED")return null;
   if(!ctx?.snapshot.available)return null;
   return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings/customer-labels"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
 }

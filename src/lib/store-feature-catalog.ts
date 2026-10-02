@@ -41,6 +41,7 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
+  { key: FEATURES.DEVICE_PREVIEW, label: "前台與裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
   { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
   {
     // Digital Butler is intentionally HQ-entitlement-only: no plan grants it
@@ -180,18 +181,18 @@ export function resolveStoreFeatureDisplayState(
     };
   }
 
-  if (resolution.source === "DISABLED") {
+  if (resolution.source === "HIDDEN" || resolution.source === "LOCKED" || resolution.source === "DISABLED") {
     return {
       effectiveAllowed: false,
-      statusLabel: "強制關閉",
-      statusClass: "bg-red-50 text-red-700",
+      statusLabel: resolution.source === "HIDDEN" ? "隱藏" : "鎖定",
+      statusClass: "bg-earth-100 text-earth-600",
       sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
     };
   }
 
   return {
     effectiveAllowed: resolution.enabled,
-    statusLabel: "可用",
+    statusLabel: "啟用",
     statusClass: "bg-green-50 text-green-700",
     sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
   };

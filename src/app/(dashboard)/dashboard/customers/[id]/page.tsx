@@ -1,3 +1,4 @@
+import { FeatureEntry } from "@/components/feature-presentation";
 import { CustomerLabels } from "@/components/customer-labels";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
 import { getCustomerDetailForUser } from "@/server/queries/customer";
@@ -909,7 +910,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </SideCard>
 
 </CustomerDetailSection>
-{healthAssessmentEnabled && <CustomerDetailSection enabled={false} title="健康紀錄" >
+<FeatureEntry feature={FEATURES.AI_HEALTH_SUMMARY} label="健康紀錄">{healthAssessmentEnabled && <CustomerDetailSection enabled={false} title="健康紀錄" >
           {simplified && <Link href={`/dashboard/customers/${id}/health`} className="inline-flex min-h-11 items-center text-base text-primary-700">查看健康紀錄與曲線 →</Link>}
           {healthAssessmentEnabled && latestHealthRecord && !simplified && (
             <CustomerHealthOverviewCard
@@ -918,7 +919,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             />
           )}
 
-</CustomerDetailSection>}
+</CustomerDetailSection>}</FeatureEntry>
           {/* Basic info — 緊湊兩欄 */}
 <CustomerDetailSection enabled={false} title="完整基本資料" >
           <CustomerBasicInfo

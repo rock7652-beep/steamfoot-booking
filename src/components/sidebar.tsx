@@ -1,5 +1,7 @@
 "use client";
 
+import type { FeaturePresentationMap } from "@/components/feature-presentation";
+
 import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
@@ -178,6 +180,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
   },
   {
     href: "/dashboard/device-preview",
+    requiredFeature: FEATURES.DEVICE_PREVIEW,
     label: "裝置預覽",
     permission: "booking.read",
     icon: (
@@ -485,6 +488,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/device-preview",
+    requiredFeature: FEATURES.DEVICE_PREVIEW,
         label: "裝置預覽",
         permission: "booking.read",
         icon: (
@@ -593,6 +597,7 @@ interface DashboardShellProps {
   pricingPlan: PricingPlan;
   /** Server-resolved effective entitlements for features migrated off plan-only gating. */
   effectiveFeatures?: Partial<Record<FeatureKey, boolean>>;
+  featureStates?: FeaturePresentationMap;
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
@@ -624,6 +629,7 @@ export default function DashboardShell({
   permissions,
   pricingPlan,
   effectiveFeatures = {},
+  featureStates = {},
   userName,
   roleLabel,
   logoutButton,
@@ -738,7 +744,7 @@ export default function DashboardShell({
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: undefined },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: FEATURES.BASIC_REPORTS },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,
       ] }, { id: "course-setup", label: "店務設定", defaultOpen: true, icon: <></>, items: [
@@ -796,6 +802,7 @@ export default function DashboardShell({
             !(isIframePreview && item.href === "/dashboard/device-preview"),
         )
         .map((item) => {
+        if (item.requiredFeature && featureStates[item.requiredFeature] === "HIDDEN") return { item, visible: false, locked: false };
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };
@@ -826,7 +833,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
