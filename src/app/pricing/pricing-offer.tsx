@@ -83,7 +83,7 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
       <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>
     </div>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-      {[{ name: "工具功能", features: "LINE 自動提醒／資料匯出／現金抽屜", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", features: "顧客經營／健康追蹤／月結管理／分析", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className="rounded-xl border border-[#153B31]/15 bg-white p-4">
+      {[{ name: "工具功能", features: "LINE 自動提醒／資料匯出／現金抽屜", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", features: "顧客經營／健康追蹤／月結管理／課程候補／分析", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className="rounded-xl border border-[#153B31]/15 bg-white p-4">
         <h3 className="text-lg font-semibold">{item.name}</h3>
         <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.features}・各項分別選購</p>
         {offer.active && <p className="mt-1 text-sm text-[#64756D] line-through">原價每項 NT${money(item.original)}／月</p>}
