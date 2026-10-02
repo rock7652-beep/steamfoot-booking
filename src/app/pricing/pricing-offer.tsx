@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
+import { getPublicAddonOffer, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
 import { MarketingIcon } from "./marketing-icon";
 
-function useOffer(initialNow: number) {
+function useNow(initialNow: number) {
   const [now, setNow] = useState(initialNow);
   useEffect(() => {
     const update = () => setNow(Date.now());
@@ -17,12 +17,12 @@ function useOffer(initialNow: number) {
       document.removeEventListener("visibilitychange", update);
     };
   }, []);
-  return getPublicPricingOffer(now);
+  return now;
 }
 const money = (amount: number) => amount.toLocaleString("zh-TW");
 
 export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; trialUrl: string }) {
-  const offer = useOffer(initialNow);
+  const offer = getPublicPricingOffer(useNow(initialNow));
   return <>
     {offer.active && <section aria-labelledby="yearend-offer" className="mb-4 overflow-hidden rounded-2xl bg-[#123E32] px-5 py-4 text-white sm:px-6">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
@@ -63,6 +63,37 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
   </>;
 }
 export function PricingOfferTerms({ initialNow }: { initialNow: number }) {
-  const offer = useOffer(initialNow);
+  const offer = getPublicPricingOffer(useNow(initialNow));
   return <>{offer.active ? "2026/12/31 前完成付款，主方案年繳 12 個月＋贈送 2 個月，自正式啟用日起享 14 個月。2027/01/01 起取消贈送 2 個月，年繳金額不變，使用期間為 12 個月。" : "主方案採一次年繳，自正式啟用日起使用 12 個月；年底贈送 2 個月活動已結束，年繳金額不變。"}</>;
+}
+
+export function AddonOffer({ initialNow }: { initialNow: number }) {
+  const offer = getPublicAddonOffer(useNow(initialNow));
+  return <div className="mt-4">
+    {offer.active && <div className="rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] p-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div><p className="text-lg font-semibold text-[#59441E]">雙十店務升級優惠</p><p className="mt-1 text-base text-[#59441E]">十月限定・加購每項每月省 NT$200～300</p></div>
+        <div><p className="mb-1 text-sm text-[#59441E]">加購優惠倒數</p><div role="timer" aria-label="距離雙十加購付款優惠截止" aria-live="off" className="flex gap-2">
+          {offer.countdown.map((value, index) => <div key={index} className="rounded-lg bg-white px-3 py-2 text-center"><span className="block text-2xl font-semibold tabular-nums">{String(value).padStart(2, "0")}</span><span className="text-sm">{["天", "時", "分", "秒"][index]}</span></div>)}
+        </div></div>
+      </div>
+      <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>
+    </div>}
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {[{ name: "工具功能", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className="rounded-xl border border-[#153B31]/15 bg-white p-4">
+        <h3 className="text-lg font-semibold">{item.name}</h3>
+        {offer.active && <p className="mt-1 text-sm text-[#64756D] line-through">原價每項 NT${money(item.original)}／月</p>}
+        <p className="mt-2 text-base">{offer.active ? "雙十優惠" : "每項月費"} <span className="text-3xl font-semibold">NT${money(item.monthly)}</span>／月</p>
+        <p className="mt-2 text-base font-semibold">每項年繳 NT${money(item.monthly * 12)}・一次繳清</p>
+        <p className="mt-1 text-sm text-[#4C6259]">{offer.months === 14 ? "12 個月＋贈送 2 個月，使用 14 個月" : "使用 12 個月"}</p>
+      </article>)}
+    </div>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">加購採年繳，與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
+  </div>;
+}
+
+export function AddonRate({ initialNow, original }: { initialNow: number; original: number }) {
+  const offer = getPublicAddonOffer(useNow(initialNow));
+  const monthly = original === 500 ? offer.toolMonthly : offer.businessMonthly;
+  return <>{offer.active && <span className="mr-2 line-through">原價 NT${original}／月</span>}<span className="font-semibold">{offer.active ? "雙十優惠" : "額外加購"}每項 NT${monthly}／月</span><span className="block">年繳 NT${money(monthly * 12)}，使用 {offer.months} 個月。{offer.active && "10/31 前完成付款，首次購買期間適用；續約恢復原價。"}</span><a href="/pricing#addons" className="underline underline-offset-4">查看加購費用與優惠說明 →</a></>;
 }

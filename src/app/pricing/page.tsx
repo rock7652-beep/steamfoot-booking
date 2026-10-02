@@ -1,7 +1,7 @@
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { PricingOffer, PricingOfferTerms } from "./pricing-offer";
+import { AddonOffer, PricingOffer, PricingOfferTerms } from "./pricing-offer";
 import { PUBLIC_PRICING_PLANS as plans } from "@/lib/public-pricing-offer";
 
 export const dynamic = "force-dynamic";
@@ -98,10 +98,7 @@ export default async function PricingPage() {
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <p className="rounded-xl border border-[#153B31]/15 bg-white p-4 text-base"><span className="font-semibold">工具功能</span><span className="ml-3">每項 NT$500／月</span></p>
-          <p className="rounded-xl border border-[#153B31]/15 bg-white p-4 text-base"><span className="font-semibold">經營功能</span><span className="ml-3">每項 NT$800／月</span></p>
-        </div>
+        <AddonOffer initialNow={initialNow} />
         <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或使用任選名額的功能不另收費，超出名額才加購。選定後由總部協助開通。</p>
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
