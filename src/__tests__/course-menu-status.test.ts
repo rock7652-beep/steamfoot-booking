@@ -11,7 +11,8 @@ let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 it("retains a status confirmation when outside pointer closes its parent menu",async()=>{
- await act(async()=>root.render(React.createElement(ExclusiveMenu,{label:"方案操作",triggerText:"⋯",quiet:true,children:React.createElement(CourseStatusButton,{quiet:true,kind:"plan",id:"p",active:true,onApplied:()=>{}})})));
+ const menuProps={label:"方案操作",triggerText:"⋯",quiet:true,children:React.createElement(CourseStatusButton,{quiet:true,kind:"plan",id:"p",active:true,onApplied:()=>{}})};
+ await act(async()=>root.render(React.createElement(ExclusiveMenu,menuProps)));
  await act(async()=>host.querySelector("button")!.click());
  await act(async()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="下架")!.click());
  expect(document.querySelector('[role="dialog"]')).not.toBeNull();

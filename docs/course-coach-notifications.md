@@ -15,7 +15,7 @@
 
 發送前持久化重試 UUID、收件者及 Flex；重試沿用原內容，23 小時後停止自動重送。開關、店家提醒功能、有效人員與會員綁定、LINE 路由及共用提醒額度均需確認。未綁定、隔離預覽、無效事件及錯誤都保留紀錄。隔離預覽在任何 LINE 收件者探測與發送之前跳過。
 
-資料表啟用 RLS，匿名／會員不得讀寫，僅伺服器可存取。遷移 `supabase/migrations/20261002093141_course_coach_notifications.sql` 已套用隔離測試資料庫，正式資料庫未套用。正式啟用前需先部署此遷移並驗收真實 LINE 送達；本次不向任何真實收件人測試。
+資料表啟用 RLS，匿名／會員不得讀寫，僅伺服器可存取。遷移 `supabase/migrations/20261002093141_course_coach_notifications.sql` 已套用隔離測試資料庫，並於 2026-10-02 透過 `shared_fitness_ui_release_20261002` 套用正式資料庫（包含共用標籤、教師缺席返還、空間租借與權限強化）。教練提醒預設關閉；正式啟用前仍需驗收真實 LINE 送達，本次未向真實收件人測試，也未複製測試學員至正式資料庫。
 
 Cron `/api/cron/course-coach-notifications` 需 CRON_SECRET，記錄 CronRunLog；每日 21:00–21:10 容許重啟補建同一摘要，唯一 ID 防重複。Vercel Cron 在正式部署運行，Preview 事件由操作後的 `after()` 處理，未自動執行每日 cron。
 

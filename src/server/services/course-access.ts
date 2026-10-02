@@ -20,7 +20,7 @@ export async function courseManager(permission: PermissionCode) {
   const permissionMs = Date.now() - startedAt;
   const storeId = await resolveWriteStoreId(user);
   const storeMs = Date.now() - startedAt - permissionMs;
-  const [_, staff] = await Promise.all([
+  const [, staff] = await Promise.all([
     requireCourseStore(storeId),
     user.role === "ADMIN"
       ? Promise.resolve(true)

@@ -672,7 +672,7 @@ export default function DashboardShell({
     const hqMatch = rawPathname.match(/^(\/hq)\/dashboard/);
     if (hqMatch) return hqMatch[1];
     return "";
-  }, [rawPathname, routeQuery]);
+  }, [rawPathname]);
   const pathname = dashboardPrefix
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
