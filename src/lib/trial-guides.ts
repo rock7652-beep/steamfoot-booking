@@ -91,11 +91,11 @@ export const trialGuides: Record<string, TrialGuide> = {
       },
       {
         title: "Provider → Roles → Invite by email",
-        text: "邀請 rock7652@gmail.com，角色選 Admin。Provider 權限不會自動套用到既有 Channel。",
+        text: "輸入 rock7652@gmail.com，角色選 Admin，按「Send invitation」。Provider 權限不會自動套用到既有 Channel。",
       },
       {
         title: "既有 Channel 也需邀請",
-        text: "分別進入店家的 Messaging API 與 LINE Login Channel，點 Roles → Invite by email，邀請同一 Email，角色選 Admin。沒有 Channel 時交由蒸管家協助。",
+        text: "分別進入店家的 Messaging API 與 LINE Login Channel，點 Roles → Invite by email，輸入同一 Email、角色選 Admin，再按「Send invitation」。沒有 Channel 時交由蒸管家協助。",
         image: "/pricing/trial-guides/developers-roles.webp",
         highlight: [10, 2, 16, 8],
       },
