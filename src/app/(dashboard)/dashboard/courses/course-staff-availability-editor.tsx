@@ -4,7 +4,7 @@ import {toast} from "sonner";
 
 import {fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CourseConflicts, type ConflictItem } from "@/components/admin/course-conflicts";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   getCourseStaffAvailability,
   saveCourseStaffAvailabilityException,
@@ -41,6 +41,9 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
   const [exceptionPeriods,setExceptionPeriods]=useState<Period[]>([{openTime:"09:00",closeTime:"12:00"}]);
   const [exceptions,setExceptions]=useState<{date:string;type:string;reason:string;periods:Period[]}[]>([]);
   const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
+  const [retained,setRetained]=useState<ConflictItem[]>([]);
+  const outcomeRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(conflicts.length||retained.length)outcomeRef.current?.scrollIntoView?.({block:"nearest"});},[conflicts,retained]);
   const [message,setMessage]=useState("");
   const [pending,start]=useTransition();
 
@@ -68,12 +71,12 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
     }
   }
   function saveWeekly(){
-    setMessage("");setConflicts([]);
+    setMessage("");setConflicts([]);setRetained([]);
     start(async()=>{
       try{
         const result=await saveCourseStaffWeeklyAvailability({staffId,inheritStoreHours:inherit,days:inherit?[]:days});
-        if(!result.success)setConflicts(result.conflicts??[]);else setDirtyWeekly(false);
-        feedback(result.success?"可授課時間已儲存":result.error??"儲存失敗",result.success);
+        if(!result.success)setConflicts(result.conflicts??[]);else {setDirtyWeekly(false);setRetained(("retainedSessions" in result?result.retainedSessions:[]));}
+        feedback(result.success?"授課時間已更新，已排課程不受影響":result.error??"儲存失敗",result.success);
       }catch{
         feedback("儲存失敗，請重試；修改內容已保留");
       }
@@ -103,7 +106,10 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
   }
 
   return <section className={fitness?"space-y-3":"space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3"}>
-    <CourseConflicts items={conflicts}/>
+    <div ref={outcomeRef} tabIndex={-1}>
+      {!!conflicts.length&&<><p className="text-sm text-amber-900">尚未儲存，請先處理下列課程</p><CourseConflicts items={conflicts}/></>}
+      {!!retained.length&&<><p role="status" className="text-sm text-primary-800">已更新；以下 {retained.length} 堂超出新時段，仍保留原安排。</p><CourseConflicts items={retained} label="保留的已排課程" compact/></>}
+    </div>
     <div>
       <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
     </div>

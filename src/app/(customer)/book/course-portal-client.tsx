@@ -190,11 +190,11 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" | "plans" }) {
+export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [role, setRole] = useState(p.memberEnabled ? "member" : "coach"),
+  const [role, setRole] = useState(p.initialCoach && p.hasWork ? "coach" : p.memberEnabled ? "member" : "coach"),
     [page, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),

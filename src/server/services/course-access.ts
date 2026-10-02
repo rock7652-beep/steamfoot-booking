@@ -1,4 +1,5 @@
 import "server-only";
+import {kickCoachNotifications} from "./course-coach-notification-kick";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { requireCourseStore } from "@/lib/industry-module-server";
@@ -120,11 +121,13 @@ export async function courseTransaction<T>(
   storeId: string,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
 ) {
-  return coursePrisma.$transaction(
+  const result=await coursePrisma.$transaction(
     async (tx) => {
       await lockCourseStore(tx, storeId);
       return work(tx);
     },
     { timeout: 15000 },
   );
+  kickCoachNotifications(storeId);
+  return result;
 }

@@ -1,4 +1,5 @@
 "use server";
+import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { assertMusicCourseAvailability, assertMusicCourseDuration } from "@/server/services/course-availability";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
@@ -44,7 +45,7 @@ export async function scheduleTeacherMakeup(input: unknown) {
       await tx.courseBooking.createMany({data:source.bookings.map(booking=>({storeId,sessionId:session.id,cardId:null,bookingKind:"TEACHER_MAKEUP",customerId:booking.customerId,operatorUserId:user.id,operatorCustomerId:null,operatorName:user.name??"店長",customerName:booking.customerName,pointCost:0,status:"RESERVED",notes:`原課 ${formatTWDateTime(source.startsAt)} 老師曠課補課`,requestKey:`teacher-makeup:${source.id}:${booking.customerId}`}))});
       return session.id;
     });
-    revalidatePath("/dashboard/courses");revalidatePath("/dashboard");return {success:true as const,sessionId:created};
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/dashboard");return {success:true as const,sessionId:created};
   }catch(error){return handleCourseActionError(error);}
 }
 
@@ -141,7 +142,7 @@ export async function updateCourseRoom(input: unknown) {
       const result = await tx.courseRoom.updateMany({where:{id,storeId},data:fields});
       if (!result.count) throw new AppError("NOT_FOUND","找不到本店教室");
     });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -176,7 +177,7 @@ export async function updateCourseTemplate(input: unknown) {
     });
     if (!result.count)
       throw new AppError("VALIDATION", "找不到本店課程，請重新整理");
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -204,7 +205,7 @@ export async function deleteUnusedCourseTemplate(input: unknown) {
       await tx.courseTemplate.delete({where:{id,storeId}});
     });
     await (await import("@/server/services/operation-audit")).recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseTemplate",targetId:id,action:"DELETE",summary:"刪除未使用課程"});
-    revalidatePath("/dashboard/courses");revalidatePath("/book");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/book");
     return {success:true as const};
   }catch(error){return handleCourseActionError(error);}
 }
@@ -290,7 +291,8 @@ export async function updateCourseSession(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
           );
         await assertCourseSessionsFitHours(tx,storeId,[range]);
-        await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
+        if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
+          await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
         await tx.courseSession.update({
           where: { id: session.id, storeId },
@@ -309,7 +311,7 @@ export async function updateCourseSession(input: unknown) {
       { timeout: 15000 },
     );
     if (capacityIncreased) scheduleCapacityWaitlistPromotion(storeId, [capacityIncreased], user);
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -339,7 +341,7 @@ export async function createCourseRoom(input: unknown) {
       data: { name, category, capacity, details, equipment, location, storeId, rentalEnabled, rentalHourlyRate, rentalBufferMinutes },
       select: { id: true, name: true },
     });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     return { success: true as const, data: room };
   } catch (error) {
@@ -362,7 +364,7 @@ export async function createCourseTemplate(input: unknown) {
     if (data.defaultRoomId && !room)
       throw new AppError("VALIDATION", "請選擇本店可使用的教室");
     await coursePrisma.courseTemplate.create({ data: { ...data, storeId } });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     return { success: true as const };
   } catch (error) {
@@ -533,7 +535,7 @@ export async function createCourseSchedule(input: unknown) {
       },
       { timeout: 15000 },
     );
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     const firstSession = await coursePrisma.courseSession.findFirst({
       where: { storeId, requestKey: data.requestKey, cancelledAt: null },
@@ -723,7 +725,7 @@ export async function moveCourseSessions(input: unknown) {
       return { count: changes.length };
     });
 
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/book");
     return { success: true as const, data: result };
@@ -764,7 +766,7 @@ export async function setCourseCatalogStatus(input: unknown) {
       if (!result.count)
         throw new AppError("NOT_FOUND", "找不到本店資料，請重新整理");
     });
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
@@ -959,7 +961,7 @@ export async function updateCourseSeries(input: unknown) {
           );
       }
       await assertCourseSessionsFitHours(tx,storeId,changes);
-      await assertMusicCourseAvailability(tx,storeId,d.coachId,changes);
+      await assertMusicCourseAvailability(tx,storeId,d.coachId,changes.filter(change=>change.session.coachId!==d.coachId||+change.session.startsAt!==+change.startsAt||+change.session.endsAt!==+change.endsAt));
       await assertCourseDutyCoverage(tx,storeId,changes.map(s=>({...s,coachId:d.coachId})));
       // Exclusion constraints are immediate. Temporarily release only these
       // rows inside the same transaction; other writers use the store lock.
@@ -988,7 +990,7 @@ export async function updateCourseSeries(input: unknown) {
     });
     if (capacityIncreasedSessionIds.length)
       scheduleCapacityWaitlistPromotion(storeId, capacityIncreasedSessionIds, user);
-    revalidatePath("/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/book");
     return { success: true as const };
@@ -1007,7 +1009,7 @@ export async function batchCourseTemplates(input: unknown) {
       if (await tx.courseTemplate.count({where:{storeId,id:{in:ids}}})!==ids.length) throw new AppError("FORBIDDEN","包含非本店課程，整批未修改");
       await tx.courseTemplate.updateMany({where:{storeId,id:{in:ids}},data:{...(d.category!==undefined?{category:d.category}:{}),...(d.visibility?{visibility:d.visibility,isActive:d.visibility!=="OFF"}:{})}});
     });
-    revalidatePath("/dashboard/courses");revalidatePath("/book");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/book");
     return {success:true as const};
   } catch(e){return handleCourseActionError(e);}
 }

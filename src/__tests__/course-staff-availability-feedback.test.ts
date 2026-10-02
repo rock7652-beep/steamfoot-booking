@@ -15,7 +15,7 @@ it("shows a success toast and clears the saved draft guard",async()=>{
  await act(async()=>button("設為休息").click());
  m.save.mockResolvedValue({success:true});
  await act(async()=>button("儲存時間").click());
- expect(m.success).toHaveBeenCalledWith("可授課時間已儲存");
+ expect(m.success).toHaveBeenCalledWith("授課時間已更新，已排課程不受影響");
  expect(m.guard).toHaveBeenLastCalledWith({dirty:false,pending:false});
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({days:expect.arrayContaining([{dayOfWeek:0,periods:[]}])}));
 });
@@ -36,4 +36,13 @@ it("shows pending text, then a connection failure without discarding edits",asyn
  expect(m.error).toHaveBeenCalledWith("儲存失敗，請重試；修改內容已保留");
  expect(m.guard).toHaveBeenLastCalledWith({dirty:true,pending:false});
  expect(button("開放授課")).toBeTruthy();
+});
+
+it("keeps affected existing classes visible after a successful weekly save",async()=>{
+ m.save.mockResolvedValue({success:true,retainedSessions:[{id:"lesson",name:"舊課",startsAt:"2026-10-03T10:00:00Z",endsAt:"2026-10-03T11:00:00Z",capacity:3}]});
+ await act(async()=>button("設為休息").click());
+ await act(async()=>button("儲存時間").click());
+ expect(host.textContent).toContain("以下 1 堂超出新時段，仍保留原安排");
+ expect(host.textContent).toContain("舊課");
+ expect(m.guard).toHaveBeenLastCalledWith({dirty:false,pending:false});
 });

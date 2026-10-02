@@ -28,13 +28,13 @@ export async function assertMusicCourseAvailability(
   staffId:string,
   sessions:SessionRange[],
 ) {
-  if(!(await isMusicCourseStore(tx,storeId))) return;
+  const music=await isMusicCourseStore(tx,storeId);
 
   for(const session of sessions) {
     const duration=Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000);
-    await assertMusicCourseDuration(tx,storeId,duration);
+    if(music) await assertMusicCourseDuration(tx,storeId,duration);
     const start=formatTWDateTime(session.startsAt).slice(11);
-    if(!start.endsWith(":00")&&!start.endsWith(":30")) {
+    if(music&&!start.endsWith(":00")&&!start.endsWith(":30")) {
       throw new AppError("VALIDATION","音樂教室課程請從整點或半點開始");
     }
     const date=toLocalDateStr(session.startsAt);
@@ -54,7 +54,7 @@ export async function assertMusicCourseAvailability(
       WHERE "storeId"=${storeId} AND "staffId"=${staffId}`)[0]?.count>0;
 
     if(exception[0]?.type==="UNAVAILABLE") {
-      throw new AppError("VALIDATION",`${date} 老師設定為不可授課，本堂尚未建立`);
+      throw new AppError("VALIDATION",`${date} 授課人員設定為不可授課，本堂尚未建立`);
     }
     let periods=exception[0]?.type==="CUSTOM"
       ? normalizeAvailabilityPeriods(exception[0].segments)
@@ -64,14 +64,13 @@ export async function assertMusicCourseAvailability(
     if(!periods&&hasCustomWeekly) periods=[];
     // No teacher-specific rows means "inherit store hours"; store-hours validation runs separately.
     if(periods&&!periodContains(periods,start,duration)) {
-      throw new AppError("VALIDATION",`${date} ${start} 不在老師可授課時間內，本堂尚未建立`);
+      throw new AppError("VALIDATION",`${date} ${start} 不在授課人員可授課時間內，本堂尚未建立`);
     }
   }
 }
 
-/** Called after availability changes inside the same Store lock as scheduling.
- * Throwing rolls back the settings; existing sessions are never moved or cancelled. */
-export async function assertExistingTeacherAvailability(tx:Reader,storeId:string,staffId:string) {
+/** Read affected lessons under the scheduling lock; weekly changes preserve them. */
+export async function listOutsideTeacherAvailability(tx:Reader,storeId:string,staffId:string) {
   const [sessions,weekly,exceptions]=await Promise.all([
     tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;endsAt:Date;capacity:number}>>`
       SELECT id,"nameSnapshot" AS name,"startsAt","endsAt",capacity FROM "CourseSession"
@@ -90,5 +89,11 @@ export async function assertExistingTeacherAvailability(tx:Reader,storeId:string
       :weekly.length?normalizeAvailabilityPeriods(weekly.find(row=>row.dayOfWeek===day)?.segments):null;
     return periods!==null && !periodContains(periods,formatTWDateTime(session.startsAt).slice(11),(+session.endsAt-+session.startsAt)/60000);
   });
-  if(conflicts.length)throw new ResourceConflict("新授課時間與既有課程衝突，尚未儲存；請先調課或保留原授課時間",conflicts.map(row=>({...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString()})));
+  return conflicts.map(row=>({...row,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString()}));
+}
+
+/** Single-date leave still needs explicit course handling, unlike weekly working hours. */
+export async function assertExistingTeacherAvailability(tx:Reader,storeId:string,staffId:string,date?:string) {
+ const conflicts=(await listOutsideTeacherAvailability(tx,storeId,staffId)).filter(row=>!date||toLocalDateStr(new Date(row.startsAt))===date);
+ if(conflicts.length)throw new ResourceConflict("已有課程與設定時間衝突，尚未儲存；請先處理下列課程",conflicts);
 }

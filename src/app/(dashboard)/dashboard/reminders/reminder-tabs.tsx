@@ -9,12 +9,14 @@ export function ReminderTabs({
   storeId,
   baseHref = "/dashboard/reminders",
   customerOnly = false,
+  coach = false,
 }: {
   active: string;
   explicit: boolean;
   storeId: string;
   baseHref?: string;
   customerOnly?: boolean;
+  coach?: boolean;
 }) {
   const router = useRouter();
   const panelNavigate = useSettingsPanelNavigation();
@@ -28,17 +30,18 @@ export function ReminderTabs({
       const saved = localStorage.getItem(storageKey);
       if (
         saved &&
-        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs"]).includes(saved) &&
+        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs", ...(coach?["coach"]:[])]).includes(saved) &&
         saved !== active
       )
         if (panelNavigate) panelNavigate(`${baseHref}?tab=${saved}`); else router.replace(`?tab=${saved}`);
     } catch {}
-  }, [active, explicit, router, storageKey, customerOnly, panelNavigate, baseHref]);
+  }, [active, explicit, router, storageKey, customerOnly, coach, panelNavigate, baseHref]);
   return (
     <nav aria-label="提醒管理分頁" className="flex border-b border-earth-200">
       {[
         { key: "manager", label: "店長通知" },
         { key: "customer", label: "顧客提醒" },
+        ...(coach?[{key:"coach",label:"教練／老師"}]:[]),
         { key: "logs", label: "發送紀錄" },
       ].filter(t => !customerOnly || t.key !== "manager").map((t) => (
         <DashboardLink
