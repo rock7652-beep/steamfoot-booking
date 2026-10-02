@@ -1,4 +1,5 @@
 "use client";
+import { WeeklyRepeatFields } from "@/components/admin/weekly-repeat-fields";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
 import { courseScheduleFormFields, courseScheduleCreatedDates } from "@/lib/course-schedule-form";
 import { MultiDateCalendar } from "@/components/admin/multi-date-calendar";
@@ -409,6 +410,7 @@ export function CourseWorkspace({
   const multipleDates = repeatMode === "dates";
   const [scheduleCreated, setScheduleCreated] = useState<string[] | null>(null);
   const [scheduleSummary, setScheduleSummary] = useState("");
+  const [scheduleValidationError, setScheduleValidationError] = useState("");
   const [editing, setEditing] = useState<
     | { kind: "room"; value: Room }
     | { kind: "template"; value: Template }
@@ -595,11 +597,17 @@ export function CourseWorkspace({
   function updateScheduleForm(e: FormEvent<HTMLFormElement>) {
     previewSchedule(e.currentTarget, e.target);
   }
-  function previewSchedule(form: HTMLFormElement, target?: EventTarget | null, dates?: string[]) {
+  function previewSchedule(form: HTMLFormElement, target?: EventTarget | null, dates?: string[], weekly?: {weeks:string;weekdays:number[]}) {
     const fields = new FormData(form);
     if (dates) {
       fields.delete("additionalDates");
       dates.forEach(date => fields.append("additionalDates", date));
+    }
+    if (fields.get("repeatMode") === "weekly" && !fields.has("repeatWeeks")) fields.set("repeatWeeks", "1");
+    if (weekly) {
+      fields.set("repeatWeeks", weekly.weeks);
+      fields.delete("weekday");
+      weekly.weekdays.forEach(day => fields.append("weekday", String(day)));
     }
     const templateChanged = target instanceof HTMLSelectElement && target.name === "templateId";
     const nextTemplate = templates.find(item => item.id === fields.get("templateId"));
@@ -610,12 +618,14 @@ export function CourseWorkspace({
       fields.set("roomId", scheduleSeed.roomId ?? nextTemplate.defaultRoomId ?? rooms[0]?.id ?? "");
     }
     try {
-      if (fields.get("repeatMode") === "weekly" && !fields.get("until")) throw new Error("請選擇結束日期");
       const occurrences = buildCourseOccurrences(courseScheduleFormFields(fields, {templateId: chosen, requestKey}));
       const first = occurrences[0];
+      setScheduleValidationError("");
       setScheduleSummary(`共 ${occurrences.length} 堂 · ${formatTWDateTime(first.startsAt)}–${formatTWDateTime(first.endsAt).slice(11)}${occurrences.length > 1 ? ` · 至 ${toLocalDateStr(occurrences[occurrences.length - 1].startsAt)}` : ""}`);
-    } catch {
-      setScheduleSummary("請完成日期與時段，確認排課範圍");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "請完成日期與時段，確認排課範圍";
+      setScheduleValidationError(message);
+      setScheduleSummary(fields.get("repeatMode") === "weekly" ? message : "請完成日期與時段，確認排課範圍");
     }
     const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
@@ -631,6 +641,7 @@ export function CourseWorkspace({
     setScheduleCreated(null);
     setExtraDateKeys([]);
     setScheduleSummary("");
+    setScheduleValidationError("");
     open("schedule");
   }
   function submit(
@@ -1428,6 +1439,7 @@ export function CourseWorkspace({
                                         setRepeatMode("once");
                                         setScheduleCreated(null);
                                         setScheduleSummary("");
+                                        setScheduleValidationError("");
                                         setRequestKey(crypto.randomUUID());
                                         open("schedule");
                                       }}
@@ -2156,39 +2168,10 @@ export function CourseWorkspace({
                         <p className="text-xs text-earth-500">同時間、教練與空間；如有撞期，整批不會建立。</p>
                       </div>
                     )}
-                    {repeat && (
-                      <fieldset className="col-span-full">
-                        <legend>每週上課日（未選則依起始日）</legend>
-                        <div className="flex flex-wrap gap-3">
-                          {["日", "一", "二", "三", "四", "五", "六"].map(
-                            (d, i) => (
-                              <label
-                                key={d}
-                                className="flex min-h-11 items-center gap-1"
-                              >
-                                <input
-                                  type="checkbox"
-                                  name="weekday"
-                                  value={i}
-                                />
-                                {d}
-                              </label>
-                            ),
-                          )}
-                        </div>
-                      </fieldset>
-                    )}
-                    {repeat && (
-                      <label className="col-span-full">
-                        結束日期
-                        <input
-                          className={`${field} min-h-11`}
-                          type="date"
-                          name="until"
-                          required
-                        />
-                      </label>
-                    )}
+                    {repeat && <WeeklyRepeatFields date={scheduleDate} disabled={pending} onChange={(weeks, weekdays) => {
+                      const form = document.getElementById("course-schedule-form");
+                      if (form instanceof HTMLFormElement) previewSchedule(form, undefined, undefined, {weeks, weekdays});
+                    }} />}
                     <div className="col-span-full text-sm text-earth-500">
                       {waitlistEnabled && template?.waitlistEnabled ? `候補 ${template.waitlistLimit ?? waitlistDefaultLimit} 位 · ${(template.waitlistStopMinutes ?? waitlistDefaultStopMinutes) === 0 ? "自動遞補至開課前" : `開課前 ${waitlistStopLabel(template.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}停止自動遞補`}` : "候補未開放"}
                       <details name="course-workspace-details"><summary className="inline-flex min-h-11 cursor-pointer items-center text-xs">候補規則</summary><p className="text-xs">沿用課程候補設定；停止自動遞補後保留名單。建立時檢查撞期。</p></details>
@@ -2221,9 +2204,7 @@ export function CourseWorkspace({
                 form="course-schedule-form"
                 type="submit"
                 className={`${primary} w-full`}
-                disabled={
-                  pending
-                }
+                disabled={pending || (repeat && !!scheduleValidationError)}
               >
                 {pending ? "建立中…" : "確認建立排課"}
               </button>
