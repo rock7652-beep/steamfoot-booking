@@ -18,12 +18,12 @@ const button="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-xs t
 function PeriodRows({periods,onChange,fitness=false,compact=false}:{compact?:boolean;fitness?:boolean;periods:Period[];onChange:(value:Period[])=>void}) {
   return <div className="flex flex-wrap items-center gap-1">
     {periods.map((period,index)=><div key={index} className={compact?"flex min-w-0 items-center gap-1":"flex flex-wrap items-center gap-1"}>
-      <input className={fitness?`${field} min-w-0 ${compact?"w-28":"w-32"}`:field} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
-      <span className="text-xs text-earth-500">至</span>
-      <input className={fitness?`${field} min-w-0 ${compact?"w-28":"w-32"}`:field} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
+      <input className={fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:field} type="time" step={1800} value={period.openTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,openTime:e.target.value}:p))}/>
+      <span className="text-xs text-earth-500">{compact?"–":"至"}</span>
+      <input className={fitness?`${field} min-w-0 ${compact?"w-36 shrink-0":"w-32"}`:field} type="time" step={1800} value={period.closeTime} onChange={e=>onChange(periods.map((p,i)=>i===index?{...p,closeTime:e.target.value}:p))}/>
       {periods.length>1&&<button type="button" aria-label="移除時段" className={button} onClick={()=>onChange(periods.filter((_,i)=>i!==index))}>×</button>}
     </div>)}
-    {periods.length<8&&<button type="button" aria-label="新增時段" title="新增時段" className={compact?`${button} min-w-9`:button} onClick={()=>onChange([...periods,{openTime:"18:00",closeTime:"21:00"}])}>{compact?"＋":"＋ 時段"}</button>}
+    {periods.length<8&&<button type="button" aria-label="新增時段" title="新增時段" className={compact?`${button} min-w-8 px-1`:button} onClick={()=>onChange([...periods,{openTime:"18:00",closeTime:"21:00"}])}>{compact?"＋":"＋ 時段"}</button>}
   </div>;
 }
 
@@ -91,11 +91,11 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
       沿用店家授課時間
     </label>{fitness&&<button type="button" disabled={pending} className={`${fitnessEditorSave} bg-primary-700 text-white disabled:opacity-50`} onClick={saveWeekly}>儲存時間</button>}</div>
-    {!inherit&&<div className={fitness?"grid grid-cols-[repeat(auto-fit,minmax(min(100%,440px),1fr))] items-start gap-x-4 gap-y-2":"space-y-2"}>
+    {!inherit&&<div className={fitness?"grid grid-cols-[repeat(auto-fit,minmax(min(100%,432px),1fr))] items-start gap-x-4 gap-y-2":"space-y-2"}>
       {days.map(day=>{
-        const toggle=day.periods.length?<button type="button" className={fitness?"col-start-2 row-start-1 min-h-9 justify-self-end px-2 text-sm text-earth-500 min-[600px]:col-start-3":"text-xs text-earth-500"} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item));}}>{fitness?"設為休息":"不授課"}</button>:<button type="button" className={fitness?`${button} col-start-2 row-start-1 justify-self-end min-[600px]:col-start-3`:button} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item));}}>{fitness?"開放授課":"＋ 開放"}</button>;
+        const toggle=day.periods.length?<button type="button" className={fitness?"col-start-2 row-start-1 min-h-9 justify-self-start whitespace-nowrap text-sm text-earth-500 min-[600px]:col-start-3":"text-xs text-earth-500"} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item));}}>{fitness?"設為休息":"不授課"}</button>:<button type="button" className={fitness?`${button} col-start-2 row-start-1 justify-self-end min-[600px]:col-start-3`:button} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item));}}>{fitness?"開放授課":"＋ 開放"}</button>;
         const periods=<PeriodRows fitness={fitness} compact={fitness} periods={day.periods} onChange={periods=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item));}}/>;
-        return <div key={day.dayOfWeek} className={fitness?"grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center min-[600px]:grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 border-b border-earth-100 bg-white pb-2":"grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1.5 sm:grid-cols-[48px_1fr_auto]"}>
+        return <div key={day.dayOfWeek} className={fitness?"grid min-w-0 max-w-[436px] grid-cols-[1.75rem_minmax(0,1fr)] items-center min-[600px]:grid-cols-[1.75rem_minmax(0,1fr)_auto] gap-1 border-b border-earth-100 bg-white pb-2":"grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1.5 sm:grid-cols-[48px_1fr_auto]"}>
           {fitness?<><strong className="text-sm">週{names[day.dayOfWeek]}</strong><div className="col-span-2 row-start-2 min-w-0 min-[600px]:col-span-1 min-[600px]:row-start-auto">{day.periods.length>0?periods:<span className="text-sm text-earth-500">休息</span>}</div>{toggle}</>:<><strong className="text-sm">週{names[day.dayOfWeek]}</strong><div className="min-w-0">{periods}</div>{toggle}</>}
         </div>;
       })}
