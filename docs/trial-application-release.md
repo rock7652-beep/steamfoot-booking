@@ -46,3 +46,7 @@
 - 官方 LINE：帳號申請內頁（現有公開入口圖已具備）。
 - Google 地圖：選擇門市、分享及複製連結。
 - 完成／切回填寫等提示步驟不需要重複放圖；目前缺圖的操作步驟保留短文字及官方入口，不以其他畫面代替。
+
+### HQ 收件路由修正
+
+登入實測發現 `/hq/dashboard/trial-applications` 被共用 HQ rewrite 導向不存在的 `/dashboard/trial-applications` 而 404。已在 ADMIN 驗證後將該收件路由保留為 HQ 專用頁，不放寬登入或角色權限。新增收件頁 ADMIN pass-through／未登入／店長拒絕與 5 張圖片路由回歸檢查。6 個測試檔合計 102 項通過。
