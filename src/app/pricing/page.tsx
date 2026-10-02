@@ -111,7 +111,7 @@ export default async function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
-            <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,800／月。</li>
+            <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計；使用期間自正式啟用日起算。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>

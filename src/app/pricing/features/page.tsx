@@ -198,7 +198,8 @@ export default async function FeaturesPage() {
         </div>
         <p className="mt-4 border-l-4 border-[#967039] pl-4 text-lg font-medium leading-7">總部看得到，門市管得好，展店有依據。</p>
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">適合多店品牌、母子店與合作門市。總部查閱分店時為唯讀，不可替分店新增或修改資料；可查看範圍依組織關係與帳號權限。</p>
-        <details className="mt-4 border-t border-[#153B31]/15 pt-3 text-sm leading-6 text-[#4C6259]"><summary className="min-h-11 cursor-pointer py-2 font-medium">多店管理的開通與費用說明</summary><div className="space-y-2 pb-3"><p>展店版包含總部管理。各分店系統月費與分店串接管理費另計，總部方案不會自動升級分店功能；單店 30 天免費體驗不含跨店總部管理。</p><p>串接幾間，就付幾間的串接費。{ALLIANCE_BRANCH_PRICING_COPY}</p><p>例如串接 6 間分店：前 5 間 × NT$500＋第 6 間 NT$300＝NT$2,800／月串接費；總部與各分店方案費另計。</p><p>依需求確認組織關係、查閱權限與可串接間數後開通。</p></div></details>
+        <p className="mt-4 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-4 py-3 font-semibold text-[#59441E]">首間分店免串接費・第二間起計費<span className="mt-1 block text-sm font-normal leading-6">各分店系統方案費另計；詳細費用見下方說明。</span></p>
+        <details className="mt-4 border-t border-[#153B31]/15 pt-3 text-sm leading-6 text-[#4C6259]"><summary className="min-h-11 cursor-pointer py-2 font-medium">多店管理的開通與費用說明</summary><div className="space-y-2 pb-3"><p>展店版包含總部管理。各分店系統月費與分店串接管理費另計，總部方案不會自動升級分店功能；單店 30 天免費體驗不含跨店總部管理。</p><p>{ALLIANCE_BRANCH_PRICING_COPY}</p><p>例如串接 6 間分店：首間免費＋第 2～5 間 × NT$500＋第 6 間 NT$300＝NT$2,300／月串接費；總部與各分店方案費另計。</p><p>依需求確認組織關係、查閱權限與可串接間數後開通。</p></div></details>
         <Link href="/pricing#comparison" className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">查看展店版與費用<span aria-hidden="true">→</span></Link>
       </section>
       <section id="daily" aria-labelledby="daily-title" className="mt-7 scroll-mt-24">
