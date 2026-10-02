@@ -240,8 +240,8 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                 {requiresLineSetup && state.effectiveAllowed && (
                   <p className="mt-2 text-xs text-amber-800">LINE 相關功能須另行設定與實測發送，權限開放不代表通知已正常運作。</p>
                 )}
-                {!trialAllowed && <details className="group mt-3">
-                  <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-earth-200 bg-white px-3 text-xs font-medium text-earth-700 transition hover:bg-earth-50 [&::-webkit-details-marker]:hidden">
+                <details name="hq-feature-settings" className="group mt-3">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-md border border-earth-200 bg-white px-3 text-sm font-medium text-earth-700 transition hover:bg-earth-50 [&::-webkit-details-marker]:hidden">
                     <span>調整設定</span>
                     <span className="text-earth-400 group-open:hidden">展開 ＋</span>
                     <span className="hidden text-earth-400 group-open:inline">收合 −</span>
@@ -258,7 +258,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                       note={entitlement?.note ?? ""}
                     />
                   </div>
-                </details>}
+                </details>
                     </article>
                   );
                 })}
