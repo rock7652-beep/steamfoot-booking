@@ -11,7 +11,7 @@ export const metadata = {
   title: "方案與價格 — 蒸管家",
   description: "蒸管家｜店務管理系統，適用於預約制門市、工作室與服務品牌。新客 30 天免費體驗，單店功能完整開放，轉正式沿用原帳號與資料。比較方案價格、年繳省額與限時加購優惠。",
 };
-const TRIAL_URL = "/pricing/trial";
+const TRIAL_URL = "/apply";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
   "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",

@@ -190,7 +190,7 @@ export default async function StoreGuidesPage({ searchParams }: { searchParams: 
         <section aria-labelledby="guide-contact" className="mt-6 rounded-2xl bg-[#123E32] p-5 text-white sm:p-6">
           <h2 id="guide-contact" className="text-xl font-semibold">你最想先少忙哪件事？</h2>
           <p className="mt-2 text-base leading-7 text-[#D4E0D8]">告訴我們店裡最忙的是什麼，我們會聯繫你，安排適合的體驗。</p>
-          <a href="/pricing/trial?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
+          <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
         </section>
       </main>
       <MarketingFooter />
