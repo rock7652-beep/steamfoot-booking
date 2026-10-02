@@ -1,7 +1,10 @@
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingIcon } from "./marketing-icon";
+import { PricingOffer, PricingOfferTerms } from "./pricing-offer";
+import { PUBLIC_PRICING_PLANS as plans } from "@/lib/public-pricing-offer";
+
+export const dynamic = "force-dynamic";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
 
 export const metadata = {
@@ -13,19 +16,11 @@ const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
   "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis",
 };
-const plans = [
-  { id: "BASIC", name: "基本版", icon: "store", purpose: "管好日常", audience: "個人工作室、小型單店", price: "1,490", original: "2,100", annual: "17,880" },
-  { id: "GROWTH", name: "專業版", icon: "return", purpose: "做好回訪", audience: "重視回訪、續購與帳務的單店", price: "2,490", original: "3,600", annual: "29,880" },
-  { id: "ALLIANCE", name: "展店版", icon: "stores", purpose: "管理多店", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880" },
-] as const;
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
   { label: "顧客資料", field: "maxCustomers", unit: "筆" },
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
 ] as const;
-function TrialLink() {
-  return <a href={TRIAL_URL} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 py-3 text-sm font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請體驗帳號<span aria-hidden="true" className="ml-2">→</span></a>;
-}
 const groups = [
   { title: "日常店務", note: "三個方案都包含，開店就能用。", rows: [
     { label: "預約管理", values: ["內含", "內含", "內含"] },
@@ -75,7 +70,10 @@ function FeatureComparison() {
     </table>
   </section>;
 }
-export default function PricingPage() {
+export default async function PricingPage() {
+  // Request-time timestamp for SSR; passed unchanged to the first client render.
+  // eslint-disable-next-line react-hooks/purity
+  const initialNow = Date.now();
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <MarketingNavigation active="pricing" />
     <main id="plans" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
@@ -84,20 +82,7 @@ export default function PricingPage() {
         <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">選擇適合你門市的管家。</h1>
         <p className="mt-3 text-base leading-7 text-[#4C6259]">從日常店務、顧客回訪到多店管理，依你的經營需要選擇。</p>
       </div>
-      <section aria-label="方案價格" className="grid gap-4 md:grid-cols-3">
-        {plans.map(plan => <article key={plan.id} aria-labelledby={plan.id} className={"flex flex-col rounded-2xl border border-[#153B31]/20 p-4 sm:p-5 " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
-          <h2 id={plan.id} className="flex items-center gap-3 text-xl font-semibold"><MarketingIcon kind={plan.icon} />{plan.name}</h2>
-          <p className="mt-1 text-base font-medium sm:text-lg">{plan.purpose}</p>
-          <p className="mt-1 text-base leading-6 text-[#4C6259]">適合{plan.audience}</p>
-          <div className="mt-3 border-t border-[#153B31]/15 pt-3">
-            <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
-            <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
-            <p className="mt-1 text-sm leading-6">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
-          </div>
-          {plan.id === "ALLIANCE" && <p className="mt-2 text-sm leading-6">串接費依實際分店數另計；各分店系統月費另計。</p>}
-           <div className="mt-auto pt-3"><TrialLink /></div>
-        </article>)}
-      </section>
+      <PricingOffer initialNow={initialNow} trialUrl={TRIAL_URL} />
       <section aria-label="試用說明" className="mt-6 rounded-xl bg-white p-5 text-base leading-7"><h2 className="text-xl font-semibold">30 天完整單店體驗</h2><p className="mt-2">30 天完整單店試用，含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。從帳號可正常使用當天開通起算；網頁前台可先使用，LINE／LIFF 完成設定後接上。到期後保留資料、後台改為唯讀；轉正式沿用原帳號與資料，功能及額度依購買方案。</p><p className="mt-2">試用不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，外部訊息費用於開通前確認。</p></section>
       <FeatureComparison />
       <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
@@ -112,9 +97,9 @@ export default function PricingPage() {
         <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或使用任選名額的功能不另收費，超出名額才加購。選定後由總部協助開通。</p>
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
-            <li>限時優惠：主方案繳 12 個月，使用 14 個月；優惠結束後依正式原價調整。</li>
-            <li>展店版每月 $4,990，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,800／月。</li>
-            <li>年繳總額僅計主方案，額外模組與分店串接管理費另計，贈送期間於開通前確認。</li>
+            <li><PricingOfferTerms initialNow={initialNow} /></li>
+            <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,800／月。</li>
+            <li>年繳總額僅計主方案，額外模組與分店串接管理費另計；使用期間自正式啟用日起算。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
         </details>
