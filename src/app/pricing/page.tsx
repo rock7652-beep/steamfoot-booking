@@ -64,7 +64,7 @@ function FeatureComparison() {
           const value = PLAN_LIMITS[plan.id][item.field];
           return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4">多店管理</th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">多店管理</a></th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
       </tbody>
     </table>
   </section>;

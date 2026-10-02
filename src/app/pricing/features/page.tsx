@@ -1,4 +1,5 @@
 import { AddonRate } from "../pricing-offer";
+import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
   title: "功能介紹｜少一點手動，多一點照顧 — 蒸管家",
-  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
+  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識多店管理、提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
 };
 
 const features = [
@@ -167,12 +168,39 @@ export default async function FeaturesPage() {
       <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">先把預約、顧客、堂數與收款管好，再依店裡需要，加上提醒、追蹤與分析。</p>
       <nav aria-label="功能介紹閱讀導覽" className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
+        <a href="#multi-store" className="inline-flex min-h-11 items-center underline underline-offset-4">多店管理 ↓</a>
         <a href="#labels" className="inline-flex min-h-11 items-center underline underline-offset-4">顧客標籤 ↓</a>
         <a href="#export" className="inline-flex min-h-11 items-center underline underline-offset-4">資料匯出 ↓</a>
         <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
         <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
       </nav>
       <BookingTypes compact />
+      <section id="multi-store" aria-labelledby="multi-store-title" className="mt-8 scroll-mt-24 overflow-hidden rounded-2xl border border-[#B48A42]/35 bg-[#E9F1EB] p-5 sm:p-7">
+        <p className="flex items-center gap-3 text-base font-semibold text-[#74603C]"><MarketingIcon kind="stores" />品牌展店・多店管理</p>
+        <h2 id="multi-store-title" className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">店開多了，不必每天等各店傳報表。</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-[#4C6259]">從一間店到多間店，總部可依權限切換查看分店的預約、顧客與收款資料；各店繼續處理自己的日常營運。</p>
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5">
+            <p className="font-semibold">總部掌握各店，分店各自營運。</p>
+            <figure className="mt-4">
+              <div className="rounded-lg bg-[#123E32] p-4 text-white"><p className="font-semibold">品牌總部</p><p className="mt-1 text-sm leading-6 text-[#D4E0D8]">依組織與角色權限，切換查閱已串接分店</p></div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">{["範例分店 A", "範例分店 B", "範例分店 C"].map(name => <div key={name} className="rounded-lg border border-[#153B31]/15 bg-[#F8F5EE] p-3"><p className="font-semibold">{name}</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">預約・顧客・收款</p><p className="mt-2 text-sm font-medium">總部可查閱</p></div>)}</div>
+              <figcaption className="mt-3 text-sm leading-6 text-[#64756D]">串接關係示意・範例資料，非真實店家成果。</figcaption>
+            </figure>
+          </div>
+          <div className="divide-y divide-[#153B31]/15 rounded-xl border border-[#153B31]/15 bg-white px-4 sm:px-5">
+            {[
+              ["總部直接看，不用逐店詢問", "依權限查閱已串接分店的營運資料，減少來回傳報表與截圖。"],
+              ["各店資料，各自保留", "顧客、方案與營收保留在原門市；串接管理關係，不搬動各店資料。"],
+              ["分店按需求選方案", "總部使用展店版，分店各自選購基本版或專業版，依現場需要配置功能。"],
+            ].map(([title, text]) => <div key={title} className="py-4"><h3 className="text-lg font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#4C6259]">{text}</p></div>)}
+          </div>
+        </div>
+        <p className="mt-4 border-l-4 border-[#967039] pl-4 text-lg font-medium leading-7">總部看得到，門市管得好，展店有依據。</p>
+        <p className="mt-3 text-sm leading-6 text-[#4C6259]">適合多店品牌、母子店與合作門市。總部查閱分店時為唯讀，不可替分店新增或修改資料；可查看範圍依組織關係與帳號權限。</p>
+        <details className="mt-4 border-t border-[#153B31]/15 pt-3 text-sm leading-6 text-[#4C6259]"><summary className="min-h-11 cursor-pointer py-2 font-medium">多店管理的開通與費用說明</summary><div className="space-y-2 pb-3"><p>展店版包含總部管理。各分店系統月費與分店串接管理費另計，總部方案不會自動升級分店功能；單店 30 天免費體驗不含跨店總部管理。</p><p>串接幾間，就付幾間的串接費。{ALLIANCE_BRANCH_PRICING_COPY}</p><p>例如串接 6 間分店：前 5 間 × NT$500＋第 6 間 NT$300＝NT$2,800／月串接費；總部與各分店方案費另計。</p><p>依需求確認組織關係、查閱權限與可串接間數後開通。</p></div></details>
+        <Link href="/pricing#comparison" className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">查看展店版與費用<span aria-hidden="true">→</span></Link>
+      </section>
       <section id="daily" aria-labelledby="daily-title" className="mt-7 scroll-mt-24">
         <div className="flex flex-wrap items-center gap-3"><h2 id="daily-title" className="text-2xl font-semibold">先把每天的店務，放在一起。</h2><span className="rounded-full bg-[#E9F1EB] px-3 py-1 text-sm font-medium">三個方案皆包含</span></div>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">從顧客預約，到店長查資料、確認堂數與收款，接起每天會做的事。</p>
