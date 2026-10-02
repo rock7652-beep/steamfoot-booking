@@ -854,7 +854,7 @@ export function CourseWorkspace({
               value={roomFilter}
               onChange={(e)=>{setSelectedIds([]);setRoomFilter(e.target.value);}}
             >
-              <option value="all">全部教室</option>
+              <option value="all">{businessProfile === "MUSIC" ? "全部教室" : "全部空間"}</option>
               {allRooms.map((room) => (
                 <option key={room.id} value={room.id}>
                   {room.name}
@@ -1100,7 +1100,7 @@ export function CourseWorkspace({
                 value={roomFilter}
                 onChange={(e)=>{setSelectedIds([]);setRoomFilter(e.target.value);}}
               >
-                <option value="all">全部教室</option>
+                <option value="all">{businessProfile === "MUSIC" ? "全部教室" : "全部空間"}</option>
                 {allRooms.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -1131,17 +1131,18 @@ export function CourseWorkspace({
             )}
           </div>
 
-<div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+<div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${businessProfile !== "MUSIC" ? "min-h-11" : ""}`}>
           {businessProfile==="MUSIC"&&<CourseTestDataFilter names={catalogItems.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelectedIds([]);setHideTestData(v);}}/>}
           {view==="rooms" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}:${rentalFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visibleItems.map(r=>[r.id,r.name]))} kind="room" blockedIds={busyIds} states={Object.fromEntries(visibleItems.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visibleItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
           {view==="catalog" && canEdit && <CourseBatchBar key={`${hideTestData}:${query}:${status}:${category}:${roomFilter}:${classFilter}:${rentalFilter}:${inactiveExpanded}`} canDelete={canDelete} kind="template" deleteOnly names={Object.fromEntries(visibleItems.map(r=>[r.id,r.name]))} ids={visibleItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
+          {businessProfile !== "MUSIC" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredItems.length} 筆／全部 {catalogItems.length} 筆</p>}
 </div>
           {view==="catalog" && canEdit && selectedIds.length>0 && <form className="flex flex-wrap items-center gap-2" onSubmit={e=>submit(e,async d=>batchCourseTemplates({ids:selectedIds,...(businessProfile === "MUSIC" && d.get("batchCategory")!==""?{category:d.get("batchCategory")}:{}),...(d.get("batchVisibility")?{visibility:d.get("batchVisibility")}: {})}),()=>setSelectedIds([]))}>
             <span>已選 {selectedIds.length} 筆</span>{businessProfile === "MUSIC" && <input name="batchCategory" className={button} placeholder="調整分類"/>}<select name="batchVisibility" className={button}><option value="">狀態不變</option><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select><button className={button} disabled={pending}>套用至選取課程</button>
           </form>}
-          <p className="text-sm text-earth-500">
+          {businessProfile === "MUSIC" && <p className="text-sm text-earth-500">
             共 {filteredItems.length} 筆／全部 {catalogItems.length} 筆
-          </p>
+          </p>}
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
             <table className={`${businessProfile !== "MUSIC" && view === "rooms" ? "min-w-[860px]" : "min-w-[740px]"} w-full text-left text-sm`}>
               <thead className="bg-earth-50 text-earth-600">

@@ -237,9 +237,10 @@ export function CourseStaffWorkspace({
         )}
       </div>
       {canManage && atLimit && <p className="text-xs text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。</p>}
-<div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+<div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${!music ? "min-h-11" : ""}`}>
       {music&&<CourseTestDataFilter names={staff.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setStaffPage(0);setHideTestData(v);}}/>}
       {canManage && <CourseBatchBar key={`${hideTestData}:${search}:${filter}:${role}:${inactiveExpanded}`} canDelete={canManage} names={Object.fromEntries(visibleRows.map(p=>[p.id,p.name]))} kind="staff" blockedIds={busyIds} states={Object.fromEntries(visibleRows.map(p=>[p.id,p.active]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visibleRows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {!music && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {rows.length} 筆／全部 {staff.length} 筆</p>}
 </div>
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className={`${music ? "min-w-[720px]" : "min-w-[900px]"} w-full text-left text-sm`}>
