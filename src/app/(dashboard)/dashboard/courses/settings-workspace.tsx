@@ -1,4 +1,7 @@
 "use client";
+
+import { FeatureEntry } from "@/components/feature-presentation";
+import { FEATURES } from "@/lib/feature-flags";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -154,6 +157,7 @@ export function CourseSettingsWorkspace(props: Props) {
           {editor({ section: "booking", bookingLeadMinutes: props.bookingLeadMinutes, cancellationLeadMinutes: props.cancellationLeadMinutes }, props.canEdit)}
           <details className="mt-2 text-sm text-earth-500"><summary className="min-h-10 cursor-pointer py-2">扣堂規則</summary><p className="leading-6">{props.music ? "預約先保留堂數，報到即出席並扣 1 堂；曠課扣 1 堂。自組班請假保留補課資格，團體班請假記錄並扣 1 堂。音樂教室沒有補課券。" : "自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。"}</p></details>
         </Row>
+        <FeatureEntry feature={FEATURES.COURSE_WAITLIST} label="候補">
         {props.waitlistFeatureAvailable && props.waitlistSettings && (
           <Row
             title="候補"
@@ -164,6 +168,7 @@ export function CourseSettingsWorkspace(props: Props) {
             <CourseWaitlistSettings initial={props.waitlistSettings} canEdit={props.canEdit} />
           </Row>
         )}
+        </FeatureEntry>
         <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle enabled={props.dutyEnabled ?? false} course compact /> : undefined} />
       </SectionGuard></section>
       <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>

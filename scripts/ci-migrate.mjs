@@ -22,7 +22,7 @@ if (
 }
 
 // Shared labels preview is restricted to the isolated test database.
-if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/shared-customer-labels") {
+if (process.env.VERCEL_ENV === "preview" && ["feat/shared-customer-labels", "feat/hq-feature-three-state"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
     throw new Error("Customer labels Preview requires the isolated preview database for both connections.");
 }

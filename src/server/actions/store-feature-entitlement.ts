@@ -21,6 +21,8 @@ export type StoreFeatureEntitlementFormState = {
 const ENTITLEMENT_STATUSES = new Set<StoreFeatureEntitlementStatus>([
   "ENABLED",
   "DISABLED",
+  "LOCKED",
+  "HIDDEN",
 ]);
 
 const ENTITLEMENT_SOURCES = new Set<StoreFeatureEntitlementSource>([

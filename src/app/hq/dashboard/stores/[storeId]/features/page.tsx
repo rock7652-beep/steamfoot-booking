@@ -122,7 +122,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
           <p className="font-medium">{trialNotStarted ? "課程體驗店功能已授權，30 天試用尚未起算" : "完整單店試用權限已開放"}</p>
           <p className="mt-1 text-xs">功能授權不等於外部服務已設定。LINE 入口、提醒規則與實際發送仍須逐項驗收；多店功能不包含在單店試用內。</p>
           {!store.lineDestination && <p className="mt-1 text-xs font-medium">此店尚未設定 LINE 導流入口。</p>}
-          <p className="mt-1 text-xs">試用期間單店授權覆寫不生效；試用起迄請至店舖詳情確認。</p>
+          <p className="mt-1 text-xs">試用保留完整單店授權；隱藏／鎖定依總部設定生效，既有資料保留。</p>
         </div>
       )}
 
@@ -170,7 +170,8 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                     feature.key,
                     entitlement,
                   );
-                  const state = trialAllowed ? {
+                  const explicitlyRestricted = (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") && (ordinaryState.statusLabel === "隱藏" || ordinaryState.statusLabel === "鎖定");
+                  const state = trialAllowed && !explicitlyRestricted ? {
                     effectiveAllowed: featureAccess.get(feature.key) === true,
                     statusLabel: "試用授權",
                     statusClass: "bg-blue-50 text-blue-700",

@@ -270,8 +270,20 @@ describe("resolveStoreFeatureDisplayState", () => {
       new Date("2026-07-01T00:00:00.000Z"),
     );
 
-    expect(state.statusLabel).toBe("可用");
+    expect(state.statusLabel).toBe("啟用");
     expect(state.effectiveAllowed).toBe(true);
     expect(state.sourceLabel).toBe("加購");
+  });
+});
+
+
+describe("three-state administration", () => {
+  it.each(["LOCKED", "HIDDEN"])("saves %s without deleting business data", async override => {
+    const { saveStoreFeatureEntitlement } = await import("@/server/actions/store-feature-entitlement");
+    const result = await saveStoreFeatureEntitlement(formData({storeId:"store-1",featureKey:FEATURES.CUSTOMER_LABELS,override,source:"HQ_OVERRIDE"}));
+    expect(result.success).toBe(true);
+    expect(mockEntitlementUpsert.mock.calls[0][0].update.status).toBe(override);
+    expect(mockEntitlementDeleteMany).not.toHaveBeenCalled();
+    expect(mockRevalidateStoreFeatureEntitlements).toHaveBeenCalledOnce();
   });
 });
