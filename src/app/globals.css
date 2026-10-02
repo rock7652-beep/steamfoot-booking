@@ -290,7 +290,10 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   -webkit-appearance: none;
   appearance: none;
 }
-[data-course-entry] input::-webkit-date-and-time-value {
+[data-course-entry] input[type="date"]::-webkit-date-and-time-value,
+[data-course-entry] input[type="date"]::-webkit-datetime-edit,
+[data-course-entry] input[type="time"]::-webkit-date-and-time-value,
+[data-course-entry] input[type="time"]::-webkit-datetime-edit {
   min-width: 0;
   text-align: left;
   justify-content: flex-start;

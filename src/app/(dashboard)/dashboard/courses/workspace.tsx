@@ -620,7 +620,7 @@ export function CourseWorkspace({
   }
   function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
-    setArrangement("choose");
+    setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
     setScheduleSeed(seed);
     setChosen(templates[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
@@ -863,7 +863,7 @@ export function CourseWorkspace({
               </button>
             )}
           </div>}
-          {(scheduleMode !== "week" || businessProfile === "MUSIC") && scheduleLegend}
+          {(scheduleMode === "month" || businessProfile === "MUSIC") && scheduleLegend}
           {scheduleMode === "month" ? (
             <>
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">

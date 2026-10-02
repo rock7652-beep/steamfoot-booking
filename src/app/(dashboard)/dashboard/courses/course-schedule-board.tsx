@@ -310,8 +310,23 @@ function SessionCard({
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       <span className="sr-only">{presentation.label}</span>
-      <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />
-      {dense ? <>
+      {(!dense || businessProfile === "MUSIC") && <span aria-hidden="true" className={`float-left mr-1.5 mt-1 h-2 w-2 rounded-full ${presentation.dot}`} />}
+      {dense && businessProfile !== "MUSIC" ? (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1 whitespace-nowrap text-[13px] leading-4 tabular-nums">
+            <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${presentation.dot}`} />
+            <span>{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</span>
+          </div>
+          <div className="flex min-w-0 items-center gap-1 text-sm leading-5">
+            <strong className="min-w-0 flex-1 truncate" title={copy.primary}>{copy.primary}</strong>
+            {brief && progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}
+          </div>
+          {!brief && <div className="flex min-w-0 items-center gap-1 text-[13px] leading-5">
+            <span className="min-w-0 flex-1 truncate" title={teacherState || resourceLabel}>{teacherState || resourceLabel}</span>
+            {progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}
+          </div>}
+        </div>
+      ) : dense ? <>
         <div className={wide ? "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-sm" : "contents"}>
           {businessProfile === "MUSIC" ? <div className="shrink-0 whitespace-nowrap text-sm leading-4 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</div> : <div className="flex flex-wrap gap-x-0.5 text-sm leading-4 tabular-nums"><span className="whitespace-nowrap">{hhmm(session.startsAt)}</span><span className="whitespace-nowrap">–{hhmm(session.endsAt)}</span></div>}
           <div className={`flex min-w-0 items-center gap-1 text-sm leading-5 ${wide ? "max-w-[70%]" : ""}`}><strong className={`min-w-0 truncate ${wide ? "" : "flex-1"}`} title={copy.primary}>{copy.primary}</strong>{progressText && <span className={`shrink-0 font-semibold tabular-nums ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}</div>
@@ -706,6 +721,25 @@ export function CourseScheduleBoard({
     { id: "pending", label: businessProfile === "MUSIC" ? "待報到" : "待點名", value: pendingCount },
   ];
 
+  const resourceViewControls = (
+    <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
+          <button
+            type="button"
+            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            onClick={() => setResourceView("room")}
+          >
+            教室視角
+          </button>
+          <button
+            type="button"
+            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            onClick={() => setResourceView("coach")}
+          >
+            {businessProfile === "MUSIC" ? "老師視角" : "教練視角"}
+          </button>
+        </div>
+  );
+
   return (
     <section ref={boardRef} className="space-y-1" aria-label="日課表">
 
@@ -751,25 +785,12 @@ export function CourseScheduleBoard({
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
         </span>}
 
-        <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
-          <button
-            type="button"
-            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
-            onClick={() => setResourceView("room")}
-          >
-            教室視角
-          </button>
-          <button
-            type="button"
-            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
-            onClick={() => setResourceView("coach")}
-          >
-            {businessProfile === "MUSIC" ? "老師視角" : "教練視角"}
-          </button>
-        </div>
+        {musicDense && resourceViewControls}
       </div>
-
-
+      {!musicDense && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {resourceViewControls}
+        {legend && <div className="ml-auto">{legend}</div>}
+      </div>}
 
       {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
