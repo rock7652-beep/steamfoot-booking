@@ -1,4 +1,5 @@
 "use client";
+import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import {MusicTeacherFeeEditor,type TeacherFeeDraft,type TeacherPlan} from "@/components/admin/music-teacher-fee-editor";
 import type {MusicTeacherSettings} from "@/lib/music-teacher-settings";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
@@ -286,7 +287,7 @@ export function CourseStaffWorkspace({
       </div>
       {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>啟用 {activeRows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
       {open && (
-        <RightSheet presentation="centered"
+        <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           compact={music}
           maxHeight={music ? 900 : 680}
           open
@@ -660,13 +661,13 @@ export function CourseStaffWorkspace({
               </div></fieldset>
             </form>
           </div>
-          <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
+          <footer className={fitnessEditorFooter}>
             {!music && (tab==="availability" || tab==="assignments") ? <div className="flex justify-end"><button type="button" className={button} disabled={pending || availabilityGuard.pending} onClick={close}>關閉</button></div> : readOnly ? <button key="edit" type="button" className={button} disabled={!canManage} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <>
             <div className={`flex items-center gap-2 ${music ? "" : "justify-end"}`}>{!music && (!!person && !dirty || availabilityGuard.dirty) && <span className="mr-auto text-sm text-earth-500">{availabilityGuard.dirty?"請先儲存授課時間":"尚未修改"}</span>}<button type="button" className={button} disabled={pending || availabilityGuard.pending} onClick={close}>取消</button>
             <button
               form="course-staff-form"
               type="submit"
-              className={`${button} ${music ? "min-w-0 flex-1" : "min-w-24"} !border-primary-700 !bg-primary-700 !text-white`}
+              className={`${button} ${music ? "min-w-0 flex-1" : fitnessEditorSave} !border-primary-700 !bg-primary-700 !text-white`}
               disabled={pending || availabilityGuard.pending || availabilityGuard.dirty || (teachingDirty && !feesReady) || (!!person && !dirty)}
             >
               {pending ? "儲存中…" : "儲存"}

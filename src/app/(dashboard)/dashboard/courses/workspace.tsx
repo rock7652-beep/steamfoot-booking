@@ -1,4 +1,5 @@
 "use client";
+import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { WeeklyRepeatFields } from "@/components/admin/weekly-repeat-fields";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
 import { courseScheduleFormFields, courseScheduleCreatedDates } from "@/lib/course-schedule-form";
@@ -1276,7 +1277,7 @@ export function CourseWorkspace({
         </section>
       )}
       {panel && (
-        <RightSheet presentation="centered"
+        <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
           compact={businessProfile === "MUSIC"}
           maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" ? 680 : 900}
           open
@@ -1741,7 +1742,7 @@ export function CourseWorkspace({
                     ? "修改範圍可選這堂或同一批次的這堂及後續，撞期時整批不會儲存。"
                     : editing.kind === "template"
                       ? "僅套用新排課；已排課請從課表修改。"
-                      : "名稱會同步顯示於使用此教室的課程。"}
+                      : businessProfile === "MUSIC" ? "名稱會同步顯示於使用此教室的課程。" : "名稱會同步顯示於使用此空間的課程。"}
                 </p>
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   本堂已有 {editing.value.bookings.length} 人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。
@@ -2227,7 +2228,7 @@ export function CourseWorkspace({
             </footer>
           )}
           {panel === "edit" && editing && !roomRentalHistory && (
-            <footer className="flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3">
+            <footer className={businessProfile === "MUSIC" ? "flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3" : `${fitnessEditorFooter} flex items-center justify-end gap-2`}>
               <button
                 className={button}
                 disabled={pending}
@@ -2242,7 +2243,7 @@ export function CourseWorkspace({
               <button
                 form="course-edit-form"
                 type="submit"
-                className={primary}
+                className={`${primary} ${businessProfile === "MUSIC" ? "" : fitnessEditorSave}`}
                 disabled={pending}
               >
                 {copyTemplate && editing.kind === "template" ? "建立課程" : "儲存"}
@@ -2250,15 +2251,15 @@ export function CourseWorkspace({
             </footer>
           )}
           {panel === "catalog" && canCreate && (
-            <div className={`flex shrink-0 gap-2 border-t border-earth-200 bg-white p-3 ${businessProfile!=="MUSIC" ? "justify-end" : ""}`}>
-              {businessProfile!=="MUSIC" && <button type="button" className={button} disabled={pending} onClick={closePanel}>取消</button>}<button
+            <div className={businessProfile === "MUSIC" ? "flex shrink-0 gap-2 border-t border-earth-200 bg-white p-3" : `${fitnessEditorFooter} flex items-center justify-end gap-2`}>
+              {businessProfile!=="MUSIC" && <button type="button" className={`${button} min-h-11`} disabled={pending} onClick={closePanel}>取消</button>}<button
                 type="submit"
                 form={
                   view === "rooms"
                     ? "course-room-create-form"
                     : "course-template-create-form"
                 }
-                className={`${primary} ${businessProfile!=="MUSIC" ? "min-w-24" : "w-full"}`}
+                className={`${primary} ${businessProfile!=="MUSIC" ? fitnessEditorSave : "w-full"}`}
                 disabled={pending}
               >
                 {pending

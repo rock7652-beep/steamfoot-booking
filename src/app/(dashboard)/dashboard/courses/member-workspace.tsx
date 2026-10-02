@@ -1,4 +1,5 @@
 "use client";
+import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
@@ -374,7 +375,7 @@ export function CourseMemberWorkspace({
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
-        <RightSheet presentation="centered"
+        <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open
           onClose={close}
           width={customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
@@ -589,12 +590,12 @@ export function CourseMemberWorkspace({
             )}
           </div>
           {panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || (canAssign && card?.allowShared)) && (
-            <footer className="shrink-0 border-t border-earth-100 bg-white px-4 py-3">
+            <footer className={panel === "plan" && !music ? fitnessEditorFooter : "shrink-0 border-t border-earth-100 bg-white px-4 py-3"}>
               {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
               <div className={`flex gap-2 ${panel === "plan" && !music ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending} onClick={close}>取消</button>}<button
                 form="course-member-form"
                 type="submit"
-                className={`${button} ${panel === "plan" && !music ? "min-w-24" : "w-full"} !bg-primary-700 !text-white`}
+                className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : "w-full"} !bg-primary-700 !text-white`}
                 disabled={pending || formPending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}

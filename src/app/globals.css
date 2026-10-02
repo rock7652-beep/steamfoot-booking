@@ -338,3 +338,16 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
     font-size: 16px;
   }
 }
+
+/* Fitness editors retain visible keyboard focus in the Steamfoot palette. */
+.fitness-management-editor input:is([type="checkbox"], [type="radio"]) {
+  accent-color: var(--color-primary-700);
+}
+.fitness-management-editor :is(button, summary, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.fitness-management-editor footer button {
+  min-height: 2.75rem;
+}

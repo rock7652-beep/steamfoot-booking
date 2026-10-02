@@ -8,6 +8,7 @@ const openPanels: symbol[] = [];
 let originalOverflow = "";
 
 interface RightSheetProps {
+  className?: string;
   presentation?: "side" | "centered";
   compact?: boolean;
   fitContent?: boolean;
@@ -21,6 +22,7 @@ interface RightSheetProps {
 }
 
 export function RightSheet({
+  className = "",
   presentation = "side",
   open,
   onClose,
@@ -82,7 +84,7 @@ export function RightSheet({
       inert={!open}
       style={centered ? { top: 0, right: 0 } : undefined}
       aria-hidden={!open}
-      className={`fixed inset-0 ${centered ? "z-[80]" : compact ? "z-[70]" : "z-50"} ${
+      className={`${className} fixed inset-0 ${centered ? "z-[80]" : compact ? "z-[70]" : "z-50"} ${
         open ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >

@@ -187,7 +187,7 @@ export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,pro
                 <details name="fitness-plan-sections" className="sm:col-span-2"><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 text-sm">更多設定</summary><fieldset className="flex flex-wrap items-end gap-4"><legend className="sr-only">方案使用方式</legend>{profitEnabled&&<label className="block max-w-xs text-sm">店家成本<input className={field} name="storeCost" type="number" min="0" required value={draft.values.storeCost} onChange={e=>draft.set("storeCost",e.target.value)}/></label>}{profitEnabled&&<p><span className="text-earth-500">預估利潤</span><strong className={`ml-2 ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p>}</fieldset></details>
                 </>}
                 {!music&&<p className="sm:col-span-2 text-sm text-earth-500">
-                  修改僅套用新購買；下架保留顧客現有額度。{music?"音樂教室每次上課使用 1 堂；每期堂數依購買時的方案設定。":"提供點數與堂數方案，無自動續費。"}
+                  修改僅影響新購買；下架保留既有額度。
                 </p>}
               </fieldset></form>;
 }
