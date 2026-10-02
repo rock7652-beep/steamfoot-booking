@@ -80,7 +80,7 @@ it("combines purchase and shared-card filters immediately without changing purch
  const base={points:10,price:1000,validDays:90,isActive:true,unit:"POINT" as const,templateIds:[]};
  const plans=[{...base,id:"public",name:"公開共卡",customerPurchasable:true,allowShared:true},{...base,id:"internal",name:"後台個人",customerPurchasable:false,allowShared:false},{...base,id:"legacy",name:"舊方案",allowShared:false}];
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",plans})));
- const names=()=>[...host.querySelectorAll("tbody tr td:first-child button:not([aria-label])")].map(b=>b.textContent);
+ const names=()=>[...host.querySelectorAll("tbody tr td:first-child button[data-plan-name]")].map(b=>b.getAttribute("aria-label"));
  const filter=async(label:string,value:string)=>{const el=host.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!;await act(async()=>{el.value=value;el.dispatchEvent(new Event("change",{bubbles:true}));});};
  await filter("購買方式篩選","backend");expect(names()).toEqual(["後台個人"]);
  await filter("共卡篩選","allowed");expect(names()).toEqual([]);

@@ -323,11 +323,11 @@ export default async function CoursesPage({
       {view !== "schedule" && (
         <PageHeader
           title={view === "catalog" ? "課程管理" : "空間管理"}
-          subtitle={
+          subtitle={businessProfile === "MUSIC" ? (
             view === "catalog"
               ? "管理課程名稱、人數與排課預設"
               : "管理上課教室"
-          }
+          ) : undefined}
         />
       )}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
