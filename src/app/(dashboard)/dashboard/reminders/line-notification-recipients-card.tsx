@@ -153,10 +153,12 @@ export function LineNotificationRecipientsCard({
   recipients,
   course = false,
   bindingUnavailable,
+  showHeading = true,
 }: {
   recipients: Recipient[];
   course?: boolean;
   bindingUnavailable?: string;
+  showHeading?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -177,12 +179,14 @@ export function LineNotificationRecipientsCard({
   useSettingsPanelGuard(!!name.trim(), pending);
   return (
     <section className="space-y-3">
-      <div>
-        <h2 className="text-lg font-semibold text-earth-900">店長 LINE 通知</h2>
-        <p className="mt-1 text-sm text-earth-500">
-          僅顯示本店通知人員。點選「設定提醒」編輯各自接收的通知。
-        </p>
-      </div>
+      {showHeading ? (
+        <div>
+          <h2 className="text-lg font-semibold text-earth-900">店長 LINE 通知</h2>
+          <p className="mt-1 text-sm text-earth-500">
+            僅顯示本店通知人員。點選「設定提醒」編輯各自接收的通知。
+          </p>
+        </div>
+      ) : null}
       {recipients.length === 0 && (
         <p className="rounded-lg bg-earth-50 p-3 text-sm text-earth-600">
           尚未綁定通知人員。完成綁定後，即可設定總開關與 {managerNotificationOptions(course).length} 項個別提醒。

@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { coursePortalRoleCookie, resolveCoursePortalRole } from "@/lib/course-portal-role";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { prisma } from "@/lib/db";
 import { resolveCustomerBookingWindow } from "@/lib/shop-config";
@@ -290,7 +292,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
     where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
     select:{id:true, serviceNote:true, notes:true},
   }) : [];
+  const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
+  const initialRole = resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
   return {
+    rolePreferenceKey,
+    initialRole,
     referralShare: referralShare?.available ? referralShare : null,
     month,
     serverNow: now.getTime(),
@@ -420,5 +426,6 @@ export async function loadCoursePortal(requestedMonth?: string) {
 export type CoursePortalData = Awaited<ReturnType<typeof loadCoursePortal>>;
 export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
   const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
-  return <CoursePortalClient {...await loadCoursePortal(selectedDate?.slice(0,7) ?? month)} initialDate={selectedDate} initialCoach={view==="work"} initialView={view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
+  const data = await loadCoursePortal(selectedDate?.slice(0,7) ?? month);
+  return <CoursePortalClient key={data.rolePreferenceKey} {...data} initialDate={selectedDate} initialCoach={view === "work"} initialView={view === "work" ? "schedule" : view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
 }

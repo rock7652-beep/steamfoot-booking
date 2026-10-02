@@ -21,3 +21,24 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Staff 相關頁面必須加 `user.role !== "OWNER"` → `notFound()` 檢查
 - Server action 必須用 `requirePermission()` 做後端檢查（不可只靠 UI）
 - 權限矩陣文件：`docs/role-permission-matrix.md`
+
+
+## 蒸管家 UI／Settings Framework
+
+凡涉及以下工作，開始前必須先閱讀 `docs/STEAMFOOT_UI_Settings_Framework.md`，並以該文件作為設計、開發與驗收基準：
+
+- UI／UX 調整
+- 設定介面
+- 新增功能或既有功能優化
+- 跨模組共用元件
+- Settings Center / Settings Panel / Reminder Center
+- 桌機／iPad 後台介面
+- 清單、提醒、方案管理與操作流程
+
+執行原則：
+
+1. 優先使用既有共用骨架與元件，不為單一模組複製一套。
+2. 共用的是操作與呈現，不硬統一各模組業務規則。
+3. 密度不得靠縮小字體取得；狀態先顯示，需要修改才展開。
+4. UI 相關變更必須完成 Preview，並檢查桌機與 iPad。
+5. 未取得使用者明確授權，不得合併正式站。

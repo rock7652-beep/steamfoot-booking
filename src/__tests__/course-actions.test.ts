@@ -83,7 +83,7 @@ beforeEach(() => {
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
-  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay|StoreFeatureEntitlement/.test(sql.join("")) ? [] : [{ id: "valid",courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["yoga"] }]);
+  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay|StoreFeatureEntitlement|CourseStaffAvailability/.test(sql.join("")) ? [] : [{ id: "valid",courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["yoga"] }]);
   mocks.existing.mockResolvedValue([]);
   mocks.conflict.mockResolvedValue(null);
   mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2,isActive:true,visibility:"PUBLIC" });
@@ -248,6 +248,7 @@ describe("course scheduling action", () => {
         ...range,
         ...input,
         createdById: "owner-a",
+        isTrial: false,
       })),
     );
     expect(await createCourseSchedule(input)).toEqual({

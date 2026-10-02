@@ -74,7 +74,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
         <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
         <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>{destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}</button>}</div>
       </div>}
-      <div data-settings-panel-body className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
+      <div data-settings-panel-body className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
         onClickCapture={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
           const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
@@ -88,7 +88,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
           const params = new URLSearchParams(); new FormData(form).forEach((value, key) => { if (typeof value === "string") params.set(key, value); });
           navigate(config.href + "?" + params);
         }}>
-        {navigating && <p role="status" className="sticky top-0 z-10 bg-white p-3 text-sm">正在更新…</p>}
+        {navigating && <p role="status" className="pointer-events-none absolute right-4 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs text-earth-500 shadow-sm">正在更新…</p>}
         <SettingsPanelContext.Provider value={context}><PanelError key={panel} retry={() => router.refresh()}>{children}</PanelError></SettingsPanelContext.Provider>
       </div>
     </RightSheet>

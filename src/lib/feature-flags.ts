@@ -92,6 +92,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "store_revenue",
   ],
   GROWTH: [
+    "basic_reports", // 專業版固定內含分析，不占選配名額
     "member_portal",
     "basic_booking",
     "customer_management",
@@ -119,7 +120,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "talent_upgrade_progress",
   ],
   ALLIANCE: [
-    "basic_reports", // 分析：展店版內含；專業版可任選，由總部開通；基本版加購
+    "basic_reports", // 分析：專業版與展店版內含；基本版加購
     "basic_booking",
     "customer_management",
     "staff_management",

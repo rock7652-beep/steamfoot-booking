@@ -1,4 +1,5 @@
 "use client";
+import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
 import { findCoursePortalGuides } from "@/lib/course-portal-guides";
 import { ShareReferral } from "@/components/share-referral";
 import { trackCourseShare } from "@/server/actions/course-referral-share";
@@ -194,8 +195,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [role, setRole] = useState(p.initialCoach && p.hasWork ? "coach" : p.memberEnabled ? "member" : "coach"),
-    [page, setPage] = useState<Page>(p.initialView ?? "home"),
+  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.initialRole);
+  const role = resolveCoursePortalRole(preferredRole, p.memberEnabled, p.hasWork);
+  const [page, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
     [history, setHistory] = useState(false),
@@ -230,6 +232,13 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   const [saving, setSaving] = useState(false);
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const [confirmedAttendance, setConfirmedAttendance] = useState<Record<string, AttendanceUpdate>>({});
+  useEffect(() => {
+    if (preferredRole === role) return;
+    rememberCoursePortalRole(p.rolePreferenceKey, role);
+    setRole(role);
+    setPage("home");
+    setRoster(null);
+  }, [preferredRole, role, p.rolePreferenceKey]);
   const pending = saving || (role !== "coach" && refreshing);
   // Keep confirmed writes visible across an older in-flight refresh; newer server rows win.
   const work = p.work.map(s => ({ ...s, bookings: s.bookings.map(b => {
@@ -312,7 +321,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         ["account", "我的", "account"],
       ];
   function switchRole(next: "member" | "coach") {
-    if (role === next || !leaveNote()) return;
+    if (role === next || resolveCoursePortalRole(next, p.memberEnabled, p.hasWork) !== next || !leaveNote()) return;
+    rememberCoursePortalRole(p.rolePreferenceKey, next);
     setRole(next);
     setDate(today);
     if (next === "coach" && !today.startsWith(p.month)) month(today.slice(0, 7));
