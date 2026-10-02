@@ -14,7 +14,7 @@ export const metadata = {
 const TRIAL_URL = "/pricing/trial";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
-  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist",
+  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
@@ -27,8 +27,9 @@ const groups = [
     { label: "資料匯出", values: ["可選", "可選", "內含"] },
     { label: "現金抽屜", values: ["可選", "內含", "內含"] },
   ] },
-  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營與分析已含，健康／月結／候補再選 1 項。展店版：全部內含。", rows: [
+  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營與分析已含，標籤／健康／月結／候補再選 1 項。展店版：全部內含。", rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
+    { label: "顧客標籤", values: ["加購", "可選", "內含"] },
     { label: "健康追蹤", values: ["加購", "可選", "內含"] },
     { label: "月結管理", values: ["加購", "可選", "內含"] },
     { label: "分析", values: ["加購", "內含", "內含"] },

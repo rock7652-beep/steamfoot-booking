@@ -11,7 +11,7 @@ import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
   title: "功能介紹｜少一點手動，多一點照顧 — 蒸管家",
-  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識提醒、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
+  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
 };
 
 const features = [
@@ -41,6 +41,15 @@ const features = [
     manual: ["早上放了多少零用金？", "下午是不是付了耗材費？", "少的 200 元，要從哪裡查？"],
     takeaway: "差額有紀錄，交班時不用只靠記憶。",
     detail: "現金仍需現場清點，異動需正確登記；系統協助對帳，不會自動辨識未登記的支出。",
+  },
+  {
+    id: "labels", name: "顧客標籤", icon: "checklist", fee: 500,
+    title: "想找某一類顧客，還要逐筆翻備註？",
+    before: "顧客偏好與分類都寫在備註裡，換人接手時，要重新讀一遍才知道。",
+    after: "用店內共用的標籤與固定配色，快速標記顧客，一眼辨識需要的分類。",
+    manual: ["逐筆打開顧客資料", "閱讀備註，確認顧客分類", "交班時再口頭說明"],
+    takeaway: "備註記細節，標籤讓分類一眼看懂。",
+    detail: "基本版另外加購；專業版可用 1 個經營功能選配名額，與健康、月結、候補共用名額，超出才加購；展店版總部內含。標籤可獨立開通或關閉，關閉保留資料。促銷試用依活動公告期限，試用到期不自動收費。",
   },
   {
     id: "care", name: "顧客經營", icon: "return", fee: 800,
@@ -76,7 +85,7 @@ const features = [
     after: "滿班先候補，有空位依順位自動遞補，並透過 LINE 通知學員。",
     manual: ["記下想候補的學員", "有人取消，再逐一聯絡", "確認名額，再補進預約"],
     takeaway: "有空位，讓系統接手補位。",
-    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與健康、月結共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
+    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與標籤、健康、月結共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
   },
   {
     id: "analysis", name: "分析", icon: "bar-chart", fee: 800,
@@ -95,6 +104,7 @@ function Rows({ items }: { items: readonly (readonly [string, string])[] }) {
   return <dl className="divide-y divide-[#153B31]/10">{items.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm sm:text-base"><dt className="text-[#4C6259]">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>;
 }
 function Example({ id }: { id: FeatureId }) {
+  if (id === "labels") return <div className={panel}><p className="font-semibold">範例顧客 A</p><div aria-label="顧客標籤示意" className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 text-sm font-medium text-[#153B31]">晚間時段</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 text-sm font-medium text-[#59441E]">朋友推薦</span></div><Rows items={[["備註", "平日下班後方便安排"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">標籤統一分類，備註保留個別細節。</p></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">課程候補｜範例資料</p><Rows items={[["課程", "週三 19:00 瑜珈"], ["候補順位", "範例學員 A・第 1 組"], ["空位出現", "依順位自動遞補"]]} /><p className="mt-3 rounded-lg bg-[#E9F1EB] p-3 text-sm leading-6">遞補成功後，以 LINE 通知學員查看預約。</p></div>;
   if (id === "reminders") return <div className="space-y-3">
     <div className={panel}><p className="border-b border-[#153B31]/10 pb-3 font-semibold">LINE｜明天見！</p><Rows items={[["服務", "首次體驗"], ["時間", "明天 14:00"]]} /><p className="mt-2 rounded-lg bg-[#123E32] p-3 text-center text-sm font-medium text-white">確認會到</p><p className="mt-3 text-center text-sm">改期　・　取消　・　導航店家</p></div>
@@ -127,6 +137,7 @@ function Example({ id }: { id: FeatureId }) {
 }
 
 function BeforeExample({ id }: { id: FeatureId }) {
+  if (id === "labels") return <div className={panel}><p className="font-semibold">分類散在不同備註裡</p><Rows items={[["顧客 A", "晚上方便，朋友介紹"], ["顧客 B", "下班後可以安排"], ["交班時", "這兩位算同一類嗎？"]]} /></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">候補名單散在聊天裡</p><Rows items={[["學員 A", "有空位再通知我"], ["有人取消", "誰還能來上課？"], ["確認後", "再手動補進名單"]]} /></div>;
   if (id === "analysis") return <ul className="divide-y divide-[#B48A42]/20 rounded-xl border border-[#B48A42]/20 bg-white px-4">
     {["翻預約，才知道新客有沒有增加", "對體驗與交易，才知道誰開卡了", "找上月名單，才知道誰還沒回來"].map(item => <li key={item} className="py-3 text-base leading-6">{item}</li>)}
@@ -156,6 +167,8 @@ export default async function FeaturesPage() {
       <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">先把預約、顧客、堂數與收款管好，再依店裡需要，加上提醒、追蹤與分析。</p>
       <nav aria-label="功能介紹閱讀導覽" className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
+        <a href="#labels" className="inline-flex min-h-11 items-center underline underline-offset-4">顧客標籤 ↓</a>
+        <a href="#export" className="inline-flex min-h-11 items-center underline underline-offset-4">資料匯出 ↓</a>
         <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
         <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
       </nav>
@@ -179,13 +192,14 @@ export default async function FeaturesPage() {
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
         <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
-          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
+          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
         </nav>
+        <div className="mt-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><a href="#labels" className="inline-flex min-h-11 items-center gap-3 text-lg font-semibold underline underline-offset-4">顧客標籤<span aria-hidden="true">↓</span></a><p className="mt-1 text-sm leading-6 text-[#4C6259]">獨立選配，專業版使用經營功能名額；超出才加購。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]"><AddonRate initialNow={initialNow} original={500} /></p></div>
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
       </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
-          <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">0{index + 1}</span>{feature.name}</p>
+          <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">{String(index + 1).padStart(2, "0")}</span>{feature.name}</p>
           <h2 id={feature.id + "-title"} className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">{feature.title}</h2>
           <div className={"mt-5 grid gap-3 " + (feature.id === "analysis" ? "items-start md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" : "md:grid-cols-2")}>
             <section aria-label={feature.name + "原本的做法"} className="rounded-2xl border border-[#B48A42]/20 bg-[#F0EBE1] p-4 sm:p-6">
