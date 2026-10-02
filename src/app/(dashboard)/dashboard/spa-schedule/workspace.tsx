@@ -403,9 +403,9 @@ export function SpaScheduleWorkspace(props: Props) {
     : null;
   return (
     <>
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">預約排程</h1>
+          <h1 className="admin-page-title">預約排程</h1>
           <p className="mt-1 text-sm text-earth-500">
             查看人員與服務位置，點選空白時段安排預約
           </p>

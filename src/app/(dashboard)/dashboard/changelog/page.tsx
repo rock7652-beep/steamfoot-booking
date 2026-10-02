@@ -27,7 +27,7 @@ export default async function ChangelogPage() {
         <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
           ← 首頁
         </Link>
-        <h1 className="text-lg font-bold text-earth-900">更新日誌</h1>
+        <h1 className="admin-page-title">更新日誌</h1>
       </div>
       <p className="text-xs text-earth-400">系統版本更新歷史與變更紀錄</p>
 

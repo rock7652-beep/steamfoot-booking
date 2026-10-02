@@ -15,7 +15,7 @@ export default async function StoreOrganizationPage() {
     <div className="w-full min-w-0 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">店舖組織圖</h1>
+          <h1 className="admin-page-title">店舖組織圖</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-earth-500">
             HQ 打開這頁時，不是來調整店舖，而是先理解品牌目前的店舖組織。
             這裡呈現店舖之間的查看關係。不影響顧客、預約、營收、方案及歷史資料。

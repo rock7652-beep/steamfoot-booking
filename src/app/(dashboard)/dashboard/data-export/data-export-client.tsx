@@ -81,7 +81,7 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
 
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-bold">資料匯出</h1>
+      <h1 className="admin-page-title">資料匯出</h1>
       <p className="mt-2 text-sm text-gray-600">依目前可存取的店別匯出；健康評估、內部備註、LINE／Messenger ID 與任何憑證均不會輸出。</p>
       <section className="mt-6 rounded-xl border p-5">
         {isAdmin ? (

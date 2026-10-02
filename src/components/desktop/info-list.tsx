@@ -5,8 +5,8 @@
  * 取代 `<dl>` + tailwind 重複碼。
  *
  * 規格（對齊 design/04-phase2-plan.md 一般 detail page 實作經驗）：
- *   label 11px earth-500
- *   value 13px earth-800（可自訂 ReactNode）
+ *   label 14px earth-500
+ *   value 14px earth-800（可自訂 ReactNode）
  *   兩欄（label 左 / value 右），值可跨多行
  *   items 空值（null/undefined）顯示 —，完整 dash 不要隱藏行，保留對齊感
  *
@@ -47,8 +47,8 @@ export function InfoList({ items, density = "normal", columns = 1 }: Props) {
             it.full && columns === 2 ? "sm:col-span-2" : ""
           }`}
         >
-          <dt className="shrink-0 text-[11px] text-earth-500">{it.label}</dt>
-          <dd className="text-right text-[13px] text-earth-800">
+          <dt className="shrink-0 text-sm text-earth-500">{it.label}</dt>
+          <dd className="text-right text-sm text-earth-800">
             {it.value == null || it.value === "" ? (
               <span className="text-earth-400">—</span>
             ) : (

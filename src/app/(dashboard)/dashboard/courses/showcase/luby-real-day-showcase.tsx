@@ -137,7 +137,7 @@ export function LubyRealDayShowcase({ date, mode = "day" }: { date: string; mode
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
         <div>
-          <h1 className="text-base font-semibold text-earth-900">9/26 陸比原課表對照（9/12 截圖移日）</h1>
+          <h1 className="admin-page-title">9/26 陸比原課表對照（9/12 截圖移日）</h1>
           <p className="text-xs text-earth-700">依 2026/9/12「音教雲」截圖可辨識的 {sourceRows.length} 格重現，移到 9/26 供比較。淡化格保留原學員和老師；只有截圖可確認去向的格標「已調課」，其餘標「異動／請假」。團體學員名單與 H3 截斷的老師姓名未推測。唯讀，不建立或修改真實預約。</p>
         </div>
         <Link href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs font-medium text-earth-800">查看 49 堂班型示意</Link>

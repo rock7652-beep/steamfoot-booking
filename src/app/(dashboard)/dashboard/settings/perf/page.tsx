@@ -29,7 +29,7 @@ export default async function PerfPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
-        <h1 className="text-lg font-bold text-earth-900">效能熱點總覽</h1>
+        <h1 className="admin-page-title">效能熱點總覽</h1>
         <p className="mt-1 text-sm text-earth-500">
           各頁面查詢數、快取覆蓋率、優先度。日誌格式：<code className="rounded bg-earth-100 px-1 text-xs">[PERF]</code> JSON stdout。
         </p>

@@ -67,7 +67,7 @@ export default async function Page({
     <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">體驗版申請</h1>
+          <h1 className="admin-page-title">體驗版申請</h1>
           <p className="mt-1 text-sm text-earth-500">
             已提供資料不代表已取得權限；請人工確認後再設定。
           </p>

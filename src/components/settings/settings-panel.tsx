@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 
 export function SettingsPanel({
   title,
   sourceHref,
-  width = 1040,
+  width = ADMIN_SETTINGS_PANEL.width,
   children,
 }: {
   title: string;
@@ -108,6 +109,7 @@ export function SettingsPanel({
         compact
         fixedHeight
         width={width}
+        maxHeight={ADMIN_SETTINGS_PANEL.maxHeight}
         closeOnEscape={false}
         onClose={() => request(closeHref)}
         labelledById="settings-panel-title"
@@ -117,7 +119,7 @@ export function SettingsPanel({
             <p className="text-xs text-earth-500">設定</p>
             <h2 id="settings-panel-title" className="font-semibold text-primary-900">{title}</h2>
           </div>
-          <button type="button" onClick={() => request(closeHref)} className="min-h-10 shrink-0 rounded-lg border px-4 text-sm">
+          <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4 text-sm">
             關閉視窗
           </button>
         </header>
@@ -126,9 +128,9 @@ export function SettingsPanel({
           <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
             <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
             <div className="mt-2 flex gap-3">
-              <button autoFocus className="min-h-10 rounded border px-3 text-sm" onClick={() => setDestination(null)}>繼續編輯</button>
+              <button autoFocus className="min-h-11 rounded border px-3 text-sm" onClick={() => setDestination(null)}>繼續編輯</button>
               {!pending ? (
-                <button className="min-h-10 rounded bg-primary-700 px-3 text-sm text-white" onClick={() => go(destination)}>
+                <button className="min-h-11 rounded bg-primary-700 px-3 text-sm text-white" onClick={() => go(destination)}>
                   {destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}
                 </button>
               ) : null}

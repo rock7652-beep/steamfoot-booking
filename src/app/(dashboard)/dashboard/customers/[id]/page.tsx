@@ -345,7 +345,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       {simplified ? (
         <header className="space-y-4">
           <div>
-            <h1 className="text-2xl font-bold text-earth-900">{customer.name}</h1>
+            <h1 className="admin-page-title">{customer.name}</h1>
             <a href={`tel:${customer.phone}`} className="inline-flex min-h-11 items-center text-base text-primary-700 underline underline-offset-4">{customer.phone}</a>
           </div>
           {canEdit && (

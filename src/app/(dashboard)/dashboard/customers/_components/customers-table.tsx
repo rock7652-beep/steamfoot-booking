@@ -123,7 +123,7 @@ export function CustomersTable({
   balanceColumn,
   lastVisitLabel = "最近來店",
   onCreate,
-  stickyActions = false,
+  stickyActions = true,
   hideAssignedStaff = false,
   assignedStaffLabel = "直屬店長",
 }: Props) {
@@ -217,7 +217,7 @@ export function CustomersTable({
       // 1–3 堂亮黃並標「提醒」；無有效 PACKAGE 顯示「—」。
       key: "validSessions",
       noLink: true,
-      header: <span title="有效方案可用額度；共卡由授權成員共用">{balanceColumn?.label ?? "有效堂數"} ⓘ</span>,
+      header: <span title="有效方案可用額度；共卡由授權成員共用">{balanceColumn?.label ?? "有效堂數"}</span>,
       width: "w-24",
       accessor: (c) => {
         if (balanceColumn) return balanceColumn.render(c);
@@ -265,7 +265,7 @@ export function CustomersTable({
     {
       key: "lastVisit",
       noLink: true,
-      header: <span className="whitespace-nowrap" title="最近實際出席或完成服務的日期；不包含未來預約">{lastVisitLabel} ⓘ</span>,
+      header: <span className="whitespace-nowrap" title="最近實際出席或完成服務的日期；不包含未來預約">{lastVisitLabel}</span>,
       align: "right",
       width: "w-24",
       accessor: (c) => (
@@ -287,8 +287,8 @@ export function CustomersTable({
       sticky: stickyActions ? "right" : undefined,
       header: "操作",
       noLink: true,
-      align: "right",
-      width: "w-28",
+      align: "center",
+      width: "w-36 min-w-36",
       accessor: (c) => {
         if (isInactiveRow(c)) {
           return (
@@ -296,7 +296,7 @@ export function CustomersTable({
           );
         }
         return (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
             {onQuickAssign ? (
               <button
                 type="button"
@@ -305,7 +305,7 @@ export function CustomersTable({
                   e.preventDefault();
                   onQuickAssign(c);
                 }}
-                className={`rounded px-2 font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600 ${stickyActions ? "min-h-11 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
+                className="min-h-11 min-w-14 shrink-0 whitespace-nowrap rounded px-2 text-sm font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600"
               >
                 {quickAssignLabel}
               </button>

@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -65,7 +66,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
   return <div ref={root} data-course-settings-panel>
-    <RightSheet presentation="centered" open compact fixedHeight width={1100} maxHeight={900} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
+    <RightSheet presentation="centered" open compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
         <div><p className="text-xs text-earth-500">設定</p><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{config.title}</h2></div>
         <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4">關閉視窗</button>
