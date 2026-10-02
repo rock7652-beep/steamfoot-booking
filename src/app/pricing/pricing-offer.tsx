@@ -29,7 +29,6 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         <div>
           <p className="text-sm font-semibold tracking-widest text-[#ECD5A4]">2026 年底前限定優惠</p>
           <h2 id="yearend-offer" className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">年繳 12 個月<span className="block text-[#ECD5A4] sm:ml-3 sm:inline">再送 2 個月</span></h2>
-          <p className="mt-2 text-base text-[#E0E9E3]">同樣年繳費用，享 12＋2 個月使用。</p>
         </div>
         <div className="shrink-0">
           <p className="mb-2 text-sm text-[#E0E9E3]">優惠倒數</p>
