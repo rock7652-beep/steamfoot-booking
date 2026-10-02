@@ -8,4 +8,4 @@
 
 Provider、建立帳號和 Google 地圖尚無合適且不含私人資料的逐步截圖，先以短步驟及直接入口提供引導，不使用假圖。
 
-- create-entry.png： https://tw.linebiz.com/account/ 實際公開頁面截圖。
+- create-entry.jpg： https://tw.linebiz.com/account/ 實際公開頁面截圖。

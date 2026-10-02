@@ -8,7 +8,7 @@ export type GuideStep = {
 };
 export type TrialGuide = { title: string; source?: string; steps: GuideStep[] };
 const manager = "https://manager.line.biz/";
-const permissionImage = "/trial-guides/oa-permissions.png";
+const permissionImage = "/pricing/trial-guides/oa-permissions.png";
 export const trialGuides: Record<string, TrialGuide> = {
   "oa-admin": {
     title: "官方 LINE 管理員邀請",
@@ -32,7 +32,7 @@ export const trialGuides: Record<string, TrialGuide> = {
       {
         title: "選管理員，發行網址",
         text: "權限選「管理員」，按「發行網址」。複製網址，回申請頁貼上。",
-        image: "/trial-guides/oa-invite.png",
+        image: "/pricing/trial-guides/oa-invite.png",
         highlight: [1, 72, 47, 15],
       },
       {
@@ -65,7 +65,7 @@ export const trialGuides: Record<string, TrialGuide> = {
       {
         title: "增加好友人數 → 增加好友工具",
         text: "登入正確店家，在左側展開「增加好友人數」，點「增加好友工具」。",
-        image: "/trial-guides/friend.png",
+        image: "/pricing/trial-guides/friend.png",
         highlight: [0, 75, 14, 9],
         link: manager,
         linkLabel: "開啟官方 LINE 後台",
@@ -73,7 +73,7 @@ export const trialGuides: Record<string, TrialGuide> = {
       {
         title: "點建立網址",
         text: "點線上宣傳區的「建立網址」，複製顯示的加好友網址，回申請頁貼上。",
-        image: "/trial-guides/friend.png",
+        image: "/pricing/trial-guides/friend.png",
         highlight: [17, 14, 13, 32],
       },
     ],
@@ -96,7 +96,7 @@ export const trialGuides: Record<string, TrialGuide> = {
       {
         title: "既有 Channel 也需邀請",
         text: "分別進入店家的 Messaging API 與 LINE Login Channel，點 Roles → Invite by email，邀請同一 Email，角色選 Admin。沒有 Channel 時交由蒸管家協助。",
-        image: "/trial-guides/developers-roles.webp",
+        image: "/pricing/trial-guides/developers-roles.webp",
         highlight: [10, 2, 16, 8],
       },
       {
@@ -113,7 +113,7 @@ export const trialGuides: Record<string, TrialGuide> = {
       {
         title: "開啟官方申請入口",
         text: "用店家自己管理的帳號申請。建議以電腦操作；手機可依官方頁面指示使用 LINE Official Account App。",
-        image: "/trial-guides/create-entry.png",
+        image: "/pricing/trial-guides/create-entry.jpg",
         highlight: [11, 94, 15, 5],
         link: "https://tw.linebiz.com/account/",
         linkLabel: "免費開設官方 LINE",

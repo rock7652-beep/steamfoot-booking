@@ -26,3 +26,7 @@
 - ESLint、TypeScript、Next production build、Prisma schema validate 通過（大型專案本機檢查需 NODE_OPTIONS=--max-old-space-size=6144）。
 - 獨立測試資料庫：migration、交易內寫入並 rollback、RLS、anon/authenticated 禁止讀取。
 - 已在 Vercel 預覽以虛構資料走完瀏覽器→API→Prisma→獨立資料庫收件與補件，確認同一申請編號、通知 DISABLED。總部已登入操作與真實通知仍需上線前驗收。
+
+### 教學圖片公開路徑修正
+
+教學圖放在 `/pricing/trial-guides/`，沿用官網公開路由，避免未登入訪客的圖片請求被 proxy 導向門市頁。圖片載入失敗時顯示重試提示。

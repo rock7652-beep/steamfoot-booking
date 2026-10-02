@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TrialGuide } from "@/lib/trial-guides";
 export function GuideCards({ guide }: { guide: TrialGuide }) {
   const [index, setIndex] = useState(0);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   const step = guide.steps[index];
   return (
     <div className="mt-6">
@@ -26,29 +27,36 @@ export function GuideCards({ guide }: { guide: TrialGuide }) {
         <p className="mt-3 leading-relaxed">{step.text}</p>
         {step.image && (
           <>
-            <div className="mt-5 overflow-x-auto rounded-lg border">
-              <div className="relative min-w-[640px]">
-                <Image
-                  src={step.image}
-                  alt={`LINE 官方操作畫面：${step.title}`}
-                  width={1800}
-                  height={1000}
-                  unoptimized
-                  className="h-auto w-full"
-                />
-                {step.highlight && (
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute rounded-md border-[3px] border-[#d46e25] bg-amber-300/10 shadow-[0_0_0_2px_white]"
-                    style={{
-                      left: `${step.highlight[0]}%`,
-                      top: `${step.highlight[1]}%`,
-                      width: `${step.highlight[2]}%`,
-                      height: `${step.highlight[3]}%`,
-                    }}
+            <div className="mt-5 overflow-x-auto rounded-lg border border-[#dce3dc]">
+              {failedImage === step.image ? (
+                <p role="alert" className="p-5 text-sm text-[#64736b]">
+                  圖片暫時無法載入，請點下方「放大查看完整畫面」重試。
+                </p>
+              ) : (
+                <div className="relative min-w-[640px]">
+                  <Image
+                    src={step.image}
+                    alt={`LINE 官方操作畫面：${step.title}`}
+                    width={1800}
+                    height={1000}
+                    unoptimized
+                    onError={() => setFailedImage(step.image ?? null)}
+                    className="h-auto w-full"
                   />
-                )}
-              </div>
+                  {step.highlight && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute rounded-md border-[3px] border-[#d46e25] bg-amber-300/10 shadow-[0_0_0_2px_white]"
+                      style={{
+                        left: `${step.highlight[0]}%`,
+                        top: `${step.highlight[1]}%`,
+                        width: `${step.highlight[2]}%`,
+                        height: `${step.highlight[3]}%`,
+                      }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
             <a
               href={step.image}

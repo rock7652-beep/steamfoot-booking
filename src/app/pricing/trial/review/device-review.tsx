@@ -7,6 +7,7 @@ const devices = {
 };
 export function DeviceReview() {
   const [device, setDevice] = useState<keyof typeof devices>("desktop");
+  const [page, setPage] = useState("/pricing/trial");
   return (
     <main className="min-h-screen bg-[#e7ebe7] p-4 text-[#263d35]">
       <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
@@ -21,6 +22,16 @@ export function DeviceReview() {
             {value.label}
           </button>
         ))}
+        <select
+          aria-label="預覽內容"
+          value={page}
+          onChange={(event) => setPage(event.target.value)}
+          className="rounded-lg border bg-white px-3 py-2 text-sm"
+        >
+          <option value="/pricing/trial">申請表單</option>
+          <option value="/pricing/trial/guide/oa-admin">官方 LINE 授權教學</option>
+          <option value="/pricing/trial/guide/developers">Developers 授權教學</option>
+        </select>
         <a
           className="text-sm underline"
           href="/pricing/trial"
@@ -32,7 +43,7 @@ export function DeviceReview() {
       </div>
       <iframe
         title={`${devices[device].label}體驗申請頁`}
-        src="/pricing/trial"
+        src={page}
         className="mx-auto block h-[820px] max-w-full rounded-xl border bg-white shadow-lg"
         style={{ width: devices[device].width }}
       />
