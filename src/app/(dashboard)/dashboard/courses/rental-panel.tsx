@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { createRentalCustomer,saveCourseRental,getCourseRental,cancelCourseRental,saveRentalPayment,listRoomRentals } from "@/server/actions/course-rental";
 import { rentalPrice,type RentalDetail } from "@/lib/course-rental";
 import { formatTWDateTime,toLocalDateStr } from "@/lib/date-utils";
-const field="min-h-11 min-w-0 max-w-full w-full appearance-none rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
+const field="min-h-11 min-w-0 max-w-full w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button="inline-flex items-center justify-center min-h-11 shrink-0 rounded-lg px-3 text-sm disabled:opacity-50";
 export type RentalPermissions={customerRead:boolean;customerCreate:boolean;collect:boolean;correct:boolean;edit:boolean};
 export type RentalRoom={id:string;name:string;isActive:boolean;rentalEnabled?:boolean;rentalHourlyRate?:number};
