@@ -89,7 +89,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.COURSE_WAITLIST,
     label: "課程候補",
     module: "營運",
-    description: "課程滿班後依順位候補、自動遞補與 LINE 通知；可由店家獨立開關。",
+    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
   },
   {
     key: FEATURES.DATA_EXPORT,
@@ -101,7 +101,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.BASIC_REPORTS,
     label: "分析",
     module: "分析",
-    description: "基本版加購 NT$800／月；專業版可使用經營型模組名額選用，超出名額才加購；展店版內含。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
+    description: "基本版加購 NT$800／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,

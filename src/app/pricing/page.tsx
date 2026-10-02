@@ -14,7 +14,7 @@ export const metadata = {
 const TRIAL_URL = "/pricing/trial";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
-  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis",
+  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
@@ -27,11 +27,13 @@ const groups = [
     { label: "資料匯出", values: ["可選", "可選", "內含"] },
     { label: "現金抽屜", values: ["可選", "內含", "內含"] },
   ] },
-  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營已含，健康／月結／分析再選 1 項。展店版：全部內含。", rows: [
+  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營與分析已含，標籤／健康／月結／候補再選 1 項。展店版：全部內含。", rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
+    { label: "顧客標籤", values: ["加購", "可選", "內含"] },
     { label: "健康追蹤", values: ["加購", "可選", "內含"] },
     { label: "月結管理", values: ["加購", "可選", "內含"] },
-    { label: "分析", values: ["加購", "可選", "內含"] },
+    { label: "分析", values: ["加購", "內含", "內含"] },
+    { label: "課程候補", values: ["加購", "可選", "內含"] },
   ] },
 ] as const;
 
@@ -62,7 +64,7 @@ function FeatureComparison() {
           const value = PLAN_LIMITS[plan.id][item.field];
           return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4">多店管理</th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">多店管理</a></th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
       </tbody>
     </table>
   </section>;
@@ -109,7 +111,7 @@ export default async function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
-            <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,800／月。</li>
+            <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計；使用期間自正式啟用日起算。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
