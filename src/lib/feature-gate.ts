@@ -79,6 +79,7 @@ export async function hasStoreFeature(
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   // Explicit three-state controls are honored in trials; legacy DISABLED trial rules remain unchanged.
   if (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") return false;
+  if (entitlement?.status === "ENABLED") return true;
   const store = await getStoreForPlanByStoreId(storeId);
   if (isSingleStoreTrial(store)) return isSingleStoreFeature(feature);
   if (store.plan === "EXPERIENCE" && await getStoreIndustryModule(storeId) === "course") return isSingleStoreFeature(feature);

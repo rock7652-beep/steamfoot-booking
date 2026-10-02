@@ -171,7 +171,8 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                     entitlement,
                   );
                   const explicitlyRestricted = (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") && (ordinaryState.statusLabel === "隱藏" || ordinaryState.statusLabel === "鎖定");
-                  const state = trialAllowed && !explicitlyRestricted ? {
+                  const explicitlyEnabled = entitlement?.status === "ENABLED" && ordinaryState.statusLabel === "啟用";
+                  const state = trialAllowed && !explicitlyRestricted && !explicitlyEnabled ? {
                     effectiveAllowed: featureAccess.get(feature.key) === true,
                     statusLabel: "試用授權",
                     statusClass: "bg-blue-50 text-blue-700",
