@@ -86,12 +86,6 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     description: "每月服務金額、固定月費、加扣項與月結紀錄。",
   },
   {
-    key: FEATURES.CUSTOMER_TAGS,
-    label: "顧客標籤",
-    module: "顧客",
-    description: "系統自動判斷的顧客狀態標籤。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；可獨立授權及設定試用期限。自訂、批次套用與標籤篩選尚未提供。備註不受此授權影響。",
-  },
-  {
     key: FEATURES.COURSE_WAITLIST,
     label: "課程候補",
     module: "營運",
@@ -107,7 +101,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.BASIC_REPORTS,
     label: "分析",
     module: "分析",
-    description: "基本版加購 NT$800／月；專業版可使用經營型模組名額選用，超出名額才加購；展店版內含。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
+    description: "基本版加購 NT$800／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,

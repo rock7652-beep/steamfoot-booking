@@ -1,7 +1,5 @@
 "use server";
 
-import { hasStoreFeature } from "@/lib/feature-gate";
-import { FEATURES } from "@/lib/feature-flags";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -66,7 +64,6 @@ export async function getCustomerTagsAndScripts(
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...storeFilter },
     select: {
-      storeId: true,
       name: true,
       firstVisitAt: true,
       lastVisitAt: true,
@@ -95,8 +92,6 @@ export async function getCustomerTagsAndScripts(
   });
 
   if (!customer) return { tags: [], scripts: [] };
-
-  const tagsAllowed = await hasStoreFeature(customer.storeId, FEATURES.CUSTOMER_TAGS);
 
   // ── Tags 計算 ──────────────────────────────────────
   const tags: CustomerTag[] = [];
@@ -181,7 +176,7 @@ export async function getCustomerTagsAndScripts(
     scripts.push("很想念您！我們最近有新的方案，可以約個時間體驗看看嗎？");
   }
 
-  return { tags: tagsAllowed ? tags : [], scripts };
+  return { tags, scripts };
 }
 
 /**
@@ -201,7 +196,6 @@ export async function getCustomerTags(customerId: string): Promise<CustomerTag[]
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...storeFilter },
     select: {
-      storeId: true,
       firstVisitAt: true,
       lastVisitAt: true,
       birthday: true,
@@ -223,7 +217,7 @@ export async function getCustomerTags(customerId: string): Promise<CustomerTag[]
     },
   });
 
-  if (!customer || !await hasStoreFeature(customer.storeId, FEATURES.CUSTOMER_TAGS)) return [];
+  if (!customer) return [];
 
   const tags: CustomerTag[] = [];
   const completedCount = customer.bookings.length;

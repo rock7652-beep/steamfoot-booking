@@ -70,7 +70,7 @@ describe("plan feature package alignment", () => {
 
   it.each(["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const)("resolves analysis plan defaults and store overrides for %s", (plan) => {
     const included = hasFeature(plan, FEATURES.BASIC_REPORTS);
-    expect(included).toBe(plan === "ALLIANCE");
+    expect(included).toBe(plan === "GROWTH" || plan === "ALLIANCE");
     expect(resolveEffectiveEntitlement(included, null).enabled).toBe(included);
     expect(resolveEffectiveEntitlement(included, { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
     expect(resolveEffectiveEntitlement(included, { status: "DISABLED", startsAt: null, expiresAt: null }).enabled).toBe(false);
