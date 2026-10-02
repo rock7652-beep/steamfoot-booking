@@ -248,7 +248,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   </summary>
                   <div className="mt-3">
                     <FeatureEntitlementForm
-                      key={`${store.id}:${feature.key}:${entitlement?.updatedAt?.getTime() ?? "default"}`}
+                      key={`${store.id}:${feature.key}`}
                       storeId={store.id}
                       featureKey={feature.key}
                       override={entitlement?.status ?? "INHERIT"}
