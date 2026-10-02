@@ -377,8 +377,8 @@ export function CourseMemberWorkspace({
         <RightSheet presentation="centered"
           open
           onClose={close}
-          width={customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?760:640}
-          maxHeight={customerPanel ? 720 : undefined}
+          width={customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
+          maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
           fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
           labelledById="course-member-sheet"
         >
@@ -591,14 +591,14 @@ export function CourseMemberWorkspace({
           {panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || (canAssign && card?.allowShared)) && (
             <footer className="shrink-0 border-t border-earth-100 bg-white px-4 py-3">
               {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
-              <button
+              <div className={`flex gap-2 ${panel === "plan" && !music ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending} onClick={close}>取消</button>}<button
                 form="course-member-form"
                 type="submit"
-                className={`${button} w-full bg-primary-700 text-white`}
+                className={`${button} ${panel === "plan" && !music ? "min-w-24" : "w-full"} !bg-primary-700 !text-white`}
                 disabled={pending || formPending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
-              </button>
+              </button></div>
             </footer>
           )}
         </RightSheet>

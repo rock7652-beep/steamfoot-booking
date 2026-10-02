@@ -23,8 +23,8 @@ it("does not silently turn an empty specified selection into all courses",async(
  await act(async()=>host.querySelector<HTMLInputElement>('input[value="t"]')!.click());await submit();expect(m.save.mock.calls[0][0].templateIds).toEqual(["t"]);
 });
 it("term mode requires matching dates and a session unit, hides sharing",async()=>{
- await mount();await select("方案","TERM");await submit();expect(m.save).not.toHaveBeenCalled();expect(host.textContent).toContain("上課日期數須");
+ await mount();await select("計費方式","TERM");await submit();expect(m.save).not.toHaveBeenCalled();expect(host.textContent).toContain("上課日期數須");
  const points=host.querySelector<HTMLInputElement>('input[name="points"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(points,"1");points.dispatchEvent(new Event("input",{bubbles:true}));host.querySelector<HTMLInputElement>('input[value="s"]')!.click();});
  await submit();expect(m.save.mock.calls[0][0]).toMatchObject({unit:"SESSION",points:1,termSessionIds:["s"],allowShared:false});
- await select("方案","POINT");await submit();expect(m.save.mock.calls[1][0].termSessionIds).toEqual([]);
+ await select("計費方式","POINT");await submit();expect(m.save.mock.calls[1][0].termSessionIds).toEqual([]);
 });

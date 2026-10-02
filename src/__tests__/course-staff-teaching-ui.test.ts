@@ -4,7 +4,7 @@ import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn(),refresh:vi.fn(),search:vi.fn()}));
 vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:async()=>({inheritStoreHours:true,weekly:[],exceptions:[]}),saveCourseStaffAvailabilityException:vi.fn(),saveCourseStaffWeeklyAvailability:vi.fn()}));
-vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search}));
+vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,loadCourseCustomerSearchIndex:async()=>({success:true,rows:[]})}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff"}));
 vi.mock("@/server/actions/course-staff",()=>({readCourseStaffTeaching:m.read,saveCourseStaff:m.save}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
@@ -85,4 +85,19 @@ it("finds a coach by their contact email and keeps the direct-call link", async 
  expect(host.textContent).toContain("coach@example.test");
  await inputValue(host.querySelector('[aria-label="搜尋人員"]') as HTMLInputElement,"no-match@example.test");
  expect(host.querySelector('a[href="tel:0900000000"]')).toBeNull();
+});
+
+it("fitness coach keeps unsaved fees while switching the separate work tabs",async()=>{
+ await render();await click("授課設定");
+ await inputValue(host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"680");
+ await click("工作帳號");await click("可授課時間");await click("已排課程");await click("授課費設定");
+ expect((host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement).value).toBe("680");
+ await click("儲存");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({teachingFees:[{templateId:"y",value:{mode:"CLASS",value:680},revision:2}]}));
+});
+
+it("view-only permission preset removes write access and respects allowed permissions",async()=>{
+ const manager={...staff,id:"manager",name:"蔡店長",kind:"manager" as const,coachEnabled:false,email:"manager@example.test",permissions:["customer.read","customer.update","staff.manage"]};
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[{label:"顧客管理",codes:[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"}]},{label:"人員管理",codes:[{code:"staff.view",label:"查看人員"},{code:"staff.manage",label:"管理人員"}]}]})));
+ await click("編輯");await click("後台帳號／權限");await click("套用僅查看");await click("儲存");
+ expect(m.save).toHaveBeenCalledWith(expect.objectContaining({permissions:["customer.read","staff.view"]}));
 });

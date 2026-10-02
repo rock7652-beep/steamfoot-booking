@@ -26,7 +26,10 @@ function PeriodRows({periods,onChange}:{periods:Period[];onChange:(value:Period[
   </div>;
 }
 
-export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
+export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
+  const [dirtyWeekly,setDirtyWeekly]=useState(false);
+  const [dirtyException,setDirtyException]=useState(false);
+  const [ready,setReady]=useState(false);
   const [inherit,setInherit]=useState(true);
   const [days,setDays]=useState<Day[]>(names.map((_,dayOfWeek)=>({dayOfWeek,periods:[{openTime:"09:00",closeTime:"21:00"}]})));
   const [exceptionDate,setExceptionDate]=useState("");
@@ -38,6 +41,7 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
   const [message,setMessage]=useState("");
   const [pending,start]=useTransition();
 
+  useEffect(()=>{onGuard?.({dirty:dirtyWeekly||dirtyException,pending});},[dirtyWeekly,dirtyException,pending,onGuard]);
   useEffect(()=>{
     let active=true;
     getCourseStaffAvailability(staffId).then(value=>{
@@ -49,7 +53,7 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
           periods:value.weekly.find(row=>row.dayOfWeek===dayOfWeek)?.periods ?? [],
         })));
       }
-      setExceptions(value.exceptions);
+      setExceptions(value.exceptions);setReady(true);
     }).catch(()=>active&&setMessage("可授課時間讀取失敗，請重試"));
     return()=>{active=false};
   },[staffId]);
@@ -58,7 +62,7 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
     setMessage("");setConflicts([]);
     start(async()=>{
       const result=await saveCourseStaffWeeklyAvailability({staffId,inheritStoreHours:inherit,days:inherit?[]:days});
-      if(!result.success)setConflicts(result.conflicts??[]);
+      if(!result.success)setConflicts(result.conflicts??[]);else setDirtyWeekly(false);
       setMessage(result.success?"可授課時間已儲存":result.error??"儲存失敗");
     });
   }
@@ -72,17 +76,17 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
       });
       if(!result.success){setConflicts(result.conflicts??[]);setMessage(result.error??"儲存失敗");return;}
       const value=await getCourseStaffAvailability(staffId);
-      setExceptions(value.exceptions);
-      setMessage("單日例外已儲存");
+      setExceptions(value.exceptions);setReady(true);
+      setDirtyException(false);setMessage("單日例外已儲存");
     });
   }
 
   return <section className="space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3">
     <CourseConflicts items={conflicts}/>
     <div>
-      <h3 className="font-medium text-primary-900">可授課時間</h3>
+      <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">此頁獨立儲存；設定完成請按下方儲存時間。</p>}
     </div>
-    <label className="flex items-center gap-2 text-sm">
+    <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
       沿用店家授課時間
     </label>
@@ -90,26 +94,26 @@ export function CourseStaffAvailabilityEditor({staffId}:{staffId:string}) {
       {days.map(day=><div key={day.dayOfWeek} className="grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1.5 sm:grid-cols-[48px_1fr_auto]">
         <strong className="text-sm">週{names[day.dayOfWeek]}</strong>
         <div className="min-w-0">
-          <PeriodRows periods={day.periods} onChange={periods=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item))}/>
+          <PeriodRows periods={day.periods} onChange={periods=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods}:item));}}/>
         </div>
-        {!!day.periods.length?<button type="button" className="text-xs text-earth-500" onClick={()=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item))}>不授課</button>:<button type="button" className={button} onClick={()=>setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item))}>＋ 開放</button>}
+        {!!day.periods.length?<button type="button" className="text-xs text-earth-500" onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item));}}>不授課</button>:<button type="button" className={button} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item));}}>＋ 開放</button>}
       </div>)}
     </div>}
-    <button type="button" disabled={pending} className={button} onClick={saveWeekly}>儲存每週可授課時間</button>
+    <button type="button" disabled={pending} className={button} onClick={saveWeekly}>{fitness?"儲存時間":"儲存每週可授課時間"}</button></fieldset>
 
     <details className="rounded-lg border border-earth-200 bg-white p-2">
       <summary className="cursor-pointer text-sm font-medium text-primary-900">單日例外／請假／臨時加開</summary>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyException(true)} className="mt-3 grid gap-2 sm:grid-cols-2">
         <input className={field} type="date" value={exceptionDate} onChange={e=>setExceptionDate(e.target.value)}/>
         <select className={field} value={exceptionType} onChange={e=>setExceptionType(e.target.value as typeof exceptionType)}>
           <option value="UNAVAILABLE">當日不可授課／請假</option>
           <option value="CUSTOM">當日自訂可授課時間</option>
           <option value="INHERIT">取消例外，恢復固定規則</option>
         </select>
-        {exceptionType==="CUSTOM"&&<div className="sm:col-span-2"><PeriodRows periods={exceptionPeriods} onChange={setExceptionPeriods}/></div>}
+        {exceptionType==="CUSTOM"&&<div className="sm:col-span-2"><PeriodRows periods={exceptionPeriods} onChange={periods=>{setDirtyException(true);setExceptionPeriods(periods);}}/></div>}
         <input className={field+" sm:col-span-2"} placeholder="原因（選填）" value={exceptionReason} onChange={e=>setExceptionReason(e.target.value)}/>
         <button type="button" disabled={pending} className={button} onClick={saveException}>儲存單日例外</button>
-      </div>
+      </fieldset>
       {!!exceptions.length&&<div className="mt-3 space-y-1 text-xs text-earth-600">
         {exceptions.slice(0,6).map(item=><p key={item.date}>{item.date} · {item.type==="UNAVAILABLE"?"不可授課":item.type==="CUSTOM"?"自訂時段":"固定規則"}{item.reason?" · "+item.reason:""}</p>)}
       </div>}
