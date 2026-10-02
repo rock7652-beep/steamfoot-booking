@@ -130,6 +130,6 @@ export async function saveRentalPayment(input:unknown) {
 export async function listRoomRentals(roomId:string,page=1) {
   const {storeId}=await courseManagerRead("booking.read");
   const current=Number.isInteger(page)&&page>0?page:1;
-  const rows=await coursePrisma.courseRental.findMany({where:{storeId,roomId},orderBy:{startsAt:"desc"},skip:(current-1)*10,take:11,select:{id:true,customerName:true,startsAt:true,cancelledAt:true,payments:{where:{status:"SUCCESS"},take:1,select:{amount:true}}}});
-  return {hasMore:rows.length>10,rows:rows.slice(0,10).map(r=>({id:r.id,name:r.customerName,startsAt:r.startsAt.toISOString(),cancelled:!!r.cancelledAt,paid:r.payments[0]?.amount??null}))};
+  const rows=await coursePrisma.courseRental.findMany({where:{storeId,roomId},orderBy:{startsAt:"desc"},skip:(current-1)*10,take:11,select:{id:true,customerName:true,startsAt:true,endsAt:true,cancelledAt:true,payments:{where:{status:"SUCCESS"},take:1,select:{amount:true}}}});
+  return {hasMore:rows.length>10,rows:rows.slice(0,10).map(r=>({id:r.id,name:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),cancelled:!!r.cancelledAt,paid:r.payments[0]?.amount??null}))};
 }

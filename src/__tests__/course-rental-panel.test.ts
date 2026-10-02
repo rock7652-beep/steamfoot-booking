@@ -2,9 +2,9 @@
 import React,{act} from "react";
 import {createRoot} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
-import {RentalPanel} from "@/app/(dashboard)/dashboard/courses/rental-panel";
-const m=vi.hoisted(()=>({save:vi.fn(),get:vi.fn(),create:vi.fn(),payment:vi.fn(),search:vi.fn(),refresh:vi.fn()}));
-vi.mock("@/server/actions/course-rental",()=>({saveCourseRental:m.save,getCourseRental:m.get,createRentalCustomer:m.create,saveRentalPayment:m.payment,searchRentalCustomers:m.search,cancelCourseRental:vi.fn(),listRoomRentals:vi.fn()}));
+import {RentalPanel,RentalHistory} from "@/app/(dashboard)/dashboard/courses/rental-panel";
+const m=vi.hoisted(()=>({save:vi.fn(),get:vi.fn(),create:vi.fn(),payment:vi.fn(),search:vi.fn(),list:vi.fn(),refresh:vi.fn()}));
+vi.mock("@/server/actions/course-rental",()=>({saveCourseRental:m.save,getCourseRental:m.get,createRentalCustomer:m.create,saveRentalPayment:m.payment,searchRentalCustomers:m.search,cancelCourseRental:vi.fn(),listRoomRentals:m.list}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
@@ -56,4 +56,21 @@ it("blocks a second submit while the first request is pending",async()=>{
  await act(async()=>{host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
  expect(m.save).toHaveBeenCalledTimes(1);await act(async()=>finish({success:false,error:"失敗"}));
  await submit();expect(m.save).toHaveBeenCalledTimes(2);await act(async()=>finish({success:false,error:"失敗"}));
+});
+
+
+it("keeps rental times and payment states readable and opens the selected record in place",async()=>{
+ m.list.mockResolvedValue({hasMore:false,rows:[
+  {id:"r",name:"小安",startsAt:record.startsAt,endsAt:record.endsAt,cancelled:false,paid:0},
+  {id:"cancelled",name:"小美",startsAt:record.startsAt,endsAt:record.endsAt,cancelled:true,paid:600},
+  {id:"unpaid",name:"小林",startsAt:record.startsAt,endsAt:record.endsAt,cancelled:false,paid:null},
+ ]});
+ await act(async()=>root.render(React.createElement(RentalHistory,{roomId:"room",rooms,permissions})));
+ const table=host.querySelector('table[aria-label="租借紀錄"]')!;
+ expect(Array.from(table.querySelectorAll("th")).map(th=>th.textContent)).toEqual(["日期","時段","顧客","收款"]);
+ const rows=table.querySelectorAll("tbody tr");
+ expect(rows[0].textContent).toContain("10:00–11:00");expect(rows[0].textContent).toContain("已收 $0");
+ expect(rows[1].textContent).toContain("已取消已收 $600");expect(rows[2].textContent).toContain("未收");
+ await click("小安");expect(m.get).toHaveBeenCalledWith("r");expect(host.querySelector('a[href="tel:0900000000"]')).toBeTruthy();
+ expect(host.textContent).toContain("已收 $600");await click("← 租借紀錄");expect(host.querySelector('table[aria-label="租借紀錄"]')).toBeTruthy();
 });

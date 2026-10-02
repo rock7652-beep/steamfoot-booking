@@ -1304,7 +1304,7 @@ export function CourseWorkspace({
                 ? editing?.kind === "session"
                   ? "編輯單堂排課"
                   : editing?.kind === "room"
-                    ? (businessProfile==="MUSIC"?"編輯教室":"編輯空間")
+                    ? (businessProfile==="MUSIC"?"編輯教室":roomRentalHistory?"租借紀錄":"編輯空間")
                     : copyTemplate ? "複製課程" : "編輯課程"
                 : panel === "inspect" ? (editing?.kind === "room" ? (businessProfile === "MUSIC" ? "查看教室" : "查看空間") : "查看課程") : panel === "catalog"
                   ? view === "rooms"
@@ -2437,7 +2437,7 @@ function RoomMore({ rentalEnabled=false,rentalHourlyRate=0,rentalBufferMinutes=0
       </label>}
       {!music && <SpaceRentalFields enabled={rentalEnabled} rate={rentalHourlyRate} buffer={rentalBufferMinutes}/>}
       <details name="course-workspace-details" className="col-span-full">
-        <summary className="min-h-11 cursor-pointer py-3">其他資料（選填）</summary>
+        <summary className="min-h-11 cursor-pointer py-3">{music?"其他資料（選填）":"更多資料（選填）"}</summary>
 
         <div className="grid gap-3 sm:grid-cols-2"><RoomFields equipment={equipment} location={location}/></div>
         <label>

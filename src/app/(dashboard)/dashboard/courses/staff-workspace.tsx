@@ -489,7 +489,7 @@ export function CourseStaffWorkspace({
               </label>
 
               {kind==="coach"&&<><label className="block">E-mail<input className={field} name="contactEmail" type="email" defaultValue={person?.contactEmail}/></label><div className="self-end flex min-h-11 items-center gap-2 text-sm"><strong>系統通知</strong><span className="ml-2 text-earth-600">{person?.coachLoginReady?"已開啟":"連結 LINE 後自動開啟"}</span></div></>}
-              <details name="staff-basic-details" className="col-span-full" open={music?true:undefined}><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 text-sm">更多資料{!music&&kind==="coach"?"（選填）":""}</summary><div className="grid gap-2 sm:grid-cols-3">              <label className="col-span-full block">連結既有人員（選填）
+              <details name="staff-basic-details" className="col-span-full" open={music?true:undefined}><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 text-sm">更多資料{!music&&kind==="coach"?"（選填）":""}</summary><div className="grid gap-2 sm:grid-cols-3">              <label className="col-span-full block">{music?"連結既有人員（選填）":"連結既有人員"}
                 <select className={field} aria-label="連結既有身分" value={linkedStaffId} onChange={e=>{setLinkedStaffId(e.target.value);setDirty(true);}}>
                   <option value="">不連結</option>
                   {counterpartChoices.filter(c=>!c.linked||c.id===person?.linkedStaffId).map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?`（${c.phone}）`:""}</option>)}
@@ -497,13 +497,13 @@ export function CourseStaffWorkspace({
                 <span className="text-xs text-earth-500">請核對是本店同一人。登入、授課設定及後台權限仍各自獨立。</span>
               </label>
               {person?.linkedStaffId&&<p className="col-span-full text-sm text-primary-800">已連結：{person.linkedStaffName}。解除連結不會刪除身分或紀錄。</p>}
-              <label className="col-span-full block max-w-xs">生日（選填）<input key={`birthday:${linkedStaffId}`} className={field} type="date" name="birthday" defaultValue={person?.birthday??selectedCounterpart?.birthday}/></label>
+              <label className="col-span-full block max-w-xs">{music?"生日（選填）":"生日"}<input key={`birthday:${linkedStaffId}`} className={field} type="date" name="birthday" defaultValue={person?.birthday??selectedCounterpart?.birthday}/></label>
               {([
 
                 ["emergencyContactName", "緊急聯絡人姓名"],
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
-              ] as const).map(([name, label]) => <label className="block" key={name}>{label}{(music||kind==="manager") ? (!person ? "（必填）" : !person[name] ? "（待補）" : "") : "（選填）"}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone") ? "tel" : "text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} required={!person && (music || kind==="manager")} /></label>)}
+              ] as const).map(([name, label]) => <label className="block" key={name}>{label}{(music||kind==="manager") ? (!person ? (music?"（必填）":" *") : !person[name] ? "（待補）" : "") : ""}<input key={`${name}:${linkedStaffId}`} className={field} name={name} type={name.endsWith("Phone") ? "tel" : "text"} defaultValue={person?.[name]??selectedCounterpart?.[name]} required={!person && (music || kind==="manager")} /></label>)}
 </div></details>
               </>}
               </div>
@@ -520,7 +520,7 @@ export function CourseStaffWorkspace({
                   {feeEnabled&&!feesReady ? <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">{feesError || "讀取授課設定中…"}{feesError && <button type="button" className={button} onClick={()=>{setFeesError("");setReloadFees(v=>v+1);}}>重試</button>}</p> : music && feeEnabled ? <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={fees} settings={musicSettings} readOnly={!canEditFees} qualificationReadOnly={!canManage} onSettings={v=>{setMusicSettings(v);setDirty(true);setTeachingDirty(true);}} onFees={v=>{setFees(v);setDirty(true);setTeachingDirty(true);}} onQualification={(id,selected)=>{setQualificationsTouched(true);setDirty(true);setTeachingDirty(true);setQualificationIds(ids=>selected?[...new Set([...ids,id])]:ids.filter(v=>v!==id));}}/> : <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
-                      return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3 py-1">
+                      return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] items-center gap-2 px-3">
                         <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>
 
                         {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" placeholder="沿用預設" value={fees[t.id]?.value ?? ""} onChange={e=>setFees(old=>({...old,[t.id]:e.target.value?{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}:{mode:"INHERIT",value:"",revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
@@ -577,7 +577,7 @@ export function CourseStaffWorkspace({
               {kind === "manager" && (
                   <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
                     <label className="block text-sm">
-                      登入信箱（必填）
+                      {music?"登入信箱（必填）":"登入信箱 *"}
                       <input
                         className={field}
                         name="email"
@@ -587,7 +587,7 @@ export function CourseStaffWorkspace({
                       />
                     </label>
                     <label className="block text-sm">
-                      {person ? "重設密碼（留空保留原密碼）" : "登入密碼（必填，至少 8 字元）"}
+                      {person ? "重設密碼（留空保留原密碼）" : music?"登入密碼（必填，至少 8 字元）":"登入密碼 *（至少 8 字元）"}
                       <input
                         className={field}
                         name="password"

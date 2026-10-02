@@ -351,3 +351,13 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
 .fitness-management-editor footer button {
   min-height: 2.75rem;
 }
+
+.fitness-management-editor summary {
+  border-radius: 0.5rem;
+}
+.fitness-management-editor summary:active {
+  background-color: var(--color-primary-50);
+}
+.fitness-management-editor summary:focus-visible {
+  outline-offset: -2px;
+}

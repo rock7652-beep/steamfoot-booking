@@ -80,6 +80,11 @@ export function RightSheet({
   return (
     <div
       data-right-sheet
+      onClickCapture={event => {
+        if (event.detail === 0 || !className.split(" ").includes("fitness-management-editor")) return;
+        const summary = (event.target as HTMLElement).closest("summary");
+        if (summary) summary.blur();
+      }}
       data-presentation={presentation}
       inert={!open}
       style={centered ? { top: 0, right: 0 } : undefined}

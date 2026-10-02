@@ -1,5 +1,6 @@
 "use client";
 
+import {fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CourseConflicts, type ConflictItem } from "@/components/admin/course-conflicts";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -86,10 +87,10 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
     <div>
       <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
     </div>
-    <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><label className="flex items-center gap-2 text-sm">
+    <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><div className={fitness?"flex flex-wrap items-center justify-between gap-3":"contents"}><label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
       沿用店家授課時間
-    </label>
+    </label>{fitness&&<button type="button" disabled={pending} className={`${fitnessEditorSave} bg-primary-700 text-white disabled:opacity-50`} onClick={saveWeekly}>儲存時間</button>}</div>
     {!inherit&&<div className="space-y-2">
       {days.map(day=><div key={day.dayOfWeek} className="grid items-center gap-2 border-b border-earth-100 bg-white px-2 py-1.5 sm:grid-cols-[48px_1fr_auto]">
         <strong className="text-sm">週{names[day.dayOfWeek]}</strong>
@@ -99,7 +100,7 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
         {!!day.periods.length?<button type="button" className="text-xs text-earth-500" onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[]}:item));}}>不授課</button>:<button type="button" className={button} onClick={()=>{setDirtyWeekly(true);setDays(current=>current.map(item=>item.dayOfWeek===day.dayOfWeek?{...item,periods:[{openTime:"09:00",closeTime:"21:00"}]}:item));}}>＋ 開放</button>}
       </div>)}
     </div>}
-    <button type="button" disabled={pending} className={button} onClick={saveWeekly}>{fitness?"儲存時間":"儲存每週可授課時間"}</button></fieldset>
+    {!fitness&&<button type="button" disabled={pending} className={button} onClick={saveWeekly}>儲存每週可授課時間</button>}</fieldset>
 
     <details className="rounded-lg border border-earth-200 bg-white p-2">
       <summary className="cursor-pointer text-sm font-medium text-primary-900">單日例外／請假／臨時加開</summary>
@@ -112,7 +113,7 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
         </select>
         {exceptionType==="CUSTOM"&&<div className="sm:col-span-2"><PeriodRows periods={exceptionPeriods} onChange={periods=>{setDirtyException(true);setExceptionPeriods(periods);}}/></div>}
         <input className={field+" sm:col-span-2"} placeholder="原因（選填）" value={exceptionReason} onChange={e=>setExceptionReason(e.target.value)}/>
-        <button type="button" disabled={pending} className={button} onClick={saveException}>儲存單日例外</button>
+        <button type="button" disabled={pending} className={fitness?`${fitnessEditorSave} sm:col-span-2 justify-self-end bg-primary-700 text-white disabled:opacity-50`:button} onClick={saveException}>儲存單日例外</button>
       </fieldset>
       {!!exceptions.length&&<div className="mt-3 space-y-1 text-xs text-earth-600">
         {exceptions.slice(0,6).map(item=><p key={item.date}>{item.date} · {item.type==="UNAVAILABLE"?"不可授課":item.type==="CUSTOM"?"自訂時段":"固定規則"}{item.reason?" · "+item.reason:""}</p>)}
