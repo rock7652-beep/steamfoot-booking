@@ -25,4 +25,4 @@
 - 15 項 Vitest：基本資料先申請、未完成草稿還原、網址驗證、token、跨來源、預覽隔離、防重送、修訂競爭、通知失敗與總部狀態保留。
 - ESLint、TypeScript、Next production build、Prisma schema validate 通過（大型專案本機檢查需 NODE_OPTIONS=--max-old-space-size=6144）。
 - 獨立測試資料庫：migration、交易內寫入並 rollback、RLS、anon/authenticated 禁止讀取。
-- 完整瀏覽器→Prisma→資料庫驗收尚待預覽的分支環境連線設定；單元測試使用 mock，不能取代此驗收。
+- 已在 Vercel 預覽以虛構資料走完瀏覽器→API→Prisma→獨立資料庫收件與補件，確認同一申請編號、通知 DISABLED。總部已登入操作與真實通知仍需上線前驗收。

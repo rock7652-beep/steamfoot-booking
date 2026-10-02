@@ -56,14 +56,15 @@ export function TrialApplicationForm() {
     let active = true;
     async function restore() {
       let cachedReceipt: Receipt | undefined;
+      let cachedData: TrialApplicationData | undefined;
       try {
         const cached = localStorage.getItem(KEY);
         if (cached) {
           const c = JSON.parse(cached);
-          if (c.data) {
-            const checked = trialDraftSchema.safeParse(c.data);
-            if (checked.success)
-              setData({ ...emptyTrialApplication, ...checked.data });
+          const checked = trialDraftSchema.safeParse(c.data);
+          if (checked.success) {
+            cachedData = { ...emptyTrialApplication, ...checked.data };
+            setData(cachedData);
           }
           if (
             c.receipt &&
@@ -74,15 +75,17 @@ export function TrialApplicationForm() {
             setReceipt(c.receipt);
           }
         }
-        const params = new URLSearchParams(location.hash.slice(1));
-        const requestId =
-          params.get("application") ??
-          (cachedReceipt?.id ? cachedReceipt.requestId : null);
-        const token =
-          params.get("token") ??
-          (cachedReceipt?.id ? cachedReceipt.token : null);
+      } catch {
+        if (active) setStorageWarning(true);
+      }
+      const params = new URLSearchParams(location.hash.slice(1));
+      const requestId =
+        params.get("application") ??
+        (cachedReceipt?.id ? cachedReceipt.requestId : null);
+      const token =
+        params.get("token") ?? (cachedReceipt?.id ? cachedReceipt.token : null);
+      try {
         if (requestId && token) {
-          setReceipt({ requestId, token });
           setBusy(true);
           const res = await fetch("/api/trial-applications", {
             method: "POST",
@@ -92,7 +95,11 @@ export function TrialApplicationForm() {
           const result = await res.json();
           if (active) {
             if (res.ok) {
-              setData(result.data);
+              const sameRevision =
+                cachedReceipt?.requestId === requestId &&
+                cachedReceipt?.token === token &&
+                cachedReceipt?.revision === result.revision;
+              setData(sameRevision && cachedData ? cachedData : result.data);
               setReceipt({
                 requestId,
                 token,
@@ -108,11 +115,8 @@ export function TrialApplicationForm() {
         }
       } catch {
         if (active) {
-          setStorageWarning(true);
-          if (location.hash || cachedReceipt?.id) {
-            setResumeBlocked(true);
-            setMessage("無法讀取原申請，請重新載入再補件。");
-          }
+          setResumeBlocked(true);
+          setMessage("無法讀取原申請，請重新載入再補件。");
         }
       } finally {
         if (active) {
@@ -271,7 +275,7 @@ export function TrialApplicationForm() {
           <li>✓ LINE Developers 授權（不清楚可選需要協助）</li>
         </ul>
       </div>
-      <section className="rounded-2xl border bg-white p-5 sm:p-6">
+      <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
         <h2 className="mb-5 text-xl font-semibold">1 · 店家與聯絡人</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           {field("storeName", "店家名稱 *")}
@@ -294,7 +298,7 @@ export function TrialApplicationForm() {
         </p>
         <StageList items={trialChecklist(data).slice(0, 2)} />
       </section>
-      <section className="rounded-2xl border bg-white p-5 sm:p-6">
+      <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
         <h2 className="mb-5 text-xl font-semibold">2 · 官方 LINE</h2>
         {select("lineStatus", "目前有官方 LINE 嗎？", [
           ["existing", "有，我來填資料"],
@@ -341,7 +345,7 @@ export function TrialApplicationForm() {
         </div>
         <StageList items={trialChecklist(data).slice(2, 4)} />
       </section>
-      <section className="rounded-2xl border bg-white p-5 sm:p-6">
+      <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap gap-3">
           <h2 className="text-xl font-semibold">3 · Developers 授權</h2>
           <Guide topic="developers" label="邀請管理員圖解" />
