@@ -70,6 +70,15 @@ const features = [
     detail: "適合有月費、分潤或合作結算需求的店家；依門市設定計算，不會自動轉帳付款。",
   },
   {
+    id: "waitlist", name: "課程候補", icon: "calendar", fee: 800,
+    title: "課程滿班了，有人取消還要逐一聯絡？",
+    before: "候補名單留在聊天裡，有人取消時，又要詢問誰還能來。",
+    after: "滿班先候補，有空位依順位自動遞補，並透過 LINE 通知學員。",
+    manual: ["記下想候補的學員", "有人取消，再逐一聯絡", "確認名額，再補進預約"],
+    takeaway: "有空位，讓系統接手補位。",
+    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與健康、月結、分析共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
+  },
+  {
     id: "analysis", name: "分析", icon: "bar-chart", fee: 800,
     title: "客人變多了嗎？體驗成交了嗎？舊客回來了嗎？",
     before: "店裡很忙，經營狀況卻要翻好幾份紀錄才知道。",
@@ -86,6 +95,7 @@ function Rows({ items }: { items: readonly (readonly [string, string])[] }) {
   return <dl className="divide-y divide-[#153B31]/10">{items.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm sm:text-base"><dt className="text-[#4C6259]">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>;
 }
 function Example({ id }: { id: FeatureId }) {
+  if (id === "waitlist") return <div className={panel}><p className="font-semibold">課程候補｜範例資料</p><Rows items={[["課程", "週三 19:00 瑜珈"], ["候補順位", "範例學員 A・第 1 組"], ["空位出現", "依順位自動遞補"]]} /><p className="mt-3 rounded-lg bg-[#E9F1EB] p-3 text-sm leading-6">遞補成功後，以 LINE 通知學員查看預約。</p></div>;
   if (id === "reminders") return <div className="space-y-3">
     <div className={panel}><p className="border-b border-[#153B31]/10 pb-3 font-semibold">LINE｜明天見！</p><Rows items={[["服務", "首次體驗"], ["時間", "明天 14:00"]]} /><p className="mt-2 rounded-lg bg-[#123E32] p-3 text-center text-sm font-medium text-white">確認會到</p><p className="mt-3 text-center text-sm">改期　・　取消　・　導航店家</p></div>
     <p className="rounded-lg bg-[#DCEBE1] p-3 text-sm">店長後台｜範例顧客 <strong className="block pt-1">已確認會到</strong></p>
@@ -117,6 +127,7 @@ function Example({ id }: { id: FeatureId }) {
 }
 
 function BeforeExample({ id }: { id: FeatureId }) {
+  if (id === "waitlist") return <div className={panel}><p className="font-semibold">候補名單散在聊天裡</p><Rows items={[["學員 A", "有空位再通知我"], ["有人取消", "誰還能來上課？"], ["確認後", "再手動補進名單"]]} /></div>;
   if (id === "analysis") return <ul className="divide-y divide-[#B48A42]/20 rounded-xl border border-[#B48A42]/20 bg-white px-4">
     {["翻預約，才知道新客有沒有增加", "對體驗與交易，才知道誰開卡了", "找上月名單，才知道誰還沒回來"].map(item => <li key={item} className="py-3 text-base leading-6">{item}</li>)}
   </ul>;

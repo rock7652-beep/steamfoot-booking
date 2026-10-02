@@ -86,10 +86,16 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     description: "每月服務金額、固定月費、加扣項與月結紀錄。",
   },
   {
+    key: FEATURES.CUSTOMER_TAGS,
+    label: "顧客標籤",
+    module: "顧客",
+    description: "系統自動判斷的顧客狀態標籤。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；可獨立授權及設定試用期限。自訂、批次套用與標籤篩選尚未提供。備註不受此授權影響。",
+  },
+  {
     key: FEATURES.COURSE_WAITLIST,
     label: "課程候補",
     module: "營運",
-    description: "課程滿班後依順位候補、自動遞補與 LINE 通知；可由店家獨立開關。",
+    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
   },
   {
     key: FEATURES.DATA_EXPORT,
