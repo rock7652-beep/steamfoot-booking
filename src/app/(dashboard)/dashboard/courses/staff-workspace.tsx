@@ -1,4 +1,5 @@
 "use client";
+import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import {MusicTeacherFeeEditor,type TeacherFeeDraft,type TeacherPlan} from "@/components/admin/music-teacher-fee-editor";
 import type {MusicTeacherSettings} from "@/lib/music-teacher-settings";
@@ -52,6 +53,7 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  previewStoreId,
   counterpartChoices=[],
   displayOrder,
   financeScope=null,
@@ -67,6 +69,7 @@ export function CourseStaffWorkspace({
   permissionGroups,
   music = false,
 }: {
+  previewStoreId?: string;
   counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
   teacherChoices?:{id:string;name:string}[];
@@ -299,6 +302,7 @@ export function CourseStaffWorkspace({
             <h2 id="course-staff-title" className="font-semibold">
               {person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":"查看教練"):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":"編輯教練"):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":"新增教練"):"新增人員")}
             </h2>
+            {person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" />}
             <button
               className={button}
               disabled={pending}

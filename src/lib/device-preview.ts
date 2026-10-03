@@ -1,6 +1,7 @@
 import type { IndustryModuleId } from "@/lib/industry-modules";
 
 export const DEVICE_PREVIEW_PAGES = [
+  { id: "frontend-preview", label: "前台預覽", path: "/dashboard/frontend-preview" },
   {
     id: "dashboard",
     label: "首頁",
@@ -39,6 +40,7 @@ export const DEVICE_PREVIEW_PAGES = [
 ] as const;
 
 export const COURSE_DEVICE_PREVIEW_PAGES = [
+  { id: "frontend-preview", label: "前台預覽", path: "/dashboard/frontend-preview" },
   { id: "dashboard", label: "首頁", path: "/dashboard" },
   { id: "bookings", label: "課表排程", path: "/dashboard/courses" },
   { id: "customers", label: "顧客管理", path: "/dashboard/courses?view=customers" },
@@ -72,6 +74,11 @@ export const DEVICE_PRESETS = {
     label: "桌機",
     width: 1440,
     height: 900,
+  },
+  tabletPortrait: {
+    label: "平板直向",
+    width: 768,
+    height: 1024,
   },
 } as const;
 

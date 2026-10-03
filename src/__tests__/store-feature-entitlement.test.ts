@@ -282,3 +282,19 @@ describe("explicit HQ three-state controls", () => {
     expect(await getStoreFeaturePresentation("store-1",FEATURES.BASIC_REPORTS)).toBe("ENABLED");
   });
 });
+
+
+describe("frontend preview paid add-on", () => {
+  it.each(["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const)("%s does not grant preview implicitly", async plan => {
+    mockStore(plan);
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+  });
+  it("dated single-store trial still requires an explicit grant", async () => {
+    mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+    mockEntitlement("ENABLED");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(true);
+  });
+});

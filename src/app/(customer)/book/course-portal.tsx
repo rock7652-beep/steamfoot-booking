@@ -1,3 +1,4 @@
+import { authorizeFrontendPreview, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
 import { cookies } from "next/headers";
 import { coursePortalRoleCookie, resolveCoursePortalRole } from "@/lib/course-portal-role";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
@@ -12,14 +13,18 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
 import { personalIncomeAccess } from "@/server/services/course-personal-income";
-export async function loadCoursePortal(requestedMonth?: string) {
+export async function loadCoursePortal(requestedMonth?: string, preview?: FrontendPreviewSelection) {
   const month =
     requestedMonth && /^20\d{2}-(0[1-9]|1[0-2])$/.test(requestedMonth)
       ? requestedMonth
       : toLocalMonthStr();
   const range = monthRange(month),
     now = new Date();
-  const { user, storeId, customer } = await courseAccount();
+  const access = preview ? await authorizeFrontendPreview(preview) : null;
+  if (access && access.moduleId !== "course") throw new Error("課程模組不符");
+  const { user, storeId, customer } = access
+    ? { user: { id: access.personUserId ?? "" }, storeId: access.storeId, customer: { id: access.role === "member" ? access.personId : "", name: access.name } }
+    : await courseAccount();
   const [
     identity,
     link,
@@ -61,7 +66,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         mapUrl: true,
       },
     }),
-    getStoreContext(),
+    access ? Promise.resolve({ storeSlug: (await prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { slug: true } })).slug }) : getStoreContext(),
     prisma.businessHours.findMany({
       where: { storeId },
       select: { dayOfWeek: true, isOpen: true },
@@ -70,11 +75,12 @@ export async function loadCoursePortal(requestedMonth?: string) {
       where: { storeId, date: { gte: range.start, lte: range.end } },
       select: { date: true, type: true },
     }),
-    hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
+    access ? Promise.resolve(false) : hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
     prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
-    personalIncomeAccess(user.id, storeId),
+    access ? Promise.resolve(null) : personalIncomeAccess(user.id, storeId),
   ]);
-  const memberEnabled = identity?.courseMemberEnabled !== false;
+  const memberEnabled = access ? access.role === "member" : identity?.courseMemberEnabled !== false;
+  const workLink = access ? (access.role === "work" ? { staffId: access.personId } : null) : link;
   const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
   const waitlistFeature = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
   const waitlistSetting = waitlistFeature
@@ -148,11 +154,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
           orderBy: { createdAt: "asc" },
         })
       : [],
-    link
+    workLink
       ? coursePrisma.courseSession.findMany({
           where: {
             storeId,
-            coachId: link.staffId,
+            coachId: workLink!.staffId,
             cancelledAt: null,
             OR: [
               { startsAt: { gte: dayRange(addTaiwanDuration(toLocalDateStr(range.start), -6, "DAY")).start, lte: dayRange(addTaiwanDuration(toLocalDateStr(range.end), 6, "DAY")).end } },
@@ -214,11 +220,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
           orderBy: { session: { startsAt: "asc" } },
         })
       : null,
-    link
+    workLink
       ? coursePrisma.courseSession.findFirst({
           where: {
             storeId,
-            coachId: link.staffId,
+            coachId: workLink!.staffId,
             cancelledAt: null,
             startsAt: { gte: now },
           },
@@ -286,14 +292,14 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : [],
   ]);
   const coachNames = new Map(coaches.map((coach) => [coach.id, coach.displayName]));
-  const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
+  const referralShare = memberEnabled && !access ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
   // Only customers on this authorized coach's own sessions are read.
   const workCustomers = work.length ? await prisma.customer.findMany({
     where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
     select:{id:true, serviceNote:true, notes:true},
   }) : [];
   const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
-  const initialRole = resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
+  const initialRole = access ? (access.role === "work" ? "coach" as const : "member" as const) : resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
   return {
     rolePreferenceKey,
     initialRole,
@@ -306,7 +312,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     storeName: store.name,
     prefix: context?.storeSlug ? `/s/${context.storeSlug}` : "",
     memberEnabled,
-    hasWork: !!link,
+    hasWork: !!workLink,
     incomeAvailable: !!incomeAccess,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,

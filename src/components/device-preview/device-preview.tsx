@@ -75,7 +75,9 @@ export function DevicePreview({ moduleId = "steamfoot" }: { moduleId?: IndustryM
         </div>
 
         <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2.5 text-sm text-primary-800">
-          預覽會使用目前門市資料；新增、修改與刪除會實際生效。
+          {quickPage === "frontend-preview"
+            ? "前台預覽僅供查看，不會儲存或發送通知。"
+            : "預覽會使用目前門市資料；新增、修改與刪除會實際生效。"}
         </div>
 
         <DeviceToolbar

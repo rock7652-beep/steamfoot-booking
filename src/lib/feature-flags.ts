@@ -16,6 +16,7 @@ import { AppError } from "@/lib/errors";
 // ============================================================
 
 export const FEATURES = {
+  FRONTEND_PREVIEW: "frontend_preview",
   DEVICE_PREVIEW: "device_preview",
   DIGITAL_BUTLER: "digital_butler",
   // ── EXPERIENCE（體驗版）──
