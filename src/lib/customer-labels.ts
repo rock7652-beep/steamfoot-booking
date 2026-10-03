@@ -16,6 +16,7 @@ export type CustomerLabel = { id: string; categoryId: string; name: string; acti
 export type LabelSnapshot = {
   storeId?: string;
   fetchedAt?: number;
+  clientRevision?: number;
   available: boolean; enabled: boolean; canEdit: boolean; canManage: boolean;
   categories: LabelCategory[]; labels: CustomerLabel[];
   assignments: Record<string, string[]>;
@@ -49,4 +50,12 @@ export function previewLabelManagement(data: LabelSnapshot, input: LabelManageme
     case "label-order": return { ...data, labels: data.labels.map(l => l.categoryId === input.categoryId ? { ...l, position: input.ids.indexOf(l.id) } : l).sort((a,b)=>(a.position??0)-(b.position??0)||a.name.localeCompare(b.name)) };
     case "order": return { ...data, categories: data.categories.map(c => ({ ...c, position: input.ids.indexOf(c.id) })) };
   }
+}
+
+// Requests and local edits share one browser sequence, independent of device time.
+let labelRevision = 0;
+export function nextCustomerLabelRevision() { return ++labelRevision; }
+export function newerLabelSnapshot(current: LabelSnapshot, incoming: LabelSnapshot) {
+  if (current.clientRevision !== undefined || incoming.clientRevision !== undefined) return (current.clientRevision ?? 0) > (incoming.clientRevision ?? 0);
+  return incoming.fetchedAt !== undefined && (current.fetchedAt ?? 0) > incoming.fetchedAt;
 }

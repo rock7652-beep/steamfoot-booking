@@ -55,3 +55,5 @@ it("rejects malformed selected-day slots without retrying via an action", async 
   await expect(readBookingMonth({ year: 2026, month: 10, storeId: "store-a", date: "2026-10-01" })).rejects.toThrow();
   expect(mocks.action).not.toHaveBeenCalled();
 });
+
+it("stamps labels in request-start order, even when responses finish out of order",async()=>{let finish!:(value:Response)=>void;request.mockReturnValueOnce(new Promise(resolve=>finish=resolve));const body={monthData:[],monthSchedule:{},slots:null,customerLabels:{assignments:{}}};const older=readBookingMonth({year:2026,month:9,storeId:"s"});request.mockResolvedValueOnce(Response.json(body));const newer=await readBookingMonth({year:2026,month:10,storeId:"s"});finish(Response.json(body));expect((await older).customerLabels!.clientRevision).toBeLessThan(newer.customerLabels!.clientRevision!);});
