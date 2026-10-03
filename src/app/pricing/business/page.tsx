@@ -1,3 +1,4 @@
+import { HomepageOffer } from "../pricing-offer";
 import { MarketingFaq } from "../marketing-faq";
 import { StoreTestimonial } from "@/components/store-testimonial";
 import { MarketingUsageStatistics } from "@/components/marketing-usage-statistics";
@@ -29,6 +30,9 @@ export const revalidate = 3600;
 
 export default async function BusinessPage() {
   const usage = await getMarketingUsage();
+  // SSR timestamp is passed unchanged to the first client render.
+  // eslint-disable-next-line react-hooks/purity
+  const initialNow = Date.now();
   return (
     <div className="bg-[#F8F5EE] text-[#153B31] selection:bg-[#DFC99D]">
       <a href="#main" className="sr-only focus:not-sr-only focus:block focus:p-4">跳至主要內容</a>
@@ -121,27 +125,22 @@ export default async function BusinessPage() {
           </div>
         </section>
 
-        <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-8">
+        <section id="trial" aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-8">
           <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr] lg:items-center">
-            <div><p className="text-sm font-medium tracking-widest text-[#74603C]">從你的門市需要開始</p>
-              <h2 id="contact-title" className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">先免費用 30 天，再決定。</h2>
-              <p className="mt-3 max-w-lg text-base leading-7 text-[#4C6259]">單店功能完整開放。轉正式可沿用體驗期間的帳號、顧客、預約與方案資料，不用重新建檔。</p>
-              <ol aria-label="體驗申請流程" className="mt-4 space-y-2 text-base leading-7">
-                <li><span className="mr-2 font-semibold text-[#967039]">1.</span>填寫需求，先了解你的店內流程。</li>
-                <li><span className="mr-2 font-semibold text-[#967039]">2.</span>專人聯繫，確認設定與體驗內容。</li>
-                <li><span className="mr-2 font-semibold text-[#967039]">3.</span>帳號可正常使用當天，才起算 30 天。</li>
+            <div>
+              <p className="text-sm font-medium text-[#74603C]">從你的門市需要開始</p>
+              <h2 id="contact-title" className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">先免費用 30 天，再決定。</h2>
+              <p className="mt-3 max-w-lg text-base leading-7 text-[#4C6259]">單店功能完整體驗，專人協助上手。轉正式資料可沿用。</p>
+              <div className="mt-4"><ConsultLink /></div>
+              <ol aria-label="體驗申請流程" className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-base leading-7">
+                <li>填寫需求</li>
+                <li><span aria-hidden="true" className="mr-2 text-[#967039]">→</span>專人協助設定</li>
+                <li><span aria-hidden="true" className="mr-2 text-[#967039]">→</span>開始體驗</li>
               </ol>
-              <p className="mt-3 text-sm leading-6 text-[#4C6259]">送出需求不扣款，也不會立即開始體驗。操作問題可查指南，或透過官方 LINE 聯繫。</p>
-              <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center underline underline-offset-4">加 LINE 諮詢 ↗</a>
+              <p className="mt-2 text-sm leading-6 text-[#4C6259]">可正常使用才起算 30 天，申請不扣款。</p>
+              <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-11 items-center text-base underline underline-offset-4">加 LINE 諮詢 ↗</a>
             </div>
-            <div className="rounded-2xl bg-[#123E32] p-5 text-[#F8F5EE] sm:p-6">
-              <p className="text-base">基本版・限時優惠</p>
-              <p className="mt-3 text-base">每月 <span className="text-4xl font-semibold tracking-tight">NT$1,490</span></p>
-              <p className="mt-5 text-base leading-7 text-[#D4E0D8]">三個付費方案皆內含 LINE 顧客入口（LIFF）；自動提醒等模組依方案選配。</p>
-              <p className="mt-3 text-sm leading-7 text-[#D4E0D8]">主方案一次繳一年送 2 個月；額外加購模組與分店串接管理費另計。</p>
-              <div className="mt-4"><ConsultLink light /></div>
-              <Link href="/pricing" className="mt-5 inline-block py-2 text-base underline underline-offset-8">查看完整方案與加購說明</Link>
-            </div>
+            <HomepageOffer initialNow={initialNow} />
           </div>
           <MarketingFaq />
         </section>
