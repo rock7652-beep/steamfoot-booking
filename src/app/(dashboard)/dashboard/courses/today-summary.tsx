@@ -79,7 +79,7 @@ export async function CourseTodaySummary() {
           capacity: s.capacity,
           coach: coachNames.get(s.coachId) ?? "—",
           room: s.room.name,
-          customerIds: s.bookings.filter((b) => b.status !== "CANCELLED").map((b) => b.customerId),
+          customerIds: s.bookings.filter((b) => b.status !== "CANCELLED").map((b) => b.customerId).filter((id): id is string => !!id),
           booked: s.bookings.filter((b) => b.status !== "CANCELLED").length,
           unmarked: s.bookings.filter((b) => b.status === "RESERVED").length,
         }))}

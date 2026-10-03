@@ -75,11 +75,6 @@ export const DEVICE_PRESETS = {
     width: 1440,
     height: 900,
   },
-  tabletPortrait: {
-    label: "平板直向",
-    width: 768,
-    height: 1024,
-  },
 } as const;
 
 export type DevicePreviewPageId = (typeof DEVICE_PREVIEW_PAGES | typeof COURSE_DEVICE_PREVIEW_PAGES)[number]["id"];

@@ -114,3 +114,12 @@ it('does not let a late refresh overwrite an optimistic label edit',async()=>{
   await act(async()=>save({success:true}));expect(host.textContent).not.toContain('＋1');
  } finally {vi.useRealTimers();}
 });
+
+it('synchronizes saved metadata without refetching and ignores older in-flight reads',async()=>{
+ await render();let finish!:(value:LabelSnapshot)=>void;m.load.mockReturnValue(new Promise(resolve=>finish=resolve));
+ await act(async()=>window.dispatchEvent(new Event('customer-labels:refresh')));
+ const labels=data.labels.map(l=>l.id==='a'?{...l,name:'已改名'}:l);
+ await act(async()=>window.dispatchEvent(new CustomEvent('customer-labels:refresh',{detail:{enabled:true,categories:data.categories,labels}})));
+ expect(host.textContent).toContain('已改名');expect(m.load).toHaveBeenCalledTimes(1);
+ await act(async()=>finish(data));expect(host.textContent).toContain('已改名');expect(host.textContent).not.toContain('初次');
+});

@@ -17,7 +17,7 @@ describe("unified operation audit center contract", () => {
 
   it("restricts the center to HQ while keeping filters and pagination on the server", () => {
     const page = read("src/app/(dashboard)/dashboard/operation-audits/page.tsx");
-    const layout = read("src/app/(dashboard)/layout.tsx");
+    const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
     const service = read("src/server/services/operation-audit.ts");
     expect(page).toContain('if (user.role !== "ADMIN") redirect("/dashboard")');

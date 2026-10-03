@@ -21,7 +21,7 @@ import { scheduleOnDate, scheduleTotals } from "@/lib/music-schedule-audit";
 export type CourseScheduleMode = "month" | "week" | "day";
 
 type Booking = {
-  customerId: string;
+  customerId: string | null;
   customerName: string;
   status: string;
   absenceKind?: string | null;

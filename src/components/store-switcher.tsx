@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { switchActiveStore } from "@/server/actions/store-switch";
+import { hqStoreSwitchDestination } from "@/lib/hq-navigation";
 import { toast } from "sonner";
 
 interface StoreOption {
@@ -113,7 +114,7 @@ export default function StoreSwitcher({
       if (result.success) {
         // A store change can switch the entire module layout and redirect.
         // Request a fresh document so the old router tree cannot leave a blank view.
-        window.location.reload();
+        window.location.assign(hqStoreSwitchDestination(window.location.search));
       } else {
         toast.error(result.error ?? "切換店舖失敗，已保留原店舖");
         router.refresh();
@@ -135,7 +136,7 @@ export default function StoreSwitcher({
             setOpen(!open);
           }}
           disabled={isPending}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-100 hover:text-earth-800 disabled:opacity-50 transition-colors"
+          className="flex min-h-11 items-center gap-1 rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-100 hover:text-earth-800 disabled:opacity-50 transition-colors"
         >
           <span className="max-w-[140px] truncate font-medium">
             {collapsed ? "店" : currentLabel}

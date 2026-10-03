@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreLimitsByStoreId, hasStoreFeature } from "@/lib/feature-gate";
@@ -29,10 +28,10 @@ export type PromotedWaitlistBooking = {
 
 const fail = (message: string): never => { throw new AppError("VALIDATION", message); };
 
-export async function getCourseWaitlistSettings(storeId: string): Promise<CourseWaitlistSettings> {
+export async function getCourseWaitlistSettings(storeId: string, reader: Pick<Prisma.TransactionClient, "courseWaitlistSetting"> = coursePrisma): Promise<CourseWaitlistSettings> {
   const featureAvailable = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
   const row = featureAvailable
-    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
+    ? await reader.courseWaitlistSetting.findUnique({ where: { storeId } })
     : null;
   return {
     featureAvailable,
@@ -50,18 +49,28 @@ function groupKeyFor(requestKey: string, customerIds: string[]) {
 
 export async function joinCourseWaitlist(
   actor: CourseActor,
-  input: { sessionId: string; cardId: string; customerIds: string[]; requestKey: string },
+  input: { sessionId: string; cardId: string; customerIds: string[]; companionNames?: string[]; requestKey: string },
 ) {
   const customerIds = [...new Set(input.customerIds)].sort();
   if (!customerIds.length || customerIds.length !== input.customerIds.length || customerIds.length > 20)
     fail("請選擇 1 至 20 位不重複的候補人");
 
+  const companionNames = input.companionNames ?? [];
+  if (companionNames.length && (!actor.customerId || customerIds.length !== 1 || customerIds[0] !== actor.customerId || companionNames.length > 2)) fail("同行候補須包含本人，最多 3 人");
+  const participantCount = customerIds.length + companionNames.length;
   const settings = await getCourseWaitlistSettings(actor.storeId);
   if (!settings.featureAvailable || !settings.enabled) fail("本店目前未開放候補");
 
   return coursePrisma.$transaction(async tx => {
     await lockCourseStore(tx, actor.storeId);
 
+    const replayGroup = groupKeyFor(input.requestKey, [...customerIds, ...companionNames.map((name, i) => `companion:${i + 1}:${name}`)]);
+    const previous = await tx.courseWaitlistEntry.findMany({where: {storeId: actor.storeId, requestKey: {startsWith: `${input.requestKey}:`}}});
+    if (previous.length) {
+      if (previous.length !== participantCount || previous.some(row => row.groupKey !== replayGroup || row.sessionId !== input.sessionId || row.cardId !== input.cardId || row.operatorUserId !== actor.userId)) fail("候補請求已使用，請重新開啟");
+      const waiting = await tx.courseWaitlistEntry.findMany({where: {storeId: actor.storeId, sessionId: input.sessionId, status: "WAITING"}, orderBy: [{createdAt: "asc"}, {id: "asc"}]});
+      return {rows: previous, position: waitlistGroups(waiting).findIndex(group => group[0].groupKey === replayGroup) + 1};
+    }
     const [session, card, customers, rule] = await Promise.all([
       tx.courseSession.findFirst({
         where: { id: input.sessionId, storeId: actor.storeId, cancelledAt: null },
@@ -69,7 +78,7 @@ export async function joinCourseWaitlist(
       }),
       tx.coursePointCard.findFirst({
         where: { id: input.cardId, storeId: actor.storeId },
-        include: { members: true },
+        include: { members: true, plan: {select: {allowShared: true}} },
       }),
       tx.$queryRaw<Array<{ id: string; name: string }>>`
         SELECT id,name FROM "Customer"
@@ -98,6 +107,10 @@ export async function joinCourseWaitlist(
     if (actor.customerId && !activeCard.members.some(member => member.customerId === actor.customerId))
       fail("無權使用此共卡候補");
 
+    if (companionNames.length) {
+      const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+      if (music.length || activeCard.termSessionIds.length || !activeCard.plan.allowShared) fail("此方案未開放自由選課同行候補");
+    }
     const now = new Date();
     if (activeSession.startsAt.getTime() <= now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60_000)
       fail("已超過候補截止時間");
@@ -128,15 +141,15 @@ export async function joinCourseWaitlist(
         _sum: { pointCost: true },
       }),
     ]);
-    if (occupied < activeSession.capacity) fail("本堂課還有名額，請直接預約");
+    if (occupied + participantCount <= activeSession.capacity) fail("本堂課還有名額，請直接預約");
     if (existingBookings.length) fail("選擇的人員中已有本堂正式預約");
     if (existingWaitlist.length) fail("選擇的人員中已有本堂候補");
     const limit = activeSession.template.waitlistLimit || settings.defaultLimit;
-    if (waitingCount + customerIds.length > limit) fail("本堂候補名額已滿");
-    if (activeCard.remaining - (held._sum.pointCost ?? 0) < bookingCost * customerIds.length)
+    if (waitingCount + participantCount > limit) fail("本堂候補名額已滿");
+    if (activeCard.remaining - (held._sum.pointCost ?? 0) < bookingCost * participantCount)
       fail(activeCard.unit === "SESSION" ? "方案可用堂數不足" : "方案可用點數不足");
 
-    const groupKey = groupKeyFor(input.requestKey, customerIds);
+    const groupKey = groupKeyFor(input.requestKey, [...customerIds, ...companionNames.map((name, i) => `companion:${i + 1}:${name}`)]);
     const people = new Map(customers.map(person => [person.id, person.name]));
     const rows = [];
     for (const customerId of customerIds) {
@@ -148,6 +161,8 @@ export async function joinCourseWaitlist(
           cardId: activeCard.id,
           customerId,
           customerName: people.get(customerId) ?? "學員",
+          reserverCustomerId: actor.customerId, reserverCardId: activeCard.id,
+          reserverName: actor.name,
           groupKey,
           requestKey: `${input.requestKey}:${customerId}`,
           operatorUserId: actor.userId,
@@ -157,6 +172,15 @@ export async function joinCourseWaitlist(
         },
       });
       rows.push(row);
+    }
+    for (const [index, name] of companionNames.entries()) {
+      rows.push(await tx.courseWaitlistEntry.create({data: {
+        id: crypto.randomUUID(), storeId: actor.storeId, sessionId: activeSession.id, cardId: activeCard.id,
+        customerId: null, customerName: name.trim() || `同行者 ${index + 1}`, companionIndex: index + 1,
+        reserverCustomerId: actor.customerId, reserverCardId: activeCard.id, reserverName: actor.name, groupKey,
+        requestKey: `${input.requestKey}:companion:${index + 1}`, operatorUserId: actor.userId,
+        operatorCustomerId: actor.customerId, operatorName: actor.name, pointCost: bookingCost,
+      }}));
     }
     const all = await tx.courseWaitlistEntry.findMany({
       where: { storeId: actor.storeId, sessionId: activeSession.id, status: "WAITING" },
@@ -206,7 +230,7 @@ export async function promoteCourseWaitlistForSession(
   sessionId: string,
   options: { ignoreCutoff?: boolean } = {},
 ): Promise<PromotedWaitlistBooking[]> {
-  const settings = await getCourseWaitlistSettings(storeId);
+  const settings = await getCourseWaitlistSettings(storeId, tx);
   if (!settings.featureAvailable || !settings.enabled) return [];
   const session = await tx.courseSession.findFirst({
     where: { id: sessionId, storeId, cancelledAt: null, releasedAt: null },
@@ -248,6 +272,12 @@ export async function promoteCourseWaitlistForSession(
             sessionId,
             cardId: entry.cardId,
             customerId: entry.customerId,
+            customerName: entry.customerName,
+            companionIndex: entry.companionIndex ?? undefined,
+            reserverCustomerId: entry.reserverCustomerId ?? undefined,
+            reserverName: entry.reserverName ?? undefined,
+            reserverCardId: entry.reserverCardId ?? undefined,
+            groupKey: entry.groupKey,
             requestKey: `waitlist-promote:${entry.id}`,
           },
           limits.maxMonthlyBookings,
@@ -262,7 +292,7 @@ export async function promoteCourseWaitlistForSession(
         promoted.push({
           entryId: item.entry.id,
           bookingId: item.booking.id,
-          customerId: item.entry.customerId,
+          customerId: item.entry.reserverCustomerId ?? item.entry.operatorCustomerId ?? item.entry.customerId!,
           customerName: item.entry.customerName,
           sessionId,
         });

@@ -444,6 +444,7 @@ export async function listStoresAction(): Promise<
       staffCount: number;
       customerCount: number;
       createdAt: Date;
+      archivedAt: Date | null;
     }>
   >
 > {
@@ -465,6 +466,7 @@ export async function listStoresAction(): Promise<
         select: { featureKey: true },
       },
       createdAt: true,
+      archivedAt: true,
       _count: { select: { staff: true, customers: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -487,6 +489,7 @@ export async function listStoresAction(): Promise<
       staffCount: s._count.staff,
       customerCount: s._count.customers,
       createdAt: s.createdAt,
+      archivedAt: s.archivedAt,
     })),
   };
 }

@@ -33,7 +33,8 @@ export async function notifyCourseWaitlistPromotions(
     const sessionMap = new Map(sessions.map(item => [item.id, item]));
     const customerMap = new Map(customers.map(item => [item.id, item]));
 
-    for (const item of promoted) {
+    const recipients = [...new Map(promoted.map(item => [`${item.sessionId}:${item.customerId}`, item])).values()];
+    for (const item of recipients) {
       const session = sessionMap.get(item.sessionId);
       const customer = customerMap.get(item.customerId);
       if (!session || !customer) continue;
@@ -53,7 +54,7 @@ export async function notifyCourseWaitlistPromotions(
           "候補已成功遞補",
           store?.name ?? "課程門市",
           `${formatTWDateTime(session.startsAt)} ${session.nameSnapshot}`,
-          `上課者：${customer.name}`,
+          `上課者：${promoted.filter(row => row.sessionId === item.sessionId && row.customerId === item.customerId).map(row => row.customerName).join("、")}`,
           "名額已為您保留，請依原預約方式準時到店。",
         ].join("\n"),
       }];

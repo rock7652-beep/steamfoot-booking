@@ -63,6 +63,7 @@ export async function joinMemberCourseWaitlist(input: unknown) {
       sessionId: id,
       cardId: id,
       customerIds: z.array(id).min(1).max(20),
+      companionNames: z.array(z.string().trim().max(100)).max(2).optional(),
       requestKey: z.string().uuid(),
     }).parse(input);
     const { user, storeId, customer } = await courseMember({ write: true });

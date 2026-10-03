@@ -19,3 +19,30 @@ export type LabelSnapshot = {
   assignments: Record<string, string[]>;
 };
 export const EMPTY_LABELS: LabelSnapshot = { available: false, enabled: false, canEdit: false, canManage: false, categories: [], labels: [], assignments: {} };
+
+export type LabelMetadata = Pick<LabelSnapshot, "enabled" | "categories" | "labels">;
+export type LabelManagementInput =
+  | { action: "enable"; enabled: boolean }
+  | { action: "category"; id?: string; name: string }
+  | { action: "label"; id?: string; categoryId: string; name: string }
+  | { action: "active"; kind: "category" | "label"; id: string; active: boolean }
+  | { action: "order"; ids: string[] };
+
+/** Pending creations remain local until the server assigns their permanent IDs. */
+export function previewLabelManagement(data: LabelSnapshot, input: LabelManagementInput): LabelSnapshot {
+  switch (input.action) {
+    case "enable": return { ...data, enabled: input.enabled };
+    case "category": {
+      if (input.id) return { ...data, categories: data.categories.map(c => c.id === input.id ? { ...c, name: input.name.trim() } : c) };
+      const number = Math.max(0, ...data.categories.map(c => c.number)) + 1;
+      return { ...data, categories: [...data.categories, { id: "pending-category", name: input.name.trim(), number, position: Math.max(-1, ...data.categories.map(c => c.position)) + 1, active: true }] };
+    }
+    case "label": return { ...data, labels: input.id
+      ? data.labels.map(l => l.id === input.id ? { ...l, name: input.name.trim(), categoryId: input.categoryId } : l)
+      : [...data.labels, { id: "pending-label", categoryId: input.categoryId, name: input.name.trim(), active: true }] };
+    case "active": return input.kind === "category"
+      ? { ...data, categories: data.categories.map(c => c.id === input.id ? { ...c, active: input.active } : c) }
+      : { ...data, labels: data.labels.map(l => l.id === input.id ? { ...l, active: input.active } : l) };
+    case "order": return { ...data, categories: data.categories.map(c => ({ ...c, position: input.ids.indexOf(c.id) })) };
+  }
+}

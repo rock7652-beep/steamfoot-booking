@@ -4,7 +4,7 @@ import { FeatureEntry, useFeaturePresentation } from "@/components/feature-prese
 import { FEATURES } from "@/lib/feature-flags";
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { loadCustomerLabels, setCustomerLabel } from "@/server/actions/customer-labels";
-import { EMPTY_LABELS, labelColor, type LabelSnapshot } from "@/lib/customer-labels";
+import { EMPTY_LABELS, labelColor, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   const pendingRef=useRef(new Set<string>());
   const ids=useRef(new Map<string,number>());
   const loaded=useRef(new Map(Object.keys(initial.assignments).map(id=>[id,Date.now()])));
+  const metadataRevision=useRef(0);
   const revisions=useRef(new Map<string,number>());
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const inFlight=useRef<Promise<void>|null>(null);
@@ -31,6 +32,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     if(inFlight.current){queued.current=true;return inFlight.current;}
     const requested=[...ids.current.keys()].filter(id=>Date.now()-(loaded.current.get(id)??0)>=LABEL_CACHE_MS);
     if(!requested.length&&!force)return Promise.resolve();
+    const metadataVersion=metadataRevision.current;
     const versions=new Map(requested.map(id=>[id,revisions.current.get(id)??0]));
     queued.current=false;
     const run=(async()=>{
@@ -39,7 +41,9 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
         if(!mounted.current)return;
         const result={...batches[0],assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
         setSnapshot(old=>{
-          if(!result.enabled)return {...result,assignments:{}};
+          if(metadataRevision.current!==metadataVersion)return old;
+          const metadata=result;
+          if(!metadata.enabled)return {...metadata,assignments:{}};
           const assignments={...old.assignments};
           for(const id of requested){
             if(pendingRef.current.has(id)||(revisions.current.get(id)??0)!==versions.get(id))continue;
@@ -47,7 +51,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
             delete assignments[id];
             if(id in result.assignments)assignments[id]=result.assignments[id];
           }
-          return {...result,assignments};
+          return {...metadata,assignments};
         });
       } catch {if(mounted.current)toast.error("標籤讀取失敗，請重新整理");}
       finally {
@@ -69,7 +73,14 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     setSnapshot(old=>({...data,assignments:data.enabled?{...old.assignments,...accepted}:{}}));
   },[]);
   useEffect(()=>{
-    const changed=()=>void refresh();
+    const changed=(event:Event)=>{
+      const metadata=(event as CustomEvent<(LabelMetadata & {restoreAssignments?:boolean})|undefined>).detail;
+      if(!metadata){void refresh();return;}
+      metadataRevision.current++;
+      setSnapshot(old=>({...old,...metadata,assignments:metadata.enabled?old.assignments:{}}));
+      // Enabling restores the saved assignments that were hidden while disabled.
+      if(metadata.enabled && metadata.restoreAssignments){loaded.current.clear();void fetchLabels();}
+    };
     const focus=()=>void fetchLabels();
     window.addEventListener("customer-labels:refresh",changed);window.addEventListener("focus",focus);
     return()=>{window.removeEventListener("customer-labels:refresh",changed);window.removeEventListener("focus",focus);};
