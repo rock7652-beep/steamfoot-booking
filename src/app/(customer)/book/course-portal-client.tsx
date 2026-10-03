@@ -47,6 +47,7 @@ import { CopyButton } from "./shop/[planId]/checkout/copy-button";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
 type Work = CoursePortalData["work"][number];
+type BookingUpdate = NonNullable<Awaited<ReturnType<typeof createMemberCourseBooking>> extends infer R ? R extends {bookingUpdates: infer U} ? U : never : never>[number];
 type AttendanceUpdate = Pick<Work["bookings"][number], "id" | "status" | "checkedIn" | "updatedAt">;
 type Page =
   | "home"
@@ -192,7 +193,18 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+  const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
+  const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
+  const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
+  const p = {...serverData,
+    bookings: [...serverData.bookings, ...additions.map(row => row.booking)],
+    cards: serverData.cards.map(card => {
+      const held = outstanding.filter(row => row.cardId === card.id).reduce((sum, row) => sum + row.booking.cost, 0);
+      return held ? {...card, held: card.held + held, available: Math.max(0, card.available - held)} : card;
+    }),
+    sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
+  };
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -379,8 +391,8 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
     start(() => router.replace(`${pathname}?${q}`, { scroll: false }));
   }
   function run(
-    action: () => Promise<{ success: boolean; error?: string; attendanceUpdates?: AttendanceUpdate[] }>,
-    done: () => void,
+    action: () => Promise<{ success: boolean; error?: string; attendanceUpdates?: AttendanceUpdate[]; bookingUpdates?: BookingUpdate[] }>,
+    done: (result: {bookingUpdates?: BookingUpdate[]}) => void,
     successMessage = "已更新",
     bookingIds: string[] = [],
     refreshOnFailure = true,
@@ -407,7 +419,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
           }
           return next;
         });
-        done();
+        done(r);
         setMessage(successMessage);
         start(() => router.refresh());
       } catch {
@@ -1344,7 +1356,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                     card.available < amount(session, card) * participantCount
                   }
                   onClick={() =>
-                    confirm
+                    (companionMode || confirm)
                       ? run(
                           () => waitlistMode
                             ? joinMemberCourseWaitlist({
@@ -1362,16 +1374,23 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                                 requestKey: key,
                                 notes,
                               }),
-                          () => {
+                          (result) => {
+                            if (result.bookingUpdates && card) setConfirmedBookings(previous => {
+                              const ids = new Set(previous.map(row => row.booking.id));
+                              return [...previous, ...result.bookingUpdates!.filter(b => !ids.has(b.id)).map(b => ({cardId: b.cardId, confirmedAt: b.confirmedAt, booking: {
+                                ...b, name: session.name, startsAt: session.startsAt, coach: session.coach, room: session.room,
+                                notes: "", trialPaid: null, trialPrice: null, unit: card.unit, planName: card.name, expiresAt: card.expiresAt,
+                              }}))];
+                            });
                             setSession(null);
                             if (!waitlistMode) setPage("bookings");
                           },
-                          waitlistMode ? "已加入候補" : "已更新",
+                          waitlistMode ? "已加入候補" : "預約成功",
                         )
                       : setConfirm(true)
                   }
                 >
-                  {pending ? "處理中…" : confirm ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
+                  {pending ? (waitlistMode ? "候補中…" : "預約中…") : (companionMode || confirm) ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
                 </button>
               )}
             </>

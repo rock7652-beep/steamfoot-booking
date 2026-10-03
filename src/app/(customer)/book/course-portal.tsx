@@ -379,7 +379,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       status: b.status,
       notes: "",
       cost: b.pointCost,
-      trialPaid: b.trialPayments[0]?.amount ?? null,
+      trialPaid: b.trialPayments.at(0)?.amount ?? null,
       trialPrice: b.trialPrice,
       unit: b.card?.unit ?? "TRIAL",
       planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
