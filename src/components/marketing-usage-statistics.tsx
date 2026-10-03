@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 // No customer records or database credentials are sent to the browser.
 const statistics = [
   { label: "正式使用門市", value: 3, unit: "間" },
-  { label: "已服務顧客名單", value: 328, unit: "筆" },
+  { label: "服務顧客名單", value: 328, unit: "筆" },
   { label: "累計完成服務", value: 1631, unit: "人次" },
 ] as const;
 
