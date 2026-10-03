@@ -204,8 +204,9 @@ export function DayDetailPanel({
       <div className="min-h-0 flex-1 px-4 pb-3">
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
         <div aria-hidden="true" data-batch={batchMode && selectionEnabled} className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
+          {batchMode && selectionEnabled && <span />}
           <span />
-          <div className={styles.rowBody}><span>時間／人數</span><span>顧客／電話</span><span>直屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
+          <div className={styles.rowBody}><span>時間／人數</span><span className={styles.identityHeader}><span>顧客</span><span>電話</span></span><span>直屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
           <span />
         </div>
 
@@ -419,7 +420,8 @@ function TimelineItem({
 
   return (
     <div
-      className={`flex border-l-[3px] transition-colors ${rosterRowClassName} ${borderColor} ${
+      data-batch={!!onToggleSelect}
+      className={`${styles.rosterRow} flex border-l-[3px] transition-colors ${rosterRowClassName} ${borderColor} ${
         isActing ? "opacity-60" : ""
       } ${selected ? "bg-primary-50/40" : ""}`}
     >
@@ -522,7 +524,7 @@ function TimelineItem({
                 : `剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
-            <span title={`已扣堂｜方案：${deductedPlanLabel}`} className="block w-full min-w-0 truncate text-sm font-medium text-emerald-700">
+            <span title={`已扣堂｜方案：${deductedPlanLabel}`} className="block w-full min-w-0 break-words text-sm font-medium text-emerald-700">
               已扣堂｜方案：{deductedPlanLabel}
             </span>
           ) : planBadge.kind === "not_deducted" ? (
@@ -534,7 +536,7 @@ function TimelineItem({
           ) : null}
         {booking.bookingType !== "FIRST_TRIAL" && planBadge.kind !== "deducted" && planLabel !== "—" ? (
           <span className={`${styles.planCell} flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600`}>
-            <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
+            <span className="min-w-0 break-words" title={planLabel}>{planLabel}</span>
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
         ) : null}
@@ -544,7 +546,7 @@ function TimelineItem({
             notes={[{label:"平時",value:booking.customer.serviceNote},{label:"本次",value:booking.notes,emphasis:true}]}
             onOpen={onClick ? handleBodyClick : undefined} />
         </div>
-        <span title={assignedStaffName} className={`${styles.staffCell} truncate text-sm text-earth-500`}>{assignedStaffName}</span>
+        <span title={assignedStaffName} className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>
 
       <div className="relative flex w-11 shrink-0 justify-center">
