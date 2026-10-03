@@ -90,7 +90,7 @@ export function SettingsListRow({
       <div className={columns ? "grid min-h-16 items-center gap-3 py-2 md:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]"}>
         <h3 title={title} className="truncate text-sm font-semibold text-primary-900">{title}</h3>
         {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500 md:sr-only">{column.label}</p>{column.content}</div>)}</div> : <p className="min-w-0 truncate text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>}
-        <div className={`flex items-center justify-end gap-2 ${columns ? "" : "w-[200px]"}`}>
+        <div className={`flex justify-end gap-2 ${columns ? "flex-col items-end" : "w-[200px] items-center"}`}>
           {controls}
           {onEdit && (!expanded || columns) ? (
             <button
