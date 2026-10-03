@@ -1,3 +1,9 @@
+// Archive preview must use the isolated database; never migrate production here.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/hq-store-archive") {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Store archive Preview requires the isolated preview database.");
+}
+
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";

@@ -287,7 +287,16 @@ export async function getAllActiveStoreIds(): Promise<string[]> {
  * 取得 ADMIN 可選的店舖清單（含「全部」選項）
  * React cache 同一 request 多處呼叫只查一次（layout / 各頁面共享）。
  */
-export const getStoreOptions = cache(getAccessibleStores);
+export const getStoreOptions = cache(async (user: SessionLike): Promise<AccessibleStore[]> => {
+  const stores = await getAccessibleStores(user);
+  if (user.role !== "ADMIN") return stores;
+  const { prisma } = await import("@/lib/db");
+  const archived = await prisma.store.findMany({
+    where: { archivedAt: { not: null } }, select: { id: true },
+  });
+  const ids = new Set(archived.map((store) => store.id));
+  return stores.filter((store) => !ids.has(store.id));
+});
 
 /**
  * 取得使用者的有效查詢 storeId

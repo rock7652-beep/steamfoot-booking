@@ -604,6 +604,7 @@ model Store {
   slug                       String                   @unique
   domain                     String?                  @unique // 自訂網域，如 "steamfoot-zhubei.com"
   lineDestination            String?                  @unique // LINE Official Account bot userId (webhook destination)
+  archivedAt                 DateTime? // HQ catalog only; operational access and records are retained
   isDefault                  Boolean                  @default(false)
   isDemo                     Boolean                  @default(false) // Demo 店 — 僅供展示或測試
   industryModule             IndustryModule           @default(STEAMFOOT)
