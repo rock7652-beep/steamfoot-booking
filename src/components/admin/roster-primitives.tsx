@@ -22,7 +22,7 @@ export function RosterNotes({ customerId, name, readOnly, notes, onOpen }: {
     {note.label}：{note.value?.trim().replace(/\s+/g, " ")}
   </span>);
   return <div className="relative z-20 flex min-h-11 min-w-0 flex-col justify-center py-0.5 text-sm">
-    {customerId && <CustomerLabels customerId={customerId} readOnly={readOnly} hideEmpty maxVisible={5} variant="dots" />}
+    {customerId && <CustomerLabels customerId={customerId} readOnly={readOnly} hideEmpty={readOnly} maxVisible={5} variant="dots" />}
     {visible.length > 0 && (onOpen
       ? <button type="button" className="block w-full space-y-0.5 text-left focus-visible:outline-2 focus-visible:outline-primary-600" aria-label={`${name} 標籤與備註`} onClick={onOpen}>{content}</button>
       : <div className="space-y-0.5">{content}</div>)}
