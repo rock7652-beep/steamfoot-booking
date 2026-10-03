@@ -1,6 +1,6 @@
 "use client";
-import type { ReactNode } from "react";
-import { RosterToolbar, RosterNotes, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
+import { useState, type ReactNode } from "react";
+import { RosterToolbar, RosterNotes, RosterMoreMenu, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import styles from "./day-detail-panel.module.css";
 
@@ -136,6 +136,7 @@ export function DayDetailPanel({
   batchActing = false,
   readOnly = false,
 }: DayDetailPanelProps) {
+  const [batchMode, setBatchMode] = useState(false);
   if (!date) {
     return (
       <div className="flex flex-col gap-4">
@@ -184,6 +185,7 @@ export function DayDetailPanel({
         <RosterToolbar label="當日預約工具列">
           <span className="inline-flex min-h-11 items-center rounded-lg border border-primary-500 bg-primary-50 px-3 text-sm text-primary-800">預約 {stats.total}</span>
           {toolbar}
+          {selectionEnabled && <button type="button" aria-pressed={batchMode} disabled={batchActing} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={() => { setBatchMode(!batchMode); onClearSelection?.(); }}>{batchMode ? "結束批次" : "批次完成"}</button>}
           <details className="relative text-sm text-earth-600">
             <summary className="min-h-11 cursor-pointer rounded-lg border border-earth-200 px-3 py-3">當日統計</summary>
             <div className="absolute left-0 top-full z-30 mt-1 flex w-72 flex-wrap gap-2 rounded-lg border border-earth-200 bg-white p-3 shadow-lg">
@@ -201,7 +203,7 @@ export function DayDetailPanel({
 
       <div className="min-h-0 flex-1 px-4 pb-3">
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
-        <div aria-hidden="true" className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
+        <div aria-hidden="true" data-batch={batchMode && selectionEnabled} className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           <span />
           <div className={styles.rowBody}><span>時間／人數</span><span>顧客／電話</span><span>直屬店長</span><span>方案／狀態</span><span>標籤／備註</span></div>
           <span />
@@ -211,7 +213,7 @@ export function DayDetailPanel({
         {selectionEnabled && selectedCount > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-b border-primary-100 bg-primary-50/70 px-4 py-2">
             <span className="text-xs font-medium text-primary-800">
-              已選 {selectedCount} 位
+              已選 {selectedCount} 筆
               {actionableCount > selectedCount && (
                 <span className="ml-1 text-[11px] font-normal text-primary-600">
                   / 可選 {actionableCount}
@@ -277,7 +279,7 @@ export function DayDetailPanel({
                     actionable={!readOnly && actionable}
                     selected={isSelected}
                     onToggleSelect={
-                      selectionEnabled ? onToggleSelect : undefined
+                      selectionEnabled && batchMode ? onToggleSelect : undefined
                     }
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     onRevertSingle={readOnly ? undefined : onRevertSingle}
@@ -425,7 +427,7 @@ function TimelineItem({
           accidentally end up in a batch. Wrapped in a label for hit-area; the
           input owns selection state, no need to stopPropagation onto body
           since body click is its own button. */}
-      <div className="flex w-6 shrink-0 items-center justify-center">
+      {onToggleSelect && <div className="flex w-6 shrink-0 items-center justify-center">
         {actionable && onToggleSelect ? (
           <input
             type="checkbox"
@@ -436,17 +438,34 @@ function TimelineItem({
             className="h-4 w-4 cursor-pointer rounded border-earth-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed"
           />
         ) : null}
-      </div>
+      </div>}
 
+      <div className="relative z-20 flex w-11 shrink-0 flex-col justify-center">
+        {!(actionable && onCompleteSingle) && !(booking.bookingStatus === "COMPLETED" && onRevertSingle) && <span aria-label={meta.label} className="inline-flex min-h-11 min-w-11 items-center justify-center"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 ${booking.bookingStatus === "COMPLETED" ? "border-primary-700 bg-primary-700 text-white" : "border-earth-400 text-earth-500"}`}>{booking.bookingStatus === "COMPLETED" ? "✓" : booking.bookingStatus === "NO_SHOW" || booking.bookingStatus === "CANCELED" ? "−" : ""}</span></span>}
+        {actionable && onCompleteSingle ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isActing) onCompleteSingle(booking.id);
+            }}
+            disabled={isActing}
+            className={rosterStatusButtonClassName}
+            aria-label={`完成 ${booking.customer.name} 的預約`} title="完成服務"
+          >
+            <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-earth-400">{isActing ? "…" : ""}</span><span className="sr-only">{isActing ? "儲存中…" : "完成"}</span>
+          </button>
+        ) : null}
+        {booking.bookingStatus === "COMPLETED" && onRevertSingle ? (
+          <button type="button" disabled={isActing}
+            onClick={(event) => { event.stopPropagation(); if (!isActing) onRevertSingle(booking.id); }}
+            className={rosterStatusButtonClassName} aria-label={`還原 ${booking.customer.name} 的預約`} title="還原完成">
+            <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary-700 bg-primary-700 text-white">{isActing ? "…" : "✓"}</span><span className="sr-only">{isActing ? "儲存中…" : "還原"}</span>
+          </button>
+        ) : null}
+      </div>
       {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
       <div className={`${styles.rowBody} relative isolate min-w-0 flex-1 text-left`}>
-        <button
-          type="button"
-          onClick={handleBodyClick}
-          aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
-          disabled={!onClick || isActing}
-          className="absolute inset-0 z-10 rounded focus-visible:outline-2 focus-visible:outline-primary-600 disabled:cursor-default"
-        />
         <div className={styles.timeCell}>
           <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
@@ -464,7 +483,7 @@ function TimelineItem({
               </span>
             )}
           </div>
-        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={<>{booking.customer.name}<span className={`${styles.inlineStaff} font-normal text-earth-500`}> · {assignedStaffName}</span></>} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
+        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={<><button type="button" disabled={!onClick || isActing} onClick={handleBodyClick} aria-label={`查看 ${booking.slotTime} ${booking.customer.name} 的預約詳情`} className="min-h-11 rounded text-left font-semibold focus-visible:outline-2 focus-visible:outline-primary-600">{booking.customer.name}</button><span className={`${styles.inlineStaff} font-normal text-earth-500`}> · {assignedStaffName}</span></>} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
         <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
@@ -524,43 +543,14 @@ function TimelineItem({
         </div>
         <div className={styles.noteCell}>
           <RosterNotes customerId={booking.customer.id} name={booking.customer.name} readOnly={readOnly}
-            notes={[{label:"本次",value:booking.notes,emphasis:true},{label:"店內",value:booking.customer.serviceNote}]}
+            notes={[{label:"平時",value:booking.customer.serviceNote},{label:"本次",value:booking.notes,emphasis:true}]}
             onOpen={onClick ? handleBodyClick : undefined} />
         </div>
         <span className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>
 
-      {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
-      <div className="relative z-20 flex w-11 shrink-0 flex-col justify-center">
-        {actionable && onCompleteSingle ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isActing) onCompleteSingle(booking.id);
-            }}
-            disabled={isActing}
-            className={rosterStatusButtonClassName}
-            aria-label={`完成 ${booking.customer.name} 的預約`} title="完成服務"
-          >
-            <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-earth-400">{isActing ? "…" : ""}</span><span className="sr-only">{isActing ? "儲存中…" : "完成"}</span>
-          </button>
-        ) : null}
-        {booking.bookingStatus === "COMPLETED" && onRevertSingle ? (
-          <button type="button" disabled={isActing}
-            onClick={(event) => { event.stopPropagation(); if (!isActing) onRevertSingle(booking.id); }}
-            className={rosterStatusButtonClassName} aria-label={`還原 ${booking.customer.name} 的預約`} title="還原完成">
-            <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary-700 bg-primary-700 text-white">{isActing ? "…" : "✓"}</span><span className="sr-only">{isActing ? "儲存中…" : "還原"}</span>
-          </button>
-        ) : null}
-        {!onClick ? (
-          <Link
-            href={`/dashboard/bookings/${booking.id}`}
-            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
-          >
-            查看
-          </Link>
-        ) : null}
+      <div className="relative flex w-11 shrink-0 justify-center">
+        {onClick ? <RosterMoreMenu name={booking.customer.name} disabled={isActing} onOpen={handleBodyClick} /> : <Link href={`/dashboard/bookings/${booking.id}`} className="inline-flex min-h-11 items-center text-sm">查看</Link>}
       </div>
     </div>
   );

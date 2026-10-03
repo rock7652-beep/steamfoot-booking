@@ -20,5 +20,7 @@
   .inlineStaff { display: none; }
   .statusCell { grid-column: 4; grid-row: 1; }
   .noteCell { grid-column: 5; grid-row: 1; }
-  .columnHeader { display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; column-gap: 0.5rem; padding-left: 15px; padding-right: 12px; }
+  .columnHeader { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; column-gap: 0.5rem; padding-left: 15px; padding-right: 12px; }
 }
+
+@media (min-width: 1000px) { .columnHeader[data-batch="true"] { grid-template-columns: 76px minmax(0, 1fr) 44px; } }
