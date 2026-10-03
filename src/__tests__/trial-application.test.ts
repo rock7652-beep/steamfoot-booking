@@ -75,7 +75,7 @@ describe("trial application input", () => {
   it("allows submitting basic information before LINE authorization", () => {
     expect(trialApplicationSchema.safeParse(data).success).toBe(true);
     expect(
-      trialChecklist(data).find((x) => x.label.includes("Developers"))?.state,
+      trialChecklist(data).find((x) => x.label === "Provider Admin")?.state,
     ).toBe("待補充");
   });
   it.each([

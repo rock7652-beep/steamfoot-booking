@@ -233,7 +233,7 @@ export function TrialApplicationForm() {
           valid.error.issues.map((i) => [i.path[0], i.message]),
         ),
       );
-      setMessage("請確認標示的欄位");
+      setMessage(valid.error.issues[0]?.message ?? "請確認標示的欄位");
       return;
     }
     setErrors({});
@@ -574,7 +574,7 @@ export function TrialApplicationForm() {
               <span>{item.label}</span>
               <strong
                 className={
-                  item.state.startsWith("已")
+                  ["已提供", "不需要", "無既有串接"].includes(item.state)
                     ? "text-[#386650]"
                     : "text-amber-800"
                 }

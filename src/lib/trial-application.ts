@@ -233,7 +233,8 @@ export function trialSetupSummary(d: TrialApplicationData) {
     `共用 LINE：${{ yes: "是", no: "否", unknown: "待確認" }[d.sharedLine]} ${d.sharedLineStores}`,
     `LINE 管理聯絡人：${d.lineManagerContact || "未提供"}`,
     ...setupSections.map(
-      ([, notes, label]) => `${label}：${d[notes] || "見附件／待補充"}`,
+      ([progress, notes, label]) =>
+        `${label}：${d[progress] === "none" ? "不需要" : d[progress] === "help" ? "需要協助" : d[notes] || (d[progress] === "provided" && d.attachments.length ? "見附件" : "待補充")}`,
     ),
     `附件：${d.attachments.map((a) => a.name).join("、") || "無"}（由總部查看）`,
   ].join("\n");
@@ -261,15 +262,22 @@ export function trialChecklist(d: TrialApplicationData) {
       label: "官方 LINE 管理員邀請",
       state: d.inviteUrl ? "已提供，待確認" : "待補充",
     },
-    {
-      label: "LINE Developers 授權",
-      state:
-        d.developers === "invited"
-          ? "已邀請，待確認"
-          : d.developers === "help"
-            ? "需要協助"
-            : "待補充",
-    },
+    ...(d.developers !== "pending" &&
+    [d.providerAdmin, d.messagingAdmin, d.loginAdmin].every(
+      (v) => v === "pending",
+    )
+      ? [
+          {
+            label: "LINE Developers 授權（原申請）",
+            state:
+              d.developers === "invited"
+                ? "已邀請，待確認"
+                : d.developers === "help"
+                  ? "需要協助"
+                  : "待補充",
+          },
+        ]
+      : []),
     ...(
       [
         ["providerAdmin", "Provider Admin"],
