@@ -14,9 +14,8 @@ function BookingTypeIcon({ type }: { type: typeof BOOKING_TYPES[number]["id"] })
         <path d="M25 40H10a4 4 0 0 1-4-4V13a4 4 0 0 1 4-4h25a4 4 0 0 1 4 4v10M6 19h33M14 5v8m17-8v8" />
         <circle cx="33" cy="33" r="10" /><path d="M33 27v6l4 3" stroke="#967039" strokeWidth="2.5" />
       </> : type === "services" ? <>
-        <path d="M24 33C13 26 13 15 24 6c11 9 11 20 0 27Z" />
-        <path d="M24 36C11 36 5 28 5 18c10 0 17 5 19 15m0 3c13 0 19-8 19-18-10 0-17 5-19 15" />
-        <path d="M13 41h22M7 8v6M4 11h6m28-6v6m-3-3h6" stroke="#967039" />
+        <path d="m6 14 10 9 8-15 8 15 10-9-5 21H11L6 14Z" />
+        <path d="M12 40h24" stroke="#967039" />
       </> : type === "fitness" ? <>
         <rect x="7" y="12" width="7" height="24" rx="2" /><rect x="34" y="12" width="7" height="24" rx="2" />
         <path d="M4 19v10m40-10v10M14 20h20m-20 8h20" />
