@@ -32,7 +32,7 @@ export function DevicePreview({ moduleId = "steamfoot" }: { moduleId?: IndustryM
     : DEFAULT_DEVICE_PREVIEW_PAGE;
   const device: DevicePresetId = isDevicePresetId(requestedDevice)
     ? requestedDevice
-    : moduleId === "course" ? "tablet" : DEFAULT_DEVICE_PRESET;
+    : requestedDevice === "tabletPortrait" || moduleId === "course" ? "tablet" : DEFAULT_DEVICE_PRESET;
 
   const initialPage = getDevicePreviewPage(page, moduleId);
   const [framePath, setFramePath] = useState<string>(() =>
