@@ -73,6 +73,7 @@ export async function reserveCourseMembers(
     sessionId: string;
     cardId: string;
     customerIds: string[];
+    companionNames?: string[];
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
@@ -88,10 +89,13 @@ export async function reserveCourseMembers(
     return fail("請選擇 1 至 20 位不重複的上課人");
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   const batchKey = createHash("sha256")
-    .update(JSON.stringify([input.requestKey, customers]))
+    .update(JSON.stringify(input.companionNames?.length ? [input.requestKey, customers, input.companionNames] : [input.requestKey, customers]))
     .digest("hex");
   return courseTransaction(actor.storeId, async (tx) => {
     const bookings = [];
+    const companionNames = input.companionNames ?? [];
+    if (companionNames.length && (!actor.customerId || customers.length !== 1 || customers[0] !== actor.customerId || companionNames.length > 2))
+      return fail("同行預約須包含本人，最多 3 人");
     for (const customerId of customers) {
       bookings.push(
         await reserveCourseInTransaction(
@@ -103,10 +107,23 @@ export async function reserveCourseMembers(
             customerId,
             requestKey: `${batchKey}:${customerId}`,
             notes: input.notes,
+            groupKey: batchKey,
+            reserverCustomerId: actor.customerId,
+            reserverCardId: input.cardId,
+            reserverName: actor.name,
           },
           limits.maxMonthlyBookings,
         ),
       );
+    }
+    for (const [index, name] of companionNames.entries()) {
+      bookings.push(await reserveCourseInTransaction(tx, actor, {
+        sessionId: input.sessionId, cardId: input.cardId, customerId: null,
+        companionIndex: index + 1, customerName: name.trim() || `同行者 ${index + 1}`,
+        reserverCustomerId: actor.customerId,
+            reserverCardId: input.cardId, reserverName: actor.name, groupKey: batchKey,
+        requestKey: `${batchKey}:companion:${index + 1}`, notes: input.notes,
+      }, limits.maxMonthlyBookings));
     }
     return bookings;
   });
@@ -124,7 +141,14 @@ export async function reserveCourseInTransaction(
     sessionId: string;
     cardId: string | null;
     trialPrice?: number;
-    customerId: string;
+    customerId: string | null;
+    customerName?: string;
+    companionIndex?: number;
+    reserverCustomerId?: string;
+    reserverName?: string;
+    reserverCardId?: string;
+    groupKey?: string;
+    onSite?: boolean;
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
@@ -142,6 +166,8 @@ export async function reserveCourseInTransaction(
       previous.sessionId !== input.sessionId ||
       previous.cardId !== input.cardId ||
       previous.customerId !== input.customerId ||
+      (previous.companionIndex ?? null) !== (input.companionIndex ?? null) ||
+      (input.companionIndex && previous.customerName !== input.customerName) ||
       (previous.makeupForBookingId ?? null) !== (input.makeupForBookingId ?? null) ||
       (input.cardId === null && previous.trialPrice !== input.trialPrice)
     )
@@ -162,24 +188,31 @@ export async function reserveCourseInTransaction(
     }),
     input.cardId ? tx.coursePointCard.findFirst({
       where: { id: input.cardId, storeId },
-      include: { members: true },
+      include: { members: true, plan: { select: { allowShared: true } } },
     }) : Promise.resolve(null),
     tx.courseBookingRule.findUnique({ where: { storeId } }),
-    tx.$queryRaw<
+    input.customerId ? tx.$queryRaw<
       Array<{ id: string; name: string }>
-    >`SELECT id, name FROM "Customer" WHERE id = ${input.customerId} AND "storeId" = ${storeId} AND "mergedIntoCustomerId" IS NULL`,
+    >`SELECT id, name FROM "Customer" WHERE id = ${input.customerId} AND "storeId" = ${storeId} AND "mergedIntoCustomerId" IS NULL` : Promise.resolve([]),
   ]);
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
-  if (!session || (input.cardId !== null && !card) || !customers.length)
+  if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
     return fail("請選擇本店有效課程、方案與上課人");
   if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
   if (!session.template.isActive || session.template.musicSubject?.isActive===false || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
   if (card && (
-    !card.members.some((m) => m.customerId === input.customerId) ||
+    (!input.companionIndex && !card.members.some((m) => m.customerId === input.customerId)) ||
     (actor.customerId &&
       !card.members.some((m) => m.customerId === actor.customerId))
   ))
     return fail("僅能替此共卡的授權成員預約");
+  if (input.companionIndex) {
+    const music = await tx.$queryRaw<Array<{featureKey: string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    if (music.length || card?.termSessionIds.length || !card?.plan.allowShared || !input.reserverCustomerId || !card.members.some(m => m.customerId === input.reserverCustomerId))
+      return fail("此方案未開放自由選課同行預約");
+    if (input.customerId || !Number.isInteger(input.companionIndex) || input.companionIndex < 1 || input.companionIndex > 2 || !input.customerName || input.customerName.length > 100 || (actor.customerId && actor.customerId !== input.reserverCustomerId))
+      return fail("同行預約資料不正確");
+  }
   if (card && card.unit !== "SESSION") {
     const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
     if(music.some(row=>row.featureKey==="business.music"))return fail("音樂教室只使用堂數方案，不能以點數預約");
@@ -202,6 +235,7 @@ export async function reserveCourseInTransaction(
   if (!card && (!Number.isSafeInteger(input.trialPrice) || input.trialPrice! < 0 || input.trialPrice! > 1000000 || actor.customerId)) return fail("體驗預約僅由有權限店長建立");
   const now = new Date();
   if (
+    !(input.onSite && !actor.customerId && session.endsAt > now) &&
     session.startsAt.getTime() <=
     now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60000
   )
@@ -226,14 +260,14 @@ export async function reserveCourseInTransaction(
     if(last>musicCourseExpiry(first,card.musicValidityDays))return fail("預約超過首次上課起算的方案效期，請調整日期");
   }
   const [duplicate, occupied, held] = await Promise.all([
-    tx.courseBooking.findFirst({
+    input.customerId ? tx.courseBooking.findFirst({
       where: {
         storeId,
         sessionId: session.id,
         customerId: input.customerId,
         status: { not: "CANCELLED" },
       },
-    }),
+    }) : Promise.resolve(null),
     tx.courseBooking.count({
       where: { storeId, sessionId: session.id, status: { not: "CANCELLED" } },
     }),
@@ -260,7 +294,12 @@ export async function reserveCourseInTransaction(
       operatorUserId: actor.userId,
       operatorCustomerId: actor.customerId ?? null,
       operatorName: actor.name,
-      customerName: customers[0].name,
+      customerName: input.companionIndex ? input.customerName! : customers[0].name,
+      companionIndex: input.companionIndex,
+      reserverCustomerId: input.reserverCustomerId,
+      reserverName: input.reserverName,
+      reserverCardId: input.reserverCardId,
+      groupKey: input.groupKey,
     },
   });
   if (card) await tx.coursePointEntry.create({
@@ -298,7 +337,7 @@ export async function settleCourseBooking(
   }
   if (
     actor.customerId &&
-    !(booking.card ? booking.card.members.some((m) => m.customerId === actor.customerId) : booking.customerId === actor.customerId)
+    !(booking.reserverCustomerId === actor.customerId || (booking.card ? booking.card.members.some((m) => m.customerId === actor.customerId) : booking.customerId === actor.customerId))
   )
     return fail("無權操作此共卡預約");
   if (booking.status === target) return booking;
@@ -394,7 +433,7 @@ export async function settleCourseBooking(
       data: {
         storeId: actor.storeId,
         cardId: makeupCard.id,
-        customerId: booking.customerId,
+        customerId: booking.customerId ?? booking.reserverCustomerId!,
       },
     });
     await tx.coursePointEntry.create({
@@ -436,7 +475,7 @@ export async function correctCourseAttendance(
     if (["STUDENT_LEAVE", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && await tx.courseBooking.findFirst({where:{storeId:actor.storeId,makeupForBookingId:b.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("此請假已安排補課，請先取消補課再恢復原堂");
     const [occupied, duplicate] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
-      tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }),
+      b.customerId ? tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }) : Promise.resolve(0),
     ]);
     if (occupied >= b.session.capacity) return fail("本堂課名額已滿，無法恢復請假；請先處理名額");
     if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");

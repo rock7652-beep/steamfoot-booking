@@ -1,4 +1,5 @@
 const COURSE_PREVIEW_BRANCHES = new Set([
+  "feat/course-companion-booking",
   "codex/music-catalog-20260928",
   "codex/course-scheduling-stage1",
   "codex/course-monthly-settlement",

@@ -226,7 +226,12 @@ model CourseBooking {
   cardId String?
   bookingKind String @default("CARD")
   trialPrice Int?
-  customerId String
+  customerId String?
+  companionIndex Int?
+  reserverCustomerId String?
+  reserverName String?
+  reserverCardId String?
+  groupKey String?
   operatorUserId String
   operatorCustomerId String?
   operatorName String
@@ -247,6 +252,7 @@ model CourseBooking {
   @@unique([storeId, requestKey])
   @@index([storeId, sessionId, status])
   @@index([storeId, cardId, status])
+  @@index([storeId, reserverCustomerId])
 }
 
 // Trial receipts never create a point card or settle attendance.
@@ -477,7 +483,11 @@ model CourseWaitlistEntry {
   storeId String
   sessionId String
   cardId String
-  customerId String
+  customerId String?
+  companionIndex Int?
+  reserverCustomerId String?
+  reserverName String?
+  reserverCardId String?
   customerName String
   groupKey String
   requestKey String
@@ -494,6 +504,7 @@ model CourseWaitlistEntry {
   @@unique([storeId, requestKey])
   @@index([storeId, sessionId, status, createdAt, id])
   @@index([storeId, sessionId, groupKey])
+  @@index([storeId, reserverCustomerId])
 }
 
 model CourseRental {

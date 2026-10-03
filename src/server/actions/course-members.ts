@@ -299,7 +299,7 @@ export async function loadCourseStudentPurchase(bookingId: string) {
         select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
-      prisma.customer.findFirst({ where: { id: booking.customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } }),
+      prisma.customer.findFirst({ where: { id: booking.customerId ?? "", storeId, mergedIntoCustomerId: null }, select: { id: true } }),
       checkPermission(user.role, user.staffId, "transaction.discount"),
     ]);
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店學員");
@@ -333,14 +333,16 @@ export async function setCourseCardMembers(input: unknown) {
       // Do not orphan a reserved learner/operator by revoking access silently.
       const held = await tx.courseBooking.findMany({
         where: { storeId, cardId: card.id, status: "RESERVED" },
-        select: { customerId: true, operatorCustomerId: true },
+        select: { customerId: true, operatorCustomerId: true, reserverCustomerId: true, reserverCardId: true, companionIndex: true },
       });
       if (
         held.some(
-          (b) =>
-            !data.customerIds.includes(b.customerId) ||
-            (b.operatorCustomerId &&
-              !data.customerIds.includes(b.operatorCustomerId)),
+          (b) => b.companionIndex
+            ? b.reserverCardId === card.id
+              ? !b.reserverCustomerId || !data.customerIds.includes(b.reserverCustomerId)
+              : !b.customerId || !data.customerIds.includes(b.customerId)
+            : (b.customerId && !data.customerIds.includes(b.customerId)) ||
+              (b.operatorCustomerId && !data.customerIds.includes(b.operatorCustomerId)),
         )
       )
         throw new AppError("CONFLICT", "移除成員前請先處理其尚未完成的預約");
@@ -395,7 +397,7 @@ export async function createMemberCourseBooking(input: unknown) {
         customerId: customer.id,
       },
       z.union([
-        bookingInput.omit({ customerId: true }).extend({ customerIds: z.array(id).min(1).max(20) }),
+        bookingInput.omit({ customerId: true }).extend({ customerIds: z.array(id).min(1).max(20), companionNames: z.array(z.string().trim().max(100)).max(2).optional() }),
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
@@ -546,7 +548,7 @@ async function futureMusicCourseScope(
       where: { id: bookingId, storeId, sessionId, status: { not: "CANCELLED" } },
       select: { customerId: true, customerName: true },
     });
-    if (!learner) throw new AppError("NOT_FOUND", "找不到此堂學員");
+    if (!learner?.customerId) throw new AppError("NOT_FOUND", "找不到此堂學員");
     customerId = learner.customerId;
     customerName = learner.customerName;
   }

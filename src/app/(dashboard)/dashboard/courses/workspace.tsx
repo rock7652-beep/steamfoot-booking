@@ -81,7 +81,7 @@ type Session = {
   rentalId?:string;rentalCancelled?:boolean;isTrial?:boolean;
   bookings: {
     id: string;
-    customerId: string;
+    customerId: string | null;
     customerName: string;
     assignedCoachId?: string | null;
     absenceKind?: string | null;

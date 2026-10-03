@@ -101,7 +101,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       orderBy: { createdAt: "asc" },
       include: {
         trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
-        card: { select: { nameSnapshot: true, expiresAt: true, unit: true, remaining: true, closedAt: true, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } } },
+        card: { select: { nameSnapshot: true, expiresAt: true, unit: true, remaining: true, closedAt: true, termSessionIds: true, plan: {select: {allowShared: true}}, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } } },
       },
     },
   } as const;
@@ -134,7 +134,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findMany({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id}],
+            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
             session: { startsAt: { gte: range.start, lte: range.end } },
           },
           include: {
@@ -203,7 +203,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findFirst({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id}],
+            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
             status: "RESERVED",
             session: { cancelledAt: null, startsAt: { gte: now } },
           },
@@ -284,9 +284,10 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             OR: [
               { cardId: { in: cards.map((card) => card.id) } },
               { bookingKind: "TRIAL", customerId: customer.id },
+              { reserverCustomerId: customer.id },
             ],
           },
-          select: { customerId: true, customerName: true },
+          select: { id: true, customerId: true, customerName: true },
           orderBy: { createdAt: "asc" },
         })
       : [],
@@ -295,7 +296,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   const referralShare = memberEnabled && !access ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
   // Only customers on this authorized coach's own sessions are read.
   const workCustomers = work.length ? await prisma.customer.findMany({
-    where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
+    where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId).filter((id): id is string => !!id)))]}},
     select:{id:true, serviceNote:true, notes:true},
   }) : [];
   const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
@@ -317,6 +318,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     waitlistEnabled,
+    companionBookingEnabled: !musicStore,
     config,
     cards,
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
@@ -333,8 +335,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
           startsAt: nextBooking.session.startsAt.toISOString(),
           coach: coachNames.get(nextBooking.session.coachId) ?? "教練待確認",
           room: nextBooking.session.room.name,
-          participants: [...new Map(nextParticipants.map((participant) => [participant.customerId, {
-            id: participant.customerId,
+          participants: [...new Map(nextParticipants.map((participant) => [participant.id, {
+            id: participant.id,
             name: participant.customerName,
           }])).values()],
         }
@@ -373,6 +375,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       customerName: b.customerName,
       customerId: b.customerId,
       operatorName: b.operatorName,
+      reserverCustomerId: b.reserverCustomerId,
       status: b.status,
       notes: "",
       cost: b.pointCost,
@@ -392,6 +395,9 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       bookings: s.bookings.map((b) => ({
         id: b.id,
         customerId: b.customerId,
+        companionIndex: b.companionIndex,
+        reserverName: b.reserverName,
+        canAddCompanion: !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
         customerName: b.customerName,
         status: b.status,
         checkedIn: !!b.checkedInAt,

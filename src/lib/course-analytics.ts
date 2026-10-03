@@ -30,26 +30,26 @@ export function courseAnalysisPriorYear(range: CourseAnalysisRange): CourseAnaly
 }
 export type CourseAnalysisSession = {
   id: string; coachId: string; startsAt: Date; endsAt: Date;
-  bookings: { customerId: string; customerName: string; status: string; checkedInAt: Date | null; pointCost: number; card: { unit: string } | null }[];
+  bookings: { customerId: string | null; customerName: string; status: string; checkedInAt: Date | null; pointCost: number; card: { unit: string } | null }[];
 };
 export function summarizeCourseAttendance(sessions: CourseAnalysisSession[], firstAttendance: Map<string, Date>, range: CourseAnalysisRange) {
   const bounds = { start: dayRange(range.startDate).start, end: dayRange(range.endDate).end };
   const selected = sessions.filter(s => s.startsAt >= bounds.start && s.startsAt <= bounds.end);
   const bookings = selected.flatMap(s => s.bookings).filter(b => b.status !== "CANCELLED");
   const completed = bookings.filter(b => b.status === "ATTENDED");
-  const visitors = [...new Set(completed.map(b => b.customerId))];
+  const visitors = [...new Set(completed.flatMap(b => b.customerId ? [b.customerId] : []))];
   const newVisitors = visitors.filter(id => { const first = firstAttendance.get(id); return first && first >= bounds.start && first <= bounds.end; });
   const unknownFirstVisits = visitors.filter(id => !firstAttendance.has(id));
   return {
     sessions: selected.length,
     hours: selected.reduce((n,s)=>n+(s.endsAt.getTime()-s.startsAt.getTime())/3600000,0),
-    participants: new Set(bookings.map(b=>b.customerId)).size, participations: bookings.length,
+    participants: new Set(bookings.flatMap(b=>b.customerId ? [b.customerId] : [])).size + bookings.filter(b=>!b.customerId).length, participations: bookings.length,
     completed: completed.length, checkedIn: bookings.filter(b=>b.status==="RESERVED" && b.checkedInAt).length,
     noShow: bookings.filter(b=>b.status==="NO_SHOW").length,
     pointsUsed: completed.filter(b=>b.card?.unit==="POINT").reduce((n,b)=>n+b.pointCost,0),
     sessionsUsed: completed.filter(b=>b.card?.unit==="SESSION").reduce((n,b)=>n+b.pointCost,0),
     visitors, newVisitors, returningVisitors: visitors.filter(id=>!newVisitors.includes(id)&&!unknownFirstVisits.includes(id)), unknownFirstVisits,
-    customers: [...new Map(completed.map(b=>[b.customerId,{id:b.customerId,name:b.customerName}])).values()],
+    customers: [...new Map(completed.flatMap(b=>b.customerId ? [[b.customerId,{id:b.customerId,name:b.customerName}] as const] : [])).values()],
     coaches: [...new Set(selected.map(s=>s.coachId))].map(id=>({id,sessions:selected.filter(s=>s.coachId===id).length,completed:selected.filter(s=>s.coachId===id).flatMap(s=>s.bookings).filter(b=>b.status==="ATTENDED").length})),
   };
 }

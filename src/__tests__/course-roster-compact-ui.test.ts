@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/course-companions",()=>({addCourseCompanion:vi.fn(),loadCourseCompanionUsage:vi.fn(),saveCourseCompanionUsage:vi.fn()}));
 vi.mock("@/server/actions/course-roster-enrollment",()=>({previewCourseEnrollment:vi.fn().mockResolvedValue({success:true,sessions:[]}),enrollCourseSeries:vi.fn()}));
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
