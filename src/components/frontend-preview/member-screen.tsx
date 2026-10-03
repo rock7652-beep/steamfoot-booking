@@ -22,7 +22,7 @@ export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeNa
   const [tab, setTab] = useState<"upcoming" | "history">("upcoming");
   if (bookings.status !== "ok" || wallets.status !== "ok") return <p role="alert" className="p-5">目前無法讀取資料，請重新整理。</p>;
   const links = { bookings: `${href}&view=bookings`, wallets: `${href}&view=wallets`, profile: `${href}&view=profile`, health: `${href}&view=health` };
-  return <LiffMemberFrame>
+  return <LiffMemberFrame preview>
     <LiffBrandHeader home={view === "home"} />
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-4 pt-3">
     {view === "home" && <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><p className="mt-0.5 text-sm text-earth-500">會員專區</p></div><SteamButlerLogo compact /></header>}
