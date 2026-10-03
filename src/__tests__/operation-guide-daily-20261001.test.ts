@@ -20,7 +20,7 @@ describe("October 1 guide review", () => {
     expect(findOperationGuides("總部 各店 操作人", hq).map(item => item.id)).toContain("I12");
     expect(findOperationGuides("五分類 側邊面板", { module: "spa", permissions: [], features: {} }).map(item => item.id)).toContain("I13");
     expect(findCoursePortalGuides("member", true, "候補 取消候補").map(item => item.id)).toContain("CP19");
-    expect(coursePortalGuides).toHaveLength(19);
+    expect(coursePortalGuides).toHaveLength(21);
   });
 
   it("keeps new articles behind their real module, feature and permissions", () => {

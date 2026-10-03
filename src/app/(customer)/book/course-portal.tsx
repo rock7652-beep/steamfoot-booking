@@ -379,7 +379,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       status: b.status,
       notes: "",
       cost: b.pointCost,
-      trialPaid: b.trialPayments[0]?.amount ?? null,
+      trialPaid: b.trialPayments.at(0)?.amount ?? null,
       trialPrice: b.trialPrice,
       unit: b.card?.unit ?? "TRIAL",
       planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
@@ -395,6 +395,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       bookings: s.bookings.map((b) => ({
         id: b.id,
         customerId: b.customerId,
+        cardId: b.cardId,
         companionIndex: b.companionIndex,
         reserverName: b.reserverName,
         canAddCompanion: !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,

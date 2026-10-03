@@ -401,16 +401,21 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
-    for (const booking of bookings) {
-      await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "顧客建立課程預約" });
-    }
+    await Promise.all(bookings.map(booking => recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "顧客建立課程預約" })));
     scheduleCourseLowBalanceCheck(storeId,bookings.map(b=>b.id));
     after(async () => {
       const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
       await notifyCourseBookingManagers(storeId,bookings.map(b=>b.id));
     });
-    refresh();
-    return { success: true as const };
+    // Return the committed receipt before rebuilding the full portal.
+    after(() => refresh());
+    const confirmedAt = Date.now();
+    return { success: true as const, bookingUpdates: bookings.map(b => ({
+      confirmedAt,
+      id: b.id, sessionId: b.sessionId, cardId: b.cardId, customerId: b.customerId,
+      customerName: b.customerName, operatorName: b.operatorName, reserverCustomerId: b.reserverCustomerId,
+      status: b.status, cost: b.pointCost,
+    })) };
   } catch (error) {
     return handleActionError(error);
   }
