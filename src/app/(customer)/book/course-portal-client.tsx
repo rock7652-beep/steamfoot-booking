@@ -1453,8 +1453,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                   </fieldset>
                   )}
                   <p>
-                    本次 {participantCount} 位 · 預約保留{" "}
-                    {amount(session, card) * participantCount} {unit(card.unit)}
+                    共{participantCount}人，共{amount(session, card) * participantCount}{unit(card.unit)}
                   </p>
                   {card.available <
                     amount(session, card) * Math.max(participantCount, 1) && (
