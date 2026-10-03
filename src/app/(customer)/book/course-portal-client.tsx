@@ -1,5 +1,5 @@
 "use client";
-import { CourseCompanionEditor } from "@/components/course-companion-editor";
+import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
 import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
 import { findCoursePortalGuides } from "@/lib/course-portal-guides";
 import { ShareReferral } from "@/components/share-referral";
@@ -47,6 +47,7 @@ import { CopyButton } from "./shop/[planId]/checkout/copy-button";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
 type Work = CoursePortalData["work"][number];
+type BookingUpdate = NonNullable<Awaited<ReturnType<typeof createMemberCourseBooking>> extends infer R ? R extends {bookingUpdates: infer U} ? U : never : never>[number];
 type AttendanceUpdate = Pick<Work["bookings"][number], "id" | "status" | "checkedIn" | "updatedAt">;
 type Page =
   | "home"
@@ -192,7 +193,18 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+  const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
+  const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
+  const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
+  const p = {...serverData,
+    bookings: [...serverData.bookings, ...additions.map(row => row.booking)],
+    cards: serverData.cards.map(card => {
+      const held = outstanding.filter(row => row.cardId === card.id).reduce((sum, row) => sum + row.booking.cost, 0);
+      return held ? {...card, held: card.held + held, available: Math.max(0, card.available - held)} : card;
+    }),
+    sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
+  };
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -235,6 +247,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingIds, setSavingIds] = useState<string[]>([]);
+  const [companionReceipts, setCompanionReceipts] = useState<CompanionUsageReceipt[]>([]);
   const [confirmedAttendance, setConfirmedAttendance] = useState<Record<string, AttendanceUpdate>>({});
   useEffect(() => {
     if (preferredRole === role) return;
@@ -247,7 +260,15 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
   // Keep confirmed writes visible across an older in-flight refresh; newer server rows win.
   const work = p.work.map(s => ({ ...s, bookings: s.bookings.map(b => {
     const saved = confirmedAttendance[b.id];
-    return saved && saved.updatedAt > b.updatedAt ? { ...b, ...saved } : b;
+    let current = b;
+    for (const receipt of companionReceipts) {
+      if (receipt.confirmedAt <= p.serverNow) continue;
+      const usage = receipt.booking.id === current.id && receipt.booking.updatedAt >= current.updatedAt ? receipt.booking : undefined;
+      current = {...current, ...usage};
+      const balance = receipt.balances.find(card => card.id === current.cardId);
+      if (balance) current = {...current, available: balance.available};
+    }
+    return saved && saved.updatedAt > current.updatedAt ? { ...current, ...saved } : current;
   }) }));
   const busyRef = useRef(false),
     trail = useRef<Array<{ page: Page; y: number }>>([]),
@@ -379,8 +400,8 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
     start(() => router.replace(`${pathname}?${q}`, { scroll: false }));
   }
   function run(
-    action: () => Promise<{ success: boolean; error?: string; attendanceUpdates?: AttendanceUpdate[] }>,
-    done: () => void,
+    action: () => Promise<{ success: boolean; error?: string; attendanceUpdates?: AttendanceUpdate[]; bookingUpdates?: BookingUpdate[] }>,
+    done: (result: {bookingUpdates?: BookingUpdate[]}) => void,
     successMessage = "已更新",
     bookingIds: string[] = [],
     refreshOnFailure = true,
@@ -407,7 +428,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
           }
           return next;
         });
-        done();
+        done(r);
         setMessage(successMessage);
         start(() => router.refresh());
       } catch {
@@ -645,8 +666,8 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
             <span>
               <strong>
                 {time(s.startsAt)}–{time(s.endsAt)} · {s.name}
-                <span className="cp-course-cost"> · {s.cost} 點／1 堂</span>
               </strong>
+              <small className="cp-course-cost">{s.cost} 點／堂</small>
               <small>
                 {s.room} · {people.length} 位學員 ·{" "}
                 {page === "records" ? `出席 ${people.filter(b=>b.status === "ATTENDED").length} 人／未到 ${people.filter(b=>b.status === "NO_SHOW").length} 人 · ${pendingPeople.length ? "待完成點名" : people.length ? "點名完成" : "無有效預約"}` : pendingPeople.length
@@ -755,6 +776,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                       )}
                     </div>
                   </div>
+                  {!readOnly && !p.readOnly && p.companionBookingEnabled && !!b.companionIndex && <button className="cp-small-action" disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id})}>變更使用方式</button>}
                   <details className="cp-roster-details">
                     <summary>
                       <span className="cp-badge" data-status={b.status}>
@@ -768,7 +790,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                       <span className="cp-roster-detail-label"><span className="cp-detail-closed">詳情</span><span className="cp-detail-open">收起</span></span>
                     </summary>
                     {b.companionIndex && <p>同行 · 預約人 {b.reserverName}</p>}
-                    {!readOnly && !p.readOnly && p.companionBookingEnabled && (b.companionIndex || b.canAddCompanion) && <button disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id, add: !b.companionIndex})}>{b.companionIndex ? "變更使用方式" : "新增同行"}</button>}
+                    {!readOnly && !p.readOnly && p.companionBookingEnabled && !b.companionIndex && b.canAddCompanion && <button disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id, add: !b.companionIndex})}>{b.companionIndex ? "變更使用方式" : "新增同行"}</button>}
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
                     {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
                       <label>本次備註（店長與授課教練可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
@@ -913,10 +935,10 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
               {coach ? (
                 <>
                   <p>今天 · {today} · {todayWork.length} 堂</p>
-                  {overdue.length > 0 && <details className="cp-card cp-pad"><summary>有 {overdue.length} 堂過往課程待完成點名</summary>{overdue.map(s => <section key={s.id}><h3>{courseDate(s.startsAt)}</h3>{workRows([s])}</section>)}</details>}
                   {workRows(todayWork.filter(s => !isEnded(s) || needsRoll(s)))}
                   {todayWork.some(s => isEnded(s) && !needsRoll(s)) && <details className="cp-card cp-pad"><summary>已結束課程（{todayWork.filter(s=>isEnded(s)&&!needsRoll(s)).length}）</summary>{workRows(todayWork.filter(s=>isEnded(s)&&!needsRoll(s)))}</details>}
                   {!todayWork.length && <section className="cp-card cp-pad"><p>今天沒有課程</p>{p.nextWork ? <button onClick={() => { go("schedule"); workDate(courseDate(p.nextWork!.startsAt)); }}>下一堂 · {formatTWDateTime(new Date(p.nextWork.startsAt))} · {p.nextWork.name}</button> : <p>尚無後續授課安排。</p>}</section>}
+                  {overdue.length > 0 && <details className="cp-card cp-pad"><summary>過往待點名 · {overdue.length} 堂</summary>{overdue.map(s => <section key={s.id}><h3>{courseDate(s.startsAt)}</h3>{workRows([s])}</section>)}</details>}
                 </>
               ) : (
                 <>
@@ -997,7 +1019,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                       <h2>{formatTWDateTime(new Date(first.startsAt))} · {first.name}</h2>
                       <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合 ⌃" : "明細 ⌄"}</button>
                     </div>
-                    <p className="cp-booking-location">{first.coach} · {first.room}</p>
+                    <p className="cp-booking-location">{first.coach} · {first.room} · 共 {list.length} 人</p>
                     <div id={`booking-details-${id}`}>
                     {list.map((b) => (
                       <div className="cp-person" key={b.id}>
@@ -1094,7 +1116,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
               {heading("我的方案")}
               <p>可用額度＝剩餘－預約保留；每張方案的期限分開計算。</p>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
-              <a className="cp-btn" href={`${p.prefix}/book/reminders`}>低可用額度提醒接收設定</a>
+              <a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a>
               {p.cards.filter(c=>cardHistory || (!c.expired && !c.closed)).map((c) => (
                 <article className="cp-card cp-pad" key={c.id}>
                   <div className="cp-line">
@@ -1260,19 +1282,19 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
           {page === "guide" && (
             <>
               {heading("操作指南", "常用操作一次看懂")}
-              <label className="cp-card cp-pad">搜尋操作指南
+              <label className="cp-card cp-pad cp-guide-search">搜尋操作指南
                 <input type="search" aria-label="搜尋操作指南" placeholder={coach ? "點名、更正、備註…" : "預約、共卡、轉帳…"} value={search} onChange={event => setSearch(event.target.value)} />
               </label>
-              <p role="status">{coach ? "教練" : "會員"}指南 · {findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search).length} 題</p>
+              <p role="status">{coach ? "教練" : "會員"}指南 · {findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled).length} 題</p>
               <section className="cp-card cp-pad cp-guide" key={`${role}:${search}`}>
-                {findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search).map(guide => (
+                {findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled).map(guide => (
                   <details key={guide.id}>
                     <summary>{guide.title}</summary>
                     <ol className="list-decimal space-y-2 pl-5 py-3">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol>
                     <p>{guide.note}</p>
                   </details>
                 ))}
-                {!findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search).length && <p>找不到符合的教學，請換個關鍵字或聯絡店家。</p>}
+                {!findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled).length && <p>找不到符合的教學，請換個關鍵字或聯絡店家。</p>}
               </section>
               {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">仍需協助？聯絡店家</a>}
             </>
@@ -1308,7 +1330,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
           )}
         </main>
       </div>
-      {companionEditor && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={() => router.refresh()} />}
+      {companionEditor && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={receipt => { if (receipt) { setCompanionReceipts(previous => [...previous.filter(row => row.booking.id !== receipt.booking.id), receipt]); setMessage(receipt.returned ? `已返還 ${receipt.returned.amount} ${unit(receipt.returned.unit)}` : "使用方式已更新"); } else setMessage("同行已新增"); start(() => router.refresh()); }} />}
       {session && !buy && (
         <Sheet
           title={waitlistAlready ? "候補狀態" : waitlistMode ? (confirm ? "確認候補" : companionMode ? "預約人數" : "選擇候補人") : (confirm ? "確認預約" : companionMode ? "預約人數" : "選擇上課人")}
@@ -1344,7 +1366,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                     card.available < amount(session, card) * participantCount
                   }
                   onClick={() =>
-                    confirm
+                    (companionMode || confirm)
                       ? run(
                           () => waitlistMode
                             ? joinMemberCourseWaitlist({
@@ -1362,16 +1384,23 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                                 requestKey: key,
                                 notes,
                               }),
-                          () => {
+                          (result) => {
+                            if (result.bookingUpdates && card) setConfirmedBookings(previous => {
+                              const ids = new Set(previous.map(row => row.booking.id));
+                              return [...previous, ...result.bookingUpdates!.filter(b => !ids.has(b.id)).map(b => ({cardId: b.cardId, confirmedAt: b.confirmedAt, booking: {
+                                ...b, name: session.name, startsAt: session.startsAt, coach: session.coach, room: session.room,
+                                notes: "", trialPaid: null, trialPrice: null, unit: card.unit, planName: card.name, expiresAt: card.expiresAt,
+                              }}))];
+                            });
                             setSession(null);
                             if (!waitlistMode) setPage("bookings");
                           },
-                          waitlistMode ? "已加入候補" : "已更新",
+                          waitlistMode ? "已加入候補" : "預約成功",
                         )
                       : setConfirm(true)
                   }
                 >
-                  {pending ? "處理中…" : confirm ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
+                  {pending ? (waitlistMode ? "候補中…" : "預約中…") : (companionMode || confirm) ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
                 </button>
               )}
             </>

@@ -55,3 +55,10 @@ Login Channel Basic settings 唯讀欄位「Linked LINE Official Account」實�
 ### 工具列修復部署核對
 
 511bf2b2 對應隔離部署 dpl_H2DxfBmdwV57ESsgYnuqDuguSpuc 已 READY，固定 alias 不變。重新載入 A LIFF endpoint 與一般店長方案頁，版本時間 2026/09/20 09:31；完整載入後 AX 無 Vercel Toolbar，後台實頁截图亦無黑色浮動工具列。舊分頁仍可持有舊工具列，需重開／重新載入；不要求重驗已通過的登入預約取消。此為瀏覽器部署核對，修復後手機 LINE 畫面尚無新截圖。
+
+
+## 2026/10/03 實際 LIFF 入口修正
+
+公開 LIFF 轉址頁讀回的實際 Endpoint 為 https://steamfoot-booking-git-codex-cour-21e5e0-rock7652-2111s-projects.vercel.app/s/course-start-0918-a/liff ，對應 `codex/course-liff-ui-20260922`。上方 9/20 記錄是歷史入口，不能據此驗收現在的 LIFF。
+
+本次將實際入口支線同步到已發布的多人預約版本（正式功能提交 74e8151602c1685b8be6a9f57ac9e66fb50298f4），並加入隔離資料庫部署檢查。LIFF ID、會員與方案資料不變。驗收必須從 LIFF 公開轉址頁確認 Endpoint，再核對該 Endpoint 的部署版本與前台靜態資源；不能只驗文件中的網址。手機本人登入與實際預約仍需使用者實機驗收。
