@@ -19,10 +19,12 @@ describe("course trial availability", () => {
     m.entitlement.mockResolvedValue({status:"ENABLED",startsAt:new Date("2100-01-01"),expiresAt:null});
     expect(await hasStoreFeature("test-store",FEATURES.MULTI_STORE)).toBe(false);
   });
-  it("keeps Steamfoot and SPA trial policies unchanged", async () => {
+  it("shares full single-store trial access with Steamfoot and SPA", async () => {
     for (const industry of ["steamfoot", "spa"]) {
       m.industry.mockResolvedValue(industry);
-      expect(await hasStoreFeature("test-store", FEATURES.CASHBOOK)).toBe(false);
+      expect(await hasStoreFeature("test-store", FEATURES.CASHBOOK)).toBe(true);
+      expect(await hasStoreFeature("test-store", FEATURES.FRONTEND_PREVIEW)).toBe(true);
+      expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(false);
     }
   });
   it("does not unlock paid plans or unrecognized features", async () => {
