@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import { CustomerLabels } from "@/components/customer-labels";
 
 /** Shared identity layout; business status and balances belong in adjacent columns. */
-export function CustomerListIdentity({customerId,name,phone,note,readOnly=false,displayOnly=false,showLabels=true}:{customerId?:string;name:ReactNode;phone?:string|null;note?:string|null;readOnly?:boolean;displayOnly?:boolean;showLabels?:boolean}) {
+export function CustomerListIdentity({customerId,name,phone,note,readOnly=false,displayOnly=false,showLabels=true,className=""}:{customerId?:string;name:ReactNode;phone?:string|null;note?:string|null;readOnly?:boolean;displayOnly?:boolean;showLabels?:boolean;className?:string}) {
   const number = phone?.trim() && !phone.trim().startsWith("_") ? phone.trim() : null;
   const displayPhone = number?.replace(/^(09\d{2})(\d{3})(\d{3})$/, "$1-$2-$3");
-  return <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
+  return <div className={`flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 ${className}`}>
     <div className="min-w-0 flex-1">
       <span className="block min-w-0 break-words text-sm font-medium text-earth-900">{name}</span>
     </div>

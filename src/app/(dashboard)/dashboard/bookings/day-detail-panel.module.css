@@ -13,7 +13,7 @@
 .planCell { flex-basis: 100%; min-width: 0; }
 .columnHeader { display: none; }
 @media (min-width: 1000px) {
-  .rowBody { grid-template-columns: 76px minmax(0, 1.6fr) 70px minmax(0, 1.1fr) minmax(0, 1.5fr); }
+  .rowBody { grid-template-columns: 70px minmax(0, 2.2fr) 64px minmax(0, 1fr) minmax(0, 1.8fr); }
   .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
   .identityCell { grid-column: 2; }
   .staffCell { display: block; grid-column: 3; grid-row: 1; }
@@ -24,3 +24,15 @@
 }
 
 @media (min-width: 1000px) { .columnHeader[data-batch="true"] { grid-template-columns: 76px minmax(0, 1fr) 44px; } }
+
+/* Keep telephone numbers aligned while long names and status text wrap safely. */
+.identityCell .identityLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 148px;
+}
+.identityCell .identityLayout > a { justify-self: end; padding-inline: 0; }
+.statusCell { align-content: center; }
+@media (max-width: 639px) {
+  .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr); }
+  .identityCell .identityLayout > a { justify-self: start; }
+}

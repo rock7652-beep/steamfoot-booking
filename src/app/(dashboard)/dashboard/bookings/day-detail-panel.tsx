@@ -8,7 +8,7 @@ import { BookingActionFeedback } from "./booking-action-feedback";
 
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { LinkPendingLabel } from "@/components/link-pending-label";
-import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
+import { bookingStatusMeta } from "@/components/admin/status-badge";
 import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
 import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import { resolveTrialDisplayAmount } from "./compute-amount";
@@ -212,10 +212,10 @@ export function DayDetailPanel({
         {/* Selection bar — only when at least one row picked */}
         {selectionEnabled && selectedCount > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-b border-primary-100 bg-primary-50/70 px-4 py-2">
-            <span className="text-xs font-medium text-primary-800">
+            <span className="text-sm font-medium text-primary-800">
               已選 {selectedCount} 筆
               {actionableCount > selectedCount && (
-                <span className="ml-1 text-[11px] font-normal text-primary-600">
+                <span className="ml-1 text-sm font-normal text-primary-600">
                   / 可選 {actionableCount}
                 </span>
               )}
@@ -224,7 +224,7 @@ export function DayDetailPanel({
               type="button"
               onClick={onCompleteBatch}
               disabled={batchActing}
-              className="inline-flex h-7 items-center rounded-md bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
             >
               {batchActing ? "處理中..." : "批次完成服務"}
             </button>
@@ -233,7 +233,7 @@ export function DayDetailPanel({
                 type="button"
                 onClick={onSelectAllActionable}
                 disabled={batchActing}
-                className="inline-flex h-7 items-center rounded-md border border-primary-300 bg-white px-2.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+                className="inline-flex min-h-11 items-center rounded-md border border-primary-300 bg-white px-2.5 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
               >
                 全選可操作
               </button>
@@ -242,7 +242,7 @@ export function DayDetailPanel({
               type="button"
               onClick={onClearSelection}
               disabled={batchActing}
-              className="ml-auto inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
+              className="ml-auto inline-flex min-h-11 items-center rounded-md border border-earth-300 bg-white px-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
             >
               清除選取
             </button>
@@ -297,7 +297,7 @@ export function DayDetailPanel({
       {/* 底部：快速操作 sticky footer（不跟著清單捲動、不被遮住） */}
       <div className="shrink-0 border-t border-earth-200 bg-white px-4 py-2">
         {readOnly ? (
-          <p className="text-xs leading-relaxed text-earth-500">
+          <p className="text-sm leading-relaxed text-earth-500">
             查看模式提供完整閱讀能力，建立、完成、取消、收款與改期請由該店自行完成。
           </p>
         ) : (
@@ -483,26 +483,24 @@ function TimelineItem({
               </span>
             )}
           </div>
-        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1"><button type="button" disabled={!onClick || isActing} onClick={handleBodyClick} aria-label={`查看 ${booking.slotTime} ${booking.customer.name} 的預約詳情`} className="min-h-11 rounded text-left font-semibold focus-visible:outline-2 focus-visible:outline-primary-600">{booking.customer.name}</button>          <StatusBadge variant={meta.variant} dot={false}>
-            {meta.label}
-          </StatusBadge>
+        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} className={styles.identityLayout} name={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1"><button type="button" disabled={!onClick || isActing} onClick={handleBodyClick} aria-label={`查看 ${booking.slotTime} ${booking.customer.name} 的預約詳情`} className="min-h-11 rounded text-left font-semibold focus-visible:outline-2 focus-visible:outline-primary-600">{booking.customer.name}</button>          <span className={`text-sm font-normal ${meta.variant === "danger" ? "text-red-700" : meta.variant === "warning" ? "text-amber-700" : "text-earth-500"}`}>{meta.label}</span>
           {booking.customerConfirmedAt ? (
-            <span className="min-w-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
+            <span className="min-w-0 text-sm font-normal text-sky-800">
               顧客已確認會到
             </span>
           ) : null}
           {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
-            <span className="min-w-0 rounded bg-violet-100 px-1.5 py-0.5 text-sm font-medium text-violet-800">
+            <span className="min-w-0 text-sm font-normal text-earth-500">
               每週固定・第 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
             </span>
           ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
-              <span className="min-w-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
+              <span className="min-w-0 text-sm font-normal text-earth-600">
                 體驗・已收 NT${trialAmountText}
               </span>
             ) : (
-              <span className="min-w-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
+              <span className="min-w-0 text-sm font-medium text-amber-800">
                 體驗・未收 NT${trialAmountText}
               </span>
             )
@@ -515,7 +513,7 @@ function TimelineItem({
             <span
               className={
                 sessions.isLow
-                  ? "min-w-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800"
+                  ? "min-w-0 text-sm font-medium text-amber-800"
                   : "shrink-0 text-sm font-medium text-earth-600"
               }
             >
@@ -524,7 +522,7 @@ function TimelineItem({
                 : `剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
-            <span className="min-w-0 break-words text-sm font-medium text-emerald-700">
+            <span title={`已扣堂｜方案：${deductedPlanLabel}`} className="block w-full min-w-0 truncate text-sm font-medium text-emerald-700">
               已扣堂｜方案：{deductedPlanLabel}
             </span>
           ) : planBadge.kind === "not_deducted" ? (
@@ -546,7 +544,7 @@ function TimelineItem({
             notes={[{label:"平時",value:booking.customer.serviceNote},{label:"本次",value:booking.notes,emphasis:true}]}
             onOpen={onClick ? handleBodyClick : undefined} />
         </div>
-        <span className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
+        <span title={assignedStaffName} className={`${styles.staffCell} truncate text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>
 
       <div className="relative flex w-11 shrink-0 justify-center">
