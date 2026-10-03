@@ -205,7 +205,7 @@ export function DayDetailPanel({
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
         <div aria-hidden="true" data-batch={batchMode && selectionEnabled} className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           <span />
-          <div className={styles.rowBody}><span>時間／人數</span><span>顧客／電話</span><span>直屬店長</span><span>方案／狀態</span><span>標籤／備註</span></div>
+          <div className={styles.rowBody}><span>時間／人數</span><span>顧客／電話</span><span>直屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
           <span />
         </div>
 
@@ -483,9 +483,7 @@ function TimelineItem({
               </span>
             )}
           </div>
-        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={<><button type="button" disabled={!onClick || isActing} onClick={handleBodyClick} aria-label={`查看 ${booking.slotTime} ${booking.customer.name} 的預約詳情`} className="min-h-11 rounded text-left font-semibold focus-visible:outline-2 focus-visible:outline-primary-600">{booking.customer.name}</button><span className={`${styles.inlineStaff} font-normal text-earth-500`}> · {assignedStaffName}</span></>} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
-        <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
-          <StatusBadge variant={meta.variant} dot={false}>
+        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1"><button type="button" disabled={!onClick || isActing} onClick={handleBodyClick} aria-label={`查看 ${booking.slotTime} ${booking.customer.name} 的預約詳情`} className="min-h-11 rounded text-left font-semibold focus-visible:outline-2 focus-visible:outline-primary-600">{booking.customer.name}</button>          <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
           {booking.customerConfirmedAt ? (
@@ -509,6 +507,8 @@ function TimelineItem({
               </span>
             )
           ) : null}
+<span className={`${styles.inlineStaff} font-normal text-earth-500`}> · {assignedStaffName}</span></span>} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
+        <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
           {/* 只有待到店的套餐預約才顯示目前剩餘堂數；歷史預約顯示本次
               是否已扣堂。體驗／單次不顯示方案警示。 */}
           {planBadge.kind === "remaining" ? (
