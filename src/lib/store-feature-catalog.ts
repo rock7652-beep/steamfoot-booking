@@ -41,12 +41,11 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
-  { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "加購功能：依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
+  { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "體驗版內含，付費方案另行開通：依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
   { key: FEATURES.DEVICE_PREVIEW, label: "裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
   { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
   {
-    // Digital Butler is intentionally HQ-entitlement-only: no plan grants it
-    // by default, but HQ must be able to grant or revoke a per-store override.
+    // Paid plans require an HQ grant; the full single-store trial includes it.
     key: FEATURES.DIGITAL_BUTLER,
     label: "數位管家",
     module: "顧客",
@@ -68,7 +67,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.MEMBER_PORTAL,
     label: "LINE 顧客入口（LIFF）",
     module: "顧客",
-    description: "三個付費方案內含；顧客可自行預約、取消與查詢方案堂數。保留門市獨立開關，其他模組依各自權限運作。",
+    description: "體驗版與三個付費方案內含；顧客可自行預約、取消與查詢方案堂數。保留門市獨立開關，其他模組依各自權限運作。",
   },
   {
     key: FEATURES.REFERRAL_SHARE,

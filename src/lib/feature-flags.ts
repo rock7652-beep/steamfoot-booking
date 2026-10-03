@@ -7,7 +7,7 @@
  * 唯一方案分級系統，綁定 Store.plan。
  */
 
-import { isSingleStoreTrial, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
+import { isSingleStoreTrial, isSingleStoreFeature, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
 import type { PricingPlan, Store } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 
@@ -73,13 +73,8 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 // ============================================================
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
-  EXPERIENCE: [
-    "device_preview",
-    "basic_booking",
-    "customer_management",
-    "staff_management",
-    "duty_scheduling",
-  ],
+  // Full single-store trial, shared by every industry (multi-store is excluded).
+  EXPERIENCE: Object.values(FEATURES).filter(isSingleStoreFeature),
   BASIC: [
     "device_preview",
     "member_portal",
@@ -232,7 +227,7 @@ export const PRICING_PLAN_INFO: Record<PricingPlan, {
     shortLabel: "體驗",
     color: "text-earth-600",
     bgColor: "bg-earth-100",
-    description: "零門檻上手，基礎預約管理",
+    description: "完整單店功能體驗，母子店功能除外",
     audience: "剛起步、想先試用的店家",
   },
   BASIC: {
@@ -275,9 +270,9 @@ export function hasFeature(plan: PricingPlan, feature: FeatureKey): boolean {
   return getPlanFeatures(plan).has(feature);
 }
 
-/** 取得某功能需要的最低方案 */
+/** 取得某功能需要的最低付費方案；體驗授權不作為升級建議。 */
 export function getRequiredPlan(feature: FeatureKey): PricingPlan {
-  const order: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
+  const order: PricingPlan[] = ["BASIC", "GROWTH", "ALLIANCE"];
   for (const plan of order) {
     if (PLAN_FEATURES[plan].includes(feature)) return plan;
   }
