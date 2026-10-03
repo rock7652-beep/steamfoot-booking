@@ -1,4 +1,6 @@
 "use client";
+import type { ReactNode } from "react";
+import { RosterToolbar, RosterNotes, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import styles from "./day-detail-panel.module.css";
 
@@ -73,6 +75,7 @@ export interface DayBooking {
 const ACTIONABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
 interface DayDetailPanelProps {
+  toolbar?: ReactNode;
   date: string | null;
   bookings: DayBooking[];
   slots: SlotAvailability[];
@@ -110,6 +113,7 @@ interface DayDetailPanelProps {
 }
 
 export function DayDetailPanel({
+  toolbar,
   date,
   bookings,
   slots,
@@ -176,57 +180,31 @@ export function DayDetailPanel({
 
   return (
     <div className="@container flex h-full flex-col">
-      {/* 頂部：精簡 KPI chip 列（固定，不跟著清單捲動）。
-          日期已在 Drawer 標題顯示，這裡不再重複，把高度讓給名單。
-          統計依面板寬度排列；iPad 六項同列，窄螢幕與放大文字時換行。 */}
-      <div className="shrink-0 px-4 pt-3">
-        <div className="grid grid-cols-3 gap-1.5 pb-1 @[30rem]:grid-cols-6">
-          <KpiChip label="預約" value={stats.total} />
-          <KpiChip label="到店" value={stats.checkedIn} />
-          <KpiChip label="完成人數" value={stats.completed} />
-          <KpiChip
-            label="未到人數"
-            value={stats.noShow}
-            tone={stats.noShow > 0 ? "danger" : "default"}
-          />
-          <KpiChip label="人數" value={stats.people} />
-          <KpiChip
-            label="補課"
-            value={stats.makeup}
-            tone={stats.makeup > 0 ? "warning" : "default"}
-          />
-          {filteredFrom != null && (
-            <span className="col-span-full justify-self-end rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700">
-              篩選中 {stats.total}/{filteredFrom}
-            </span>
-          )}
-        </div>
+      <div className="shrink-0 px-4 py-3">
+        <RosterToolbar label="當日預約工具列">
+          <span className="inline-flex min-h-11 items-center rounded-lg border border-primary-500 bg-primary-50 px-3 text-sm text-primary-800">預約 {stats.total}</span>
+          {toolbar}
+          <details className="relative text-sm text-earth-600">
+            <summary className="min-h-11 cursor-pointer rounded-lg border border-earth-200 px-3 py-3">當日統計</summary>
+            <div className="absolute left-0 top-full z-30 mt-1 flex w-72 flex-wrap gap-2 rounded-lg border border-earth-200 bg-white p-3 shadow-lg">
+              <KpiChip label="到店" value={stats.checkedIn} />
+              <KpiChip label="完成人數" value={stats.completed} />
+              <KpiChip label="未到人數" value={stats.noShow} tone={stats.noShow > 0 ? "danger" : "default"} />
+              <KpiChip label="人數" value={stats.people} />
+              <KpiChip label="補課" value={stats.makeup} tone={stats.makeup > 0 ? "warning" : "default"} />
+            </div>
+          </details>
+          {filteredFrom != null && <span role="status" className="text-sm text-primary-700">篩選中 {stats.total}/{filteredFrom}</span>}
+          {readOnly && <span className="text-sm text-amber-700">查看模式</span>}
+        </RosterToolbar>
       </div>
 
-      {/* 中段：當日清單，填滿剩餘高度並可獨立捲動 */}
-      <div className="min-h-0 flex-1 px-3 py-2">
-      <div className="flex h-full min-h-0 flex-col rounded-lg border border-earth-200 bg-white">
-        <div className="flex items-center justify-between border-b border-earth-200 px-3 py-2">
-          <h3 className="text-base font-semibold text-earth-900">今日預約</h3>
-          {readOnly ? (
-            <span className="text-xs font-medium text-amber-700">
-              查看模式
-            </span>
-          ) : (
-            <Link
-              href={`/dashboard/bookings/new?date=${date}`}
-              prefetch={false}
-              className="text-sm text-primary-600 hover:text-primary-700"
-            >
-              ＋ 新增
-            </Link>
-          )}
-        </div>
-
+      <div className="min-h-0 flex-1 px-4 pb-3">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
         <div aria-hidden="true" className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           <span />
-          <div className={styles.rowBody}><span>時間／人數</span><span>顧客／標籤</span><span>方案／狀態</span><span>直屬店長</span></div>
-          <span className="w-20 text-center">操作</span>
+          <div className={styles.rowBody}><span>時間／人數</span><span>顧客／電話</span><span>直屬店長</span><span>方案／狀態</span><span>標籤／備註</span></div>
+          <span />
         </div>
 
         {/* Selection bar — only when at least one row picked */}
@@ -315,7 +293,7 @@ export function DayDetailPanel({
       </div>
 
       {/* 底部：快速操作 sticky footer（不跟著清單捲動、不被遮住） */}
-      <div className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
+      <div className="shrink-0 border-t border-earth-200 bg-white px-4 py-2">
         {readOnly ? (
           <p className="text-xs leading-relaxed text-earth-500">
             查看模式提供完整閱讀能力，建立、完成、取消、收款與改期請由該店自行完成。
@@ -439,7 +417,7 @@ function TimelineItem({
 
   return (
     <div
-      className={`flex items-stretch gap-2 border-l-[3px] bg-white pr-2 transition-colors hover:bg-earth-50 ${borderColor} ${
+      className={`flex border-l-[3px] transition-colors ${rosterRowClassName} ${borderColor} ${
         isActing ? "opacity-60" : ""
       } ${selected ? "bg-primary-50/40" : ""}`}
     >
@@ -447,7 +425,7 @@ function TimelineItem({
           accidentally end up in a batch. Wrapped in a label for hit-area; the
           input owns selection state, no need to stopPropagation onto body
           since body click is its own button. */}
-      <div className="flex w-8 shrink-0 items-center justify-center pl-2">
+      <div className="flex w-6 shrink-0 items-center justify-center">
         {actionable && onToggleSelect ? (
           <input
             type="checkbox"
@@ -461,7 +439,7 @@ function TimelineItem({
       </div>
 
       {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
-      <div className={`${styles.rowBody} relative isolate min-w-0 flex-1 gap-1 py-2 text-left`}>
+      <div className={`${styles.rowBody} relative isolate min-w-0 flex-1 text-left`}>
         <button
           type="button"
           onClick={handleBodyClick}
@@ -486,28 +464,28 @@ function TimelineItem({
               </span>
             )}
           </div>
-        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/></div>
+        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
         <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
           {booking.customerConfirmedAt ? (
-            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
+            <span className="min-w-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
               顧客已確認會到
             </span>
           ) : null}
           {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
-            <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-sm font-medium text-violet-800">
+            <span className="min-w-0 rounded bg-violet-100 px-1.5 py-0.5 text-sm font-medium text-violet-800">
               每週固定・第 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
             </span>
           ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
-              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
+              <span className="min-w-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
                 服務：首次體驗·已收款 NT${trialAmountText}
               </span>
             ) : (
-              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
+              <span className="min-w-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
                 服務：首次體驗·未收款 NT${trialAmountText}
               </span>
             )
@@ -518,7 +496,7 @@ function TimelineItem({
             <span
               className={
                 sessions.isLow
-                  ? "shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800"
+                  ? "min-w-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800"
                   : "shrink-0 text-sm font-medium text-earth-600"
               }
             >
@@ -537,29 +515,23 @@ function TimelineItem({
               方案待核對
             </span>
           ) : null}
-        </div>
         {booking.bookingType !== "FIRST_TRIAL" && planBadge.kind !== "deducted" && planLabel !== "—" ? (
-          <span className={`${styles.noteCell} flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600`}>
+          <span className={`${styles.planCell} flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600`}>
             <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
         ) : null}
-        {[
-          { label: "本次", value: booking.notes },
-          { label: "店內", value: booking.customer?.serviceNote },
-        ].filter((note) => note.value?.trim()).map((note) => (
-          <div key={note.label} className={`${styles.noteCell} flex min-w-0 items-center gap-1 text-sm text-amber-700`}>
-            <span className="shrink-0">{note.label}：</span>
-            <span className="min-w-0 flex-1 truncate" title={note.value ?? undefined}>
-              {note.value}
-            </span>
-          </div>
-        ))}
+        </div>
+        <div className={styles.noteCell}>
+          <RosterNotes customerId={booking.customer.id} name={booking.customer.name} readOnly={readOnly}
+            notes={[{label:"本次",value:booking.notes,emphasis:true},{label:"店內",value:booking.customer.serviceNote}]}
+            onOpen={onClick ? handleBodyClick : undefined} />
+        </div>
         <span className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>
 
       {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
-      <div className="flex w-20 shrink-0 flex-col justify-center gap-2 py-2">
+      <div className="relative z-20 flex w-11 shrink-0 flex-col justify-center">
         {actionable && onCompleteSingle ? (
           <button
             type="button"
@@ -568,16 +540,17 @@ function TimelineItem({
               if (!isActing) onCompleteSingle(booking.id);
             }}
             disabled={isActing}
-            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+            className={rosterStatusButtonClassName}
+            aria-label={`完成 ${booking.customer.name} 的預約`} title="完成服務"
           >
-            {isActing ? "儲存中…" : "完成"}
+            <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-earth-400">{isActing ? "…" : ""}</span><span className="sr-only">{isActing ? "儲存中…" : "完成"}</span>
           </button>
         ) : null}
         {booking.bookingStatus === "COMPLETED" && onRevertSingle ? (
           <button type="button" disabled={isActing}
             onClick={(event) => { event.stopPropagation(); if (!isActing) onRevertSingle(booking.id); }}
-            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 px-3 text-sm font-semibold text-earth-700 hover:bg-earth-50 disabled:cursor-wait disabled:opacity-60">
-            {isActing ? "儲存中…" : "還原"}
+            className={rosterStatusButtonClassName} aria-label={`還原 ${booking.customer.name} 的預約`} title="還原完成">
+            <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary-700 bg-primary-700 text-white">{isActing ? "…" : "✓"}</span><span className="sr-only">{isActing ? "儲存中…" : "還原"}</span>
           </button>
         ) : null}
         {!onClick ? (
@@ -611,7 +584,7 @@ function KpiChip({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <span className="inline-flex min-w-0 items-center justify-between gap-1 rounded-lg border border-earth-200 bg-earth-50 px-1.5 py-1 text-xs">
+    <span className="inline-flex min-w-0 items-center justify-between gap-1 rounded-lg border border-earth-200 bg-earth-50 px-1.5 py-1 text-sm">
       <span className="whitespace-nowrap text-earth-500">{label}</span>
       <span className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${valueColor}`}>{value}</span>
     </span>

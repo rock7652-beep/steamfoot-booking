@@ -1,26 +1,22 @@
 .rowBody {
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
-  column-gap: 0.75rem;
+  gap: 0.25rem 0.5rem;
 }
-.timeCell { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
-.identityCell { min-width: 0; }
-.statusCell, .noteCell { grid-column: 1 / -1; min-width: 0; }
-.staffCell { grid-column: 2; }
+.timeCell { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; grid-row: 1 / 3; align-self: start; padding-top: 0.5rem; }
+.identityCell { min-width: 0; grid-column: 2 / 4; }
+.statusCell { grid-column: 2; min-width: 0; }
+.noteCell { grid-column: 3; min-width: 0; grid-row: 2 / 4; }
+.staffCell { grid-column: 2; min-width: 0; }
+.planCell { flex-basis: 100%; min-width: 0; }
 .columnHeader { display: none; }
-
-/* The same row renderer adapts to desktop and portrait iPad without horizontal scrolling. */
-@media (min-width: 900px) {
-  .rowBody {
-    grid-template-columns: 86px minmax(0, 1fr) minmax(0, 1.2fr) 90px;
-  }
-  .statusCell { grid-column: 3; }
-  .staffCell { grid-column: 4; grid-row: 1; }
-  .noteCell { grid-column: 2 / 4; }
-  .columnHeader {
-    display: grid;
-    grid-template-columns: 32px minmax(0, 1fr) 80px;
-    column-gap: 0.5rem;
-  }
+@media (min-width: 1000px) {
+  .rowBody { grid-template-columns: 64px minmax(0, 1.6fr) 70px minmax(0, 1.1fr) minmax(0, 1.5fr); }
+  .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
+  .identityCell { grid-column: 2; }
+  .staffCell { grid-column: 3; grid-row: 1; }
+  .statusCell { grid-column: 4; grid-row: 1; }
+  .noteCell { grid-column: 5; grid-row: 1; }
+  .columnHeader { display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; column-gap: 0.5rem; padding-left: 15px; padding-right: 12px; }
 }

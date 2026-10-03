@@ -773,17 +773,18 @@ export function BookingsManager({
           </button>
           </div>
         </div>
-        <div className="border-b border-earth-100 px-4 py-2">{syncControl}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-earth-100 px-4 py-2">
-          <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
-            onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); }}
-            className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-200 px-3 text-sm" />
-          <CustomerLabelPicker value={labelFilter} onChange={value => { setLabelFilter(value); setSelectedIds(new Set()); }} />
-          {labelsLoading && <span role="status" className="text-sm text-earth-500">標籤載入中…</span>}
-        </div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
+            toolbar={<>
+              <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
+                onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); }}
+                className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]" />
+              <CustomerLabelPicker value={labelFilter} onChange={value => { setLabelFilter(value); setSelectedIds(new Set()); }} />
+              {labelsLoading && <span role="status" className="text-sm text-earth-500">標籤載入中…</span>}
+              <button type="button" disabled={syncing || refreshPaused} title={syncStatus} aria-label={syncStatus}
+                onClick={() => void refreshRef.current?.()}
+                className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-earth-600 disabled:opacity-50">{syncing ? "更新中…" : "更新"}</button>
+            </>}
             date={selectedDate}
             bookings={filteredDayBookings}
             slots={daySlots}

@@ -278,11 +278,11 @@ it("offers restore in the completed row and disables it while saving", async () 
   }));
   try {
     await act(async () => render());
-    const button = [...container.querySelectorAll("button")].find(b => b.textContent === "還原")!;
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="還原 陳沛妍 的預約"]')!;
     act(() => button.click());
     expect(restore).toHaveBeenCalledExactlyOnceWith("booking-1");
     await act(async () => render(true));
-    const saving = [...container.querySelectorAll("button")].find(b => b.textContent === "儲存中…")!;
+    const saving = container.querySelector<HTMLButtonElement>('button[aria-label="還原 陳沛妍 的預約"]')!;
     expect(saving.disabled).toBe(true);
     await act(async () => render(false, true));
     expect(container.textContent).not.toContain("還原");
