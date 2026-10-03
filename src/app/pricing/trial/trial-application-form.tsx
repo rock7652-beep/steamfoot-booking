@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { focusTrialFormError } from "@/lib/trial-form-error";
 import {
   applicationStatuses,
   emptyTrialApplication,
@@ -45,6 +46,7 @@ function StageList({ items }: { items: ReturnType<typeof trialChecklist> }) {
   );
 }
 export function TrialApplicationForm() {
+  const formRef = useRef<HTMLFormElement>(null);
   const [data, setData] = useState<TrialApplicationData>(emptyTrialApplication);
   const [receipt, setReceipt] = useState<Receipt>();
   const [ready, setReady] = useState(false);
@@ -55,6 +57,10 @@ export function TrialApplicationForm() {
   const [saved, setSaved] = useState(false);
   const [resumeBlocked, setResumeBlocked] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
+  useEffect(() => {
+    const key = Object.keys(errors).find((key) => errors[key]);
+    if (key && formRef.current) focusTrialFormError(formRef.current, key);
+  }, [errors]);
   useEffect(() => {
     let active = true;
     async function restore() {
@@ -208,6 +214,9 @@ export function TrialApplicationForm() {
         {label}
         <select
           className={inputClass}
+          name={key}
+          aria-invalid={!!errors[key]}
+          aria-describedby={errors[key] ? `${key}-error` : undefined}
           value={data[key]}
           onChange={(e) => {
             setSaved(false);
@@ -220,6 +229,11 @@ export function TrialApplicationForm() {
             </option>
           ))}
         </select>
+        {errors[key] && (
+          <span id={`${key}-error`} className="text-sm text-red-700">
+            {errors[key]}
+          </span>
+        )}
       </label>
     );
   }
@@ -275,7 +289,7 @@ export function TrialApplicationForm() {
     }
   }
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form ref={formRef} noValidate onSubmit={submit} className="space-y-4">
       <div className="rounded-xl border border-[#e1d8c7] bg-[#fffdf7] p-4">
         <p className="font-medium">申請只需先準備</p>
         <ul className="mt-2 space-y-1 text-sm">
@@ -288,13 +302,6 @@ export function TrialApplicationForm() {
         <h2 className="mb-5 text-xl font-semibold">1 · 店家與聯絡人</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           {field("storeName", "本次申請的門市名稱 *")}
-          {field("brandName", "所屬品牌（選填）")}
-          {field("otherStores", "其他申請門市（選填）", {
-            hint: "每間門市各填一份，可以使用相同聯絡人與 Email。",
-          })}
-          {field("slug", "希望使用的網址英文名稱（Slug）", {
-            hint: "例如 butler；使用小寫英文、數字或短橫線。送出後確認是否可用，留空由我們協助。",
-          })}
           {select(
             "industry",
             "店家類型",
@@ -303,15 +310,29 @@ export function TrialApplicationForm() {
           {field("contactName", "聯絡人 *")}
           {field("phone", "聯絡電話 *", { type: "tel" })}
           {field("email", "登入／聯絡 Email *", { type: "email" })}
-          {field("additionalManagers", "其他後台使用者姓名／Email（選填）", {
-            hint: "體驗版最多 3 位後台使用者；教練前台 LINE 身分另行設定。",
-          })}
           {field("mapsUrl", "Google 地圖連結（選填）", {
             type: "url",
             guide: "maps",
             guideLabel: "取得地圖連結",
           })}
         </div>
+        <details className="mt-4 rounded-lg border border-[#dce3dc] p-3">
+          <summary className="cursor-pointer font-medium">
+            補充資料（選填）
+          </summary>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            {field("brandName", "所屬品牌（選填）")}
+            {field("otherStores", "其他申請門市（選填）", {
+              hint: "每間門市各填一份，可以使用相同聯絡人與 Email。",
+            })}
+            {field("slug", "希望使用的網址英文名稱（選填）", {
+              hint: "例如 butler；使用小寫英文、數字或短橫線。留空由我們協助，送出後確認是否可用。",
+            })}
+            {field("additionalManagers", "其他後台使用者姓名／Email（選填）", {
+              hint: "體驗版最多 3 位後台使用者；教練前台 LINE 身分另行設定，也可開通後再新增。",
+            })}
+          </div>
+        </details>
         <p className="mt-4 text-sm text-[#64736b]">
           本次只填一間門市。多間門市可分別申請；送出後使用下方「申請另一間門市」。
         </p>
@@ -486,6 +507,11 @@ export function TrialApplicationForm() {
           <input
             className={inputClass}
             type="file"
+            name="attachments"
+            aria-invalid={!!errors.attachments}
+            aria-describedby={
+              errors.attachments ? "attachments-error" : undefined
+            }
             disabled={uploading || busy}
             multiple
             accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.csv"
@@ -552,7 +578,11 @@ export function TrialApplicationForm() {
           最多 3 個檔案，合計 2 MB。沒有現成資料也沒關係，視訊時一起建立。
         </p>
         {errors.attachments && (
-          <p role="alert" className="text-sm text-red-700">
+          <p
+            id="attachments-error"
+            role="alert"
+            className="text-sm text-red-700"
+          >
             {errors.attachments}
           </p>
         )}
