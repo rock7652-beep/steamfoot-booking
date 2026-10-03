@@ -778,6 +778,7 @@ export function BookingsManager({
         </div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
+            onCreated={()=>{void refreshRef.current?.();}}
             toolbar={<>
               <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length}</button>
               <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}

@@ -25,7 +25,7 @@ const h = vi.hoisted(() => {
       storeId: "store_1",
       staffId: "op_staff",
     })),
-    currentStoreId: vi.fn(() => "store_1"),
+    resolveWriteStoreId: vi.fn(() => "store_1"),
     getTrialSettings: vi.fn(async () => ({
       trialEnabled: true,
       trialDefaultPrice: 499,
@@ -78,7 +78,7 @@ vi.mock("@/lib/permissions", () => ({
   requirePermission: h.requirePermission,
   requireWritablePermission: h.requirePermission,
 }));
-vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
+vi.mock("@/lib/store", () => ({ getActiveStoreForRead: h.resolveWriteStoreId, resolveWriteStoreId: h.resolveWriteStoreId }));
 vi.mock("@/lib/shop-config", () => ({
   getTrialSettings: h.getTrialSettings,
   clampTrialPrice: (
@@ -188,7 +188,7 @@ beforeEach(() => {
     storeId: "store_1",
     staffId: "op_staff",
   });
-  h.currentStoreId.mockReturnValue("store_1");
+  h.resolveWriteStoreId.mockReturnValue("store_1");
   h.getTrialSettings.mockResolvedValue({
     trialEnabled: true,
     trialDefaultPrice: 499,

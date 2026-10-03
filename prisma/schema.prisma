@@ -3129,6 +3129,7 @@ model CustomerLabelCategory {
   @@unique([storeId, id])
 }
 model CustomerLabel {
+  position Int @default(0)
   id String @id @default(cuid())
   storeId String
   categoryId String

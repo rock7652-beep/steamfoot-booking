@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 import { toast } from "sonner";
 import { manageCustomerLabels } from "@/server/actions/customer-labels";
 import { labelColor, previewLabelManagement, type LabelManagementInput, type LabelSnapshot } from "@/lib/customer-labels";
@@ -15,6 +15,30 @@ export function LabelManager({initial}:{initial:LabelSnapshot}) {
   const [adding,setAdding]=useState<string|null>(null);
   const [editing,setEditing]=useState<Editing|null>(null);
   const saving=useRef(false);
+  const drag=useRef<{kind:"category"|"label";id:string;categoryId?:string;ids:string[];target:string}|null>(null);
+  const [dragTarget,setDragTarget]=useState<string|null>(null);
+  function reorder(kind:"category"|"label",ids:string[],from:string,to:string,categoryId?:string) {
+    if(from===to||!ids.includes(to))return;
+    const ordered=[...ids],fromIndex=ordered.indexOf(from),toIndex=ordered.indexOf(to);
+    ordered.splice(fromIndex,1);ordered.splice(toIndex,0,from);
+    void save(kind==="category"?{action:"order",ids:ordered}:{action:"label-order",categoryId:categoryId!,ids:ordered},"已更新排序");
+  }
+  function handle(kind:"category"|"label",id:string,name:string,ids:string[],categoryId?:string) {
+    function move(e:PointerEvent<HTMLButtonElement>) {
+      const current=drag.current;if(!current)return;
+      const element=document.elementFromPoint(e.clientX,e.clientY)?.closest<HTMLElement>(`[data-sort-kind="${kind}"]`);
+      const target=element?.dataset.sortId;
+      if(target&&current.ids.includes(target)&&element?.dataset.sortCategory===(categoryId??"")){current.target=target;setDragTarget(target);}
+    }
+    return <button type="button" aria-label={`拖拉排序${name}`} title="拖拉排序；鍵盤方向鍵移動" disabled={pending} className={`${button} min-w-11 touch-none cursor-grab px-2 active:cursor-grabbing`} onPointerDown={e=>{
+      if(e.button!==0||saving.current)return;
+      e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);
+      drag.current={kind,id,categoryId,ids,target:id};setDragTarget(id);
+    }} onPointerMove={move} onPointerUp={()=>{const current=drag.current;drag.current=null;setDragTarget(null);if(current)reorder(current.kind,current.ids,current.id,current.target,current.categoryId);}} onPointerCancel={()=>{drag.current=null;setDragTarget(null);}} onKeyDown={e=>{
+      const offset=e.key==="ArrowUp"||e.key==="ArrowLeft"?-1:e.key==="ArrowDown"||e.key==="ArrowRight"?1:0;
+      if(!offset||saving.current)return;e.preventDefault();const target=ids[ids.indexOf(id)+offset];if(target)reorder(kind,ids,id,target,categoryId);
+    }}>⠿</button>;
+  }
   async function save(input:LabelManagementInput,success:string) {
     if(saving.current||!data.canManage)return false;
     saving.current=true;
@@ -47,22 +71,25 @@ export function LabelManager({initial}:{initial:LabelSnapshot}) {
     </form>;
   }
   function category(c:LabelSnapshot["categories"][number],inactive=false) {
-    const items=data.labels.filter(l=>l.categoryId===c.id&&(inactive?(!c.active||!l.active):l.active));
+    const items=data.labels.filter(l=>l.categoryId===c.id&&(inactive?(!c.active||!l.active):l.active)).sort((a,b)=>(a.position??0)-(b.position??0)||a.name.localeCompare(b.name));
+    const labelIds=data.labels.filter(l=>l.categoryId===c.id).sort((a,b)=>(a.position??0)-(b.position??0)||a.name.localeCompare(b.name)).map(l=>l.id);
     const target:Editing={kind:"category",id:c.id,name:c.name};
     const index=activeCategories.findIndex(x=>x.id===c.id);
-    return <section key={c.id} aria-label={`${c.name}${inactive?"已停用項目":"分類"}`} className="min-w-0 rounded-xl border border-earth-200 p-3">
+    return <section key={c.id} aria-label={`${c.name}${inactive?"已停用項目":"分類"}`} data-sort-kind="category" data-sort-id={c.id} data-sort-category="" className={`min-w-0 rounded-xl border border-earth-200 p-3 ${dragTarget===c.id?"ring-2 ring-primary-500":""}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className={`break-words rounded border px-2 py-1 font-medium ${labelColor(c.number)}`}>{c.name}<span className="ml-2 text-xs font-normal opacity-60">{String(c.number).padStart(2,"0")}</span>{!c.active?"（已停用）":""}</span>
         {data.canManage&&(!inactive||!c.active)&&<div className="flex flex-wrap gap-2">
           <button type="button" disabled={pending} className={button} onClick={()=>setEditing(target)}>改名</button>
           <button type="button" disabled={pending} title="停用保留既有標記" className={button} onClick={()=>void save({action:"active",kind:"category",id:c.id,active:!c.active},c.active?"已停用，保留既有標記":"已啟用")}>{c.active?"停用":"啟用"}</button>
+          {!inactive&&handle("category",c.id,c.name,categories.map(x=>x.id))}
           {!inactive&&[-1,1].map(offset=><button type="button" key={offset} className={`${button} min-w-11 px-2`} disabled={pending||index+offset<0||index+offset>=activeCategories.length} aria-label={`${c.name}${offset<0?"上移":"下移"}`} onClick={()=>{const ids=categories.map(x=>x.id),from=ids.indexOf(c.id),to=ids.indexOf(activeCategories[index+offset].id);[ids[from],ids[to]]=[ids[to],ids[from]];void save({action:"order",ids},"已更新排序");}}>{offset<0?"↑":"↓"}</button>)}
         </div>}
       </div>
       {(!inactive||!c.active)&&editor(target)}
       <div className="mt-2 flex flex-wrap items-start gap-2">
-        {items.map(l=>{const labelTarget:Editing={kind:"label",id:l.id,name:l.name,categoryId:l.categoryId};return <div key={l.id} className={`min-w-0 rounded-lg border border-earth-100 p-1 ${editing?.id===l.id?"w-full":"max-w-full"}`}>
+        {items.map(l=>{const labelTarget:Editing={kind:"label",id:l.id,name:l.name,categoryId:l.categoryId};return <div key={l.id} data-sort-kind="label" data-sort-id={l.id} data-sort-category={c.id} className={`${dragTarget===l.id?"ring-2 ring-primary-500":""} min-w-0 rounded-lg border border-earth-100 p-1 ${editing?.id===l.id?"w-full":"max-w-full"}`}>
           <div className="flex flex-wrap items-center gap-2">
+            {data.canManage&&!inactive&&handle("label",l.id,l.name,labelIds,c.id)}
             {data.canManage?<button type="button" disabled={pending} aria-label={`編輯${l.name}`} aria-expanded={editing?.id===l.id} onClick={()=>setEditing(labelTarget)} className={`min-h-11 max-w-full break-words rounded border px-3 text-left ${labelColor(c.number)}`}>{l.name}<span className="ml-2 text-xs">編輯</span></button>:<span className={`break-words rounded border px-3 py-2 ${labelColor(c.number)}`}>{l.name}</span>}
             {data.canManage&&<button type="button" disabled={pending} className={button} aria-label={`${l.active?"停用":"啟用"}${l.name}`} title="停用保留既有標記" onClick={()=>void save({action:"active",kind:"label",id:l.id,active:!l.active},l.active?"已停用，保留既有標記":"已啟用")}>{l.active?"停用":"啟用"}</button>}
           </div>
@@ -80,7 +107,7 @@ export function LabelManager({initial}:{initial:LabelSnapshot}) {
     {error&&<p role="alert" className="text-red-700">{error}</p>}
     <p role="status" aria-live="polite" className="text-primary-700">{pending?"儲存中…":message}</p>
     <div hidden={!expanded} className="space-y-3">
-    <p className="text-xs text-earth-500">分類自動配色；改名、排序不換色。停用保留顧客原有標記。</p>
+    <p className="text-xs text-earth-500">拖拉 ⠿ 可調整分類與分類內標籤順序，放開後自動儲存；也可用方向鍵移動。排序不換色，停用保留原有標記。</p>
     {data.canManage&&<form className="flex min-w-0 flex-wrap gap-2" onSubmit={async e=>{e.preventDefault();if(await save({action:"category",name:categoryName},"已新增分類"))setCategoryName("");}}><input aria-label="新增分類名稱" maxLength={8} required disabled={pending} value={categoryName} onChange={e=>setCategoryName(e.target.value)} placeholder="分類名稱（最多8字）" className={`${field} flex-1 basis-40`}/><button disabled={pending} className={button}>{pending?"儲存中…":"新增分類"}</button></form>}
     <div className="grid gap-3 xl:grid-cols-2">{activeCategories.map(c=>category(c))}</div>
     {!categories.length&&<p className="text-earth-500">先新增分類，再在分類內新增標籤。</p>}

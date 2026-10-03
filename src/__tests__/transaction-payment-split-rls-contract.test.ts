@@ -28,7 +28,9 @@ describe("TransactionPaymentSplit RLS contract", () => {
       "src/server/actions/wallet.ts",
     ]) {
       const source = read(path);
-      expect(source).toContain("const storeId = currentStoreId(user)");
+      expect(source).toContain(path.endsWith("/trial-booking.ts")
+        ? "const storeId = await resolveWriteStoreId(user)"
+        : "const storeId = currentStoreId(user)");
       expect(source).toContain("paymentSplitCreateData(paymentSplits)");
       expect(source).toContain("storeId,");
     }

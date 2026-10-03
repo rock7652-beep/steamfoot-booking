@@ -44,3 +44,26 @@ it('renders a pending new label, retains its input after failure and uses canoni
  expect(input.value).toBe('');expect(host.querySelector('button[aria-label="編輯重點"]')).toBeTruthy();expect(event.mock.calls[0][0].detail.labels.at(-1).id).toBe('real');expect(m.load).not.toHaveBeenCalled();
  window.removeEventListener('customer-labels:refresh',event);
 });
+
+it('reorders labels with keyboard handles, previews immediately and restores failed saves',async()=>{
+ const initial={...data,labels:[{...data.labels[0],position:0},{...data.labels[1],active:true,position:1}]};
+ await act(async()=>root.render(jsx(LabelManager,{initial})));await click('管理標籤');
+ let resolve!:(value:unknown)=>void;m.save.mockReturnValue(new Promise(r=>resolve=r));
+ const handle=host.querySelector('button[aria-label="拖拉排序舊客"]')!;
+ await act(async()=>handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})));
+ expect(m.save).toHaveBeenCalledWith({action:'label-order',categoryId:'cat',ids:['b','a']});
+ expect([...host.querySelectorAll('[data-sort-kind="label"]')].map(e=>(e as HTMLElement).dataset.sortId)).toEqual(['b','a']);
+ await act(async()=>resolve({success:false,error:'儲存失敗'}));
+ expect([...host.querySelectorAll('[data-sort-kind="label"]')].map(e=>(e as HTMLElement).dataset.sortId)).toEqual(['a','b']);
+});
+it('supports touch pointer dragging and cancels without writing',async()=>{
+ const initial={...data,labels:[{...data.labels[0],position:0},{...data.labels[1],active:true,position:1}]};
+ await act(async()=>root.render(jsx(LabelManager,{initial})));await click('管理標籤');
+ const handle=host.querySelector('button[aria-label="拖拉排序常客"]')!;
+ Object.assign(handle,{setPointerCapture:vi.fn()});
+ const target=host.querySelector('[data-sort-id="b"]')!;Object.defineProperty(document,'elementFromPoint',{configurable:true,value:()=>target});
+ const pointer=(name:string)=>{const e=new Event(name,{bubbles:true});Object.assign(e,{button:0,pointerId:1,clientX:1,clientY:1,pointerType:'touch'});handle.dispatchEvent(e);};
+ await act(async()=>{pointer('pointerdown');pointer('pointermove');pointer('pointercancel');});expect(m.save).not.toHaveBeenCalled();
+ await act(async()=>{pointer('pointerdown');pointer('pointermove');pointer('pointerup');});
+ expect(m.save).toHaveBeenCalledWith({action:'label-order',categoryId:'cat',ids:['b','a']});
+});
