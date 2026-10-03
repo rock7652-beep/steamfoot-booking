@@ -208,7 +208,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
       )}
 
       {state.kind === "ready" && (
-        <ReadyView
+        <WalletReadyView
           active={state.active}
           expired={state.expired}
           history={state.history}
@@ -227,7 +227,8 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
 // Ready view
 // ──────────────────────────────────────────────────────────
 
-function ReadyView({
+export function WalletReadyView({
+  readOnly = false,
   active,
   expired,
   history,
@@ -237,6 +238,7 @@ function ReadyView({
   contactUrl,
   dataSource,
 }: {
+  readOnly?: boolean;
   active: LiffWalletRow[];
   expired: LiffWalletRow[];
   history: LiffWalletRow[];
@@ -257,10 +259,10 @@ function ReadyView({
 
   return (
     <>
-      <div className="grid grid-cols-2 rounded-xl bg-earth-100 p-1" role="tablist" aria-label="方案與消費紀錄">
+      {!readOnly && <div className="grid grid-cols-2 rounded-xl bg-earth-100 p-1" role="tablist" aria-label="方案與消費紀錄">
         <button type="button" role="tab" aria-selected={activeTab === "plans"} onClick={() => setActiveTab("plans")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${activeTab === "plans" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>我的方案</button>
         <button type="button" role="tab" aria-selected={activeTab === "consumption"} onClick={() => setActiveTab("consumption")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${activeTab === "consumption" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>消費紀錄</button>
-      </div>
+      </div>}
       {activeTab === "consumption" ? <ConsumptionList rows={consumption} /> : <>
       {isEmpty ? (
         <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} dataSource={dataSource} />

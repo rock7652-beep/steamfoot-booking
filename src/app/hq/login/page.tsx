@@ -6,6 +6,7 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { Suspense } from "react";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { hqLoginAction } from "@/server/actions/auth";
 
 const initialState = { error: null as string | null };
@@ -94,6 +95,13 @@ function HqLoginForm() {
             {pending ? "登入中…" : "登入"}
           </button>
         </form>
+        {storeSlug && (
+          <p className="mt-5 text-center text-sm">
+            <Link className="text-[#123E32] underline underline-offset-4" href={`/hq/forgot-password?store=${encodeURIComponent(storeSlug)}`}>
+              忘記密碼？
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

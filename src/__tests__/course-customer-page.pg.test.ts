@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 const proxy=vi.hoisted(()=>({query:vi.fn()}));
+vi.mock("@/server/services/customer-label-filter",()=>({customerLabelFilterIds:vi.fn().mockResolvedValue(null)}));
 vi.mock("@/lib/db",()=>({prisma:{$queryRaw:proxy.query}}));
 import { getCourseCustomerPage } from "@/server/queries/course-customer-page";
 

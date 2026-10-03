@@ -26,6 +26,7 @@ import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-tria
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
+import { normalizeTrialBookingSource } from "@/lib/trial-booking-source";
 import { prepareTrialNotificationSetup, type TrialNotificationSetup } from "@/server/services/trial-notification-binding";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import {
@@ -34,7 +35,8 @@ import {
 } from "@/server/services/referral-events";
 import type { SlotAvailability } from "@/types";
 
-const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
+const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung", "staging"] as const;
+const isPreviewTrialStore = (slug: string) => slug !== "staging" || process.env.VERCEL_ENV === "preview";
 type PublicTrialStoreSlug = (typeof PUBLIC_TRIAL_STORE_SLUGS)[number];
 const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
 const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
@@ -51,6 +53,7 @@ const InputSchema = z.object({
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
   entry: z.string().max(512).optional(),
+  source: z.string().max(32).optional(),
   lineTrialPilot: z.boolean().optional().default(false),
   storeSlug: z.enum(PUBLIC_TRIAL_STORE_SLUGS).optional().default(DEFAULT_STORE_SLUG),
 });
@@ -88,6 +91,7 @@ async function resolvePublicStore(storeSlug: PublicTrialStoreSlug = DEFAULT_STOR
 }
 
 async function resolveAvailabilityStore(storeSlug: PublicTrialStoreSlug, entry?: string) {
+  if (!isPreviewTrialStore(storeSlug)) return null;
   if (!entry) return resolvePublicStore(storeSlug);
   if (entry.length > 512) return null;
   const chatLink = await resolveTrialBookingChatLink(entry);
@@ -276,6 +280,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
   }
 
   const data = parsed.data;
+  if (!isPreviewTrialStore(data.storeSlug)) return { status: "store_unavailable" };
   const pilot = data.storeSlug === "zhubei" && data.lineTrialPilot;
   if (pilot && !data.entry) {
     return { status: "invalid_input", message: "請先使用 LINE 確認身分，再開啟專屬體驗預約表單。無法使用 LINE 時，請聯繫門市協助預約。" };
@@ -477,6 +482,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             expectedAmount,
             revenueStaffId: customer.assignedStaffId,
             notes: "公開快速體驗預約",
+            bookingSource: chatLink?.channel ?? normalizeTrialBookingSource(data.source),
             ...(
               chatLink
                 ? { trialBookingChannel: chatLink.channel }

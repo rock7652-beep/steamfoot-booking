@@ -43,15 +43,15 @@ export function SideCard({
         }`}
       >
         <div>
-          <h3 className="text-xs font-semibold text-earth-800">{title}</h3>
+          <h3 className="text-sm font-semibold text-primary-900">{title}</h3>
           {subtitle ? (
-            <p className="text-[10px] text-earth-400">{subtitle}</p>
+            <p className="text-sm text-earth-500">{subtitle}</p>
           ) : null}
         </div>
         {action ? (
           <Link
             href={action.href}
-            className="text-[11px] text-primary-600 hover:text-primary-700"
+            className="text-sm text-primary-600 hover:text-primary-700"
           >
             {action.label} →
           </Link>

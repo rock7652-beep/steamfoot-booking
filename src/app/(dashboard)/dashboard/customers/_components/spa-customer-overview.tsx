@@ -1,5 +1,7 @@
 "use client";
-import { useState, useTransition } from "react";
+import { CustomerDetailFields } from "@/components/customer-detail-fields";
+import { CustomerLabels } from "@/components/customer-labels";
+import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
 import { DashboardLink } from "@/components/dashboard-link";
 import {
   saveSpaCustomerNote,
@@ -28,14 +30,10 @@ export function SpaCustomerOverview({
   canManageStaff: boolean;
   onSaved: () => void;
 }) {
-  const [note, setNote] = useState(profile.customer.serviceNote ?? ""),
-    [previous, setPrevious] = useState(profile.customer.serviceNote),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
-  const [pending, start] = useTransition();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
+        <CustomerLabels maxVisible={5} customerId={customer.id} readOnly={!canEdit}/>
         <div className="space-y-3">
           {canEdit && (
             <DashboardLink
@@ -48,15 +46,10 @@ export function SpaCustomerOverview({
           {canManageStaff && <AddSpaStaffButton customerId={customer.id} />}
           <section
             hidden={!canReadBookings}
-            className="rounded-xl border border-earth-200 p-4"
+            className="border-t border-earth-100 py-3"
           >
-            <h3 className="font-bold">來店與預約</h3>
-            <p className="mt-2 text-sm">
-              最近來店：{customer.lastVisit ?? "尚無完成服務紀錄"}
-            </p>
-            <p className="mt-1 text-sm">
-              下次預約：{customer.nextVisit ?? "尚未預約"}
-            </p>
+            <h3 className="text-sm font-semibold text-primary-900">來店與預約</h3>
+            <CustomerDetailFields items={[{label:"最近來店",value:customer.lastVisit},{label:"下次預約",value:customer.nextVisit}]}/>
             {canBook && (
               <DashboardLink
                 href={`/dashboard/spa-schedule?customerId=${encodeURIComponent(customer.id)}&new=1`}
@@ -67,105 +60,13 @@ export function SpaCustomerOverview({
             )}
           </section>
         </div>
-        <form
-          id="spa-note-form"
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError("");
-            setNotice("");
-            start(async () => {
-              try {
-                const r = await saveSpaCustomerNote({
-                  customerId: customer.id,
-                  serviceNote: note,
-                  previousNote: previous,
-                });
-                if (!r.success) {
-                  setError(r.error);
-                  return;
-                }
-                setPrevious(r.serviceNote);
-                setNote(r.serviceNote ?? "");
-                setNotice("備註已儲存");
-                onSaved();
-              } catch {
-                setError("儲存失敗，內容已保留，請重試。");
-              }
-            });
-          }}
-        >
-          <label htmlFor="spa-service-note" className="block font-bold">
-            服務偏好與注意事項
-          </label>
-          <p className="text-sm text-earth-500">
-            僅供店內服務參考，例如力道偏好、指定人員或需留意事項。
-          </p>
-          {canEdit ? (
-            <>
-              <textarea
-                id="spa-service-note"
-                rows={3}
-                maxLength={2000}
-                disabled={pending}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="例如：喜歡輕力道，服務前先確認當天需求。"
-                className="w-full resize-none rounded-xl border border-earth-200 p-3"
-              />
-            </>
-          ) : (
-            <p className="whitespace-pre-wrap rounded-xl bg-earth-50 p-3">
-              {note || "尚無服務備註"}
-            </p>
-          )}
-          {error && (
-            <p role="alert" className="text-red-700">
-              {error}{" "}
-              <button
-                type="button"
-                disabled={pending}
-                className="underline"
-                onClick={() =>
-                  start(async () => {
-                    try {
-                      const r = await getSpaCustomerProfile(customer.id);
-                      if (r.success) {
-                        setNote(r.customer.serviceNote ?? "");
-                        setPrevious(r.customer.serviceNote);
-                        setError("");
-                        setNotice("已讀取最新備註");
-                      } else setError(r.error);
-                    } catch {
-                      setError("讀取失敗，請重試。");
-                    }
-                  })
-                }
-              >
-                重新讀取，取代未儲存內容
-              </button>
-            </p>
-          )}
-          {notice && (
-            <p role="status" className="text-green-700">
-              {notice}
-            </p>
-          )}
-        </form>
+        <RetainedNoteEditor quiet key={customer.id} stateKey={`customer-note:${customer.id}`} title="服務偏好與注意事項"
+          hint="僅供店內服務參考，例如力道偏好、指定人員或需留意事項。"
+          placeholder="例如：喜歡輕力道，服務前先確認當天需求。" maxLength={2000}
+          value={profile.customer.serviceNote} canEdit={canEdit}
+          save={(serviceNote, previousNote) => saveSpaCustomerNote({ customerId: customer.id, serviceNote: serviceNote ?? "", previousNote })}
+          onSaved={onSaved} />
       </div>
-      {canEdit && (
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-earth-100 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <span className="text-xs text-earth-500">{note.length}/2000</span>
-          <button
-            type="submit"
-            form="spa-note-form"
-            disabled={pending || note === (previous ?? "")}
-            className="rounded-lg bg-[#596D45] px-4 py-2 text-white disabled:opacity-50"
-          >
-            {pending ? "儲存中…" : "儲存備註"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

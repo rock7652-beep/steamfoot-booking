@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { assertOrganizationCapacity, branchCapacity, branchConnectionMonthlyFee, managementMonthlyFee, organizationSubscriptionRows, type OrganizationStore } from "@/lib/alliance-subscription";
 const store = (id: string, parentStoreId: string | null = null, plan = "BASIC", maxStoresOverride: number | null = null): OrganizationStore => ({ id, name: id, parentStoreId, plan, maxStoresOverride });
 describe("independent HQ and branch subscriptions", () => {
-  it("charges progressive tiers for actual branches and requires quotes above 15", () => {
+  it("waives the first branch and charges progressive tiers for actual branches and requires quotes above 15", () => {
     expect(branchCapacity(store("hq", null, "ALLIANCE"))).toBe(1);
     expect([0, 1, 2, 3, 5, 6, 10, 15, 16, 31].map(managementMonthlyFee)).toEqual([4990, 4990, 5490, 5990, 6990, 7290, 8490, 9990, null, null]);
-    expect([0, 1, 5, 6, 15, 16].map(branchConnectionMonthlyFee)).toEqual([0, 0, 2000, 2300, 5000, null]);
+    expect([0, 1, 2, 5, 6, 10, 15, 16].map(branchConnectionMonthlyFee)).toEqual([0, 0, 500, 2000, 2300, 3500, 5000, null]);
     for (const invalid of [-1, 1.5, NaN, Infinity]) expect(() => managementMonthlyFee(invalid)).toThrow();
     expect(managementMonthlyFee(3)! + 3 * 2490).toBe(13460);
   });

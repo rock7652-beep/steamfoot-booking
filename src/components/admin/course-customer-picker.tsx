@@ -1,49 +1,74 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { searchCourseCustomers } from "@/server/actions/course-browse";
+import { loadCourseCustomerSearchIndex, searchCourseCustomers } from "@/server/actions/course-browse";
+import { matchCustomerSearch, type CustomerSearchOption } from "@/lib/customer-search-index";
+import { usePathname } from "next/navigation";
 type Choice = { id: string; name: string; phone?: string };
 
 export function CourseCustomerPicker({ name, initial = [], multiple = false, required = false, onChange, enabled = true }: {
   name: string; enabled?:boolean; onChange?:(selected: Choice[])=>void; initial?: Choice[]; multiple?: boolean; required?: boolean;
 }) {
-  const input=useRef<HTMLInputElement>(null);
-  const [selected,setSelected] = useState(initial);
-  const [query,setQuery] = useState("");
-  const [retry,setRetry] = useState(0);
-  const [result,setResult] = useState<{query:string;rows:Choice[];hasMore:boolean;error?:string} | null>(null);
+  const pathname=usePathname();
+  const [result,setResult] = useState<{path:string;query:string;rows:Choice[];hasMore:boolean;error?:string} | null>(null);
+
+  const [index,setIndex]=useState<{path:string;rows:CustomerSearchOption[];complete:boolean}|null>(null);
+  const [revision,setRevision]=useState(0);
+  useEffect(()=>{
+    const refresh=()=>{setIndex(null);setResult(null);setRevision(n=>n+1);};
+    window.addEventListener("focus",refresh);
+    window.addEventListener("customer-search-invalidated",refresh);
+    return()=>{window.removeEventListener("focus",refresh);window.removeEventListener("customer-search-invalidated",refresh);};
+  },[]);
   useEffect(()=>{
     if(!enabled)return;
-    const normalizedQuery=query.trim();
+    let active=true;
+    loadCourseCustomerSearchIndex().then(r=>{if(active&&r.success)setIndex({path:pathname,rows:r.rows,complete:r.complete});}).catch(()=>{});
+    return()=>{active=false;};
+  },[enabled,pathname,revision]);
+  const activeIndex=index?.path===pathname?index:null;
+  const input=useRef<HTMLInputElement>(null);
+  const [selected,setSelected] = useState(initial);
+  const [composing,setComposing] = useState(false);
+  const [query,setQuery] = useState("");
+  const [retry,setRetry] = useState(0);
+  useEffect(()=>{
+    if(!enabled || composing || activeIndex?.complete)return;
+    const normalizedQuery=composing ? "" : query.trim();
     if(!normalizedQuery)return;
     let active=true;
     const timer=setTimeout(()=>{searchCourseCustomers(normalizedQuery).then(r=>{
-      if(active) setResult(r.success ? {query:normalizedQuery,rows:r.rows,hasMore:r.hasMore} : {query:normalizedQuery,rows:[],hasMore:false,error:r.error});
-    }).catch(()=>{if(active)setResult({query:normalizedQuery,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},250);
+      if(active) setResult(r.success ? {path:pathname,query:normalizedQuery,rows:r.rows,hasMore:r.hasMore} : {path:pathname,query:normalizedQuery,rows:[],hasMore:false,error:r.error});
+    }).catch(()=>{if(active)setResult({path:pathname,query:normalizedQuery,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},250);
     return ()=>{active=false;clearTimeout(timer);};
-  },[query,retry,enabled]);
+  },[query,retry,enabled,composing,activeIndex,pathname,revision]);
   useEffect(()=>{input.current?.setCustomValidity(required && !selected.length ? "請從搜尋結果選擇顧客":"");},[selected,required,query]);
-  const normalizedQuery=query.trim();
-  const ready=result?.query===normalizedQuery;
+  const normalizedQuery=composing ? "" : query.trim();
+  const ready=activeIndex?.complete || (result?.path===pathname && result?.query===normalizedQuery);
+  const visibleRows=activeIndex?.complete ? matchCustomerSearch(activeIndex.rows,normalizedQuery,20) : (result?.path===pathname && result?.query===normalizedQuery) ? result.rows : activeIndex ? matchCustomerSearch(activeIndex.rows,normalizedQuery,20) : [];
   return <div className="space-y-2">
     {selected.map(c=><div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-1 text-sm">
       <span className="min-w-0 break-words">{c.name}{c.phone ? ` · ${c.phone}` : ""}</span>
       <input type="hidden" name={name} value={c.id}/>
       <button type="button" aria-label={`移除 ${c.name}`} className="min-h-11 shrink-0 px-2" onClick={()=>{setSelected(old=>{const next=old.filter(p=>p.id!==c.id);onChange?.(next);return next;});}}>移除</button>
     </div>)}
-    <input ref={input} aria-label="搜尋顧客姓名或電話" placeholder="搜尋姓名／電話" value={query}
+    <input ref={input} aria-label="搜尋顧客姓名、電話或 LINE 名稱" placeholder="搜尋姓名／電話／LINE 名稱" value={query}
+      onCompositionStart={()=>setComposing(true)}
+      onCompositionEnd={()=>setComposing(false)}
+      onKeyDown={e=>{if(e.key === "Enter")e.preventDefault();}}
       onChange={e=>setQuery(e.target.value)}
       className="min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-3 text-base"/>
-    {!normalizedQuery ? null : !ready ? <p role="status" className="text-sm">搜尋中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
+    {!normalizedQuery ? null : !ready && !visibleRows.length ? <p role="status" className="text-sm">搜尋中…</p> : (result?.path===pathname && result?.query===normalizedQuery) && result?.error && !activeIndex?.complete ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
       <div className="max-h-52 overflow-y-auto divide-y rounded-lg border border-earth-200">
-        {result?.rows.map(c=>{const chosen=selected.some(p=>p.id===c.id);return <button type="button" key={c.id} disabled={chosen}
+        {visibleRows.map(c=>{const chosen=selected.some(p=>p.id===c.id);return <button type="button" key={c.id} disabled={chosen}
           className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm disabled:bg-primary-50"
           onClick={()=>{setSelected(old=>{const next=multiple ? [...old,c] : [c];onChange?.(next);return next;});}}>
           <span className="min-w-0 break-words">{c.name} · {c.phone}</span><span className="shrink-0">{chosen ? "已選" : "選取"}</span>
         </button>;})}
-        {!result?.rows.length && <p className="p-3 text-sm">沒有符合的顧客</p>}
+        {ready && !visibleRows.length && <p className="p-3 text-sm">沒有符合的顧客</p>}
       </div>
-      {result?.hasMore && <p className="text-xs text-earth-500">顯示前 20 位，請輸入更完整的姓名或電話縮小範圍。</p>}
+      {!ready && <p role="status" className="text-xs text-earth-500">正在查詢其餘顧客…</p>}
+      {!activeIndex?.complete && (result?.path===pathname && result?.query===normalizedQuery) && result?.hasMore && <p className="text-xs text-earth-500">顯示前 20 位，請輸入更完整的姓名或電話縮小範圍。</p>}
     </>}
   </div>;
 }

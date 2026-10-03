@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/session";
 import { listStoresAction } from "@/server/actions/store-onboarding";
 import { STORE_OPERATING_STATUS_LABELS } from "@/lib/store-operating-status";
 
+import { StoreArchiveButton } from "@/components/store-archive-button";
+
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: "營運中", color: "bg-green-100 text-green-700" },
   TRIAL: { label: "試用", color: "bg-amber-100 text-amber-700" },
@@ -21,21 +23,25 @@ const OPERATING_STATUS_COLORS: Record<string, string> = {
   INACTIVE: "bg-red-100 text-red-700",
 };
 
-export default async function StoresPage() {
+export default async function StoresPage({ searchParams }: { searchParams: Promise<{ archived?: string }> }) {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
   const result = await listStoresAction();
-  const stores = result.success ? result.data : [];
+  const allStores = result.success ? result.data : [];
+  const showArchived = (await searchParams).archived === "1";
+  const archivedCount = allStores.filter((store) => store.archivedAt).length;
+  const stores = allStores.filter((store) => showArchived || !store.archivedAt);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="w-full min-w-0 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">店舖管理</h1>
-          <p className="mt-1 text-sm text-earth-500">管理所有分店，建立新店或查看交付狀態</p>
+          <h1 className="admin-page-title">店舖管理</h1>
+          <p className="mt-1 text-sm text-earth-500">顯示 {stores.length} 間・已封存 {archivedCount} 間</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/hq/dashboard/trial-applications" className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700">體驗申請</Link>
           <Link
             href="/hq/dashboard/stores/organization"
             className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
@@ -57,8 +63,13 @@ export default async function StoresPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="mb-3 flex items-center gap-3 text-sm">
+        <Link href={showArchived ? "/hq/dashboard/stores" : "/hq/dashboard/stores?archived=1"} className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3">{showArchived ? "隱藏已封存" : `顯示已封存（${archivedCount}）`}</Link>
+        <span className="text-earth-500">封存僅隱藏清單，資料與營運權限保留</span>
+      </div>
+      {!result.success && <p role="alert" className="mb-3 text-sm text-red-600">{result.error}</p>}
+      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+        <table className="admin-list-table w-full min-w-[1100px] text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <thead className="border-b border-earth-200 bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>
@@ -67,7 +78,7 @@ export default async function StoresPage() {
               <th className="px-4 py-3 text-left font-medium text-earth-600">模組</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">方案狀態</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">營運狀態</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">店舖性質</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">人員</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">顧客</th>
               <th className="px-4 py-3"></th>
@@ -79,11 +90,13 @@ export default async function StoresPage() {
               const operatingColor = OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
               return (
                 <tr key={store.id} className="hover:bg-earth-50/50">
-                  <td className="px-4 py-3 font-medium text-earth-900">{store.name}</td>
+                  <td className="px-4 py-3 font-medium text-earth-900">{store.name}{store.archivedAt && <span className="ml-2 text-sm text-earth-500">已封存</span>}</td>
                   <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
                   <td className="px-4 py-3 text-earth-600">{store.plan}</td>
                   <td className="px-4 py-3 text-earth-600">
-                    {store.industryModule === "COURSE" ? "運動課程" : store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
+                    {store.industryModule === "COURSE"
+                      ? store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室"
+                      : store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
@@ -97,18 +110,19 @@ export default async function StoresPage() {
                   </td>
                   <td className="px-4 py-3">
                     {store.isDemo ? (
-                      <span className="text-xs text-amber-600">Demo</span>
+                      <span className="text-xs text-amber-600">示範店</span>
                     ) : (
-                      <span className="text-xs text-green-600">正式</span>
+                      <span className="text-xs text-green-600">一般店</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right text-earth-600">{store.staffCount}</td>
                   <td className="px-4 py-3 text-right text-earth-600">{store.customerCount}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <StoreArchiveButton storeId={store.id} name={store.name} archived={Boolean(store.archivedAt)} />
                       <Link
                         href={`/hq/dashboard/stores/${store.id}/features`}
-                        className="text-xs font-medium text-primary-600 hover:underline"
+                        className="whitespace-nowrap text-xs font-medium text-primary-600 hover:underline"
                       >
                         功能設定
                       </Link>

@@ -17,6 +17,7 @@ import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import {
   applySlotOverrides,
   loadDayBusinessHoursContext,
+  parseBusinessPeriods,
 } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
@@ -168,6 +169,8 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 
 /** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */
 export async function getDaySlotDetails(dateStr: string) {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "getDaySlotDetails");
   const user = await requireStaffSession();
   const storeId = await resolveReadStoreId(user);
   if (!storeId) {
@@ -693,6 +696,329 @@ export async function copySettingsToFutureWeeks(input: {
 }
 
 // ============================================================
+// 複製設定到任選日期
+// ============================================================
+
+export async function copySettingsToDates(input: {
+  sourceDate: string;
+  targetDates: string[];
+  type: "closed" | "training" | "custom";
+  reason?: string;
+  openTime?: string;
+  closeTime?: string;
+  defaultCapacity?: number;
+  periods?: BusinessPeriodInput[];
+  conflictMode: "skip" | "replace";
+  includeSlotOverrides?: boolean;
+}): Promise<ActionResult<{
+  count: number;
+  skipped: Array<{ date: string; reason: string }>;
+  operationId: string;
+}>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") {
+      throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
+    }
+    await assertModuleIntervals(storeId, input.periods);
+
+    const validDate = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+      new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    if (!validDate(input.sourceDate)) throw new AppError("VALIDATION", "來源日期格式不正確");
+
+    const uniqueDates = [...new Set(input.targetDates)].sort();
+    if (uniqueDates.length < 1 || uniqueDates.length > 62) {
+      throw new AppError("VALIDATION", "請選擇 1–62 個套用日期");
+    }
+    if (uniqueDates.some((date) => !validDate(date))) throw new AppError("VALIDATION", "套用日期格式不正確");
+    if (uniqueDates.includes(input.sourceDate)) throw new AppError("VALIDATION", "套用日期不可包含來源日期");
+    const today = toLocalDateStr();
+    if (uniqueDates.some((date) => date < today)) throw new AppError("VALIDATION", "不可套用到過去日期");
+
+    const isCustom = input.type === "custom";
+    if (isCustom) {
+      const validation = input.periods ? validateBusinessPeriods(input.periods) : validateTimeRange({
+        openTime: input.openTime,
+        closeTime: input.closeTime,
+        defaultCapacity: input.defaultCapacity,
+      });
+      if (!validation.valid) throw new AppError("VALIDATION", validation.error!);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`business-hours:${storeId}`}, 0))`;
+
+      const requestedDateObjects = uniqueDates.map((date) => new Date(`${date}T00:00:00Z`));
+      const [existingSpecialDays, existingTargetOverrides, sourceOverrides] = await Promise.all([
+        tx.specialBusinessDay.findMany({ where: { storeId, date: { in: requestedDateObjects } } }),
+        tx.slotOverride.findMany({ where: { storeId, date: { in: requestedDateObjects } } }),
+        tx.slotOverride.findMany({
+          where: { storeId, date: new Date(`${input.sourceDate}T00:00:00Z`) },
+          orderBy: { startTime: "asc" },
+        }),
+      ]);
+      const specialDates = new Set(existingSpecialDays.map((item) => item.date.toISOString().slice(0, 10)));
+      const overrideDates = new Set(existingTargetOverrides.map((item) => item.date.toISOString().slice(0, 10)));
+      const skipped = input.conflictMode === "skip"
+        ? uniqueDates.flatMap((date) => {
+            const reasons = [specialDates.has(date) ? "已有整日特殊設定" : null, overrideDates.has(date) ? "已有單一時段調整" : null].filter(Boolean);
+            return reasons.length > 0 ? [{ date, reason: reasons.join("、") }] : [];
+          })
+        : [];
+      const skippedDates = new Set(skipped.map((item) => item.date));
+      const appliedTargetDates = uniqueDates.filter((date) => !skippedDates.has(date));
+      const appliedDateStrings = [input.sourceDate, ...appliedTargetDates];
+      const appliedDates = appliedDateStrings.map((date) => new Date(`${date}T00:00:00Z`));
+
+      const [beforeSpecialDays, beforeOverrides] = await Promise.all([
+        tx.specialBusinessDay.findMany({ where: { storeId, date: { in: appliedDates } } }),
+        tx.slotOverride.findMany({ where: { storeId, date: { in: appliedDates } } }),
+      ]);
+
+      const conflicts: string[] = [];
+      const bookedSlots = await tx.booking.groupBy({
+        by: ["bookingDate", "slotTime"],
+        where: { storeId, bookingDate: { in: appliedDates }, bookingStatus: { in: ["PENDING", "CONFIRMED"] } },
+        _sum: { people: true },
+      });
+      if (!isCustom) {
+        for (const booking of bookedSlots) {
+          conflicts.push(`${booking.bookingDate.toISOString().slice(0, 10)} ${booking.slotTime} 已有 ${booking._sum.people ?? 0} 人預約`);
+        }
+      } else {
+        const periods = input.periods ?? [{
+          openTime: input.openTime!, closeTime: input.closeTime!, slotInterval: 60, defaultCapacity: input.defaultCapacity ?? 6,
+        }];
+        const capacityByTime = new Map<string, number>();
+        for (const period of periods) {
+          for (const slot of generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity)) {
+            capacityByTime.set(slot.startTime, slot.capacity);
+          }
+        }
+        if (input.includeSlotOverrides) {
+          for (const override of sourceOverrides) {
+            if (override.type === "disabled") capacityByTime.delete(override.startTime);
+            else capacityByTime.set(override.startTime, override.capacity ?? capacityByTime.get(override.startTime) ?? input.defaultCapacity ?? 6);
+          }
+        }
+        for (const booking of bookedSlots) {
+          const date = booking.bookingDate.toISOString().slice(0, 10);
+          const people = booking._sum.people ?? 0;
+          const capacity = capacityByTime.get(booking.slotTime);
+          if (capacity == null) conflicts.push(`${date} ${booking.slotTime} 已有 ${people} 人預約，但套用後不再開放`);
+          else if (people > capacity) conflicts.push(`${date} ${booking.slotTime} 已有 ${people} 人預約，套用後名額只有 ${capacity} 人`);
+        }
+      }
+      if (conflicts.length > 0) {
+        throw new AppError("VALIDATION", `以下日期無法套用：\n${conflicts.join("\n")}`);
+      }
+
+      await tx.specialBusinessDay.deleteMany({ where: { storeId, date: { in: appliedDates } } });
+      await tx.slotOverride.deleteMany({ where: { storeId, date: { in: appliedDates } } });
+      for (let index = 0; index < appliedDates.length; index++) {
+        const date = appliedDates[index];
+        const isSource = index === 0;
+        await tx.specialBusinessDay.create({ data: {
+          storeId,
+          date,
+          type: input.type,
+          reason: input.reason ?? null,
+          openTime: isCustom ? input.openTime ?? null : null,
+          closeTime: isCustom ? input.closeTime ?? null : null,
+          defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+          segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
+        } });
+        // 來源日本身的單格微調預設保留；勾選後才複製到其他日期。
+        if ((isSource || input.includeSlotOverrides) && sourceOverrides.length > 0) {
+          await tx.slotOverride.createMany({ data: sourceOverrides.map((override) => ({
+            storeId,
+            date,
+            startTime: override.startTime,
+            type: override.type,
+            capacity: override.capacity,
+            reason: override.reason,
+          })) });
+        }
+      }
+
+      const audit = await tx.auditLog.create({ data: {
+        actorUserId: user.id,
+        targetType: "BusinessHours",
+        targetId: storeId,
+        action: "COPY_SERVICE_HOURS_TO_DATES",
+        beforeJson: {
+          dates: appliedDateStrings,
+          specialDays: beforeSpecialDays.map((item) => ({
+            date: item.date.toISOString().slice(0, 10), type: item.type, reason: item.reason,
+            openTime: item.openTime, closeTime: item.closeTime, slotInterval: item.slotInterval,
+            defaultCapacity: item.defaultCapacity, segments: item.segments,
+          })),
+          slotOverrides: beforeOverrides.map((item) => ({
+            date: item.date.toISOString().slice(0, 10), startTime: item.startTime, type: item.type,
+            capacity: item.capacity, reason: item.reason,
+          })),
+        },
+        afterJson: {
+          sourceDate: input.sourceDate,
+          targetDates: appliedTargetDates,
+          type: input.type,
+          reason: input.reason ?? null,
+          openTime: input.openTime ?? null,
+          closeTime: input.closeTime ?? null,
+          defaultCapacity: input.defaultCapacity ?? null,
+          periods: input.periods ?? [],
+          includeSlotOverrides: input.includeSlotOverrides === true,
+          copiedSlotOverrides: sourceOverrides.map((item) => ({ startTime: item.startTime, type: item.type, capacity: item.capacity, reason: item.reason })),
+          expectedSlotOverrides: appliedDateStrings.flatMap((date, index) =>
+            (index === 0 || input.includeSlotOverrides) ? sourceOverrides.map((item) => ({
+              date, startTime: item.startTime, type: item.type, capacity: item.capacity, reason: item.reason,
+            })) : []
+          ),
+        } as unknown as Prisma.InputJsonValue,
+      } });
+      return { count: appliedTargetDates.length, skipped, operationId: audit.id };
+    });
+
+    revalidateSpecialDays();
+    return { success: true, data: result };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/** 復原剛完成的指定日期批次套用；若之後已有其他異動或新預約，會安全阻擋。 */
+export async function undoCopySettingsToDates(operationId: string): Promise<ActionResult<{ count: number }>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    if (!operationId) throw new AppError("VALIDATION", "找不到可復原的操作");
+
+    const count = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`business-hours:${storeId}`}, 0))`;
+      const audit = await tx.auditLog.findFirst({ where: {
+        id: operationId,
+        actorUserId: user.id,
+        targetType: "BusinessHours",
+        targetId: storeId,
+        action: "COPY_SERVICE_HOURS_TO_DATES",
+      } });
+      if (!audit || Date.now() - audit.createdAt.getTime() > 10 * 60 * 1000) {
+        throw new AppError("VALIDATION", "復原時間已超過 10 分鐘，請改由日期設定手動調整");
+      }
+      const before = audit.beforeJson as Record<string, unknown> | null;
+      const after = audit.afterJson as Record<string, unknown> | null;
+      const dates = Array.isArray(before?.dates) ? before.dates.filter((item): item is string => typeof item === "string") : [];
+      const beforeSpecialDays = Array.isArray(before?.specialDays) ? before.specialDays.filter((item): item is Record<string, unknown> => !!item && typeof item === "object") : [];
+      const beforeOverrides = Array.isArray(before?.slotOverrides) ? before.slotOverrides.filter((item): item is Record<string, unknown> => !!item && typeof item === "object") : [];
+      if (dates.length < 1) throw new AppError("VALIDATION", "復原資料不完整");
+
+      const dateObjects = dates.map((date) => new Date(`${date}T00:00:00Z`));
+      const [currentSpecialDays, currentOverrides] = await Promise.all([
+        tx.specialBusinessDay.findMany({ where: { storeId, date: { in: dateObjects } } }),
+        tx.slotOverride.findMany({ where: { storeId, date: { in: dateObjects } } }),
+      ]);
+      const expectedType = typeof after?.type === "string" ? after.type : null;
+      const expectedPeriods = JSON.stringify(after?.periods ?? []);
+      if (currentSpecialDays.length !== dates.length || currentSpecialDays.some((item) =>
+        item.type !== expectedType || JSON.stringify(item.segments ?? []) !== expectedPeriods
+      )) {
+        throw new AppError("VALIDATION", "這些日期在套用後又有其他修改，為避免覆蓋新設定，已停止復原");
+      }
+      const normalizeOverrides = (items: Array<Record<string, unknown>>) => items.map((item) => ({
+        date: String(item.date), startTime: String(item.startTime), type: String(item.type),
+        capacity: typeof item.capacity === "number" ? item.capacity : null,
+        reason: typeof item.reason === "string" ? item.reason : null,
+      })).sort((a, b) => `${a.date}-${a.startTime}`.localeCompare(`${b.date}-${b.startTime}`));
+      const expectedOverrides = Array.isArray(after?.expectedSlotOverrides)
+        ? after.expectedSlotOverrides.filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+        : [];
+      const normalizedCurrentOverrides = normalizeOverrides(currentOverrides.map((item) => ({
+        date: item.date.toISOString().slice(0, 10), startTime: item.startTime, type: item.type,
+        capacity: item.capacity, reason: item.reason,
+      })));
+      if (JSON.stringify(normalizedCurrentOverrides) !== JSON.stringify(normalizeOverrides(expectedOverrides))) {
+        throw new AppError("VALIDATION", "這些日期的單一時段在套用後又有修改，為避免覆蓋新設定，已停止復原");
+      }
+
+      const restoredSpecialMap = new Map(beforeSpecialDays.map((item) => [String(item.date), item]));
+      const weeklyHours = await tx.businessHours.findMany({ where: { storeId } });
+      const weeklyMap = new Map(weeklyHours.map((item) => [item.dayOfWeek, item]));
+      const bookings = await tx.booking.groupBy({
+        by: ["bookingDate", "slotTime"],
+        where: { storeId, bookingDate: { in: dateObjects }, bookingStatus: { in: ["PENDING", "CONFIRMED"] } },
+        _sum: { people: true },
+      });
+      const conflicts: string[] = [];
+      for (const booking of bookings) {
+        const date = booking.bookingDate.toISOString().slice(0, 10);
+        const restoredSpecial = restoredSpecialMap.get(date);
+        const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+        const weekly = weeklyMap.get(dow);
+        const restoredClosed = restoredSpecial
+          ? restoredSpecial.type !== "custom"
+          : !weekly?.isOpen;
+        if (restoredClosed) {
+          conflicts.push(`${date} ${booking.slotTime} 已有預約，復原後將停止開放`);
+          continue;
+        }
+        const source = restoredSpecial ?? weekly;
+        if (!source) continue;
+        const segments = "segments" in source ? source.segments : undefined;
+        const periods = parseBusinessPeriods(segments, {
+          openTime: typeof source.openTime === "string" ? source.openTime : null,
+          closeTime: typeof source.closeTime === "string" ? source.closeTime : null,
+          slotInterval: typeof source.slotInterval === "number" ? source.slotInterval : 60,
+          defaultCapacity: typeof source.defaultCapacity === "number" ? source.defaultCapacity : 6,
+        });
+        const capacities = new Map(periods.flatMap((period) => generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity)).map((slot) => [slot.startTime, slot.capacity]));
+        const restoredOverride = beforeOverrides.find((item) => item.date === date && item.startTime === booking.slotTime);
+        if (restoredOverride?.type === "disabled") capacities.delete(booking.slotTime);
+        else if (restoredOverride && typeof restoredOverride.capacity === "number") capacities.set(booking.slotTime, restoredOverride.capacity);
+        const capacity = capacities.get(booking.slotTime);
+        const people = booking._sum.people ?? 0;
+        if (capacity == null) conflicts.push(`${date} ${booking.slotTime} 已有 ${people} 人預約，復原後不再開放`);
+        else if (people > capacity) conflicts.push(`${date} ${booking.slotTime} 已有 ${people} 人預約，復原後名額只有 ${capacity} 人`);
+      }
+      if (conflicts.length > 0) throw new AppError("VALIDATION", `目前無法復原：\n${conflicts.join("\n")}`);
+
+      await tx.specialBusinessDay.deleteMany({ where: { storeId, date: { in: dateObjects } } });
+      await tx.slotOverride.deleteMany({ where: { storeId, date: { in: dateObjects } } });
+      for (const item of beforeSpecialDays) {
+        if (typeof item.date !== "string" || typeof item.type !== "string") continue;
+        await tx.specialBusinessDay.create({ data: {
+          storeId, date: new Date(`${item.date}T00:00:00Z`), type: item.type,
+          reason: typeof item.reason === "string" ? item.reason : null,
+          openTime: typeof item.openTime === "string" ? item.openTime : null,
+          closeTime: typeof item.closeTime === "string" ? item.closeTime : null,
+          slotInterval: typeof item.slotInterval === "number" ? item.slotInterval : null,
+          defaultCapacity: typeof item.defaultCapacity === "number" ? item.defaultCapacity : null,
+          segments: Array.isArray(item.segments) ? item.segments as Prisma.InputJsonValue : undefined,
+        } });
+      }
+      if (beforeOverrides.length > 0) {
+        await tx.slotOverride.createMany({ data: beforeOverrides.flatMap((item) =>
+          typeof item.date === "string" && typeof item.startTime === "string" && typeof item.type === "string"
+            ? [{ storeId, date: new Date(`${item.date}T00:00:00Z`), startTime: item.startTime, type: item.type, capacity: typeof item.capacity === "number" ? item.capacity : null, reason: typeof item.reason === "string" ? item.reason : null }]
+            : []
+        ) });
+      }
+      await tx.auditLog.create({ data: {
+        actorUserId: user.id, targetType: "BusinessHours", targetId: storeId,
+        action: "UNDO_COPY_SERVICE_HOURS_TO_DATES", beforeJson: audit.afterJson ?? undefined, afterJson: audit.beforeJson ?? undefined,
+      } });
+      return dates.length;
+    });
+    revalidateSpecialDays();
+    return { success: true, data: { count } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// ============================================================
 // SlotOverride — 單日時段覆寫
 // ============================================================
 
@@ -716,10 +1042,13 @@ export async function applyDaySlotOverrides(input: {
   date: string;
   changes: Array<{
     startTime: string;
-    action: "disable" | "enable" | "remove";
+    action: "disable" | "enable" | "remove" | "capacity";
+    capacity?: number;
     reason?: string;
   }>;
 }): Promise<ActionResult<{ changed: number; bookedPeopleKept: number }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "applyDaySlotOverrides");
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
@@ -755,6 +1084,19 @@ export async function applyDaySlotOverrides(input: {
       _sum: { people: true },
     });
     const bookedByTime = new Map(booked.map((row) => [row.slotTime, row._sum.people ?? 0]));
+    const existingOverrides = new Map(
+      context.slotOverrides.map((override) => [override.startTime, override]),
+    );
+    for (const change of input.changes) {
+      if (change.capacity == null) continue;
+      if (!Number.isInteger(change.capacity) || change.capacity < 0 || change.capacity > 99) {
+        throw new AppError("VALIDATION", "名額需為 0–99 的整數");
+      }
+      const bookedPeople = bookedByTime.get(change.startTime) ?? 0;
+      if (change.capacity < bookedPeople) {
+        throw new AppError("VALIDATION", `${input.date} ${change.startTime} 已預約 ${bookedPeople} 人，名額不可低於此數`);
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       for (const change of input.changes) {
@@ -764,18 +1106,30 @@ export async function applyDaySlotOverrides(input: {
           });
           continue;
         }
+        const existingOverride = existingOverrides.get(change.startTime);
+        const type = change.action === "disable"
+          ? "disabled"
+          : change.action === "capacity"
+            ? existingOverride?.type === "enabled"
+              ? "enabled"
+              : "capacity_change"
+            : "enabled";
+        const capacity = change.action === "disable"
+          ? null
+          : (change.capacity ?? existingOverride?.capacity ?? null);
         await tx.slotOverride.upsert({
           where: { storeId_date_startTime: { storeId, date: dateObj, startTime: change.startTime } },
           update: {
-            type: change.action === "disable" ? "disabled" : "enabled",
-            capacity: null,
-            reason: change.reason ?? null,
+            type,
+            capacity,
+            reason: change.reason ?? existingOverride?.reason ?? null,
           },
           create: {
             storeId,
             date: dateObj,
             startTime: change.startTime,
-            type: change.action === "disable" ? "disabled" : "enabled",
+            type,
+            capacity,
             reason: change.reason ?? null,
           },
         });

@@ -1,4 +1,5 @@
 export const COURSE_SETTINGS_PANELS = {
+  labels: {title:"顧客標籤",section:"notifications",href:"/dashboard/settings/customer-labels",width:880},
   hours: { title: "營業、公休與預約開放", section: "booking", href: "/dashboard/courses/hours", width: 1040 },
   duty: { title: "值班聯動", section: "booking", href: "/dashboard/settings/duty", width: 760 },
   trial: { title: "體驗設定", section: "payment", href: "/dashboard/settings/trial", width: 880 },

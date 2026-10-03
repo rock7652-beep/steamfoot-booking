@@ -1,3 +1,6 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
+import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
 import { spaCustomerSummaries } from "@/server/queries/spa-customer-summary";
 import { SpaCustomersWorkspace } from "./spa-customers-workspace";
@@ -14,11 +17,14 @@ export type SpaCustomerPermissions = {
 export async function SpaCustomers({
   storeId,
   search,
+  labelId,
   ...permissions
-}: { storeId: string; search: string } & SpaCustomerPermissions) {
+}: { storeId: string; search: string; labelId?: string } & SpaCustomerPermissions) {
+  const labelIds=await customerLabelFilterIds(storeId,labelId);
   const customers = await prisma.customer.findMany({
     where: {
       storeId,
+      ...(labelIds===null ? {} : {id:{in:labelIds}}),
       ...(search
         ? {
             OR: [
@@ -53,12 +59,13 @@ export async function SpaCustomers({
         )
       : null,
   }));
+  const labels = await customerLabelSnapshot(rows.map(c=>c.id));
   return (
-    <SpaCustomersWorkspace
+    <CustomerLabelsSeed initial={labels}><SpaCustomersWorkspace
       key={storeId}
       customers={rows}
       search={search}
       {...permissions}
-    />
+    /></CustomerLabelsSeed>
   );
 }

@@ -34,6 +34,11 @@ export const COURSE_PERMISSIONS: readonly PermissionCode[] = [
   "cashDrawer.entry",
   "duty.read",
   "duty.manage",
+  "teacher.compensation.read",
+  "teacher.compensation.manage",
+  "teacher.settlement.read",
+  "teacher.settlement.confirm",
+  "teacher.settlement.pay",
   "staff.view",
   "staff.manage",
 ];

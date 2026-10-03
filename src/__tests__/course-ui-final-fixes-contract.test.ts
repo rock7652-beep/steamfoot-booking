@@ -4,14 +4,16 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("course UI final fixes", () => {
-  it("keeps customer actions compact and removes LINE name from course search prompts", () => {
+  it("keeps customer actions compact and advertises the supported customer search fields", () => {
     const table = read("src/app/(dashboard)/dashboard/customers/_components/customers-table.tsx");
     const toolbar = read("src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx");
     const picker = read("src/components/admin/course-customer-picker.tsx");
 
     expect(table).toContain('"h-8 min-w-14 whitespace-nowrap text-xs"');
-    expect(toolbar).toContain('placeholder="搜尋姓名／電話"');
-    expect(picker).toContain('placeholder="搜尋姓名／電話"');
+    expect(toolbar).toContain('placeholder="搜尋姓名 / 電話 / LINE 名稱"');
+    expect(picker).toContain('placeholder="搜尋姓名／電話／LINE 名稱"');
+    const search = read("src/server/actions/course-browse.ts");
+    expect(search).toContain('["name", "phone", "lineName"]');
   });
 
   it("separates plan products from held plans and keeps assignment with held plans", () => {
@@ -24,10 +26,12 @@ describe("course UI final fixes", () => {
 
   it("shows textual session states in addition to color", () => {
     const workspace = read("src/app/(dashboard)/dashboard/courses/workspace.tsx");
+    const states = read("src/lib/course-session-status.ts");
     for (const label of ["未開始", "進行中", "待點名", "已完成", "未到", "已結束"]) {
-      expect(workspace).toContain(label);
+      expect(states).toContain(label);
     }
-    expect(workspace).toContain('["待點名", "bg-violet-50 text-violet-800"]');
+    expect(states).toContain('badgeClass: "bg-violet-50 text-violet-800"');
+    expect(workspace).toContain("courseSessionStatus(");
   });
 
   it("clarifies closed-day conflicts and trial payment counts", () => {
@@ -56,5 +60,10 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain("!memberBookingReady");
     expect(roster).toContain("沒有可用方案，請先指派方案。");
     expect(roster).not.toContain("改用體驗預約");
+  });
+
+  it("shows per-record operation history in both fitness and music rosters", () => {
+    const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
+    expect(roster.match(/OperationHistoryButton targetType="CourseBooking"/g)).toHaveLength(2);
   });
 });

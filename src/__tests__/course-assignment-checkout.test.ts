@@ -3,7 +3,7 @@ vi.mock("server-only",()=>({}));
 import {assignCourseWithCheckout} from "@/server/services/course-assignment-checkout";
 import {calculateCourseCheckout} from "@/lib/course-checkout";
 import type {Prisma} from "../../generated/course-client";
-const tx={coursePurchase:{findUnique:vi.fn(),create:vi.fn()},coursePointPlan:{findFirst:vi.fn()},coursePointCard:{findUnique:vi.fn(),findFirst:vi.fn(),create:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
+const tx={courseSession:{findFirst:vi.fn(),count:vi.fn()},coursePurchase:{findUnique:vi.fn(),create:vi.fn()},coursePointPlan:{findFirst:vi.fn()},coursePointCard:{findUnique:vi.fn(),findFirst:vi.fn(),create:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
 const db=tx as unknown as Prisma.TransactionClient;
 const actor={storeId:"A",userId:"manager"};
 const input={revenueStaffId:"developer",expectedStoreCost:0,planId:"plan",customerId:"customer",expiresDate:"2099-01-01",requestKey:"key",discountKind:"AMOUNT" as const,discountValue:200,paymentMethod:"BANK_TRANSFER" as const,transferLastFour:"0123",expectedListPrice:1000};
@@ -16,3 +16,45 @@ it("rejects missing transfer digits before writing",async()=>{await expect(assig
 it("rejects a stale listed price and foreign customer",async()=>{tx.coursePointPlan.findFirst.mockResolvedValueOnce({price:1200});await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow("售價已變更");tx.$queryRaw.mockResolvedValueOnce([]);await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow("本店");expect(tx.coursePointCard.create).not.toHaveBeenCalled();});
 it("cash requires an open drawer before issuing quota",async()=>{await expect(assignCourseWithCheckout(db,actor,{...input,paymentMethod:"CASH"})).rejects.toThrow("現金抽屜");expect(tx.coursePointCard.create).not.toHaveBeenCalled();});
 it("same request returns existing order, changed checkout is rejected",async()=>{const previous={revenueStaffId:"developer",id:"order",cardId:"card",customerId:input.customerId,planId:input.planId,listPrice:1000,discountKind:"AMOUNT",discountValue:200,price:800,paymentMethod:"BANK_TRANSFER",transferLastFour:"0123"};tx.coursePurchase.findUnique.mockResolvedValue(previous);tx.coursePointCard.findFirst.mockResolvedValue({expiresAt:new Date("2099-01-01T15:59:59.999Z")});expect(await assignCourseWithCheckout(db,actor,input)).toEqual(previous);expect(tx.coursePointCard.create).not.toHaveBeenCalled();expect(tx.$executeRaw).not.toHaveBeenCalled();await expect(assignCourseWithCheckout(db,actor,{...input,discountValue:100})).rejects.toThrow("請求已使用");});
+
+function musicPlan(){return {id:"plan",name:"團班八堂",unit:"SESSION",points:9,price:3600,validDays:70,templateIds:["guitar"],storeCost:0,termSessionIds:[],musicTerms:1,musicTermSizes:[8],musicBonusLessons:1};}
+it("freezes periods and bonus without extending validity or changing tuition",async()=>{
+ tx.coursePointPlan.findFirst.mockResolvedValue(musicPlan());
+ await assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:3600,musicManualBonus:2});
+ expect(tx.coursePointCard.create).toHaveBeenCalledWith({data:expect.objectContaining({remaining:11,musicTermSizes:[11],musicBonusLessons:3,musicValidityDays:70})});
+ expect(tx.coursePurchase.create).toHaveBeenCalledWith({data:expect.objectContaining({points:11,price:3400,musicTermSizes:[11],musicBonusLessons:3,musicManualBonus:2})});
+});
+it("prices a third-class join as six lessons and preserves discounts",async()=>{
+ tx.coursePointPlan.findFirst.mockResolvedValue(musicPlan());
+ tx.courseSession.findFirst.mockResolvedValue({templateId:"guitar",requestKey:"series",requestIndex:2,template:{classType:"GROUP",musicTermLessons:8}});
+ tx.courseSession.count.mockResolvedValue(6);
+ await assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:2700,musicJoinSessionId:"third"});
+ expect(tx.courseSession.findFirst).toHaveBeenCalledWith(expect.objectContaining({where:{id:"third",storeId:"A",cancelledAt:null}}));
+ expect(tx.coursePurchase.create).toHaveBeenCalledWith({data:expect.objectContaining({points:7,price:2500,musicTermSizes:[7],musicJoinSessionId:"third"})});
+});
+it("rejects foreign or incomplete joining sessions before collecting money",async()=>{
+ tx.coursePointPlan.findFirst.mockResolvedValue(musicPlan());
+ tx.courseSession.findFirst.mockResolvedValue(null);
+ await expect(assignCourseWithCheckout(db,{...actor,music:true},{...input,musicJoinSessionId:"foreign"})).rejects.toThrow("團班課次");
+ tx.courseSession.findFirst.mockResolvedValue({templateId:"guitar",requestKey:"series",requestIndex:2,template:{classType:"GROUP",musicTermLessons:8}});
+ tx.courseSession.count.mockResolvedValue(5);
+ await expect(assignCourseWithCheckout(db,{...actor,music:true},{...input,musicJoinSessionId:"third"})).rejects.toThrow("尚未排齊");
+ expect(tx.coursePointCard.create).not.toHaveBeenCalled();
+});
+it("does not reuse a checkout key with a different bonus or joining selection",async()=>{
+ tx.coursePurchase.findUnique.mockResolvedValue({musicManualBonus:1,musicJoinSessionId:"third"});
+ await expect(assignCourseWithCheckout(db,{...actor,music:true},{...input,musicManualBonus:2,musicJoinSessionId:"third"})).rejects.toThrow("請求已使用");
+ expect(tx.coursePointCard.create).not.toHaveBeenCalled();
+});
+
+it("buys three four-lesson periods with a first-period gift and a single first-use expiry",async()=>{
+ tx.coursePointPlan.findFirst.mockResolvedValue({...musicPlan(),points:4,price:3200,validDays:35,musicTermSizes:[4],musicBonusLessons:0});
+ await assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:9600,musicPurchaseTerms:3,musicManualBonus:1});
+ expect(tx.coursePointCard.create).toHaveBeenCalledWith({data:expect.objectContaining({remaining:13,musicTermSizes:[5,4,4],musicBonusLessons:1,musicValidityDays:105,expiresAt:new Date("2099-12-31T15:59:59.999Z")})});
+ expect(tx.coursePurchase.create).toHaveBeenCalledWith({data:expect.objectContaining({points:13,price:9400,validDays:105,listPrice:9600,musicTermSizes:[5,4,4]})});
+});
+it("rejects forged purchase terms before issuing quota",async()=>{
+ tx.coursePointPlan.findFirst.mockResolvedValue({...musicPlan(),points:4,price:3200,validDays:35,musicTermSizes:[4],musicBonusLessons:0});
+ await expect(assignCourseWithCheckout(db,{...actor,music:true},{...input,expectedListPrice:3200,musicPurchaseTerms:6})).rejects.toThrow("售價已變更");
+ expect(tx.coursePointCard.create).not.toHaveBeenCalled();
+});

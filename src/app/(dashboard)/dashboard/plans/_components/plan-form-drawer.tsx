@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { createPlan, updatePlan } from "@/server/actions/plan";
@@ -24,6 +26,8 @@ const inputCls =
 const labelCls = "block text-sm font-medium text-earth-700";
 
 export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
+  const [saving,setSaving]=useState(false);
+  const close=()=>{if(!saving)onClose();};
   // Re-mount the inner form whenever the drawer opens for a different
   // (mode, plan) combo — `key` resets useState initialisers without the
   // `setState-in-effect` lint footgun, and avoids leaking values from a
@@ -38,7 +42,7 @@ export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
   return (
     <RightSheet
       open={open}
-      onClose={onClose}
+      onClose={close}
       labelledById="plan-drawer-title"
       width={520}
     >
@@ -48,6 +52,7 @@ export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
         plan={plan}
         onClose={onClose}
         onSaved={onSaved}
+        onPending={setSaving}
       />
     </RightSheet>
   );
@@ -57,42 +62,28 @@ function PlanFormBody({
   isEdit,
   plan,
   onClose,
-  onSaved,
+  onSaved, onPending,
 }: {
   isEdit: boolean;
   plan: PlanRow | null;
   onClose: () => void;
   onSaved: (row: PlanRow) => void;
+  onPending: (pending:boolean)=>void;
 }) {
   // Controlled form state — keeps the right-side preview live and lets
   // us compose the optimistic PlanRow from the same source of truth.
-  const [name, setName] = useState(isEdit && plan ? plan.name : "");
-  const [category, setCategory] = useState<PlanCategory>(
-    isEdit && plan ? plan.category : "SINGLE",
-  );
-  const [price, setPrice] = useState<string>(
-    isEdit && plan ? String(Number(plan.price)) : "",
-  );
-  const [sessionCount, setSessionCount] = useState<string>(
-    isEdit && plan ? String(plan.sessionCount) : "",
-  );
-  const [validityDays, setValidityDays] = useState<string>(
-    isEdit && plan && plan.validityDays != null
-      ? String(plan.validityDays)
-      : "",
-  );
-  const [description, setDescription] = useState<string>(
-    isEdit && plan ? (plan.description ?? "") : "",
-  );
-  const [sortOrder, setSortOrder] = useState<string>(
-    isEdit && plan ? String(plan.sortOrder) : "",
-  );
-  const [isActive, setIsActive] = useState<boolean>(
-    isEdit && plan ? plan.isActive : true,
-  );
-  const [publicVisible, setPublicVisible] = useState<boolean>(
-    isEdit && plan ? plan.publicVisible : false,
-  );
+  const router = useRouter();
+  const draft = useFormDraft(`steamfoot-plan:${isEdit && plan ? plan.id : "new"}`, {
+    name: isEdit && plan ? plan.name : "", category: isEdit && plan ? plan.category : "SINGLE",
+    price: isEdit && plan ? String(Number(plan.price)) : "",
+    sessionCount: isEdit && plan ? String(plan.sessionCount) : "",
+    validityDays: isEdit && plan && plan.validityDays != null ? String(plan.validityDays) : "",
+    description: isEdit && plan ? plan.description ?? "" : "",
+    sortOrder: isEdit && plan ? String(plan.sortOrder) : "",
+    isActive: isEdit && plan ? plan.isActive : true,
+    publicVisible: isEdit && plan ? plan.publicVisible : false,
+  }, isEdit && plan ? new Date(plan.updatedAt).toISOString() : null);
+  const { name, category, price, sessionCount, validityDays, description, sortOrder, isActive, publicVisible } = draft.values;
   const [pending, startAction] = useTransition();
 
   const priceNum = Number(price) || 0;
@@ -102,6 +93,7 @@ function PlanFormBody({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (draft.busy.current || draft.stale) return;
     if (!name || !price || !sessionCount) {
       toast.error("請填寫名稱、價格與堂數");
       return;
@@ -109,9 +101,12 @@ function PlanFormBody({
     const validityDaysNum = validityDays ? Number(validityDays) : null;
     const sortOrderNum = sortOrder ? Number(sortOrder) : 0;
 
+    draft.busy.current = true; onPending(true);
     startAction(async () => {
+      try {
       if (isEdit && plan) {
         const result = await updatePlan(plan.id, {
+          expectedUpdatedAt: draft.expectedRevision ?? undefined,
           name,
           price: priceNum,
           sessionCount: sessionCountNum,
@@ -122,10 +117,13 @@ function PlanFormBody({
           // 下架時禁止顧客可購買 — server 也會擋，但 UI 提早處理避免 confusion
           publicVisible: isActive ? publicVisible : false,
         });
+        if (!draft.mounted.current) return;
         if (!result.success) {
+          router.refresh();
           toast.error(result.error ?? "儲存失敗");
           return;
         }
+        draft.clear();
         toast.success("已更新方案");
         onSaved({
           ...plan,
@@ -137,13 +135,13 @@ function PlanFormBody({
           sortOrder: sortOrderNum,
           isActive,
           publicVisible: isActive ? publicVisible : false,
-          updatedAt: new Date(),
+          updatedAt: result.data ? new Date(result.data.updatedAt) : plan.updatedAt,
         });
         onClose();
       } else {
         const result = await createPlan({
           name,
-          category,
+          category: category as PlanCategory,
           price: priceNum,
           sessionCount: sessionCountNum,
           validityDays: validityDaysNum ?? undefined,
@@ -151,10 +149,12 @@ function PlanFormBody({
           sortOrder: sortOrderNum,
           publicVisible,
         });
+        if (!draft.mounted.current) return;
         if (!result.success) {
           toast.error(result.error ?? "新增失敗");
           return;
         }
+        draft.clear();
         toast.success("已新增方案");
         const now = new Date();
         // Optimistic row — server-derived fields (storeId is filled by the
@@ -164,7 +164,7 @@ function PlanFormBody({
           id: result.data!.planId,
           storeId: plan?.storeId ?? "",
           name,
-          category,
+          category: category as PlanCategory,
           price: priceNum as unknown as PlanRow["price"],
           sessionCount: sessionCountNum,
           validityDays: validityDaysNum,
@@ -173,11 +173,13 @@ function PlanFormBody({
           isActive: true,
           publicVisible,
           createdAt: now,
-          updatedAt: now,
+          updatedAt: result.data?.updatedAt ? new Date(result.data.updatedAt) : now,
           _count: { wallets: 0 },
         });
         onClose();
       }
+      } catch { if (draft.mounted.current) toast.error("連線中斷，輸入已保留，請稍後重試。"); }
+      finally { draft.busy.current = false; onPending(false); }
     });
   }
 
@@ -199,7 +201,7 @@ function PlanFormBody({
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={()=>{if(!draft.busy.current)onClose();}}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
           aria-label="關閉"
         >
@@ -207,7 +209,8 @@ function PlanFormBody({
         </button>
       </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <fieldset disabled={pending} className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
           <div>
             <label className={labelCls}>
               方案名稱 <span className="text-red-500">*</span>
@@ -215,7 +218,7 @@ function PlanFormBody({
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => draft.set("name", e.target.value)}
               required
               maxLength={100}
               className={`mt-1 ${inputCls}`}
@@ -227,7 +230,7 @@ function PlanFormBody({
             <label className={labelCls}>類別</label>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value as PlanCategory)}
+              onChange={(e) => draft.set("category", e.target.value as PlanCategory)}
               disabled={isEdit}
               className={`mt-1 ${inputCls} ${isEdit ? "cursor-not-allowed bg-earth-50 text-earth-500" : ""}`}
             >
@@ -250,7 +253,7 @@ function PlanFormBody({
               <input
                 type="number"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={(e) => draft.set("price", e.target.value)}
                 min="0"
                 step="1"
                 required
@@ -264,7 +267,7 @@ function PlanFormBody({
               <input
                 type="number"
                 value={sessionCount}
-                onChange={(e) => setSessionCount(e.target.value)}
+                onChange={(e) => draft.set("sessionCount", e.target.value)}
                 min="1"
                 step="1"
                 required
@@ -281,7 +284,7 @@ function PlanFormBody({
               <input
                 type="number"
                 value={validityDays}
-                onChange={(e) => setValidityDays(e.target.value)}
+                onChange={(e) => draft.set("validityDays", e.target.value)}
                 min="1"
                 step="1"
                 className={`mt-1 ${inputCls}`}
@@ -295,7 +298,7 @@ function PlanFormBody({
               <input
                 type="number"
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
+                onChange={(e) => draft.set("sortOrder", e.target.value)}
                 min="0"
                 step="1"
                 className={`mt-1 ${inputCls}`}
@@ -310,7 +313,7 @@ function PlanFormBody({
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => draft.set("description", e.target.value)}
               rows={3}
               maxLength={500}
               className={`mt-1 ${inputCls}`}
@@ -324,7 +327,7 @@ function PlanFormBody({
               <input
                 type="checkbox"
                 checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
+                onChange={(e) => draft.set("isActive", e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
               />
               <div>
@@ -342,7 +345,7 @@ function PlanFormBody({
               <input
                 type="checkbox"
                 checked={publicVisible}
-                onChange={(e) => setPublicVisible(e.target.checked)}
+                onChange={(e) => draft.set("publicVisible", e.target.checked)}
                 disabled={!isActive}
                 className="mt-0.5 h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed"
               />
@@ -376,12 +379,12 @@ function PlanFormBody({
               變更名稱與描述會立即顯示在他們的畫面；下架不會影響既有錢包。
             </div>
           )}
-        </div>
+        </fieldset>
 
         <div className="flex items-center justify-between gap-2 border-t border-earth-200 bg-earth-50 px-5 py-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={()=>{if(!draft.busy.current)onClose();}}
             disabled={pending}
             className="inline-flex h-9 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-50"
           >

@@ -71,7 +71,7 @@ export default async function EditPlanPage({
             >
               ← 返回方案列表
             </Link>
-            <h1 className="mt-2 text-2xl font-bold text-earth-900">編輯課程方案</h1>
+            <h1 className="admin-page-title mt-2">編輯課程方案</h1>
             <p className="mt-1 text-sm text-earth-500">
               設定價格、堂數、有效期限與前台顯示狀態
             </p>

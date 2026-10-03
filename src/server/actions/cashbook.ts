@@ -153,30 +153,25 @@ export async function createCashbookEntry(
       storeId,
     };
 
-    // 一般 create 不寫 audit（維持既有行為，不擴大範圍）；
-    // 僅「已閉店日 + CASH + 已確認」這個敏感路徑留痕（beforeJson 為 null，afterJson 用 snapshot）。
-    let entry;
-    if (auditClosedCashCreate) {
-      entry = await prisma.$transaction(async (tx) => {
-        const created = await tx.cashbookEntry.create({ data: createData });
-        await tx.auditLog.create({
-          data: {
-            actorUserId: user.id,
-            targetType: "CashbookEntry",
-            targetId: created.id,
-            action: "CREATE",
-            afterJson: cashbookSnapshot(created),
-          },
-        });
-        return created;
+    const entry = await prisma.$transaction(async (tx) => {
+      const created = await tx.cashbookEntry.create({ data: createData });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          actorNameSnapshot: user.name,
+          storeId,
+          module: "SHARED",
+          targetType: "CashbookEntry",
+          targetId: created.id,
+          action: "CREATE",
+          summary: auditClosedCashCreate ? "補登已結帳日期的現金收支" : "新增現金收支",
+          afterJson: cashbookSnapshot({ ...createData, entryDate: createData.entryDate }),
+        },
       });
-    } else {
-      entry = await prisma.cashbookEntry.create({ data: createData });
-    }
+      return created;
+    });
 
     revalidatePath("/dashboard/cashbook");
-    revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard/analytics");
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
@@ -202,7 +197,7 @@ export async function updateCashbookEntry(
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
-    if (entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
+    if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
     // PR-4 防呆 guard（後端權威）：
@@ -272,9 +267,13 @@ export async function updateCashbookEntry(
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          actorNameSnapshot: user.name,
+          storeId: entry.storeId,
+          module: "SHARED",
           targetType: "CashbookEntry",
           targetId: entryId,
           action: "UPDATE",
+          summary: "修改現金收支",
           beforeJson: cashbookSnapshot(entry),
           afterJson: cashbookSnapshot(updated),
         },
@@ -282,8 +281,6 @@ export async function updateCashbookEntry(
     });
 
     revalidatePath("/dashboard/cashbook");
-    revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard/analytics");
     if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: undefined };
@@ -303,7 +300,7 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
-    if (entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
+    if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
     await prisma.$transaction(async (tx) => {
@@ -311,17 +308,19 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
+          actorNameSnapshot: user.name,
+          storeId: entry.storeId,
+          module: "SHARED",
           targetType: "CashbookEntry",
           targetId: entryId,
           action: "DELETE",
+          summary: "刪除現金收支",
           beforeJson: cashbookSnapshot(entry),
         },
       });
     });
 
     revalidatePath("/dashboard/cashbook");
-    revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard/analytics");
     if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {

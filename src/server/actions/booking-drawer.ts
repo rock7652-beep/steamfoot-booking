@@ -1,5 +1,7 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
+
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import { requireStaffSession } from "@/lib/session";
@@ -53,6 +55,7 @@ export interface BookingDrawerPayload {
     slotTime: string;
     bookingStatus: string;
     bookingType: string;
+    bookingSource?: string | null;
     people: number;
     isMakeup: boolean;
     isCheckedIn: boolean;
@@ -98,6 +101,7 @@ export interface BookingDrawerPayload {
     expectedAmount: number | null;
     // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
     attendedPeople: number | null;
+    noShowMakeupGranted?: boolean | null;
   };
   customerSummary: {
     totalBookings: number;
@@ -264,11 +268,27 @@ export async function fetchBookingDetail(
   bookingId: string,
   resolvedStoreId?: string,
 ): Promise<BookingDrawerPayload> {
-  const user = await requireStaffSession();
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "fetchBookingDetail");
+  const timing = new OperationTiming("booking.detail");
+  try { return await fetchBookingDetailMeasured(bookingId, resolvedStoreId, timing); }
+  finally { timing.finish(); }
+}
+
+async function fetchBookingDetailMeasured(
+  bookingId: string, resolvedStoreId: string | undefined, timing: OperationTiming,
+): Promise<BookingDrawerPayload> {
+  const user = await timing.measure("session", () => requireStaffSession());
+  // Explicit page scope is authoritative after authorization. Do not resolve
+  // unused route/cookie scopes first (or let stale view cookies block it).
+  const [activeStoreId, storeViewContext] = resolvedStoreId
+    ? [null, null] as const
+    : await Promise.all([
+        timing.measure("activeStore", () => getActiveStoreForRead(user)),
+        timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user)),
+      ]);
   const bookingStoreId = resolvedStoreId
-    ? await validateStoreAccess(user, resolvedStoreId, "read")
+    ? await timing.measure("explicitStore", () => validateStoreAccess(user, resolvedStoreId, "read"))
     : storeIdForViewContext(activeStoreId, storeViewContext);
   const readUser = resolvedStoreId && user.role !== "ADMIN"
     ? { ...user, storeId: resolvedStoreId }
@@ -283,11 +303,11 @@ export async function fetchBookingDetail(
     return fetchSpaBookingDetail(bookingId, bookingStoreId);
   }
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
-  const booking = await getBookingDetailForUser(
+  const booking = await timing.measure("booking", () => getBookingDetailForUser(
     bookingId,
     readUser,
     bookingStoreId,
-  );
+  ));
 
   const isTrial = booking.bookingType === "FIRST_TRIAL";
   const isSingle = booking.bookingType === "SINGLE";
@@ -311,7 +331,7 @@ export async function fetchBookingDetail(
     firstBookingCount,
     canEditServiceNote,
     canEditBookingNote,
-  ] = await Promise.all([
+  ] = await timing.measure("supplementary", () => Promise.all([
     isTrial
       ? prisma.transaction.findFirst({
           where: {
@@ -380,7 +400,7 @@ export async function fetchBookingDetail(
     }),
     !isViewMode ? checkPermission(user.role, user.staffId, "customer.update") : Promise.resolve(false),
     !isViewMode ? checkPermission(user.role, user.staffId, "booking.update") : Promise.resolve(false),
-  ]);
+  ]));
 
   return {
     canEditServiceNote,
@@ -391,6 +411,7 @@ export async function fetchBookingDetail(
       slotTime: booking.slotTime,
       bookingStatus: booking.bookingStatus,
       bookingType: booking.bookingType,
+      bookingSource: booking.bookingSource,
       people: booking.people,
       isMakeup: booking.isMakeup,
       isCheckedIn: booking.isCheckedIn,
@@ -445,6 +466,7 @@ export async function fetchBookingDetail(
       expectedAmount:
         booking.expectedAmount == null ? null : Number(booking.expectedAmount),
       attendedPeople: booking.attendedPeople,
+      noShowMakeupGranted: booking.noShowMakeupGranted,
     },
     customerSummary: {
       totalBookings: completedAgg,
@@ -524,10 +546,7 @@ export async function fetchBookingDetail(
             booking.servicePlan?.name ??
             null,
           remaining: booking.customerPlanWallet?.remainingSessions ?? null,
-          singlePrice:
-            booking.expectedAmount != null
-                ? Number(booking.expectedAmount)
-                : 799,
+          singlePrice: 799 * booking.people,
         })
       : null,
   };

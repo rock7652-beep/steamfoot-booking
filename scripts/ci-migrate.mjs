@@ -1,9 +1,43 @@
+// Archive preview must use the isolated database; never migrate production here.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/hq-store-archive") {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Store archive Preview requires the isolated preview database.");
+}
+
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
+
+// Unified operation-audit preview must never read from or write to production.
+// Fail the deployment before Prisma migrations/build queries when the branch
+// override is missing or points at any non-isolated database.
+if (
+  process.env.VERCEL_ENV === "preview" &&
+  process.env.VERCEL_GIT_COMMIT_REF === "feat/unified-operation-audit-center"
+) {
+  if (
+    !isIsolatedCourseConnection(process.env.DATABASE_URL) ||
+    !isIsolatedCourseConnection(process.env.DIRECT_URL)
+  ) {
+    throw new Error("Operation audit Preview requires the isolated preview database for both connections.");
+  }
+  console.info("[operation-audit-preview-preflight] isolated_database=true");
+}
+
+// Shared labels preview is restricted to the isolated test database.
+if (process.env.VERCEL_ENV === "preview" && ["feat/shared-customer-labels", "feat/hq-feature-three-state", "feat/shared-admin-visual-alignment"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Customer labels Preview requires the isolated preview database for both connections.");
+}
+
+// Steamfoot rent preview must never run against the production database.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "codex/steamfoot-rent-monthly") {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Steamfoot rent Preview requires the isolated preview database for both connections.");
+}
 
 // Course acceptance preflight: read-only and restricted to this Preview branch.
 // Never print connection strings, credentials, or raw database errors.
@@ -30,6 +64,13 @@ if (requiresCoursePreviewCheck(process.env)) {
     await checkClient.$queryRawUnsafe('SELECT "remaining", "expiresAt", "closedAt" FROM "CoursePointCard" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "operatorCustomerId", "status", "checkedInAt", notes FROM "CourseBooking" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "capacity", "details" FROM "CourseRoom" LIMIT 1');
+    if(process.env.VERCEL_GIT_COMMIT_REF === "feat/shared-customer-labels") {
+      await checkClient.$queryRawUnsafe('SELECT "rentalEnabled", "rentalHourlyRate", "rentalBufferMinutes" FROM "CourseRoom" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT "isTrial" FROM "CourseSession" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, revision FROM "CourseRental" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, status FROM "CourseRentalPayment" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, kind, status FROM "CourseCoachNotification" LIMIT 1');
+    }
     await checkClient.$queryRawUnsafe('SELECT "courseMemberEnabled" FROM "StaffMemberLink" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT phone, "emergencyContactName", "emergencyContactPhone" FROM "Staff" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "unit", "templateIds" FROM "CoursePointCard" LIMIT 1');
@@ -43,6 +84,18 @@ if (requiresCoursePreviewCheck(process.env)) {
     await checkClient.$queryRawUnsafe('SELECT id, "paymentSplits", "voidedAt" FROM "CourseTrialPayment" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "storeCost", "termSessionIds" FROM "CoursePointPlan" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "storeCostSnapshot", "developerProfitSnapshot" FROM "CoursePurchase" LIMIT 1');
+    if(["codex/course-monthly-settlement", "codex/course-monthly-usability", "codex/course-monthly-notifications"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
+      await checkClient.$queryRawUnsafe('SELECT "profitEnabled", "feeEnabled", revision FROM "CourseSettlementSetting" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT fingerprint, snapshot FROM "CourseMonthlySettlement" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT amount, "purchaseId" FROM "CourseProfitPayment" LIMIT 1');
+    }
+    if(process.env.VERCEL_GIT_COMMIT_REF === "codex/course-monthly-usability") {
+      await checkClient.$queryRawUnsafe('SELECT "personalIncomeEnabled" FROM "CourseSettlementSetting" LIMIT 1');
+    }
+    if(process.env.VERCEL_GIT_COMMIT_REF === "codex/course-monthly-notifications") {
+      await checkClient.$queryRawUnsafe('SELECT "personalIncomeEnabled" FROM "CourseSettlementSetting" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT "retryKey", status, "leaseUntil" FROM "CourseMonthlyNotification" LIMIT 1');
+    }
     console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260917094700; trial_schema=20260917143018");
   } catch {
     throw new Error("Course Preview test database connection or course schema check failed.");

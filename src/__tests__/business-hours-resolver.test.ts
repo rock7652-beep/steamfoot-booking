@@ -211,6 +211,14 @@ describe("applySlotOverrides — 套用 SlotOverride", () => {
     expect(eleven.override).toBe("capacity_change");
   });
 
+  it("capacity_change 可設為 0，時段仍保留並交由前台顯示已額滿", () => {
+    const slots = applySlotOverrides(openRule, [override("2026-05-05", "11:00", "capacity_change", { capacity: 0 })]);
+    const eleven = slots.find((s) => s.startTime === "11:00")!;
+    expect(eleven.isEnabled).toBe(true);
+    expect(eleven.capacity).toBe(0);
+    expect(eleven.override).toBe("capacity_change");
+  });
+
   it("enabled 強制加入不在範圍內的時段", () => {
     const slots = applySlotOverrides(openRule, [override("2026-05-05", "23:00", "enabled", { capacity: 3 })]);
     const late = slots.find((s) => s.startTime === "23:00");

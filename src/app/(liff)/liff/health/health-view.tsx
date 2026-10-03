@@ -227,6 +227,11 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
   );
 }
 
+/** Read-only rendering uses the same health cards without LINE session initialization. */
+export function HealthPreviewView({ storeSlug, storeName, summary }: { storeSlug: string; storeName: string; summary: HealthSummary }) {
+  return <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6"><header className="text-center"><p className="text-xs uppercase tracking-widest text-earth-500">{storeName}</p><h1 className="mt-1 text-xl font-bold text-earth-900">{liffMessages.health.title}</h1></header><LinkedView storeSlug={storeSlug} summary={summary} verifiedStoreCount={1} contactUrl="" /><Disclaimer /></div>;
+}
+
 // ──────────────────────────────────────────────────────────
 // LinkedView — 已綁定 + 有量測 / 已綁定但無量測
 // ──────────────────────────────────────────────────────────

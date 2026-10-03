@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { OperationTiming } from "@/lib/operation-timing";
 import { linkedWalletRemainingForBooking } from "@/lib/wallet-booking-integrity";
 import { spaPrisma } from "@/lib/spa-db";
 import { requireSession, requireStaffSession } from "@/lib/session";
@@ -307,8 +308,11 @@ export async function getMonthBookingSummary(
   activeStoreId?: string | null,
 ) {
   const user = await requireStaffSession();
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const hasExplicitStoreScope = activeStoreId !== undefined;
+  // An explicit store is validated below; a viewed-store cookie cannot replace it.
+  const storeViewContext = activeStoreId
+    ? null
+    : await resolveStoreViewContextFromCookie(user);
   const readStoreId = hasExplicitStoreScope
     ? activeStoreId
       ? await validateStoreAccess(user, activeStoreId, "read")
@@ -408,7 +412,7 @@ function getCachedMonthBookingSummary(
 ) {
   return unstable_cache(
     async () =>
-      computeMonthBookingSummary(scopeStoreId, year, month, todayDateStr),
+      computeMonthBookingSummary(scopeStoreId, year, month),
     [
       "month-booking-summary",
       scopeStoreId ?? "ALL",
@@ -424,49 +428,28 @@ async function computeMonthBookingSummary(
   scopeStoreId: string | null,
   year: number,
   month: number,
-  todayDateStr: string,
+) {
+  const timing = new OperationTiming("steamfoot.month.compute");
+  try { return await computeMonthBookingSummaryMeasured(scopeStoreId, year, month, timing); }
+  finally { timing.finish(); }
+}
+
+async function computeMonthBookingSummaryMeasured(
+  scopeStoreId: string | null, year: number, month: number,
+  timing: OperationTiming,
 ) {
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0));
 
-  // ⚡ 優化：用 groupBy 取每日統計，避免 fetch 整月所有 booking 行
-  // 月曆 cell 要顯示各日 booking strips，所以另外拉一次輕量 findMany（select 最小欄位）。
+  // The calendar and day panel share one booking snapshot; derive counts below.
   const monthWhere: Prisma.BookingWhereInput = {
     ...(scopeStoreId ? { storeId: scopeStoreId } : {}),
     bookingDate: { gte: startDate, lte: endDate },
     bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
   };
 
-  // 「有效堂數」沿用顧客清單（PR #280）的唯一定義：ACTIVE + 尚有剩餘 + 未過期的 PACKAGE。
-  // 排除 TRIAL / SINGLE / 點數型 / 已過期 / 已用完。expiryDate 用「今天本地日 00:00」
-  // 判界，當天到期仍算有效；不手刻時區。Server-side reduce 成單一
-  // 數字 customer.validPackageSessions，不把 wallet 陣列送到 client。
-  const todayStartLocal = dayRange(todayDateStr).start;
-  const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
-    status: "ACTIVE",
-    remainingSessions: { gt: 0 },
-    plan: { category: "PACKAGE" },
-    OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
-  };
-  const [dailyCounts, staffCounts, monthBookings] = await Promise.all([
-    prisma.booking.groupBy({
-      by: ["bookingDate"],
-      where: monthWhere,
-      _count: { id: true },
-      _sum: { people: true },
-    }),
-    prisma.booking.groupBy({
-      by: ["bookingDate", "revenueStaffId"],
-      where: { ...monthWhere, revenueStaffId: { not: null } },
-      _count: { id: true },
-    }),
-    // Per-booking detail rich enough to power the day-detail panel
-    // **without** a second per-day round-trip — phone for tel: link,
-    // assignedStaff/serviceStaff for the panel's staff fallback chain,
-    // servicePlan.name for the row's service label, isCheckedIn for the
-    // KPI counter. Selects are still flat (`select` not `include`) so
-    // the wire payload stays bounded.
-    prisma.booking.findMany({
+  // All daily counts and revenue-staff totals derive from this same snapshot.
+  const monthBookings = await timing.measure("monthBookings", () => prisma.booking.findMany({
       where: monthWhere,
       select: {
         id: true,
@@ -498,11 +481,6 @@ async function computeMonthBookingSummary(
             assignedStaff: {
               select: { id: true, displayName: true, colorCode: true },
             },
-            // 有效 PACKAGE 堂數（當日預約 Drawer 顯示「剩 N 堂」）— batched relation，無 N+1。
-            planWallets: {
-              where: validPackageWalletWhere,
-              select: { remainingSessions: true },
-            },
           },
         },
         revenueStaff: {
@@ -526,16 +504,18 @@ async function computeMonthBookingSummary(
         },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
-    }),
-  ]);
+    }));
 
   // 預約工作台的「已結清」狀態必須涵蓋所有結帳方式：首次體驗、單次收款／
   // 儲值金，以及療程扣次。這裡以成功交易作為同一個 source of truth，避免
   // Drawer 已完成結帳、排程卻仍顯示待收費。
   const monthBookingIds = monthBookings.map((booking) => booking.id);
-  const collectedTx =
+  const trialStoreIds = [...new Set(monthBookings.filter((b) => b.bookingType === "FIRST_TRIAL").map((b) => b.storeId))];
+  // Independent second-stage reads: do not serialize collections and config.
+  const [collectedTx, configs] = await Promise.all([
+    timing.measure("collections", () =>
     monthBookingIds.length > 0
-      ? await prisma.transaction.findMany({
+      ? prisma.transaction.findMany({
           where: {
             bookingId: { in: monthBookingIds },
             transactionType: {
@@ -552,7 +532,13 @@ async function computeMonthBookingSummary(
             },
           },
         })
-      : [];
+      : Promise.resolve([])),
+    timing.measure("trialConfig", () => trialStoreIds.length > 0
+      ? prisma.shopConfig.findMany({
+          where: { storeId: { in: trialStoreIds } },
+          select: { storeId: true, trialDefaultPrice: true },
+        }) : Promise.resolve([])),
+  ]);
   const collectedMap = new Map<string, number>();
   const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
@@ -568,36 +554,11 @@ async function computeMonthBookingSummary(
   // PR-D1D：FIRST_TRIAL badge fallback — 用 storeId 批次撈 ShopConfig.trialDefaultPrice。
   // 缺 ShopConfig row 時用 TRIAL_DEFAULTS.trialDefaultPrice，與 getTrialSettings 一致。
   // ADMIN __all__ 視角會包含多 store；非 ADMIN 永遠單店，N = 1。
-  const trialStoreIds = [
-    ...new Set(
-      monthBookings
-        .filter((b) => b.bookingType === "FIRST_TRIAL")
-        .map((b) => b.storeId),
-    ),
-  ];
   const trialDefaultByStore = new Map<string, number>();
-  if (trialStoreIds.length > 0) {
-    const configs = await prisma.shopConfig.findMany({
-      where: { storeId: { in: trialStoreIds } },
-      select: { storeId: true, trialDefaultPrice: true },
-    });
-    for (const c of configs) {
-      trialDefaultByStore.set(c.storeId, Number(c.trialDefaultPrice));
-    }
+  for (const c of configs) {
+    trialDefaultByStore.set(c.storeId, Number(c.trialDefaultPrice));
   }
 
-  // 取涉及的 staff 名稱
-  const staffIds = [
-    ...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean)),
-  ];
-  const staffList =
-    staffIds.length > 0
-      ? await prisma.staff.findMany({
-          where: { id: { in: staffIds } },
-          select: { id: true, displayName: true, colorCode: true },
-        })
-      : [];
-  const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
   // 組裝每日資料 — 每筆 booking 一次寫入完整 detail，讓前端 day panel
   // 直接從 monthData 篩出當日，不需要再打 fetchDayDetail。
@@ -758,36 +719,18 @@ async function computeMonthBookingSummary(
     });
   }
 
-  for (const row of dailyCounts) {
-    const dateKey = row.bookingDate.toISOString().slice(0, 10);
-    const entry = dailyMap.get(dateKey);
-    if (entry) {
-      entry.total = row._count.id;
-      entry.totalPeople = row._sum.people ?? 0;
+  for (const entry of dailyMap.values()) {
+    entry.total = entry.bookings.length;
+    entry.totalPeople = entry.bookings.reduce((sum, booking) => sum + booking.people, 0);
+    const counts = new Map<string, { staffName: string; colorCode: string; count: number }>();
+    for (const booking of entry.bookings) {
+      const staff = booking.revenueStaff;
+      if (!staff) continue;
+      const existing = counts.get(staff.id);
+      if (existing) existing.count++;
+      else counts.set(staff.id, { staffName: staff.displayName, colorCode: staff.colorCode, count: 1 });
     }
-  }
-
-  // 按日期+staff 組裝
-  const staffByDate = new Map<string, Map<string, number>>();
-  for (const row of staffCounts) {
-    const dateKey = row.bookingDate.toISOString().slice(0, 10);
-    if (!staffByDate.has(dateKey)) staffByDate.set(dateKey, new Map());
-    staffByDate.get(dateKey)!.set(row.revenueStaffId!, row._count.id);
-  }
-
-  for (const [dateKey, staffCountMap] of staffByDate) {
-    const entry = dailyMap.get(dateKey);
-    if (!entry) continue;
-    entry.staffBookings = Array.from(staffCountMap.entries()).map(
-      ([sid, count]) => {
-        const staff = staffMap.get(sid);
-        return {
-          staffName: staff?.displayName ?? "Unknown",
-          colorCode: staff?.colorCode ?? "#999",
-          count,
-        };
-      },
-    );
+    entry.staffBookings = [...counts.values()];
   }
 
   return Array.from(dailyMap.entries()).map(([dateStr, data]) => ({

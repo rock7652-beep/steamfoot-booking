@@ -1,13 +1,20 @@
 "use client";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useRetainedState } from "@/components/operations/operation-scope";
+import { useResponsiveAction } from "@/hooks/use-responsive-action";
+import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
+import { dispatchBookingBatch } from "@/lib/booking-action-batch";
+import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
-import { refreshBookingManagement } from "@/server/actions/booking-refresh";
+import { readBookingMonth } from "@/lib/booking-month-read";
 import { toast } from "sonner";
-import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchDaySlots } from "@/server/actions/slots";
+import { useBookingMonthNavigation } from "./booking-month-context";
+import { BookingMonthLink } from "./booking-month-link";
+import { readBookingSlots } from "@/lib/booking-client-transport";
 import {
-  markCompleted,
   markCompletedBatch,
 } from "@/server/actions/booking";
 import type { SlotAvailability } from "@/types";
@@ -131,6 +138,11 @@ export interface BookingFilters {
   search: string;
 }
 
+function validBookingFilters(value: unknown): value is BookingFilters {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return ["staffName", "status", "servicePlanId", "search"].every(key => typeof row[key] === "string" && row[key].length <= 1000);
+}
 const EMPTY_FILTERS: BookingFilters = {
   staffName: "",
   status: "",
@@ -138,7 +150,7 @@ const EMPTY_FILTERS: BookingFilters = {
   search: "",
 };
 
-interface BookingsManagerProps {
+export interface BookingsManagerProps {
   operationGuidePreview?: boolean;
   storeId?: string;
   year: number;
@@ -163,6 +175,7 @@ export function BookingsManager({
   canManageHours = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
+  const monthNavigation = useBookingMonthNavigation();
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
   // month. Sync back from prop whenever year / month / server data changes.
@@ -173,7 +186,8 @@ export function BookingsManager({
     setMonthData(initialMonthData);
   }, [initialMonthData]);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useRetainedState<string | null>(`steamfoot-bookings:date:${year}-${month}`, null,
+    (value): value is string | null => value === null || (typeof value === "string" && value.startsWith(`${year}-${String(month).padStart(2, "0")}-`) && /^\d{4}-\d{2}-\d{2}$/.test(value)));
   // Slots cache, keyed by date string. Bookings are derived from monthData
   // (no per-day fetch); slots are still fetched on demand because they
   // require business-hours / duty / overrides resolution that isn't part of
@@ -190,7 +204,7 @@ export function BookingsManager({
   }, [slotsCache]);
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useRetainedState<BookingFilters>("steamfoot-bookings:filters", EMPTY_FILTERS, validBookingFilters);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
     initialBookingId,
   );
@@ -210,17 +224,21 @@ export function BookingsManager({
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [actingIds, setActingIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const saves = useResponsiveAction();
+  const actingIds = new Set(Object.entries(saves.states).filter(([, state]) => state.phase === "saving" || state.phase === "checking" || state.phase === "unknown").map(([id]) => id));
   const [batchActing, setBatchActing] = useState(false);
+  const batchSending = useRef(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
-  const refreshGate = useRef(createBookingRefreshGate());
+  // The workspace already supplies SSR data or revalidates a month switch.
+  // Avoid a second identical request as soon as this manager mounts.
+  const refreshGate = useRef({ ...createBookingRefreshGate(), nextAutomaticAt: monthNavigation ? Date.now() + 60_000 : 0 });
   const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
     selectedIds.size > 0 || slotsLoadingDate !== null;
+
+  useEffect(() => { monthNavigation?.busy(refreshPaused); return () => monthNavigation?.busy(false); }, [monthNavigation, refreshPaused]);
 
   useEffect(() => {
     setSyncing(false);
@@ -231,7 +249,7 @@ export function BookingsManager({
         Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
           dialog.getAttribute("aria-labelledby") !== "day-detail-sheet-title" &&
           !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
-      load: () => refreshBookingManagement({ year, month, storeId, date: selectedDate }),
+      load: () => readBookingMonth({ year, month, storeId, date: selectedDate }),
       apply: (snapshot) => {
         setMonthData(snapshot.monthData);
         setMonthSchedule(snapshot.monthSchedule);
@@ -248,7 +266,7 @@ export function BookingsManager({
       onBusy: setSyncing,
     });
     refreshRef.current = () => controller.refresh(true);
-    const resume = () => { void controller.refresh(); };
+    const resume = () => { controller.schedule(); };
     const timer = window.setInterval(resume, 60_000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
@@ -282,8 +300,7 @@ export function BookingsManager({
   useEffect(() => {
     if (readOnly) {
       setSelectedIds(new Set());
-      setActingIds(new Set());
-      setBatchActing(false);
+
     }
   }, [readOnly]);
 
@@ -378,38 +395,38 @@ export function BookingsManager({
     }));
   }, [monthData, selectedDate]);
 
+  // Warm a small, sequential batch only while the selected day is visible.
+  // Opening a booking or switching dates cancels the remaining work.
+  useEffect(() => {
+    if (!selectedDate || activeBookingId || batchActing || actingIds.size > 0) return;
+    let canceled = false;
+    const timer = setTimeout(async () => {
+      for (const booking of dayBookings.slice(0, 3)) {
+        if (canceled || document.visibilityState !== "visible") break;
+        if (detailCache.get(booking.id)) continue;
+        try { await detailCache.load(booking.id); } catch { /* Opening remains retryable. */ }
+      }
+    }, 350);
+    return () => { canceled = true; clearTimeout(timer); };
+  }, [selectedDate, activeBookingId, batchActing, actingIds.size, dayBookings, detailCache]);
+
   const daySlots: SlotAvailability[] = selectedDate
     ? (slotsCache.get(selectedDate) ?? [])
     : [];
   const slotsKnown = !!selectedDate && slotsCache.has(selectedDate);
   const slotsLoadingForSelected = slotsLoadingDate === selectedDate;
 
-  // Filter bookings for day-detail panel (client-side)
-  const filteredDayBookings = useMemo(() => {
-    return dayBookings.filter((b) => {
-      if (filters.status && b.bookingStatus !== filters.status) return false;
-      if (filters.staffName) {
-        const staffName =
-          b.revenueStaff?.displayName ??
-          b.serviceStaff?.displayName ??
-          b.customer?.assignedStaff?.displayName ??
-          "";
-        if (staffName !== filters.staffName) return false;
-      }
-      if (filters.servicePlanId) {
-        // DayBooking only has servicePlan.name, not id — match by name via lookup
-        const plan = servicePlans.find((p) => p.id === filters.servicePlanId);
-        if (!plan || b.servicePlan?.name !== plan.name) return false;
-      }
-      if (filters.search) {
-        const q = filters.search.trim().toLowerCase();
-        const name = b.customer?.name?.toLowerCase() ?? "";
-        const phone = b.customer?.phone ?? "";
-        if (!name.includes(q) && !phone.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [dayBookings, filters, servicePlans]);
+  const matchesFilters = useCallback((booking: DayBooking) =>
+    matchesBookingSearch(booking, filters, servicePlans), [filters, servicePlans]);
+  const filteredDayBookings = useMemo(() => dayBookings.filter(matchesFilters),
+    [dayBookings, matchesFilters]);
+  const monthSearchResults = useMemo(() => monthData
+    .filter((day) => day.date.startsWith(`${year}-${String(month).padStart(2, "0")}-`))
+    .flatMap((day) => (day.bookings ?? []).filter(matchesFilters)
+      .map((booking) => ({ date: day.date, booking })))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.booking.slotTime.localeCompare(b.booking.slotTime)),
+    [monthData, year, month, matchesFilters]);
+
 
   // Calendar: dim days that don't contain the selected staff
   const dimmedDates = useMemo(() => {
@@ -428,6 +445,11 @@ export function BookingsManager({
 
   const handleDaySelect = useCallback(
     (dateKey: string) => {
+      const [targetYear, targetMonth] = dateKey.split("-").map(Number);
+      if (targetYear !== year || targetMonth !== month) {
+        monthNavigation?.navigate(targetYear, targetMonth);
+        return;
+      }
       setSelectedDate(dateKey);
       // Switching day discards the prior selection — those bookings are no
       // longer visible, batch action would be confusing.
@@ -442,7 +464,7 @@ export function BookingsManager({
       setSlotsLoadingDate(dateKey);
       startTransition(async () => {
         try {
-          const result = await fetchDaySlots(dateKey);
+          const result = await readBookingSlots(dateKey);
           setSlotsCache((prev) => {
             const next = new Map(prev);
             next.set(dateKey, result.slots);
@@ -453,13 +475,14 @@ export function BookingsManager({
         }
       });
     },
-    [],
+    [setSelectedDate, year, month, monthNavigation],
   );
 
   const refreshDaySlots = useCallback(async (date: string) => {
+    monthNavigation?.invalidate();
     setSlotsLoadingDate(date);
     try {
-      const refreshed = await fetchDaySlots(date);
+      const refreshed = await readBookingSlots(date);
       setSlotsCache((previous) => {
         const next = new Map(previous);
         next.set(date, refreshed.slots);
@@ -468,7 +491,7 @@ export function BookingsManager({
     } finally {
       setSlotsLoadingDate((current) => current === date ? null : current);
     }
-  }, []);
+  }, [monthNavigation]);
 
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
@@ -483,6 +506,7 @@ export function BookingsManager({
 
   const openBooking = useCallback(
     (id: string) => {
+      if (saves.isBlocked(id)) return;
       // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
       // 不自動重開當日 Drawer。
       setSelectedDate(null);
@@ -490,7 +514,7 @@ export function BookingsManager({
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById],
+    [summaryById, prefillById, setSelectedDate, saves],
   );
 
   const closeBooking = useCallback(() => {
@@ -501,22 +525,22 @@ export function BookingsManager({
 
   const closeDay = useCallback(() => {
     setSelectedDate(null);
-  }, []);
+  }, [setSelectedDate]);
 
-  // Apply optimistic status change to monthData; dayBookings re-derives via
+  // Apply confirmed status change to monthData; dayBookings re-derives via
   // useMemo. Replaces the old `router.refresh()` + `fetchDayDetail` re-run
   // (which together fired 5+ DB queries per action).
   //
-  // Reschedule (newStatus = null) is left as-is — monthData stays stale
-  // for the moved booking until next nav. Trade-off worth taking: the
-  // operations that happen many times a day (完成 / 取消 / 標記未到) all
-  // have a known target status and are fully covered.
+  // Reschedule (newStatus = null) invalidates details and schedules an
+  // authoritative summary refresh when the drawer closes.
   const handleBookingUpdated = useCallback(
     (bookingId: string, newStatus: string | null) => {
       // C：任何 mutation（收款 / 完成 / 改時間 / 標記未到 / 取消 / 調整結帳，
       // 含 newStatus=null 的收款/改期）都先 invalidate 該筆 detail cache，
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
+      monthNavigation?.invalidate();
       detailCache.invalidate(bookingId);
+      refreshGate.current.nextAutomaticAt = Date.now() + 2_000;
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {
@@ -544,16 +568,17 @@ export function BookingsManager({
             ...targetBooking,
             bookingStatus: newStatus,
             isCheckedIn:
-              newStatus === "COMPLETED" ? true : targetBooking.isCheckedIn,
+              newStatus === "COMPLETED" ? true : newStatus === "PENDING" ? false : targetBooking.isCheckedIn,
           };
           return { ...day, bookings: nextBookings };
         }),
       );
     },
-    [detailCache],
+    [detailCache, monthNavigation],
   );
 
   const handleNotesUpdated = useCallback((patch: BookingNotePatch) => {
+    monthNavigation?.invalidate();
     // A customer note applies to every booking for that customer.
     for (const day of monthData) {
       for (const booking of day.bookings ?? []) {
@@ -566,7 +591,7 @@ export function BookingsManager({
       ...day,
       bookings: day.bookings?.map((booking) => applyBookingNotePatch(booking, patch)),
     })));
-  }, [detailCache, monthData]);
+  }, [detailCache, monthData, monthNavigation]);
 
   // ── Batch / inline complete wiring ────────────────────────────
 
@@ -593,95 +618,69 @@ export function BookingsManager({
     setSelectedIds(new Set());
   }, []);
 
-  const completeSingle = useCallback(
-    async (id: string) => {
-      if (readOnly) {
-        toast.error("查看模式下不可操作預約");
-        return;
-      }
-      // Lock just this row — batch UI bar won't show anything if no selection.
-      setActingIds((prev) => {
-        const next = new Set(prev);
-        next.add(id);
-        return next;
-      });
-      try {
-        const r = await markCompleted(id);
-        if (r.success) {
-          toast.success("已完成服務");
-          handleBookingUpdated(id, "COMPLETED");
-          setSelectedIds((prev) => {
-            if (!prev.has(id)) return prev;
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        } else {
-          toast.error(r.error ?? "操作失敗");
-        }
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "操作失敗");
-      } finally {
-        setActingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }
-    },
-    [handleBookingUpdated, readOnly],
-  );
+  function completionCallbacks(id: string) {
+    const originalStatus = monthData.flatMap(day => day.bookings ?? []).find(booking => booking.id === id)?.bookingStatus;
+    const completed = () => {
+      handleBookingUpdated(id, "COMPLETED");
+      setSelectedIds(previous => { const next = new Set(previous); next.delete(id); return next; });
+    };
+    return {
+      timingLabel: "complete" as const,
+      // Show the expected status immediately. The server remains responsible
+      // for validation and deducting sessions; restore the prior status if it
+      // rejects the write or the result cannot be confirmed.
+      apply: () => handleBookingUpdated(id, "COMPLETED"),
+      rollback: () => { if (originalStatus) handleBookingUpdated(id, originalStatus); },
+      confirmed: completed,
+      reconcile: async (signal: AbortSignal) => {
+        const payload = await readBookingDetail(id, storeId);
+        return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "COMPLETED" });
+      },
+      recovered: completed,
+    };
+  }
 
-  const completeBatch = useCallback(async () => {
-    if (readOnly) {
-      toast.error("查看模式下不可操作預約");
-      return;
-    }
-    // Defensive: only ids whose current row is still actionable.
+  async function completeSingle(id: string) {
+    if (readOnly || batchSending.current) return;
+    const outcome = await saves.run(id, () => updateBookingStatus(id, "complete"), completionCallbacks(id));
+    if (outcome === "saved") toast.success("已完成服務");
+  }
+
+  async function revertSingle(id: string) {
+    if (readOnly || batchSending.current) return;
+    const original = monthData.flatMap(day => day.bookings ?? []).find(booking => booking.id === id);
+    if (original?.bookingStatus !== "COMPLETED") return;
+    const apply = () => handleBookingUpdated(id, "PENDING");
+    const outcome = await saves.run(id, () => updateBookingStatus(id, "revert"), {
+      timingLabel: "revert",
+      apply,
+      rollback: () => handleBookingUpdated(id, original.bookingStatus),
+      confirmed: apply,
+      reconcile: async signal => {
+        const payload = await readBookingDetail(id, storeId);
+        return !signal.aborted && bookingMatchesExpectation(payload.booking, id, { status: "PENDING" });
+      },
+      recovered: apply,
+    });
+    if (outcome === "saved") toast.success("已還原狀態");
+  }
+
+  async function completeBatch() {
+    if (readOnly || batchSending.current) return;
     const ids = dayBookings
-      .filter(
-        (b) =>
-          selectedIds.has(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus),
-      )
-      .map((b) => b.id);
+      .filter(b => selectedIds.has(b.id) && !saves.isBlocked(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus))
+      .map(b => b.id);
     if (ids.length === 0) return;
+    batchSending.current = true;
     setBatchActing(true);
-    try {
-      const { results } = await markCompletedBatch(ids);
-      let okCount = 0;
-      const failed: Array<{ id: string; error: string }> = [];
-      const succeededIds: string[] = [];
-      for (const r of results) {
-        if (r.success) {
-          okCount += 1;
-          succeededIds.push(r.id);
-          handleBookingUpdated(r.id, "COMPLETED");
-        } else {
-          failed.push({ id: r.id, error: r.error ?? "操作失敗" });
-        }
-      }
-      if (okCount > 0) {
-        toast.success(`已完成 ${okCount} 位`);
-      }
-      if (failed.length > 0) {
-        // Per-id detail isn't useful in toast; aggregate label + first reason.
-        toast.error(
-          `${failed.length} 筆失敗${failed[0].error ? `：${failed[0].error}` : ""}`,
-        );
-      }
-      // Drop succeeded ids from selection; failed ones stay so the店長 can
-      // see what's still selected and retry / inspect.
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of succeededIds) next.delete(id);
-        return next;
-      });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "批次操作失敗");
-    } finally {
-      setBatchActing(false);
-    }
-  }, [dayBookings, selectedIds, handleBookingUpdated, readOnly]);
+    const outcomes = await dispatchBookingBatch(ids, markCompletedBatch,
+      (id, action) => saves.run(id, action, completionCallbacks(id)),
+      () => { batchSending.current = false; setBatchActing(false); });
+    const saved = outcomes.filter(outcome => outcome === "saved").length;
+    const failed = outcomes.filter(outcome => outcome === "error").length;
+    if (saved) toast.success(`已完成 ${saved} 筆`);
+    if (failed) toast.error(`${failed} 筆未完成，請查看個別提示`);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -696,6 +695,23 @@ export function BookingsManager({
         servicePlans={servicePlans}
         activeFilterCount={activeFilterCount}
       />
+
+      {filters.search.trim() && <section aria-label="本月預約搜尋結果" className="rounded-lg border border-earth-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 px-4 py-3">
+          <div><h2 className="font-semibold text-earth-900">{year} 年 {month} 月搜尋結果 · {monthSearchResults.length} 筆</h2>
+            <p className="text-xs text-earth-500">依目前篩選條件顯示，不含已取消預約。點選一筆查看預約。</p></div>
+          <button type="button" onClick={() => setFilters({ ...filters, search: "" })} className="min-h-11 px-3 text-sm text-primary-700">清空搜尋</button>
+        </div>
+        <BookingSearchResultsScroll key={`${year}-${month}-${JSON.stringify(filters)}`}>
+          {monthSearchResults.length === 0 ? <p role="status" className="p-4 text-sm text-earth-500">本月沒有符合的預約，可調整關鍵字或篩選條件，或切換月份。</p>
+            : monthSearchResults.map(({ date, booking }) => <div key={booking.id}
+              role="button" tabIndex={0} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openBooking(booking.id);}}} onClick={() => openBooking(booking.id)}
+              className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-earth-100 px-4 py-2 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
+              <CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/>
+              <span className="text-sm text-earth-700">{date} · {booking.slotTime} · {booking.servicePlan?.name ?? "未指定服務"} · {STATUS_OPTIONS.find((s) => s.value === booking.bookingStatus)?.label ?? booking.bookingStatus}</span>
+            </div>)}
+        </BookingSearchResultsScroll>
+      </section>}
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12">
@@ -750,7 +766,8 @@ export function BookingsManager({
           </button>
           </div>
         </div>
-        <div className="border-b border-earth-100 px-4 py-2">{syncControl}</div>
+        <div className="border-b border-earth-100 px-4 py-2">{syncControl}
+        </div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}
@@ -782,6 +799,9 @@ export function BookingsManager({
             onClearSelection={readOnly ? undefined : clearSelection}
             onCompleteBatch={readOnly ? undefined : completeBatch}
             onCompleteSingle={readOnly ? undefined : completeSingle}
+            onRevertSingle={readOnly ? undefined : revertSingle}
+            actionStates={saves.states}
+            onCheckAction={id => { void saves.check(id); }}
             actingIds={readOnly ? undefined : actingIds}
             batchActing={readOnly ? false : batchActing}
           />
@@ -789,6 +809,7 @@ export function BookingsManager({
       </RightSheet>
 
       <BookingDetailDrawer
+        sharedActions={saves}
         operationGuidePreview={operationGuidePreview}
         open={!!activeBookingId}
         bookingId={activeBookingId}
@@ -824,6 +845,7 @@ function monthEntryToSummary(b: BookingEntry, date: string): BookingSummary {
 function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
   return {
     id: b.id,
+    customerId: b.customer.id,
     bookingDate: date,
     slotTime: b.slotTime,
     bookingStatus: b.bookingStatus,
@@ -848,6 +870,15 @@ function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
     collectedAmount: b.collectedAmount,
     expectedAmount: b.expectedAmount,
     trialDefaultPrice: b.trialDefaultPrice,
+    customerPlanWallet: b.customerPlanWallet
+      ? {
+          status: b.customerPlanWallet.status,
+          remainingSessions: b.customerPlanWallet.remainingSessions,
+          expiryDate: b.customerPlanWallet.expiryDate,
+          planName: b.customerPlanWallet.plan.name,
+        }
+      : null,
+    deductedPlanNames: b.deductedPlanNames ?? [],
   };
 }
 
@@ -870,6 +901,8 @@ function Toolbar({
   servicePlans: ServicePlanOption[];
   activeFilterCount: number;
 }) {
+  const [compositionText, setCompositionText] = useState<string | null>(null);
+  const composing = useRef(false);
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -881,23 +914,19 @@ function Toolbar({
   return (
     <div data-booking-filter-bar className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-earth-200 bg-white px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Link
+        <BookingMonthLink
           href={`/dashboard/bookings?year=${prevYear}&month=${prevMonth}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-          aria-label="上個月"
-        >
-          ‹
-        </Link>
+          year={prevYear} month={prevMonth} direction="previous"
+        />
         <span className="min-w-[90px] text-center text-sm font-semibold text-earth-900">
           {year} 年 {month} 月
         </span>
-        <Link
+        <BookingMonthLink
           href={`/dashboard/bookings?year=${nextYear}&month=${nextMonth}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-          aria-label="下個月"
-        >
-          ›
-        </Link>
+          year={nextYear} month={nextMonth} direction="next"
+        />
         <button
           type="button"
           onClick={() => onJumpToday(todayIso)}
@@ -938,14 +967,24 @@ function Toolbar({
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <div className="relative">
+      <div className="w-full basis-full">
+        <div className="relative w-full">
           <input
             type="search"
-            placeholder="搜尋顧客 / 手機"
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="h-7 w-56 rounded border border-earth-300 bg-white pl-7 pr-3 text-sm text-earth-700 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none"
+            placeholder="搜尋本月預約：姓名／手機"
+            aria-label="搜尋本月預約：姓名或手機"
+            // Override the compact toolbar rule in globals.css for this full-row search field.
+            style={{ width: "100%", height: 40 }}
+            value={compositionText ?? filters.search}
+            onCompositionStart={(e) => { composing.current = true; setCompositionText(e.currentTarget.value); }}
+            onCompositionEnd={(e) => { composing.current = false; setCompositionText(null); setFilters({ ...filters, search: e.currentTarget.value }); }}
+            onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+            onChange={(e) => {
+              if (composing.current) setCompositionText(e.target.value);
+              if (!composing.current && !(e.nativeEvent as InputEvent).isComposing)
+                setFilters({ ...filters, search: e.target.value });
+            }}
+            className="h-10 w-full rounded border border-earth-300 bg-white pl-8 pr-3 text-sm text-earth-700 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none"
           />
           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-earth-400">
             ⌕
@@ -954,6 +993,37 @@ function Toolbar({
       </div>
     </div>
   );
+}
+
+function BookingSearchResultsScroll({ children }: { children: ReactNode }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ overflowing: false, moreBelow: false });
+  const updateScrollState = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const overflowing = viewport.scrollHeight > viewport.clientHeight + 1;
+    const moreBelow = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop > 1;
+    setScrollState((previous) => previous.overflowing === overflowing && previous.moreBelow === moreBelow
+      ? previous : { overflowing, moreBelow });
+  }, []);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(updateScrollState);
+    if (viewportRef.current) observer.observe(viewportRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
+    return () => observer.disconnect();
+  }, [updateScrollState]);
+
+  return <>
+    <div ref={viewportRef} onScroll={updateScrollState} tabIndex={0} role="region" aria-label="預約搜尋結果清單"
+      className="max-h-64 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-primary-500">
+      <div ref={contentRef}>{children}</div>
+    </div>
+    {scrollState.overflowing && <p className="border-t border-earth-100 px-4 py-1.5 text-center text-xs text-earth-500">
+      {scrollState.moreBelow ? "↓ 向下捲動查看更多預約" : "已顯示最後一筆"}
+    </p>}
+  </>;
 }
 
 function FilterSelect({

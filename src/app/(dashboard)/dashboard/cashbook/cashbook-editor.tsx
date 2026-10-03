@@ -8,6 +8,7 @@ import {
   updateCashbookEntry,
 } from "@/server/actions/cashbook";
 import { CashbookFormFields } from "./cashbook-form-fields";
+import { CashbookEntryFields } from "./_components/cashbook-entry-fields";
 type Entry = {
   id: string;
   entryDate: string;
@@ -17,18 +18,22 @@ type Entry = {
   paymentMethod: "CASH" | "OTHER";
   note: string;
   staffId: string | null;
-  customer?: { id: string; name: string } | null;
+  customer: { id: string; name: string } | null;
 };
 export function CashbookEditor({
   storeId,
+  instantSearch,
   entry,
+  presentation = "side",
   today,
   closedDates,
   staffOptions,
   canAssignStaff,
 }: {
   storeId: string;
+  instantSearch: boolean;
   entry?: Entry;
+  presentation?: "side" | "centered";
   today: string;
   closedDates: string[];
   staffOptions: { id: string; displayName: string }[];
@@ -59,7 +64,6 @@ export function CashbookEditor({
       entryDate: String(form.get("entryDate")),
       type: String(form.get("type")) as Entry["type"],
       category: String(form.get("category") || ""),
-      customerId: form.get("type") === "INCOME" ? String(form.get("customerId") || "") || null : null,
       amount: Number(form.get("amount")),
       paymentMethod: String(
         form.get("paymentMethod"),
@@ -72,13 +76,14 @@ export function CashbookEditor({
       const result = entry
         ? await updateCashbookEntry(entry.id, {
             ...input,
+            customerId: input.type === "INCOME" ? String(form.get("customerId") || "") || null : null,
             ...(canAssignStaff
               ? { staffId: String(form.get("staffId") || "") || null }
               : {}),
           })
         : await createCashbookEntry({
             ...input,
-            customerId: input.customerId || undefined,
+            customerId: input.type === "INCOME" ? String(form.get("customerId") || "") || undefined : undefined,
             ...(canAssignStaff
               ? { staffId: String(form.get("staffId") || "") || undefined }
               : {}),
@@ -112,7 +117,7 @@ export function CashbookEditor({
         {entry ? "編輯" : "＋ 新增記帳"}
       </button>
       {open && (
-        <RightSheet open onClose={close} width={640} labelledById={titleId}>
+        <RightSheet presentation={presentation} open onClose={close} width={640} labelledById={titleId}>
           <header className="flex items-center justify-between border-b p-4">
             <h2 id={titleId} className="font-semibold">
               {title}
@@ -138,16 +143,29 @@ export function CashbookEditor({
               disabled={busy}
               className="flex-1 space-y-4 overflow-y-auto p-4"
             >
-              <CashbookFormFields
-                storeId={storeId}
-                defaultCustomer={entry?.customer}
+              {entry && entry.type !== "INCOME" && entry.type !== "EXPENSE" ? <CashbookFormFields
                 closedDates={closedDates}
                 defaultEntryDate={entry?.entryDate || today}
                 defaultType={entry?.type || "INCOME"}
                 defaultCategory={entry?.category || ""}
                 defaultAmount={entry?.amount || ""}
                 defaultPaymentMethod={entry?.paymentMethod || null}
-              />
+              /> : <CashbookEntryFields
+                key={entry?.id ?? "new"}
+                storeId={storeId}
+                today={entry?.entryDate ?? today}
+                editableDate
+                instantSearch={instantSearch}
+                closedDates={closedDates}
+                defaultEntry={entry ? {
+                  type: entry.type as "INCOME" | "EXPENSE",
+                  amount: Number(entry.amount),
+                  category: entry.category,
+                  paymentMethod: entry.paymentMethod,
+                  note: entry.note,
+                  customer: entry.customer,
+                } : null}
+              />}
               {canAssignStaff && (
                 <label className="block text-sm">
                   登錄人
@@ -165,7 +183,7 @@ export function CashbookEditor({
                   </select>
                 </label>
               )}
-              <label className="block text-sm">
+              {entry && entry.type !== "INCOME" && entry.type !== "EXPENSE" && <label className="block text-sm">
                 備註
                 <textarea
                   name="note"
@@ -173,13 +191,13 @@ export function CashbookEditor({
                   rows={3}
                   className="mt-1 w-full rounded-lg border p-3"
                 />
-              </label>
+              </label>}
               {entry && closedDates.includes(entry.entryDate) && (
                 <p className="text-sm text-amber-700">
                   原始日期已關帳。修改現金紀錄須確認補登，不會重算關帳快照。
                 </p>
               )}
-              {error.includes("結帳") && (
+              {entry && entry.type !== "INCOME" && entry.type !== "EXPENSE" && error.includes("結帳") && (
                 <label className="flex gap-2 text-sm">
                   <input type="checkbox" name="confirmClosedCashbookChange" />
                   我知道這只是補紀錄，不會重算關帳快照

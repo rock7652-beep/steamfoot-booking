@@ -3,6 +3,37 @@ import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { resolveVerifiedLineCustomer } from "./verified-line-customer";
 
+/** A central LINE account can join an empty course store through the normal
+ * phone/name onboarding form. Do not offer this path when that store already
+ * has any membership or identity row requiring staff review. */
+export async function canOnboardCentralLineAccountToCourse(input: {
+  storeId: string; lineUserId: string; identityProvider: string;
+}): Promise<boolean> {
+  const account = await prisma.account.findUnique({
+    where: { provider_providerAccountId: {
+      provider: input.identityProvider, providerAccountId: input.lineUserId,
+    } },
+    select: { userId: true, user: { select: { status: true } } },
+  });
+  if (!account || account.user.status !== "ACTIVE") return false;
+  const [store, customer, link] = await Promise.all([
+    prisma.store.findUnique({ where: { id: input.storeId }, select: { industryModule: true } }),
+    prisma.customer.findFirst({
+      where: { storeId: input.storeId, OR: [
+        { userId: account.userId },
+        ...(input.identityProvider === "line" ? [{ lineUserId: input.lineUserId }] : []),
+      ] }, select: { id: true },
+    }),
+    prisma.customerIdentityLink.findFirst({
+      where: { storeId: input.storeId, OR: [
+        { userId: account.userId },
+        { provider: input.identityProvider, providerAccountId: input.lineUserId },
+      ] }, select: { id: true },
+    }),
+  ]);
+  return store?.industryModule === "COURSE" && !customer && !link;
+}
+
 /** The caller must verify the LINE token and course store before calling.
  * Existing identities are never reassigned by registration. All new rows are
  * committed together, including Account and the store membership link.

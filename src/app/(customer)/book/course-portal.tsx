@@ -1,3 +1,6 @@
+import { authorizeFrontendPreview, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
+import { cookies } from "next/headers";
+import { coursePortalRoleCookie, resolveCoursePortalRole } from "@/lib/course-portal-role";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { prisma } from "@/lib/db";
 import { resolveCustomerBookingWindow } from "@/lib/shop-config";
@@ -9,31 +12,19 @@ import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDate
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
-import { coursePointEffect, type CourseConsumptionRow } from "@/lib/course-consumption";
-import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
-
-const PAYMENT_LABELS: Record<string, string> = {
-  CASH: "現金",
-  TRANSFER: "轉帳",
-  BANK_TRANSFER: "轉帳",
-  LINE_PAY: "LINE Pay",
-  CREDIT_CARD: "信用卡",
-  CARD: "信用卡",
-  OTHER: "其他非現金",
-  STORED_VALUE: "儲值金",
-};
-
-const paymentLabel = (value: string | null | undefined) =>
-  value ? (PAYMENT_LABELS[value] ?? "其他") : "未註明";
-
-export async function loadCoursePortal(requestedMonth?: string) {
+import { personalIncomeAccess } from "@/server/services/course-personal-income";
+export async function loadCoursePortal(requestedMonth?: string, preview?: FrontendPreviewSelection) {
   const month =
     requestedMonth && /^20\d{2}-(0[1-9]|1[0-2])$/.test(requestedMonth)
       ? requestedMonth
       : toLocalMonthStr();
   const range = monthRange(month),
     now = new Date();
-  const { user, storeId, customer } = await courseAccount();
+  const access = preview ? await authorizeFrontendPreview(preview) : null;
+  if (access && access.moduleId !== "course") throw new Error("課程模組不符");
+  const { user, storeId, customer } = access
+    ? { user: { id: access.personUserId ?? "" }, storeId: access.storeId, customer: { id: access.role === "member" ? access.personId : "", name: access.name } }
+    : await courseAccount();
   const [
     identity,
     link,
@@ -44,6 +35,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     special,
     healthEnabled,
     emergencyContact,
+    incomeAccess,
   ] = await Promise.all([
     prisma.staffMemberLink.findUnique({
       where: { uq_staff_member_link_user_store: { userId: user.id, storeId } },
@@ -74,7 +66,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         mapUrl: true,
       },
     }),
-    getStoreContext(),
+    access ? Promise.resolve({ storeSlug: (await prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { slug: true } })).slug }) : getStoreContext(),
     prisma.businessHours.findMany({
       where: { storeId },
       select: { dayOfWeek: true, isOpen: true },
@@ -83,14 +75,22 @@ export async function loadCoursePortal(requestedMonth?: string) {
       where: { storeId, date: { gte: range.start, lte: range.end } },
       select: { date: true, type: true },
     }),
-    hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
+    access ? Promise.resolve(false) : hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
     prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
+    access ? Promise.resolve(null) : personalIncomeAccess(user.id, storeId),
   ]);
-  const memberEnabled = identity?.courseMemberEnabled !== false;
-  const cards = memberEnabled ? await getCourseCards(storeId, customer.id) : [];
+  const memberEnabled = access ? access.role === "member" : identity?.courseMemberEnabled !== false;
+  const workLink = access ? (access.role === "work" ? { staffId: access.personId } : null) : link;
+  const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+  const waitlistFeature = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
+  const waitlistSetting = waitlistFeature
+    ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
+    : null;
+  const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
+  const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
   const sessionInclude = {
     room: { select: { name: true } },
-    template: { select: { precautions: true } },
+    template: { select: { precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
     _count: {
       select: { bookings: { where: { status: { not: "CANCELLED" } } } },
     },
@@ -101,7 +101,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       orderBy: { createdAt: "asc" },
       include: {
         trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
-        card: { select: { nameSnapshot: true, expiresAt: true, unit: true, remaining: true, closedAt: true, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } } },
+        card: { select: { nameSnapshot: true, expiresAt: true, unit: true, remaining: true, closedAt: true, termSessionIds: true, plan: {select: {allowShared: true}}, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } } },
       },
     },
   } as const;
@@ -117,9 +117,6 @@ export async function loadCoursePortal(requestedMonth?: string) {
     nextBooking,
     nextWork,
     bookingRule,
-    pointEntries,
-    trialPayments,
-    retailEntries,
   ] = await Promise.all([
     memberEnabled
       ? coursePrisma.courseSession.findMany({
@@ -137,7 +134,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       ? coursePrisma.courseBooking.findMany({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id}],
+            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
             session: { startsAt: { gte: range.start, lte: range.end } },
           },
           include: {
@@ -157,11 +154,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
           orderBy: { createdAt: "asc" },
         })
       : [],
-    link
+    workLink
       ? coursePrisma.courseSession.findMany({
           where: {
             storeId,
-            coachId: link.staffId,
+            coachId: workLink!.staffId,
             cancelledAt: null,
             OR: [
               { startsAt: { gte: dayRange(addTaiwanDuration(toLocalDateStr(range.start), -6, "DAY")).start, lte: dayRange(addTaiwanDuration(toLocalDateStr(range.end), 6, "DAY")).end } },
@@ -175,15 +172,17 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : [],
     memberEnabled
       ? coursePrisma.coursePointPlan.findMany({
-          where: { storeId, isActive: true, customerPurchasable: true },
+          where: { storeId, isActive: true, customerPurchasable: true, ...(musicStore ? {unit:"SESSION" as const} : {}) },
           orderBy: { price: "asc" },
         })
       : [],
-    coursePrisma.coursePurchase.findMany({
-      where: { storeId, customerId: customer.id },
-      include: { refunds: { where: {storeId}, select:{id:true,amount:true,method:true,createdAt:true}, orderBy:{createdAt:"asc"} } },
-      orderBy: { createdAt: "desc" },
-    }),
+    memberEnabled
+      ? coursePrisma.coursePurchase.findMany({
+          where: { storeId, customerId: customer.id },
+          include: { refunds: { where: {storeId}, select:{id:true,amount:true,method:true,createdAt:true}, orderBy:{createdAt:"asc"} } },
+          orderBy: { createdAt: "desc" },
+        })
+      : [],
     coursePrisma.courseTemplate.findMany({
       where: { storeId },
       select: { id: true, name: true },
@@ -204,7 +203,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       ? coursePrisma.courseBooking.findFirst({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id}],
+            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
             status: "RESERVED",
             session: { cancelledAt: null, startsAt: { gte: now } },
           },
@@ -221,11 +220,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
           orderBy: { session: { startsAt: "asc" } },
         })
       : null,
-    link
+    workLink
       ? coursePrisma.courseSession.findFirst({
           where: {
             storeId,
-            coachId: link.staffId,
+            coachId: workLink!.staffId,
             cancelledAt: null,
             startsAt: { gte: now },
           },
@@ -244,64 +243,26 @@ export async function loadCoursePortal(requestedMonth?: string) {
           select: { cancellationLeadMinutes: true },
         })
       : null,
-    coursePrisma.coursePointEntry.findMany({
-      where: {
-        storeId,
-        createdAt: { gte: range.start, lte: range.end },
-        booking: { customerId: customer.id },
-      },
-      select: {
-        id: true,
-        kind: true,
-        points: true,
-        createdAt: true,
-        card: { select: { nameSnapshot: true, unit: true, termSessionIds: true } },
-        booking: {
-          select: {
-            session: { select: { nameSnapshot: true, startsAt: true } },
-          },
-        },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: 200,
-    }),
-    coursePrisma.courseTrialPayment.findMany({
-      where: {
-        storeId,
-        createdAt: { gte: range.start, lte: range.end },
-        booking: { customerId: customer.id },
-      },
-      select: {
-        id: true,
-        amount: true,
-        paymentMethod: true,
-        status: true,
-        createdAt: true,
-        booking: { select: { session: { select: { nameSnapshot: true } } } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
-    prisma.cashbookEntry.findMany({
-      where: {
-        storeId,
-        customerId: customer.id,
-        entryDate: { gte: range.start, lte: range.end },
-        NOT: [
-          { id: { startsWith: "course-purchase:" } },
-          { id: { startsWith: "course-refund:" } },
-          { id: { startsWith: "course-void:" } },
-          { id: { startsWith: "course-trial:" } },
-          { id: { startsWith: "course-trial-void:" } },
-          { id: { startsWith: "course-fee:" } },
-          { id: { startsWith: "course-fee-void:" } },
-        ],
-      },
-      select: { id: true, entryDate: true, type: true, category: true, amount: true, paymentMethod: true, note: true },
-      orderBy: { entryDate: "desc" },
-      take: 100,
-    }),
   ]);
+  const waitlistRows = waitlistEnabled && sessions.length
+    ? await coursePrisma.courseWaitlistEntry.findMany({
+        where: { storeId, sessionId: { in: sessions.map(session => session.id) }, status: "WAITING" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { id: true, sessionId: true, customerId: true, operatorCustomerId: true, groupKey: true, createdAt: true },
+      })
+    : [];
+  const waitlistMeta = new Map<string, { count: number; ownPosition: number | null }>();
+  for (const session of sessions) {
+    const rows = waitlistRows.filter(row => row.sessionId === session.id);
+    const groups = new Map<string, typeof rows>();
+    for (const row of rows) groups.set(row.groupKey, [...(groups.get(row.groupKey) ?? []), row]);
+    const ordered = [...groups.values()].sort((a, b) =>
+      a[0].createdAt.getTime() - b[0].createdAt.getTime() || a[0].id.localeCompare(b[0].id),
+    );
+    const ownIndex = ordered.findIndex(group => group.some(row => row.operatorCustomerId === customer.id || row.customerId === customer.id));
+    waitlistMeta.set(session.id, { count: rows.length, ownPosition: ownIndex >= 0 ? ownIndex + 1 : null });
+  }
+
   const coachIds = [...new Set([
     ...sessions.map((session) => session.coachId),
     ...bookings.map((booking) => booking.session.coachId),
@@ -323,107 +284,26 @@ export async function loadCoursePortal(requestedMonth?: string) {
             OR: [
               { cardId: { in: cards.map((card) => card.id) } },
               { bookingKind: "TRIAL", customerId: customer.id },
+              { reserverCustomerId: customer.id },
             ],
           },
-          select: { customerId: true, customerName: true },
+          select: { id: true, customerId: true, customerName: true },
           orderBy: { createdAt: "asc" },
         })
       : [],
   ]);
   const coachNames = new Map(coaches.map((coach) => [coach.id, coach.displayName]));
-  const inSelectedMonth = (date: Date) => date >= range.start && date <= range.end;
-  const consumption: CourseConsumptionRow[] = [];
-
-  for (const order of orders) {
-    if (inSelectedMonth(order.createdAt)) {
-      consumption.push({
-        id: `purchase:${order.id}`,
-        date: order.createdAt.toISOString(),
-        type: "PAYMENT",
-        title: order.name,
-        detail: `${order.points} ${order.unit === "SESSION" ? "堂" : "點"}方案 · ${paymentLabel(order.paymentMethod ?? "BANK_TRANSFER")}`,
-        status: order.status === "CONFIRMED" ? "已付款並啟用" : order.status === "PENDING" ? "待核帳（尚未取得額度）" : order.status === "REFUNDED" ? "已退款" : "已作廢",
-        planName: order.name,
-        amount: order.price,
-        quantity: null,
-        unit: null,
-      });
-    }
-    for (const refund of order.refunds) {
-      if (!inSelectedMonth(refund.createdAt)) continue;
-      consumption.push({
-        id: `purchase-refund:${refund.id}`,
-        date: refund.createdAt.toISOString(),
-        type: "REFUND",
-        title: `${order.name}退款`,
-        detail: COURSE_REFUND_METHOD_LABELS[refund.method] ?? "其他非現金",
-        status: "已登錄退款",
-        planName: order.name,
-        amount: -refund.amount,
-        quantity: null,
-        unit: null,
-      });
-    }
-  }
-
-  for (const entry of pointEntries) {
-    if (!entry.booking) continue;
-    const effect = coursePointEffect(entry.kind, entry.points, entry.card.termSessionIds.length > 0);
-    if (!effect) continue;
-    consumption.push({
-      id: `point:${entry.id}`,
-      date: entry.createdAt.toISOString(),
-      type: effect.type,
-      title: entry.booking.session.nameSnapshot,
-      detail: `上課日 ${toLocalDateStr(entry.booking.session.startsAt)}`,
-      status: effect.status,
-      planName: entry.card.nameSnapshot,
-      amount: null,
-      quantity: effect.quantity,
-      unit: entry.card.unit === "SESSION" ? "堂" : "點",
-    });
-  }
-
-  for (const receipt of trialPayments) {
-    const voided = receipt.status === "VOIDED";
-    consumption.push({
-      id: `trial:${receipt.id}`,
-      date: receipt.createdAt.toISOString(),
-      type: voided ? "REFUND" : "PAYMENT",
-      title: receipt.booking.session.nameSnapshot,
-      detail: `體驗課程 · ${paymentLabel(receipt.paymentMethod)}`,
-      status: voided ? "收款已作廢" : "已付款",
-      planName: null,
-      amount: voided ? -receipt.amount : receipt.amount,
-      quantity: null,
-      unit: null,
-    });
-  }
-
-  for (const entry of retailEntries) {
-    const refund = entry.type === "EXPENSE";
-    consumption.push({
-      id: `retail:${entry.id}`,
-      date: entry.entryDate.toISOString(),
-      type: refund ? "REFUND" : "PAYMENT",
-      title: entry.category?.replace(/^零售-/, "") || "店內消費",
-      detail: `${paymentLabel(entry.paymentMethod)}${entry.note ? ` · ${entry.note}` : ""}`,
-      status: refund ? "退款／沖銷" : "已付款",
-      planName: null,
-      amount: refund ? -Number(entry.amount) : Number(entry.amount),
-      quantity: null,
-      unit: null,
-    });
-  }
-
-  consumption.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
+  const referralShare = memberEnabled && !access ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
   // Only customers on this authorized coach's own sessions are read.
   const workCustomers = work.length ? await prisma.customer.findMany({
-    where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
+    where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId).filter((id): id is string => !!id)))]}},
     select:{id:true, serviceNote:true, notes:true},
   }) : [];
+  const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
+  const initialRole = access ? (access.role === "work" ? "coach" as const : "member" as const) : resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
   return {
+    rolePreferenceKey,
+    initialRole,
     referralShare: referralShare?.available ? referralShare : null,
     month,
     serverNow: now.getTime(),
@@ -433,10 +313,12 @@ export async function loadCoursePortal(requestedMonth?: string) {
     storeName: store.name,
     prefix: context?.storeSlug ? `/s/${context.storeSlug}` : "",
     memberEnabled,
-    hasWork: !!link,
-    consumption,
+    hasWork: !!workLink,
+    incomeAvailable: !!incomeAccess,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
+    waitlistEnabled,
+    companionBookingEnabled: !musicStore,
     config,
     cards,
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
@@ -453,8 +335,8 @@ export async function loadCoursePortal(requestedMonth?: string) {
           startsAt: nextBooking.session.startsAt.toISOString(),
           coach: coachNames.get(nextBooking.session.coachId) ?? "教練待確認",
           room: nextBooking.session.room.name,
-          participants: [...new Map(nextParticipants.map((participant) => [participant.customerId, {
-            id: participant.customerId,
+          participants: [...new Map(nextParticipants.map((participant) => [participant.id, {
+            id: participant.id,
             name: participant.customerName,
           }])).values()],
         }
@@ -478,6 +360,10 @@ export async function loadCoursePortal(requestedMonth?: string) {
       capacity: s.capacity,
       occupied: s._count.bookings,
       precautions: s.template.precautions,
+      waitlistAllowed: waitlistEnabled && s.template.waitlistEnabled,
+      waitlistCount: waitlistMeta.get(s.id)?.count ?? 0,
+      waitlistPosition: waitlistMeta.get(s.id)?.ownPosition ?? null,
+      waitlistRemaining: Math.max(0, (s.template.waitlistLimit || waitlistSetting?.defaultLimit || 5) - (waitlistMeta.get(s.id)?.count ?? 0)),
     })),
     bookings: bookings.map((b) => ({
       id: b.id,
@@ -489,6 +375,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       customerName: b.customerName,
       customerId: b.customerId,
       operatorName: b.operatorName,
+      reserverCustomerId: b.reserverCustomerId,
       status: b.status,
       notes: "",
       cost: b.pointCost,
@@ -508,6 +395,9 @@ export async function loadCoursePortal(requestedMonth?: string) {
       bookings: s.bookings.map((b) => ({
         id: b.id,
         customerId: b.customerId,
+        companionIndex: b.companionIndex,
+        reserverName: b.reserverName,
+        canAddCompanion: !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
         customerName: b.customerName,
         status: b.status,
         checkedIn: !!b.checkedInAt,
@@ -523,6 +413,8 @@ export async function loadCoursePortal(requestedMonth?: string) {
     })),
     orders: orders.map((o) => ({
       id:o.id,name:o.name,price:o.price,status:o.status,transferLastFive:o.transferLastFive,
+      points:o.points,unit:o.unit,termSizes:o.musicTermSizes,bonus:o.musicBonusLessons,listPrice:o.listPrice,
+      paymentMethod:o.paymentMethod,transferLastFour:o.transferLastFour,voidReason:o.voidReason,
       refunds: (o.refunds??[]).map(r=>({...r,createdAt:r.createdAt.toISOString()})),
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,
@@ -546,5 +438,6 @@ export async function loadCoursePortal(requestedMonth?: string) {
 export type CoursePortalData = Awaited<ReturnType<typeof loadCoursePortal>>;
 export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
   const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
-  return <CoursePortalClient {...await loadCoursePortal(selectedDate?.slice(0,7) ?? month)} initialDate={selectedDate} initialView={view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
+  const data = await loadCoursePortal(selectedDate?.slice(0,7) ?? month);
+  return <CoursePortalClient key={data.rolePreferenceKey} {...data} initialDate={selectedDate} initialCoach={view === "work"} initialView={view === "work" ? "schedule" : view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
 }

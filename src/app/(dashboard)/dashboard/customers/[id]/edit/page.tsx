@@ -58,11 +58,13 @@ export default async function EditCustomerPage({ params }: PageProps) {
       />
 
       <EditCustomerForm
+        key={customer.id}
         isSpa={isSpa}
         returnHref={returnHref}
         returnUrl={returnUrl}
         customer={{
           id: customer.id,
+          updatedAt: customer.updatedAt.toISOString(),
           name: customer.name ?? "",
           phone: customer.phone ?? "",
           email: customer.email ?? "",

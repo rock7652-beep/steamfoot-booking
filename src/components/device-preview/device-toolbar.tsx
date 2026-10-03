@@ -1,10 +1,12 @@
 "use client";
 
+import type { IndustryModuleId } from "@/lib/industry-modules";
 import type { DevicePresetId, DevicePreviewPageId } from "@/lib/device-preview";
 import { DEVICE_PRESETS } from "@/lib/device-preview";
 import { DevicePageSelect } from "./device-page-select";
 
 interface DeviceToolbarProps {
+  moduleId?: IndustryModuleId;
   page: DevicePreviewPageId;
   device: DevicePresetId;
   onPageChange: (page: DevicePreviewPageId) => void;
@@ -14,6 +16,7 @@ interface DeviceToolbarProps {
 }
 
 export function DeviceToolbar({
+  moduleId = "steamfoot",
   page,
   device,
   onPageChange,
@@ -26,7 +29,7 @@ export function DeviceToolbar({
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-3 shadow-sm sm:p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <DevicePageSelect value={page} onChange={onPageChange} />
+        <DevicePageSelect moduleId={moduleId} value={page} onChange={onPageChange} />
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-xs font-medium text-earth-600">裝置</span>

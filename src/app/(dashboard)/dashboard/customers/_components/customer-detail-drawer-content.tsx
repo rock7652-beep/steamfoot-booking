@@ -1,15 +1,16 @@
 "use client";
+import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
+import { CustomerPhoneLink } from "@/components/customer-detail-fields";
+import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { BookingServiceNoteEditor } from "../../bookings/booking-service-note-editor";
 import { CustomerAttributionForm } from "@/components/customer-attribution-form";
 import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
-import {
-  updateCustomerServiceNoteAction,
-} from "@/server/actions/customer";
+
 import { formatTWTime } from "@/lib/date-utils";
 import {
   getLineNotificationStatus,
@@ -88,7 +89,7 @@ function StatusItem({
           ? "text-red-700"
           : "text-earth-700";
   return (
-    <div className="rounded-md bg-earth-50 px-2.5 py-2">
+    <div className="py-1.5">
       <dt className="text-[11px] text-earth-500">{label}</dt>
       <dd className={`mt-0.5 font-medium ${toneClass}`}>{value}</dd>
     </div>
@@ -111,31 +112,6 @@ export function CustomerDetailDrawerContent({
   const [openedAt] = useState(() => Date.now());
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
-
-  // 店內備註（後台限定）。component 以 key={detail.id} 重掛 → 初值依當前顧客。
-  const SERVICE_NOTE_MAX = 1000;
-  const [noteDraft, setNoteDraft] = useState(customer.serviceNote ?? "");
-  const [savingNote, setSavingNote] = useState(false);
-  const noteDirty = noteDraft.trim() !== (customer.serviceNote ?? "").trim();
-
-  async function handleSaveNote() {
-    if (savingNote || !noteDirty) return;
-    setSavingNote(true);
-    try {
-      const res = await updateCustomerServiceNoteAction({
-        customerId: customer.id,
-        serviceNote: noteDraft, // action 內 trim → 空字串存 null
-      });
-      if (!res.success) {
-        toast.error(res.error ?? "儲存店內備註失敗");
-        return;
-      }
-      toast.success("已儲存店內備註");
-      onMutated(); // 父層 refetch 本人 slim 資料（drawer cache invalidate）
-    } finally {
-      setSavingNote(false);
-    }
-  }
 
   // 開啟時把焦點交給 drawer header
   useEffect(() => {
@@ -183,7 +159,7 @@ export function CustomerDetailDrawerContent({
   const identityWarning = customer.authSource === "LINE" && !lineBound;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
       <header
         ref={headerRef}
@@ -191,11 +167,11 @@ export function CustomerDetailDrawerContent({
         className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-4 outline-none"
       >
         <div className="min-w-0">
-          <h2 id={titleId} className="truncate text-lg font-semibold text-earth-900">
+          <h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
             {customer.name}
           </h2>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-earth-500">
-            {phoneDisplay !== "—" && <span>☎ {phoneDisplay}</span>}
+            {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
           </div>
           <div className="mt-2">
@@ -209,7 +185,7 @@ export function CustomerDetailDrawerContent({
           type="button"
           onClick={onClose}
           aria-label="關閉"
-          className="ml-2 shrink-0 rounded p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+          className="ml-2 min-h-11 min-w-11 shrink-0 rounded p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
@@ -218,7 +194,7 @@ export function CustomerDetailDrawerContent({
       </header>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+      <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-4 space-y-4">
         {readOnly ? (
           <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
             查看模式提供完整閱讀能力，顧客操作請由該店自行完成。
@@ -261,17 +237,18 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
-        {customer.recentConsumption && <section className="rounded-lg border border-earth-200 bg-white p-3">
+        {customer.recentConsumption && <section className="border-t border-earth-100 pt-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-earth-800">最近消費</h3>
+            <h3 className="text-sm font-semibold text-primary-900">最近消費</h3>
             <Link href={`/dashboard/customers/${customer.id}/records?type=transactions`} prefetch={false} className="text-xs font-medium text-primary-700">查看全部 →</Link>
           </div>
           {customer.recentConsumption.length ? <ul className="divide-y divide-earth-100">{customer.recentConsumption.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-xs"><span className="min-w-0"><strong className="block truncate text-earth-800">{item.label}</strong><span className="text-earth-500">{formatTWTime(item.date, { dateOnly: true })} · {item.payment}</span></span><strong className="shrink-0 tabular-nums text-primary-800">NT$ {item.amount.toLocaleString()}</strong></li>)}</ul> : <p className="py-2 text-xs text-earth-500">尚無消費紀錄</p>}
         </section>}
 
-        <section className="rounded-lg border border-earth-200 bg-white p-3">
-          <h3 className="mb-2 text-sm font-semibold text-earth-800">身份狀態</h3>
+        <section className="border-t border-earth-100 pt-3">
+          <h3 className="mb-2 text-sm font-semibold text-primary-900">身份狀態</h3>
           <dl className="grid grid-cols-2 gap-2 text-xs">
+            <FrontendPreviewQuickLink storeId={customer.storeId} personId={customer.id} />
             <StatusItem label="顧客資料" value="已建立" tone="ok" />
             <StatusItem
               label="會員帳號"
@@ -295,54 +272,13 @@ export function CustomerDetailDrawerContent({
           </dl>
         </section>
 
-        {/* 店內備註（後台限定，店長 / 合作店長交接用） */}
-        <section>
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-earth-800">
-            店內備註
-            <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-normal text-earth-500">
-              僅店內可見，每次服務都適用
-            </span>
-          </h3>
-          {canEditNote ? (
-            <div className="rounded-lg border border-earth-200 bg-white p-3">
-              <textarea
-                value={noteDraft}
-                onChange={(e) =>
-                  setNoteDraft(e.target.value.slice(0, SERVICE_NOTE_MAX))
-                }
-                maxLength={SERVICE_NOTE_MAX}
-                rows={3}
-                placeholder="例：怕熱，溫度不要太高；第一次來容易緊張，接待時放慢說明。"
-                className="w-full resize-y rounded-md border border-earth-200 px-2.5 py-2 text-sm text-earth-800 outline-none placeholder:text-earth-300 focus:border-primary-400"
-              />
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[11px] tabular-nums text-earth-400">
-                  {noteDraft.length} / {SERVICE_NOTE_MAX}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSaveNote}
-                  disabled={!noteDirty || savingNote}
-                  className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-400"
-                >
-                  {savingNote ? "儲存中…" : "儲存備註"}
-                </button>
-              </div>
-            </div>
-          ) : customer.serviceNote ? (
-            <div className="whitespace-pre-wrap rounded-lg border border-earth-100 bg-earth-50 p-3 text-sm text-earth-700">
-              {customer.serviceNote}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-xs text-earth-400">
-              尚無備註
-            </div>
-          )}
-        </section>
+        <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
+        <BookingServiceNoteEditor customerId={customer.id} value={customer.serviceNote}
+          canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />
 
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
-          <h3 className="mb-2 text-sm font-semibold text-earth-800">課程方案</h3>
+          <h3 className="mb-2 text-sm font-semibold text-primary-900">課程方案</h3>
           {activeWallets.length === 0 ? (
             <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-xs text-earth-500">
               尚無使用中的方案
@@ -360,7 +296,7 @@ export function CustomerDetailDrawerContent({
                 return (
                   <li
                     key={w.id}
-                    className="rounded-lg border border-earth-200 bg-white p-3"
+                    className="border-t border-earth-100 pt-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -406,9 +342,9 @@ export function CustomerDetailDrawerContent({
           {!readOnly ? (
             <div className="mt-3">
             {assignOpen ? (
-              <div className="rounded-lg border border-earth-200 bg-white p-3">
+              <div className="border-t border-earth-100 pt-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-earth-800">＋ 指派新方案</h4>
+                  <h4 className="text-sm font-semibold text-primary-900">＋ 指派新方案</h4>
                   <button
                     type="button"
                     onClick={() => setAssignOpen(false)}
@@ -600,7 +536,7 @@ function CollapsibleSection({
 }) {
   return (
     <details className="group rounded-lg border border-earth-100 bg-white" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-earth-800 hover:bg-earth-50">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-primary-900 hover:bg-earth-50">
         <span className="flex items-center gap-2">
           {title}
           {badge}

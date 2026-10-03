@@ -5,19 +5,19 @@ import { expect, it } from "vitest";
 const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
 
 it("mobile calendar shows counts, closures, and retains the accessible date action", () => {
-  expect(source).toContain('mt-1 text-xs font-medium sm:hidden');
-  expect(source).toContain('{list.length} 堂');
-  expect(source).toContain('aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}');
+  expect(source).toContain('h-16 sm:h-20');
+  expect(source).toContain('{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次');
+  expect(source).toContain('aria-label={`${date}，${isClosed ? closureLabel : `${scheduleTotals(list).classes} 堂課，${scheduleTotals(list).people} 人次`}`}');
   expect(source).toContain('calendarDay?.status === "training" ? "員工訓練" : "公休"');
-  expect(source).toContain('hidden w-full shrink-0 truncate leading-[14px] sm:block');
+  expect(source).not.toContain('list.slice(0, 2).map');
 });
 
-it("mobile resources retain all actions without a forced desktop table width", () => {
-  expect(source).toContain('block w-full text-left text-sm sm:table sm:min-w-[680px]');
-  expect(source).toContain('flex flex-wrap items-center gap-2 sm:flex-nowrap');
+it("resource tables scroll horizontally and retain view and edit actions", () => {
+  expect(source).toContain('overflow-x-auto rounded-xl border border-earth-200 bg-white');
+  expect(source).toContain('min-w-[740px] w-full text-left text-sm');
   expect(source).toContain('查看{template ? "課程" : "教室"}');
-  expect(source).toContain('複製設定');
-  expect(source).toContain('人數上限：');
+  expect(source).toContain('setEditing(');
+  expect(source).toContain('人數上限');
 });
 
 it("schedule creation submits native form dates, including copied and repeat dates", () => {

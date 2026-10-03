@@ -8,8 +8,9 @@ import { notFound, redirect } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { FormErrorToast } from "@/components/form-error-toast";
-import { getActiveStoreForRead } from "@/lib/store";
 import { prisma } from "@/lib/db";
+import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import {
   FormShell,
   FormSection,
@@ -17,6 +18,7 @@ import {
   StickyFormActions,
 } from "@/components/desktop";
 import { CashbookFormFields } from "../../cashbook-form-fields";
+import { CashbookEntryFields } from "../../_components/cashbook-entry-fields";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
 type PaymentMethod = "CASH" | "OTHER";
@@ -36,13 +38,14 @@ export default async function EditCashbookPage({ params }: PageProps) {
     redirect("/dashboard/cashbook");
   }
 
-  const activeStoreId = await getActiveStoreForRead(user);
-  if (!activeStoreId) notFound();
-  const entry = await prisma.cashbookEntry.findFirst({
-    where: { id, storeId: activeStoreId },
-    include: { customer: { select: { id: true, name: true } } },
+  const entry = await prisma.cashbookEntry.findUnique({
+    where: { id },
   });
   if (!entry) notFound();
+  const activeStoreId = await getActiveStoreForRead(user);
+  if (entry.storeId !== activeStoreId) notFound();
+  const instantSearch = await getStoreIndustryModule(entry.storeId) === "steamfoot";
+  const customer = entry.customerId ? await prisma.customer.findUnique({ where: { id: entry.customerId }, select: { id: true, name: true } }) : null;
 
   const staffOptions = await listStaffSelectOptions();
 
@@ -65,12 +68,12 @@ export default async function EditCashbookPage({ params }: PageProps) {
     const result = await updateCashbookEntry(id, {
       entryDate: formData.get("entryDate") as string,
       type: formData.get("type") as CashbookEntryType,
-      customerId: formData.get("type") === "INCOME" ? String(formData.get("customerId") || "") || null : null,
       category: formData.get("category") as string,
       amount: Number(formData.get("amount")),
       paymentMethod: (formData.get("paymentMethod") as PaymentMethod) || undefined,
       staffId: (formData.get("staffId") as string) || null,
       note: formData.get("note") as string,
+      customerId: formData.get("type") === "INCOME" ? ((formData.get("customerId") as string) || null) : null,
       confirmClosedCashbookChange: formData.get("confirmClosedCashbookChange") === "on",
     });
 
@@ -105,16 +108,21 @@ export default async function EditCashbookPage({ params }: PageProps) {
       />
 
       <form action={handleSubmit} className="space-y-6 pb-4">
-        <CashbookFormFields
-          storeId={activeStoreId}
-          defaultCustomer={entry.customer}
+        {entry.type === "INCOME" || entry.type === "EXPENSE" ? <CashbookEntryFields
+          storeId={entry.storeId}
+          today={entryDate}
+          editableDate
+          instantSearch={instantSearch}
+          closedDates={closedDates}
+          defaultEntry={{ type: entry.type, amount: Number(entry.amount), category: entry.category ?? "", paymentMethod: entry.paymentMethod, note: entry.note ?? "", customer }}
+        /> : <CashbookFormFields
           closedDates={closedDates}
           defaultEntryDate={entryDate}
           defaultType={entry.type}
           defaultCategory={entry.category ?? ""}
           defaultAmount={entry.amount.toString()}
           defaultPaymentMethod={entry.paymentMethod}
-        />
+        />}
 
         {/* Staff —「登錄人」= 這筆紀錄的可見與編輯範圍歸屬。
             非 ADMIN 鎖定原登錄人；ADMIN 可改派其他店長（屬於 visibility 設定，
@@ -145,7 +153,7 @@ export default async function EditCashbookPage({ params }: PageProps) {
           )}
         </FormSection>
 
-        <FormSection title="備註">
+        {entry.type !== "INCOME" && entry.type !== "EXPENSE" && <FormSection title="備註">
           <textarea
             name="note"
             rows={4}
@@ -153,7 +161,7 @@ export default async function EditCashbookPage({ params }: PageProps) {
             className={inputCls}
             placeholder="輸入備註（選填）"
           />
-        </FormSection>
+        </FormSection>}
 
         <StickyFormActions>
           <Link

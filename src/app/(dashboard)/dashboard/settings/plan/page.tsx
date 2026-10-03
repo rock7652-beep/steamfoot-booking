@@ -62,7 +62,7 @@ export default async function PlanSettingsPage() {
     EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
     BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "可選 1 個 $500 工具型模組"],
     GROWTH: ["基本版＋顧客經營、現金抽屜", "可選 1 個 $500 工具型模組", "可選 1 個 $800 經營型模組"],
-    ALLIANCE: ["總部管理＋首間分店串接（分店系統月費另計）", "多店與月結管理", ALLIANCE_BRANCH_PRICING_COPY],
+    ALLIANCE: ["總部管理（分店串接費與系統月費另計）", "多店與月結管理", ALLIANCE_BRANCH_PRICING_COPY],
   };
 
   /** Feature comparison groups for the table */

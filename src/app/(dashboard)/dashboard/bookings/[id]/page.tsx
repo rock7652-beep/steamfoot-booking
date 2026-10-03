@@ -132,7 +132,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
       <div className="rounded-xl border bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-earth-900">預約詳情</h1>
+            <h1 className="admin-page-title">預約詳情</h1>
             {booking.isMakeup && (
               <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                 補課

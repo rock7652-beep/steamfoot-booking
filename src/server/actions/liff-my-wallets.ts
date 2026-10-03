@@ -25,17 +25,9 @@
  *   - 不動 schema / migration / Customer model
  */
 
-import { prisma } from "@/lib/db";
+import { readFetchLiffWallets } from "@/server/queries/liff-my-wallets";
 import { requireSession } from "@/lib/session";
-import { toLocalDateStr } from "@/lib/date-utils";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
-import { PENDING_STATUSES } from "@/lib/booking-constants";
-import {
-  walletAvailableToBook,
-  walletPendingCount,
-  ledgerUsage,
-} from "@/lib/wallet-availability";
-import { splitLiffWallets } from "@/lib/liff/my-wallets";
 
 /** LIFF「我的方案」單筆 row 顯示用 payload — server compute 後送 client，
  *  client 不再做 availability / ledger 計算（避免分散兩處）。 */
@@ -101,110 +93,5 @@ export async function fetchLiffWallets(): Promise<FetchLiffWalletsResult> {
   const storeId = user.storeId;
   if (!storeId) return { status: "no_customer" };
 
-  // ── 3. Query — tight LIFF payload ──────────────────
-  //
-  // 排序 expiryDate ASC nulls last（最近過期優先；無期限排最後）+ createdAt DESC
-  // tie-break。Prisma 6.19.2 支援 nulls:"last" — 不需 post-query helper sort。
-  //
-  // bookings select 只取 walletPendingCount 需要的兩欄；session select 只取
-  // ledgerUsage 需要的 status — 控制 wire payload。
-  let rawWallets: Array<{
-    id: string;
-    totalSessions: number;
-    remainingSessions: number;
-    startDate: Date;
-    expiryDate: Date | null;
-    status: string;
-    plan: { name: string; category: string };
-    bookings: Array<{ bookingStatus: string; isMakeup: boolean; people: number }>;
-    sessions: Array<{ status: string }>;
-  }>;
-  try {
-    rawWallets = await prisma.customerPlanWallet.findMany({
-      where: { customerId, storeId },
-      select: {
-        id: true,
-        totalSessions: true,
-        remainingSessions: true,
-        startDate: true,
-        expiryDate: true,
-        status: true,
-        plan: { select: { name: true, category: true } },
-        // booking.people 僅供 legacy 無 WalletSession ledger 的相容 fallback。
-        bookings: {
-          where: { bookingStatus: { in: [...PENDING_STATUSES] } },
-          select: { bookingStatus: true, isMakeup: true, people: true },
-        },
-        // ledgerUsage 只需要 session.status (COMPLETED/BACKFILLED/VOIDED 分類)
-        sessions: {
-          select: { status: true },
-        },
-      },
-      orderBy: [
-        { expiryDate: { sort: "asc", nulls: "last" } },
-        { createdAt: "desc" },
-      ],
-      take: 100,
-    });
-  } catch (err) {
-    console.error("[fetchLiffWallets] query failed", err);
-    return { status: "service_unavailable" };
-  }
-
-  // ── 4. Compute display payload via canonical helpers ─
-  // **嚴格 reuse wallet-availability.ts 既有 helper** — 不自行手算 totalSessions − Σbooking
-  // （codebase 既有規則，避免忽略 BACKFILLED / VOIDED 導致首頁高報、卡片低報）。
-  const toRow = (w: (typeof rawWallets)[number]): LiffWalletRow => {
-    const pendingCount = walletPendingCount(w);
-    const availableToBook = walletAvailableToBook(w);
-    const { used: usedCount, voided: voidedCount } = ledgerUsage(w.sessions);
-    return {
-      id: w.id,
-      planName: w.plan.name,
-      planCategory: w.plan.category,
-      totalSessions: w.totalSessions,
-      remainingSessions: w.remainingSessions,
-      availableToBook,
-      pendingCount,
-      usedCount,
-      voidedCount,
-      startDate: w.startDate.toISOString().slice(0, 10),
-      expiryDate: w.expiryDate ? w.expiryDate.toISOString().slice(0, 10) : null,
-      status: w.status,
-    };
-  };
-
-  const rows = rawWallets.map(toRow);
-
-  // ── 5. Split active / expired / history (defensive，per 拍板 B (b)) ──
-  // ACTIVE + availableToBook=0 → history（視同 USED_UP）
-  // ACTIVE + expiryDate < today → expired（防 race，不依賴 status auto-flip）
-  const { active, expired, history } = splitLiffWallets(rows);
-
-  // ── 6. 有效補課券（PR-NoShow-2）：未使用、未過期，最早到期優先 ──
-  let makeupCredits: LiffMakeupCreditRow[] = [];
-  try {
-    const credits = await prisma.makeupCredit.findMany({
-      where: {
-        customerId,
-        storeId,
-        isUsed: false,
-        OR: [{ expiredAt: null }, { expiredAt: { gte: new Date() } }],
-      },
-      select: { id: true, expiredAt: true },
-      orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
-      take: 50,
-    });
-    makeupCredits = credits.map((c) => ({
-      id: c.id,
-      // expiredAt 是 timestamp（非 date-only 欄位）→ 以台灣時區轉日期，避免 UTC 切片 off-by-one。
-      expiredAt: c.expiredAt ? toLocalDateStr(c.expiredAt) : null,
-    }));
-  } catch (err) {
-    // 補課券查詢失敗不影響方案顯示主流程；降級為「無券」。
-    console.warn("[fetchLiffWallets] makeupCredit query failed", err);
-    makeupCredits = [];
-  }
-
-  return { status: "ok", active, expired, history, makeupCredits };
+  return readFetchLiffWallets({ storeId, customerId });
 }

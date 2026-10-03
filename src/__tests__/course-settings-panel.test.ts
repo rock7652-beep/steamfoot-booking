@@ -59,3 +59,13 @@ describe("course settings side panel", () => {
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); expect(m.replace).not.toHaveBeenCalled();
   });
 });
+
+it("keeps the same outer window geometry across loading and different settings pages",async()=>{
+ await act(async()=>root.render(el(CourseSettingsPanel,{panel:'reminders',children:el('p',null,'正在讀取設定…')})));
+ const dialog=host.querySelector('[role="dialog"]')!;
+ expect(dialog.getAttribute('data-fixed-height')).toBe('true');
+ const geometry=dialog.getAttribute('style');
+ await act(async()=>root.render(el(CourseSettingsPanel,{panel:'hours',children:el('div',null,'設定內容')})));
+ expect(host.querySelector('[role="dialog"]')).toBe(dialog);
+ expect(dialog.getAttribute('style')).toBe(geometry);
+});

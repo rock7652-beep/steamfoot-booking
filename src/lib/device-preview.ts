@@ -1,4 +1,7 @@
+import type { IndustryModuleId } from "@/lib/industry-modules";
+
 export const DEVICE_PREVIEW_PAGES = [
+  { id: "frontend-preview", label: "前台預覽", path: "/dashboard/frontend-preview" },
   {
     id: "dashboard",
     label: "首頁",
@@ -36,6 +39,26 @@ export const DEVICE_PREVIEW_PAGES = [
   },
 ] as const;
 
+export const COURSE_DEVICE_PREVIEW_PAGES = [
+  { id: "frontend-preview", label: "前台預覽", path: "/dashboard/frontend-preview" },
+  { id: "dashboard", label: "首頁", path: "/dashboard" },
+  { id: "bookings", label: "課表排程", path: "/dashboard/courses" },
+  { id: "customers", label: "顧客管理", path: "/dashboard/courses?view=customers" },
+  { id: "catalog", label: "課程設定", path: "/dashboard/courses?view=catalog" },
+  { id: "rooms", label: "空間管理", path: "/dashboard/courses?view=rooms" },
+  { id: "staff", label: "人員管理", path: "/dashboard/staff" },
+  { id: "plans", label: "方案管理", path: "/dashboard/courses?view=plans" },
+  { id: "growth", label: "顧客經營", path: "/dashboard/growth" },
+  { id: "revenue", label: "營運", path: "/dashboard/revenue" },
+  { id: "cashbook", label: "現金帳", path: "/dashboard/cashbook" },
+  { id: "analytics", label: "分析", path: "/dashboard/courses?view=analytics" },
+  { id: "settings", label: "設定", path: "/dashboard/courses?view=settings" },
+] as const;
+
+export function getDevicePreviewPages(moduleId: IndustryModuleId = "steamfoot") {
+  return moduleId === "course" ? COURSE_DEVICE_PREVIEW_PAGES : DEVICE_PREVIEW_PAGES;
+}
+
 export const DEVICE_PRESETS = {
   mobile: {
     label: "手機",
@@ -44,32 +67,37 @@ export const DEVICE_PRESETS = {
   },
   tablet: {
     label: "平板",
-    width: 768,
-    height: 1024,
+    width: 1024,
+    height: 768,
   },
   desktop: {
     label: "桌機",
     width: 1440,
     height: 900,
   },
+  tabletPortrait: {
+    label: "平板直向",
+    width: 768,
+    height: 1024,
+  },
 } as const;
 
-export type DevicePreviewPageId = (typeof DEVICE_PREVIEW_PAGES)[number]["id"];
+export type DevicePreviewPageId = (typeof DEVICE_PREVIEW_PAGES | typeof COURSE_DEVICE_PREVIEW_PAGES)[number]["id"];
 export type DevicePresetId = keyof typeof DEVICE_PRESETS;
 
 export const DEFAULT_DEVICE_PREVIEW_PAGE: DevicePreviewPageId = "bookings";
 export const DEFAULT_DEVICE_PRESET: DevicePresetId = "mobile";
 
-export function isDevicePreviewPageId(value: string | null): value is DevicePreviewPageId {
-  return DEVICE_PREVIEW_PAGES.some((page) => page.id === value);
+export function isDevicePreviewPageId(value: string | null, moduleId: IndustryModuleId = "steamfoot"): value is DevicePreviewPageId {
+  return getDevicePreviewPages(moduleId).some((page) => page.id === value);
 }
 
 export function isDevicePresetId(value: string | null): value is DevicePresetId {
   return value !== null && value in DEVICE_PRESETS;
 }
 
-export function getDevicePreviewPage(id: DevicePreviewPageId) {
-  return DEVICE_PREVIEW_PAGES.find((page) => page.id === id)!;
+export function getDevicePreviewPage(id: DevicePreviewPageId, moduleId: IndustryModuleId = "steamfoot") {
+  return getDevicePreviewPages(moduleId).find((page) => page.id === id)!;
 }
 
 export function createDevicePreviewUrl(path: string) {
@@ -107,10 +135,18 @@ export function resolveDashboardPreviewPath(canonicalPath: string, contextPath: 
   return `${getDashboardRoutePrefix(contextPath)}${normalizeDashboardPath(canonicalPath)}`;
 }
 
-export function getDevicePreviewPageForPath(path: string) {
-  const pathname = normalizeDashboardPath(path).split("?", 1)[0];
-  return DEVICE_PREVIEW_PAGES
-    .filter((page) => pathname === page.path || pathname.startsWith(`${page.path}/`))
+export function getDevicePreviewPageForPath(path: string, moduleId: IndustryModuleId = "steamfoot") {
+  const [pathname, query = ""] = normalizeDashboardPath(path).split("?", 2);
+  const params = new URLSearchParams(query);
+  return getDevicePreviewPages(moduleId)
+    .filter((page) => {
+      const [targetPath, targetQuery = ""] = page.path.split("?", 2);
+      if (pathname !== targetPath && !pathname.startsWith(`${targetPath}/`)) return false;
+      const matchesQuery = [...new URLSearchParams(targetQuery)].every(([key, value]) => params.get(key) === value);
+      // The course schedule and its other workspaces share one pathname.
+      if (moduleId === "course" && page.id === "bookings" && params.has("view") && params.get("view") !== "schedule") return false;
+      return matchesQuery;
+    })
     .sort((left, right) => right.path.length - left.path.length)[0];
 }
 

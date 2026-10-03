@@ -11,6 +11,18 @@ function route(path: string, user: Record<string, unknown> | null) {
 }
 
 describe("HQ entry and store chooser routing", () => {
+  it("serves the HQ trial inbox without rewriting it to a nonexistent shared page", () => {
+    const response = route("/hq/dashboard/trial-applications?application=test-id", { role: "ADMIN" });
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+  it("requires login for the trial inbox", () => {
+    expect(route("/hq/dashboard/trial-applications", null).headers.get("location")).toBe("https://www.steamfoot.com/hq/login");
+  });
+  it("keeps store owners outside the HQ trial inbox", () => {
+    expect(route("/hq/dashboard/trial-applications", { role: "OWNER", storeId: "store-1", storeSlug: "taichung" }).headers.get("location")).toBe("https://www.steamfoot.com/s/taichung/admin/dashboard");
+  });
   it("returns signed-out users to backend login", () => {
     expect(route("/store-select", null).headers.get("location")).toBe("https://www.steamfoot.com/hq/login");
   });

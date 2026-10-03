@@ -1,21 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { RightSheet } from "@/components/admin/right-sheet";
+import { CashbookEntryFields } from "./cashbook-entry-fields";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
-
-import { CashbookFormFields } from "../cashbook-form-fields";
 
 type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
 type Entry = Data["entries"][number];
 const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:opacity-50";
-const input = "mt-1 block h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
-const textarea = "mt-1 block min-h-28 w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
 
-export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; triggerClassName?: string }) {
+export function QuickCashbook({ storeId, triggerClassName, instantSearch = false }: { storeId: string; triggerClassName?: string; instantSearch?: boolean }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,6 +21,8 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
   const locked = useRef(false);
+  const dialog = useRef<HTMLElement>(null);
+  const closeRef = useRef<() => void>(() => undefined);
   async function refresh(page = 1) {
     const version = ++request.current;
     setLoading(true); setError("");
@@ -37,6 +36,23 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
     if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
     request.current++; setOpen(false); setEditing(null);
   }
+  closeRef.current = close;
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+    dialog.current?.focus({ preventScroll: true });
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeRef.current();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus({ preventScroll: true });
+    };
+  }, [open]);
   async function save(form: FormData) {
     if (locked.current) return;
     locked.current = true; setBusy(true);
@@ -61,7 +77,9 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
     <button type="button" className={`${button} ${triggerClassName ?? ""}`} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
-    {open && <RightSheet open onClose={close} width={640} labelledById="quick-cashbook-title">
+    {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end bg-earth-950/35 sm:items-center sm:justify-center sm:p-5">
+      <button type="button" aria-label="關閉現金收支" onClick={close} className="absolute inset-0 cursor-default" />
+      <section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="quick-cashbook-title" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl outline-none sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-3xl sm:rounded-2xl">
       <header className="flex items-center justify-between border-b border-earth-200 bg-gradient-to-r from-primary-50 to-gold-50 px-5 py-4">
         <div>
           <div className="mb-1 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-gold-500" aria-hidden="true" /><h2 id="quick-cashbook-title" className="text-lg font-semibold text-primary-900">現金收支</h2></div>
@@ -74,15 +92,25 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
           {data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}
-          {editing ? <form onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
+          {editing ? <form id="quick-cashbook-entry-form" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
             <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增記帳"}</h3>
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
-            <fieldset disabled={busy} className="grid grid-cols-2 gap-4">
-              <div className="col-span-2"><CashbookFormFields readOnlyDate compact storeId={storeId} defaultCustomer={entry?.customer} closedDates={data.closedDates} defaultEntryDate={data.today} defaultType={entry?.type === "EXPENSE" ? "EXPENSE" : "INCOME"} defaultCategory={entry?.category ?? ""} defaultAmount={entry ? String(entry.amount) : ""} defaultPaymentMethod={entry?.paymentMethod ?? null} allowedTypes={["INCOME", "EXPENSE"]} /></div>
-              <label className="col-span-2 text-sm font-medium text-earth-700">說明／備註<textarea name="note" rows={2} placeholder="其他收入請填用途或品項，例如：三寶" defaultValue={entry?.note ?? ""} className={textarea} /></label>
-
-            </fieldset>
-            <div className="sticky bottom-0 flex justify-end gap-2 border-t border-earth-100 bg-white py-3"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
+            <CashbookEntryFields
+              key={entry?.id ?? "new"}
+              storeId={storeId}
+              today={data.today}
+              closedDates={data.closedDates}
+              instantSearch={instantSearch}
+              disabled={busy}
+              defaultEntry={entry ? {
+                type: entry.type === "EXPENSE" ? "EXPENSE" : "INCOME",
+                amount: entry.amount,
+                category: entry.category,
+                paymentMethod: entry.paymentMethod,
+                note: entry.note,
+                customer: entry.customer,
+              } : null}
+            />
           </form> : <>
             <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
             <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
@@ -92,7 +120,8 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
           </>}
         </>}
       </div>
-      <footer className="border-t border-earth-200 bg-white p-4">{editing || busy ? <span className="text-sm text-earth-500">儲存或取消後可查看完整現金管理</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
-    </RightSheet>}
+      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
+      </section>
+    </div>, document.body)}
   </>;
 }

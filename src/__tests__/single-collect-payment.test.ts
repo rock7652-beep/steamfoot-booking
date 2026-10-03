@@ -309,6 +309,26 @@ describe("collectSinglePayment — original-price source + amount", () => {
     expect(lastTx().serviceStaffId).toBe("spa_staff_10");
   });
 
+  it.each([undefined, 1598, 1498, 1599])("two-person converted snapshot: amount=%s", async (amount) => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_1", bookingType: "SINGLE", bookingStatus: "PENDING",
+      customerId: "cust_1", revenueStaffId: null, servicePlanId: null,
+      expectedAmount: 1598, people: 2, servicePlan: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    const result = await collectSinglePayment({ ...base, amount });
+    if (amount === 1599) {
+      expect(result.success).toBe(false);
+      expect(h.txCreate).not.toHaveBeenCalled();
+    } else {
+      expect(result.success).toBe(true);
+      expect(lastTx().grossAmount).toBe(1598);
+      expect(lastTx().amount).toBe(amount ?? 1598);
+      expect(lastTx().discountAmount).toBe(1598 - (amount ?? 1598));
+      expect(h.txCreate).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it("no amount + servicePlan.price=899 → originalAmount=899, netAmount=899 (default = full)", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_1",

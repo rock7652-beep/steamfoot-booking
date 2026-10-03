@@ -1,3 +1,4 @@
+import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
@@ -49,6 +50,10 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Preview pages expose GET-only projections; reject every Server Action/form/API write.
+  if (blocksFrontendPreviewWrite(req.method, pathname, req.headers.get("referer"))) {
+    return NextResponse.json({ error: "預覽中不會儲存" }, { status: 403 });
+  }
   // Public, demonstration-only onboarding guides on isolated previews.
   // Keep the exception confined to these static files, never store/admin routes.
   if (pathname === "/line-onboarding-preview" || pathname.startsWith("/line-onboarding-preview/")) {
@@ -307,6 +312,10 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // /hq/* — 總部路由
   // ==========================================================
   if (pathname.startsWith("/hq")) {
+    // 店長信箱重設需在未登入時可用；只開放這兩個明確頁面。
+    if (pathname === "/hq/forgot-password" || pathname === "/hq/reset-password") {
+      return withDomainCookie(NextResponse.next(), domainStoreId);
+    }
     // /hq/login → public
     if (pathname === "/hq/login" || pathname.startsWith("/hq/login/")) {
       const storeParam = req.nextUrl.searchParams.get("store");
@@ -347,7 +356,11 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         return NextResponse.redirect(new URL("/hq/login?error=admin-required", req.url));
       }
       // B7-5: HQ-only 頁面（如 /hq/dashboard/stores）不 rewrite，直接 pass-through
-      if (pathname.startsWith("/hq/dashboard/stores")) {
+      if (
+        pathname.startsWith("/hq/dashboard/stores") ||
+        pathname === "/hq/dashboard/trial-applications" ||
+        pathname.startsWith("/hq/dashboard/trial-applications/")
+      ) {
         return withDomainCookie(NextResponse.next(), domainStoreId);
       }
       // Rewrite /hq/dashboard/... → /dashboard/...（共用 dashboard 頁面）

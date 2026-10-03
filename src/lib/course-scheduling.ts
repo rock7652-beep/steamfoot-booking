@@ -10,7 +10,13 @@ const date = z
   .string()
   .refine((value) => !!parseTaipeiDateTime(value, "00:00"), "請填寫有效日期");
 export const courseTemplateInput = z.object({
-  classType: z.enum(["PRIVATE","GROUP"]).nullable().default(null),
+  classType: z.enum(["PRIVATE","SELF_ORGANIZED","GROUP"]).nullable().default(null),
+  musicPricePerLesson: z.number().int().min(0).max(1000000).nullable().default(null),
+  musicTermLessons: z.number().int().min(1).max(1000).nullable().default(null),
+  musicValidityDaysPerTerm: z.number().int().min(1).max(3650).nullable().default(null),
+  musicScheduleMode: z.enum(["FIXED","APPOINTMENT"]).nullable().default(null),
+  musicTrialMode: z.enum(["FREE","PAID"]).nullable().default(null),
+  musicTeacherFeeBase: z.number().int().min(0).max(1000000).nullable().default(null),
   name: z.string().trim().min(1, "請填寫課程名稱").max(80),
   category: z.string().trim().max(40).default(""),
   defaultRoomId: id.nullable().default(null),
@@ -19,8 +25,12 @@ export const courseTemplateInput = z.object({
   durationMinutes: z.number().int().min(1).max(480),
   pointCost: z.number().int().min(1).max(10000),
   capacity: z.number().int().min(1).max(500),
+  waitlistEnabled: z.boolean().default(false),
+  waitlistLimit: z.number().int().min(1).max(100).default(5),
+  waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
+  isTrial:z.boolean().default(false),
   templateId: id,
   roomId: id,
   coachId: id,
@@ -33,7 +43,7 @@ export const courseScheduleInput = z.object({
   additionalDates: z.array(date).max(52).optional(),
   requestKey: z.string().uuid(),
 });
-export type CourseScheduleInput = z.infer<typeof courseScheduleInput>;
+export type CourseScheduleInput = z.input<typeof courseScheduleInput>;
 
 export function buildCourseOccurrences(input: CourseScheduleInput) {
   const parsed = courseScheduleInput.parse(input);

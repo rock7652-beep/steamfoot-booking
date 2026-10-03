@@ -12,6 +12,7 @@ import {
   createDefaultPermissions,
   checkPermission,
   assertNotLastStoreManager,
+  getStaffPermissions,
   updateStaffPermissions,
   type PermissionCode,
 } from "@/lib/permissions";
@@ -23,6 +24,7 @@ import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 const spaSkillKeys = ["body", "head", "foot", "face"] as const;
 const spaTimePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -470,7 +472,24 @@ export async function updateStaffPermissionsAction(
       user: { role: staff.user.role },
     });
 
+    const beforePermissions = Array.from(await getStaffPermissions(staffId, writeStoreId)).sort();
     await updateStaffPermissions(staffId, permissions);
+    const afterPermissions = Object.entries(permissions)
+      .filter(([, granted]) => granted)
+      .map(([permission]) => permission)
+      .sort();
+    await recordOperationAudit({
+      actorUserId: sessionUser.id,
+      actorNameSnapshot: sessionUser.name,
+      storeId: writeStoreId,
+      module: "SYSTEM",
+      targetType: "StaffPermission",
+      targetId: staffId,
+      action: "UPDATE",
+      summary: "調整人員權限",
+      before: { permissions: beforePermissions },
+      after: { permissions: afterPermissions },
+    });
     revalidateStaffPermissions();
     revalidateStaff();
     return { success: true, data: undefined };

@@ -12,7 +12,7 @@ const migration = readFileSync(
 
 describe("Digital Butler PR-1 additive migration contract", () => {
   it("keeps every store disabled by default and adds no enable/backfill update", () => {
-    expect(schema).toContain("digitalButlerEnabled       Boolean              @default(false)");
+    expect(schema).toMatch(/digitalButlerEnabled\s+Boolean\s+@default\(false\)/);
     expect(migration).toContain('ADD COLUMN "digitalButlerEnabled" BOOLEAN NOT NULL DEFAULT false');
     expect(migration).not.toMatch(/UPDATE\s+"Store"/i);
   });

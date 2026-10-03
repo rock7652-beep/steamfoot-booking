@@ -18,7 +18,7 @@
  *
  * 類型限定 INCOME / EXPENSE：提領仍走既有 WithdrawalForm（cashDrawer.entry），
  *   不讓店長用 CashbookEntry.WITHDRAW 做提領。後端 createCashbookEntry 業務邏輯不變，
- *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookFormFields 沿用。
+ *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookEntryFields 沿用。
  */
 
 import { useActionState, useEffect } from "react";
@@ -27,13 +27,16 @@ import { FormSection } from "@/components/desktop";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
-import { CashbookFormFields } from "../cashbook/cashbook-form-fields";
+import { CashbookEntryFields } from "../cashbook/_components/cashbook-entry-fields";
 
 type CreateResult = ActionResult<{ entryId: string }>;
 
 interface Props {
   /** server action：父層 server component 綁好 createCashbookEntry 後傳入。 */
   action: (prevState: CreateResult | null, formData: FormData) => Promise<CreateResult>;
+  /** Current store for the customer search index. */
+  storeId: string;
+  instantSearch: boolean;
   /** 成功後 hard navigate 的目標 URL（== caller 的 returnPath）。 */
   returnPath: string;
   /** 今天（"YYYY-MM-DD"，UTC+8），日期欄位預設值。 */
@@ -51,6 +54,8 @@ const inputCls =
 
 export function InlineCashbookForm({
   action,
+  storeId,
+  instantSearch,
   returnPath,
   today,
   closedDates,
@@ -76,16 +81,7 @@ export function InlineCashbookForm({
         </div>
       )}
 
-      <CashbookFormFields
-        closedDates={closedDates}
-        defaultEntryDate={today}
-        defaultType="INCOME"
-        defaultCategory=""
-        defaultAmount=""
-        defaultPaymentMethod={null}
-        allowedTypes={["INCOME", "EXPENSE"]}
-        compact
-      />
+      <CashbookEntryFields storeId={storeId} today={today} editableDate instantSearch={instantSearch} closedDates={closedDates} />
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
       {canAssignStaff && (
@@ -103,10 +99,6 @@ export function InlineCashbookForm({
           </p>
         </FormSection>
       )}
-
-      <FormSection title="備註" compact>
-        <textarea name="note" rows={2} className={inputCls} placeholder="輸入備註（選填）" />
-      </FormSection>
 
       <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-earth-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
         <SubmitButton

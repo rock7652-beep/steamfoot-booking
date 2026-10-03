@@ -6,12 +6,17 @@ const mocks = vi.hoisted(() => {
     customerIdentityLink: { findMany: vi.fn(), create: vi.fn() },
     user: { create: vi.fn() },
   };
-  return { tx, transaction: vi.fn(), resolve: vi.fn() };
+  return { tx, transaction: vi.fn(), resolve: vi.fn(),
+    account: { findUnique: vi.fn() }, store: { findUnique: vi.fn() },
+    customer: { findFirst: vi.fn() }, customerIdentityLink: { findFirst: vi.fn() } };
 });
-vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction,
+  account: mocks.account, store: mocks.store, customer: mocks.customer,
+  customerIdentityLink: mocks.customerIdentityLink } }));
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: mocks.resolve }));
-import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
+import { canOnboardCentralLineAccountToCourse, onboardCourseLineMember } from "@/server/services/course-line-onboarding";
 const input = { storeId: "course", lineUserId: "verified-subject", name: "Member", phone: "0999000123", lineName: "LINE name" };
+const joiningInput = { storeId: input.storeId, lineUserId: input.lineUserId, identityProvider: "line" };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -23,6 +28,27 @@ beforeEach(() => {
   mocks.tx.customerIdentityLink.findMany.mockResolvedValue([]);
   mocks.tx.user.create.mockResolvedValue({ id: "new-user" });
   mocks.tx.customer.create.mockResolvedValue({ id: "new-member" });
+  mocks.account.findUnique.mockResolvedValue({ userId: "central-user", user: { status: "ACTIVE" } });
+  mocks.store.findUnique.mockResolvedValue({ industryModule: "COURSE" });
+  mocks.customer.findFirst.mockResolvedValue(null);
+  mocks.customerIdentityLink.findFirst.mockResolvedValue(null);
+});
+
+describe("central LINE account joining a course store", () => {
+  it("offers onboarding only when there is no membership in the course store", async () => {
+    expect(await canOnboardCentralLineAccountToCourse(joiningInput)).toBe(true);
+    mocks.customer.findFirst.mockResolvedValue({ id: "existing" });
+    expect(await canOnboardCentralLineAccountToCourse(joiningInput)).toBe(false);
+    mocks.customer.findFirst.mockResolvedValue(null);
+    mocks.customerIdentityLink.findFirst.mockResolvedValue({ id: "conflict" });
+    expect(await canOnboardCentralLineAccountToCourse(joiningInput)).toBe(false);
+  });
+  it("rejects other modules and suspended global accounts", async () => {
+    mocks.store.findUnique.mockResolvedValue({ industryModule: "STEAMFOOT" });
+    expect(await canOnboardCentralLineAccountToCourse(joiningInput)).toBe(false);
+    mocks.account.findUnique.mockResolvedValue({ userId: "central-user", user: { status: "SUSPENDED" } });
+    expect(await canOnboardCentralLineAccountToCourse(joiningInput)).toBe(false);
+  });
 });
 
 describe("course LINE onboarding", () => {

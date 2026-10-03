@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff, updateStaffPermissionsAction } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
@@ -16,6 +17,7 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { CourseStaffAvailabilityEditor } from "../../../courses/course-staff-availability-editor";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,6 +35,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
   const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
+
+  const isSteamfoot = await getStoreIndustryModule(staff.storeId) === "steamfoot";
 
   // 取得該店長的現有權限
   const currentPerms = staff.isOwner
@@ -54,8 +58,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
     const result = await updateStaff(id, {
       displayName: formData.get("displayName") as string,
       colorCode: formData.get("colorCode") as string,
-      monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
-      spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true",
+      ...(!isSteamfoot ? { monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
+      spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true" } : {}),
       ...(roleValue ? { role: roleValue as "OWNER" | "PARTNER" } : {}),
     });
 
@@ -121,7 +125,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
       <div className={`grid grid-cols-1 gap-6 ${!staff.isOwner ? "lg:grid-cols-3" : ""}`}>
         {/* 基本資料 */}
         <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-1 lg:self-start">
-        <h1 className="mb-1 text-lg font-bold text-earth-900">編輯員工資料</h1>
+        <h1 className="admin-page-title mb-1">編輯員工資料</h1>
         <p className="mb-5 text-sm text-earth-400">
           {staff.user.name}（{staff.user.email}）
           <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${
@@ -172,6 +176,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
             </div>
           </div>
 
+          {isSteamfoot ? <Link href={`/dashboard/staff/${id}/rent`} className="inline-flex min-h-11 items-center text-sm text-primary-700 underline">設定空間租金與租期</Link> : <>
           <div>
             <label className="block text-sm font-medium text-earth-700">每月空間費（元）</label>
             <input
@@ -195,6 +200,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
               <option value="false">停用</option>
             </select>
           </div>
+
+          </>}
 
           <div className="flex gap-3 border-t pt-4">
             {canManageStaff && (
@@ -254,6 +261,10 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
         </div>
       )}
       </div>
+
+      {staff.courseCoachEnabled && canManageStaff && (
+        <CourseStaffAvailabilityEditor staffId={staff.id} />
+      )}
 
       {/* 統計 */}
       <div className="rounded-xl border bg-white p-4 shadow-sm">

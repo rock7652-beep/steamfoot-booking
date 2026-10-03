@@ -20,8 +20,10 @@ const OWNER = { id: "u-owner-1", storeId: "store-a", role: "OWNER", staffId: "s1
 const mockCustomerFindUnique = vi.fn();
 const mockCustomerUpdate = vi.fn();
 const mockAuditCreate = vi.fn();
+const mockCompare = vi.fn();
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: async (fn: (tx: unknown) => unknown) => fn({ customer: { updateMany: mockCompare, findFirst: mockCustomerFindUnique }, auditLog: { create: mockAuditCreate } }),
     customer: {
       findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a),
       update: (...a: unknown[]) => mockCustomerUpdate(...a),
@@ -205,4 +207,12 @@ describe("updateCustomerServiceNoteAction — 安全邊界", () => {
     });
     expect(r).toEqual({ success: true, data: undefined });
   });
+});
+
+it("compares the original customer note within its authorized store", async () => {
+  mockCompare.mockResolvedValue({count:0});
+  mockCustomerFindUnique.mockResolvedValue({id:"c1",storeId:"store-a",serviceNote:"colleague"});
+  const result=await updateCustomerServiceNoteAction({customerId:"c1",serviceNote:"mine",expectedServiceNote:"original"});
+  expect(mockCompare).toHaveBeenCalledWith({where:{id:"c1",storeId:"store-a",serviceNote:"original"},data:{serviceNote:"mine"}});
+  expect(result).toMatchObject({success:false,currentValue:"colleague"}); expect(mockAuditCreate).not.toHaveBeenCalled();
 });

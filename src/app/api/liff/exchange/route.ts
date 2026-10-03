@@ -24,6 +24,7 @@ import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { z } from "zod";
 import { signIn } from "@/lib/auth";
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
+import { canOnboardCentralLineAccountToCourse } from "@/server/services/course-line-onboarding";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import {
   LiffIdTokenError,
@@ -160,6 +161,21 @@ export async function POST(req: Request): Promise<Response> {
     customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
   } catch (error) {
     if (error instanceof LineIdentityReviewError) {
+      if (error.reason === "store_membership_unconfirmed") {
+        try {
+          if (await canOnboardCentralLineAccountToCourse({
+            storeId: store.id, lineUserId: verified.lineUserId,
+            identityProvider: context.identityProvider,
+          })) {
+            return json({ status: "need_onboarding", storeSlug: store.slug,
+              lineUserId: verified.lineUserId,
+              displayName: verified.displayName ?? null }, 200);
+          }
+        } catch {
+          // A lookup outage must not turn a real membership conflict into onboarding.
+          return json({ status: "error", code: "INTERNAL", message: "identity lookup unavailable" }, 503);
+        }
+      }
       console.warn("[liff/exchange] identity review required", { storeId: store.id, reason: error.reason });
       return json({ status: "error", code: "IDENTITY_REVIEW_REQUIRED", message: "membership verification required" }, 409);
     }

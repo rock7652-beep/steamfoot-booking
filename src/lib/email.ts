@@ -132,5 +132,26 @@ export async function sendPasswordResetEmail(
   await sendMail(email, subject, html);
 }
 
+/** Back-office recovery uses a separate token and password policy from customers. */
+export async function sendBackofficePasswordResetEmail(
+  email: string,
+  token: string,
+  storeName: string,
+  storeSlug: string,
+) {
+  const link = `${getBaseUrl()}/hq/reset-password?token=${encodeURIComponent(token)}&store=${encodeURIComponent(storeSlug)}`;
+  const safeStoreName = storeName.replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]!);
+  await sendMail(email, "蒸管家｜後台密碼重設", `
+    <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#123e32">
+      <h2>蒸管家</h2>
+      <p>您申請重設「${safeStoreName}」的後台登入密碼。</p>
+      <p><a href="${link}">設定新的後台密碼</a></p>
+      <p>連結一小時內有效，使用一次後失效。若非您本人申請，請忽略此信。</p>
+    </div>
+  `);
+}
+
 /** 檢查 email service 是否已設定 */
 export const isEmailConfigured = !!getResendApiKey();

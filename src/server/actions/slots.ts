@@ -187,6 +187,8 @@ export async function fetchMonthAvailability(
 // ============================================================
 
 export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailability[] }> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "fetchDaySlots");
   const user = await requireSession();
   const { storeId } = await resolveReadStoreContextOrThrow(user);
 

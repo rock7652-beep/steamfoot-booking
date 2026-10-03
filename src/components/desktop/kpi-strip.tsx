@@ -5,7 +5,7 @@
  *
  * 規格（對齊 design/04-phase2-plan.md §2.3）：
  *   h-10, border-b, 項目間用 ｜ 分隔
- *   label 11px earth-500，value 15px bold tabular-nums + tone 色
+   *   label 14px earth-500，value 15px bold tabular-nums + tone 色
  *   tone: amber | green | blue | primary | earth（沿用 production token）
  *
  * 使用時機：
@@ -45,7 +45,7 @@ export function KpiStrip({ items }: KpiStripProps) {
         return (
           <div key={it.label} className="flex min-h-[76px] flex-col justify-center gap-1 bg-white px-3 sm:min-h-0 sm:flex-row sm:items-center sm:gap-1 sm:bg-transparent sm:px-0 sm:whitespace-nowrap">
             {i > 0 && <span className="hidden px-2 text-earth-200 sm:inline">｜</span>}
-            <span className="text-[10px] text-earth-500 sm:text-[11px]">{it.label}</span>
+            <span className="text-sm text-earth-500">{it.label}</span>
             <span className={`text-lg font-bold tabular-nums sm:text-[15px] ${toneClass}`}>
               {it.value}
             </span>

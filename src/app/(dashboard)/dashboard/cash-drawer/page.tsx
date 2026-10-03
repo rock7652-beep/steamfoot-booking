@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell, PageHeader } from "@/components/desktop";
 
 import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { CashDrawerWorkspace } from "./cash-drawer-workspace";
 
@@ -94,7 +95,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   const canAssignStaff = !isViewMode && user.role === "ADMIN";
 
   return (
-    <PageShell className={courseHome ? "course-home mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6" : undefined}>
+    <PageShell className={courseHome ? "course-home flex w-full min-w-0 flex-col gap-4 py-6" : undefined}>
       <FormErrorToast />
 
       <PageHeader
@@ -115,8 +116,10 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
       {courseHome && <h2 className="mb-3 text-sm font-semibold text-earth-600">現金與收支</h2>}
       <CashDrawerWorkspace
         compactSetup={courseHome}
+        instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"}
         view={view}
         todayStr={todayStr}
+        storeId={storeId}
         canInit={canInit}
         canOpen={canOpen}
         canClose={canClose}

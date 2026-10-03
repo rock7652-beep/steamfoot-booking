@@ -3,8 +3,9 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), purchase: vi.fn() }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));
+vi.mock("@/components/customer-labels", () => ({ CustomerLabelsProvider: ({children}: {children: unknown}) => children, CustomerLabels: () => null }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
 vi.mock("@/server/actions/course-referral-share", () => ({ trackCourseShare: vi.fn() }));
 vi.mock("@/components/steam-butler-logo", () => ({ SteamButlerLogo: () => null }));
@@ -12,15 +13,19 @@ vi.mock("@/components/logout-button", () => ({ LogoutButton: () => null }));
 vi.mock("@/server/actions/auth", () => ({ logoutAction: vi.fn() }));
 vi.mock("@/components/course-member-contact-form", () => ({ CourseMemberContactForm: () => null }));
 vi.mock("@/components/course-health-workspace", () => ({ CourseHealthWorkspace: () => null }));
-vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: vi.fn(), markCourseCoachAttendance: m.checkIn, updateCourseBookingStatus: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: m.booking, markCourseCoachAttendance: m.checkIn, updateCourseBookingStatus: vi.fn() }));
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: m.purchase }));
+vi.mock("@/server/actions/course-companions", () => ({addCourseCompanion: vi.fn(), loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: vi.fn()}));
+vi.mock("@/server/actions/course-waitlist", () => ({joinMemberCourseWaitlist: vi.fn(), cancelMemberCourseWaitlistAction: vi.fn()}));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
-const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
-const props = () => ({ month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", cost: 2, startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
+const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, companionIndex: null, reserverName: null, canAddCompanion: false, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
+const props = () => ({ initialRole: "coach", rolePreferenceKey:"test-coach-role", month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", cost: 2, startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
 const memberProps = () => ({
   ...props(),
   memberEnabled: true,
+  initialRole: "member",
+  rolePreferenceKey: "test-member-role",
   healthEnabled: true,
   customerId: "member",
   customerName: "會員本人",
@@ -78,14 +83,14 @@ describe("coach daily work interactions", () => {
     await click("已取消預約");
     expect(host.querySelector(".cp-roster-body")?.textContent).toContain("取消學員");
   });
-  it("shows future classes without check-in or attendance actions even for previously checked-in learners", async () => {
+  it("allows attendance before class starts without a separate check-in action", async () => {
     const data = props(); data.serverNow = Date.parse("2026-09-20T09:00:00+08:00");
     await act(async () => root.render(createElement(CoursePortalClient, data)));
     await click("伸展瑜珈");
-    expect(host.textContent).toContain("尚未開課");
+    expect(host.textContent).not.toContain("尚未開課");
     expect(host.textContent).not.toContain("報到");
-    expect(host.textContent).not.toContain("待點名 2 位");
-    expect(host.querySelectorAll(".cp-attendance-actions button")).toHaveLength(0);
+    expect(host.textContent).toContain("待點名 2 位");
+    expect(host.querySelectorAll(".cp-attendance-actions button")).toHaveLength(4);
     expect(m.attendance).not.toHaveBeenCalled();
   });
   it("lets a teacher correct attendance immediately after marking it", async () => {
@@ -346,7 +351,7 @@ describe("member plan and purchase navigation", () => {
   });
   it("keeps expired cards collapsed while preserving distinct units and expiry", async () => {
     const card = (id:string, expired:boolean, unit:string) => ({id,name:id,expired,closed:false,unit,remaining:10,held:2,available:8,expiresAt:"2026-10-20T00:00:00Z",members:[],entries:[],templateIds:[]});
-    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",cards:[card("有效堂數方案",false,"SESSION"),card("過期點數方案",true,"POINT")] as unknown as CoursePortalData["cards"]})));
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialRole:"member",initialView:"plans",cards:[card("有效堂數方案",false,"SESSION"),card("過期點數方案",true,"POINT")] as unknown as CoursePortalData["cards"]})));
     expect(host.textContent).toContain("有效堂數方案");
     expect(host.textContent).not.toContain("過期點數方案");
     await click("查看已到期");
@@ -355,8 +360,8 @@ describe("member plan and purchase navigation", () => {
     expect(host.textContent).not.toContain("過期點數方案");
   });
   it("shows pending orders first and exposes completed orders only in history", async () => {
-    const order=(id:string,status:string)=>({id,name:id,status,price:500,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
-    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",orders:[order("等待確認購買","PENDING"),order("先前核帳購買","CONFIRMED")] as unknown as CoursePortalData["orders"]})));
+    const order=(id:string,status:string)=>({id,name:id,status,price:500,listPrice:null,points:4,unit:"SESSION",termSizes:[],bonus:0,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialRole:"member",initialView:"plans",orders:[order("等待確認購買","PENDING"),order("先前核帳購買","CONFIRMED")] as unknown as CoursePortalData["orders"]})));
     await click("購買方案"); await click("查看購買進度");
     expect(host.textContent).toContain("等待確認購買");
     expect(host.textContent).not.toContain("先前核帳購買");
@@ -366,31 +371,30 @@ describe("member plan and purchase navigation", () => {
     await click("我的方案");
     expect(host.textContent).toContain("可用額度＝剩餘－預約保留");
   });
-  it("shows the same personal consumption ledger from member and coach modes", async () => {
-    const consumption = [{
-      id: "use-1",
-      date: "2026-09-20T02:00:00.000Z",
-      type: "USAGE",
-      title: "伸展瑜珈",
-      detail: "上課日 2026-09-20",
-      status: "已扣抵",
-      planName: "十點方案",
-      amount: null,
-      quantity: -2,
-      unit: "點",
-    }];
-    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,consumption} as unknown as CoursePortalData)));
-    const accountButton = [...host.querySelectorAll("button")].find(button => button.textContent === "我的");
-    expect(accountButton).toBeTruthy();
-    await act(async () => accountButton!.click());
-    await click("我的消費紀錄");
-    expect(host.textContent).toContain("伸展瑜珈");
-    expect(host.textContent).toContain("已扣抵");
-    expect(host.textContent).toContain("−2 點");
+});
 
-    await click("我的工作");
-    await click("我的消費");
-    expect(host.textContent).toContain("伸展瑜珈");
-    expect(host.textContent).toContain("授課費不會列入");
+
+describe("simple companion booking", () => {
+  function bookingProps(shared = true) {
+    return {...memberProps(), initialView: "schedule" as const, companionBookingEnabled: true,
+      cards: [{id: "card-a", name: "自由選課", unit: "POINT", termSessionIds: [], templateIds: [], allowShared: shared, available: 10, expired: false, closed: false, expiresAt: "2099-12-31", members: [{id: "member", name: "本人"}]}],
+      sessions: [{id: "session", templateId: "template", name: "瑜珈", startsAt: "2026-09-20T12:00:00+08:00", coach: "教練", room: "教室", cost: 2, capacity: 3, occupied: 0, precautions: "", waitlistAllowed: false}],
+    } as unknown as CoursePortalData;
+  }
+  it("defaults to one and submits three people with both companion names empty", async () => {
+    m.booking.mockResolvedValue({success: true});
+    await act(async () => root.render(createElement(CoursePortalClient, bookingProps())));
+    await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    expect(host.querySelector('.cp-headcount button[aria-pressed="true"]')?.textContent).toBe("1 人");
+    await click("3 人");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次 3 位 · 預約保留 6 點");
+    expect(host.querySelector('.cp-headcount')?.parentElement?.querySelector('input[type="checkbox"]')).toBeNull();
+    await click("下一步"); await click("確認預約");
+    expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({sessionId: "session", cardId: "card-a", customerIds: ["member"], companionNames: ["", ""]}));
+  });
+  it("respects the existing plan sharing setting", async () => {
+    await act(async () => root.render(createElement(CoursePortalClient, bookingProps(false))));
+    await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    expect([...host.querySelectorAll<HTMLButtonElement>('.cp-headcount button')].map(button => button.disabled)).toEqual([false, true, true]);
   });
 });

@@ -11,7 +11,7 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { AppError } from "@/lib/errors";
-import { resolveEffectiveEntitlement } from "@/lib/effective-entitlement";
+import { resolveEffectiveEntitlement, type FeaturePresentationState } from "@/lib/effective-entitlement";
 import { getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
@@ -25,7 +25,7 @@ export function isFeatureKey(value: string): value is FeatureKey {
 }
 
 type StoreFeatureEntitlementFields = {
-  status: "ENABLED" | "DISABLED";
+  status: "ENABLED" | "DISABLED" | "LOCKED" | "HIDDEN";
   startsAt: Date | null;
   expiresAt: Date | null;
 };
@@ -76,11 +76,16 @@ export async function hasStoreFeature(
   if (!isFeatureKey(feature)) return false;
   if (isSpaDemoStoreId(storeId)) return true;
 
+  const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
+  // Explicit three-state controls are honored in trials; legacy DISABLED trial rules remain unchanged.
+  if (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") return false;
+  if (entitlement?.status === "ENABLED") return true;
+  // Paid add-on: trials and plan defaults must never implicitly grant this key.
+  if (feature === FEATURES.FRONTEND_PREVIEW) return false;
   const store = await getStoreForPlanByStoreId(storeId);
   if (isSingleStoreTrial(store)) return isSingleStoreFeature(feature);
   if (store.plan === "EXPERIENCE" && await getStoreIndustryModule(storeId) === "course") return isSingleStoreFeature(feature);
   const baseAllowed = hasFeature(store.plan, feature);
-  const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;
 }
 
@@ -126,4 +131,13 @@ export async function getStoreLimitsByStoreId(storeId: string): Promise<PlanLimi
 export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boolean> {
   const store = await getCurrentStoreForPlan();
   return store.id === "__all__" || hasStoreFeature(store.id, feature);
+}
+
+/** Shares the same entitlement dates and effective authorization as server actions. */
+export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
+  if (!isFeatureKey(feature)) return "HIDDEN";
+  if (isSpaDemoStoreId(storeId)) return "ENABLED";
+  const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
+  if (entitlement?.status === "HIDDEN") return "HIDDEN";
+  return await hasStoreFeature(storeId, feature) ? "ENABLED" : "LOCKED";
 }

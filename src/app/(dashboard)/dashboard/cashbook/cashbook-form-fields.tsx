@@ -4,11 +4,10 @@
  * cashbook 新增 / 編輯表單的「基本資料 + 付款方式」可互動區塊。
  *
  * 收入分類原則：系統不猜備註文字。手動收入明確選「零售商品」或「其他收入」；
- * 零售自由填寫商品名稱。支出仍保留自由分類，避免破壞既有記帳習慣。
+ * 零售再選常用方案。支出仍保留自由分類，避免破壞既有記帳習慣。
  */
 
-import { CashbookCustomerPicker } from "./_components/cashbook-customer-picker";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FormSection, FormGrid } from "@/components/desktop";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
@@ -22,11 +21,15 @@ const TYPE_LABEL: Record<CashbookEntryType, string> = {
 };
 
 const ALL_TYPES: CashbookEntryType[] = ["INCOME", "EXPENSE", "WITHDRAW", "ADJUSTMENT"];
+const RETAIL_CATEGORIES = [
+  ["零售-A計畫", "A 計畫"],
+  ["零售-B計畫", "B 計畫"],
+  ["零售-喝水計畫", "喝水計畫"],
+  ["零售-蒸足VIP", "蒸足 VIP"],
+  ["零售-其他商品", "其他商品"],
+] as const;
 
 interface Props {
-  readOnlyDate?: boolean;
-  storeId?: string;
-  defaultCustomer?: { id: string; name: string } | null;
   closedDates: string[];
   defaultEntryDate: string;
   defaultType: CashbookEntryType;
@@ -36,6 +39,8 @@ interface Props {
   allowedTypes?: CashbookEntryType[];
   /** 快速操作視窗使用：移除巢狀卡片，縮短表單。 */
   compact?: boolean;
+  onTypeChange?: (type: CashbookEntryType) => void;
+  customerField?: ReactNode;
 }
 
 const inputCls =
@@ -50,9 +55,6 @@ function initialIncomeKind(category: string): "RETAIL" | "OTHER" {
 }
 
 export function CashbookFormFields({
-  readOnlyDate = false,
-  storeId,
-  defaultCustomer = null,
   closedDates,
   defaultEntryDate,
   defaultType,
@@ -61,6 +63,8 @@ export function CashbookFormFields({
   defaultPaymentMethod,
   allowedTypes = ALL_TYPES,
   compact = false,
+  onTypeChange,
+  customerField,
 }: Props) {
   const [entryDate, setEntryDate] = useState(defaultEntryDate);
   const [entryType, setEntryType] = useState<CashbookEntryType>(defaultType);
@@ -69,7 +73,7 @@ export function CashbookFormFields({
     initialIncomeKind(defaultCategory),
   );
   const [retailCategory, setRetailCategory] = useState(
-    defaultCategory.startsWith("零售-") ? defaultCategory : "零售-",
+    defaultCategory.startsWith("零售-") ? defaultCategory : "零售-A計畫",
   );
 
   const closedSet = new Set(closedDates);
@@ -77,16 +81,11 @@ export function CashbookFormFields({
   const involvesCash = method === "CASH" || defaultPaymentMethod === "CASH";
   const needsCashConfirm = isClosed && involvesCash;
 
-  return (
-    <>
-      <FormSection title="收支內容" description={compact ? undefined : "日期、類型、金額為必填"} compact={compact}>
-        {storeId && entryType === "INCOME" && <CashbookCustomerPicker storeId={storeId} defaultCustomer={defaultCustomer} />}
-        <FormGrid>
-          <div hidden={compact && readOnlyDate}>
+  const dateField = (
+          <div>
             <label className={labelCls}>日期</label>
             <input
               type="date"
-              readOnly={readOnlyDate}
               name="entryDate"
               required
               value={entryDate}
@@ -94,13 +93,19 @@ export function CashbookFormFields({
               className={`mt-1 ${inputCls}`}
             />
           </div>
-          <div className={compact && readOnlyDate ? "sm:col-span-2" : undefined}>
+  );
+  const typeField = (
+          <div>
             <label className={labelCls}>類型</label>
             <select
               name="type"
               required
               value={entryType}
-              onChange={(e) => setEntryType(e.target.value as CashbookEntryType)}
+              onChange={(e) => {
+                const nextType = e.target.value as CashbookEntryType;
+                setEntryType(nextType);
+                onTypeChange?.(nextType);
+              }}
               className={`mt-1 ${inputCls}`}
             >
               {allowedTypes.map((t) => (
@@ -110,9 +115,8 @@ export function CashbookFormFields({
               ))}
             </select>
           </div>
-        </FormGrid>
-
-        <FormGrid>
+  );
+  const categoryField = (
           <div>
             {entryType === "INCOME" ? (
               <>
@@ -167,20 +171,21 @@ export function CashbookFormFields({
                 </div>
 
                 {incomeKind === "RETAIL" ? (
-                  <label className="mt-2 block text-sm text-earth-700">
-                    商品名稱
-                    <input aria-label="商品名稱" required maxLength={100}
-                      placeholder="例：三寶、瑜珈墊、飲品"
-                      value={retailCategory.slice(3)}
-                      onChange={e => setRetailCategory(`零售-${e.target.value}`)}
-                      className={`mt-1 ${inputCls}`} />
-                    <input type="hidden" name="category" value={`零售-${retailCategory.slice(3).trim()}`} />
-                  </label>
+                  <select
+                    name="category"
+                    value={retailCategory}
+                    onChange={(e) => setRetailCategory(e.target.value)}
+                    className={`mt-2 ${inputCls}`}
+                  >
+                    {RETAIL_CATEGORIES.map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
                 ) : (
                   <input type="hidden" name="category" value="其他收入" />
                 )}
                 <p className="mt-1 text-xs text-earth-500">
-                  {incomeKind === "RETAIL" ? "商品名稱會顯示在零售分析及顧客消費紀錄。" : "列入其他收入明細，不計入零售收入。"}
+                  系統會用這個分類計算零售趨勢，不會從備註文字猜測。
                 </p>
               </>
             ) : (
@@ -199,6 +204,8 @@ export function CashbookFormFields({
               </>
             )}
           </div>
+  );
+  const amountField = (
           <div>
             <label className={labelCls}>金額（元）</label>
             <input
@@ -212,7 +219,33 @@ export function CashbookFormFields({
               placeholder="輸入金額"
             />
           </div>
-        </FormGrid>
+  );
+
+  return (
+    <>
+      <FormSection title="基本資料" description="日期、類型、金額為必填" compact={compact}>
+        {compact ? (
+          <>
+            {dateField}
+            <FormGrid>
+              {typeField}
+              {amountField}
+            </FormGrid>
+            {customerField}
+            {categoryField}
+          </>
+        ) : (
+          <>
+            <FormGrid>
+              {dateField}
+              {typeField}
+            </FormGrid>
+            <FormGrid>
+              {categoryField}
+              {amountField}
+            </FormGrid>
+          </>
+        )}
       </FormSection>
 
       <FormSection
@@ -253,7 +286,7 @@ export function CashbookFormFields({
           </label>
         </div>
 
-        {!compact && !isClosed && (
+        {!isClosed && (
           <p className="text-xs text-earth-500">
             選「現金」會影響今日現金抽屜；選「其他」只會留下紀錄，不影響抽屜。
           </p>

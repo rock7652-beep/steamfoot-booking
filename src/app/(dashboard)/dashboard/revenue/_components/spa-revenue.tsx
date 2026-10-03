@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { SpaCustomerDrawerButton } from "../../customers/_components/spa-customer-drawer-button";
 import { SpaRevenueActions } from "./spa-revenue-actions";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -109,8 +110,7 @@ export async function SpaRevenue({
                 : " · 有效紀錄"}
           </span>
         </summary>
-        <form
-          key={from + to + method + search + kind + status}
+        <InstantFilterForm
           className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
           <label className="min-w-0 text-sm text-earth-600">
@@ -185,9 +185,7 @@ export async function SpaRevenue({
             </select>
           </label>
           <div className="flex gap-3 items-center sm:col-span-2 lg:col-span-3">
-            <button className="self-end rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] p-3 text-white">
-              套用篩選
-            </button>
+            
             <Link
               href="/dashboard/revenue"
               className="text-sm text-earth-500 underline"
@@ -195,15 +193,13 @@ export async function SpaRevenue({
               重設
             </Link>
           </div>
-        </form>
+        </InstantFilterForm>
       </details>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ["本期收款", money(data.collected)],
           ["退款", money(data.refunded)],
           ["淨收款", money(data.collected - data.refunded)],
-          ["零售收入", money(data.retail.revenue)],
-          ["總營收", money(data.totalRevenue)],
           ["完成服務", `${data.completed} 筆`],
         ].map(([label, value]) => (
           <div
@@ -219,12 +215,8 @@ export async function SpaRevenue({
       </div>
       <p className="text-sm text-earth-500">
         {from} ～ {to}
-        。總營收包含淨收款與現金帳中「零售-」分類的收入；零售共 {data.retail.transactionCount} 筆、{data.retail.customerCount} 位顧客。扣次、儲值扣款及額度退回不重複計入。完成服務與零售按日期統計，不受付款方式篩選影響。
+        。收款包含服務付款、購買方案與儲值；扣次、儲值扣款及額度退回不重複計入。完成服務按結帳時間統計，不受付款方式篩選影響。
       </p>
-      <details className="rounded-xl border border-earth-200 bg-white p-4">
-        <summary className="min-h-11 cursor-pointer font-bold">零售明細（{data.retail.items.length} 個品項）</summary>
-        {data.retail.items.length ? <ul className="divide-y divide-earth-100">{data.retail.items.map((item) => <li key={item.name} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><strong>{item.name}</strong><span>{money(item.revenue)} · {item.transactionCount} 筆 · {item.customerCount} 位顧客</span></li>)}</ul> : <p className="py-3 text-sm text-earth-500">本期零售收入為 {money(0)}。</p>}
-      </details>
       <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
         <header className="flex justify-between p-4">
           <h2 className="font-bold">交易紀錄</h2>

@@ -232,10 +232,15 @@ export async function updateCustomer(
       prismaData.assignedStaffId = data.assignedStaffId;
     }
 
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: prismaData,
-    });
+    if (data.expectedUpdatedAt) {
+      const result = await prisma.customer.updateMany({
+        where: { id: customerId, storeId: customer.storeId, updatedAt: new Date(data.expectedUpdatedAt) },
+        data: prismaData,
+      });
+      if (!result.count) throw new AppError("CONFLICT", "資料已由其他人更新，輸入已保留。請核對目前資料後再編輯。");
+    } else {
+      await prisma.customer.update({ where: { id: customerId }, data: prismaData });
+    }
 
     updateTag(CACHE_TAGS.bookingsSummary);
     revalidatePath("/dashboard/bookings");
@@ -260,10 +265,12 @@ export async function updateCustomer(
 // ============================================================
 export async function updateCustomerServiceNoteAction(
   input: z.infer<typeof updateCustomerServiceNoteSchema>,
-): Promise<ActionResult<undefined>> {
+): Promise<ActionResult<undefined> & { currentValue?: string | null }> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "updateCustomerServiceNoteAction");
   try {
     const user = await requireWritablePermission("customer.update");
-    const { customerId, serviceNote } =
+    const { customerId, serviceNote, expectedServiceNote } =
       updateCustomerServiceNoteSchema.parse(input);
 
     const customer = await prisma.customer.findUnique({
@@ -274,6 +281,19 @@ export async function updateCustomerServiceNoteAction(
     assertStoreAccess(user, customer.storeId);
     await assertStoreSubscriptionWritable(customer.storeId);
 
+    if (expectedServiceNote !== undefined) {
+      const outcome = await prisma.$transaction(async tx => {
+        const updated = await tx.customer.updateMany({ where: { id: customerId, storeId: customer.storeId, serviceNote: expectedServiceNote }, data: { serviceNote } });
+        if (updated.count !== 1) {
+          const current = await tx.customer.findFirst({ where: { id: customerId, storeId: customer.storeId }, select: { serviceNote: true } });
+          if (current && current.serviceNote === serviceNote) return null;
+          return { currentValue: current?.serviceNote ?? null };
+        }
+        await tx.auditLog.create({ data: { actorUserId: user.id, targetType: "Customer", targetId: customerId, action: "SERVICE_NOTE_UPDATED" } });
+        return null;
+      });
+      if (outcome) return { success: false, error: "備註已由其他人更新，你的輸入已保留。", ...outcome };
+    } else {
     await prisma.customer.update({
       where: { id: customerId },
       data: { serviceNote },
@@ -289,6 +309,8 @@ export async function updateCustomerServiceNoteAction(
         action: "SERVICE_NOTE_UPDATED",
       },
     });
+
+    }
 
     updateTag(CACHE_TAGS.bookingsSummary);
     revalidatePath("/dashboard/bookings/[id]", "page");

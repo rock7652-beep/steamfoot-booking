@@ -1,4 +1,7 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { SpaRevenue } from "./_components/spa-revenue";
 import { RevenueTabs } from "./_components/revenue-tabs";
 import { CourseRevenue } from "./_components/course-revenue";
@@ -129,6 +132,13 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
       canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
       canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
+  const showMonthly = Boolean(
+    revenueStoreId &&
+    (user.role === "OWNER" || user.role === "ADMIN") &&
+    await getStoreIndustryModule(revenueStoreId) === "steamfoot" &&
+    await checkPermission(user.role, user.staffId, "report.read") &&
+    await hasStoreFeature(revenueStoreId, FEATURES.SERVICE_FEE_CALCULATOR)
+  );
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
   const firstDayOfMonth = `${month}-01`;
@@ -350,8 +360,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   };
 
   return (
-    <PageShell>
-      <PageHeader
+    <PageShell compact>
+      <PageHeader compact
         title="營運"
         subtitle="營收指標、交易查詢與修正都在這一頁完成"
         actions={
@@ -366,7 +376,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         }
       />
 
-      <RevenueTabs readOnly={isViewMode} />
+      <RevenueTabs readOnly={isViewMode} showMonthly={showMonthly} />
 
       {canDataExport ? (
         <Link
@@ -398,14 +408,14 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 </p>
               </div>
 
-              <form method="GET" className="mt-2.5 grid gap-1.5 sm:mt-3 sm:gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
+              <InstantFilterForm className="mt-2.5 grid gap-1.5 sm:mt-3 sm:gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
                 <label className="text-[11px] text-earth-500">
                   開始日期
                   <input
                     name="dateFrom"
                     type="date"
                     defaultValue={dateFrom}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
                 <label className="text-[11px] text-earth-500">
@@ -414,7 +424,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                     name="dateTo"
                     type="date"
                     defaultValue={dateTo}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
                 <label className="text-[11px] text-earth-500">
@@ -422,7 +432,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   <select
                     name="transactionType"
                     defaultValue={params.transactionType ?? ""}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   >
                     <option value="">所有類型</option>
                     {Object.entries(TX_TYPE_LABEL).map(([value, label]) => (
@@ -437,7 +447,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   <select
                     name="staff"
                     defaultValue={params.staff ?? ""}
-                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
+                    className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   >
                     <option value="">全部店長</option>
                     {staffOptions.map((staff) => (
@@ -447,19 +457,14 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                     ))}
                   </select>
                 </label>
-                <button
-                  type="submit"
-                  className="min-h-10 rounded-lg bg-earth-800 px-4 text-sm font-medium text-white hover:bg-earth-900"
-                >
-                  查詢
-                </button>
+
                 <Link
                   href="/dashboard/revenue"
-                  className="flex min-h-10 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm text-earth-500 hover:bg-earth-50"
+                  className="flex min-h-11 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm text-earth-500 hover:bg-earth-50"
                 >
                   清除
                 </Link>
-              </form>
+              </InstantFilterForm>
 
               <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-primary-50 px-2.5 py-2 text-xs text-primary-800 sm:mt-3 sm:gap-2 sm:px-3">
                 <span>

@@ -56,6 +56,7 @@ export const createCustomerSchema = z.object({
 // email/gender/birthday/height 空字串會被 preprocess 成 undefined；
 // action 層會把 undefined 寫成 null 以清除 DB 欄位。
 export const updateCustomerSchema = z.object({
+  expectedUpdatedAt: z.string().datetime().optional(),
   name: z.string().trim().min(1, "請輸入姓名").max(100),
   phone: phoneSchema,
   email: emptyToUndef.pipe(
@@ -96,6 +97,7 @@ export const transferCustomerSchema = z.object({
 //     action 內 prisma 查詢 + store filter 把關）。
 //   - serviceNote：trim 後空字串 / 全空白 → null（清除）；上限 1000 字。
 export const updateCustomerServiceNoteSchema = z.object({
+  expectedServiceNote: z.string().max(1000).nullable().optional(),
   customerId: z.string().min(1),
   serviceNote: z.preprocess(
     (v) => {

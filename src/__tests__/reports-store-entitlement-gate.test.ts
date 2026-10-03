@@ -4,6 +4,13 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/server/queries/monthly-visitor-overview", () => ({ getMonthlyVisitorOverview: vi.fn().mockResolvedValue([]) }));
+
+const mockGetStoreIndustryModule = vi.fn();
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockGetStoreIndustryModule(...args) }));
+vi.mock("@/app/(dashboard)/dashboard/reports/spa-analysis-page", () => ({ SpaAnalysisPage: ({ storeId }: { storeId: string }) => React.createElement("div", { "data-spa-store": storeId }, "SPA analysis") }));
+
+const mockGetPeriodMetrics = vi.fn();
 const mockGetCurrentUser = vi.fn();
 const mockCheckPermission = vi.fn();
 const mockGetActiveStoreForRead = vi.fn();
@@ -17,6 +24,8 @@ const mockMonthlyRevenueByCategory = vi.fn();
 const mockGetCustomerFlowMetrics = vi.fn();
 const mockGetConversionMetrics = vi.fn();
 const mockGetRetentionMetrics = vi.fn();
+const mockGetTrialSourceMetrics = vi.fn();
+const mockGetRevenueMix = vi.fn();
 const mockGetStorePerformanceTrends = vi.fn();
 const mockGetReportSnapshotWithMeta = vi.fn();
 const mockUpsertReportSnapshot = vi.fn();
@@ -26,6 +35,7 @@ const mockRedirect = vi.fn((href: string) => {
 
 vi.mock("next/navigation", () => ({
   redirect: (href: string) => mockRedirect(href),
+  useRouter: () => ({ refresh: vi.fn() }),
 }));
 
 vi.mock("@/lib/session", () => ({
@@ -44,6 +54,7 @@ vi.mock("@/lib/store-view-context-server", () => ({
   resolveStoreViewContextFromCookie: (...args: unknown[]) =>
     mockResolveStoreViewContextFromCookie(...args),
   storeIdForViewContext: (...args: unknown[]) => mockStoreIdForViewContext(...args),
+  userForViewContext: (user: unknown) => user,
 }));
 
 vi.mock("@/lib/query-cache", () => ({
@@ -60,6 +71,9 @@ vi.mock("@/lib/data-export-gate", () => ({
   hasDataExportFeature: (...args: unknown[]) => mockHasDataExportFeature(...args),
 }));
 
+vi.mock("@/server/queries/analysis-period", () => ({ getAnalysisPeriodMetrics: (...args: unknown[]) => mockGetPeriodMetrics(...args) }));
+vi.mock("@/server/queries/customer-care", () => ({ getCustomerCareSummary: async () => ({ inactiveCustomers: 0, expiringPlanCustomers: 0 }) }));
+vi.mock("@/app/(dashboard)/dashboard/reports/analysis-detail-link", () => ({ AnalysisDetailLink: ({ href, children }: { href: string; children: React.ReactNode }) => React.createElement("a", { href }, children) }));
 vi.mock("@/server/queries/report", () => ({
   monthlyStoreSummary: (...args: unknown[]) => mockMonthlyStoreSummary(...args),
   monthlyRevenueByCategory: (...args: unknown[]) => mockMonthlyRevenueByCategory(...args),
@@ -70,7 +84,17 @@ vi.mock("@/server/queries/customer-flow-metrics", () => ({
 }));
 
 vi.mock("@/server/queries/conversion-metrics", () => ({
+  getMonthlyUnconvertedCustomers: async () => [],
   getConversionMetrics: (...args: unknown[]) => mockGetConversionMetrics(...args),
+}));
+
+vi.mock("@/server/queries/industry-revenue-mix", () => ({
+  getIndustryRevenueMix: (...args: unknown[]) => mockGetRevenueMix(...args),
+  getIndustrySixMonthRevenueMixTrend: () => Promise.resolve([]),
+}));
+
+vi.mock("@/server/queries/trial-source-metrics", () => ({
+  getTrialSourceMetrics: (...args: unknown[]) => mockGetTrialSourceMetrics(...args),
 }));
 
 vi.mock("@/server/queries/retention-metrics", () => ({
@@ -156,6 +180,7 @@ const OWNER = {
 
 const STORE_SUMMARY = {
   netCourseRevenue: 12000,
+  cashbookIncome: 0,
   completedBookings: 3,
   totalRefund: 0,
   staffBreakdown: [],
@@ -165,6 +190,7 @@ const REVENUE_BY_CATEGORY: unknown[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetStoreIndustryModule.mockResolvedValue("steamfoot");
   mockGetCurrentUser.mockResolvedValue(OWNER);
   mockCheckPermission.mockResolvedValue(true);
   mockGetActiveStoreForRead.mockResolvedValue("store-active");
@@ -241,7 +267,7 @@ beforeEach(() => {
       yoy: { difference: 0, percentage: 0 },
     },
   });
-  mockGetStorePerformanceTrends.mockResolvedValue(null);
+  mockGetStorePerformanceTrends.mockResolvedValue([]);
   mockGetRetentionMetrics.mockResolvedValue({
     month: "2026-07",
     returnedCustomers: {
@@ -260,8 +286,14 @@ beforeEach(() => {
       yoy: { difference: 0, percentage: 0 },
     },
   });
+  mockGetTrialSourceMetrics.mockResolvedValue([]);
+  mockGetRevenueMix.mockResolvedValue(null);
   mockGetReportSnapshotWithMeta.mockResolvedValue(null);
   mockUpsertReportSnapshot.mockResolvedValue(undefined);
+  mockGetPeriodMetrics.mockImplementation(async () => ({ metrics: {
+    ...await mockGetCustomerFlowMetrics(), ...await mockGetConversionMetrics(), ...await mockGetRetentionMetrics(),
+    completedServices: { current: 3, mom: { difference: 1, percentage: 50 }, yoy: { difference: 3, percentage: null } },
+  }}));
 });
 
 describe("ReportsPage basic_reports entitlement gate", () => {
@@ -271,39 +303,45 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     );
 
     expect(html).toContain("營運分析");
+    expect(html).not.toContain('aria-label="分析檢視"');
+    expect(html).not.toContain('aria-label="詳細分析分類"');
     expect(html).toContain("營運摘要");
-    expect(html).toContain("本期營收");
+    expect(html).toContain("已收營收");
     expect(html).toContain("完成服務");
-    expect(html).toContain("訂單數");
+    expect(html).toContain("訂單");
     expect(html).toContain("退款");
-    expect(html).toContain("營收分析");
+    expect(html).toContain('id="revenue-mix-title"');
     expect(html).toContain("店長分析");
     expect(html).not.toContain("店長明細");
     expect(html).not.toContain("收入類型</h2>");
     expect(html).not.toMatch(/基本報表|進階報表/);
     expect(html).not.toContain("經營診斷 →");
     expect(html).toContain("月結管理 →");
+    expect(html).toContain("體驗開卡率");
+    expect(html).toContain("所選期間的來客去重計算");
     expect(html).toContain("date range");
     expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
     expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
+    expect(mockGetTrialSourceMetrics).toHaveBeenCalledTimes(1);
+
   });
 
-  it("shows only the four scoped customer-flow KPIs and their comparisons", async () => {
+  it("shows scoped customer-flow comparisons on the single analysis page", async () => {
     const html = renderToStaticMarkup(
-      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
-    expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
     expect(html).toContain("客流分析");
     expect(html).toContain("本月來客數");
     expect(html).toContain("新客數");
     expect(html).toContain("舊客數");
     expect(html).toContain("體驗人次");
     expect(html).toContain("體驗組數");
-    expect(html).toContain("較上月");
-    expect(html).toContain("去年同月");
+    expect(html).toContain("較前期");
+    expect(html).toContain("去年同期");
     expect(html).toContain("基期為 0，無法比較");
-    expect(html).toContain("多人同行不再只算 1 人");
+    expect(html).toContain("所選期間的來客去重計算");
     expect(html).not.toContain("客單價");
     expect(html).toMatch(/segment=monthly-customers/);
     expect(html).toMatch(/segment=monthly-new/);
@@ -322,51 +360,78 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockGetCustomerFlowMetrics).not.toHaveBeenCalled();
     expect(mockGetConversionMetrics).not.toHaveBeenCalled();
     expect(mockGetRetentionMetrics).not.toHaveBeenCalled();
-    expect(html).toContain("HQ 全店視角暫不提供客流唯一顧客數");
-    expect(html).toContain("HQ 全店視角暫不提供成交分析");
-    expect(html).toContain("HQ 全店視角暫不提供留存分析");
+    expect(html).toContain("請先選擇店舖，避免跨店重複顧客被錯誤加總");
+    expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
   });
 
   it("shows purchase-month opening attribution below customer flow", async () => {
     const html = renderToStaticMarkup(
-      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
-    expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
     expect(html).toContain("成交分析");
     expect(html).toContain("本月體驗開卡");
     expect(html).toContain("追蹤開卡");
-    expect(html).toContain("當月總開卡");
+    expect(html).toContain("本月總開卡");
     expect(html).toContain("本月體驗開卡率");
     expect(html).toContain("未開卡人次");
-    expect(html).toContain("查看顧客 →");
     expect(html).toMatch(/segment=monthly-converted/);
     expect(html).toMatch(/segment=monthly-current-trial-converted/);
     expect(html).toMatch(/segment=monthly-tracked-converted/);
     expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
-    expect(html).toContain("開卡歸實際購買月份");
+    expect(html).toContain("不含續卡");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).not.toMatch(/成交率|客單價|來源分析/);
   });
 
   it("shows candidate-B retention KPIs and the plain-language question", async () => {
     const html = renderToStaticMarkup(
-      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "retention" }) }),
     );
 
-    expect(mockGetRetentionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
-    expect(html).toContain("留存分析");
-    expect(html).toContain("上個月來的顧客，這個月有多少人再次回來？");
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(html).toContain("顧客回流");
+    expect(html).toContain("顧客回流率");
     expect(html).toContain("本月回流人數");
-    expect(html).toContain("上月顧客回流率");
+    expect(html).toContain("顧客回流率");
     expect(html).toContain("本月未回流人數");
-    expect(html).toContain("較上月");
-    expect(html).toContain("去年同月");
+    expect(html).toContain("較前期");
+    expect(html).toContain("去年同期");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
     expect(html).toMatch(/segment=monthly-returned/);
     expect(html).toMatch(/segment=monthly-not-returned/);
-    expect(html.match(/查看顧客 →/g)).toHaveLength(9);
+    expect(html).toContain("客流分析");
+  });
+
+  it("shows all analysis sections with the same range even for an old tab URL", async () => {
+    const range = { preset: "custom", startDate: "2026-09-01", endDate: "2026-09-07", view: "detail", category: "sources" };
+    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve(range) }));
+    expect(mockGetTrialSourceMetrics).toHaveBeenCalledWith("store-active", range.startDate, range.endDate);
+    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledWith("2026-09", expect.objectContaining({ startDate: range.startDate, endDate: range.endDate }));
+    for (const heading of ["營運摘要", "營收結構與收支", "客流分析", "成交分析", "體驗預約來源", "留存分析", "店長分析"]) expect(html).toContain(heading);
+    expect(html).not.toContain('aria-label="分析檢視"');
+    expect(html).not.toContain('aria-label="詳細分析分類"');
+    expect(html).toContain("startDate=2026-09-01&amp;endDate=2026-09-07&amp;preset=custom");
+    expect(html.indexOf("營運摘要")).toBeLessThan(html.indexOf('id="revenue-mix-title"'));
+    expect(html).toContain("本期體驗開卡率");
+  });
+
+  it("keeps the original percentage cards and source conversion rates for a custom range", async () => {
+    mockGetTrialSourceMetrics.mockResolvedValueOnce([{
+      source: "LINE", label: "LINE", bookings: 2, sourceShare: 100,
+      bookedPeople: 4, attendees: 3, attendanceRate: 75,
+      assignedCustomers: 2, planRate: 66.7,
+    }]);
+    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ startDate: "2026-09-01", endDate: "2026-09-07" }) }));
+    expect(html).toContain("本期體驗開卡率");
+    expect(html).toContain("50.0%");
+    expect(html).toContain("整體體驗到店率");
+    expect(html).toContain("75.0%");
+    expect(html).toContain("方案轉換率");
+    expect(html).toContain("66.7%");
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: "2026-09-01", endDate: "2026-09-07" }), "custom");
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {
@@ -393,9 +458,9 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-active", "basic_reports");
     expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-own", "basic_reports");
     expect(mockMonthlyStoreSummary).toHaveBeenCalled();
-    expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
-    expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
-    expect(mockGetRetentionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
   });
 
   it("uses the viewed store id in multi-store view mode", async () => {
@@ -408,9 +473,9 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) });
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-viewed", "basic_reports");
-    expect(mockGetCustomerFlowMetrics).toHaveBeenCalledWith("store-viewed", expect.any(String));
-    expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-viewed", expect.any(String));
-    expect(mockGetRetentionMetrics).toHaveBeenCalledWith("store-viewed", expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String));
   });
 
   it("renders the store-aware locked copy and does not load report data when blocked", async () => {
@@ -474,7 +539,8 @@ describe("reports basic_reports source audit", () => {
 
     expect(source).toContain("monthlyStoreSummary");
     expect(source).toContain("monthlyRevenueByCategory");
-    expect(source).toContain("getReportSnapshotWithMeta");
+    expect(source).toContain("getAnalysisPeriodMetrics");
+    expect(source).not.toContain("getReportSnapshotWithMeta");
     expect(source).toContain("hasDataExportFeature");
     expect(source).toContain("hasStoreFeature(gateStoreId, FEATURES.BASIC_REPORTS)");
     expect(source).toContain("<FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS} enabled={true}>");
@@ -491,5 +557,28 @@ describe("reports basic_reports source audit", () => {
       expect(source).not.toContain("hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)");
       expect(source).not.toContain("需要 PRO 方案");
     }
+  });
+});
+
+describe("report module routing", () => {
+  it("routes the viewed SPA store before any legacy report query", async () => {
+    mockStoreIdForViewContext.mockReturnValue("spa-viewed");
+    mockGetStoreIndustryModule.mockResolvedValue("spa");
+    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }));
+    expect(mockGetStoreIndustryModule).toHaveBeenCalledWith("spa-viewed");
+    expect(html).toContain('data-spa-store="spa-viewed"');
+    expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
+    expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
+    expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
+  });
+
+  it("routes course reports with their selected period before legacy queries", async () => {
+    mockGetStoreIndustryModule.mockResolvedValue("course");
+    await expect(ReportsPage({ searchParams: Promise.resolve({ preset: "custom", startDate: "2026-09-01", endDate: "2026-09-07" }) })).rejects.toThrow("redirect:");
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining("view=analytics"));
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining("startDate=2026-09-01"));
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining("endDate=2026-09-07"));
+    expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
+    expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
   });
 });

@@ -50,7 +50,7 @@ beforeEach(() => {
   m.staff.mockResolvedValue([]);
   m.update.mockResolvedValue({ count: 1 });
   m.tx.mockImplementation(async (fn) =>
-    fn({ customer: { updateMany: m.update }, auditLog: { create: m.audit } }),
+    fn({ customer: { updateMany: m.update, findFirst: m.customer }, auditLog: { create: m.audit } }),
   );
 });
 describe("SPA customer profile scope and note updates", () => {
@@ -133,4 +133,17 @@ describe("SPA customer profile scope and note updates", () => {
     ).toBe(false);
     expect(m.tx).not.toHaveBeenCalled();
   });
+});
+
+it("returns current note on conflict without losing the submitted draft or crossing stores", async () => {
+  m.update.mockResolvedValue({count:0}); m.customer.mockResolvedValue({serviceNote:"colleague"});
+  const result=await saveSpaCustomerNote({customerId:"customer",serviceNote:"mine",previousNote:"original"});
+  expect(result).toMatchObject({success:false,currentValue:"colleague"});
+  expect(m.customer).toHaveBeenCalledWith({where:{id:"customer",storeId:"test-store"},select:{serviceNote:true}});
+  expect(m.audit).not.toHaveBeenCalled();
+});
+it("accepts the already saved value without a second audit/write", async () => {
+  m.update.mockResolvedValue({count:0}); m.customer.mockResolvedValue({serviceNote:"mine"});
+  expect((await saveSpaCustomerNote({customerId:"customer",serviceNote:"mine",previousNote:"original"})).success).toBe(true);
+  expect(m.audit).not.toHaveBeenCalled();
 });

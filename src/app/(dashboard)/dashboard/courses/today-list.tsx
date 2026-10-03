@@ -74,7 +74,7 @@ export function CourseTodayList({
         )}
       </div>
       {session && (
-        <RightSheet
+        <RightSheet presentation="centered"
           compact
           open
           onClose={() => setSelected(null)}

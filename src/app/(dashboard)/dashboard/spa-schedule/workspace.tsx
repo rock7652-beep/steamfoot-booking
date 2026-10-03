@@ -1,4 +1,6 @@
 "use client";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { CustomerLabels } from "@/components/customer-labels";
 import { createCustomer } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
 import { SpaCustomerPicker } from "./customer-picker";
@@ -7,7 +9,6 @@ import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 
 import { SpaCheckoutPanel } from "./checkout-panel";
 import { useEffect, useState, useTransition } from "react";
-import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -42,7 +43,6 @@ type Props = {
   canCreateCustomer?: boolean;
   canUpdate: boolean;
   canCheckout: boolean;
-  cashbookShortcut?: ReactNode;
 };
 const statusNames: Record<string, string> = {
   PENDING: "待確認",
@@ -403,15 +403,14 @@ export function SpaScheduleWorkspace(props: Props) {
     : null;
   return (
     <>
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">預約排程</h1>
+          <h1 className="admin-page-title">預約排程</h1>
           <p className="mt-1 text-sm text-earth-500">
             查看人員與服務位置，點選空白時段安排預約
           </p>
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2 [&>input]:min-h-11 [&>select]:min-h-11 [&>button]:min-h-11">
-          {props.cashbookShortcut}
           <input
             aria-label="排程日期"
             type="date"
@@ -566,6 +565,7 @@ export function SpaScheduleWorkspace(props: Props) {
                           <span>
                             {customers.find((c) => c.id === b.customerId)
                               ?.name ?? "顧客"}
+                            <CustomerLabels customerId={b.customerId} displayOnly readOnly/>
                             {spaPartyLabel(b) && (
                               <span className="ml-1 font-normal">
                                 · {spaPartyLabel(b)}
@@ -616,14 +616,12 @@ export function SpaScheduleWorkspace(props: Props) {
           當日預約紀錄（{bookings.length}）
         </summary>
         {bookings.map((b) => (
-          <button
-            key={b.id}
+          <div key={b.id} className="border-b border-earth-100"><button
             onClick={() => openEdit(b)}
             className="flex w-full justify-between gap-3 border-b border-earth-100 py-3 text-left text-sm"
           >
             <span>
               {b.startTime}–{b.endTime}{" "}
-              {customers.find((c) => c.id === b.customerId)?.name ?? "顧客"} ·{" "}
               {b.serviceName}
               <small className="block text-earth-500">
                 {staff.find((p) => p.id === b.serviceStaffId)?.name ??
@@ -641,7 +639,7 @@ export function SpaScheduleWorkspace(props: Props) {
                 </span>
               )}
             </span>
-          </button>
+          </button><CustomerListIdentity customerId={b.customerId} name={customers.find(c=>c.id===b.customerId)?.name ?? "顧客"} phone={customers.find(c=>c.id===b.customerId)?.phone}/></div>
         ))}
       </details>
       {checkout && (

@@ -12,6 +12,10 @@ datasource db {
 // Identity foreign keys to Store and Staff are managed in the additive SQL
 // migration. This client cannot address Steamfoot or SPA commerce tables.
 model CourseRoom {
+  rentalEnabled Boolean @default(false)
+  rentalHourlyRate Int @default(0)
+  rentalBufferMinutes Int @default(0)
+  rentals CourseRental[]
   equipment String @default("")
   location String @default("")
   id        String @id @default(cuid())
@@ -29,9 +33,36 @@ model CourseRoom {
   @@unique([storeId, name])
 }
 
+model MusicSubject {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  category String @default("")
+  description String @default("")
+  isActive Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  templates CourseTemplate[]
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+}
+
 model CourseTemplate {
+  musicSubjectId String?
+  musicSubject MusicSubject? @relation(fields: [musicSubjectId, storeId], references: [id, storeId])
+  @@index([musicSubjectId])
+
   visibility String @default("PUBLIC")
   classType String?
+  musicTeacherShare Float?
+  musicPricePerLesson Int?
+  musicTermLessons Int?
+  musicValidityDaysPerTerm Int?
+  musicScheduleMode String?
+  musicTrialMode String?
+  musicTeacherFeeBase Int?
+  waitlistEnabled Boolean @default(false)
+  waitlistLimit Int @default(5)
+  waitlistStopMinutes Int?
   id              String @id @default(cuid())
   storeId         String
   name            String
@@ -53,22 +84,38 @@ model CourseTemplate {
 }
 
 model CourseSession {
+  isTrial Boolean @default(false)
   id             String @id @default(cuid())
   storeId        String
   templateId     String
   roomId         String
   coachId        String
   nameSnapshot   String
+  teacherNote    String @default("")
+  teacherAttendance String @default("SCHEDULED")
+  teacherAttendanceAt DateTime? @db.Timestamptz(3)
+  teacherAttendanceById String?
+  teacherAttendanceReason String @default("")
+  teacherMakeupForSessionId String? @unique
   startsAt       DateTime @db.Timestamptz(3)
   endsAt         DateTime @db.Timestamptz(3)
   pointCost      Int
   capacity       Int
   cancelledAt    DateTime? @db.Timestamptz(3)
+  releasedAt     DateTime? @db.Timestamptz(3)
   requestKey     String
   requestIndex   Int
   createdById    String
   createdAt      DateTime @default(now())
+  rescheduledFromStartsAt DateTime? @db.Timestamptz(3)
+  rescheduledFromEndsAt   DateTime? @db.Timestamptz(3)
+  rescheduledFromRoomId   String?
+  rescheduledFromCoachId  String?
+  rescheduleKind          String?
+  rescheduledAt           DateTime? @db.Timestamptz(3)
+  rescheduledById         String?
   bookings       CourseBooking[]
+  moves          CourseSessionMove[]
   template       CourseTemplate @relation(fields: [templateId, storeId], references: [id, storeId])
   room           CourseRoom @relation(fields: [roomId, storeId], references: [id, storeId])
 
@@ -79,7 +126,31 @@ model CourseSession {
   @@index([storeId, roomId, startsAt])
 }
 
+model CourseSessionMove {
+  id             String @id @default(cuid())
+  storeId        String
+  sessionId      String
+  scope          String
+  fromStartsAt   DateTime @db.Timestamptz(3)
+  fromEndsAt     DateTime @db.Timestamptz(3)
+  fromRoomId     String
+  fromCoachId    String
+  toStartsAt     DateTime @db.Timestamptz(3)
+  toEndsAt       DateTime @db.Timestamptz(3)
+  toRoomId       String
+  toCoachId      String
+  actorUserId    String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  session        CourseSession @relation(fields: [sessionId, storeId], references: [id, storeId])
+
+  @@index([storeId, createdAt])
+  @@index([storeId, sessionId])
+}
+
 model CoursePointPlan {
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
+  musicTerms Int?
   storeCost Int @default(0)
   termSessionIds String[] @default([])
   customerPurchasable Boolean @default(true)
@@ -111,6 +182,12 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  musicJoinSessionId String?
+  musicManualBonus Int @default(0)
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
+  musicValidityDays Int?
+  musicActivatedAt DateTime? @db.Timestamptz(3)
   termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
@@ -141,13 +218,20 @@ model CourseCardMember {
 }
 
 model CourseBooking {
+  makeupForBookingId String?
+  @@index([makeupForBookingId, storeId], map: "CourseBooking_makeup_source_idx")
   id String @id @default(cuid())
   storeId String
   sessionId String
   cardId String?
   bookingKind String @default("CARD")
   trialPrice Int?
-  customerId String
+  customerId String?
+  companionIndex Int?
+  reserverCustomerId String?
+  reserverName String?
+  reserverCardId String?
+  groupKey String?
   operatorUserId String
   operatorCustomerId String?
   operatorName String
@@ -156,6 +240,7 @@ model CourseBooking {
   status String @default("RESERVED")
   checkedInAt DateTime? @db.Timestamptz(3)
   notes String @default("")
+  absenceKind String?
   requestKey String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -167,6 +252,7 @@ model CourseBooking {
   @@unique([storeId, requestKey])
   @@index([storeId, sessionId, status])
   @@index([storeId, cardId, status])
+  @@index([storeId, reserverCustomerId])
 }
 
 // Trial receipts never create a point card or settle attendance.
@@ -212,6 +298,10 @@ model CourseBookingRule {
 }
 
 model CoursePurchase {
+  musicJoinSessionId String?
+  musicManualBonus Int @default(0)
+  musicTermSizes Int[] @default([])
+  musicBonusLessons Int @default(0)
   storeCostSnapshot Int?
   developerProfitSnapshot Int?
   developerNameSnapshot String?
@@ -284,6 +374,9 @@ model CourseCompensationSnapshot {
   rule Json
   revision Int
   durationMinutes Int
+  musicPricePerLesson Int?
+  musicTeacherFeeBase Int?
+  musicTrialMode String?
   createdAt DateTime @default(now()) @db.Timestamptz
 }
 
@@ -305,4 +398,156 @@ model CourseFeePayment {
   voidedBy String?
   @@unique([storeId, requestKey])
   @@index([storeId, createdAt], map: "CourseFeePayment_store_created")
+}
+
+// Course-only monthly settings and immutable revisions; SQL owns FKs, checks and RLS.
+model CourseSettlementSetting {
+  storeId String @id
+  profitEnabled Boolean @default(true)
+  feeEnabled Boolean @default(true)
+  personalIncomeEnabled Boolean @default(false)
+  revision Int @default(1)
+}
+model CourseMonthlySettlement {
+  id String @id
+  storeId String
+  month String
+  revision Int
+  fingerprint String
+  snapshot Json
+  actorUserId String
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([storeId, month, revision])
+}
+model CourseProfitPayment {
+  id String @id
+  storeId String
+  purchaseId String
+  staffId String
+  staffNameSnapshot String
+  amount Int
+  method String
+  note String
+  requestKey String
+  actorUserId String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  voidedAt DateTime? @db.Timestamptz
+  voidReason String?
+  voidedBy String?
+  @@unique([storeId, requestKey])
+  @@index([storeId, purchaseId], map: "CourseProfitPayment_purchase")
+}
+
+// Identity FKs and RLS are managed by the additive SQL migration.
+model CourseMonthlyNotification {
+  id String @id
+  storeId String
+  settlementId String
+  staffId String
+  userId String
+  customerId String
+  recipientHash String
+  channel String
+  body String
+  retryKey String @unique
+  status String
+  firstAttemptAt DateTime @default(now()) @db.Timestamptz(6)
+  leaseUntil DateTime @db.Timestamptz(6)
+  sentAt DateTime? @db.Timestamptz(6)
+  actorUserId String
+  @@unique([storeId, settlementId, staffId])
+  @@index([storeId, status], map: "CourseMonthlyNotification_store_status")
+}
+
+// Server-only per-store display order; SQL migration owns FK and RLS.
+model CourseDisplayOrder {
+  storeId String
+  kind String
+  ids String[] @default([])
+  revision Int @default(0)
+  @@id([storeId, kind])
+}
+
+
+model CourseWaitlistSetting {
+  storeId String @id
+  enabled Boolean @default(false)
+  defaultLimit Int @default(5)
+  autoPromoteStopMinutes Int @default(240)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+}
+
+model CourseWaitlistEntry {
+  id String @id
+  storeId String
+  sessionId String
+  cardId String
+  customerId String?
+  companionIndex Int?
+  reserverCustomerId String?
+  reserverName String?
+  reserverCardId String?
+  customerName String
+  groupKey String
+  requestKey String
+  operatorUserId String
+  operatorCustomerId String?
+  operatorName String
+  pointCost Int
+  status String @default("WAITING")
+  promotedBookingId String?
+  failureReason String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([storeId, requestKey])
+  @@index([storeId, sessionId, status, createdAt, id])
+  @@index([storeId, sessionId, groupKey])
+  @@index([storeId, reserverCustomerId])
+}
+
+model CourseRental {
+  id String @id @default(cuid())
+  storeId String
+  roomId String
+  customerId String?
+  customerName String
+  customerPhone String
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  occupiedStartsAt DateTime @db.Timestamptz(3)
+  occupiedEndsAt DateTime @db.Timestamptz(3)
+  hourlyRateSnapshot Int
+  amount Int
+  note String @default("")
+  revision Int @default(1)
+  cancelledAt DateTime? @db.Timestamptz(3)
+  requestKey String
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  room CourseRoom @relation(fields:[roomId,storeId],references:[id,storeId])
+  payments CourseRentalPayment[]
+  @@unique([id,storeId])
+  @@unique([storeId,requestKey])
+  @@index([storeId,startsAt])
+  @@index([storeId,roomId,occupiedStartsAt])
+}
+model CourseRentalPayment {
+  id String @id @default(cuid())
+  storeId String
+  rentalId String
+  amount Int
+  paymentMethod String
+  status String @default("SUCCESS")
+  requestKey String
+  note String @default("")
+  actorUserId String
+  createdAt DateTime @default(now())
+  voidedAt DateTime?
+  voidReason String @default("")
+  rental CourseRental @relation(fields:[rentalId,storeId],references:[id,storeId])
+  @@unique([storeId,requestKey])
+  @@index([storeId,rentalId])
 }
