@@ -7,10 +7,17 @@ export type CoursePortalGuide = {
   steps: string[];
   note: string;
   healthOnly?: boolean;
+  companionOnly?: boolean;
 };
 
 /** Front-end instructions; source-reviewed, not a claim of business-flow acceptance. */
 export const coursePortalGuides: CoursePortalGuide[] = [
+  { id: "CP20", role: "member", companionOnly: true, title: "如何預約 1–3 人同行？", keywords: "多人 同行 姓名 選填 體驗 共卡 返還",
+    steps: ["選擇自由選課與可共用的方案，再選 1–3 人（含本人）。", "同行姓名與備註都可留白；核對人數、點數後按確認預約。", "現場若改體驗或使用同行者自己的方案，請教練協助調整。"],
+    note: "先由預約人保留全員額度；現場變更後釋放或返還原額度。期課不適用。" },
+  { id: "CP21", role: "coach", companionOnly: true, title: "同行者如何改體驗或本人方案？", keywords: "同行 變更 使用方式 體驗 本人方案 返還 點數",
+    steps: ["展開課程名單，在同行者下方按「變更使用方式」。", "選體驗或本人方案；本人方案需連結學員，體驗與使用預約人方案可不連結。", "確認後核對使用方式與額度，再依實際情況點名。"],
+    note: "名額保留，原方案額度自動調整；不要先取消再重約。" },
   { id: "CP01", role: "member", title: "如何預約課程？", keywords: "約課 日期 方案 上課人 滿班",
     steps: ["進入「預約」，選擇日期並開啟課程。", "核對時間、教練、教室與剩餘名額，再選可使用的方案及實際上課人。", "確認摘要後送出，到「我的預約」核對日期與上課人。"],
     note: "額度、名額或截止時間不符時無法預約；送出失敗先查我的預約，避免重複送出。" },
@@ -21,8 +28,8 @@ export const coursePortalGuides: CoursePortalGuide[] = [
     steps: ["在「我的 → 我的方案」查看剩餘、已預約保留及可用額度。", "一般預約先保留額度，確認出席後正式使用；取消成功再核對釋放紀錄。", "展開使用紀錄，對照原課次與異動時間。"],
     note: "未到與出席不同，請依方案及店家規則核對；固定期課未到仍扣堂，不提供補課券。不能把未到當成免費取消。" },
   { id: "CP04", role: "member", title: "如何替共卡成員預約？", keywords: "共卡 代約 家人 多人 成員",
-    steps: ["先到「我的 → 共卡成員」確認方案及已授權成員。", "選課與方案後，在實際上課人勾選本次要上課的人，核對人數及額度。", "送出後，到我的預約核對每一位學員；查看共卡紀錄時切換對應範圍。"],
-    note: "沒有成員時請店家協助設定，不能自行填姓名代替授權。共卡不開放別人的健康資料。" },
+    steps: ["先到「我的 → 共卡成員」確認方案及已授權成員。", "依畫面選預約人數或勾選實際上課人，核對人數及額度。", "送出後，到我的預約核對每一位學員；查看共卡紀錄時切換對應範圍。"],
+    note: "運動自由選課另可依同行人數預約，姓名選填；需要指定共卡成員時，仍須由店家授權。共卡不開放別人的健康資料。" },
   { id: "CP05", role: "member", title: "有剩餘額度，為什麼還是不能預約？", keywords: "不足 過期 到期 停用 適用 期課",
     steps: ["在我的方案核對可用額度，扣除已被其他預約保留的部分。", "確認方案到期日、適用課程及是否停用；點數與堂數分開看。", "再核對課程名額與預約截止時間；需要時把提示提供給店家。"],
     note: "固定期方案對應指定課次，不能把剩餘堂數拿去約任意課程。歷史方案可展開「已到期／停用方案」查看。" },
@@ -70,9 +77,9 @@ export const coursePortalGuides: CoursePortalGuide[] = [
     note: "候補不先扣堂；有空位時依加入順序處理，同行者視為一組且不拆開。遞補成功才正式保留額度並嘗試發 LINE。取消會讓同次同行候補者一起退出；沒收到通知時先查我的預約，不要重複候補。" },
 ];
 
-export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnabled: boolean, query = "") {
+export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnabled: boolean, query = "", companionEnabled = false) {
   const terms = query.normalize("NFKC").trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return coursePortalGuides.filter(g => g.role === role && (!g.healthOnly || healthEnabled)).filter(g => {
+  return coursePortalGuides.filter(g => g.role === role && (!g.healthOnly || healthEnabled) && (!g.companionOnly || companionEnabled)).filter(g => {
     const text = [g.title, g.keywords, ...g.steps, g.note].join(" ").normalize("NFKC").toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });

@@ -395,6 +395,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       bookings: s.bookings.map((b) => ({
         id: b.id,
         customerId: b.customerId,
+        cardId: b.cardId,
         companionIndex: b.companionIndex,
         reserverName: b.reserverName,
         canAddCompanion: !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,

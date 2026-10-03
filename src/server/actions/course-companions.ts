@@ -1,5 +1,6 @@
 "use server";
 import { z } from "zod";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { courseAccount, courseManager, courseTransaction } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
@@ -56,12 +57,18 @@ export async function saveCourseCompanionUsage(input: unknown) {
       if (!settings.trialEnabled) throw new AppError("FORBIDDEN", "店家體驗功能已關閉");
       trialPrice = clampTrialTotal(undefined, 1, settings);
     }
-    await courseTransaction(storeId, async tx => {
+    const receipt = await courseTransaction(storeId, async tx => {
       await authorize(tx, storeId, user.id, data.bookingId, data.coach);
-      return changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {...data, trialPrice});
+      const before = await tx.courseBooking.findFirstOrThrow({where: {id: data.bookingId, storeId}, select: {cardId: true, pointCost: true}});
+      const updated = await changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {...data, trialPrice});
+      const cards = await tx.coursePointCard.findMany({where: {storeId, id: {in: [before.cardId, updated.cardId].filter((id): id is string => !!id)}}, include: {bookings: {where: {status: "RESERVED"}, select: {pointCost: true}}}});
+      const balances = cards.map(card => ({id: card.id, available: card.closedAt || card.expiresAt < new Date() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((sum, b) => sum + b.pointCost, 0))}));
+      const card = cards.find(card => card.id === updated.cardId);
+      return {booking: {id: updated.id, cardId: updated.cardId, customerId: updated.customerId, customerName: updated.customerName, updatedAt: updated.updatedAt.toISOString(), cost: updated.pointCost, unit: card?.unit ?? "TRIAL", planName: card?.nameSnapshot ?? "體驗（不使用方案）", available: balances.find(b => b.id === updated.cardId)?.available ?? null, expiresAt: card?.expiresAt.toISOString() ?? null}, balances,
+        returned: before.cardId && before.cardId !== updated.cardId ? {amount: before.pointCost, unit: cards.find(card => card.id === before.cardId)?.unit ?? "POINT"} : null, confirmedAt: Date.now()};
     });
-    refresh();
-    return {success: true as const};
+    after(() => refresh());
+    return {success: true as const, receipt};
   } catch (error) { return handleActionError(error); }
 }
 

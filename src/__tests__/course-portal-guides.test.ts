@@ -9,6 +9,11 @@ describe("course portal guide access and search", () => {
     expect(findCoursePortalGuides("coach", true).every(g => g.role === "coach")).toBe(true);
     expect(new Set(coursePortalGuides.map(g => g.id)).size).toBe(coursePortalGuides.length);
   });
+  it("shows companion instructions only when enabled and keeps them searchable", () => {
+    expect(findCoursePortalGuides("member", false, "姓名 選填", true).map(g=>g.id)).toContain("CP20");
+    expect(findCoursePortalGuides("coach", false, "返還", true).map(g=>g.id)).toContain("CP21");
+    expect(findCoursePortalGuides("coach", false, "返還").map(g=>g.id)).not.toContain("CP21");
+  });
   it("hides health instructions when the feature is unavailable", () => {
     expect(findCoursePortalGuides("member", false)).toHaveLength(11);
     expect(findCoursePortalGuides("member", false).some(g => g.healthOnly)).toBe(false);

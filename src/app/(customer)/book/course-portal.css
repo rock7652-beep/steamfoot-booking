@@ -640,3 +640,12 @@
 .cp-headcount { display: flex; gap: 8px; margin: 8px 0; }
 .cp-headcount button { flex: 1; min-height: 44px; }
 .cp-headcount button[aria-pressed="true"] { background: var(--cp-primary, #39584b); color: #fff; }
+
+/* Keep mobile search and course headings readable without squeezing controls. */
+.cp-guide-search { display: grid; gap: 8px; }
+.cp-guide-search input { width: 100%; min-width: 0; }
+.cp-menu > span:first-child { min-width: 0; flex: 1; }
+.cp-menu > span:last-child { flex-shrink: 0; white-space: nowrap; }
+.cp-course-cost { display: block; }
+
+.course-portal .cp-menu small { font-size: 14px; }

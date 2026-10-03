@@ -5,10 +5,11 @@ import { addCourseCompanion, loadCourseCompanionUsage, saveCourseCompanionUsage 
 
 type Result = Awaited<ReturnType<typeof loadCourseCompanionUsage>>;
 type Data = Extract<Result, {success: true}>["data"];
+export type CompanionUsageReceipt = Extract<Awaited<ReturnType<typeof saveCourseCompanionUsage>>, {receipt: unknown}>["receipt"];
 const field = "min-h-11 w-full rounded-lg border px-3 py-2 text-base";
 const button = "min-h-11 rounded-lg border px-4 py-2 text-sm disabled:opacity-50";
 
-export function CourseCompanionEditor({bookingId, coach = false, add = false, onClose, onSaved}: {bookingId: string; coach?: boolean; add?: boolean; onClose: () => void; onSaved: () => void}) {
+export function CourseCompanionEditor({bookingId, coach = false, add = false, onClose, onSaved}: {bookingId: string; coach?: boolean; add?: boolean; onClose: () => void; onSaved: (receipt?: CompanionUsageReceipt) => void}) {
   const [data, setData] = useState<Data | null>(null);
   const [mode, setMode] = useState<"RESERVER" | "TRIAL" | "MEMBER">("RESERVER");
   const [customerId, setCustomerId] = useState("");
@@ -44,7 +45,7 @@ export function CourseCompanionEditor({bookingId, coach = false, add = false, on
     try {
       const result = add ? await addCourseCompanion({bookingId, coach, name, requestKey: key.current}) : await saveCourseCompanionUsage({bookingId, coach, mode, customerId: customerId || undefined, cardId: mode === "MEMBER" ? cardId : undefined, expectedUpdatedAt: data!.booking.updatedAt, requestKey: key.current});
       if (!result.success) { setError(result.error); return; }
-      onSaved(); onClose();
+      onSaved("receipt" in result ? result.receipt as CompanionUsageReceipt : undefined); onClose();
     } catch { setError("儲存結果尚未確認，請重試"); }
     finally { lock.current = false; setBusy(false); }
   }
