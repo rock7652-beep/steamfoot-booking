@@ -1,4 +1,4 @@
-import { CustomerLabelsSettingsLink } from "@/components/customer-labels";
+import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -159,6 +159,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
 
   const commonNotificationRows = (
     <>
+      <CustomerLabelsSettings />
       <SettingsListRow title="提醒管理" summary={remindersLine} href="/dashboard/settings?panel=reminders&panelQuery=tab%3Dcustomer" action="管理" />
       <SettingsListRow
         title="推薦分享"
@@ -274,7 +275,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
         sections={sections}
       />
 
-      <CustomerLabelsSettingsLink />
       {params.panel === "reminders" ? (
         <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders">
           <RemindersPage
