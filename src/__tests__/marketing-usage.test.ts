@@ -12,7 +12,7 @@ import { GET } from "@/app/api/cron/marketing-usage/route";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.query.mockResolvedValue([{ stores: 3n, customers: 328n, completed_people: 1631n }]);
+  mocks.query.mockResolvedValue([{ stores: BigInt(3), customers: BigInt(328), completed_people: BigInt(1631) }]);
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -28,7 +28,7 @@ describe("marketing usage daily refresh", () => {
     expect((await calculateMarketingUsage(new Date("2026-10-02T15:59:59Z"))).asOf).toBe("2026-10-01");
   });
   it("rejects invalid counts instead of publishing or caching them", async () => {
-    mocks.query.mockResolvedValue([{ stores: 3n, customers: -1n, completed_people: 1631n }]);
+    mocks.query.mockResolvedValue([{ stores: BigInt(3), customers: BigInt(-1), completed_people: BigInt(1631) }]);
     await expect(calculateMarketingUsage()).rejects.toThrow("Invalid marketing usage aggregate");
   });
   it("does not query preview data", async () => {
