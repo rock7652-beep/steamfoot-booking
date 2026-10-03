@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPublicAddonOffer, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
+import { getPublicAddonOffer, getPublicAnnualSavings, getPublicOfferHighlights, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
 import { MarketingIcon } from "./marketing-icon";
 
 function useNow(initialNow: number) {
@@ -20,7 +20,7 @@ function useNow(initialNow: number) {
   return now;
 }
 const money = (amount: number) => amount.toLocaleString("zh-TW");
-const annualSavings = (plan: (typeof PUBLIC_PRICING_PLANS)[number]) => Number(plan.original.replaceAll(",", "")) * 12 - plan.annual;
+const annualSavings = getPublicAnnualSavings;
 
 export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; trialUrl: string }) {
   const offer = getPublicPricingOffer(useNow(initialNow));
@@ -100,4 +100,21 @@ export function AddonRate({ initialNow, original }: { initialNow: number; origin
   const offer = getPublicAddonOffer(useNow(initialNow));
   const monthly = original === 500 ? offer.toolMonthly : offer.businessMonthly;
   return <>{offer.active && <span className="mr-2 line-through">原價 NT${original}／月</span>}<span className="font-semibold">{offer.active ? "年繳優惠月費" : "年繳計價月費"}每項 NT${monthly}／月</span>{offer.active && <span className="block font-semibold text-[#805C1B]">每項年繳省 NT${money((original - monthly) * 12)}</span>}<span className="block">年繳 NT${money(monthly * 12)}，使用 {offer.months} 個月。{offer.active && "10/31 前完成付款，首次購買期間適用；續約恢復原價。"}</span><a href="/pricing#addons" className="underline underline-offset-4">查看加購費用與優惠說明 →</a></>;
+}
+
+export function HomepageOffer({ initialNow }: { initialNow: number }) {
+  const offer = getPublicOfferHighlights(useNow(initialNow));
+  return <aside aria-labelledby="home-offer-title" className="rounded-2xl bg-[#123E32] px-5 py-4 text-[#F8F5EE] sm:p-6">
+    <h3 id="home-offer-title" className="text-xl font-semibold">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "限時優惠，年繳更划算。" : "年繳更划算。"}</h3>
+    <dl className="mt-3 grid gap-3 sm:mt-4 sm:gap-4">
+      <div><dt className="text-base text-[#D4E0D8]">主方案年繳最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.annualSavings)}</dd></div>
+      {offer.addonSavings > 0 && <div><dt className="text-base text-[#D4E0D8]">加購功能年繳，每項最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.addonSavings)}</dd></div>}
+    </dl>
+    {offer.bonusMonths > 0 && <p className="mt-3 text-base font-semibold sm:mt-4">年繳再送 {offer.bonusMonths} 個月</p>}
+    <div className="mt-3 border-t border-white/15 pt-2 text-sm leading-5 text-[#D4E0D8] sm:leading-6">
+      <p>省額依方案{offer.addonSavings > 0 ? "／加購項目" : ""}而定。</p>
+      {(offer.addonSavings > 0 || offer.bonusMonths > 0) && <p>{offer.addonSavings > 0 && <span className="block">加購優惠至 2026/10/31</span>}{offer.bonusMonths > 0 && <span className="block">贈送月份至 2026/12/31</span>}期限前完成付款，自正式啟用日起算。</p>}
+    </div>
+    <a href="/pricing" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#F5EEDC] px-5 py-2 text-base font-semibold text-[#123E32] hover:bg-[#ECD5A4] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ECD5A4] sm:w-auto">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "查看優惠詳情" : "查看方案詳情"}<span aria-hidden="true" className="ml-2">→</span></a>
+  </aside>;
 }

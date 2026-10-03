@@ -24,3 +24,17 @@ export function getPublicAddonOffer(now: number) {
     countdown: active ? countdownOffer.countdown : [0, 0, 0, 0],
     toolMonthly: active ? 300 : 500, businessMonthly: active ? 500 : 800 };
 }
+
+export function getPublicAnnualSavings(plan: (typeof PUBLIC_PRICING_PLANS)[number]) {
+  return Number(plan.original.replaceAll(",", "")) * 12 - plan.annual;
+}
+
+export function getPublicOfferHighlights(now: number) {
+  const annual = getPublicPricingOffer(now);
+  const addon = getPublicAddonOffer(now);
+  return {
+    annualSavings: Math.max(...PUBLIC_PRICING_PLANS.map(getPublicAnnualSavings)),
+    addonSavings: addon.active ? Math.max(500 - addon.toolMonthly, 800 - addon.businessMonthly) * 12 : 0,
+    bonusMonths: annual.months - 12,
+  };
+}
