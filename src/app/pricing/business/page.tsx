@@ -93,11 +93,11 @@ export default function BusinessPage() {
         </section>
 
         <section id="testimonials" aria-labelledby="testimonials-title" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-7 sm:px-8">
-          <div className="grid items-center gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="grid items-center gap-5 lg:grid-cols-[minmax(240px,0.55fr)_1fr] lg:gap-8">
             <div>
               <p className="text-sm font-medium text-[#74603C]">店家使用心得</p>
               <h2 id="testimonials-title" className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">每天在用的店長，<br className="hidden sm:block" />怎麼說？</h2>
-              <p className="mt-3 text-base leading-7 text-[#4C6259]">從現場的日常安排，聽聽店長的實際感受。</p>
+              <p className="mt-3 max-w-xs text-base leading-7 text-[#4C6259]">從現場的日常安排，聽聽店長的實際感受。</p>
             </div>
             <StoreTestimonial />
           </div>
