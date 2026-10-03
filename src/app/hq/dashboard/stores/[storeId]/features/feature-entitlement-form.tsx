@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import { getStoreFeatureSourceLabel } from "@/lib/store-feature-catalog";
 import {
   saveStoreFeatureEntitlementAction,
   type StoreFeatureEntitlementFormState,
 } from "@/server/actions/store-feature-entitlement";
 
-type FeatureEntitlementFormProps = {
+export type FeatureEntitlementFormProps = {
   storeId: string;
   featureKey: string;
   override: "INHERIT" | "ENABLED" | "DISABLED" | "LOCKED" | "HIDDEN";
@@ -15,6 +15,7 @@ type FeatureEntitlementFormProps = {
   startsAt: string;
   expiresAt: string;
   note: string;
+  onEditState?: (state: { dirty: boolean; pending: boolean }) => void;
 };
 
 const initialState: StoreFeatureEntitlementFormState = {
@@ -32,22 +33,39 @@ export function FeatureEntitlementForm({
   startsAt,
   expiresAt,
   note,
+  onEditState,
 }: FeatureEntitlementFormProps) {
   const [state, action, pending] = useActionState(
     saveStoreFeatureEntitlementAction,
     initialState,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const baseline = useRef<string | null>(null);
+  const lastResult = useRef(state);
+  useEffect(() => {
+    if (!formRef.current) return;
+    const value = JSON.stringify([...new FormData(formRef.current).entries()].filter(([key]) => !key.startsWith("$ACTION")));
+    if (baseline.current === null || (state !== lastResult.current && state.success)) baseline.current = value;
+    lastResult.current = state;
+    onEditState?.({ dirty: value !== baseline.current, pending });
+  }, [state, pending, onEditState]);
 
   const isAnalysis = featureKey === "basic_reports";
 
   return (
     <form
+      ref={formRef}
       action={action}
+      onChange={() => {
+        if (!formRef.current) return;
+        const value = JSON.stringify([...new FormData(formRef.current).entries()].filter(([key]) => !key.startsWith("$ACTION")));
+        onEditState?.({ dirty: value !== baseline.current, pending });
+      }}
       className="grid gap-3 rounded-md border border-earth-100 bg-earth-50/40 p-3"
     >
       <input type="hidden" name="storeId" value={storeId} />
       <input type="hidden" name="featureKey" value={featureKey} />
-
+      <fieldset disabled={pending} className="contents">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={isAnalysis ? "分析功能" : "單店覆寫"} htmlFor={`${featureKey}-override`}>
           <select
@@ -126,7 +144,7 @@ export function FeatureEntitlementForm({
           {pending ? "儲存中" : "儲存"}
         </button>
       </div>
-
+      </fieldset>
       {(state.error || state.success) && (
         <p
           className={`rounded-md px-2 py-1 text-sm ${

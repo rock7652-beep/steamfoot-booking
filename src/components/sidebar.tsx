@@ -183,7 +183,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     requiredFeature: FEATURES.FRONTEND_PREVIEW,
     label: "前台預覽",
     permission: "customer.read",
-    icon: <span aria-hidden="true">▣</span>,
+    icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="6" y="2" width="12" height="20" rx="2" /><path strokeLinecap="round" d="M10 5h4m-3 14h2" /></svg>,
     },
   {
     href: "/dashboard/device-preview",
@@ -498,7 +498,7 @@ export const NAV_GROUPS: NavGroup[] = [
         requiredFeature: FEATURES.FRONTEND_PREVIEW,
         label: "前台預覽",
         permission: "customer.read",
-        icon: <span aria-hidden="true">▣</span>,
+        icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="6" y="2" width="12" height="20" rx="2" /><path strokeLinecap="round" d="M10 5h4m-3 14h2" /></svg>,
         },
       {
         href: "/dashboard/device-preview",

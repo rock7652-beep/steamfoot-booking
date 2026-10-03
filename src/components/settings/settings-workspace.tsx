@@ -67,6 +67,7 @@ export function SettingsListRow({
   href,
   action = "設定",
   controls,
+  columns,
   expanded,
   keepMounted = false,
   onEdit,
@@ -74,6 +75,7 @@ export function SettingsListRow({
 }: {
   title: string;
   summary: string;
+  columns?: Array<{ label: string; content: ReactNode }>;
   href?: string;
   action?: string;
   controls?: ReactNode;
@@ -85,18 +87,19 @@ export function SettingsListRow({
   const showChildren = expanded === undefined ? true : expanded;
   return (
     <section className="min-w-0 border-b border-earth-100 last:border-0">
-      <div className="grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]">
+      <div className={columns ? "grid min-h-16 items-center gap-3 py-2 lg:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 md:grid-cols-[200px_minmax(0,1fr)_200px]"}>
         <h3 className="truncate text-sm font-semibold text-primary-900">{title}</h3>
-        <p className="min-w-0 truncate text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>
-        <div className="flex w-[200px] items-center justify-end gap-2">
+        {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500">{column.label}</p>{column.content}</div>)}</div> : <p className="min-w-0 truncate text-sm tabular-nums text-earth-600" title={summary}>{summary}</p>}
+        <div className={`flex items-center justify-end gap-2 ${columns ? "" : "w-[200px]"}`}>
           {controls}
-          {onEdit && !expanded ? (
+          {onEdit && (!expanded || columns) ? (
             <button
               type="button"
               onClick={onEdit}
+              aria-expanded={expanded}
               className="inline-flex min-h-10 min-w-24 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
-              修改
+              {expanded ? "收合" : "修改"}
             </button>
           ) : null}
           {href ? (
@@ -111,7 +114,7 @@ export function SettingsListRow({
         </div>
       </div>
       {(showChildren || keepMounted) && children ? (
-        <div hidden={!showChildren} className="border-t border-earth-100 pb-3 pt-3 md:ml-[216px]">{children}</div>
+        <div hidden={!showChildren} className={`border-t border-earth-100 pb-3 pt-3 ${columns ? "" : "md:ml-[216px]"}`}>{children}</div>
       ) : null}
     </section>
   );
