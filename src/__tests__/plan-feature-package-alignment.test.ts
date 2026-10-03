@@ -4,6 +4,7 @@ import {
   PRICING_PLAN_INFO,
   hasFeature,
   type FeatureKey,
+  getRequiredPlan,
 } from "@/lib/feature-flags";
 import { MANAGEABLE_STORE_FEATURES } from "@/lib/store-feature-catalog";
 import { resolveEffectiveEntitlement } from "@/lib/effective-entitlement";
@@ -24,8 +25,15 @@ describe("plan feature package alignment", () => {
     }).enabled).toBe(false);
   });
 
-  it("does not add LIFF to the trial plan", () => {
-    expect(hasFeature("EXPERIENCE", FEATURES.MEMBER_PORTAL)).toBe(false);
+  it("includes every single-store feature in the trial plan", () => {
+    const excluded = new Set<FeatureKey>([FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS, FEATURES.COACH_REVENUE, FEATURES.SPONSOR_TREE]);
+    for (const feature of Object.values(FEATURES)) {
+      expect(hasFeature("EXPERIENCE", feature), feature).toBe(!excluded.has(feature));
+    }
+  });
+  it("suggests paid upgrades instead of downgrading to the trial", () => {
+    expect(getRequiredPlan(FEATURES.CUSTOMER_CARE)).toBe("GROWTH");
+    expect(getRequiredPlan(FEATURES.MULTI_STORE)).toBe("ALLIANCE");
   });
   it("keeps 基本版 tool and management modules as per-store add-ons", () => {
     expectUnavailable("BASIC", [
@@ -56,21 +64,21 @@ describe("plan feature package alignment", () => {
 
   it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
     for (const feature of MANAGEABLE_STORE_FEATURES.filter(
-      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS])).has(feature.key),
+      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.CUSTOMER_LABELS])).has(feature.key),
     )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
-    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS]) {
+    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.CUSTOMER_LABELS]) {
       expect(hasFeature("ALLIANCE", feature)).toBe(false);
     }
   });
 
   it.each(["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const)("resolves analysis plan defaults and store overrides for %s", (plan) => {
     const included = hasFeature(plan, FEATURES.BASIC_REPORTS);
-    expect(included).toBe(plan === "GROWTH" || plan === "ALLIANCE");
+    expect(included).toBe(plan !== "BASIC");
     expect(resolveEffectiveEntitlement(included, null).enabled).toBe(included);
     expect(resolveEffectiveEntitlement(included, { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
     expect(resolveEffectiveEntitlement(included, { status: "DISABLED", startsAt: null, expiresAt: null }).enabled).toBe(false);

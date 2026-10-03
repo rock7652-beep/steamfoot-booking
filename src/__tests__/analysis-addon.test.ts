@@ -5,7 +5,7 @@ import { resolveStoreFeatureDisplayState } from "@/lib/store-feature-catalog";
 describe("independent analysis addon", () => {
   for (const plan of ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const) {
     it(`${plan} respects plan inclusion, grants, disable and expiry`, () => {
-      const included = plan === "ALLIANCE";
+      const included = plan !== "BASIC";
       expect(hasFeature(plan, FEATURES.BASIC_REPORTS)).toBe(included);
       const now = new Date("2026-09-08T00:00:00Z");
       const grant = { status: "ENABLED" as const, source: "ADDON" as const, startsAt: null, expiresAt: null };
