@@ -1,4 +1,4 @@
-type Booking = { status: string; absenceKind?: string | null; customerId: string; assignedCoachId?: string | null };
+type Booking = { status: string; absenceKind?: string | null; customerId: string | null; assignedCoachId?: string | null };
 
 /** A leave is retained in the class register even when its seat is released. */
 export function scheduleRosterBookings<T extends Booking>(bookings: T[]): T[] {

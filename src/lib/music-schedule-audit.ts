@@ -10,8 +10,8 @@ type ScheduleSession = {
   isFixed?: boolean;
   previewFaded?: string;
   previewKind?: string;
-  bookings: { status: string; customerId: string; absenceKind?: string | null }[];
-  displayBookings?: { status: string; customerId: string; absenceKind?: string | null }[];
+  bookings: { status: string; customerId: string | null; absenceKind?: string | null }[];
+  displayBookings?: { status: string; customerId: string | null; absenceKind?: string | null }[];
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;

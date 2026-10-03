@@ -18,7 +18,7 @@ export function courseDate(startsAt: string) {
 
 /** Mark the learner, never the person who submitted the booking. */
 export function courseMemberMarkers(
-  bookings: { customerId: string; status: string }[],
+  bookings: { customerId: string | null; status: string }[],
   customerId: string,
 ) {
   const active = bookings.filter(
@@ -31,11 +31,11 @@ export function courseMemberMarkers(
 }
 
 export function coursePeople(
-  bookings: { customerId: string; status: string }[],
+  bookings: { customerId: string | null; status: string }[],
 ) {
   const active = bookings.filter((b) => b.status !== "CANCELLED");
   return {
-    people: new Set(active.map((b) => b.customerId)).size,
+    people: new Set(active.flatMap((b) => b.customerId ? [b.customerId] : [])).size + active.filter(b => !b.customerId).length,
     visits: active.length,
   };
 }

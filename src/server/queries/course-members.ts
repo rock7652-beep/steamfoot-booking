@@ -25,7 +25,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       storeId,
       id: {
         in: [
-          ...new Set(cards.flatMap((c) => c.members.map((m) => m.customerId))),
+          ...new Set(cards.flatMap((c) => c.members.map((m) => m.customerId).filter((id): id is string => !!id))),
         ],
       },
     },
@@ -70,6 +70,9 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     select: {
       id: true,
       customerId: true,
+      companionIndex: true,
+      reserverName: true,
+      reserverCustomerId: true,
       operatorCustomerId: true,
       operatorName: true,
       createdAt: true,
@@ -84,7 +87,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
+      card: { select: { musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { allowShared: true, points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
@@ -96,21 +99,21 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
     : Promise.resolve(0),
     prisma.customer.findMany({
-    where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
+    where: { storeId, id: { in: bookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
     select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
   }),
   coursePrisma.courseBooking.groupBy({
     by: ["customerId"],
-    where: {storeId, customerId:{in:bookings.map(b=>b.customerId)}, OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
+    where: {storeId, customerId:{in:bookings.map(b=>b.customerId).filter((id): id is string => !!id)}, OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
     _count: {id:true},
   }),
   coursePrisma.courseBooking.findMany({
-    where: {storeId,customerId:{in:bookings.map(b=>b.customerId)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
+    where: {storeId,customerId:{in:bookings.map(b=>b.customerId).filter((id): id is string => !!id)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
     select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
     orderBy:{session:{startsAt:"desc"}},
   }),
   coursePrisma.coursePurchase.findMany({
-    where: { storeId, customerId: { in: bookings.map((item) => item.customerId) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
+    where: { storeId, customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
     select: { customerId: true, cardId: true, points: true, price: true, paymentMethod: true, confirmedAt: true },
   }),
   ]);
@@ -118,7 +121,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
   const renewalCards = await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
-    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
+    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
   });
   return bookings.map(({ card, checkedInAt, ...b }) => {
     const currentPurchase = confirmedPurchases.find((purchase) => purchase.customerId === b.customerId && purchase.cardId === b.cardId);
@@ -196,7 +199,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     }),
     planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : "體驗（不使用方案）"),
     sharedCard: (card?.members.length ?? 0) > 1,
-    bookingSource: b.operatorCustomerId
+    canAddCompanion: !b.companionIndex && !!b.customerId && !!card?.plan.allowShared && !card.termSessionIds.length,
+    bookingSource: b.companionIndex ? `同行 · 預約人 ${b.reserverName ?? b.operatorName}` : b.operatorCustomerId
       ? b.operatorCustomerId === b.customerId
         ? "本人預約"
         : `${b.operatorName ?? "共卡成員"}代約`

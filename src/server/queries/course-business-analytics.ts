@@ -45,13 +45,13 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
   const customerMap=new Map(customers.map(c=>[c.id,c.assignedStaffId]));
   const salesIncome=records.purchases.filter(p=>p.confirmedAt && p.confirmedAt>=start && matches(p.revenueStaffId)).reduce((n,p)=>n+p.price,0);
   const refund=records.refunds.filter(r=>r.createdAt>=start&&matches(r.purchase.revenueStaffId)).reduce((n,r)=>n+r.amount,0);
-  const trialIncome=records.receipts.filter(r=>matches(customerMap.get(r.booking.customerId)??null)).reduce((n,r)=>n+(r.createdAt>=start&&r.createdAt<=end?r.amount:0)-(r.voidedAt&&r.voidedAt>=start&&r.voidedAt<=end?r.amount:0),0);
+  const trialIncome=records.receipts.filter(r=>matches(customerMap.get(r.booking.customerId ?? "")??null)).reduce((n,r)=>n+(r.createdAt>=start&&r.createdAt<=end?r.amount:0)-(r.voidedAt&&r.voidedAt>=start&&r.voidedAt<=end?r.amount:0),0);
   const dailyMoney=new Map<string,number>();
   const addMoney=(date:Date,amount:number)=>{const key=toLocalDateStr(date);dailyMoney.set(key,(dailyMoney.get(key)??0)+amount);};
   if(access.money&&scope.view!=="coach") {
     for(const p of records.purchases)if(p.confirmedAt&&p.confirmedAt>=moneyStart&&matches(p.revenueStaffId))addMoney(p.confirmedAt,p.price);
     for(const r of records.refunds)if(matches(r.purchase.revenueStaffId))addMoney(r.createdAt,-r.amount);
-    for(const r of records.receipts)if(matches(customerMap.get(r.booking.customerId)??null)){if(r.createdAt>=moneyStart&&r.createdAt<=end)addMoney(r.createdAt,r.amount);if(r.voidedAt&&r.voidedAt>=moneyStart&&r.voidedAt<=end)addMoney(r.voidedAt,-r.amount);}
+    for(const r of records.receipts)if(matches(customerMap.get(r.booking.customerId ?? "")??null)){if(r.createdAt>=moneyStart&&r.createdAt<=end)addMoney(r.createdAt,r.amount);if(r.voidedAt&&r.voidedAt>=moneyStart&&r.voidedAt<=end)addMoney(r.voidedAt,-r.amount);}
   }
   const monthlyMoney = new Map<string,number>();
   for (const [date,amount] of dailyMoney) {const month=date.slice(0,7);monthlyMoney.set(month,(monthlyMoney.get(month)??0)+amount);}
