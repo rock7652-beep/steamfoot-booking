@@ -90,7 +90,7 @@ export const dailyOperationGuides20261003: OperationGuide[] = [
     important: "總部啟用功能不會自動授予員工操作權限；有期限的覆寫尚未開始或已過期時會回到方案。",
     success: "入口呈現與所選狀態一致，直接操作也受服務端拒絕或允許，歷史營運資料未被刪除。",
     details: ["有效明確覆寫優先於試用預設；舊 DISABLED 試用例外保留相容。", "隱藏與鎖定都不允許使用，差別在是否顯示不可用入口。", "跨店、分析、月結、顧客標籤、課程候補、健康與裝置預覽等項目可依此管理。"],
-    modules: ["steamfoot", "spa", "course"], permission: "staff.manage", feature: null, kind: "why", verification: "source-reviewed",
+    modules: ["steamfoot", "spa", "course"], permission: "staff.manage", feature: null, kind: "explanation", verification: "source-reviewed",
     sources: ["docs/hq-feature-three-state.md", "src/lib/store-feature-catalog.ts", "src/lib/effective-entitlement.ts"],
   },
   {
