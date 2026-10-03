@@ -5,7 +5,7 @@ describe("HQ store navigation", () => {
   it.each(["", "?page=frontend-preview&device=tablet", "?view=analytics&store=old"])("resets stale page context when switching (%s)", search => {
     expect(hqStoreSwitchDestination(search)).toBe("/hq/dashboard");
   });
-  it("retains the device iframe's read-only mode", () => {
+  it("retains the device iframe's embedded mode", () => {
     expect(hqStoreSwitchDestination("?view=plans&devicePreview=1")).toBe("/hq/dashboard?devicePreview=1");
   });
   it.each(["/hq/dashboard/stores", "/hq/dashboard/stores/a/features", "/hq/dashboard/stores/subscriptions", "/hq/dashboard/trial-applications"])("keeps platform navigation on %s", path => expect(isHqPlatformPath(path)).toBe(true));

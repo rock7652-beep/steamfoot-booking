@@ -3,7 +3,7 @@ export function isHqPlatformPath(pathname: string): boolean {
   return /^\/hq\/dashboard\/(?:stores|trial-applications)(?:\/|$)/.test(pathname);
 }
 
-/** Start the new store at its home; retain the device studio's read-only mode. */
+/** Start the new store at its home; retain the device studio's embedded mode. */
 export function hqStoreSwitchDestination(search: string): string {
   return new URLSearchParams(search).get("devicePreview") === "1"
     ? "/hq/dashboard?devicePreview=1"

@@ -202,12 +202,8 @@ export const STORE_ADMIN_NAV: NavItem[] = [
 // ============================================================
 // Navigation Groups — HQ / ADMIN 完整視角（B7-1）
 // ============================================================
-// 【Design System 規範】四層產品導覽：
-//   1. core        — 主選單（永遠展開，無分組標題）
-//   2. operations  — 營運工具（可收合，預設收起）
-//   3. settings    — 設定（可收合，預設收起）
-//   4. other       — 其他（可收合，預設收起）
-// core 組的項目直接顯示在側邊欄頂部，不顯示分組標題。
+// Existing item catalog retains page icons and entitlement rules.
+// NAV_GROUPS below reorganizes this catalog for HQ workflows.
 // ============================================================
 
 const ORIGINAL_NAV_GROUPS: NavGroup[] = [
