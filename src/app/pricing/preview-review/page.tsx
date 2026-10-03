@@ -12,12 +12,13 @@ const devices = [
 
 // Preview-only review aid: real iframe viewports exercise media queries without
 // modifying the pricing page or exposing test controls on the public site.
-export default async function PricingPreviewReview({ searchParams }: { searchParams: Promise<{ device?: string; page?: string }> }) {
+export default async function PricingPreviewReview({ searchParams }: { searchParams: Promise<{ device?: string; page?: string; section?: string }> }) {
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
   const device = devices.find(item => item.id === query.device) ?? devices[0];
-  const page = query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
-  const pageUrl = page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
+  const page = query.page === "home" ? "home" : query.page === "cases" ? "cases" : query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
+  const section = query.section === "usage" ? "usage" : query.section === "how-it-works" ? "how-it-works" : "testimonials";
+  const pageUrl = page === "home" ? "/pricing/business#" + section : page === "cases" ? "/pricing/cases?store=nuanmu" : page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
   // Render the real success markup without scripts or sending a test application.
   const successPreview = page === "apply-success"
     ? (await readFile(process.cwd() + "/public/pricing/apply.html", "utf8"))
@@ -28,7 +29,7 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
   return <main className="min-h-screen bg-[#F8F5EE] p-4 text-[#153B31]">
     <h1 className="text-xl font-semibold">價格頁裝置預覽</h1>
     <nav aria-label="裝置尺寸" className="my-3 flex flex-wrap gap-2">
-      {devices.map(item => <a key={item.id} href={"?device=" + item.id + "&page=" + page} aria-current={device.id === item.id ? "page" : undefined} className={"rounded-lg border px-4 py-3 text-base " + (device.id === item.id ? "bg-[#123E32] text-white" : "bg-white")}>{item.label}</a>)}
+      {devices.map(item => <a key={item.id} href={"?device=" + item.id + "&page=" + page + "&section=" + section} aria-current={device.id === item.id ? "page" : undefined} className={"rounded-lg border px-4 py-3 text-base " + (device.id === item.id ? "bg-[#123E32] text-white" : "bg-white")}>{item.label}</a>)}
       <a href="/pricing" className="rounded-lg border bg-white px-4 py-3 text-base">返回價格頁</a>
     </nav>
     <p className="mb-3 text-sm">{device.label}｜{device.width} × {device.height}</p>
