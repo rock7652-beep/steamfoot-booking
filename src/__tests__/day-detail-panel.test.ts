@@ -126,7 +126,7 @@ describe("trial service label", () => {
         slots: [],
       }),
     ));
-    expect(text).toContain("服務：首次體驗");
+    expect(text).toContain("體驗・未收");
     expect(text).not.toContain("方案：");
     expect(text).toContain("NT$499");
   });

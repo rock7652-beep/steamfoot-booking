@@ -464,7 +464,7 @@ function TimelineItem({
               </span>
             )}
           </div>
-        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
+        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={<>{booking.customer.name}<span className={`${styles.inlineStaff} font-normal text-earth-500`}> · {assignedStaffName}</span></>} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
         <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
@@ -482,11 +482,11 @@ function TimelineItem({
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
               <span className="min-w-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
-                服務：首次體驗·已收款 NT${trialAmountText}
+                體驗・已收 NT${trialAmountText}
               </span>
             ) : (
               <span className="min-w-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
-                服務：首次體驗·未收款 NT${trialAmountText}
+                體驗・未收 NT${trialAmountText}
               </span>
             )
           ) : null}
