@@ -21,7 +21,7 @@ export default function Page() {
             天。
           </p>
           <p className="mt-2 text-sm">
-            課表與方案可後續逐步建立；繼續使用時可沿用試用資料，無須重新建檔。
+            選填資料可先留白，必填資料不確定時請聯絡我們協助。課表與方案可後續逐步建立；繼續使用時可沿用試用資料。
           </p>
         </header>
         <TrialApplicationForm />
