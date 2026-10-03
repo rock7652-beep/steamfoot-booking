@@ -16,8 +16,8 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
   const device = devices.find(item => item.id === query.device) ?? devices[0];
-  const page = query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
-  const pageUrl = page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
+  const page = query.page === "home" ? "home" : query.page === "cases" ? "cases" : query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
+  const pageUrl = page === "home" ? "/pricing/business#testimonials" : page === "cases" ? "/pricing/cases?store=nuanmu" : page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
   // Render the real success markup without scripts or sending a test application.
   const successPreview = page === "apply-success"
     ? (await readFile(process.cwd() + "/public/pricing/apply.html", "utf8"))

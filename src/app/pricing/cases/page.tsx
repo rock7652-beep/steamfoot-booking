@@ -1,3 +1,4 @@
+import { StoreTestimonial } from "@/components/store-testimonial";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "../marketing-icon";
@@ -63,6 +64,8 @@ export default async function StoreCasesPage({
             </Link>
           ))}
         </nav>
+
+        {current.id === "nuanmu" ? <section aria-label="暖沐蒸足店長使用心得" className="mt-5"><StoreTestimonial /></section> : null}
 
         <article aria-labelledby="case-title" className="mt-5 rounded-2xl border border-[#153B31]/15 bg-white p-5 sm:p-7">
           <p className="text-sm text-[#74603C]">{current.name}｜{current.topic}</p>
