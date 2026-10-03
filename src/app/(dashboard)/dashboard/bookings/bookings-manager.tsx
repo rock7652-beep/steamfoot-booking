@@ -300,7 +300,7 @@ function BookingsManagerContent({
       ? `最後更新 ${lastSyncedAt.toLocaleTimeString("zh-TW", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit", second: "2-digit" })} · 每 60 秒自動更新`
       : "每 60 秒自動更新";
   const syncControl = (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-earth-500">
+    <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-earth-500">
       <span role="status">{syncStatus}</span>
       <button type="button" disabled={syncing || refreshPaused}
         onClick={() => void refreshRef.current?.()}
@@ -700,8 +700,7 @@ function BookingsManagerContent({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {syncControl}
+    <div className="flex min-w-0 flex-col gap-2">
       <Toolbar
         year={year}
         month={month}
@@ -733,6 +732,8 @@ function BookingsManagerContent({
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12">
           <BookingCalendarDesktop
+            compactHeader
+            headerActions={syncControl}
             year={year}
             month={month}
             monthData={monthData}
@@ -951,7 +952,7 @@ function Toolbar({
   });
 
   return (
-    <div data-booking-filter-bar className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-earth-200 bg-white px-4 py-2">
+    <div data-booking-filter-bar className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-earth-200 bg-white px-3 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <BookingMonthLink
           href={`/dashboard/bookings?year=${prevYear}&month=${prevMonth}`}
@@ -1006,13 +1007,13 @@ function Toolbar({
           </button>
         )}
       </div>
-      <div className="w-full basis-full">
+      <div className="min-w-56 flex-1 basis-56">
         <div className="relative w-full">
           <input
             type="search"
             placeholder="搜尋本月預約：姓名／手機"
             aria-label="搜尋本月預約：姓名或手機"
-            // Override the compact toolbar rule in globals.css for this full-row search field.
+            // Keep search readable while sharing the toolbar row when space permits.
             style={{ width: "100%", height: 40 }}
             value={compositionText ?? filters.search}
             onCompositionStart={(e) => { composing.current = true; setCompositionText(e.currentTarget.value); }}
