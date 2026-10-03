@@ -265,7 +265,9 @@ export function TrialApplicationForm() {
       }
       setReceipt({ ...credentials, ...result });
       setSaved(true);
-      setMessage("申請已收到！尚未備齊的資料，可以在這裡補充後再次送出。");
+      setMessage(
+        "已收到申請！我們會聯絡您確認 LINE 串接並安排視訊，帶您完成第一筆預約。需要補充資料時，可回到這裡繼續填寫。",
+      );
     } catch {
       setMessage("連線中斷，請再次送出。填寫內容已保留。");
     } finally {
@@ -361,11 +363,17 @@ export function TrialApplicationForm() {
           })}
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {field("lineManagerContact", "LINE 管理員姓名／聯絡方式")}
+          {field(
+            "lineManagerContact",
+            "LINE 設定協助者姓名／聯絡方式（選填）",
+            {
+              hint: "若由其他人協助 LINE 設定，請留下聯絡方式；聯絡人自己管理就不用重填。",
+            },
+          )}
           {select("sharedLine", "這個 LINE 是否由其他門市共用？", [
-            ["unknown", "不確定，需要協助"],
-            ["no", "否，本店專用"],
-            ["yes", "是，多間門市共用"],
+            ["unknown", "不確定"],
+            ["no", "沒有，本店專用"],
+            ["yes", "有，其他門市共用"],
           ])}
           {data.sharedLine === "yes" &&
             field("sharedLineStores", "共用 LINE 的門市名稱")}
@@ -374,37 +382,44 @@ export function TrialApplicationForm() {
       </section>
       <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap gap-3">
-          <h2 className="text-xl font-semibold">3 · Developers 授權</h2>
+          <h2 className="text-xl font-semibold">3 · LINE 串接協助</h2>
           <Guide topic="developers" label="邀請管理員圖解" />
         </div>
         <p className="mb-4 text-sm">
+          LINE
+          串接由我們協助，請依教學邀請下方帳號為管理員；不需要提供帳號密碼。
           邀請對象：
           <strong className="select-all">{TRIAL_CONTACT_EMAIL}</strong>
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {(
-            [
-              ["providerAdmin", "Provider Admin"],
-              ["messagingAdmin", "Messaging API Channel Admin"],
-              ["loginAdmin", "LINE Login Channel Admin"],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key}>
-              {select(key, label, [
-                ["pending", "尚未邀請"],
-                ["invited", "已邀請 Admin，待蒸管家確認"],
-                ["absent", "尚未建立，需要協助"],
-                ["help", "找不到／不確定，需要協助"],
-              ])}
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-sm text-[#64736b]">
-          官方 LINE 與 Developers 是兩個後台。Provider 與 Channel 權限分別選
-          Admin，並按 Send invitation 寄給
-          rock7652@gmail.com。已邀請不代表已取得權限；由蒸管家接受並核對。沒有
-          Channel 時不用自行重建。
-        </p>
+        <details className="mt-4 rounded-lg border border-[#dce3dc] p-3">
+          <summary className="cursor-pointer font-medium">
+            已操作授權？填寫進度（選填）
+          </summary>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {(
+              [
+                ["providerAdmin", "Provider Admin"],
+                ["messagingAdmin", "Messaging API Channel Admin"],
+                ["loginAdmin", "LINE Login Channel Admin"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key}>
+                {select(key, label, [
+                  ["pending", "尚未邀請"],
+                  ["invited", "已邀請 Admin，待蒸管家確認"],
+                  ["absent", "尚未建立，需要協助"],
+                  ["help", "找不到／不確定，需要協助"],
+                ])}
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-sm text-[#64736b]">
+            官方 LINE 與 Developers 是兩個後台。Provider 與 Channel 權限分別選
+            Admin，並按 Send invitation 寄給
+            rock7652@gmail.com。已邀請不代表已取得權限；由蒸管家接受並核對。沒有
+            Channel 時不用自行重建。
+          </p>
+        </details>
         <div className="mt-5 grid gap-5">
           {select("integration", "官方 LINE 有接其他系統嗎？", [
             ["unknown", "不確定，請協助確認"],
@@ -414,55 +429,58 @@ export function TrialApplicationForm() {
           {data.integration === "existing" &&
             field("integrationName", "目前使用的系統")}
         </div>
-        <StageList
-          items={trialChecklist(data).filter(
-            (i) => i.label.includes("Admin") || i.label === "既有串接",
-          )}
-        />
       </section>
       <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
-        <h2 className="text-xl font-semibold">4 · 初始設定資料</h2>
+        <h2 className="text-xl font-semibold">4 · 視訊操作教學</h2>
         <p className="mt-2 text-sm text-[#64736b]">
-          可填簡要資料或上傳現有檔案，不確定請選「需要協助」。每項填提供方式，展開才編輯。
+          我們會帶您排好第一堂課，實際完成預約與報到。無須事先準備完整課表或方案，有現成資料也歡迎提供。
         </p>
-        <div className="mt-4 divide-y divide-[#dce3dc]">
-          {setupSections.map(([progress, notes, label, hint]) => (
-            <details key={progress} className="py-3">
-              <summary className="cursor-pointer text-base font-medium">
-                {label} ·{" "}
-                {
+        <p className="mt-3 text-sm">
+          請準備電腦或 iPad 操作後台，以及手機測試 LINE 預約。
+        </p>
+        <details className="mt-4 rounded-lg border border-[#dce3dc] p-3">
+          <summary className="cursor-pointer font-medium">
+            已有設定資料？可先補充（選填）
+          </summary>
+          <div className="mt-4 divide-y divide-[#dce3dc]">
+            {setupSections.map(([progress, notes, label, hint]) => (
+              <details key={progress} className="py-3">
+                <summary className="cursor-pointer text-base font-medium">
+                  {label} ·{" "}
                   {
-                    provided: "已填／見附件",
-                    none: "不需要",
-                    help: "需要協助",
-                    pending: "待提供",
-                  }[data[progress]]
-                }
-              </summary>
-              <div className="mt-3 grid gap-3">
-                {select(progress, "提供方式", [
-                  ["pending", "待提供"],
-                  ["provided", "已填下方資料／見附件"],
-                  ["none", "不需要"],
-                  ["help", "需要協助"],
-                ])}
-                {data[progress] === "provided" &&
-                  field(notes, "簡要資料／附件名稱", { hint })}
-              </div>
-            </details>
-          ))}
-        </div>
-        <div className="mt-4">
-          {select("importStudents", "是否需要匯入現有學員？", [
-            ["pending", "尚未確認"],
-            ["yes", "需要，請提供匯入格式"],
-            ["no", "不需要"],
-            ["help", "需要協助"],
-          ])}
-        </div>
-        <p className="mt-2 text-sm text-[#64736b]">
-          需要匯入時，我們會提供姓名、電話、方案、剩餘堂數與到期日的格式。
-        </p>
+                    {
+                      provided: "已填／見附件",
+                      none: "不需要",
+                      help: "需要協助",
+                      pending: "待提供",
+                    }[data[progress]]
+                  }
+                </summary>
+                <div className="mt-3 grid gap-3">
+                  {select(progress, "提供方式", [
+                    ["pending", "待提供"],
+                    ["provided", "已填下方資料／見附件"],
+                    ["none", "不需要"],
+                    ["help", "需要協助"],
+                  ])}
+                  {data[progress] === "provided" &&
+                    field(notes, "簡要資料／附件名稱", { hint })}
+                </div>
+              </details>
+            ))}
+          </div>
+          <div className="mt-4">
+            {select("importStudents", "是否需要匯入現有學員？", [
+              ["pending", "尚未確認"],
+              ["yes", "需要，請提供匯入格式"],
+              ["no", "不需要"],
+              ["help", "需要協助"],
+            ])}
+          </div>
+          <p className="mt-2 text-sm text-[#64736b]">
+            需要匯入時，我們會提供姓名、電話、方案、剩餘堂數與到期日的格式。
+          </p>
+        </details>
         <label className="mt-4 block">
           課表／方案等附件（選填）
           <input
@@ -531,8 +549,7 @@ export function TrialApplicationForm() {
           />
         </label>
         <p className="mt-1 text-sm text-[#64736b]">
-          最多 3 個檔案，合計 2 MB。附件保留在受保護申請紀錄，Email
-          與總表僅顯示檔名。
+          最多 3 個檔案，合計 2 MB。沒有現成資料也沒關係，視訊時一起建立。
         </p>
         {errors.attachments && (
           <p role="alert" className="text-sm text-red-700">
@@ -566,27 +583,29 @@ export function TrialApplicationForm() {
       <section className="rounded-2xl border border-[#c8d9ce] bg-[#edf4ef] p-5">
         <h2 className="text-xl font-semibold">最後確認</h2>
         <ul className="mt-4 space-y-3">
-          {trialChecklist(data).map((item) => (
-            <li
-              key={item.label}
-              className="flex flex-wrap justify-between gap-2 text-sm"
-            >
-              <span>{item.label}</span>
-              <strong
-                className={
-                  ["已提供", "不需要", "無既有串接"].includes(item.state)
-                    ? "text-[#386650]"
-                    : "text-amber-800"
-                }
+          {trialChecklist(data)
+            .slice(0, 4)
+            .map((item) => (
+              <li
+                key={item.label}
+                className="flex flex-wrap justify-between gap-2 text-sm"
               >
-                {item.state}
-              </strong>
-            </li>
-          ))}
+                <span>{item.label}</span>
+                <strong
+                  className={
+                    ["已提供", "不需要", "無既有串接"].includes(item.state)
+                      ? "text-[#386650]"
+                      : "text-amber-800"
+                  }
+                >
+                  {item.state}
+                </strong>
+              </li>
+            ))}
         </ul>
         <p className="mt-4 text-sm">
-          送出後由蒸管家確認資料及權限，再聯繫你安排設定。請勿提供密碼、Token 或
-          Secret。
+          送出申請 → 確認 LINE 串接 → 安排視訊 →
+          完成第一筆預約。其他設定依需求逐步建立。請勿提供密碼或密鑰。
         </p>
       </section>
       <input

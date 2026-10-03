@@ -13,11 +13,15 @@ export default function Page() {
           <p className="mb-2 text-sm text-[#967039]">蒸管家 · 店家體驗申請</p>
           <h1 className="text-3xl font-semibold">開始你的 30 天體驗</h1>
           <p className="mt-3">
-            請一次提供本門市的申請與設定資料；不確定的項目可選「需要協助」。
+            先填基本資料，我們會協助 LINE 串接，再安排視訊帶您完成第一筆預約。
           </p>
           <p className="mt-2 text-sm">
             體驗不限門市數，每間門市分開申請。最多 3
-            位後台使用者；各門市完成設定及驗收後，才開始 30 天體驗。
+            位後台使用者，功能全開；完成基本設定與操作教學後開通，開通日起算 30
+            天。
+          </p>
+          <p className="mt-2 text-sm">
+            課表與方案可後續逐步建立；繼續使用時可沿用試用資料，無須重新建檔。
           </p>
         </header>
         <TrialApplicationForm />
