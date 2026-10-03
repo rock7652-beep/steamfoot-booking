@@ -4,7 +4,7 @@ import { FeatureEntry, useFeaturePresentation } from "@/components/feature-prese
 import { FEATURES } from "@/lib/feature-flags";
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { loadCustomerLabels, setCustomerLabel } from "@/server/actions/customer-labels";
-import { EMPTY_LABELS, labelColor, nextCustomerLabelRevision, newerLabelSnapshot, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
+import { EMPTY_LABELS, labelColor, nextCustomerLabelRevision, newerLabelSnapshot, receiveCustomerLabelSnapshot, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -114,7 +114,8 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
 }
 /** Supply row labels with the server-rendered list, then retain them across shared views. */
 export function useSeedCustomerLabels() { return useContext(Context)?.seed; }
-export function CustomerLabelsSeed({initial,children}:{initial:LabelSnapshot;children:ReactNode}) {
+export function CustomerLabelsSeed({initial:serverInitial,children}:{initial:LabelSnapshot;children:ReactNode}) {
+  const initial=receiveCustomerLabelSnapshot(serverInitial);
   const ctx=useContext(Context);
   const seed=ctx?.snapshot.storeId===initial.storeId?ctx?.seed:undefined;
   const [seeded,setSeeded]=useState<LabelSnapshot|null>(null);

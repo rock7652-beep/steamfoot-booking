@@ -56,6 +56,16 @@ export function previewLabelManagement(data: LabelSnapshot, input: LabelManageme
 let labelRevision = 0;
 export function nextCustomerLabelRevision() { return ++labelRevision; }
 export function newerLabelSnapshot(current: LabelSnapshot, incoming: LabelSnapshot) {
+  if (incoming.fetchedAt !== undefined && current.fetchedAt !== undefined && current.fetchedAt > incoming.fetchedAt) return true;
   if (current.clientRevision !== undefined || incoming.clientRevision !== undefined) return (current.clientRevision ?? 0) > (incoming.clientRevision ?? 0);
   return incoming.fetchedAt !== undefined && (current.fetchedAt ?? 0) > incoming.fetchedAt;
+}
+
+const receivedLabelSnapshots = new WeakMap<LabelSnapshot, LabelSnapshot>();
+/** Give newly received RSC data an order once; cached objects retain that order. */
+export function receiveCustomerLabelSnapshot(snapshot: LabelSnapshot) {
+  if (typeof window === "undefined" || snapshot.clientRevision !== undefined) return snapshot;
+  let received = receivedLabelSnapshots.get(snapshot);
+  if (!received) { received = { ...snapshot, clientRevision: nextCustomerLabelRevision() }; receivedLabelSnapshots.set(snapshot, received); }
+  return received;
 }
