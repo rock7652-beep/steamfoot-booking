@@ -181,7 +181,7 @@ export function ProfileView({
       )}
 
       {state.kind === "ready" && (
-        <ReadyView profile={state.profile} />
+        <ProfileReadyView profile={state.profile} />
       )}
     </div>
   );
@@ -191,7 +191,7 @@ export function ProfileView({
 // Sub-blocks
 // ──────────────────────────────────────────────────────────
 
-function ReadyView({ profile }: { profile: LiffCustomerProfile }) {
+export function ProfileReadyView({ profile }: { profile: LiffCustomerProfile }) {
   // Defensive: if `phone` looks like an OAuth placeholder (`_oauth_line_…`
   // or `_oauth_google_…`), surface as "未填寫" — closeout doc §1 row 3 (Case C
   // inline) flags this as a documented data shape; the customer should NOT

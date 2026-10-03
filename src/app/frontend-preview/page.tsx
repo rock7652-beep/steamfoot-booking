@@ -1,3 +1,7 @@
+import { getNativeHealthSummary } from "@/lib/native-health-service";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { getIndustryModule } from "@/lib/industry-modules";
 import { notFound } from "next/navigation";
 import { authorizeFrontendPreview } from "@/server/services/frontend-preview";
 import { prisma } from "@/lib/db";
@@ -31,9 +35,14 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
     const data = await readLiffStaffWork({ storeId: access.storeId, staffId: access.personId, staffName: access.name }, { date: p.date });
     content = data.status === "ok" ? <StaffWorkScreen storeName={store.name} storeSlug={store.slug} liffId="" today={toLocalDateStr()} preview={{ data, href }} /> : <p role="alert">目前無法讀取工作資料，請重新整理。</p>;
   } else {
+    const healthEnabled = getIndustryModule(access.moduleId).features.healthAssessment && await hasStoreFeature(access.storeId, FEATURES.AI_HEALTH_SUMMARY);
+    const healthSummary = healthEnabled ? await getNativeHealthSummary(access.personId, access.storeId) : null;
     const context = { storeId: access.storeId, customerId: access.personId };
+    const customer = await prisma.customer.findFirstOrThrow({ where: { id: access.personId, storeId: access.storeId }, select: { id: true, name: true, phone: true, email: true, lineLinkStatus: true, lineName: true, lineUserId: true } });
+    const lineStatus = customer.lineLinkStatus === "LINKED" && customer.lineUserId ? "linked" as const : customer.lineLinkStatus === "UNLINKED" && !customer.lineUserId ? "unlinked" as const : "needs_help" as const;
+    const profile = { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email, lineStatus, lineName: customer.lineName, lineUserIdMasked: lineStatus === "linked" && customer.lineUserId && customer.lineUserId.length >= 7 ? `U******${customer.lineUserId.slice(-4)}` : null, storeName: store.name, storeSlug: store.slug };
     const [bookings, wallets] = await Promise.all(access.moduleId === "spa" ? [readFetchSpaLiffBookings(context), readFetchSpaLiffEntitlements(context)] : [readFetchLiffBookings(context), readFetchLiffWallets(context)]);
-    content = <PreviewMemberScreen bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} />;
+    content = <PreviewMemberScreen bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} profile={profile} healthSummary={healthSummary} />;
   }
   return <ReadOnlyPreviewBoundary><header className="sticky top-0 z-40 border-b border-amber-200 bg-amber-50 px-3 text-sm text-amber-900">
     <div className="flex min-h-11 items-center justify-between gap-2">

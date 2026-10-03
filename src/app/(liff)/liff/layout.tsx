@@ -1,3 +1,4 @@
+import { LiffMemberFrame } from "@/components/liff-member-frame";
 import { LiffBottomNav } from "./liff-bottom-nav";
 import { resolveStoreSlugForLiff, resolveStorePresentation } from "@/lib/store-resolver";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -22,12 +23,12 @@ export default async function LiffLayout({ children }: { children: React.ReactNo
     ? await hasStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY).catch(() => false)
     : false;
   return (
-    <div className="liff-customer-ui flex min-h-screen flex-col bg-[linear-gradient(180deg,#f5f2eb_0%,#faf8f5_34%,#faf8f5_100%)]">
+    <LiffMemberFrame>
       <LiffBrandHeader />
       <main className="flex-1">{children}</main>
       <BuildFooter />
       {store && <LiffBottomNav storeSlug={store.slug} healthAssessmentEnabled={healthEnabled} />}
-    </div>
+    </LiffMemberFrame>
   );
 }
 

@@ -474,6 +474,7 @@ export function WelcomeBack({
     bookings: string;
     wallets: string;
     profile: string;
+    health?: string;
   };
   hasWorkAccess?: boolean;
   compactHome?: boolean;
@@ -615,14 +616,14 @@ export function WelcomeBack({
           detail={walletsAvailable ? `${totalUsable} ${labels.sessionUnit}可使用` : "請重新讀取資料"}
         />
         {healthAssessmentEnabled && (
-          <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
+          <HomeTile href={memberLinks?.health ?? `/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
         )}
         <HomeTile href={resolvedMemberLinks.profile} label="我的資料" detail="會員基本資料" />
       </nav>
       )}
 
       {healthAssessmentEnabled && (
-        <Link href={`/s/${storeSlug}/liff/health`} className="rounded-2xl bg-primary-50 px-4 py-3 ring-1 ring-primary-100 transition active:scale-[0.99]">
+        <Link href={memberLinks?.health ?? `/s/${storeSlug}/liff/health`} className="rounded-2xl bg-primary-50 px-4 py-3 ring-1 ring-primary-100 transition active:scale-[0.99]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-primary-700">最近健康變化</p>
