@@ -21,6 +21,8 @@ vi.mock("@/lib/store-plan", () => ({
   getStoreForPlanByStoreId: (...args: unknown[]) => mockGetStoreForPlanByStoreId(...args),
 }));
 
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: vi.fn().mockResolvedValue("steamfoot") }));
+
 function mockStore(plan: "EXPERIENCE" | "BASIC" | "GROWTH" | "ALLIANCE") {
   mockGetStoreForPlanByStoreId.mockResolvedValue({
     id: "store-1",
@@ -290,11 +292,21 @@ describe("frontend preview paid add-on", () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
     expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
   });
-  it("dated single-store trial still requires an explicit grant", async () => {
+  it("dated single-store trial includes preview without an explicit grant", async () => {
     mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
-    const { hasStoreFeature } = await import("@/lib/feature-gate");
-    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+    const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(true);
+    expect(await getStoreFeaturePresentation("store-1", FEATURES.FRONTEND_PREVIEW)).toBe("ENABLED");
+    await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).resolves.toBeUndefined();
     mockEntitlement("ENABLED");
     expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(true);
+  });
+  it.each(["LOCKED", "HIDDEN"] as const)("keeps %s preview restrictions in full trials", async status => {
+    mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
+    mockEntitlement(status);
+    const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+    expect(await getStoreFeaturePresentation("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(status);
+    await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).rejects.toThrow();
   });
 });

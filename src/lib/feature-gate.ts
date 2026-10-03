@@ -80,11 +80,11 @@ export async function hasStoreFeature(
   // Explicit three-state controls are honored in trials; legacy DISABLED trial rules remain unchanged.
   if (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") return false;
   if (entitlement?.status === "ENABLED") return true;
-  // Paid add-on: trials and plan defaults must never implicitly grant this key.
-  if (feature === FEATURES.FRONTEND_PREVIEW) return false;
   const store = await getStoreForPlanByStoreId(storeId);
   if (isSingleStoreTrial(store)) return isSingleStoreFeature(feature);
   if (store.plan === "EXPERIENCE" && await getStoreIndustryModule(storeId) === "course") return isSingleStoreFeature(feature);
+  // Full single-store trials include preview; ordinary plans still require an active grant.
+  if (feature === FEATURES.FRONTEND_PREVIEW) return false;
   const baseAllowed = hasFeature(store.plan, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;
 }
