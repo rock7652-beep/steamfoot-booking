@@ -28,6 +28,16 @@ export function LiffBottomNav({
   // Booking forms retain their own fixed submit bar; onboarding and work are separate flows.
   if (homeOnly ? segment !== null : !segment || !sections.includes(segment)) return null;
   const base = `/s/${storeSlug}/liff`;
+  return <LiffBottomNavView base={base} activeKey={segment ?? "home"} healthAssessmentEnabled={healthAssessmentEnabled} />;
+}
+
+/** Shared presentation; preview supplies only scoped read-only destinations. */
+export function LiffBottomNavView({ base, activeKey, healthAssessmentEnabled, links }: {
+  base: string;
+  activeKey: string;
+  healthAssessmentEnabled: boolean;
+  links?: Partial<Record<keyof typeof icons, string>>;
+}) {
   const items: { key: keyof typeof icons; label: string; href: string }[] = [
     { key: "home", label: "首頁", href: base },
     { key: "bookings", label: "預約", href: `${base}/bookings` },
@@ -40,9 +50,9 @@ export function LiffBottomNav({
       <div aria-hidden="true" className="h-[calc(4.5rem+env(safe-area-inset-bottom))] shrink-0" />
       <nav aria-label="會員功能" className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md border-t border-earth-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
         {items.map(({ key, label, href }) => {
-          const active = key === "home" ? segment === null : segment === key;
+          const active = activeKey === key;
           return (
-            <Link key={key} href={href} prefetch={false} aria-current={active ? "page" : undefined}
+            <Link key={key} href={links?.[key] ?? href} prefetch={false} aria-current={active ? "page" : undefined}
               className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-xs focus-visible:outline-2 focus-visible:outline-primary-600 ${active ? "font-semibold text-primary-700" : "text-earth-500 hover:text-primary-700"}`}>
               <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round"><path d={icons[key]} /></svg>
               <span>{label}</span>
