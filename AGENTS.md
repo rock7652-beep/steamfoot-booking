@@ -42,3 +42,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 3. 密度不得靠縮小字體取得；狀態先顯示，需要修改才展開。
 4. UI 相關變更必須完成 Preview，並檢查桌機與 iPad。
 5. 未取得使用者明確授權，不得合併正式站。
+
+## 全站 RWD 預設要求
+
+- 官網、HQ、所有模組後台、顧客／工作前台與 LINE LIFF 的新增或修改 UI，MUST 依 Framework 第 40 節納入 RWD；不需要使用者再次提出。
+- 共用元件按自身可用寬度排列，保留桌機密度、字級、觸控操作及編輯狀態；表格只在區塊內捲動。
+- UI PR 必須列明受影響入口、驗收尺寸、結果與限制；官網／前台驗手機，後台驗桌機與 iPad，共用元件驗窄容器。靜態 fixture 或登入受阻不得寫成完整業務驗收。
