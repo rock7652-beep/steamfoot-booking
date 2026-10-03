@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { BookingMonthLink } from "./booking-month-link";
 
@@ -54,6 +54,8 @@ const STATUS_STYLE: Record<string, { bg: string; label: string }> = {
 interface BookingCalendarDesktopProps {
   year: number;
   month: number;
+  compactHeader?: boolean;
+  headerActions?: ReactNode;
   monthData: MonthSummaryDay[];
   /** 該月每日營業狀態（open/closed/training/custom）+ slotCount。
    *  空 map 代表「無法判斷」（例如 ADMIN __all__），UI 退化為 generic 樣式。 */
@@ -79,6 +81,8 @@ export function BookingCalendarDesktop({
   basePath = "",
   highlightStaff = null,
   dimmedDates,
+  compactHeader = false,
+  headerActions,
 }: BookingCalendarDesktopProps) {
   const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -131,8 +135,8 @@ export function BookingCalendarDesktop({
   }
 
   return (
-    <div className="rounded-lg border border-earth-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-3 pb-3">
+    <div aria-label={compactHeader ? `${monthLabel}預約月曆` : undefined} className={`rounded-lg border border-earth-200 bg-white ${compactHeader ? "px-3 py-2" : "p-4"}`}>
+      {!compactHeader && <div className="flex items-center justify-between gap-3 pb-3">
         <h2 className="text-lg font-semibold text-earth-900">{monthLabel}</h2>
         <div className="flex items-center gap-2">
           <BookingMonthLink
@@ -154,15 +158,19 @@ export function BookingCalendarDesktop({
           year={nextYear} month={nextMonth} direction="next"
         />
         </div>
-      </div>
+      </div>}
 
-      <div aria-label="預約狀態顏色說明" className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-xs text-earth-700">
+      <div className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 ${compactHeader ? "pb-1" : "pb-2"}`}>
+      <div aria-label="預約狀態顏色說明" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-700">
         {[STATUS_STYLE.PENDING, STATUS_STYLE.COMPLETED, STATUS_STYLE.NO_SHOW].map((status) => (
           <span key={status.label} className="inline-flex items-center gap-1">
             <span aria-hidden="true" className={`h-3 w-3 rounded-sm border border-earth-200 ${status.bg}`} />
             {status.label}
           </span>
         ))}
+      </div>
+
+      {headerActions}
       </div>
 
       <div className="grid grid-cols-7 border-b border-earth-200">

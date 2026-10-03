@@ -109,9 +109,9 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     sessionRole: user.role,
   };
   return (
-    <PageShell>
+    <PageShell compact>
       <FormSuccessToast />
-      <PageHeader
+      <PageHeader compact
         title="預約管理"
         actions={
           <div className="flex flex-wrap items-center gap-2">
