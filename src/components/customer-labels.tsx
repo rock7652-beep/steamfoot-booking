@@ -119,7 +119,7 @@ export function CustomerLabelsSettingsLink() {
   const state=useFeaturePresentation(FEATURES.CUSTOMER_LABELS);
   if(state === "HIDDEN" || state === "LOCKED")return null;
   if(!ctx?.snapshot.available)return null;
-  return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings/customer-labels"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
+  return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings?section=notifications"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
 }
 export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hideEmpty=false,maxVisible=2,variant="dots"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;hideEmpty?:boolean;maxVisible?:number;variant?:"badge"|"dots"}) {
   const ctx=useContext(Context);
