@@ -1,3 +1,6 @@
+import { FeaturePresentationProvider } from "@/components/feature-presentation";
+import { CustomerLabelsProvider } from "@/components/customer-labels";
+import { loadCustomerLabels } from "@/server/actions/customer-labels";
 import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect, notFound } from "next/navigation";
@@ -19,7 +22,7 @@ import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
-import { hasStoreFeature } from "@/lib/feature-gate";
+import { hasStoreFeature, getStoreFeaturePresentation } from "@/lib/feature-gate";
 import type { StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   resolveStoreViewContext,
@@ -91,9 +94,10 @@ export default async function DashboardLayout({
     : effectiveStoreId
       ? await getCachedStorePlan(effectiveStoreId)
       : ("EXPERIENCE" as const);
-  const effectiveFeatures = effectiveStoreId
-    ? Object.fromEntries(await Promise.all(Object.values(FEATURES).map(async feature => [feature, await hasStoreFeature(effectiveStoreId, feature)])))
-    : { [FEATURES.BASIC_REPORTS]: isAdmin };
+  const featureStates = effectiveStoreId
+    ? Object.fromEntries(await Promise.all(Object.values(FEATURES).map(async feature => [feature, await getStoreFeaturePresentation(effectiveStoreId, feature)])))
+    : { [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const };
+  const effectiveFeatures = Object.fromEntries(Object.entries(featureStates).map(([feature, state]) => [feature, state === "ENABLED"]));
 
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
@@ -171,6 +175,7 @@ export default async function DashboardLayout({
     storeViewContext?.viewedStoreId, industryModule, [...permissions].sort()]);
   return (
     <OperationScope key={operationScope} scope={operationScope}>
+    <FeaturePresentationProvider states={featureStates}>
     <DashboardShell
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
@@ -178,6 +183,7 @@ export default async function DashboardLayout({
       permissions={permissions}
       pricingPlan={pricingPlan}
       effectiveFeatures={effectiveFeatures}
+      featureStates={featureStates}
       musicEnabled={industryModule==="course" && !!effectiveStoreId && !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:effectiveStoreId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}})}
       userName={user.name ?? ""}
       roleLabel={roleLabel}
@@ -223,8 +229,9 @@ export default async function DashboardLayout({
       }
     >
       <PreviewNavigationReporter />
-      {children}
+      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{children}</CustomerLabelsProvider>
     </DashboardShell>
+    </FeaturePresentationProvider>
     </OperationScope>
   );
 }

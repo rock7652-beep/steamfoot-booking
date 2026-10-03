@@ -5,7 +5,8 @@ vi.mock("server-only",()=>({}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/server/services/course-booking",()=>({correctCourseAttendance:m.correct,settleCourseBooking:m.settle}));
 vi.mock("@/server/services/course-low-balance-schedule",()=>({scheduleCourseLowBalanceCheck:vi.fn()}));
-vi.mock("next/cache",()=>({revalidatePath:m.refresh}));
+vi.mock("next/cache",()=>({revalidatePath:m.refresh,unstable_cache:(fn: unknown)=>fn}));
+vi.mock("@/lib/auth", () => ({auth: vi.fn()}));
 import { updateCourseDailyAttendanceBatch } from "@/server/actions/course-members";
 
 const choices=[{id:"one",sessionId:"morning",status:"CANCELLED" as const},{id:"two",sessionId:"evening",status:"CANCELLED" as const}];
@@ -40,10 +41,11 @@ describe("店長跨課次批次處理",()=>{
     expect(m.settle.mock.calls[0][4]).toBe("DEDUCTED");
     expect((await updateCourseDailyAttendanceBatch({target:"NO_SHOW",bookings:[pending[0],pending[0]]})).success).toBe(false);
   });
-  it("課程還沒結束時不可提前扣曠課",async()=>{
+  it("課程開始前也可記錄缺席扣堂",async()=>{
     m.sessions.mockResolvedValueOnce([{id:"morning",endsAt:new Date(Date.now()+60_000)}]);
+    m.bookings.mockResolvedValueOnce([{...choices[0],status:"RESERVED",absenceKind:null}]);
     const result=await updateCourseDailyAttendanceBatch({target:"NO_SHOW",bookings:[{...choices[0],status:"RESERVED"}]});
-    expect(result.success).toBe(false);
-    expect(m.settle).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+    expect(m.settle).toHaveBeenCalledOnce();
   });
 });

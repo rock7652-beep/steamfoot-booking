@@ -3,6 +3,7 @@ import React,{act} from "react";
 import {createRoot} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({replace:vi.fn()}));
+vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null, CustomerLabelFilter: () => null }));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/customers",useRouter:()=>({replace:m.replace})}));
 vi.mock("@/components/dashboard-link",()=>({DashboardLink:()=>null}));
 import {SpaCustomerList} from "@/app/(dashboard)/dashboard/customers/_components/spa-customer-list";

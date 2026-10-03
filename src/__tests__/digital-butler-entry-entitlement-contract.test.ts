@@ -11,7 +11,9 @@ describe("digital butler dashboard entry entitlement contract", () => {
     expect(layout).toContain(
       "Object.values(FEATURES).map",
     );
-    expect(layout).toContain("hasStoreFeature(effectiveStoreId, feature)");
+    expect(layout).toContain("getStoreFeaturePresentation(effectiveStoreId, feature)");
+    expect(layout).toContain('state === "ENABLED"');
+    expect(layout).toContain("featureStates={featureStates}");
     expect(layout).toContain("effectiveFeatures={effectiveFeatures}");
     expect(sidebar).toContain("requiredFeature: FEATURES.DIGITAL_BUTLER");
     expect(sidebar).toContain(

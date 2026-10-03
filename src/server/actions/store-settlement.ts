@@ -167,6 +167,7 @@ async function resolveSettlementReadStoreId(): Promise<string> {
   if (!storeId) {
     throw new AppError("VALIDATION", "請先切換到指定分店，再查看月結紀錄");
   }
+  await requireStoreFeature(storeId, FEATURES.SERVICE_FEE_CALCULATOR);
   return storeId;
 }
 

@@ -16,6 +16,7 @@ import { AppError } from "@/lib/errors";
 // ============================================================
 
 export const FEATURES = {
+  DEVICE_PREVIEW: "device_preview",
   DIGITAL_BUTLER: "digital_butler",
   // ── EXPERIENCE（體驗版）──
   BASIC_BOOKING: "basic_booking",
@@ -38,6 +39,7 @@ export const FEATURES = {
   MEMBER_PORTAL: "member_portal",
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
+  CUSTOMER_LABELS: "customer_labels",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
   CUSTOMER_CARE: "customer_care",
@@ -71,12 +73,14 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   EXPERIENCE: [
+    "device_preview",
     "basic_booking",
     "customer_management",
     "staff_management",
     "duty_scheduling",
   ],
   BASIC: [
+    "device_preview",
     "member_portal",
     "basic_booking",
     "customer_management",
@@ -91,6 +95,8 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "store_revenue",
   ],
   GROWTH: [
+    "device_preview",
+    "basic_reports", // 專業版固定內含分析，不占選配名額
     "member_portal",
     "basic_booking",
     "customer_management",
@@ -118,7 +124,8 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "talent_upgrade_progress",
   ],
   ALLIANCE: [
-    "basic_reports", // 分析：展店版內含；專業版可任選，由總部開通；基本版加購
+    "device_preview",
+    "basic_reports", // 分析：專業版與展店版內含；基本版加購
     "basic_booking",
     "customer_management",
     "staff_management",

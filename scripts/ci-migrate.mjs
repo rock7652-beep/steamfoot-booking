@@ -21,6 +21,12 @@ if (
   console.info("[operation-audit-preview-preflight] isolated_database=true");
 }
 
+// Shared labels preview is restricted to the isolated test database.
+if (process.env.VERCEL_ENV === "preview" && ["feat/shared-customer-labels", "feat/hq-feature-three-state", "feat/shared-admin-visual-alignment"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Customer labels Preview requires the isolated preview database for both connections.");
+}
+
 // Steamfoot rent preview must never run against the production database.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "codex/steamfoot-rent-monthly") {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
@@ -52,6 +58,13 @@ if (requiresCoursePreviewCheck(process.env)) {
     await checkClient.$queryRawUnsafe('SELECT "remaining", "expiresAt", "closedAt" FROM "CoursePointCard" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "operatorCustomerId", "status", "checkedInAt", notes FROM "CourseBooking" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "capacity", "details" FROM "CourseRoom" LIMIT 1');
+    if(process.env.VERCEL_GIT_COMMIT_REF === "feat/shared-customer-labels") {
+      await checkClient.$queryRawUnsafe('SELECT "rentalEnabled", "rentalHourlyRate", "rentalBufferMinutes" FROM "CourseRoom" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT "isTrial" FROM "CourseSession" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, revision FROM "CourseRental" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, status FROM "CourseRentalPayment" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT id, kind, status FROM "CourseCoachNotification" LIMIT 1');
+    }
     await checkClient.$queryRawUnsafe('SELECT "courseMemberEnabled" FROM "StaffMemberLink" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT phone, "emergencyContactName", "emergencyContactPhone" FROM "Staff" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "unit", "templateIds" FROM "CoursePointCard" LIMIT 1');

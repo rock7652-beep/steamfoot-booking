@@ -41,6 +41,8 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
+  { key: FEATURES.DEVICE_PREVIEW, label: "前台與裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
+  { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
   {
     // Digital Butler is intentionally HQ-entitlement-only: no plan grants it
     // by default, but HQ must be able to grant or revoke a per-store override.
@@ -89,7 +91,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.COURSE_WAITLIST,
     label: "課程候補",
     module: "營運",
-    description: "課程滿班後依順位候補、自動遞補與 LINE 通知；可由店家獨立開關。",
+    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
   },
   {
     key: FEATURES.DATA_EXPORT,
@@ -101,7 +103,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.BASIC_REPORTS,
     label: "分析",
     module: "分析",
-    description: "基本版加購 NT$800／月；專業版可使用經營型模組名額選用，超出名額才加購；展店版內含。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
+    description: "基本版加購 NT$800／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
@@ -179,18 +181,18 @@ export function resolveStoreFeatureDisplayState(
     };
   }
 
-  if (resolution.source === "DISABLED") {
+  if (resolution.source === "HIDDEN" || resolution.source === "LOCKED" || resolution.source === "DISABLED") {
     return {
       effectiveAllowed: false,
-      statusLabel: "強制關閉",
-      statusClass: "bg-red-50 text-red-700",
+      statusLabel: resolution.source === "HIDDEN" ? "隱藏" : "鎖定",
+      statusClass: "bg-earth-100 text-earth-600",
       sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
     };
   }
 
   return {
     effectiveAllowed: resolution.enabled,
-    statusLabel: "可用",
+    statusLabel: "啟用",
     statusClass: "bg-green-50 text-green-700",
     sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
   };

@@ -3,10 +3,9 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { coursePrisma } from "@/lib/course-db";
 import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature } from "@/lib/feature-gate";
-import { AppError, handleActionError } from "@/lib/errors";
+import { handleActionError } from "@/lib/errors";
 import { courseManager, courseMember, courseTransaction } from "@/server/services/course-access";
 import {
   cancelMemberCourseWaitlist,
@@ -87,6 +86,17 @@ export async function joinMemberCourseWaitlist(input: unknown) {
   } catch (error) {
     return handleActionError(error);
   }
+}
+
+export async function joinManagerCourseWaitlist(input: unknown) {
+  try {
+    const data=z.object({sessionId:id,cardId:id,customerIds:z.array(id).min(1).max(20),requestKey:z.string().uuid()}).parse(input);
+    const {user,storeId}=await courseManager("booking.create");
+    const result=await joinCourseWaitlist({userId:user.id,storeId,name:user.name??"店長"},data);
+    await recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseWaitlist",targetId:result.rows[0]?.groupKey??data.sessionId,action:"JOIN",summary:`店長加入候補（${result.rows.length} 人）`,after:{sessionId:data.sessionId,position:result.position,count:result.rows.length}});
+    refresh();
+    return {success:true as const,data:{position:result.position,count:result.rows.length}};
+  }catch(error){return handleActionError(error);}
 }
 
 export async function cancelMemberCourseWaitlistAction(input: unknown) {

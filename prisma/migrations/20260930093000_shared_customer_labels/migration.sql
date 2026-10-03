@@ -1,0 +1,11 @@
+CREATE UNIQUE INDEX "Customer_storeId_id_key" ON "Customer"("storeId",id);
+CREATE TABLE "CustomerLabelSetting" ("storeId" TEXT PRIMARY KEY REFERENCES "Store"(id), enabled BOOLEAN NOT NULL DEFAULT false, "nextCategoryNumber" INTEGER NOT NULL DEFAULT 1);
+CREATE TABLE "CustomerLabelCategory" (id TEXT PRIMARY KEY, "storeId" TEXT NOT NULL REFERENCES "Store"(id), name TEXT NOT NULL, number INTEGER NOT NULL, position INTEGER NOT NULL, active BOOLEAN NOT NULL DEFAULT true, UNIQUE("storeId",number), UNIQUE("storeId",name), UNIQUE("storeId",id), CHECK(number>0));
+CREATE TABLE "CustomerLabel" (id TEXT PRIMARY KEY, "storeId" TEXT NOT NULL, "categoryId" TEXT NOT NULL, name TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT true, UNIQUE("storeId","categoryId",name), UNIQUE("storeId",id), FOREIGN KEY("storeId","categoryId") REFERENCES "CustomerLabelCategory"("storeId",id));
+CREATE TABLE "CustomerLabelAssignment" ("storeId" TEXT NOT NULL, "customerId" TEXT NOT NULL, "labelId" TEXT NOT NULL, PRIMARY KEY("storeId","customerId","labelId"), FOREIGN KEY("storeId","customerId") REFERENCES "Customer"("storeId",id), FOREIGN KEY("storeId","labelId") REFERENCES "CustomerLabel"("storeId",id));
+CREATE INDEX "CustomerLabelAssignment_storeId_labelId_customerId_idx" ON "CustomerLabelAssignment"("storeId","labelId","customerId");
+ALTER TABLE "CustomerLabelSetting" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "CustomerLabelCategory" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "CustomerLabel" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "CustomerLabelAssignment" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "CustomerLabelSetting", "CustomerLabelCategory", "CustomerLabel", "CustomerLabelAssignment" FROM anon, authenticated;

@@ -45,3 +45,11 @@ export function intersectAvailabilityPeriods(a: AvailabilityPeriod[], b: Availab
   }
   return result;
 }
+
+/** Return original row indexes, so overlapping and reversed intervals can be corrected in place. */
+export function availabilityPeriodErrors(periods:AvailabilityPeriod[]):Record<number,string> {
+ const errors:Record<number,string>={};
+ periods.forEach((p,i)=>{if(!validTime(p.openTime)||!validTime(p.closeTime))errors[i]='請填完整時間';else if(p.openTime>=p.closeTime)errors[i]='結束需晚於開始';});
+ periods.forEach((p,i)=>{if(p.openTime>=p.closeTime||!validTime(p.openTime)||!validTime(p.closeTime))return;periods.forEach((other,j)=>{if(j<=i||other.openTime>=other.closeTime||!validTime(other.openTime)||!validTime(other.closeTime))return;if(p.openTime<other.closeTime&&other.openTime<p.closeTime){errors[i]='與其他時段重疊';errors[j]='與其他時段重疊';}});});
+ return errors;
+}

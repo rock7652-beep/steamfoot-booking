@@ -191,11 +191,11 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" | "plans" }) {
+export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialRole);
+  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.initialRole);
   const role = resolveCoursePortalRole(preferredRole, p.memberEnabled, p.hasWork);
   const [page, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
@@ -618,7 +618,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     return [...list].sort((a, b) => (page === "home" ? Number(isEnded(a)) - Number(isEnded(b)) : 0) || a.startsAt.localeCompare(b.startsAt)).map((s) => {
       const people = s.bookings.filter((b) => b.status !== "CANCELLED"),
         pendingPeople = people.filter((b) => b.status === "RESERVED"),
-        ended = new Date(s.startsAt).getTime() <= now,
         filtered = people.filter((b) => b.customerName.includes(search)),
         readOnly = page === "records" && recordEdit !== s.id;
       return (
@@ -642,7 +641,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <small>
                 {s.room} · {people.length} 位學員 ·{" "}
                 {page === "records" ? `出席 ${people.filter(b=>b.status === "ATTENDED").length} 人／未到 ${people.filter(b=>b.status === "NO_SHOW").length} 人 · ${pendingPeople.length ? "待完成點名" : people.length ? "點名完成" : "無有效預約"}` : pendingPeople.length
-                  ? (ended ? `待點名 ${pendingPeople.length} 位` : "尚未開課")
+                  ? `待點名 ${pendingPeople.length} 位`
                   : people.length
                     ? "點名完成"
                     : "尚無學員"}
@@ -655,10 +654,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <div className="cp-actions cp-roster-actions">
                 <strong>學員名單 {people.length}</strong>
                 {readOnly && <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button>}
-                {!readOnly && ended && pendingPeople.length > 0 && (
+                {!readOnly && pendingPeople.length > 0 && (
                   <button
                     className="primary"
-                    disabled={!ended || pending}
+                    disabled={pending}
                     onClick={() => {
                       setError("");
                       setAttendance({
@@ -672,7 +671,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   </button>
                 )}
               </div>
-              {!readOnly && pendingPeople.length > 0 && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "尚未開課，開課後可點選出席／未到。"}</p>}
+              {!readOnly && pendingPeople.length > 0 && <p className="cp-roster-hint">確認出席後扣抵額度。</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
                 <input
@@ -696,7 +695,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <div className="cp-attendance-actions">
                       {b.status === "RESERVED" ? (
                         <>
-                          {!readOnly && ended && <>
+                          {!readOnly && <>
                             <button
                               className="primary"
                               disabled={pending}
@@ -751,7 +750,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <summary>
                       <span className="cp-badge" data-status={b.status}>
                         {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
-                          ? (ended ? "待點名" : "尚未開課")
+                          ? "待點名"
                           : b.status === "ATTENDED"
                             ? `已出席・${b.unit === "TRIAL" ? "體驗不扣額度" : `已扣 ${b.cost} ${unit(b.unit)}`}`
                             : statusName(b.status)}

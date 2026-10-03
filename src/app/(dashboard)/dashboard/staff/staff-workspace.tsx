@@ -391,7 +391,7 @@ export function StaffWorkspace({
             停用後不再提供新排課選用，歷史紀錄保留。
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-            <table className="w-full min-w-[660px] text-left text-sm">
+            <table className="admin-list-table w-full min-w-[660px] text-left text-sm">
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {["姓名", "角色", "電話", "Email", "狀態", "操作"].map(
@@ -1935,7 +1935,7 @@ function Drawer({
         className="relative h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl"
       >
         <header className="mb-5 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-earth-900">{title}</h1>
+          <h1 className="admin-page-title">{title}</h1>
           <button
             type="button"
             onClick={onClose}

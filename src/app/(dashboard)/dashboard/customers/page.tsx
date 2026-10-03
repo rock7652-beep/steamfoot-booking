@@ -1,3 +1,5 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import {SpaCustomers} from "./_components/spa-customers";
 import { listCustomersForUser } from "@/server/queries/customer";
@@ -46,6 +48,7 @@ import type {
  */
 interface PageProps {
   searchParams: Promise<{
+    label?: string;
     // 新版 toolbar 支援的參數
     status?: string;
     visit?: string;
@@ -88,7 +91,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       checkPermission(user.role,user.staffId,"wallet.read"),checkPermission(user.role,user.staffId,"transaction.read"),
       checkPermission(user.role,user.staffId,"duty.manage"),
     ]);
-    return <SpaCustomers storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
+    return <SpaCustomers labelId={params.label} storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
       canEdit={!isViewMode&&canEdit} canCreate={!isViewMode&&canCreate} canBook={!isViewMode&&canBook&&canReadBookings}
       canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={!isViewMode&&user.role==="OWNER"&&canManageStaff}/>;
   }
@@ -115,6 +118,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         referral: normalizeReferral(params.referral),
         search: params.search,
         assignedStaffId: params.staff,
+        labelId: params.label,
         sort: normalizeSort(params.sort),
         page,
         pageSize,
@@ -202,7 +206,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     ? DATA_EXPORT_LOCKED_MESSAGE
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
+  const labelSnapshot = await customerLabelSnapshot(rows.map(c=>c.id));
   return (
+    <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell>
       <FormSuccessToast />
       <PageHeader
@@ -307,6 +313,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         ) : null}
       </div>
     </PageShell>
+    </CustomerLabelsSeed>
   );
 }
 

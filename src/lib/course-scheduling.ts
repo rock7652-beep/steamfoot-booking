@@ -30,6 +30,7 @@ export const courseTemplateInput = z.object({
   waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
+  isTrial:z.boolean().default(false),
   templateId: id,
   roomId: id,
   coachId: id,
@@ -42,7 +43,7 @@ export const courseScheduleInput = z.object({
   additionalDates: z.array(date).max(52).optional(),
   requestKey: z.string().uuid(),
 });
-export type CourseScheduleInput = z.infer<typeof courseScheduleInput>;
+export type CourseScheduleInput = z.input<typeof courseScheduleInput>;
 
 export function buildCourseOccurrences(input: CourseScheduleInput) {
   const parsed = courseScheduleInput.parse(input);

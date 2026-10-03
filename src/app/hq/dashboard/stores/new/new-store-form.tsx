@@ -72,7 +72,7 @@ export default function NewStoreForm() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-green-700">建店完成</h1>
+          <h1 className="admin-page-title">建店完成</h1>
           <p className="mt-1 text-sm text-earth-500">
             以下為交付摘要，請保存或轉發給店家
           </p>
@@ -213,7 +213,7 @@ export default function NewStoreForm() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-earth-900">建立新店</h1>
+        <h1 className="admin-page-title">建立新店</h1>
         <p className="mt-1 text-sm text-earth-500">
           填寫店舖基本資料與 OWNER 帳號
         </p>

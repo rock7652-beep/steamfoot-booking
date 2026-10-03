@@ -306,7 +306,7 @@ export default async function SystemStatusPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-bold text-earth-900">營運健康中心</h1>
+        <h1 className="admin-page-title">營運健康中心</h1>
         <p className="mt-0.5 text-sm text-earth-500">
           即時監控核心營運功能，確保平台穩定運作
         </p>

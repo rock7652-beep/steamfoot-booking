@@ -8,6 +8,7 @@ const openPanels: symbol[] = [];
 let originalOverflow = "";
 
 interface RightSheetProps {
+  className?: string;
   presentation?: "side" | "centered";
   compact?: boolean;
   fitContent?: boolean;
@@ -16,16 +17,19 @@ interface RightSheetProps {
   onClose: () => void;
   children: ReactNode;
   width?: number;
+  maxHeight?: number;
   labelledById?: string;
   closeOnEscape?: boolean;
 }
 
 export function RightSheet({
+  className = "",
   presentation = "side",
   open,
   onClose,
   children,
   width = 460,
+  maxHeight = 900,
   compact = false,
   fitContent = false,
   fixedHeight = false,
@@ -78,11 +82,16 @@ export function RightSheet({
   return (
     <div
       data-right-sheet
+      onClickCapture={event => {
+        if (event.detail === 0 || !className.split(" ").includes("fitness-management-editor")) return;
+        const summary = (event.target as HTMLElement).closest("summary");
+        if (summary) summary.blur();
+      }}
       data-presentation={presentation}
       inert={!open}
       style={centered ? { top: 0, right: 0 } : undefined}
       aria-hidden={!open}
-      className={`fixed inset-0 ${centered ? "z-[80]" : compact ? "z-[70]" : "z-50"} ${
+      className={`${className} fixed inset-0 ${centered ? "z-[80]" : compact ? "z-[70]" : "z-50"} ${
         open ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
@@ -101,7 +110,7 @@ export function RightSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledById}
-        style={centered ? { "--sheet-width": `${width}px` } as CSSProperties : { width }}
+        style={centered ? { "--sheet-width": `${width}px`, "--sheet-max-height": `${maxHeight}px` } as CSSProperties : { width }}
         className={`${centered ? styles.centered : "absolute right-0 top-0 h-full max-w-full"} ${styles.mobileScrollable} flex flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
           centered ? (open ? "visible" : "invisible") : (open ? "translate-x-0" : "translate-x-full")
         }`}

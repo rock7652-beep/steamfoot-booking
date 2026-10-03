@@ -1,3 +1,6 @@
+import { CustomerLabelsSeed } from "@/components/customer-labels";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
+import { EMPTY_LABELS } from "@/lib/customer-labels";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import { MusicSubjectCatalog } from "./music-subject-catalog";
@@ -85,6 +88,11 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
+  const rentals = await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
+  const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
+  const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
+  const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
+  const rentalCustomers=rentalPermissions.customerRead?await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}):[];
   const cancelledBookings = await coursePrisma.courseBooking.findMany({
     where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
     select: { id: true, customerName: true, sessionId: true, absenceKind: true, notes: true },
@@ -112,7 +120,7 @@ export default async function CoursesPage({
           isActive: true,
           capacity: true,
           details: true,
-          equipment:true,location:true,
+          equipment:true,location:true,rentalEnabled:true,rentalHourlyRate:true,rentalBufferMinutes:true,
           sessions: {
             where: { cancelledAt: null, endsAt: { gt: new Date() } },
             select: { id:true,nameSnapshot: true, startsAt: true },
@@ -132,6 +140,7 @@ export default async function CoursesPage({
           visibility:true,classType:true,musicSubjectId:true,musicSubject:{select:{id:true,name:true,isActive:true}},
           musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,
           musicScheduleMode:true,musicTrialMode:true,musicTeacherFeeBase:true,
+          _count:{select:{sessions:true}},
           durationMinutes: true,
           capacity: true,
           pointCost: true,
@@ -155,6 +164,7 @@ export default async function CoursesPage({
         },
         select: {
           id: true,
+          isTrial: true,
           nameSnapshot: true,
           templateId: true,
           startsAt: true,
@@ -173,12 +183,13 @@ export default async function CoursesPage({
           rescheduledAt: true,
           releasedAt: true,
           bookings: {
-            where: { status: { not: "CANCELLED" } },
+            where: { OR: [{ status: { not: "CANCELLED" } }, { absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"] } }] },
             select: {
               id: true,
               customerId: true,
               customerName: true,
               status: true,
+              absenceKind: true,
               checkedInAt: true,
               bookingKind: true,
             },
@@ -205,6 +216,8 @@ export default async function CoursesPage({
         SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
         WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`,
     ]);
+  const rosterCustomers = await prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId)))] } }, select: { id: true, assignedStaffId: true } });
+  const assignedByCustomer = new Map(rosterCustomers.map(customer => [customer.id, customer.assignedStaffId]));
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
     .split("-")
@@ -283,7 +296,9 @@ export default async function CoursesPage({
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
     && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
+  const labelSnapshot = await checkPermission(user.role,user.staffId,"customer.read") ? await customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS;
   return (
+    <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell
       className={
         view === "schedule"
@@ -294,7 +309,7 @@ export default async function CoursesPage({
       }
     >
       {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
-        <div className="flex flex-wrap gap-2">
+        <details className="text-xs text-earth-600"><summary className="cursor-pointer">測試課表對照</summary><div className="flex flex-wrap gap-2">
           {showLubyReplica && (
             <a href="/dashboard/courses?showcase=luby-day&date=2026-09-26" className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
               查看 9/26 陸比原課表對照（9/12 截圖移日）
@@ -303,16 +318,16 @@ export default async function CoursesPage({
           <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
             查看 9/26 七種班型示意（49 堂）
           </a>
-        </div>
+        </div></details>
       )}
       {view !== "schedule" && (
         <PageHeader
-          title={view === "catalog" ? "課程管理" : "教室管理"}
-          subtitle={
+          title={view === "catalog" ? "課程管理" : "空間管理"}
+          subtitle={businessProfile === "MUSIC" ? (
             view === "catalog"
               ? "管理課程名稱、人數與排課預設"
               : "管理上課教室"
-          }
+          ) : undefined}
         />
       )}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
@@ -326,10 +341,12 @@ export default async function CoursesPage({
           ...room,
           uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
         }))}
-        templates={templates}
+        templates={templates.map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
+        rentalCustomers={rentalCustomers}
+        rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && (user.role === "ADMIN" || user.storeId === storeId) && !viewContext?.isViewMode}}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
         businessProfile={businessProfile}
         staffAvailability={staffAvailability}
@@ -337,7 +354,7 @@ export default async function CoursesPage({
         waitlistEnabled={waitlistEnabled}
         waitlistDefaultLimit={waitlistDefaultLimit}
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
-        sessions={sessions.map((s) => ({
+        sessions={[...sessions.map((s) => ({
           ...s,
           isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
           isBiweekly: biweeklyKeys.has(s.requestKey),
@@ -345,6 +362,7 @@ export default async function CoursesPage({
           endsAt: s.endsAt.toISOString(),
           bookings: s.bookings.map((booking) => ({
             ...booking,
+            assignedCoachId: assignedByCustomer.get(booking.customerId) ?? null,
             checkedInAt: booking.checkedInAt?.toISOString() ?? null,
           })),
           rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
@@ -352,9 +370,10 @@ export default async function CoursesPage({
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
           previewFaded: s.releasedAt ? "異動／請假" as const : undefined,
           previewStudentNames: s.releasedAt ? cancelledBookings.filter((booking) => booking.sessionId === s.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map((booking) => booking.customerName) : undefined,
-        }))}
+        })),...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))]}
         cancelledBookings={cancelledBookings}
       />
     </PageShell>
+    </CustomerLabelsSeed>
   );
 }

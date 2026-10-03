@@ -1,4 +1,5 @@
 "use client";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
 
 import { BookingActionFeedback } from "./booking-action-feedback";
 
@@ -41,6 +42,7 @@ export interface DayBooking {
   /** 本次成功 SESSION_DEDUCTION 實際扣除的方案名稱；交易紀錄為準。 */
   deductedPlanNames?: string[];
   customer: {
+    id?: string;
     name: string;
     phone: string;
     /** 內部服務備註（後台限定）。有值時當日清單顯示一行截斷提醒。 */
@@ -286,6 +288,7 @@ export function DayDetailPanel({
                   <TimelineItem
                     booking={b}
                     onClick={onBookingClick}
+                    readOnly={readOnly}
                     actionable={!readOnly && actionable}
                     selected={isSelected}
                     onToggleSelect={
@@ -345,6 +348,7 @@ export function DayDetailPanel({
 
 function TimelineItem({
   booking,
+  readOnly = false,
   onClick,
   actionable,
   selected,
@@ -354,6 +358,7 @@ function TimelineItem({
   isActing,
 }: {
   booking: DayBooking;
+  readOnly?: boolean;
   onClick?: (id: string) => void;
   actionable: boolean;
   selected: boolean;
@@ -363,8 +368,6 @@ function TimelineItem({
   isActing: boolean;
 }) {
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
-  const phone = booking.customer?.phone?.trim();
-  const displayPhone = phone?.replace(/^(09\d{2})(\d{3})(\d{3})$/, "$1-$2-$3");
   // 有效 PACKAGE 堂數提醒（複用 PR #280 顧客清單同款 helper，定義一致）。
   const sessions = remainingSessionsState(booking.customer?.validPackageSessions ?? 0);
   const planBadge = bookingPlanBadge({
@@ -475,9 +478,7 @@ function TimelineItem({
                 （實到 {booking.attendedPeople}/{booking.people}）
               </span>
             )}
-          <span className="min-w-0 flex-1 break-words text-base font-semibold text-earth-900">
-            {booking.customer?.name ?? "—"}
-          </span>
+          <div className="min-w-0 flex-1"><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/></div>
           <span className="shrink-0 text-xs text-earth-500">
             {assignedStaffName}
           </span>
@@ -486,18 +487,6 @@ function TimelineItem({
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
-          {phone ? (
-            <a
-              href={`tel:${phone.replace(/[^+\d]/g, "")}`}
-              aria-label={`撥打 ${booking.customer.name} 的手機號碼 ${displayPhone}`}
-              className="relative z-20 inline-flex min-h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded text-sm text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600"
-            >
-              <span className="tabular-nums">{displayPhone}</span>
-              <span className="px-1.5 text-xs font-medium">撥打</span>
-            </a>
-          ) : (
-            <span className="text-sm text-earth-500">未留電話</span>
-          )}
           {booking.customerConfirmedAt ? (
             <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
               顧客已確認會到

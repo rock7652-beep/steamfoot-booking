@@ -19,8 +19,8 @@ export async function bulkAssignCourseCustomers(input: z.infer<typeof bulkUpdate
     const ids = [...new Set(data.customerIds)];
     const count = await prisma.$transaction(async tx => {
       await lockCourseStore(tx, storeId);
-      const staff = await tx.staff.findFirst({ where: { id: data.assignedStaffId, storeId, status: "ACTIVE", user: { role: "OWNER", status: "ACTIVE" } }, select: { id: true } });
-      if (!staff) throw new AppError("VALIDATION", "請選擇本店啟用中的店長，教練不具後台管理身分");
+      const staff = await tx.staff.findFirst({ where: { id: data.assignedStaffId, storeId, status: "ACTIVE", user: { status: "ACTIVE" }, OR: [{courseCoachEnabled:true},{user:{role:"OWNER"}}] }, select: { id: true } });
+      if (!staff) throw new AppError("VALIDATION", "請選擇本店啟用中的所屬店長");
       const customers = await tx.customer.findMany({
         where: { id: { in: ids }, storeId, mergedIntoCustomerId: null, OR: [{ userId: null }, { user: { status: "ACTIVE" } }] },
         select: { id: true, assignedStaffId: true },
@@ -38,16 +38,17 @@ export async function bulkAssignCourseCustomers(input: z.infer<typeof bulkUpdate
 
 export async function saveCourseCustomerAttribution(input: z.infer<typeof updateCustomerAssignmentSchema>): Promise<ActionResult<void>> {
   try {
+    await requireWritablePermission("customer.assign");
     const data = updateCustomerAssignmentSchema.extend({assignedStaffId:z.string()}).parse(input);
-    const { storeId } = await courseManager("customer.assign");
+    const { storeId, user } = await courseManager("customer.assign");
     const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
     await prisma.$transaction(async tx => {
       const customer = await tx.customer.findFirst({ where: { id: data.customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } });
       if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
       const staff = music ? null : await tx.staff.findFirst({
-        where: { id: data.assignedStaffId || "__none__", storeId, status: "ACTIVE", user: { role: "OWNER", status: "ACTIVE" } }, select: { id: true },
+        where: { id: data.assignedStaffId || "__none__", storeId, status: "ACTIVE", user: { status: "ACTIVE" }, OR: [{courseCoachEnabled:true},{user:{role:"OWNER"}}] }, select: { id: true },
       });
-      if (!music && !staff) throw new AppError("VALIDATION", "請選擇本店啟用中的店長，教練不具後台管理身分");
+      if (!music && !staff) throw new AppError("VALIDATION", "請選擇本店啟用中的所屬店長");
       const sponsorId = data.referredByCustomerId ?? null;
       if (sponsorId) {
         if (sponsorId === customer.id) throw new AppError("VALIDATION", "推薦人不可為本人");
@@ -55,6 +56,7 @@ export async function saveCourseCustomerAttribution(input: z.infer<typeof update
         if (!sponsor) throw new AppError("VALIDATION", "推薦人必須是本店顧客");
       }
       await tx.customer.update({ where: { id: customer.id, storeId }, data: { ...(staff ? {assignedStaffId:staff.id} : {}), sponsorId } });
+      await tx.auditLog.create({data:{actorUserId:user.id,targetType:"Customer",targetId:customer.id,action:"COURSE_CUSTOMER_ATTRIBUTION",afterJson:{assignedStaffId:staff?.id??null,sponsorId}}});
     });
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");

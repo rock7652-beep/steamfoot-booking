@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveEffectiveEntitlement } from "@/lib/effective-entitlement";
+import { resolveEffectiveEntitlement, featurePresentationState } from "@/lib/effective-entitlement";
 
 const NOW = new Date("2026-07-16T04:00:00.000Z");
 
@@ -59,5 +59,25 @@ describe("resolveEffectiveEntitlement", () => {
       startsAt: NOW,
       expiresAt: NOW,
     }, NOW)).toEqual({ enabled: true, source: "ENABLED" });
+  });
+});
+
+
+describe("three-state presentation", () => {
+  it.each(["HIDDEN", "LOCKED"] as const)("%s denies use for every plan default", status => {
+    for (const base of [true, false]) {
+      const result = resolveEffectiveEntitlement(base, {status, startsAt: NOW, expiresAt: NOW}, NOW);
+      expect(result.enabled).toBe(false);
+      expect(featurePresentationState(result)).toBe(status);
+    }
+  });
+  it.each(["HIDDEN", "LOCKED"] as const)("%s restores plan presentation outside its active dates", status => {
+    for (const dates of [{startsAt:new Date(NOW.getTime()+1), expiresAt:null}, {startsAt:null, expiresAt:new Date(NOW.getTime()-1)}]) {
+      expect(featurePresentationState(resolveEffectiveEntitlement(true, {status, ...dates}, NOW))).toBe("ENABLED");
+      expect(featurePresentationState(resolveEffectiveEntitlement(false, {status, ...dates}, NOW))).toBe("LOCKED");
+    }
+  });
+  it("keeps legacy DISABLED visibly locked", () => {
+    expect(featurePresentationState(resolveEffectiveEntitlement(true, {status:"DISABLED", startsAt:null, expiresAt:null}, NOW))).toBe("LOCKED");
   });
 });

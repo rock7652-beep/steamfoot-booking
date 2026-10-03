@@ -1,3 +1,5 @@
+import { getCourseSetup } from "@/server/queries/course-setup";
+import { CourseSetupGuide } from "@/components/admin/course-setup-guide";
 import { CourseSettingsWorkspace } from "./settings-workspace";
 import { CourseSettingsPanelContent } from "./settings-panel-content";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
@@ -60,7 +62,8 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
-    body = (
+    body = (<>
+      {!music&&!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide manual {...await getCourseSetup(storeId,user.id)}/>}
       <CourseSettingsWorkspace
         music={music}
         panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}
@@ -97,7 +100,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
           autoPromoteStopMinutes: waitlistSetting?.autoPromoteStopMinutes ?? 240,
         } : undefined}
       />
-    );
+    </>);
 
   }
   return <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"><PageHeader title={title} subtitle={subtitle}/><div className="space-y-5">{body}</div></PageShell>;

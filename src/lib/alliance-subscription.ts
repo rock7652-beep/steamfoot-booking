@@ -1,7 +1,7 @@
 /** HQ subscription is separate from each branch subscription. No inherited plan. */
 export const ALLIANCE_BASE_MONTHLY = 4990;
 export const ALLIANCE_STANDARD_BRANCH_LIMIT = 15;
-export const ALLIANCE_BRANCH_PRICING_COPY = "第 1～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算。各分店系統月費另計，16 間起另行報價。";
+export const ALLIANCE_BRANCH_PRICING_COPY = "首間分店免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算。各分店系統月費另計，16 間起另行報價。";
 export type OrganizationStore = {
   id: string; name: string; parentStoreId: string | null;
   plan: string; maxStoresOverride: number | null;
@@ -15,7 +15,7 @@ export function branchCapacity(store: OrganizationStore): number {
 export function branchConnectionMonthlyFee(branchCount: number): number | null {
   if (!Number.isSafeInteger(branchCount) || branchCount < 0) throw new Error("請輸入有效的分店間數");
   if (branchCount > ALLIANCE_STANDARD_BRANCH_LIMIT) return null;
-  return Math.min(branchCount, 5) * 500 + Math.max(0, branchCount - 5) * 300;
+  return Math.max(0, Math.min(branchCount, 5) - 1) * 500 + Math.max(0, branchCount - 5) * 300;
 }
 export function managementMonthlyFee(branchCount: number): number | null {
   const fee = branchConnectionMonthlyFee(branchCount);

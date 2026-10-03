@@ -1,3 +1,4 @@
+import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -7,7 +8,7 @@ import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
 export type CourseCustomerPage = {
   total: number;
   page: number;
-  rows: Array<{ id: string; lastVisitAt: string | null; points: number; sessions: number }>;
+  rows: Array<{ id: string; lastVisitAt: string | null; points: number; sessions: number; hasPoints?: boolean; hasSessions?: boolean }>;
 };
 
 // Aggregate in the database before LIMIT: pagination and points sorting must
@@ -18,6 +19,8 @@ export async function getCourseCustomerPage(
 ): Promise<CourseCustomerPage> {
   const visibility = getManagerCustomerWhere(role, staffId, storeId);
   const staffScope = typeof visibility.assignedStaffId === "string" ? visibility.assignedStaffId : null;
+  const labelIds = await customerLabelFilterIds(storeId, params.get("label") ?? undefined);
+  const labelFilter = labelIds === null ? Prisma.empty : labelIds.length ? Prisma.sql`AND c.id IN (${Prisma.join(labelIds)})` : Prisma.sql`AND false`;
   const requested = Number(params.get("page") ?? 1);
   const page = Number.isSafeInteger(requested) ? Math.max(1, Math.min(50000, requested)) : 1;
   const search = (params.get("search") ?? "").trim().toLocaleLowerCase().slice(0, 200);
@@ -35,12 +38,13 @@ export async function getCourseCustomerPage(
     WITH attendance AS (
       SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
       FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
-      WHERE b."storeId"=${storeId} AND b.status='ATTENDED' GROUP BY b."customerId"
+      WHERE b."storeId"=${storeId} AND b.status='ATTENDED' AND s."startsAt" <= ${now} AND s."cancelledAt" IS NULL AND s."releasedAt" IS NULL GROUP BY b."customerId"
     ), held AS (
       SELECT "cardId", SUM("pointCost") AS amount FROM "CourseBooking"
       WHERE "storeId"=${storeId} AND status='RESERVED' AND ${canReadCards} GROUP BY "cardId"
     ), balances AS (
       SELECT m."customerId",
+        BOOL_OR(c.unit<>'SESSION') AS "hasPoints", BOOL_OR(c.unit='SESSION') AS "hasSessions",
         SUM(CASE WHEN c.unit='SESSION' THEN 0 ELSE GREATEST(0,c.remaining-COALESCE(h.amount,0)) END)::int AS points,
         SUM(CASE WHEN c.unit='SESSION' THEN GREATEST(0,c.remaining-COALESCE(h.amount,0)) ELSE 0 END)::int AS sessions
       FROM "CoursePointCard" c JOIN "CourseCardMember" m ON m."cardId"=c.id AND m."storeId"=c."storeId"
@@ -49,10 +53,10 @@ export async function getCourseCustomerPage(
       GROUP BY m."customerId"
     ), filtered AS (
       SELECT c.id,c.name,c."createdAt",a."lastVisitAt",COALESCE(b.points,0) AS points,
-        COALESCE(b.sessions,0) AS sessions,CASE WHEN u.status='SUSPENDED' THEN 1 ELSE 0 END AS inactive
+        COALESCE(b.sessions,0) AS sessions,COALESCE(b."hasPoints",false) AS "hasPoints",COALESCE(b."hasSessions",false) AS "hasSessions",CASE WHEN u.status='SUSPENDED' THEN 1 ELSE 0 END AS inactive
       FROM "Customer" c LEFT JOIN "User" u ON u.id=c."userId"
       LEFT JOIN attendance a ON a."customerId"=c.id LEFT JOIN balances b ON b."customerId"=c.id
-      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL
+      WHERE c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL ${labelFilter}
         AND (${staffScope}::text IS NULL OR c."assignedStaffId"=${staffScope})
         AND (${assigned}='' OR c."assignedStaffId"=${assigned})
         AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."lineName")),${search})>0)
@@ -68,7 +72,7 @@ export async function getCourseCustomerPage(
     ), totals AS (
       SELECT COUNT(*)::int AS total,LEAST(${page},GREATEST(1,CEIL(COUNT(*)/20.0)::int))::int AS page FROM filtered
     ), paged AS (
-      SELECT id,"lastVisitAt",points,sessions FROM filtered ORDER BY inactive,${order},name,id
+      SELECT id,"lastVisitAt",points,sessions,"hasPoints","hasSessions" FROM filtered ORDER BY inactive,${order},name,id
       LIMIT 20 OFFSET (SELECT (page-1)*20 FROM totals)
     )
     SELECT total,page,COALESCE((SELECT json_agg(paged) FROM paged),'[]'::json) AS rows FROM totals

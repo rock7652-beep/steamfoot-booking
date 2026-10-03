@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { normalizeAvailabilityPeriods } from "@/lib/course-availability";
-import { assertExistingTeacherAvailability } from "@/server/services/course-availability";
+import { assertExistingTeacherAvailability, listOutsideTeacherAvailability } from "@/server/services/course-availability";
 import { handleCourseActionError } from "@/server/services/course-resources";
 import { courseManager, courseManagerRead } from "@/server/services/course-access";
 
@@ -46,7 +46,7 @@ export async function saveCourseStaffWeeklyAvailability(input:unknown) {
     const {storeId}=await courseManager("staff.manage");
     const data=weeklySchema.parse(input);
     await assertStaff(storeId,data.staffId);
-    await prisma.$transaction(async tx=>{
+    const retainedSessions=await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
     if(data.inheritStoreHours) {
       await tx.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
@@ -59,19 +59,19 @@ export async function saveCourseStaffWeeklyAvailability(input:unknown) {
       });
 
         await tx.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
-        for(const day of normalized) {
+        for(const day of Array.from({length:7},(_,dayOfWeek)=>normalized.find(day=>day.dayOfWeek===dayOfWeek)??{dayOfWeek,periods:[]})) {
           const json=JSON.stringify(day.periods);
           await tx.$executeRaw`
             INSERT INTO "CourseStaffAvailability" (id,"storeId","staffId","dayOfWeek",segments,"createdAt","updatedAt")
             VALUES (${randomUUID()},${storeId},${data.staffId},${day.dayOfWeek},${json}::jsonb,NOW(),NOW())`;
         }
     }
-    await assertExistingTeacherAvailability(tx,storeId,data.staffId);
+    return listOutsideTeacherAvailability(tx,storeId,data.staffId);
     });
     revalidatePath("/dashboard/teachers");
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard/staff");
-    return {success:true as const};
+    return {success:true as const,retainedSessions};
   } catch(error) { return handleCourseActionError(error); }
 }
 
@@ -95,7 +95,7 @@ export async function saveCourseStaffAvailabilityException(input:unknown) {
         ON CONFLICT ("storeId","staffId",date)
         DO UPDATE SET type=EXCLUDED.type,segments=EXCLUDED.segments,reason=EXCLUDED.reason,"updatedAt"=NOW()`;
     }
-    await assertExistingTeacherAvailability(tx,storeId,data.staffId);
+    if(data.type!=="INHERIT")await assertExistingTeacherAvailability(tx,storeId,data.staffId,data.date);
     });
     revalidatePath("/dashboard/teachers");
     revalidatePath("/dashboard/courses");

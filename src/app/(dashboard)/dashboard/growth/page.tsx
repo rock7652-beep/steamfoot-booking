@@ -76,8 +76,8 @@ function followUpText(
 
 function CustomerCareLockedState() {
   return (
-    <PageShell>
-      <PageHeader
+    <PageShell compact>
+      <PageHeader compact
         title="顧客經營"
         subtitle="今天要關心誰,一頁看懂。"
         actions={
@@ -152,8 +152,8 @@ export default async function CustomerCarePage({
     }));
 
     return (
-      <PageShell>
-        <PageHeader
+      <PageShell compact>
+        <PageHeader compact
           title="顧客經營"
           subtitle={`${periodLabel}｜${config.title}`}
           actions={
@@ -269,8 +269,8 @@ export default async function CustomerCarePage({
   }));
 
   return (
-    <PageShell>
-      <PageHeader
+    <PageShell compact>
+      <PageHeader compact
         title="顧客經營"
         subtitle="今天要關心誰,一頁看懂。"
         actions={

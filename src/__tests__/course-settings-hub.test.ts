@@ -15,7 +15,12 @@ vi.mock("@/components/desktop", () => ({ PageShell: () => null, PageHeader: () =
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-workspace", () => ({ CourseSettingsWorkspace: () => null }));
 import { CourseSharedHub } from "@/app/(dashboard)/dashboard/courses/shared-hub";
 import { FEATURES } from "@/lib/feature-flags";
-async function props() { return (await CourseSharedHub({ view: "settings" })).props.children[1].props.children.props; }
+vi.mock("@/server/queries/course-setup", () => ({getCourseSetup:async()=>null}));
+async function props() {
+ const tree=await CourseSharedHub({view:"settings"});
+ function find(node: unknown): Record<string,unknown> | undefined { if(!node||typeof node!=="object")return;const el=node as {type?:unknown;props?:{children?:unknown}};if(typeof el.type==="function"&&el.type.name==="CourseSettingsWorkspace")return el.props as Record<string,unknown>;for(const child of [el.props?.children].flat(Infinity)){const match=find(child);if(match)return match;} }
+ return find(tree)!;
+}
 beforeEach(() => {
   vi.resetAllMocks(); m.config.mockResolvedValue(null); m.store.mockResolvedValue({ name: "A", plan: "GROWTH", currentSubscription: null, subscriptions: [] }); m.feature.mockResolvedValue(false); m.view.mockResolvedValue(null); m.usage.mockResolvedValue({ metrics: [] });
 });

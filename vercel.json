@@ -30,6 +30,14 @@
     {
       "path": "/api/cron/trial-care",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/course-coach-notifications",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/trial-application-notifications",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

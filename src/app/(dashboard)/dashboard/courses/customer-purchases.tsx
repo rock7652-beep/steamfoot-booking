@@ -9,7 +9,7 @@ import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
 const statuses: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳發卡", REFUNDED: "已退款", VOIDED: "已作廢" };
 
 export function CourseCustomerPurchases({ customerId }: { customerId: string }) {
-  return <CourseHistoryList customerId={customerId} label="購買、核帳與退款紀錄" empty="此範圍尚無購買紀錄。共卡使用額度請查看方案。" load={loadCourseCustomerPurchases} render={order=><>
+  return <CourseHistoryList customerId={customerId} label="購買、核帳與退款紀錄" empty="尚無交易紀錄" load={loadCourseCustomerPurchases} render={order=><>
       <p className="font-medium">{order.name} · {statuses[order.status] ?? "狀態待確認"}</p>
       <p>{formatTWDateTime(new Date(order.createdAt))} · {order.points} {order.unit === "SESSION" ? "堂" : "點"}</p>
       <p>{order.confirmedAt ? "原實付" : "訂單金額"} NT$ {order.price.toLocaleString()}{order.confirmedAt && ` · 核帳 ${formatTWDateTime(new Date(order.confirmedAt))}`}</p>

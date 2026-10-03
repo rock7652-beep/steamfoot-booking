@@ -1,4 +1,5 @@
 "use client";
+import {notificationSwitchClass} from "@/components/admin/notification-switch";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -64,7 +65,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
               const on = e.target.checked;
               save(() => setStoreLineNotificationRecipientActive(item.id, on));
             }}
-            className="h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-earth-200 p-0.5 transition-colors before:block before:h-5 before:w-5 before:rounded-full before:bg-white before:shadow-sm before:transition-transform checked:bg-primary-700 checked:before:translate-x-5 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-primary-600"
+            className={notificationSwitchClass}
           />
         </label>
         <details className="relative">
@@ -128,7 +129,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
                       aria-label={`${item.displayName} ${o.label}`}
                       type="checkbox"
                       role="switch"
-                      className="mt-1 h-5 w-5 shrink-0 accent-emerald-700"
+                      className={notificationSwitchClass}
                       checked={p[o.key]}
                       disabled={pending || !item.isActive || !item.linkedAt}
                       onChange={(e) => {

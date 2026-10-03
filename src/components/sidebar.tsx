@@ -1,5 +1,7 @@
 "use client";
 
+import type { FeaturePresentationMap } from "@/components/feature-presentation";
+
 import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
@@ -178,6 +180,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
   },
   {
     href: "/dashboard/device-preview",
+    requiredFeature: FEATURES.DEVICE_PREVIEW,
     label: "裝置預覽",
     permission: "booking.read",
     icon: (
@@ -485,6 +488,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/device-preview",
+    requiredFeature: FEATURES.DEVICE_PREVIEW,
         label: "裝置預覽",
         permission: "booking.read",
         icon: (
@@ -593,6 +597,7 @@ interface DashboardShellProps {
   pricingPlan: PricingPlan;
   /** Server-resolved effective entitlements for features migrated off plan-only gating. */
   effectiveFeatures?: Partial<Record<FeatureKey, boolean>>;
+  featureStates?: FeaturePresentationMap;
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
@@ -624,6 +629,7 @@ export default function DashboardShell({
   permissions,
   pricingPlan,
   effectiveFeatures = {},
+  featureStates = {},
   userName,
   roleLabel,
   logoutButton,
@@ -672,13 +678,24 @@ export default function DashboardShell({
     const hqMatch = rawPathname.match(/^(\/hq)\/dashboard/);
     if (hqMatch) return hqMatch[1];
     return "";
-  }, [rawPathname, routeQuery]);
+  }, [rawPathname]);
   const pathname = dashboardPrefix
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
   const isCourseSchedule = industryModule === "course"
     && pathname.startsWith("/dashboard/courses")
     && !["analytics", "customers", "plans", "settings", "operations", "catalog", "rooms"].includes(searchParams.get("view") ?? "schedule");
+
+  // Give the fitness timetable room on tablet widths; an explicit toggle wins.
+  const sidebarPreference = useRef<boolean | null>(null);
+  const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
+  useEffect(() => {
+    const tablet = window.matchMedia("(min-width: 1024px) and (max-width: 1366px)");
+    const update = () => setCollapsed(sidebarPreference.current ?? (compactCourseTablet && tablet.matches));
+    update();
+    tablet.addEventListener("change", update);
+    return () => tablet.removeEventListener("change", update);
+  }, [compactCourseTablet]);
 
   // isAdmin: ADMIN 才有 storeOptions（用於 HQ 專屬 UI）
   const isAdmin = !!storeOptions?.length;
@@ -727,12 +744,12 @@ export default function DashboardShell({
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: undefined },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: FEATURES.BASIC_REPORTS },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,
       ] }, { id: "course-setup", label: "店務設定", defaultOpen: true, icon: <></>, items: [
 { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=catalog", label: "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
-{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "教室管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
+{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
         {...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,href:"/dashboard/teachers",label:musicEnabled?"教師管理":"教練管理"},
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
@@ -785,6 +802,7 @@ export default function DashboardShell({
             !(isIframePreview && item.href === "/dashboard/device-preview"),
         )
         .map((item) => {
+        if (item.requiredFeature && featureStates[item.requiredFeature] === "HIDDEN") return { item, visible: false, locked: false };
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };
@@ -815,7 +833,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -1057,7 +1075,7 @@ export default function DashboardShell({
           )}
           <button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={() => { sidebarPreference.current = !collapsed; setCollapsed(!collapsed); }}
             className={`rounded-lg p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600 shrink-0 ${collapsed ? "mx-auto" : ""}`}
             aria-label={collapsed ? "展開側邊欄" : "收合側邊欄"}
           >
@@ -1244,7 +1262,7 @@ export default function DashboardShell({
 
         {/* Content */}
 
-        <main data-dashboard-content className="box-border w-full min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <main data-dashboard-content className="box-border w-full min-w-0 px-4 py-3 sm:px-6 lg:px-8">
 
           {industryModule !== "course" && trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
             <div className="mb-3">

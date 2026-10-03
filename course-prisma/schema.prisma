@@ -12,6 +12,10 @@ datasource db {
 // Identity foreign keys to Store and Staff are managed in the additive SQL
 // migration. This client cannot address Steamfoot or SPA commerce tables.
 model CourseRoom {
+  rentalEnabled Boolean @default(false)
+  rentalHourlyRate Int @default(0)
+  rentalBufferMinutes Int @default(0)
+  rentals CourseRental[]
   equipment String @default("")
   location String @default("")
   id        String @id @default(cuid())
@@ -80,6 +84,7 @@ model CourseTemplate {
 }
 
 model CourseSession {
+  isTrial Boolean @default(false)
   id             String @id @default(cuid())
   storeId        String
   templateId     String
@@ -489,4 +494,49 @@ model CourseWaitlistEntry {
   @@unique([storeId, requestKey])
   @@index([storeId, sessionId, status, createdAt, id])
   @@index([storeId, sessionId, groupKey])
+}
+
+model CourseRental {
+  id String @id @default(cuid())
+  storeId String
+  roomId String
+  customerId String?
+  customerName String
+  customerPhone String
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  occupiedStartsAt DateTime @db.Timestamptz(3)
+  occupiedEndsAt DateTime @db.Timestamptz(3)
+  hourlyRateSnapshot Int
+  amount Int
+  note String @default("")
+  revision Int @default(1)
+  cancelledAt DateTime? @db.Timestamptz(3)
+  requestKey String
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  room CourseRoom @relation(fields:[roomId,storeId],references:[id,storeId])
+  payments CourseRentalPayment[]
+  @@unique([id,storeId])
+  @@unique([storeId,requestKey])
+  @@index([storeId,startsAt])
+  @@index([storeId,roomId,occupiedStartsAt])
+}
+model CourseRentalPayment {
+  id String @id @default(cuid())
+  storeId String
+  rentalId String
+  amount Int
+  paymentMethod String
+  status String @default("SUCCESS")
+  requestKey String
+  note String @default("")
+  actorUserId String
+  createdAt DateTime @default(now())
+  voidedAt DateTime?
+  voidReason String @default("")
+  rental CourseRental @relation(fields:[rentalId,storeId],references:[id,storeId])
+  @@unique([storeId,requestKey])
+  @@index([storeId,rentalId])
 }

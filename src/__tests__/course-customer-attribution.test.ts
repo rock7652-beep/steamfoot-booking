@@ -29,7 +29,7 @@ describe("course customer attribution", () => {
     expect(m.manager).toHaveBeenCalledWith("customer.assign");
     expect(m.customer).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: { id: "customer", storeId: "store", mergedIntoCustomerId: null } }));
     expect(m.customer).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: { id: "sponsor", storeId: "store", mergedIntoCustomerId: null } }));
-    expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "manager", storeId: "store", status: "ACTIVE", user: { role: "OWNER", status: "ACTIVE" } } }));
+    expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "manager", storeId: "store", status: "ACTIVE", user: { status: "ACTIVE" }, OR:[{courseCoachEnabled:true},{user:{role:"OWNER"}}] } }));
     expect(m.update).toHaveBeenCalledWith({ where: { id: "customer", storeId: "store" }, data: { assignedStaffId: "manager", sponsorId: "sponsor" } });
   });
   it("rejects permission denial without reading or changing customer data", async () => {
@@ -44,7 +44,7 @@ describe("course customer attribution", () => {
     expect(m.staff).not.toHaveBeenCalled();
     expect(m.update).not.toHaveBeenCalled();
   });
-  it("rejects an inactive, foreign, or coach-only assignee", async () => {
+  it("rejects an inactive or foreign assignee", async () => {
     m.staff.mockResolvedValueOnce(null);
     expect(await saveCourseCustomerAttribution(input)).toMatchObject({ success: false });
     expect(m.update).not.toHaveBeenCalled();

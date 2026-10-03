@@ -1,7 +1,7 @@
 vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import { beforeEach, expect, it, vi } from "vitest";
 const m=vi.hoisted(()=>({manager:vi.fn(),staff:vi.fn(),raw:vi.fn(),execute:vi.fn(),update:vi.fn(),transaction:vi.fn()}));
-vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseManagerRead:m.manager}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:vi.fn(),getStoreLimitsByStoreId:async()=>({maxStaff:10})}));
 vi.mock("@/lib/db",()=>({prisma:{$transaction:m.transaction,$queryRaw:m.raw,staff:{findFirst:m.staff}}}));
 vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermissions:vi.fn()}));

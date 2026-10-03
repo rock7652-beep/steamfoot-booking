@@ -8,6 +8,8 @@ export class ResourceConflict extends AppError {
   constructor(message: string, public conflicts: CourseConflict[]) { super("CONFLICT", message); }
 }
 export function handleCourseActionError(error: unknown) {
+  if(error instanceof Error && error.message.includes("SPACE_RENTAL_CONFLICT")) return {success:false as const,error:"此空間已有租借或課程，請換時間或空間",conflicts:[] as CourseConflict[]};
+  if(error instanceof Error && error.message.includes("SPACE_RENTAL_USAGE")) return {success:false as const,error:"此空間仍有未結束的租借，請先處理租借再停用",conflicts:[] as CourseConflict[]};
   if (error instanceof ResourceConflict) return { success: false as const, error: error.message, conflicts: error.conflicts };
   // Keep the database's started-course compensation guard, including races at
   // the start time, but explain its refusal instead of returning a generic error.

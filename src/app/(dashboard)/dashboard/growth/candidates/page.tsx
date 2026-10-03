@@ -67,7 +67,7 @@ export default async function GrowthCandidatesPage({ searchParams }: PageProps) 
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h1 className="text-lg font-bold text-earth-900">潛力名單</h1>
+        <h1 className="admin-page-title">潛力名單</h1>
         <p className="mt-0.5 text-sm text-earth-500">
           依成長分數排序 · 共 {result.total} 位候選人
         </p>

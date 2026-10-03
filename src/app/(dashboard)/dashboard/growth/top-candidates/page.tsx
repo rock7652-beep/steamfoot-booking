@@ -7,6 +7,14 @@ import { getGrowthTopCandidates } from "@/server/queries/growth";
 import { GrowthCandidateCard } from "../_components/growth-candidate-card";
 import { RelativeLink } from "../_components/relative-link";
 
+// Request diagnostics are not part of the rendered UI or candidate ranking.
+function startRequestDiagnostics() {
+  return { reqId: Math.random().toString(36).slice(2, 10), t0: performance.now() };
+}
+function elapsedRequestMs(start: number) {
+  return Math.round(performance.now() - start);
+}
+
 /**
  * /dashboard/growth/top-candidates — TOP 10 高潛力候選人（v2）
  *
@@ -26,8 +34,7 @@ export default async function TopCandidatesPage() {
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
 
-  const reqId = Math.random().toString(36).slice(2, 10);
-  const t0 = performance.now();
+  const { reqId, t0 } = startRequestDiagnostics();
   console.log(
     `[GROWTH:TOP_CANDIDATES] start ${JSON.stringify({
       reqId,
@@ -49,7 +56,7 @@ export default async function TopCandidatesPage() {
     if (err.stack) console.error(err.stack);
   }
 
-  const totalMs = Math.round(performance.now() - t0);
+  const totalMs = elapsedRequestMs(t0);
   console.log(
     `[GROWTH:TOP_CANDIDATES] done ${totalMs}ms reqId=${reqId} candidates=${candidates.length}`,
   );
@@ -63,7 +70,7 @@ export default async function TopCandidatesPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h1 className="text-lg font-bold text-earth-900">潛力名單 TOP 10</h1>
+        <h1 className="admin-page-title">潛力名單 TOP 10</h1>
         <p className="mt-0.5 text-sm text-earth-500">
           以成長分數排序（readiness × 0.5 + 近 30 天活躍 30 + 積分 10 + 階段 10）
         </p>

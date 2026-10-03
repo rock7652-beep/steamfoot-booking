@@ -1,3 +1,4 @@
+import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
@@ -29,6 +30,7 @@ export type CustomerListReferral = "has" | "none";
 export type CustomerListSort = "recent" | "created" | "points";
 
 export interface ListCustomersOptions {
+  labelId?: string;
   stage?: CustomerStage;
   status?: CustomerListStatus;
   visit?: CustomerListVisit;
@@ -72,7 +74,10 @@ export async function listCustomersForUser(
   // 已合併（mergedIntoCustomerId != null）/ User=SUSPENDED 的 row 仍出現在列表，
   // 由 UI 灰掉並隱藏「+指派/查看」操作（防店長誤操作 placeholder/duplicate）。
   // searchCustomers (autocomplete) / getCustomerDetail 仍會擋掉，這裡只是列表呈現。
+  const labelStore = activeStoreId ?? user.storeId;
+  const labelIds = labelStore ? await customerLabelFilterIds(labelStore,options.labelId) : null;
   const where: Prisma.CustomerWhereInput = {
+    ...(labelIds === null ? {} : {id:{in:labelIds}}),
     ...getStoreFilter(user, activeStoreId),
     ...customerListFilterWhere({ stage, status, visit, referral, assignedStaffId }),
     ...(search

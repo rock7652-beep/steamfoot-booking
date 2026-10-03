@@ -200,7 +200,7 @@ export function PlansManager({
         )
       ) : (
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
+          <table className="admin-list-table w-full text-left text-sm">
             <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
               <tr>
                 <th className="px-3 py-2">類別</th>

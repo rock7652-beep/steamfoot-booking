@@ -1,3 +1,8 @@
+import { AddonRate } from "../pricing-offer";
+import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
+
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingNavigation } from "@/components/marketing-navigation";
@@ -7,7 +12,7 @@ import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
   title: "功能介紹｜少一點手動，多一點照顧 — 蒸管家",
-  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識提醒、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
+  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識多店管理、提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
 };
 
 const features = [
@@ -39,6 +44,15 @@ const features = [
     detail: "現金仍需現場清點，異動需正確登記；系統協助對帳，不會自動辨識未登記的支出。",
   },
   {
+    id: "labels", name: "顧客標籤", icon: "checklist", fee: 500,
+    title: "想找某一類顧客，還要逐筆翻備註？",
+    before: "顧客偏好與分類都寫在備註裡，換人接手時，要重新讀一遍才知道。",
+    after: "用店內共用的標籤與固定配色，快速標記顧客，一眼辨識需要的分類。",
+    manual: ["逐筆打開顧客資料", "閱讀備註，確認顧客分類", "交班時再口頭說明"],
+    takeaway: "備註記細節，標籤讓分類一眼看懂。",
+    detail: "基本版另外加購；專業版可用 1 個經營功能選配名額，與健康、月結、候補共用名額，超出才加購；展店版總部內含。標籤可獨立開通或關閉，關閉保留資料。促銷試用依活動公告期限，試用到期不自動收費。",
+  },
+  {
     id: "care", name: "顧客經營", icon: "return", fee: 800,
     title: "那位常來的顧客，好像很久沒看到了。",
     before: "忙起來只顧眼前的預約，直到想起顧客，才發現已經很久沒回來。",
@@ -66,6 +80,15 @@ const features = [
     detail: "適合有月費、分潤或合作結算需求的店家；依門市設定計算，不會自動轉帳付款。",
   },
   {
+    id: "waitlist", name: "課程候補", icon: "calendar", fee: 800,
+    title: "課程滿班了，有人取消還要逐一聯絡？",
+    before: "候補名單留在聊天裡，有人取消時，又要詢問誰還能來。",
+    after: "滿班先候補，有空位依順位自動遞補，並透過 LINE 通知學員。",
+    manual: ["記下想候補的學員", "有人取消，再逐一聯絡", "確認名額，再補進預約"],
+    takeaway: "有空位，讓系統接手補位。",
+    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與標籤、健康、月結共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
+  },
+  {
     id: "analysis", name: "分析", icon: "bar-chart", fee: 800,
     title: "客人變多了嗎？體驗成交了嗎？舊客回來了嗎？",
     before: "店裡很忙，經營狀況卻要翻好幾份紀錄才知道。",
@@ -82,6 +105,8 @@ function Rows({ items }: { items: readonly (readonly [string, string])[] }) {
   return <dl className="divide-y divide-[#153B31]/10">{items.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm sm:text-base"><dt className="text-[#4C6259]">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>;
 }
 function Example({ id }: { id: FeatureId }) {
+  if (id === "labels") return <div className={panel}><p className="font-semibold">範例顧客 A</p><div aria-label="顧客標籤示意" className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 text-sm font-medium text-[#153B31]">晚間時段</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 text-sm font-medium text-[#59441E]">朋友推薦</span></div><Rows items={[["備註", "平日下班後方便安排"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">標籤統一分類，備註保留個別細節。</p></div>;
+  if (id === "waitlist") return <div className={panel}><p className="font-semibold">課程候補｜範例資料</p><Rows items={[["課程", "週三 19:00 瑜珈"], ["候補順位", "範例學員 A・第 1 組"], ["空位出現", "依順位自動遞補"]]} /><p className="mt-3 rounded-lg bg-[#E9F1EB] p-3 text-sm leading-6">遞補成功後，以 LINE 通知學員查看預約。</p></div>;
   if (id === "reminders") return <div className="space-y-3">
     <div className={panel}><p className="border-b border-[#153B31]/10 pb-3 font-semibold">LINE｜明天見！</p><Rows items={[["服務", "首次體驗"], ["時間", "明天 14:00"]]} /><p className="mt-2 rounded-lg bg-[#123E32] p-3 text-center text-sm font-medium text-white">確認會到</p><p className="mt-3 text-center text-sm">改期　・　取消　・　導航店家</p></div>
     <p className="rounded-lg bg-[#DCEBE1] p-3 text-sm">店長後台｜範例顧客 <strong className="block pt-1">已確認會到</strong></p>
@@ -113,6 +138,8 @@ function Example({ id }: { id: FeatureId }) {
 }
 
 function BeforeExample({ id }: { id: FeatureId }) {
+  if (id === "labels") return <div className={panel}><p className="font-semibold">分類散在不同備註裡</p><Rows items={[["顧客 A", "晚上方便，朋友介紹"], ["顧客 B", "下班後可以安排"], ["交班時", "這兩位算同一類嗎？"]]} /></div>;
+  if (id === "waitlist") return <div className={panel}><p className="font-semibold">候補名單散在聊天裡</p><Rows items={[["學員 A", "有空位再通知我"], ["有人取消", "誰還能來上課？"], ["確認後", "再手動補進名單"]]} /></div>;
   if (id === "analysis") return <ul className="divide-y divide-[#B48A42]/20 rounded-xl border border-[#B48A42]/20 bg-white px-4">
     {["翻預約，才知道新客有沒有增加", "對體驗與交易，才知道誰開卡了", "找上月名單，才知道誰還沒回來"].map(item => <li key={item} className="py-3 text-base leading-6">{item}</li>)}
   </ul>;
@@ -129,7 +156,10 @@ function BeforeExample({ id }: { id: FeatureId }) {
   return <div className="space-y-3">{sheets[id].map(([title, content], i) => <div key={title} className={"rounded-lg border border-[#B48A42]/25 bg-white p-4 shadow-sm " + (i % 2 ? "ml-4" : "mr-4")}><p className="border-b border-[#153B31]/10 pb-2 text-sm font-medium text-[#74603C]">{title}</p><p className="mt-2 text-base leading-6">{content}</p></div>)}</div>;
 }
 
-export default function FeaturesPage() {
+export default async function FeaturesPage() {
+  // Request timestamp keeps server and client offer rendering consistent.
+  // eslint-disable-next-line react-hooks/purity
+  const initialNow = Date.now();
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <MarketingNavigation active="features" />
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
@@ -138,10 +168,40 @@ export default function FeaturesPage() {
       <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">先把預約、顧客、堂數與收款管好，再依店裡需要，加上提醒、追蹤與分析。</p>
       <nav aria-label="功能介紹閱讀導覽" className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
+        <a href="#multi-store" className="inline-flex min-h-11 items-center underline underline-offset-4">多店管理 ↓</a>
+        <a href="#labels" className="inline-flex min-h-11 items-center underline underline-offset-4">顧客標籤 ↓</a>
+        <a href="#export" className="inline-flex min-h-11 items-center underline underline-offset-4">資料匯出 ↓</a>
         <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
         <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
       </nav>
       <BookingTypes compact />
+      <section id="multi-store" aria-labelledby="multi-store-title" className="mt-8 scroll-mt-24 overflow-hidden rounded-2xl border border-[#B48A42]/35 bg-[#E9F1EB] p-5 sm:p-7">
+        <p className="flex items-center gap-3 text-base font-semibold text-[#74603C]"><MarketingIcon kind="stores" />品牌展店・多店管理</p>
+        <h2 id="multi-store-title" className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">店開多了，不必每天等各店傳報表。</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-[#4C6259]">從一間店到多間店，總部可依權限切換查看分店的預約、顧客與收款資料；各店繼續處理自己的日常營運。</p>
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5">
+            <p className="font-semibold">總部掌握各店，分店各自營運。</p>
+            <figure className="mt-4">
+              <div className="rounded-lg bg-[#123E32] p-4 text-white"><p className="font-semibold">品牌總部</p><p className="mt-1 text-sm leading-6 text-[#D4E0D8]">依組織與角色權限，切換查閱已串接分店</p></div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">{["範例分店 A", "範例分店 B", "範例分店 C"].map(name => <div key={name} className="rounded-lg border border-[#153B31]/15 bg-[#F8F5EE] p-3"><p className="font-semibold">{name}</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">預約・顧客・收款</p><p className="mt-2 text-sm font-medium">總部可查閱</p></div>)}</div>
+              <figcaption className="mt-3 text-sm leading-6 text-[#64756D]">串接關係示意・範例資料，非真實店家成果。</figcaption>
+            </figure>
+          </div>
+          <div className="divide-y divide-[#153B31]/15 rounded-xl border border-[#153B31]/15 bg-white px-4 sm:px-5">
+            {[
+              ["總部直接看，不用逐店詢問", "依權限查閱已串接分店的營運資料，減少來回傳報表與截圖。"],
+              ["各店資料，各自保留", "顧客、方案與營收保留在原門市；串接管理關係，不搬動各店資料。"],
+              ["分店按需求選方案", "總部使用展店版，分店各自選購基本版或專業版，依現場需要配置功能。"],
+            ].map(([title, text]) => <div key={title} className="py-4"><h3 className="text-lg font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#4C6259]">{text}</p></div>)}
+          </div>
+        </div>
+        <p className="mt-4 border-l-4 border-[#967039] pl-4 text-lg font-medium leading-7">總部看得到，門市管得好，展店有依據。</p>
+        <p className="mt-3 text-sm leading-6 text-[#4C6259]">適合多店品牌、母子店與合作門市。總部查閱分店時為唯讀，不可替分店新增或修改資料；可查看範圍依組織關係與帳號權限。</p>
+        <p className="mt-4 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-4 py-3 font-semibold text-[#59441E]">首間分店免串接費・第二間起計費<span className="mt-1 block text-sm font-normal leading-6">各分店系統方案費另計；詳細費用見下方說明。</span></p>
+        <details className="mt-4 border-t border-[#153B31]/15 pt-3 text-sm leading-6 text-[#4C6259]"><summary className="min-h-11 cursor-pointer py-2 font-medium">多店管理的開通與費用說明</summary><div className="space-y-2 pb-3"><p>展店版包含總部管理。各分店系統月費與分店串接管理費另計，總部方案不會自動升級分店功能；單店 30 天免費體驗不含跨店總部管理。</p><p>{ALLIANCE_BRANCH_PRICING_COPY}</p><p>例如串接 6 間分店：首間免費＋第 2～5 間 × NT$500＋第 6 間 NT$300＝NT$2,300／月串接費；總部與各分店方案費另計。</p><p>依需求確認組織關係、查閱權限與可串接間數後開通。</p></div></details>
+        <Link href="/pricing#comparison" className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">查看展店版與費用<span aria-hidden="true">→</span></Link>
+      </section>
       <section id="daily" aria-labelledby="daily-title" className="mt-7 scroll-mt-24">
         <div className="flex flex-wrap items-center gap-3"><h2 id="daily-title" className="text-2xl font-semibold">先把每天的店務，放在一起。</h2><span className="rounded-full bg-[#E9F1EB] px-3 py-1 text-sm font-medium">三個方案皆包含</span></div>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">從顧客預約，到店長查資料、確認堂數與收款，接起每天會做的事。</p>
@@ -161,13 +221,14 @@ export default function FeaturesPage() {
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
         <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
-          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・額外加購每項 NT${fee}／月</p></div>)}
+          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
         </nav>
+        <div className="mt-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><a href="#labels" className="inline-flex min-h-11 items-center gap-3 text-lg font-semibold underline underline-offset-4">顧客標籤<span aria-hidden="true">↓</span></a><p className="mt-1 text-sm leading-6 text-[#4C6259]">獨立選配，專業版使用經營功能名額；超出才加購。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]"><AddonRate initialNow={initialNow} original={500} /></p></div>
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
       </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
-          <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">0{index + 1}</span>{feature.name}</p>
+          <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">{String(index + 1).padStart(2, "0")}</span>{feature.name}</p>
           <h2 id={feature.id + "-title"} className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">{feature.title}</h2>
           <div className={"mt-5 grid gap-3 " + (feature.id === "analysis" ? "items-start md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" : "md:grid-cols-2")}>
             <section aria-label={feature.name + "原本的做法"} className="rounded-2xl border border-[#B48A42]/20 bg-[#F0EBE1] p-4 sm:p-6">

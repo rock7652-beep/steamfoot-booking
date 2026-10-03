@@ -1,4 +1,5 @@
 "use client";
+import { CustomerLabelFilter } from "@/components/customer-labels";
 
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
 import { normalizeCustomerSearch } from "@/lib/customer-search-index";
@@ -29,6 +30,7 @@ interface Props {
   courseMode?: boolean;
   musicMode?: boolean;
   instantStoreId?: string;
+  trailing?: React.ReactNode;
 }
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -58,9 +60,9 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "points", label: "點數多寡" },
 ];
 
-const FILTER_KEYS = ["search", "status", "visit", "referral", "staff"] as const;
+const FILTER_KEYS = ["label", "search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
@@ -173,8 +175,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   if (courseMode) {
     return (
       <div className="space-y-2 border-b border-earth-200 pb-3">
-        {isPending && <NavigationNotice />}
-        <div className="flex items-center gap-2">
+      {isPending && <NavigationNotice />}
+        <div className="flex flex-wrap items-center gap-2">
+          <CustomerLabelFilter />
           <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
             <input
               name="search"
@@ -199,6 +202,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
           >
             篩選{advancedActiveCount > 0 ? `（${advancedActiveCount}）` : ""}
           </button>
+          {trailing}
         </div>
 
         {!filtersOpen && activeFilterLabels.length > 0 ? (
@@ -214,7 +218,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
 
         {filtersOpen ? (
           <div id="course-customer-filters" className="rounded-lg border border-earth-200 bg-earth-50/50 p-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <label className="space-y-1 text-sm text-earth-600">
                 <span>顧客狀態</span>
                 <select value={current.status} onChange={(e) => setParam("status", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
@@ -235,9 +239,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
               </label>
               {staffOptions.length > 0 ? (
                 <label className="space-y-1 text-sm text-earth-600">
-                  <span>直屬店長</span>
+                  <span>{courseMode ? "所屬店長" : "直屬店長"}</span>
                   <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                    <option value="">全部店長</option>
+                    <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
                     {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
                   </select>
                 </label>
@@ -256,7 +260,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
                 </Link>
               ) : null}
               <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-md border border-earth-300 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">
-                完成
+                收合
               </button>
             </div>
           </div>
@@ -267,6 +271,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
+      <CustomerLabelFilter />
       {isPending && <NavigationNotice />}
       <form onSubmit={onSearchSubmit} className={courseMode ? "flex min-w-0 basis-full items-center gap-2 lg:basis-64 lg:flex-1" : "flex min-w-[220px] flex-1 items-center gap-1.5"}>
         {instantStoreId ? <CustomerInstantSearch key={instantStoreId} storeId={instantStoreId} value={searchDraft} filterQuery={indexFilters.toString()}
@@ -344,9 +349,9 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
           onChange={(e) => setParam("staff", e.target.value)}
 
           className={selectClass}
-          aria-label="直屬店長"
+          aria-label={courseMode ? "所屬店長" : "直屬店長"}
         >
-          <option value="">全部店長</option>
+          <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
           {staffOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}

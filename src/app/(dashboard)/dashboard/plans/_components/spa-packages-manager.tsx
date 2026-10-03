@@ -106,7 +106,7 @@ export function SpaPackagesManager({
         ))}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="admin-list-table w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-earth-100 bg-earth-50">
               {[

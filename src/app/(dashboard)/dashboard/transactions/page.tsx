@@ -172,7 +172,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
             ← 首頁
           </Link>
-          <h1 className="text-xl font-bold text-earth-900">交易紀錄</h1>
+          <h1 className="admin-page-title">交易紀錄</h1>
         </div>
       </div>
 

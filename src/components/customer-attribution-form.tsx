@@ -12,6 +12,7 @@ export function CustomerAttributionForm({
   canAssign,
   readOnly = false,
   hideStaff = false,
+  staffLabel = "歸屬店長",
   onSaved,
   saveAction = updateCustomerAssignment,
   searchAction = searchReferrerCandidates,
@@ -23,6 +24,7 @@ export function CustomerAttributionForm({
   canAssign: boolean;
   readOnly?: boolean;
   hideStaff?: boolean;
+  staffLabel?: string;
   onSaved?: () => void;
   saveAction?: typeof updateCustomerAssignment;
   searchAction?: typeof searchReferrerCandidates;
@@ -80,7 +82,7 @@ export function CustomerAttributionForm({
   async function handleSave() {
     if (saving || readOnly || !canAssign) return;
     if (!hideStaff && !staffId) {
-      toast.error("請選擇歸屬店長");
+      toast.error(`請選擇${staffLabel}`);
       return;
     }
     setSaving(true);
@@ -107,7 +109,7 @@ export function CustomerAttributionForm({
     return (
       <div className="space-y-1 text-xs text-earth-600">
         {!hideStaff && <div>
-          <span className="text-earth-500">歸屬店長：</span>
+          <span className="text-earth-500">{staffLabel}：</span>
           <span className="font-medium text-earth-800">
             {staffOptions.find((s) => s.id === currentStaffId)?.displayName ?? "未指派"}
           </span>
@@ -127,16 +129,16 @@ export function CustomerAttributionForm({
     <div className="space-y-3">
       {!hideStaff && <div>
         <label className="block text-xs font-medium text-earth-600">
-          歸屬店長 <span className="text-red-500">*</span>
+          {staffLabel} <span className="text-red-500">*</span>
         </label>
         <select
-          aria-label="歸屬店長"
+          aria-label={staffLabel}
           disabled={saving}
           value={staffId}
           onChange={(e) => setStaffId(e.target.value)}
           className="mt-1 w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
         >
-          <option value="">請選擇店長</option>
+          <option value="">請選擇{staffLabel}</option>
           {staffOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}

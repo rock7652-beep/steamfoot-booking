@@ -74,12 +74,12 @@ export const courseOperationGuides: OperationGuide[] = [
   },
   {
     id: "C108", category: "booking", title: "如何新增教室並設定容納人數？",
-    summary: "建立教室名稱、位置與容量後，才能在排課時選用。", answer: "教室容量是排課警示與後續調整依據，不會自動增加課程名額。",
+    summary: "建立教室名稱、位置與容量後，才能在排課或空間租借時選用。", answer: "教室容量是排課警示；租借另設定每小時租金與前後緩衝，不會自動增加課程名額。",
     keywords: "新增教室 教室管理 場地 容量 設備 位置 停用 批次 刪除", path: "店務設定 → 教室管理 → ＋ 新增教室",
     steps: ["輸入教室名稱、分類與容納人數，可補位置、設備及備註。", "儲存後返回教室清單，確認教室為啟用。", "排課時再選教室並核對該堂課的人數上限。"],
     important: "教室已有未結束課次時，不能直接停用；縮小容量也不能低於仍在使用的排課需求。",
     success: "教室出現在教室管理與排課選單，名稱、容量及狀態正確。",
-    details: ["同一教室的重疊時段會被阻擋；教室容量較小時系統會提示，但課程本身的人數上限仍需另行設定。", "可勾選多筆批次啟用／停用；只有店長可刪除完全未使用的教室，使用中或有歷史關聯時整批不刪除。"],
+    details: ["同一教室的課程與租借時段會互相檢查；教室容量較小時系統會提示，但課程本身的人數上限仍需另行設定。", "開放租借時可設定每小時租金及前後緩衝；費用依 30 分鐘比例計算，租借操作另見 C161。", "可勾選多筆批次啟用／停用；只有店長可刪除完全未使用的教室，使用中或有歷史關聯時整批不刪除。"],
     permission: "booking.create", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/server/actions/course.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -99,7 +99,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["打開課次，核對日期、學員數、點名狀態及它是否屬於系列。", "依畫面選修改單堂或後續系列，重新核對教練、教室、容量與時間。", "預覽並儲存；若要取消，先確認有效預約會如何處理，再查看課表與學員紀錄。"],
     important: "已完成點名的課次保留歷史不可修改；有預約時不能把容量調到低於人數，也不能改每人點數或課程種類。",
     success: "指定範圍的課次更新或取消，其他課次不受影響，原預約與額度紀錄一致。",
-    details: ["改期若超過學員方案期限會被阻擋；教練、教室、營業時間與值班會重新檢查。", "取消整堂課與只取消一位學員不同；取消也不等於退款。"],
+    details: ["改期若超過學員方案期限會被阻擋；教練、教室、營業時間與值班會重新檢查。新增課次或變更日期、時間、教練時，運動課也會檢查教練每週可授課時段。", "只改名稱、備註等資料不重查原時段；縮短教練每週時段也不會自動取消已排課，請依畫面清單逐堂處理。", "取消整堂課與只取消一位學員不同；取消也不等於退款。"],
     permission: "booking.update", additionalPermissions: ["booking.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/server/actions/course.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -139,7 +139,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["到教練／教師管理新增授課身分，填基本及緊急聯絡資料；不要在後台人員帳號直接開啟新兼任身分。", "勾選可教授課程；運動課設定每堂授課費，音樂課依授權設定預設或彈性拆帳。", "需要使用教練前台時，連結已完成本店會員登入的顧客，再核對「已開通教練／老師登入」。"],
     important: "授課身分不會自動取得店長後台權限；店長與教練是兩筆獨立身分，同一人可選擇連結，但登入、權限與歷史仍分開。",
     success: "排課可選到該教練；有登入需求者能從自己的課程店入口開啟「我的工作」。",
-    details: ["停用或移除授課資格前，先處理尚未結束的課次與交接清單；新費率只套用之後排出的課次，不回寫既有課次快照。", "只有店主且具人員管理權限可管理此頁。運動教練設定 0 元表示不另領固定授課費；音樂老師依拆帳規則另行計算。只改基本資料不會重存鐘點費。", "若調整費率時顯示資料已更新，代表別人已先修改；重新開啟核對後再存，系統不會用舊頁覆蓋新費率。", "舊資料若顯示店長兼任，請先另建授課身分並核對同一人連結與交接；系統不會自動合併或刪除舊身分。"],
+    details: ["停用或移除授課資格前，先處理尚未結束的課次與交接清單；新費率只套用之後排出的課次，不回寫既有課次快照。", "每週可授課時段儲存後，既有課次會保留並列出超出新範圍者；單日請假仍須另外處理。通知是否發送由提醒管理的三個獨立開關控制。", "只有店主且具人員管理權限可管理此頁。運動教練設定 0 元表示不另領固定授課費；音樂老師依拆帳規則另行計算。只改基本資料不會重存鐘點費。", "若調整費率時顯示資料已更新，代表別人已先修改；重新開啟核對後再存，系統不會用舊頁覆蓋新費率。", "舊資料若顯示店長兼任，請先另建授課身分並核對同一人連結與交接；系統不會自動合併或刪除舊身分。"],
     permission: "staff.manage", additionalPermissions: ["staff.view"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/staff-workspace.tsx", "src/server/actions/course-staff.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -224,12 +224,12 @@ export const courseOperationGuides: OperationGuide[] = [
   },
   {
     id: "C123", category: "settings", title: "課程店的設定入口怎麼找？未儲存草稿會消失嗎？",
-    summary: "設定分為五區；桌機用左側分類、手機用上方選單，營業、公休、提醒等細項以側邊／滿版面板開啟。", answer: "分類內草稿與部分工作頁篩選會在同帳號、同店、同瀏覽器分頁暫存；仍須明確儲存。",
+    summary: "設定分為五區；首次使用會顯示四步設定進度，營業、公休、提醒等細項以側邊／滿版面板開啟。", answer: "設定進度只引導店家完成必要資料；稍後提醒或不再顯示不會替你改設定，草稿也仍須明確儲存。",
     keywords: "課程設定 五分類 側邊面板 手機滿版 草稿 未儲存 已保留草稿 店家資料 營業 收款 通知 提醒管理 系統方案 候補", path: "設定",
     steps: ["桌機從左側、手機從設定分類選單切換店家資料、營業與預約、收款與體驗、通知與顧客經營、系統方案與用量。", "直接編輯目前區塊；營業、公休、提醒等細項會在桌機側邊面板或手機滿版面板開啟，候補也在營業與預約區。", "確認未儲存標記後逐區儲存；要離開或關閉時依提示繼續編輯或捨棄。"],
     important: "顯示「尚未儲存 · 已保留草稿」不等於已寫入系統；網路失敗後也要確認成功訊息與重新開啟結果。",
     success: "重新開啟後資料仍正確，未儲存標記消失，關閉視窗回到原設定分類。",
-    details: ["儲存中的表單不能捨棄；關閉視窗、遮罩、Escape 與視窗內導覽會先處理草稿。", "部分顧客／方案完整表單會保留未送出的輸入；同帳號、同店、同一瀏覽器分頁最多暫存 8 小時，明確登出會清除，且不會跨裝置同步。", "入口仍受角色、權限、功能開通與總部檢視模式限制；看不到項目不代表設定被刪除。"],
+    details: ["首次設定進度依店家資料、教室／教練、課程／方案與實際排課判斷；可稍後提醒或選擇不再顯示，入口內容不因此消失。", "儲存中的表單不能捨棄；關閉視窗、遮罩、Escape 與視窗內導覽會先處理草稿。", "部分顧客／方案完整表單會保留未送出的輸入；同帳號、同店、同一瀏覽器分頁最多暫存 8 小時，明確登出會清除，且不會跨裝置同步。", "入口仍受角色、權限、功能開通與總部檢視模式限制；看不到項目不代表設定被刪除。"],
     permission: "booking.read", feature: null, sources: ["src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/app/(dashboard)/dashboard/courses/settings-panel.tsx", "src/components/admin/settings-panel-context.tsx", "src/components/operations/operation-scope.tsx", "src/lib/operation-state.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -239,7 +239,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["打開正確日期與課次，選「＋學員預約」後搜尋姓名、電話或 LINE。", "選到既有學員後核對系統列出的可用方案；多張適用卡會優先帶入最快到期者，仍可手動更換。", "找不到顧客時切換建立新體驗客，填姓名、電話與體驗金額後確認；再回名單核對。"],
     important: "不要為找不到的人重複建檔；先改用電話或姓名搜尋。體驗預約只保留名額，收款與出席仍分開處理。",
     success: "學員出現在正確課次名單；一般預約占用正確方案，體驗客顯示尚未收款。",
-    details: ["沒有適用方案時先到顧客詳情「購買方案」並確認結帳，不能用不適用或已到期卡硬約；送出時系統仍會重查額度與容量。", "音樂課滿班時，具權限的店長可在看過警告後明確確認加入既有學員或體驗客；這不會提高公開名額，會員端也不能繞過滿班限制。重複報名、學員撞堂、方案效期與餘額仍會阻擋。", "新體驗客建檔需顧客建立及體驗預約權限；不會自動發卡或登記收款。"],
+    details: ["沒有適用方案時先到顧客詳情「購買方案」並確認結帳，不能用不適用或已到期卡硬約；送出時系統仍會重查額度與容量。開課前也可依實際情況點名，仍須核對正確日期與學員。", "音樂課滿班時，具權限的店長可在看過警告後明確確認加入既有學員或體驗客；這不會提高公開名額，會員端也不能繞過滿班限制。重複報名、學員撞堂、方案效期與餘額仍會阻擋。", "新體驗客建檔需顧客建立及體驗預約權限；不會自動發卡或登記收款。"],
     permission: "booking.create", additionalPermissions: ["booking.read", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/server/actions/course-members.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

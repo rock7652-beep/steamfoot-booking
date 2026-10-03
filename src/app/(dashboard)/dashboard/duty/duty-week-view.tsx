@@ -137,7 +137,7 @@ export function DutyWeekView({ weekStart, assignments, businessHours, specialDay
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-earth-900">值班安排</h1>
+        <h1 className="admin-page-title">值班安排</h1>
       </div>
 
       {/* 週切換器 */}

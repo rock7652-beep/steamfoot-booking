@@ -1,3 +1,4 @@
+import { CustomerLabelsSettingsLink } from "@/components/customer-labels";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -273,8 +274,9 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
         sections={sections}
       />
 
+      <CustomerLabelsSettingsLink />
       {params.panel === "reminders" ? (
-        <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders" width={1040}>
+        <SettingsPanel title="提醒管理" sourceHref="/dashboard/reminders">
           <RemindersPage
             searchParams={Promise.resolve(
               Object.fromEntries(new URLSearchParams(params.panelQuery ?? "tab=customer")),
