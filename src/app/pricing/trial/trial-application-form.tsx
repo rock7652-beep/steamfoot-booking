@@ -7,6 +7,8 @@ import {
   trialDraftSchema,
   trialChecklist,
   TRIAL_CONTACT_EMAIL,
+  setupSections,
+  attachmentSchema,
   type TrialApplicationData,
 } from "@/lib/trial-application";
 const KEY = "steambutler-trial-application-v1";
@@ -47,6 +49,7 @@ export function TrialApplicationForm() {
   const [receipt, setReceipt] = useState<Receipt>();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
@@ -99,7 +102,11 @@ export function TrialApplicationForm() {
                 cachedReceipt?.requestId === requestId &&
                 cachedReceipt?.token === token &&
                 cachedReceipt?.revision === result.revision;
-              setData(sameRevision && cachedData ? cachedData : result.data);
+              setData(
+                sameRevision && cachedData
+                  ? cachedData
+                  : { ...emptyTrialApplication, ...result.data },
+              );
               setReceipt({
                 requestId,
                 token,
@@ -139,7 +146,7 @@ export function TrialApplicationForm() {
     }
   }, [data, receipt, ready]);
   function field(
-    key: keyof TrialApplicationData,
+    key: Exclude<keyof TrialApplicationData, "attachments">,
     label: string,
     options?: {
       type?: string;
@@ -192,7 +199,7 @@ export function TrialApplicationForm() {
     );
   }
   function select(
-    key: keyof TrialApplicationData,
+    key: Exclude<keyof TrialApplicationData, "attachments">,
     label: string,
     values: [string, string][],
   ) {
@@ -266,19 +273,26 @@ export function TrialApplicationForm() {
     }
   }
   return (
-    <form onSubmit={submit} className="space-y-6">
+    <form onSubmit={submit} className="space-y-4">
       <div className="rounded-xl border border-[#e1d8c7] bg-[#fffdf7] p-4">
         <p className="font-medium">申請前準備</p>
         <ul className="mt-2 space-y-1 text-sm">
           <li>✓ 店家名稱、聯絡人、電話與 Email</li>
-          <li>✓ 官方 LINE ID、好友連結與管理員邀請（可後補）</li>
-          <li>✓ LINE Developers 授權（不清楚可選需要協助）</li>
+          <li>✓ 官方 LINE、Provider 與相關 Channel 的 Admin 授權</li>
+          <li>✓ 教練、場地、課表、方案與預約規則（可上傳現有檔案）</li>
         </ul>
       </div>
       <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
         <h2 className="mb-5 text-xl font-semibold">1 · 店家與聯絡人</h2>
         <div className="grid gap-5 sm:grid-cols-2">
-          {field("storeName", "店家名稱 *")}
+          {field("storeName", "本次申請的門市名稱 *")}
+          {field("brandName", "所屬品牌（選填）")}
+          {field("otherStores", "其他申請門市（選填）", {
+            hint: "每間門市各填一份，可以使用相同聯絡人與 Email。",
+          })}
+          {field("slug", "希望使用的網址英文名稱（Slug）", {
+            hint: "例如 butler；使用小寫英文、數字或短橫線。送出後確認是否可用，留空由我們協助。",
+          })}
           {select(
             "industry",
             "店家類型",
@@ -287,6 +301,9 @@ export function TrialApplicationForm() {
           {field("contactName", "聯絡人 *")}
           {field("phone", "聯絡電話 *", { type: "tel" })}
           {field("email", "登入／聯絡 Email *", { type: "email" })}
+          {field("additionalManagers", "其他後台使用者姓名／Email（選填）", {
+            hint: "體驗版最多 3 位後台使用者；教練前台 LINE 身分另行設定。",
+          })}
           {field("mapsUrl", "Google 地圖連結（選填）", {
             type: "url",
             guide: "maps",
@@ -294,7 +311,7 @@ export function TrialApplicationForm() {
           })}
         </div>
         <p className="mt-4 text-sm text-[#64736b]">
-          填一間體驗店家即可，課表與授課人員稍後設定。
+          本次只填一間門市。多間門市可分別申請；送出後使用下方「申請另一間門市」。
         </p>
         <StageList items={trialChecklist(data).slice(0, 2)} />
       </section>
@@ -340,8 +357,18 @@ export function TrialApplicationForm() {
             type: "url",
             guide: "oa-admin",
             guideLabel: "產生管理員邀請",
-            hint: "選「管理員」，邀請連結通常 24 小時有效；過期可重新補件。",
+            hint: "權限選「管理員」，供 rock7652@gmail.com 工作帳號接受；連結 24 小時有效，過期請重新補件。",
           })}
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {field("lineManagerContact", "LINE 管理員姓名／聯絡方式")}
+          {select("sharedLine", "這個 LINE 是否由其他門市共用？", [
+            ["unknown", "不確定，需要協助"],
+            ["no", "否，本店專用"],
+            ["yes", "是，多間門市共用"],
+          ])}
+          {data.sharedLine === "yes" &&
+            field("sharedLineStores", "共用 LINE 的門市名稱")}
         </div>
         <StageList items={trialChecklist(data).slice(2, 4)} />
       </section>
@@ -354,14 +381,29 @@ export function TrialApplicationForm() {
           邀請對象：
           <strong className="select-all">{TRIAL_CONTACT_EMAIL}</strong>
         </p>
-        {select("developers", "授權進度", [
-          ["pending", "尚未邀請"],
-          ["invited", "已邀請，請蒸管家確認"],
-          ["help", "沒有設定／找不到，需要協助"],
-        ])}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {(
+            [
+              ["providerAdmin", "Provider Admin"],
+              ["messagingAdmin", "Messaging API Channel Admin"],
+              ["loginAdmin", "LINE Login Channel Admin"],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key}>
+              {select(key, label, [
+                ["pending", "尚未邀請"],
+                ["invited", "已邀請 Admin，待蒸管家確認"],
+                ["absent", "尚未建立，需要協助"],
+                ["help", "找不到／不確定，需要協助"],
+              ])}
+            </div>
+          ))}
+        </div>
         <p className="mt-3 text-sm text-[#64736b]">
-          官方 LINE 與 Developers 是兩個後台。Provider 與 Channel
-          權限也需分別確認；登入、LIFF 和通知由蒸管家設定。
+          官方 LINE 與 Developers 是兩個後台。Provider 與 Channel 權限分別選
+          Admin，並按 Send invitation 寄給
+          rock7652@gmail.com。已邀請不代表已取得權限；由蒸管家接受並核對。沒有
+          Channel 時不用自行重建。
         </p>
         <div className="mt-5 grid gap-5">
           {select("integration", "官方 LINE 有接其他系統嗎？", [
@@ -372,7 +414,154 @@ export function TrialApplicationForm() {
           {data.integration === "existing" &&
             field("integrationName", "目前使用的系統")}
         </div>
-        <StageList items={trialChecklist(data).slice(4)} />
+        <StageList
+          items={trialChecklist(data).filter(
+            (i) => i.label.includes("Admin") || i.label === "既有串接",
+          )}
+        />
+      </section>
+      <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
+        <h2 className="text-xl font-semibold">4 · 初始設定資料</h2>
+        <p className="mt-2 text-sm text-[#64736b]">
+          可填簡要資料或上傳現有檔案，不確定請選「需要協助」。每項填提供方式，展開才編輯。
+        </p>
+        <div className="mt-4 divide-y divide-[#dce3dc]">
+          {setupSections.map(([progress, notes, label, hint]) => (
+            <details key={progress} className="py-3">
+              <summary className="cursor-pointer text-base font-medium">
+                {label} ·{" "}
+                {
+                  {
+                    provided: "已填／見附件",
+                    none: "不需要",
+                    help: "需要協助",
+                    pending: "待提供",
+                  }[data[progress]]
+                }
+              </summary>
+              <div className="mt-3 grid gap-3">
+                {select(progress, "提供方式", [
+                  ["pending", "待提供"],
+                  ["provided", "已填下方資料／見附件"],
+                  ["none", "不需要"],
+                  ["help", "需要協助"],
+                ])}
+                {data[progress] === "provided" &&
+                  field(notes, "簡要資料／附件名稱", { hint })}
+              </div>
+            </details>
+          ))}
+        </div>
+        <div className="mt-4">
+          {select("importStudents", "是否需要匯入現有學員？", [
+            ["pending", "尚未確認"],
+            ["yes", "需要，請提供匯入格式"],
+            ["no", "不需要"],
+            ["help", "需要協助"],
+          ])}
+        </div>
+        <p className="mt-2 text-sm text-[#64736b]">
+          需要匯入時，我們會提供姓名、電話、方案、剩餘堂數與到期日的格式。
+        </p>
+        <label className="mt-4 block">
+          課表／方案等附件（選填）
+          <input
+            className={inputClass}
+            type="file"
+            disabled={uploading || busy}
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.csv"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (
+                files.length + data.attachments.length > 3 ||
+                files.reduce(
+                  (n, f) => n + f.size,
+                  data.attachments.reduce(
+                    (n, f) => n + atob(f.content).length,
+                    0,
+                  ),
+                ) >
+                  2 * 1024 * 1024
+              ) {
+                setErrors({
+                  ...errors,
+                  attachments: "最多 3 個附件，合計 2 MB；請先壓縮照片或 PDF。",
+                });
+                return;
+              }
+              setUploading(true);
+              try {
+                const added = await Promise.all(
+                  files.map(async (file) => {
+                    const content = await new Promise<string>(
+                      (resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          resolve(String(reader.result).split(",")[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                      },
+                    );
+                    const ext = file.name.split(".").pop()?.toLowerCase();
+                    return attachmentSchema.parse({
+                      name: file.name,
+                      type: ext === "jpeg" ? "jpg" : ext,
+                      content,
+                    });
+                  }),
+                );
+                setData((current) => ({
+                  ...current,
+                  attachments: [...current.attachments, ...added],
+                }));
+                setSaved(false);
+                setErrors((current) => ({ ...current, attachments: "" }));
+              } catch {
+                setErrors((current) => ({
+                  ...current,
+                  attachments:
+                    "附件格式不支援，請使用 PDF、照片、xlsx、docx 或 CSV。",
+                }));
+              } finally {
+                setUploading(false);
+              }
+            }}
+          />
+        </label>
+        <p className="mt-1 text-sm text-[#64736b]">
+          最多 3 個檔案，合計 2 MB。附件保留在受保護申請紀錄，Email
+          與總表僅顯示檔名。
+        </p>
+        {errors.attachments && (
+          <p role="alert" className="text-sm text-red-700">
+            {errors.attachments}
+          </p>
+        )}
+        <ul className="mt-2 space-y-2 text-sm">
+          {data.attachments.map((a, i) => (
+            <li
+              key={`${a.name}-${i}`}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="break-all">{a.name}</span>
+              <button
+                type="button"
+                className="shrink-0 rounded border px-3 py-2"
+                onClick={() => {
+                  setData({
+                    ...data,
+                    attachments: data.attachments.filter((_, j) => j !== i),
+                  });
+                  setSaved(false);
+                }}
+              >
+                移除
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
       <section className="rounded-2xl border border-[#c8d9ce] bg-[#edf4ef] p-5">
         <h2 className="text-xl font-semibold">最後確認</h2>
@@ -448,11 +637,41 @@ export function TrialApplicationForm() {
         </p>
       )}
       <button
-        disabled={!ready || busy || resumeBlocked}
+        disabled={!ready || busy || uploading || resumeBlocked}
         className="w-full rounded-xl bg-[#315e49] px-6 py-4 font-semibold text-white disabled:opacity-50"
       >
         {busy ? "處理中…" : receipt?.id ? "送出補充資料" : "送出體驗申請"}
       </button>
+      {receipt?.id && (
+        <button
+          type="button"
+          disabled={busy || uploading}
+          className="w-full rounded-xl border border-[#315e49] px-4 py-3 text-[#315e49]"
+          onClick={() => {
+            if (
+              !saved &&
+              !window.confirm(
+                "目前有未送出的修改。離開會清除本機草稿，確定改申請另一間門市？",
+              )
+            )
+              return;
+            setData({
+              ...emptyTrialApplication,
+              brandName: data.brandName,
+              contactName: data.contactName,
+              phone: data.phone,
+              email: data.email,
+            });
+            setReceipt(undefined);
+            setSaved(false);
+            setMessage("");
+            setErrors({});
+            location.hash = "";
+          }}
+        >
+          申請另一間門市
+        </button>
+      )}
       <p className="pb-8 text-center text-sm text-[#64736b]">
         {storageWarning
           ? "請保存補件連結"
