@@ -203,7 +203,8 @@ export function DayDetailPanel({
 
       <div className="min-h-0 flex-1 px-4 pb-3">
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
-        <div aria-hidden="true" data-batch={batchMode && selectionEnabled} className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div aria-hidden="true" data-batch={batchMode && selectionEnabled} className={`sticky top-0 z-30 ${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           {batchMode && selectionEnabled && <span />}
           <span />
           <div className={styles.rowBody}><span>時間／人數</span><span className={styles.identityHeader}><span>顧客</span><span>電話</span></span><span>直屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
@@ -266,7 +267,7 @@ export function DayDetailPanel({
             />
           </div>
         ) : (
-          <ul className="min-h-0 flex-1 overflow-y-auto divide-y divide-earth-100">
+          <ul className="divide-y divide-earth-100">
             {bookings.map((b) => {
               const actionable = ACTIONABLE_STATUSES.has(b.bookingStatus);
               const isSelected = !!selectedIds?.has(b.id);
@@ -292,6 +293,7 @@ export function DayDetailPanel({
             })}
           </ul>
         )}
+        </div>
       </div>
       </div>
 
