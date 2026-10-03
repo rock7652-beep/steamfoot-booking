@@ -54,7 +54,7 @@ export function MarketingUsageStatistics() {
       <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-6">
         {statistics.map((item, index) => <div key={item.label} className={index > 0 ? "border-l border-[#153B31]/15 pl-3 sm:pl-6" : ""}>
           <dt className="min-h-12 text-sm leading-6 text-[#4C6259] sm:min-h-0 sm:text-base">{item.label}</dt>
-          <dd className="mt-2 flex flex-wrap items-baseline gap-x-1 sm:gap-x-2">
+          <dd className="mt-2 flex flex-col items-start gap-1 sm:flex-row sm:items-baseline sm:gap-2">
             <span className="sr-only">{item.value.toLocaleString("en-US")} {item.unit}</span>
             <span aria-hidden="true" className="inline-block w-[5ch] text-[clamp(1.625rem,4vw,3rem)] font-semibold leading-tight tracking-tight tabular-nums">{Math.round(item.value * progress).toLocaleString("en-US")}</span>
             <span aria-hidden="true" className="text-sm text-[#74603C]">{item.unit}</span>
