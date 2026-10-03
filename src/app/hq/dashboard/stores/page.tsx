@@ -59,7 +59,7 @@ export default async function StoresPage() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className="admin-list-table w-full min-w-[1100px] text-sm">
+        <table className="admin-list-table w-full min-w-[1100px] text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <thead className="border-b border-earth-200 bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>
