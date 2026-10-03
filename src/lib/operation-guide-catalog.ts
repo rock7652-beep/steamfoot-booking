@@ -276,12 +276,15 @@ export const additionalGuides: OperationGuide[] = [
     "steps": [
       "核對顧客、實際到店人數、方案與到期日。",
       "檢查本次的付款方式、收款金額或扣堂說明。",
-      "確認無誤再完成服務，回查預約狀態及收款／堂數紀錄。"
+      "確認無誤再完成服務；畫面會先顯示完成，再於背景核對實際結果，最後回查收款／堂數紀錄。"
     ],
-    "important": "完成服務可能影響收款與堂數，送出失敗時先核對紀錄，不要重複建立交易。",
-    "success": "",
-    "keywords": "完成 結帳 報到",
-    "details": [],
+    "important": "完成服務可能影響收款與堂數；顯示正在確認或暫時無法確認時先查看最新狀態，不要重複送出。",
+    "success": "預約、實際到店、收款與扣堂紀錄一致；需要發送的堂數提醒另於背景處理。",
+    "keywords": "完成 結帳 報到 即時更新 背景同步 正在確認 堂數提醒",
+    "details": [
+      "單人方案或已收款預約可在其他明細背景同步中完成服務；多人、未收款或需調整實到人數時，仍須等畫面提供對應確認步驟。",
+      "完成服務的交易先提交，低堂數／最後一堂等 LINE 提醒在背景派送；完成成功不等於訊息已送達，通知失敗也不會回滾已完成服務。"
+    ],
     "modules": [
       "steamfoot"
     ],
@@ -290,7 +293,10 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
+      "src/hooks/use-responsive-action.ts",
+      "src/server/actions/booking.ts",
+      "src/server/services/session-balance-notifications.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -359,14 +365,17 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "先確認上一次是否已成功，再決定要不要重送，避免產生兩筆預約或收款。",
     "path": "預約管理 → 更新狀態",
     "steps": [
-      "先看是否仍在儲存或顯示錯誤，保留未儲存內容。",
-      "完成後使用清單的手動更新，重新核對該筆預約。",
+      "先看是否顯示正在儲存、正在確認最新狀態或暫時無法確認；保留未儲存內容。",
+      "點查看最新狀態或使用清單手動更新，重新核對該筆預約。",
       "若仍不一致，記下日期、顧客及操作時間再聯繫支援。"
     ],
-    "important": "畫面未更新不代表送出失敗；先查紀錄，避免重複預約或收款。",
-    "success": "",
-    "keywords": "刷新 重新整理 卡住 更新",
-    "details": [],
+    "important": "畫面會先呈現預期狀態，再由伺服器確認；被拒絕會恢復原狀，結果不明時會鎖住該操作。先查紀錄，避免重複預約或收款。",
+    "success": "看到已確認最新狀態，或重新讀取後能判斷上次操作是否成功。",
+    "keywords": "刷新 重新整理 卡住 更新 正在確認最新狀態 暫時無法確認 查看最新狀態 連線中斷 回復原狀",
+    "details": [
+      "明確失敗會恢復原畫面；網路中斷等未知結果會先自動查核，不能把暫時顯示的完成狀態直接當成最終成功。",
+      "同一筆操作查核完成前會被阻擋；不要另開視窗重做。交易、預約與通知各自有紀錄，應回原紀錄確認。"
+    ],
     "modules": [
       "steamfoot"
     ],
@@ -375,7 +384,9 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
+      "src/app/(dashboard)/dashboard/bookings/booking-action-feedback.tsx",
+      "src/hooks/use-responsive-action.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -977,19 +988,20 @@ export const additionalGuides: OperationGuide[] = [
     "id": "E08",
     "category": "money",
     "title": "要登記收入或支出，從哪裡操作？",
-    "summary": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，支出則填分類。",
+    "summary": "三個模組共用同一組記帳欄位；收入分零售／其他，並可依月份、類型或關鍵字回查。",
     "path": "營運 → 現金抽屜 → 記一筆收支",
     "steps": [
-      "開啟現金抽屜，點「記一筆收支」；需要補登其他日期時，先選正確日期。",
+      "開啟現金抽屜，點「記一筆收支」；新增時預設選零售收入並直接顯示顧客欄位，需要補登其他日期時先選正確日期。",
       "選零售收入、其他收入或支出並填金額；收入可搜尋並選擇關聯顧客，再填商品或收入項目。",
-      "選實際付款方式、填必要備註後儲存，再於明細及顧客消費紀錄核對。"
+      "選實際付款方式、填必要備註後儲存；回明細可用月份、收支類型及顧客／電話／項目／備註搜尋核對。"
     ],
-    "important": "非現金收支與抽屜現金不同，付款方式要如實填寫；只輸入顧客姓名但未選候選，不會建立關聯。",
+    "important": "預設零售收入只是方便開始輸入，不代表系統已判斷分類；非零售請先改成其他收入或支出。非現金收支與抽屜現金不同，付款方式要如實填寫。",
     "success": "收支明細出現正確紀錄。",
-    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 零售分類 補登日期",
+    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 預設零售收入 零售分類 其他收入 補登日期 搜尋記帳 全部收入 提領 調整 顧客電話 備註",
     "details": [
       "記帳時選零售收入會納入零售分析；選其他收入會納入其他收入分析。顧客姓名不影響分類。",
-      "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。"
+      "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。",
+      "搜尋框最多取前 60 字並短暫等待輸入完成；切換月份會清除自訂起訖日期，其他篩選可組合使用。"
     ],
     "modules": [
       "steamfoot",
@@ -1001,11 +1013,12 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx",
-      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx"
+      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx",
+      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，支出則填分類。"
+    "answer": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，並可依月份、收支類型及關鍵字回查。"
   },
   {
     "id": "E09",
@@ -1100,17 +1113,19 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F01",
     "category": "care",
     "title": "顧客提醒與店長通知在哪裡分開設定？",
-    "summary": "顧客提醒與店長通知分開設定，修改其中一邊不代表另一邊也已開啟。",
-    "path": "設定 → 提醒管理",
+    "summary": "提醒面板分顧客提醒、店長 LINE 通知與發送紀錄；修改其中一邊不代表另一邊已開啟或訊息已送達。",
+    "path": "設定 → 通知與顧客經營 → 提醒管理",
     "steps": [
-      "切到「顧客提醒」設定傳給顧客的訊息。",
-      "切到「店長通知」設定店務通知與收件人。",
-      "修改後儲存，再確認開關與收件對象。"
+      "開啟提醒管理；桌機在設定側邊面板、手機在滿版面板操作。",
+      "切到顧客提醒、店長 LINE 通知或發送紀錄；顧客提醒再分預約前、體驗後關懷與方案使用提醒。",
+      "修改後明確儲存，重新開啟核對開關與收件人；實際結果從發送紀錄查。"
     ],
     "important": "顧客與店長是不同收件對象；開啟前先核對，避免傳錯人。",
     "success": "各分頁的設定符合預期。",
-    "keywords": "LINE 通知 開關 提醒",
-    "details": [],
+    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 發送紀錄 預約前 體驗後 方案使用",
+    "details": [
+      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋；顯示摘要不等於已送出任何通知。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1123,7 +1138,7 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "顧客提醒與店長通知分開設定，修改其中一邊不代表另一邊也已開啟。"
+    "answer": "顧客提醒、店長通知與發送紀錄分開；修改其中一邊不代表另一邊已開啟，也不代表訊息已送達。"
   },
   {
     "id": "F03",
@@ -1397,30 +1412,39 @@ export const additionalGuides: OperationGuide[] = [
   {
     "id": "G04",
     "category": "staff",
-    "title": "員工忘記密碼或離職，怎麼處理？",
-    "summary": "忘記密碼可重設；離職則停用帳號，保留既有服務及交易紀錄。",
-    "path": "人員管理 → 人員基本資料",
+    "title": "忘記後台密碼，或人員離職，怎麼處理？",
+    "summary": "本人可從所屬門市登入頁申請重設連結；離職則由管理者停用帳號並保留歷史。",
+    "path": "後台登入 → 忘記密碼；人員管理 → 人員基本資料",
     "steps": [
-      "選正確人員，核對手機與角色。",
-      "忘記密碼時，由可操作的人員使用重設密碼；離職則使用停用。",
-      "核對成功提示與帳號狀態，再通知本人或管理者。"
+      "確認使用所屬門市的後台登入頁，點「忘記密碼」，輸入原本綁定的登入 Email。",
+      "從信箱開啟一小時內有效的連結，設定 10 至 128 字元、同時含英文字母與數字的新密碼。",
+      "若是離職，由有權限者到人員管理停用帳號；重新查看狀態並保留既有服務、交易及操作紀錄。"
     ],
-    "important": "不刪除歷史紀錄來處理離職；不同角色可管理的人員範圍不同。",
-    "success": "人員狀態或密碼重設結果可確認。",
-    "keywords": "忘記密碼 停用 離職",
-    "details": [],
+    "important": "重設連結限所屬門市、有效後台帳號且只能使用一次；更新成功後舊登入狀態會失效。不要刪除歷史來處理離職。",
+    "success": "本人能用新密碼登入正確門市；或離職人員已停用且舊紀錄仍可追查。",
+    "keywords": "忘記密碼 重設密碼 沒收到信 垃圾郵件 連結過期 新密碼 停用 離職",
+    "details": [
+      "畫面固定顯示已受理，不會透露 Email 是否存在；五分鐘內重複申請不會再寄一封。先檢查垃圾郵件、門市是否正確及是否輸入原綁定信箱。",
+      "預覽環境會封鎖外部寄信，不能用預覽沒收到信判定正式站故障。連結失效或用過後請從原門市登入頁重新申請。",
+      "只有啟用中的店長／合作店長後台帳號可自助重設；停用帳號不會因申請重設而重新啟用。"
+    ],
     "modules": [
-      "steamfoot"
+      "steamfoot",
+      "spa",
+      "course"
     ],
-    "permission": "staff.manage",
+    "permission": "",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
-      "src/lib/permissions.ts"
+      "src/app/hq/login/page.tsx",
+      "src/app/hq/forgot-password/page.tsx",
+      "src/app/hq/reset-password/page.tsx",
+      "src/server/actions/backoffice-password-reset.ts",
+      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "忘記密碼可重設；離職則停用帳號，保留既有服務及交易紀錄。"
+    "answer": "從正確門市登入頁申請重設；離職帳號則停用，不刪除服務、交易或操作歷史。"
   },
   {
     "id": "H01",
@@ -1592,11 +1616,13 @@ export const additionalGuides: OperationGuide[] = [
     "success": "",
     "keywords": "串接 多店 分店 查看 唯讀",
     "details": [
-      "查看分店不會取得該店的修改權限；教學入口也不會改變這項限制。"
+      "母店店主也只能查看下層店；查看模式不能新增、修改、收款、扣堂或發送通知。教學入口不會改變這項限制。",
+      "切入下層店時頂欄會保留查看狀態；回到「我的店」才恢復自己店內原有的寫入權限。跨店查看會留下唯讀操作紀錄。"
     ],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "",
     "feature": "multi_store",
@@ -2489,11 +2515,14 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "下層範圍包含再往下的店舖，不只直屬第一層；查看不等於可修改。",
     "success": "",
-    "keywords": "分店選單為什麼沒有我想看的店？ 目前只有已開通多店功能的母店店長可查看所屬下層店舖；分店帳號與一般員工不會自動取得整個體系的查看權限。",
-    "details": [],
+    "keywords": "分店選單 母店 下層店 直屬分店 孫店 展店版 多店 唯讀 為什麼沒有店",
+    "details": [
+      "下層店帳號不能反向查看母店或平行分店；總部母店也不會把寫入權限延伸到下層店。"
+    ],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "",
     "feature": "multi_store",
@@ -2560,7 +2589,7 @@ export const additionalGuides: OperationGuide[] = [
       "例：串接 6 間，串接費為 首間免費 ＋ 4 × $500 ＋ 1 × $300 ＝ $2,300／月；加上目前總部展店版 $4,990，共 $7,290／月，未包含各分店系統月費。",
       "已開通可串接 10 間、實際只串接 3 間時，串接費按 3 間計算，首間免費，其餘 2 間各 $500，即 $1,000／月；本頁試算不是自動扣款。"
     ],
-    "modules": ["steamfoot", "spa"],
+    "modules": ["steamfoot", "spa", "course"],
     "permission": "plans.edit",
     "feature": null,
     "sources": [
