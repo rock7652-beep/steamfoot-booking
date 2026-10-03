@@ -1,6 +1,6 @@
 /** HQ platform pages are global even while a store is selected. */
 export function isHqPlatformPath(pathname: string): boolean {
-  return /^\/hq\/dashboard\/(?:stores|trial-applications)(?:\/|$)/.test(pathname);
+  return /^\/hq\/dashboard\/(?:stores|trial-applications|brand-overview)(?:\/|$)/.test(pathname);
 }
 
 /** Start the new store at its home; retain the device studio's embedded mode. */
@@ -13,7 +13,7 @@ export function hqStoreSwitchDestination(search: string): string {
 /** Nested entries must beat their parent (subscriptions before stores). */
 export function isNavigationItemActive(href: string, pathname: string, search: string, hrefs: string[]): boolean {
   const [path, query] = href.split("?");
-  if (path === "/dashboard") return pathname === path;
+  if (path === "/dashboard") return pathname === path || pathname === "/dashboard/brand-overview";
   if (path === "/dashboard/courses") {
     return pathname === path &&
       (new URLSearchParams(query).get("view") ?? "schedule") ===

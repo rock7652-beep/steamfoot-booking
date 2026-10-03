@@ -598,29 +598,17 @@ const hqItem = (href: string, label?: string): NavItem => {
 const storeIcon = hqItem("/dashboard/stores").icon;
 const hqExtra = (href: string, label: string): NavItem => ({ href, label, ownerOnly: true, icon: storeIcon });
 export const NAV_GROUPS: NavGroup[] = [
-  { id: "core", label: "", icon: <></>, defaultOpen: true, items: [hqItem("/dashboard", "HQ 首頁"), hqItem("/dashboard/brand-overview")] },
+  { id: "core", label: "", icon: <></>, defaultOpen: true, items: [hqItem("/dashboard", "品牌總覽")] },
   { id: "stores", label: "店舖管理", icon: storeIcon, defaultOpen: true, items: [
     hqItem("/dashboard/stores", "店舖清單"),
     hqExtra("/dashboard/trial-applications", "體驗申請"),
     hqExtra("/dashboard/stores/subscriptions", "訂閱管理"),
     hqExtra("/dashboard/stores/organization", "店舖組織"),
   ] },
-  { id: "operations", label: "營運與財務", icon: ORIGINAL_NAV_GROUPS[1].icon, items: [
-    hqItem("/dashboard/bookings"), hqItem("/dashboard/customers"), hqItem("/dashboard/staff"),
-    hqItem("/dashboard/duty"), hqItem("/dashboard/plans", "顧客方案"),
-    hqItem("/dashboard/store-revenue"), hqItem("/dashboard/transactions"), hqItem("/dashboard/cashbook"),
-    hqItem("/dashboard/reconciliation"), hqItem("/dashboard/reports"), hqItem("/dashboard/coach-revenue"),
-    hqItem("/dashboard/ops"),
-  ] },
-  { id: "growth", label: "顧客經營", icon: hqItem("/dashboard/growth").icon, items: [
-    hqItem("/dashboard/growth"), hqItem("/dashboard/reminders"), hqItem("/dashboard/bonus-rules"),
-    hqItem("/dashboard/training"), hqItem("/dashboard/ranking"), hqItem("/dashboard/analytics"),
-  ] },
   { id: "settings", label: "系統工具", icon: ORIGINAL_NAV_GROUPS[2].icon, items: [
     hqItem("/dashboard/frontend-preview"), hqItem("/dashboard/device-preview"),
     hqItem("/dashboard/system-status"), hqItem("/dashboard/operation-audits"), hqItem("/dashboard/member-link-reviews"),
-    hqItem("/dashboard/settings/plans", "系統方案介紹"), hqItem("/dashboard/settings/hours"),
-    hqItem("/dashboard/settings/duty"), hqItem("/dashboard/upgrade-requests"),
+    hqItem("/dashboard/settings/plans", "系統方案介紹"), hqItem("/dashboard/upgrade-requests"),
   ] },
 ];
 

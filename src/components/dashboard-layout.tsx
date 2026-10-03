@@ -1,3 +1,4 @@
+import { isHqPlatformPath } from "@/lib/hq-navigation";
 import { FeaturePresentationProvider } from "@/components/feature-presentation";
 import { CustomerLabelsProvider } from "@/components/customer-labels";
 import { loadCustomerLabels } from "@/server/actions/customer-labels";
@@ -43,6 +44,7 @@ export default async function DashboardLayout({
   if (!user) {
     redirect("/hq/login");
   }
+  hqPlatform = hqPlatform || (user.role === "ADMIN" && isHqPlatformPath((await headers()).get("x-next-pathname") ?? ""));
   if (hqPlatform && user.role !== "ADMIN") redirect("/hq/login");
   if (user.role === "CUSTOMER") {
     // B7-4: 顧客不可進後台，導回所屬店

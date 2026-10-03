@@ -50,9 +50,13 @@ describe("actual HQ shell rendering", () => {
   });
   it("shows grouped headquarters navigation for all stores", () => {
     const html = render("steamfoot", null);
-    expect(html).toContain("HQ 首頁");
+    expect(html).toContain("品牌總覽");
+    expect(html).not.toContain("HQ 首頁");
     expect(html).toContain("店舖清單");
-    expect(html).toContain("營運與財務");
+    expect(html).not.toContain("營運與財務");
+    expect(html).not.toContain("顧客經營");
+    expect(html).not.toContain("預約開放設定");
+    expect(html).not.toContain("值班排班設定");
     expect(html).toContain("系統工具");
     expect(html).not.toContain('href="/hq/dashboard/ranking"');
     expect(html).not.toContain('href="/hq/dashboard/analytics"');
