@@ -512,14 +512,12 @@ export function BookingsManager({
   const openBooking = useCallback(
     (id: string) => {
       if (saves.isBlocked(id)) return;
-      // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
-      // 不自動重開當日 Drawer。
-      setSelectedDate(null);
+      // 當日清單暫時隱藏；關閉詳情後回到原日期、篩選與捲動位置。
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById, setSelectedDate, saves],
+    [summaryById, prefillById, saves],
   );
 
   const closeBooking = useCallback(() => {

@@ -1,6 +1,6 @@
 .rowBody {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 0.25rem 0.5rem;
 }
@@ -12,7 +12,7 @@
 .planCell { flex-basis: 100%; min-width: 0; }
 .columnHeader { display: none; }
 @media (min-width: 1000px) {
-  .rowBody { grid-template-columns: 64px minmax(0, 1.6fr) 70px minmax(0, 1.1fr) minmax(0, 1.5fr); }
+  .rowBody { grid-template-columns: 76px minmax(0, 1.6fr) 70px minmax(0, 1.1fr) minmax(0, 1.5fr); }
   .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
   .identityCell { grid-column: 2; }
   .staffCell { grid-column: 3; grid-row: 1; }
