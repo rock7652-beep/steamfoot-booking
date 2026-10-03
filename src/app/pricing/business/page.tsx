@@ -1,3 +1,6 @@
+import { StoreTestimonial } from "@/components/store-testimonial";
+import { MarketingUsageStatistics } from "@/components/marketing-usage-statistics";
+import { getMarketingUsage } from "@/lib/marketing-usage-server";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
@@ -17,11 +20,14 @@ const TRIAL_URL = "/apply";
 function ConsultLink({ light = false }: { light?: boolean }) {
   return <a href={TRIAL_URL}
     className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-center text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B58C43] ${light ? "bg-[#F5EFE3] text-[#123E32] hover:bg-white" : "bg-[#123E32] text-white hover:bg-[#245A49]"}`}>
-    申請體驗帳號<span aria-hidden="true" className="ml-3">→</span>
+    申請 30 天免費體驗<span aria-hidden="true" className="ml-3">→</span>
   </a>;
 }
 
-export default function BusinessPage() {
+export const revalidate = 3600;
+
+export default async function BusinessPage() {
+  const usage = await getMarketingUsage();
   return (
     <div className="bg-[#F8F5EE] text-[#153B31] selection:bg-[#DFC99D]">
       <a href="#main" className="sr-only focus:not-sr-only focus:block focus:p-4">跳至主要內容</a>
@@ -46,6 +52,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
+        <MarketingUsageStatistics snapshot={usage} />
         <BookingOverview />
         <BookingTypes />
 
@@ -91,6 +98,17 @@ export default function BusinessPage() {
           </div>
         </section>
 
+        <section id="testimonials" aria-labelledby="testimonials-title" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-7 sm:px-8">
+          <div className="grid items-center gap-5 lg:grid-cols-[minmax(240px,0.55fr)_1fr] lg:gap-8">
+            <div>
+              <p className="text-sm font-medium text-[#74603C]">店家使用心得</p>
+              <h2 id="testimonials-title" className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">每天在用的店長，<br className="hidden sm:block" />怎麼說？</h2>
+              <p className="mt-3 max-w-xs text-base leading-7 text-[#4C6259]">從現場的日常安排，聽聽店長的實際感受。</p>
+            </div>
+            <StoreTestimonial />
+          </div>
+        </section>
+
         <section aria-labelledby="guides-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -104,8 +122,14 @@ export default function BusinessPage() {
         <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-8">
           <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr] lg:items-center">
             <div><p className="text-sm font-medium tracking-widest text-[#74603C]">從你的門市需要開始</p>
-              <h2 id="contact-title" className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">你的門市，從哪裡開始？</h2>
-              <p className="mt-3 max-w-lg text-base leading-7 text-[#4C6259]">填寫門市需求，安排適合你的體驗內容。想先問問題，也可以直接聯繫我們。</p>
+              <h2 id="contact-title" className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">先免費用 30 天，再決定。</h2>
+              <p className="mt-3 max-w-lg text-base leading-7 text-[#4C6259]">單店功能完整開放。轉正式可沿用體驗期間的帳號、顧客、預約與方案資料，不用重新建檔。</p>
+              <ol aria-label="體驗申請流程" className="mt-4 space-y-2 text-base leading-7">
+                <li><span className="mr-2 font-semibold text-[#967039]">1.</span>填寫需求，先了解你的店內流程。</li>
+                <li><span className="mr-2 font-semibold text-[#967039]">2.</span>專人聯繫，確認設定與體驗內容。</li>
+                <li><span className="mr-2 font-semibold text-[#967039]">3.</span>帳號可正常使用當天，才起算 30 天。</li>
+              </ol>
+              <p className="mt-3 text-sm leading-6 text-[#4C6259]">送出需求不扣款，也不會立即開始體驗。操作問題可查指南，或透過官方 LINE 聯繫。</p>
               <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center underline underline-offset-4">加 LINE 諮詢 ↗</a>
             </div>
             <div className="rounded-2xl bg-[#123E32] p-5 text-[#F8F5EE] sm:p-6">
@@ -117,6 +141,16 @@ export default function BusinessPage() {
               <Link href="/pricing" className="mt-5 inline-block py-2 text-base underline underline-offset-8">查看完整方案與加購說明</Link>
             </div>
           </div>
+          <details className="mt-5 rounded-xl border border-[#153B31]/15 bg-white p-4">
+            <summary className="cursor-pointer py-2 text-base font-semibold">體驗範圍與到期後怎麼辦？</summary>
+            <div className="mt-3 space-y-3 text-base leading-7 text-[#4C6259]">
+              <p>所選模組已提供的單店功能完整開放；人員權限依店長設定。最多 3 位啟用人員（含店長）、100 筆顧客資料、每月新建預約 100 筆、自動提醒每月 50 次。</p>
+              <p>網頁前台可先使用；需要測試 LINE 流程時，再協助設定 LIFF。LINE 功能須完成設定後才能使用。</p>
+              <p>到期後後台改為唯讀，資料保留 30 天。保留期間轉正式，可沿用原帳號與資料，功能及額度依購買方案。</p>
+              <p>系統體驗免費，不含跨店總部管理或代辦金流申請與串接；LINE 訊息、金流等外部服務費用於使用前確認。</p>
+              <Link href="/pricing" className="inline-flex min-h-11 items-center underline underline-offset-4">查看完整體驗說明與正式價格 →</Link>
+            </div>
+          </details>
           <div className="mt-6 border-t border-[#153B31]/15 pt-8">
             <h3 className="text-xl font-semibold">店家常見問題</h3>
             <p className="mt-3 leading-8 text-[#4C6259]">從店家最常問的問題開始。</p>
