@@ -6,7 +6,7 @@ import { BookingsManager, type BookingsManagerProps } from "./bookings-manager";
 import { BookingMonthContext } from "./booking-month-context";
 import { createBookingMonthCache } from "./booking-month-cache";
 
-type Snapshot = Pick<BookingsManagerProps, "monthData" | "monthSchedule">;
+type Snapshot = Pick<BookingsManagerProps, "monthData" | "monthSchedule" | "customerLabels">;
 const keyOf = (year: number, month: number) => `${year}-${month}`;
 function adjacent(year: number, month: number, delta: number) {
   const date = new Date(Date.UTC(year, month - 1 + delta, 1));
@@ -18,10 +18,10 @@ const valid = (year: number, month: number) => Number.isInteger(year) && year >=
 export function BookingMonthWorkspace(props: BookingsManagerProps) {
   const [cache] = useState(() => {
     const result = createBookingMonthCache<Snapshot>();
-    result.put(keyOf(props.year, props.month), { monthData: props.monthData, monthSchedule: props.monthSchedule });
+    result.put(keyOf(props.year, props.month), { monthData: props.monthData, monthSchedule: props.monthSchedule, customerLabels:props.customerLabels });
     return result;
   });
-  const [view, setView] = useState<{ year: number; month: number; snapshot: Snapshot | null; initialBookingId?: string | null }>({ year: props.year, month: props.month, initialBookingId: props.initialBookingId, snapshot: { monthData: props.monthData, monthSchedule: props.monthSchedule } });
+  const [view, setView] = useState<{ year: number; month: number; snapshot: Snapshot | null; initialBookingId?: string | null }>({ year: props.year, month: props.month, initialBookingId: props.initialBookingId, snapshot: { monthData: props.monthData, monthSchedule: props.monthSchedule, customerLabels:props.customerLabels } });
   const [error, setError] = useState(false);
   const busy = useRef(false);
   const sequence = useRef(0);
@@ -108,7 +108,7 @@ export function BookingMonthWorkspace(props: BookingsManagerProps) {
       <button className="ml-3 underline" onClick={() => navigate(view.year, view.month, false)}>重試</button>
     </div>}
     {view.snapshot ? <BookingsManager {...props} key={keyOf(view.year, view.month)} year={view.year} month={view.month}
-      monthData={view.snapshot.monthData} monthSchedule={view.snapshot.monthSchedule}
+      monthData={view.snapshot.monthData} monthSchedule={view.snapshot.monthSchedule} customerLabels={view.snapshot.customerLabels}
       initialBookingId={view.initialBookingId ?? null} />
       : <section aria-busy={!error} className="rounded-lg border border-earth-200 bg-white p-4">
         <div className="flex items-center justify-between">

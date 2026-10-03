@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { loadBookingRosterLabels } from "@/server/queries/booking-roster-labels";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -15,10 +16,10 @@ import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
-import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { FormSuccessToast } from "@/components/form-success-toast";
+import { SteamBookingDrawer } from "./steam-booking-drawer";
 import { BookingMonthWorkspace } from "./booking-month-workspace";
 import { BookingWorkspaceLoading } from "./booking-workspace-loading";
 import { BookingLoadError } from "./booking-load-error";
@@ -121,14 +122,9 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             </span>
           ) : (
             <div className="flex items-center gap-2">
-            <CashbookShortcut readOnly={isViewMode} />
-            <Link
-              href="/dashboard/bookings/new"
-              prefetch={false}
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
-            >
-              ＋ 新增預約
-            </Link>
+            <CashbookShortcut readOnly={isViewMode} triggerClassName="!min-w-32 !px-3 !py-0 !shadow-none" />
+            <SteamBookingDrawer date={normalizedDate} triggerLabel="＋ 新增預約" triggerClassName="inline-flex min-h-11 min-w-32 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700 hover:bg-primary-50"/>
+
             </div>
           )
           }
@@ -225,6 +221,7 @@ async function BookingWorkspaceData({
           : Promise.resolve([]),
       ),
     ]));
+  const customerLabels=monthData===null?undefined:await timing.measure("labels",()=>loadBookingRosterLabels(monthData,bookingsStoreId));
   timer.finish();
   return monthData === null ? <BookingLoadError /> : (
       <BookingMonthWorkspace
@@ -234,6 +231,7 @@ async function BookingWorkspaceData({
         year={year}
         month={month}
         monthData={monthData}
+        customerLabels={customerLabels}
         monthSchedule={monthSchedule}
         servicePlans={servicePlans}
         readOnly={isViewMode}

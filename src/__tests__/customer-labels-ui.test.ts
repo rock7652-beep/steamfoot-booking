@@ -123,3 +123,22 @@ it('synchronizes saved metadata without refetching and ignores older in-flight r
  expect(host.textContent).toContain('已改名');expect(m.load).toHaveBeenCalledTimes(1);
  await act(async()=>finish(data));expect(host.textContent).toContain('已改名');expect(host.textContent).not.toContain('初次');
 });
+
+it('renders metadata and assignments with the very first server roster markup',async()=>{
+ const {renderToStaticMarkup}=await import('react-dom/server');
+ const html=renderToStaticMarkup(jsx(CustomerLabelsProvider,{children:jsx(CustomerLabelsSeed,{initial:data,children:jsx(CustomerLabels,{customerId:'customer'})})}));
+ expect(html).toContain('初次');expect(html).not.toContain('標籤載入中');
+});
+it('does not replace a recently edited assignment with an older cached roster',async()=>{
+ const recent={...data,fetchedAt:2000,assignments:{customer:['b']}};
+ const cached={...data,fetchedAt:1000,assignments:{customer:['a']}};
+ await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:recent,children:jsx(CustomerLabelsSeed,{initial:cached,children:jsx(CustomerLabels,{customerId:'customer'})})})));
+ expect(host.textContent).toContain('常客');expect(host.textContent).not.toContain('初次');
+});
+
+it('keeps server labels after hydration even when the surrounding provider starts empty',async()=>{
+ vi.useFakeTimers();try{
+ await act(async()=>root.render(jsx(CustomerLabelsProvider,{children:jsx(CustomerLabelsSeed,{initial:data,children:jsx(CustomerLabels,{customerId:'customer'})})})));
+ expect(host.textContent).toContain('初次');await act(async()=>vi.advanceTimersByTimeAsync(50));expect(m.load).not.toHaveBeenCalled();expect(host.textContent).toContain('初次');
+ }finally{vi.useRealTimers();}
+});

@@ -67,3 +67,20 @@ it('supports touch pointer dragging and cancels without writing',async()=>{
  await act(async()=>{pointer('pointerdown');pointer('pointermove');pointer('pointerup');});
  expect(m.save).toHaveBeenCalledWith({action:'label-order',categoryId:'cat',ids:['b','a']});
 });
+
+it('moves a floating item with the pointer, reflows siblings before saving, and restores on Escape',async()=>{
+ const initial={...data,labels:[{...data.labels[0],position:0},{...data.labels[1],active:true,position:1}]};
+ await act(async()=>root.render(jsx(LabelManager,{initial})));await click('管理標籤');
+ const handle=host.querySelector('button[aria-label="拖拉排序常客"]')!;Object.assign(handle,{setPointerCapture:vi.fn()});
+ const item=host.querySelector('[data-sort-id="a"]')!,target=host.querySelector('[data-sort-id="b"]')!;
+ Object.assign(item,{getBoundingClientRect:()=>({left:10,top:20,width:140,height:60})});
+ Object.defineProperty(document,'elementFromPoint',{configurable:true,value:()=>target});
+ const pointer=(name:string,x:number,y:number)=>{const e=new Event(name,{bubbles:true});Object.assign(e,{button:0,pointerId:1,clientX:x,clientY:y});handle.dispatchEvent(e);};
+ await act(async()=>pointer('pointerdown',20,30));
+ await act(async()=>pointer('pointermove',220,130));
+ const overlay=document.querySelector<HTMLElement>('[data-label-drag-overlay]')!;
+ expect(overlay.style.left).toBe('210px');expect(overlay.style.top).toBe('120px');expect(overlay.style.width).toBe('140px');expect(overlay.textContent).toContain('常客');
+ expect([...host.querySelectorAll('[data-sort-kind="label"]')].map(e=>(e as HTMLElement).dataset.sortId)).toEqual(['b','a']);expect(m.save).not.toHaveBeenCalled();
+ await act(async()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
+ expect(document.querySelector('[data-label-drag-overlay]')).toBeNull();expect([...host.querySelectorAll('[data-sort-kind="label"]')].map(e=>(e as HTMLElement).dataset.sortId)).toEqual(['a','b']);expect(m.save).not.toHaveBeenCalled();
+});

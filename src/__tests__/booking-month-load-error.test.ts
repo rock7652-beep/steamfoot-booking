@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ReactElement } from "react";
 
 const mocks = vi.hoisted(() => ({ query: vi.fn(), permission: vi.fn(async () => true) }));
+vi.mock("@/server/queries/booking-roster-labels",()=>({loadBookingRosterLabels:async()=>undefined}));
+vi.mock("@/app/(dashboard)/dashboard/bookings/steam-booking-drawer",()=>({SteamBookingDrawer:"button"}));
 vi.mock("@/server/queries/booking", () => ({ getMonthBookingSummary: mocks.query }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ id: "u", role: "OWNER", storeId: "s" }) }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: mocks.permission }));

@@ -14,6 +14,8 @@ export function labelColor(number: number) {
 export type LabelCategory = { id: string; name: string; number: number; position: number; active: boolean };
 export type CustomerLabel = { id: string; categoryId: string; name: string; active: boolean; position?: number };
 export type LabelSnapshot = {
+  storeId?: string;
+  fetchedAt?: number;
   available: boolean; enabled: boolean; canEdit: boolean; canManage: boolean;
   categories: LabelCategory[]; labels: CustomerLabel[];
   assignments: Record<string, string[]>;

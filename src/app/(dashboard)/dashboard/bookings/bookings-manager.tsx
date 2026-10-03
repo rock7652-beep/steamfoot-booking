@@ -1,6 +1,6 @@
 "use client";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
-import { CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
+import { CustomerLabelsSeed, useSeedCustomerLabels, CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
 import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
@@ -152,6 +152,7 @@ const EMPTY_FILTERS: BookingFilters = {
 };
 
 export interface BookingsManagerProps {
+  customerLabels?: import("@/lib/customer-labels").LabelSnapshot;
   operationGuidePreview?: boolean;
   storeId?: string;
   year: number;
@@ -164,7 +165,10 @@ export interface BookingsManagerProps {
   initialBookingId?: string | null;
 }
 
-export function BookingsManager({
+export function BookingsManager(props: BookingsManagerProps) {
+  return props.customerLabels ? <CustomerLabelsSeed initial={props.customerLabels}><BookingsManagerContent {...props}/></CustomerLabelsSeed> : <BookingsManagerContent {...props}/>;
+}
+function BookingsManagerContent({
   operationGuidePreview = false,
   storeId,
   year,
@@ -176,6 +180,7 @@ export function BookingsManager({
   canManageHours = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
+  const seedLabels=useSeedCustomerLabels();
   const monthNavigation = useBookingMonthNavigation();
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
@@ -255,6 +260,7 @@ export function BookingsManager({
           !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
       load: () => readBookingMonth({ year, month, storeId, date: selectedDate }),
       apply: (snapshot) => {
+        if(snapshot.customerLabels)seedLabels?.(snapshot.customerLabels);
         setMonthData(snapshot.monthData);
         setMonthSchedule(snapshot.monthSchedule);
         // Expire other days' slot caches as well. Keep the selected day's
@@ -274,6 +280,8 @@ export function BookingsManager({
     const timer = window.setInterval(resume, 60_000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
+    const created=()=>{monthNavigation?.invalidate();void controller.refresh(true);};
+    window.addEventListener("booking:created",created);
     resume();
     return () => {
       controller.dispose();
@@ -281,9 +289,10 @@ export function BookingsManager({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("online", resume);
+      window.removeEventListener("booking:created",created);
     };
   // A new server-prop array must not restart polling or trigger another read.
-  }, [year, month, storeId, selectedDate, refreshPaused]);
+  }, [year, month, storeId, selectedDate, refreshPaused, seedLabels, monthNavigation]);
 
   const syncStatus = refreshPaused ? "操作中，完成後自動更新" :
     syncFailed ? "更新失敗，已保留名單，稍後重試" :
