@@ -277,11 +277,11 @@ export function TrialApplicationForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="rounded-xl border border-[#e1d8c7] bg-[#fffdf7] p-4">
-        <p className="font-medium">申請前準備</p>
+        <p className="font-medium">申請只需先準備</p>
         <ul className="mt-2 space-y-1 text-sm">
           <li>✓ 店家名稱、聯絡人、電話與 Email</li>
-          <li>✓ 官方 LINE、Provider 與相關 Channel 的 Admin 授權</li>
-          <li>✓ 教練、場地、課表、方案與預約規則（可上傳現有檔案）</li>
+          <li>✓ 有官方 LINE 可先提供；串接與管理員授權由我們引導</li>
+          <li>✓ 無須準備完整課表或方案，視訊時帶您建立第一筆預約</li>
         </ul>
       </div>
       <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
