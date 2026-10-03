@@ -17,9 +17,12 @@ describe("Digital Butler PR-1 additive migration contract", () => {
     expect(migration).not.toMatch(/UPDATE\s+"Store"/i);
   });
 
-  it("keeps DIGITAL_BUTLER HQ-entitlement-only instead of granting it to a plan", () => {
+  it("includes DIGITAL_BUTLER in trials while paid plans remain HQ-entitlement-only", () => {
     expect(FEATURES.DIGITAL_BUTLER).toBe("digital_butler");
-    expect(Object.values(PLAN_FEATURES).flat()).not.toContain(FEATURES.DIGITAL_BUTLER);
+    expect(PLAN_FEATURES.EXPERIENCE).toContain(FEATURES.DIGITAL_BUTLER);
+    for (const plan of ["BASIC", "GROWTH", "ALLIANCE"] as const) {
+      expect(PLAN_FEATURES[plan]).not.toContain(FEATURES.DIGITAL_BUTLER);
+    }
   });
 
   it("adds the store-scoped tables, compound lead idempotency, and RLS", () => {
