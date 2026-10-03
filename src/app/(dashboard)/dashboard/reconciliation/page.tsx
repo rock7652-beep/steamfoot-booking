@@ -39,7 +39,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
           <Link href="/dashboard/revenue" className="text-sm text-earth-500 hover:text-earth-700">
             ← 返回營收
           </Link>
-          <h1 className="text-xl font-bold text-earth-900">對帳中心</h1>
+          <h1 className="admin-page-title">對帳中心</h1>
         </div>
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center shadow-sm">
           <h2 className="text-base font-semibold text-blue-900">分店檢視模式不提供對帳</h2>
@@ -77,7 +77,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
           <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
             ← 首頁
           </Link>
-          <h1 className="text-xl font-bold text-earth-900">對帳中心</h1>
+          <h1 className="admin-page-title">對帳中心</h1>
         </div>
         <RunReconciliationButton />
       </div>

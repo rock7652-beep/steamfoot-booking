@@ -16,6 +16,6 @@ interface FormShellProps {
 export function FormShell({ children, width = "md" }: FormShellProps) {
   const widthClass = width === "lg" ? "max-w-[1280px]" : "max-w-[1200px]";
   return (
-    <div className={`mx-auto w-full ${widthClass} space-y-6`}>{children}</div>
+    <div className={`mx-auto w-full ${widthClass} space-y-3`}>{children}</div>
   );
 }

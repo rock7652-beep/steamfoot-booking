@@ -62,7 +62,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
       id: user.storeId,
       operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
-    select: { id: true, parentStoreId: true },
+    select: { id: true, parentStoreId: true, slug: true, name: true, isDefault: true },
     take: 1,
   });
   if (!ownStore) throw new AppError("FORBIDDEN", "店舖已停用或無法存取");
@@ -71,6 +71,12 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const isMotherOwner = user.role === "OWNER" && ownStore.parentStoreId === null;
   if (isMotherOwner && await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE)) {
     ids = [...ids, ...await getAccessibleDescendantStoreIds(user.storeId)];
+  }
+  // The operating-status-filtered query already contains the complete own-store
+  // DTO. Single-store staff need no second round trip for the same row.
+  if (ids.length === 1) {
+    const { id, slug, name, isDefault } = ownStore;
+    return [{ id, slug, name, isDefault }];
   }
   const stores = await prisma.store.findMany({
     where: {
@@ -114,9 +120,27 @@ export async function validateStoreAccess(
     throw new AppError("VALIDATION", "請先在上方切換到指定分店");
   }
 
+  // Own-store access only needs a fresh operating-status check. Enumerating
+  // descendants and their feature entitlement cannot grant more access here.
+  if (user.role !== "ADMIN" && user.storeId === requestedStoreId) {
+    const { prisma } = await import("@/lib/db");
+    const [store] = await prisma.store.findMany({
+      where: { id: requestedStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      select: { id: true },
+      take: 1,
+    });
+    if (!store) throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+    return store.id;
+  }
+
   const accessibleIds = await getAccessibleStoreIds(user);
   if (!accessibleIds.includes(requestedStoreId)) {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+  }
+  // Store organization grants descendant visibility, never operating authority.
+  // Check accessibility first so unrelated store ids do not leak information.
+  if (mode === "write" && user.role !== "ADMIN") {
+    throw new AppError("FORBIDDEN", "子店查看模式僅供查閱，不可執行操作");
   }
   return requestedStoreId;
 }
@@ -170,10 +194,18 @@ async function resolveAuthorizedRouteStore(
   const { prisma } = await import("@/lib/db");
   const requested = await prisma.store.findUnique({
     where: { slug: routeSlug },
-    select: { id: true },
+    select: { id: true, slug: true, name: true, operatingStatus: true },
   });
   if (!requested) {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+  }
+  // The signed-in staff member's own active store needs no organization-tree
+  // lookup. Other stores still go through the full access check below.
+  if (user.role !== "ADMIN" && requested.id === user.storeId) {
+    if (!ACCESSIBLE_STORE_OPERATING_STATUSES.includes(requested.operatingStatus)) {
+      throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
+    }
+    return { id: requested.id, slug: requested.slug, name: requested.name };
   }
   return resolveAuthorizedConcreteStore(user, requested.id, mode);
 }
@@ -255,7 +287,16 @@ export async function getAllActiveStoreIds(): Promise<string[]> {
  * 取得 ADMIN 可選的店舖清單（含「全部」選項）
  * React cache 同一 request 多處呼叫只查一次（layout / 各頁面共享）。
  */
-export const getStoreOptions = cache(getAccessibleStores);
+export const getStoreOptions = cache(async (user: SessionLike): Promise<AccessibleStore[]> => {
+  const stores = await getAccessibleStores(user);
+  if (user.role !== "ADMIN") return stores;
+  const { prisma } = await import("@/lib/db");
+  const archived = await prisma.store.findMany({
+    where: { archivedAt: { not: null } }, select: { id: true },
+  });
+  const ids = new Set(archived.map((store) => store.id));
+  return stores.filter((store) => !ids.has(store.id));
+});
 
 /**
  * 取得使用者的有效查詢 storeId

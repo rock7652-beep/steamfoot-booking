@@ -78,7 +78,7 @@ export default async function CoachRevenuePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-earth-800">合作店長營收報表</h1>
+        <h1 className="admin-page-title">合作店長營收報表</h1>
         <p className="text-sm text-earth-500">查看各合作店長歸屬營收、新舊客分析，並匯出 Excel</p>
       </div>
 

@@ -1,4 +1,7 @@
 "use client";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
+
+import { BookingActionFeedback } from "./booking-action-feedback";
 
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { LinkPendingLabel } from "@/components/link-pending-label";
@@ -39,6 +42,7 @@ export interface DayBooking {
   /** 本次成功 SESSION_DEDUCTION 實際扣除的方案名稱；交易紀錄為準。 */
   deductedPlanNames?: string[];
   customer: {
+    id?: string;
     name: string;
     phone: string;
     /** 內部服務備註（後台限定）。有值時當日清單顯示一行截斷提醒。 */
@@ -95,7 +99,10 @@ interface DayDetailPanelProps {
   onClearSelection?: () => void;
   onCompleteBatch?: () => void;
   onCompleteSingle?: (id: string) => void;
+  onRevertSingle?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
+  actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
+  onCheckAction?: (id: string) => void;
   actingIds?: ReadonlySet<string>;
   batchActing?: boolean;
   readOnly?: boolean;
@@ -117,6 +124,9 @@ export function DayDetailPanel({
   onClearSelection,
   onCompleteBatch,
   onCompleteSingle,
+  onRevertSingle,
+  actionStates,
+  onCheckAction,
   actingIds,
   batchActing = false,
   readOnly = false,
@@ -278,14 +288,17 @@ export function DayDetailPanel({
                   <TimelineItem
                     booking={b}
                     onClick={onBookingClick}
+                    readOnly={readOnly}
                     actionable={!readOnly && actionable}
                     selected={isSelected}
                     onToggleSelect={
                       selectionEnabled ? onToggleSelect : undefined
                     }
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
+                    onRevertSingle={readOnly ? undefined : onRevertSingle}
                     isActing={isActing}
                   />
+                  <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
                 </li>
               );
             })}
@@ -335,19 +348,23 @@ export function DayDetailPanel({
 
 function TimelineItem({
   booking,
+  readOnly = false,
   onClick,
   actionable,
   selected,
   onToggleSelect,
   onCompleteSingle,
+  onRevertSingle,
   isActing,
 }: {
   booking: DayBooking;
+  readOnly?: boolean;
   onClick?: (id: string) => void;
   actionable: boolean;
   selected: boolean;
   onToggleSelect?: (id: string) => void;
   onCompleteSingle?: (id: string) => void;
+  onRevertSingle?: (id: string) => void;
   isActing: boolean;
 }) {
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
@@ -436,17 +453,15 @@ function TimelineItem({
         ) : null}
       </div>
 
-      {/* Body — opens drawer on click. Use a real button so keyboard works.
-          兩排式版型：
-            第一排：時間 + 顧客姓名 + 直屬店長
-            第二排：預約狀態 + 本次使用方案 */}
-      <button
-        type="button"
-        onClick={handleBodyClick}
-        aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
-        disabled={!onClick || isActing}
-        className="flex min-w-0 flex-1 flex-col gap-1 py-2 text-left disabled:cursor-default"
-      >
+      {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
+      <div className="relative isolate flex min-w-0 flex-1 flex-col gap-1 py-2 text-left">
+        <button
+          type="button"
+          onClick={handleBodyClick}
+          aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
+          disabled={!onClick || isActing}
+          className="absolute inset-0 z-10 rounded focus-visible:outline-2 focus-visible:outline-primary-600 disabled:cursor-default"
+        />
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
@@ -463,9 +478,7 @@ function TimelineItem({
                 （實到 {booking.attendedPeople}/{booking.people}）
               </span>
             )}
-          <span className="min-w-0 flex-1 break-words text-base font-semibold text-earth-900">
-            {booking.customer?.name ?? "—"}
-          </span>
+          <div className="min-w-0 flex-1"><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/></div>
           <span className="shrink-0 text-xs text-earth-500">
             {assignedStaffName}
           </span>
@@ -538,7 +551,7 @@ function TimelineItem({
             </span>
           </div>
         ))}
-      </button>
+      </div>
 
       {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
       <div className="flex shrink-0 flex-col justify-center gap-2 py-2">
@@ -552,7 +565,14 @@ function TimelineItem({
             disabled={isActing}
             className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
-            {isActing ? "..." : "完成"}
+            {isActing ? "儲存中…" : "完成"}
+          </button>
+        ) : null}
+        {booking.bookingStatus === "COMPLETED" && onRevertSingle ? (
+          <button type="button" disabled={isActing}
+            onClick={(event) => { event.stopPropagation(); if (!isActing) onRevertSingle(booking.id); }}
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 px-3 text-sm font-semibold text-earth-700 hover:bg-earth-50 disabled:cursor-wait disabled:opacity-60">
+            {isActing ? "儲存中…" : "還原"}
           </button>
         ) : null}
         {!onClick ? (
@@ -586,9 +606,9 @@ function KpiChip({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <span className="inline-flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-lg border border-earth-200 bg-earth-50 px-2 py-1 text-xs">
-      <span className="text-earth-500">{label}</span>
-      <span className={`min-w-0 break-all font-bold tabular-nums ${valueColor}`}>{value}</span>
+    <span className="inline-flex min-w-0 items-center justify-between gap-1 rounded-lg border border-earth-200 bg-earth-50 px-1.5 py-1 text-xs">
+      <span className="whitespace-nowrap text-earth-500">{label}</span>
+      <span className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${valueColor}`}>{value}</span>
     </span>
   );
 }
@@ -722,4 +742,3 @@ function computeStats(bookings: DayBooking[]) {
   }
   return stats;
 }
-

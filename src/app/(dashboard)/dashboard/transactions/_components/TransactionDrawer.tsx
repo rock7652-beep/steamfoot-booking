@@ -274,7 +274,7 @@ export function TransactionDrawer({
   const voidedLabel = data ? transactionStatusLabel(data) : null;
 
   return (
-    <RightSheet open={open} onClose={onClose} width={520}>
+    <RightSheet presentation="centered" open={open} onClose={onClose} width={720}>
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="border-b border-earth-200 px-4 py-3 sm:px-5 sm:py-4">

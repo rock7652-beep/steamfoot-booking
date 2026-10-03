@@ -1,4 +1,5 @@
 import { checkPermission } from "@/lib/permissions";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { getStoreForPlanByStoreId } from "@/lib/store-plan";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getTrialRetention, trialRetentionMessage } from "@/lib/trial-retention";
@@ -14,6 +15,7 @@ import {
   type StoreOperatingStatus,
 } from "@/lib/store-operating-status";
 import { ActivateTrialButton } from "./activate-trial-button";
+import { RenameStoreForm } from "./rename-store-form";
 import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
@@ -38,8 +40,10 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
-  const retention = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
-    ? getTrialRetention(await getStoreForPlanByStoreId(storeId)) : null;
+  const coursePlan = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
+    ? await getStoreForPlanByStoreId(storeId) : null;
+  const retention = coursePlan ? getTrialRetention(coursePlan) : null;
+  const trialStarted = Boolean(coursePlan?.planEffectiveAt && coursePlan?.planExpiresAt);
   const canShowActivate = !summary.store.currentSubscriptionId && !summary.store.isDemo && summary.store.planStatus !== "ACTIVE" && summary.canActivate;
 
   return (
@@ -47,10 +51,10 @@ export default async function StoreDetailPage({ params }: PageProps) {
       {retention && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{trialRetentionMessage(retention)}{retention.state === "PENDING_CLEANUP" && " 尚未自動刪除；清理前須重新確認未升級及資料範圍。"}</p>}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>
+          <h1 className="admin-page-title">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
-            <span>{summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
+            <span>{summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
             {" · "}
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
@@ -74,12 +78,28 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      {coursePlan && (
+        <div role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-semibold">{trialStarted ? "30 天體驗已起算" : summary.store.businessProfile === "MUSIC" ? "音樂教室測試店已建置，30 天尚未起算" : "課程體驗店已建置，30 天尚未起算"}</p>
+          <p className="mt-1">{trialStarted
+            ? `試用期間：${toLocalDateStr(coursePlan.planEffectiveAt!)} 至 ${toLocalDateStr(coursePlan.planExpiresAt!)}。功能授權與外部服務設定請分別驗收。`
+            : "單店功能權限已開放供驗收；完成 LIFF、店長及會員流程與通知測試後，再啟動 30 天倒數。"}</p>
+          {summary.thirdParty.line !== "configured" && <p className="mt-1 font-medium">LINE 導流入口尚未設定；LINE 提醒尚不能視為已驗收。</p>}
+        </div>
+      )}
+
       <div className="space-y-6">
+        <Section title="店名管理">
+          <RenameStoreForm key={`${summary.store.id}:${summary.store.name}`} storeId={summary.store.id} currentName={summary.store.name} />
+          <p className="mt-2 text-xs text-earth-500">只變更顧客及後台顯示的店名；店舖網址、會員資料、方案與續約關係都沿用原店。</p>
+          <p className="mt-1 text-xs text-earth-500">店舖網址仍使用 {summary.store.slug}，改名不會變更 LINE 圖文選單連結。</p>
+        </Section>
+
         {/* URLs — 前台 */}
-        <Section title="產業模組">
+        <Section title="業務與引擎">
           <InfoRow
             label="已選模組"
-            value={summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
+            value={summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室（COURSE 引擎）" : "運動教室（COURSE 引擎）") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
           {summary.store.industryModule === "SPA" && !summary.canActivate && (
             <>
@@ -137,7 +157,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </Section>
 
         {/* Checklist */}
-        <Section title="驗收 Checklist">
+        <Section title="建置與驗收進度">
+          <p className="mb-2 text-xs text-earth-500">✅ 已建立或已檢查；⏭️ 尚待設定或人工實測。此清單不代表 LINE 提醒已送達。</p>
           {summary.checklist.map((item) => (
             <div key={item.key} className="flex items-center gap-2 py-1">
               <span className={`text-sm ${
@@ -167,7 +188,9 @@ export default async function StoreDetailPage({ params }: PageProps) {
                   ? "已建立訂閱；延長試用或轉正式請至訂閱管理"
                   : summary.canActivate
                   ? summary.store.industryModule === "COURSE"
-                    ? "建置完成，尚未起算；LIFF 入口驗收可用後再開通 30 天"
+                    ? summary.store.businessProfile === "MUSIC"
+                      ? "音樂教室測試店建置完成；先完成課表核心驗收，再決定是否啟動試用倒數"
+                      : "課程店建置完成，30 天尚未起算；完成 LIFF 與通知驗收後再開通"
                     : "✅ 設定完成，可開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>

@@ -1,9 +1,12 @@
+import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { monthRange, toLocalMonthStr, todayRange } from "@/lib/date-utils";
+import { todayRange } from "@/lib/date-utils";
+import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
+import { checkPermission } from "@/lib/permissions";
 
 /**
  * 桌機版顧客列表 toolbar 支援的複合篩選：
@@ -27,6 +30,7 @@ export type CustomerListReferral = "has" | "none";
 export type CustomerListSort = "recent" | "created" | "points";
 
 export interface ListCustomersOptions {
+  labelId?: string;
   stage?: CustomerStage;
   status?: CustomerListStatus;
   visit?: CustomerListVisit;
@@ -66,50 +70,16 @@ export async function listCustomersForUser(
     pageSize = 20,
   } = options;
 
-  // ----- 狀態（LINE 綁定 / 顧客階段）-----
-  const statusWhere: Prisma.CustomerWhereInput =
-    status === "linked"
-      ? { lineLinkStatus: "LINKED" }
-      : status === "unlinked"
-        ? { lineLinkStatus: { not: "LINKED" } }
-        : status === "lead"
-          ? { customerStage: "LEAD" }
-          : status === "customer"
-            ? { customerStage: { not: "LEAD" } }
-            : {};
-
-  // ----- 來店（本月 / 30 天未到 / 從未到）-----
-  // 以 Asia/Taipei 月首為界；`lt` cutoff 語意自動排除 null（Postgres 比較不含 null）
-  const monthStart = monthRange(toLocalMonthStr()).start;
-  const stale30Cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const visitWhere: Prisma.CustomerWhereInput =
-    visit === "month"
-      ? { lastVisitAt: { gte: monthStart } }
-      : visit === "stale30"
-        ? { lastVisitAt: { lt: stale30Cutoff } }
-        : visit === "never"
-          ? { lastVisitAt: null }
-          : {};
-
-  // ----- 推薦紀錄（曾介紹過其他顧客）-----
-  const referralWhere: Prisma.CustomerWhereInput =
-    referral === "has"
-      ? { sponsoredCustomers: { some: {} } }
-      : referral === "none"
-        ? { sponsoredCustomers: { none: {} } }
-        : {};
-
   // 不再依 Manager 隔離 — 所有店長都能看全部顧客
   // 已合併（mergedIntoCustomerId != null）/ User=SUSPENDED 的 row 仍出現在列表，
   // 由 UI 灰掉並隱藏「+指派/查看」操作（防店長誤操作 placeholder/duplicate）。
   // searchCustomers (autocomplete) / getCustomerDetail 仍會擋掉，這裡只是列表呈現。
+  const labelStore = activeStoreId ?? user.storeId;
+  const labelIds = labelStore ? await customerLabelFilterIds(labelStore,options.labelId) : null;
   const where: Prisma.CustomerWhereInput = {
+    ...(labelIds === null ? {} : {id:{in:labelIds}}),
     ...getStoreFilter(user, activeStoreId),
-    ...(stage ? { customerStage: stage } : {}),
-    ...(assignedStaffId ? { assignedStaffId } : {}),
-    ...statusWhere,
-    ...visitWhere,
-    ...referralWhere,
+    ...customerListFilterWhere({ stage, status, visit, referral, assignedStaffId }),
     ...(search
       ? {
           OR: [
@@ -274,6 +244,7 @@ export async function getCustomerEditForUser(
     where: { id: customerId, ...getStoreFilter(user) },
     select: {
       id: true,
+      updatedAt: true,
       name: true,
       phone: true,
       email: true,
@@ -350,6 +321,11 @@ export async function getCustomerDetailForUser(
       },
       transactions: {
         orderBy: { createdAt: "desc" },
+        take: 20,
+      },
+      cashbookEntries: {
+        where: { type: "INCOME" },
+        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
         take: 20,
       },
       followUps: {
@@ -447,8 +423,46 @@ export async function getCustomerDrawerDetailForUser(
       throw new AppError("FORBIDDEN", "只能查看自己的資料");
     }
   }
+  const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
+  if (!canReadConsumption) return { ...customer, recentConsumption: null };
+  const [transactions, cashbookEntries] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { storeId: customer.storeId, customerId: customer.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 5,
+      select: { id: true, createdAt: true, transactionType: true, planNameSnapshot: true, amount: true, paymentMethod: true },
+    }),
+    prisma.cashbookEntry.findMany({
+      where: { storeId: customer.storeId, customerId: customer.id, type: "INCOME" },
+      orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      take: 5,
+      select: { id: true, entryDate: true, createdAt: true, category: true, amount: true, paymentMethod: true },
+    }),
+  ]);
+  const transactionLabels: Record<string, string> = {
+    PLAN_PURCHASE: "購買方案", SINGLE_SERVICE: "單次服務", SESSION_DEDUCTION: "方案扣堂", REFUND: "退款",
+  };
+  const recentConsumption = [
+    ...transactions.map((row) => ({
+      id: `transaction:${row.id}`,
+      date: row.createdAt,
+      sortAt: row.createdAt,
+      label: row.planNameSnapshot || transactionLabels[row.transactionType] || "消費",
+      amount: Number(row.amount),
+      payment: row.paymentMethod === "CASH" ? "現金" : "其他付款",
+    })),
+    ...cashbookEntries.map((row) => ({
+      id: `cashbook:${row.id}`,
+      date: row.entryDate,
+      sortAt: row.createdAt,
+      label: row.category?.replace(/^零售-/, "") || "現場消費",
+      amount: Number(row.amount),
+      payment: row.paymentMethod === "CASH" ? "現金" : "其他付款",
+    })),
+  ].sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime()).slice(0, 5)
+    .map((row) => ({ id: row.id, date: row.date, label: row.label, amount: row.amount, payment: row.payment }));
 
-  return customer;
+  return { ...customer, recentConsumption };
 }
 
 // ============================================================

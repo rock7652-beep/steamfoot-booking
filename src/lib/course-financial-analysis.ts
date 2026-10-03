@@ -1,4 +1,4 @@
-export type CourseFinancialPurchase = {staffId:string|null;customerId:string;netAmount:number;refund:boolean;unit:string};
+export type CourseFinancialPurchase = {staffId:string|null;customerId:string|null;netAmount:number;refund:boolean;unit:string};
 export type CourseManualCash = {staffId:string|null;type:string;amount:number;category:string|null};
 export function summarizeCourseFinancialAnalysis(purchases:CourseFinancialPurchase[]|null,cash:CourseManualCash[]|null) {
   const staff=new Map<string,{id:string;purchaseIncome:number;refunds:number;manualIncome:number;manualExpense:number;orders:number;customers:Set<string>}>();
@@ -9,7 +9,7 @@ export function summarizeCourseFinancialAnalysis(purchases:CourseFinancialPurcha
   for(const row of purchases??[]) {
     const p=person(row.staffId),c=category(row.unit==="TRIAL"?"課程體驗":row.unit==="SESSION"?"堂數方案":"點數方案");
     if(row.refund){const amount=Math.abs(row.netAmount);refunds+=amount;p.refunds+=amount;c.refunds+=amount;}
-    else {purchaseIncome+=row.netAmount;p.purchaseIncome+=row.netAmount;p.orders++;p.customers.add(row.customerId);c.income+=row.netAmount;}
+    else {purchaseIncome+=row.netAmount;p.purchaseIncome+=row.netAmount;p.orders++;row.customerId && p.customers.add(row.customerId);c.income+=row.netAmount;}
   }
   for(const row of cash??[]) {
     const p=person(row.staffId),c=category(`手動收支 · ${row.category?.trim()||"未分類"}`);

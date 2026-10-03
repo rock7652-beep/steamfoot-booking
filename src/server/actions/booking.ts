@@ -1,5 +1,8 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
+import { after } from "next/server";
+
 import { notifySameDayBookingManagers } from "@/server/services/same-day-booking-manager-notification";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -27,7 +30,7 @@ import {
   NO_SHOW_MAKEUP_VALID_DAYS,
   type NoShowChoice,
 } from "@/lib/booking-constants";
-import { revalidateBookings } from "@/lib/revalidation";
+import { revalidateBookingMutation } from "@/lib/booking-route-mutation";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import {
   applySlotOverrides,
@@ -85,6 +88,7 @@ import { isWalletUsableForServiceDate } from "@/lib/wallet-booking-integrity";
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { recordOperationAudit } from "@/server/services/operation-audit";
 
 async function assertStaffBookingWritable(
   user: Awaited<ReturnType<typeof requireSession>>,
@@ -147,7 +151,7 @@ async function voidSessionDeductionTxs(
 
 // 共用 revalidate
 function revalidateAll(customerId?: string) {
-  revalidateBookings(customerId);
+  revalidateBookingMutation(customerId);
 }
 
 async function loadCreateBookingEligibility(params: {
@@ -807,6 +811,12 @@ export async function createBooking(
         });
       }
 
+      await recordOperationAudit({
+        actorUserId: user.id, storeId, module: "STEAM", targetType: "Booking",
+        targetId: created.id, action: "CREATE",
+        summary: user.role === "CUSTOMER" ? "顧客建立預約" : "建立預約",
+      }, tx);
+
       return created;
     });
 
@@ -870,6 +880,8 @@ export async function updateBooking(
   bookingId: string,
   input: z.infer<typeof updateBookingSchema>
 ): Promise<ActionResult<void>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "updateBooking");
   try {
     const user = await requireWritablePermission("booking.update");
     const data = updateBookingSchema.parse(input);
@@ -1068,6 +1080,11 @@ export async function updateBooking(
       });
     }
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "UPDATE", summary: "修改預約",
+    });
+
     revalidateAll();
     return { success: true, data: undefined };
   } catch (e) {
@@ -1087,6 +1104,8 @@ export async function cancelBooking(
   bookingId: string,
   note?: string
 ): Promise<ActionResult<void>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "cancelBooking");
   try {
     const user = await requireSession();
     await assertStaffBookingWritable(user);
@@ -1163,6 +1182,12 @@ export async function cancelBooking(
       // 釋放單堂明細 RESERVED → AVAILABLE（補課 / 舊資料無 row 則 no-op）
       // multi-person：對該 booking 的全部 RESERVED row 操作
       await releaseSessions(tx, bookingId);
+
+      await recordOperationAudit({
+        actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+        targetType: "Booking", targetId: bookingId, action: "CANCEL", summary: "取消預約",
+        after: note ? { reason: note } : undefined,
+      }, tx);
     });
 
     revalidateAll(booking.customerId);
@@ -1186,18 +1211,19 @@ export async function markCompleted(
   bookingId: string,
   input?: z.infer<typeof completeBookingSchema>
 ): Promise<ActionResult<void>> {
+  const timing = new OperationTiming("steamfoot.complete");
   try {
-    const user = await requireWritablePermission("booking.update");
+    const user = await timing.measure("permission", () => requireWritablePermission("booking.update", undefined, timing));
     const data = completeBookingSchema.parse(input ?? {});
 
-    const booking = await prisma.booking.findUnique({
+    const booking = await timing.measure("booking", () => prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
         customer: true,
         customerPlanWallet: true,
         makeupCreditLinks: { select: { makeupCreditId: true } },
       },
-    });
+    }));
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
     assertStoreAccess(user, booking.storeId);
     if (booking.bookingStatus === "COMPLETED")
@@ -1296,7 +1322,7 @@ export async function markCompleted(
       data.partialNoShowChoice === "DEDUCTED_WITH_MAKEUP";
 
     let sessionBalanceNotificationIds: string[] = [];
-    await prisma.$transaction(async (tx) => {
+    await timing.measure("transaction", () => prisma.$transaction(async (tx) => {
       // 完成服務前重新核對「預約綁定方案＋堂數＋期限」。建立預約時的
       // 驗證不能取代此處：兩者之間方案可能被調整、停用或產生 ledger drift。
       // 期限以實際服務日判斷（DATE 欄位），避免事後補登完成時誤擋合法服務。
@@ -1554,28 +1580,48 @@ export async function markCompleted(
         storeId: booking.storeId,
         tx,
       });
-    });
+    }));
 
-    // 通知失敗不得回滾已完成的服務；唯一鍵確保同方案同階段最多一次。
-    await dispatchSessionBalanceNotifications(sessionBalanceNotificationIds);
+    // Durable PENDING records are committed above. Cron recovers if scheduling
+    // or the response lifecycle fails; notification errors never undo completion.
+    if (sessionBalanceNotificationIds.length) {
+      try {
+        after(async () => {
+          const background = new OperationTiming("steamfoot.complete.notifications");
+          try {
+            await background.measure("dispatch", () => dispatchSessionBalanceNotifications(sessionBalanceNotificationIds));
+          } catch {
+            console.error("[SessionBalanceNotification] background dispatch deferred to retry");
+          } finally { background.finish(); }
+        });
+      } catch {
+        console.error("[SessionBalanceNotification] scheduling deferred to retry");
+      }
+    }
 
-    // BOOKING_COMPLETED 事件埋點（交易外 fire-and-forget；埋點失敗不回滾業務）
+    // Keep the analytics write awaited until it has its own durable retry design.
     try {
-      await createBookingCompletedEvent({
+      await timing.measure("referralEvent", () => createBookingCompletedEvent({
         storeId: booking.storeId,
         customerId: booking.customerId,
         referrerId: booking.customer.sponsorId ?? null,
         bookingId: booking.id,
         source: "mark-completed",
-      });
+      }));
     } catch {
       // 埋點失敗不影響主流程
     }
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "COMPLETE", summary: "完成服務",
+    });
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
+  } finally {
+    timing.finish();
   }
 }
 
@@ -1601,6 +1647,8 @@ export async function markNoShow(
   bookingId: string,
   choice: NoShowChoice = "DEDUCTED"
 ): Promise<ActionResult<void>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "markNoShow");
   try {
     const user = await requireWritablePermission("booking.update");
 
@@ -1755,6 +1803,11 @@ export async function markNoShow(
       }
     });
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "NO_SHOW", summary: "標記未到",
+      after: { policy: dbPolicy, makeupGranted: shouldGrantMakeup },
+    });
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {
@@ -1776,17 +1829,18 @@ export async function markNoShow(
 export async function revertBookingStatus(
   bookingId: string
 ): Promise<ActionResult<void>> {
+  const timing = new OperationTiming("steamfoot.revert");
   try {
-    const user = await requireWritablePermission("booking.update");
+    const user = await timing.measure("permission", () => requireWritablePermission("booking.update", undefined, timing));
 
-    const booking = await prisma.booking.findUnique({
+    const booking = await timing.measure("booking", () => prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
         customer: true,
         customerPlanWallet: true,
         makeupCreditLinks: { select: { makeupCreditId: true } },
       },
-    });
+    }));
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
     assertStoreAccess(user, booking.storeId);
 
@@ -1808,7 +1862,7 @@ export async function revertBookingStatus(
       select: { id: true, expiryDate: true, createdAt: true, remainingSessions: true },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await timing.measure("transaction", () => prisma.$transaction(async (tx) => {
       // ── COMPLETED → PENDING ──
       if (st === "COMPLETED") {
         // 部分到店若曾發補課券，回退前必須確認尚未被使用，再整組移除。
@@ -2022,13 +2076,18 @@ export async function revertBookingStatus(
           },
         });
       }
-    });
+    }));
 
+    await recordOperationAudit({
+      actorUserId: user.id, storeId: booking.storeId, module: "STEAM",
+      targetType: "Booking", targetId: bookingId, action: "REVERT", summary: "恢復為待到店",
+      before: { status: st }, after: { status: "PENDING" },
+    });
     revalidateAll(booking.customerId);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
-  }
+  } finally { timing.finish(); }
 }
 
 // ============================================================
@@ -2066,6 +2125,8 @@ export interface BatchActionItemResult {
 export async function markCompletedBatch(
   ids: string[]
 ): Promise<{ results: BatchActionItemResult[] }> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "markCompletedBatch");
   // 權限檢查交給每筆 markCompleted（內部會 requireWritablePermission）。
   const results: BatchActionItemResult[] = [];
   for (const id of ids) {

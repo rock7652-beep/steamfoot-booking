@@ -1,4 +1,5 @@
 "use client";
+import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -62,9 +63,10 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     window.addEventListener("beforeunload", unload); document.addEventListener("keydown", escape);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
   }, [dirty, pending, request, closeHref, destination]);
+  useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
-  return <div ref={root} data-course-settings-panel className="[&>[data-right-sheet]]:z-[45]">
-    <RightSheet open compact width={config.width} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
+  return <div ref={root} data-course-settings-panel>
+    <RightSheet presentation="centered" open compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
         <div><p className="text-xs text-earth-500">設定</p><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{config.title}</h2></div>
         <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4">關閉視窗</button>
@@ -73,7 +75,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
         <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
         <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>{destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}</button>}</div>
       </div>}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
+      <div data-settings-panel-body className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
         onClickCapture={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
           const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
@@ -87,8 +89,8 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
           const params = new URLSearchParams(); new FormData(form).forEach((value, key) => { if (typeof value === "string") params.set(key, value); });
           navigate(config.href + "?" + params);
         }}>
-        {navigating && <p role="status" className="sticky top-0 z-10 bg-white p-3 text-sm">正在更新…</p>}
-        <SettingsPanelContext.Provider value={context}><PanelError retry={() => router.refresh()}>{children}</PanelError></SettingsPanelContext.Provider>
+        {navigating && <p role="status" className="pointer-events-none absolute right-4 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs text-earth-500 shadow-sm">正在更新…</p>}
+        <SettingsPanelContext.Provider value={context}><PanelError key={panel} retry={() => router.refresh()}>{children}</PanelError></SettingsPanelContext.Provider>
       </div>
     </RightSheet>
   </div>;

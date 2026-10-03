@@ -105,7 +105,7 @@ export function SpaSkillsManager({
         </span>
       </div>
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[700px] text-left text-sm">
+        <table className="admin-list-table w-full min-w-[700px] text-left text-sm">
           <thead>
             <tr className="border-b border-earth-200">
               <th className="py-3">服務</th>

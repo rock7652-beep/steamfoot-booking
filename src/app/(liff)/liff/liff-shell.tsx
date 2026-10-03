@@ -317,7 +317,12 @@ export function LiffShell({
       )}
 
       {state.kind === "need_onboarding" && (
-        <WelcomeCta storeSlug={storeSlug} displayName={state.displayName} />
+        <WelcomeCta
+          storeSlug={storeSlug}
+          storeName={storeName}
+          memberDataSource={memberDataSource}
+          displayName={state.displayName}
+        />
       )}
 
       {state.kind === "signed_in" && (
@@ -411,20 +416,26 @@ function InfoBlock({
 
 function WelcomeCta({
   storeSlug,
+  storeName,
+  memberDataSource,
   displayName,
 }: {
   storeSlug: string;
+  storeName: string;
+  memberDataSource: IndustryModuleId;
   displayName: string | null;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-3xl bg-white px-5 py-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
         <h2 className="text-2xl font-semibold leading-snug text-earth-900">
-          {liffMessages.shell.welcomeTitle}
+          {liffMessages.shell.welcomeTitle(storeName)}
           {displayName ? `，${displayName}` : ""}
         </h2>
         <p className="mt-3 text-base leading-relaxed text-earth-600">
-          {liffMessages.shell.welcomeBody}
+          {memberDataSource === "course"
+            ? liffMessages.shell.courseWelcomeBody
+            : liffMessages.shell.welcomeBody}
         </p>
       </div>
       <Link
@@ -463,6 +474,7 @@ export function WelcomeBack({
     bookings: string;
     wallets: string;
     profile: string;
+    health?: string;
   };
   hasWorkAccess?: boolean;
   compactHome?: boolean;
@@ -604,14 +616,14 @@ export function WelcomeBack({
           detail={walletsAvailable ? `${totalUsable} ${labels.sessionUnit}可使用` : "請重新讀取資料"}
         />
         {healthAssessmentEnabled && (
-          <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
+          <HomeTile href={memberLinks?.health ?? `/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
         )}
         <HomeTile href={resolvedMemberLinks.profile} label="我的資料" detail="會員基本資料" />
       </nav>
       )}
 
       {healthAssessmentEnabled && (
-        <Link href={`/s/${storeSlug}/liff/health`} className="rounded-2xl bg-primary-50 px-4 py-3 ring-1 ring-primary-100 transition active:scale-[0.99]">
+        <Link href={memberLinks?.health ?? `/s/${storeSlug}/liff/health`} className="rounded-2xl bg-primary-50 px-4 py-3 ring-1 ring-primary-100 transition active:scale-[0.99]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-primary-700">最近健康變化</p>

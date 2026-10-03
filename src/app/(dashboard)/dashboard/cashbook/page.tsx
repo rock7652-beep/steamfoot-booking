@@ -41,6 +41,8 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import type { CashbookEntryType } from "@prisma/client";
 import { CashDrawerWorkspace } from "../cash-drawer/cash-drawer-workspace";
 import { CashbookEntryDeleteButton } from "./cashbook-entry-delete-button";
+import { CashbookRecordFilters } from "./_components/cashbook-record-filters";
+import { OperationHistoryButton } from "@/components/operation-history-button";
 
 const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
   INCOME: "收入",
@@ -71,6 +73,10 @@ interface PageProps {
   searchParams: Promise<{
     month?: string;
     type?: CashbookEntryType;
+    categoryGroup?: string;
+    q?: string;
+    dateFrom?: string;
+    dateTo?: string;
     page?: string;
     cashDrawerError?: string;
   }>;
@@ -93,12 +99,25 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const month = params.month ?? currentMonth;
 
   const [year, mon] = month.split("-").map(Number);
-  const dateFrom = `${month}-01`;
+  const monthDateFrom = `${month}-01`;
   const lastDay = new Date(year, mon, 0).getDate();
-  const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const monthDateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const validDate = (date: string | undefined) => !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date));
+  const hasDateRange = validDate(params.dateFrom) && validDate(params.dateTo) && params.dateFrom! <= params.dateTo!;
+  const dateFrom = hasDateRange ? params.dateFrom! : monthDateFrom;
+  const dateTo = hasDateRange ? params.dateTo! : monthDateTo;
+  const categoryGroup = params.categoryGroup === "retail" || params.categoryGroup === "other" ? params.categoryGroup : undefined;
+  const keyword = params.q?.trim().slice(0, 60) ?? "";
+  const selectedKind = categoryGroup && params.type === "INCOME" ? categoryGroup
+    : params.type === "EXPENSE" ? "expense"
+    : params.type === "WITHDRAW" ? "withdraw"
+    : params.type === "ADJUSTMENT" ? "adjustment"
+    : params.type === "INCOME" ? "income" : "";
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const isCourse = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
+  const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
+  const isCourse = industryModule === "course";
+  const useInlineEditor = true;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
@@ -111,6 +130,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       dateFrom,
       dateTo,
       type: params.type,
+      categoryGroup,
+      keyword,
       page,
       pageSize: 30,
       activeStoreId: cashbookStoreId,
@@ -173,9 +194,15 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       : Promise.resolve(null),
   ]);
 
-  const editorStaff = isCourse && canManageCashbook ? await listStaffSelectOptions() : [];
-  const closedDates = isCourse && cashbookStoreId && canManageCashbook ? await listClosedBusinessDates(cashbookStoreId, dateFrom, dateTo) : [];
-  const editorProps = { today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
+  const editorStaff = useInlineEditor && canManageCashbook ? await listStaffSelectOptions() : [];
+  const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+  const historyStart = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+  historyStart.setUTCDate(historyStart.getUTCDate() - 180);
+  const historyStartDate = historyStart.toISOString().slice(0, 10);
+  const closedDates = useInlineEditor && cashbookStoreId && canManageCashbook
+    ? await listClosedBusinessDates(cashbookStoreId, dateFrom < historyStartDate ? dateFrom : historyStartDate, dateTo > today ? dateTo : today)
+    : [];
+  const editorProps = { storeId: cashbookStoreId ?? "", instantSearch: industryModule === "steamfoot", presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
@@ -192,7 +219,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
                 查看模式：不可新增記帳
               </span>
-            ) : isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} />) : (
+            ) : useInlineEditor ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} />) : (
               <Link
                 href="/dashboard/cashbook/new"
                 className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -211,7 +238,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             ) : (
               <CashDrawerWorkspace
                 view={cashDrawerData.view}
+                instantSearch={industryModule === "steamfoot"}
                 todayStr={today}
+                storeId={cashbookStoreId!}
                 canInit={cashDrawerData.canInit}
                 canOpen={cashDrawerData.canOpen}
                 canClose={cashDrawerData.canClose}
@@ -238,36 +267,14 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             </p>
           </div>
 
-          {/* 月份 / 類型 篩選 */}
-          <form method="GET" className="flex flex-wrap items-end gap-2">
-            <div>
-              <label className="block text-xs text-earth-500">月份</label>
-              <input
-                name="month"
-                type="month"
-                defaultValue={month}
-                className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
-              />
-            </div>
-            <select
-              name="type"
-              defaultValue={params.type ?? ""}
-              className="rounded-lg border border-earth-300 px-3 py-1.5 text-sm focus:outline-none"
-            >
-              <option value="">所有類型</option>
-              {Object.entries(ENTRY_TYPE_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg bg-earth-100 px-3 py-1.5 text-sm text-earth-700 hover:bg-earth-200"
-            >
-              查詢
-            </button>
-          </form>
+          <CashbookRecordFilters month={month} kind={selectedKind} keyword={keyword} />
+
+          {(hasDateRange || categoryGroup) && (
+            <p className="text-xs text-primary-700">
+              分析明細：{dateFrom} 至 {dateTo}{categoryGroup === "retail" ? " · 零售" : categoryGroup === "other" ? " · 其他手動收入" : ""}。
+              下方月度統計仍顯示整月資料；切換月份可返回月份篩選。
+            </p>
+          )}
 
           {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -322,8 +329,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                     <td colSpan={8} className="px-4 py-0">
                       <EmptyState
                         icon="empty"
-                        title="尚無現金帳記錄"
-                        description="新增第一筆現金帳記錄來開始追蹤"
+                        title={keyword || categoryGroup || params.type ? "沒有符合條件的紀錄" : "尚無現金帳記錄"}
+                        description={keyword || categoryGroup || params.type ? "請調整關鍵字或收支類型" : "新增第一筆現金帳記錄來開始追蹤"}
                       />
                     </td>
                   </tr>
@@ -351,7 +358,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>
+                    <td className="px-4 py-3 text-earth-600"><span>{e.category ?? "—"}</span>{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${
                         e.type === "INCOME" ? "text-green-700" : "text-red-700"
@@ -370,7 +377,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <div className="flex items-center gap-3">
-                          {isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId }} />) : <Link
+                          <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
+                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >

@@ -37,6 +37,18 @@ describe("booking refresh read boundary", () => {
     expect(m.bookings).not.toHaveBeenCalled();
     expect(m.slots).not.toHaveBeenCalled();
   });
+  it("skips active scope lookup for an explicitly authorized month-only read", async () => {
+    await refreshBookingManagement({ ...input, date: null });
+    expect(m.validate).toHaveBeenCalledWith(expect.anything(), "store-a", "read");
+    expect(m.active).not.toHaveBeenCalled();
+    expect(m.bookings).toHaveBeenCalledWith(2026, 9, "store-a");
+    expect(m.slots).not.toHaveBeenCalled();
+  });
+  it("still resolves active scope when no explicit store is supplied", async () => {
+    await refreshBookingManagement({ year: 2026, month: 9, date: null });
+    expect(m.active).toHaveBeenCalledTimes(1);
+    expect(m.bookings).toHaveBeenCalledWith(2026, 9, "store-a");
+  });
   it("preserves the full booking DTO instead of fabricating payment/wallet defaults", async () => {
     const result = await refreshBookingManagement(input);
     expect(result.monthData).toEqual(await m.bookings.mock.results[0].value);

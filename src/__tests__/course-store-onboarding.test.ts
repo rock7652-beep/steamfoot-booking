@@ -30,6 +30,46 @@ it("prepares the course store without starting its trial without legacy booking 
   expect(m.permissions.mock.calls[0][0].data).toContainEqual({ staffId: "owner-staff", permission: "hq.view", granted: false });
   expect(m.legacyPermissions).not.toHaveBeenCalled();
 });
+
+it("creates a music classroom as an isolated COURSE-engine business", async () => {
+  const result = await createStoreAction({
+    ...input,
+    name: "陸比音樂 Music Pilot",
+    slug: "music-pilot-test",
+    businessProfile: "MUSIC",
+  });
+  expect(result).toMatchObject({
+    success: true,
+    data: {
+      store: {
+        industryModule: "COURSE",
+        businessProfile: "MUSIC",
+        plan: "EXPERIENCE",
+      },
+    },
+  });
+  expect(m.storeCreate).toHaveBeenCalledWith(expect.objectContaining({
+    data: expect.objectContaining({
+      industryModule: "COURSE",
+      featureEntitlements: {
+        create: expect.objectContaining({
+          featureKey: "business.music",
+          status: "ENABLED",
+          source: "HQ_OVERRIDE",
+        }),
+      },
+      moduleInstallation: {
+        create: expect.objectContaining({
+          module: "COURSE",
+          status: "ACTIVE",
+        }),
+      },
+    }),
+  }));
+  expect(m.slots).not.toHaveBeenCalled();
+  expect(m.hours.mock.calls[0][0].data).toHaveLength(7);
+});
+
 it("refuses legacy initial coach accounts before creating anything", async () => {
   expect(await createStoreAction({ ...input, initialStaff: [{ name: "教練", email: "coach@example.test", role: "STAFF" }] })).toMatchObject({ success: false });
   expect(m.transaction).not.toHaveBeenCalled(); expect(m.storeCreate).not.toHaveBeenCalled();

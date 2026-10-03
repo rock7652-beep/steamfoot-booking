@@ -1,14 +1,19 @@
 import {beforeEach,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),find:vi.fn(),update:vi.fn(),raw:vi.fn(),execute:vi.fn(),noUse:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),find:vi.fn(),update:vi.fn(),raw:vi.fn(),execute:vi.fn(),noUse:vi.fn(),music:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_s:string,fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,$executeRaw:m.execute,courseRoom:{findMany:m.find,updateMany:m.update},coursePointPlan:{findMany:m.find,updateMany:m.update}})}));
 vi.mock("@/server/services/course-resources",()=>({assertNoCourseResourceUse:m.noUse,handleCourseActionError:()=>({success:false,error:"blocked"})}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxStaff:3}),requireStoreFeature:vi.fn()}));
 vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermissions:vi.fn()}));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.music}}}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
-import {batchCourseStatus} from "@/server/actions/course-batch";
+import {batchCourseStatus,applyCourseBatchStatus} from "@/server/actions/course-batch";
 beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"A",user:{role:"OWNER",staffId:"self"}});m.find.mockResolvedValue([{id:"one"},{id:"two"}]);});
 it("rejects selections outside the current store",async()=>{m.find.mockResolvedValue([{id:"one"}]);expect((await batchCourseStatus({kind:"plan",ids:["one","foreign"],active:false})).success).toBe(false);expect(m.update).not.toHaveBeenCalled();});
 it("checks every room before applying a batch",async()=>{m.noUse.mockRejectedValueOnce(new Error("has future classes"));expect((await batchCourseStatus({kind:"room",ids:["one","two"],active:false})).success).toBe(false);expect(m.update).not.toHaveBeenCalled();});
 it("changes catalogue status without touching issued cards",async()=>{expect((await batchCourseStatus({kind:"plan",ids:["one","two"],active:false})).success).toBe(true);expect(m.update).toHaveBeenCalledWith({where:{storeId:"A",id:{in:["one","two"]}},data:{isActive:false}});});
 it("cannot batch-deactivate yourself",async()=>{m.raw.mockResolvedValue([{id:"self",status:"ACTIVE",courseCoachEnabled:false}]);expect((await batchCourseStatus({kind:"staff",ids:["self"],active:false})).success).toBe(false);expect(m.execute).toHaveBeenCalledTimes(1);});
 it("checks staff capacity for the entire batch",async()=>{m.raw.mockResolvedValueOnce([{id:"one",status:"INACTIVE",courseCoachEnabled:true}]).mockResolvedValueOnce([{count:BigInt(3)}]);expect((await batchCourseStatus({kind:"staff",ids:["one"],active:true})).success).toBe(false);expect(m.execute).toHaveBeenCalledTimes(1);});
+
+it("music room deactivation keeps existing sessions",async()=>{m.music.mockResolvedValue({storeId:"A"});expect((await batchCourseStatus({kind:"room",ids:["one","two"],active:false})).success).toBe(true);expect(m.noUse).not.toHaveBeenCalled();});
+it("partial status updates identify only failed items",async()=>{m.find.mockResolvedValueOnce([{id:"one"}]).mockResolvedValueOnce([]);const result=await applyCourseBatchStatus({kind:"plan",ids:["one","foreign"],active:false});expect(result).toMatchObject({success:true,succeeded:["one"],failed:[{id:"foreign",error:"blocked"}]});expect(m.update).toHaveBeenCalledTimes(1);});
+it("already active staff remain idempotent when a trial has legacy excess staff",async()=>{m.raw.mockResolvedValueOnce([{id:"one",status:"ACTIVE",courseCoachEnabled:true}]);expect((await batchCourseStatus({kind:"staff",ids:["one"],active:true})).success).toBe(true);});

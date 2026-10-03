@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
+import { useResponsiveAction } from "@/hooks/use-responsive-action";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { CustomerAction, ActionType } from "@/server/queries/ops-dashboard-v2";
@@ -42,15 +44,22 @@ interface Props {
 
 export function CustomerActionsSection({ actions, actionLogs, staffList }: Props) {
   const [typeFilter, setTypeFilter] = useState<ActionType | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [statusFilter, setStatusFilter] = useRetainedState<string>("ops:status", "pending", retainedString);
   const [localLogs, setLocalLogs] = useState(actionLogs);
   const [noteEditing, setNoteEditing] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState("");
+  const [noteDrafts, setNoteDrafts] = useRetainedState<Record<string, string>>("ops:note-drafts", {},
+    (value): value is Record<string, string> => !!value && typeof value === "object" && Object.values(value).every(v => typeof v === "string" && v.length <= 2000));
+  const noteText = noteEditing ? noteDrafts[noteEditing] ?? localLogs[noteEditing]?.note ?? "" : "";
+  const setNoteText = (text: string) => { if (noteEditing) setNoteDrafts(previous => ({ ...previous, [noteEditing]: text })); };
+  function clearNoteDraft(id: string) { setNoteDrafts(previous => { const next = { ...previous }; delete next[id]; return next; }); }
   const [lineMsg, setLineMsg] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
 
+  const saves = useResponsiveAction();
+
   const filtered = actions.filter((a) => {
     if (typeFilter !== "all" && a.type !== typeFilter) return false;
+    if (saves.states[a.id]?.phase === "saving" || saves.states[a.id]?.phase === "unknown" || noteEditing === a.id) return true;
     const log = localLogs[a.id];
     if (statusFilter === "pending") return !log;
     if (statusFilter === "all") return true;
@@ -63,62 +72,41 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
   );
   const pendingCount = actions.filter((a) => !localLogs[a.id]).length;
 
+  function restoreLog(actionId: string, previous: OpsActionLogEntry | undefined) {
+    setLocalLogs(current => {
+      const next = { ...current };
+      if (previous) next[actionId] = previous;
+      else delete next[actionId];
+      return next;
+    });
+  }
+
   function handleMark(actionId: string, status: CustomerActionStatus) {
-    setLocalLogs((prev) => ({
-      ...prev,
-      [actionId]: {
-        ...(prev[actionId] ?? {
+    const previous = localLogs[actionId];
+    void saves.run(actionId, () => markCustomerAction(actionId, status), {
+      apply: () => setLocalLogs(current => ({ ...current, [actionId]: {
+        ...(current[actionId] ?? {
           id: "", module: "customer_action", refId: actionId,
           note: null, actorUserId: "", assigneeStaffId: null, assigneeName: null, dueDate: null,
-        }),
-        status,
-        actorName: "你",
-        updatedAt: new Date(),
-      },
-    }));
-    startTransition(async () => {
-      try {
-        const res = await markCustomerAction(actionId, status);
-        if (!res.success) {
-          setLocalLogs((prev) => {
-            const next = { ...prev };
-            delete next[actionId];
-            return next;
-          });
-        }
-      } catch {
-        setLocalLogs((prev) => {
-          const next = { ...prev };
-          delete next[actionId];
-          return next;
-        });
-      }
+        }), status, actorName: "你", updatedAt: new Date(),
+      } })),
+      rollback: () => restoreLog(actionId, previous),
     });
   }
 
   function handleSaveNote(actionId: string) {
     const text = noteText.trim();
     if (!text) return;
-    setLocalLogs((prev) => ({
-      ...prev,
-      [actionId]: {
-        ...(prev[actionId] ?? {
+    const previous = localLogs[actionId];
+    void saves.run(actionId, () => updateCustomerActionNote(actionId, text), {
+      apply: () => setLocalLogs(current => ({ ...current, [actionId]: {
+        ...(current[actionId] ?? {
           id: "", module: "customer_action", refId: actionId, status: "tracking",
           actorUserId: "", actorName: "你", assigneeStaffId: null, assigneeName: null, dueDate: null,
-          updatedAt: new Date(),
-        }),
-        note: text,
-        updatedAt: new Date(),
-      },
-    }));
-    setNoteEditing(null);
-    setNoteText("");
-    startTransition(async () => {
-      try {
-        await updateCustomerActionNote(actionId, text);
-      } catch {
-        // 備註儲存失敗 — optimistic UI 已顯示
-      }
+        }), note: text, updatedAt: new Date(),
+      } })),
+      rollback: () => restoreLog(actionId, previous),
+      confirmed: () => { setNoteEditing(current => current === actionId ? null : current); clearNoteDraft(actionId); },
     });
   }
 
@@ -268,6 +256,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                   </a>
                 </div>
 
+                {saves.states[action.id] && <p role={saves.states[action.id].phase === "error" || saves.states[action.id].phase === "unknown" ? "alert" : "status"} className="mt-1 text-xs text-amber-800">{saves.states[action.id].message}</p>}
                 {/* Toolbar */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-earth-100/50 pt-2">
                   {/* Status buttons */}
@@ -277,7 +266,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                     return (
                       <button
                         key={s}
-                        disabled={pending}
+                        disabled={saves.isBlocked(action.id)}
                         onClick={() => handleMark(action.id, s)}
                         className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50 ${
                           isActive ? `${sc.color} ring-1 ring-current` : `${sc.color} opacity-60 hover:opacity-100`
@@ -291,7 +280,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                   <span className="mx-0.5 h-3 w-px bg-earth-200" />
 
                   {/* Assign */}
-                  <OpsAssignPopover
+                  <fieldset disabled={saves.isBlocked(action.id)}><OpsAssignPopover
                     module="customer_action"
                     refId={action.id}
                     staffList={staffList}
@@ -299,7 +288,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                     currentAssigneeName={log?.assigneeName ?? null}
                     currentDueDate={log?.dueDate ? (typeof log.dueDate === "string" ? log.dueDate : log.dueDate.toISOString?.() ?? String(log.dueDate)) : null}
                     onUpdate={(sid, sn, dd) => handleAssignUpdate(action.id, sid, sn, dd)}
-                  />
+                  /></fieldset>
 
                   <span className="mx-0.5 h-3 w-px bg-earth-200" />
 
@@ -345,9 +334,10 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
 
                   {/* Note + History */}
                   <button
+                    disabled={Object.values(saves.states).some(state => state.phase === "saving")}
                     onClick={() => {
                       setNoteEditing(noteEditing === action.id ? null : action.id);
-                      setNoteText(log?.note ?? "");
+
                     }}
                     className="rounded-lg bg-earth-50 px-1.5 py-0.5 text-[11px] font-medium text-earth-500 hover:bg-earth-100"
                   >
@@ -363,6 +353,8 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                   <div className="mt-2 flex gap-2">
                     <input
                       type="text"
+                      disabled={saves.isBlocked(action.id)}
+                      maxLength={2000}
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSaveNote(action.id); }}
@@ -372,13 +364,14 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                     />
                     <button
                       onClick={() => handleSaveNote(action.id)}
-                      disabled={!noteText.trim() || pending}
+                      disabled={!noteText.trim() || saves.isBlocked(action.id)}
                       className="rounded-lg bg-primary-600 px-3 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                     >
                       儲存
                     </button>
                     <button
-                      onClick={() => { setNoteEditing(null); setNoteText(""); }}
+                      disabled={saves.isBlocked(action.id)}
+                      onClick={() => { if (noteText !== (log?.note ?? "") && !window.confirm("捨棄這次尚未儲存的備註？")) return; clearNoteDraft(action.id); setNoteEditing(null); }}
                       className="rounded-lg bg-earth-100 px-2 py-1 text-xs text-earth-500 hover:bg-earth-200"
                     >
                       取消

@@ -50,6 +50,10 @@ describe("getDayCapacityIndicator", () => {
     expect(getDayCapacityIndicator([{ capacity: 4, bookedPeople: 2 }], 3)).toBe("full");
   });
 
+  it("treats an enabled zero-capacity slot as full instead of hiding the day", () => {
+    expect(getDayCapacityIndicator([{ capacity: 0, bookedPeople: 0 }], 1)).toBe("full");
+  });
+
   it("keeps closed or no-slot days distinct", () => {
     expect(getDayCapacityIndicator([], 1)).toBeNull();
   });

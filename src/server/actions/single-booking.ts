@@ -42,6 +42,8 @@ const SINGLE_DEFAULT_PRICE = 799;
 export async function collectSinglePayment(
   input: z.infer<typeof collectSinglePaymentSchema>,
 ): Promise<ActionResult<{ transactionId: string; serviceCompleted: boolean }>> {
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "collectSinglePayment");
   try {
     const user = await requireWritablePermission("booking.update");
     const data = collectSinglePaymentSchema.parse(input);

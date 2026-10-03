@@ -3,7 +3,7 @@ import { AppError } from "@/lib/errors";
 
 const mocks = vi.hoisted(() => ({
   permission: vi.fn(), access: vi.fn(), subscription: vi.fn(),
-  find: vi.fn(), update: vi.fn(), audit: vi.fn(), refresh: vi.fn(), path: vi.fn(),
+  find: vi.fn(), update: vi.fn(), compare: vi.fn(), current: vi.fn(), audit: vi.fn(), refresh: vi.fn(), path: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requireWritablePermission: mocks.permission }));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: mocks.access }));
@@ -13,25 +13,29 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.path }));
 vi.mock("@/lib/db", () => ({ prisma: {
   booking: { findUnique: mocks.find },
   $transaction: (fn: (tx: unknown) => unknown) => fn({
-    booking: { update: mocks.update }, auditLog: { create: mocks.audit },
+    booking: { update: mocks.update, updateMany: mocks.compare, findFirst: mocks.current }, auditLog: { create: mocks.audit },
   }),
 } }));
 import { updateBookingNoteAction } from "@/server/actions/booking-note";
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.permission.mockResolvedValue({ id: "staff1" });
-  mocks.find.mockResolvedValue({ id: "b1", storeId: "store1", customerId: "c1", bookingStatus: "COMPLETED" });
+  mocks.permission.mockResolvedValue({ id: "staff1", name: "王店長" });
+  mocks.find.mockResolvedValue({ id: "b1", storeId: "store1", customerId: "c1", bookingStatus: "COMPLETED", notes: null });
 });
 
 describe("本次備註", () => {
   it("allows completed booking notes to be corrected without changing settlement/status or customer notes", async () => {
     expect((await updateBookingNoteAction({ bookingId: "b1", notes: " 今天晚到 " })).success).toBe(true);
     expect(mocks.permission).toHaveBeenCalledWith("booking.update");
-    expect(mocks.access).toHaveBeenCalledWith({ id: "staff1" }, "store1");
+    expect(mocks.access).toHaveBeenCalledWith({ id: "staff1", name: "王店長" }, "store1");
     expect(mocks.subscription).toHaveBeenCalledWith("store1");
     expect(mocks.update).toHaveBeenCalledWith({ where: { id: "b1" }, data: { notes: "今天晚到" } });
-    expect(mocks.audit).toHaveBeenCalledWith({ data: { actorUserId: "staff1", targetType: "Booking", targetId: "b1", action: "BOOKING_NOTE_UPDATED" } });
+    expect(mocks.audit).toHaveBeenCalledWith({ data: expect.objectContaining({
+      actorUserId: "staff1", actorNameSnapshot: "王店長", storeId: "store1", module: "STEAM",
+      targetType: "Booking", targetId: "b1", action: "BOOKING_NOTE_UPDATED", summary: "修改預約備註",
+      beforeJson: { notes: null }, afterJson: { notes: "今天晚到" },
+    }), select: { id: true } });
     expect(mocks.refresh).toHaveBeenCalledWith("c1");
     expect(mocks.path).toHaveBeenCalledWith("/dashboard/bookings/b1");
   });
@@ -54,4 +58,18 @@ describe("本次備註", () => {
     expect((await updateBookingNoteAction({ bookingId: "missing", notes: "文字" })).success).toBe(false);
     expect(mocks.update).not.toHaveBeenCalled();
   });
+});
+
+it("atomically compares the original note and does not overwrite another editor", async () => {
+  mocks.compare.mockResolvedValue({count:0}); mocks.current.mockResolvedValue({notes:"colleague"});
+  const result = await updateBookingNoteAction({bookingId:"b1",notes:"mine",expectedNotes:"original"});
+  expect(mocks.compare).toHaveBeenCalledWith({where:{id:"b1",storeId:"store1",notes:"original"},data:{notes:"mine"}});
+  expect(result).toMatchObject({success:false,currentValue:"colleague"});
+  expect(mocks.current).toHaveBeenCalledWith({where:{id:"b1",storeId:"store1"},select:{notes:true}});
+  expect(mocks.audit).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
+});
+it("recognizes an already committed note after a lost response without rewriting it", async () => {
+  mocks.compare.mockResolvedValue({count:0}); mocks.current.mockResolvedValue({notes:"mine"});
+  expect((await updateBookingNoteAction({bookingId:"b1",notes:"mine",expectedNotes:"original"})).success).toBe(true);
+  expect(mocks.audit).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
 });

@@ -1,4 +1,5 @@
 "use server";
+import {musicPurchaseTerms} from "@/lib/music-course-products";
 import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
 import {validateCourseTerm,enrollCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
@@ -31,7 +32,7 @@ export async function saveCourseAttendance(input: unknown) {
     const data = z
       .object({
         sessionId: id,
-        target: z.enum(["RESERVED", "ATTENDED", "NO_SHOW", "CHECKED_IN"]),
+        target: z.enum(["RESERVED", "ATTENDED", "NO_SHOW", "CHECKED_IN", "UNDO_CHECK_IN"]),
         bookings: z
           .array(
             z.object({
@@ -57,13 +58,25 @@ export async function saveCourseAttendance(input: unknown) {
           storeId,
           sessionId: data.sessionId,
           id: { in: data.bookings.map((b) => b.id) },
-          status: data.target === "CHECKED_IN" ? "RESERVED" : { not: "CANCELLED" },
+          status: (data.target === "CHECKED_IN" || data.target === "UNDO_CHECK_IN") ? "RESERVED" : { not: "CANCELLED" },
         },
       });
       if (count !== data.bookings.length)
         throw new AppError("VALIDATION", "名單已變更，請重新確認");
       const updates = [];
       for (const b of data.bookings) {
+        if (data.target === "UNDO_CHECK_IN") {
+          const booking = await tx.courseBooking.findFirst({ where: { id: b.id, storeId, sessionId: data.sessionId, status: "RESERVED" } });
+          if (!booking || b.status !== "RESERVED") throw new AppError("CONFLICT", "名單已變更，請重新確認");
+          if (booking.checkedInAt) {
+            const changed = await tx.courseBooking.updateMany({ where: { id: b.id, storeId, status: "RESERVED", checkedInAt: booking.checkedInAt }, data: { checkedInAt: null } });
+            if (changed.count !== 1) throw new AppError("CONFLICT", "另一位人員已更新點名，請重新確認");
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseBooking',${b.id},'UNDO_CHECK_IN',${JSON.stringify({storeId, checkedInAt: booking.checkedInAt})}::jsonb,${JSON.stringify({checkedInAt: null})}::jsonb,NOW())`;
+          }
+          const saved = await tx.courseBooking.findFirstOrThrow({ where: { id: b.id, storeId } });
+          updates.push({ id: saved.id, status: saved.status, checkedIn: !!saved.checkedInAt, updatedAt: saved.updatedAt.toISOString() });
+          continue;
+        }
         const saved = data.target === "CHECKED_IN"
           ? await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, "CHECKED_IN")
           : await correctCourseAttendance(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, data.target, b.status);
@@ -71,7 +84,7 @@ export async function saveCourseAttendance(input: unknown) {
       }
       return updates;
     });
-    if (data.target !== "CHECKED_IN") scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
+    if (data.target !== "CHECKED_IN" && data.target !== "UNDO_CHECK_IN") scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();
     return { success: true as const, attendanceUpdates };
   } catch (e) {
@@ -98,7 +111,7 @@ export async function purchaseCoursePlan(input: unknown) {
       .object({
         planId: id,
         requestKey: z.string().uuid(),
-        transferLastFive: z.string().regex(/^\d{5}$/, "請填寫匯款帳號後五碼"),
+        transferLastFive: z.string().regex(/^\d{4}$/, "請填寫轉出帳號後四碼"),
       })
       .parse(input);
     const { storeId, customer } = await courseMember({ write: true });
@@ -122,9 +135,13 @@ export async function purchaseCoursePlan(input: unknown) {
         return prior.id;
       }
       const plan = await tx.coursePointPlan.findFirst({
-        where: { id: data.planId, storeId, isActive: true },
+        where: { id: data.planId, storeId, isActive: true, customerPurchasable: true },
       });
-      if (!plan) throw new AppError("NOT_FOUND", "此方案已下架");
+      if (!plan) throw new AppError("NOT_FOUND", "此方案目前不開放顧客購買");
+      if(plan.unit==="POINT"){
+        const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+        if(music.some(row=>row.featureKey==="business.music"))throw new AppError("VALIDATION","音樂教室只販售堂數方案");
+      }
       const owners=await tx.$queryRaw<Array<{assignedStaffId:string|null}>>`SELECT "assignedStaffId" FROM "Customer" WHERE id=${customer.id} AND "storeId"=${storeId}`;
       const allocation=await courseSaleSnapshot(tx,storeId,plan.price,plan.storeCost,owners[0]?.assignedStaffId??null);
       const termSessionIds=await validateCourseTerm(tx,storeId,plan);
@@ -137,8 +154,10 @@ export async function purchaseCoursePlan(input: unknown) {
           customerId: customer.id,
           name: plan.name,
           unit: plan.unit,
+          ...(plan.musicTerms ? musicPurchaseTerms(plan) : {}),
           points: plan.points,
           price: plan.price,
+          listPrice: plan.price,
           validDays: plan.validDays,
           templateIds: plan.templateIds,
         },
@@ -174,6 +193,9 @@ export async function confirmCoursePurchase(input: unknown) {
       >`SELECT id FROM "Customer" WHERE id=${order.customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;
       if (!customers.length)
         throw new AppError("VALIDATION", "顧客資料已變更，請先核對");
+      const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+      const musicCard=music.some(row=>row.featureKey==="business.music");
+      if(musicCard && order.unit!=="SESSION")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       const card = await tx.coursePointCard.create({
         data: {
           storeId,
@@ -183,9 +205,11 @@ export async function confirmCoursePurchase(input: unknown) {
           unit: order.unit,
           templateIds: order.templateIds,
           remaining: order.points,
-          expiresAt: dayRange(
+          musicTermSizes:order.musicTermSizes,musicBonusLessons:order.musicBonusLessons,
+          expiresAt: musicCard ? dayRange("2099-12-31").end : dayRange(
             addTaiwanDuration(toLocalDateStr(), order.validDays, "DAY"),
           ).end,
+          musicValidityDays: musicCard ? order.validDays : null,
           requestKey: "purchase:" + order.id,
           members: { create: { customerId: order.customerId } },
           entries: {

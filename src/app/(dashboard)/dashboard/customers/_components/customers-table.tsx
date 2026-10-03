@@ -1,9 +1,11 @@
 "use client";
+import { CustomerLabels } from "@/components/customer-labels";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 
 import type { ReactNode } from "react";
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
-import { formatTWTime } from "@/lib/date-utils";
+import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import {
   getLineNotificationStatus,
@@ -63,6 +65,7 @@ interface Props {
   /** 整 row 點擊用的 href（同步 ?customerId=）；點擊後 page 會重抓並打開 drawer */
   buildViewHref: (row: CustomerRow) => string;
   /** 「＋指派」→ 開啟同一個 drawer，並展開方案區 */
+  quickAssignLabel?: string;
   onQuickAssign?: (row: CustomerRow) => void;
   /**
    * 啟用批次選取模式（顯示 checkbox 欄）。只在 canAssign=true 時開啟。
@@ -81,18 +84,14 @@ interface Props {
   lastVisitLabel?: string;
   onCreate?: () => void;
   stickyActions?: boolean;
+  hideAssignedStaff?: boolean;
+  assignedStaffLabel?: string;
 }
 
 /**
  * 顯示用完整電話 — 後台列表店長需能撥打辨識顧客，不遮罩。
  * OAuth 佔位（`_oauth_line_xxx`）或空值回 `—`。
  */
-function formatPhoneForStaff(phone: string | null | undefined): string {
-  if (!phone) return "—";
-  if (phone.startsWith("_oauth_")) return "—";
-  return phone;
-}
-
 function lineNotificationShortLabel(status: LineNotificationStatus): string {
   switch (status) {
     case "enabled":
@@ -115,6 +114,7 @@ export function CustomersTable({
   onPrefetch,
   buildViewHref,
   onQuickAssign,
+  quickAssignLabel = "＋指派",
   selectionEnabled = false,
   selectedIds,
   onToggleRow,
@@ -123,7 +123,9 @@ export function CustomersTable({
   balanceColumn,
   lastVisitLabel = "最近來店",
   onCreate,
-  stickyActions = false,
+  stickyActions = true,
+  hideAssignedStaff = false,
+  assignedStaffLabel = "直屬店長",
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -176,41 +178,18 @@ export function CustomersTable({
     ...(selectionEnabled ? [checkboxColumn] : []),
     {
       key: "customer",
-      header: "顧客",
-      width: stickyActions ? "min-w-[11rem] w-52" : undefined,
-      accessor: (c) => {
-        const phoneDisplay = formatPhoneForStaff(c.phone);
-        const subtitle = phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null;
-        const inactive = isInactiveRow(c);
-        return (
-          <div className={`flex flex-col leading-tight ${inactive ? "opacity-60" : ""}`}>
-            <span className="flex items-center gap-1.5 text-sm font-medium text-earth-900">
-              <span className={inactive ? "line-through decoration-earth-300" : ""}>{c.name}</span>
-              {inactive ? (
-                <span
-                  className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500"
-                  title={
-                    c.mergedIntoCustomerId
-                      ? "此顧客已被合併進其他顧客（audit 殘留）"
-                      : "對應的登入帳號已停用"
-                  }
-                >
-                  已合併帳號
-                </span>
-              ) : null}
-            </span>
-            {subtitle ? (
-              <span className="whitespace-nowrap text-[11px] text-earth-400 tabular-nums">{subtitle}</span>
-            ) : (
-              <span className="text-[11px] text-earth-300">—</span>
-            )}
-          </div>
-        );
-      },
+      header: "姓名",
+      noLink: true,
+      width: "w-32",
+      accessor: (c) => <button type="button" disabled={isInactiveRow(c)} onClick={e=>{e.stopPropagation();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className="relative z-20 min-h-11 whitespace-nowrap text-left text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600 disabled:text-earth-400">{c.name}</button>,
+    },
+    {
+      key: "phone", header: "電話", noLink: true, width: "w-36",
+      accessor: c => c.phone && !c.phone.startsWith("_") ? <a href={`tel:${c.phone}`} onClick={e=>e.stopPropagation()} aria-label={`撥打 ${c.phone}`} className="relative z-20 inline-flex min-h-11 items-center whitespace-nowrap text-sm tabular-nums text-primary-700">☎ {c.phone.replace(/^(09\d{2})(\d{3})(\d{3})$/, "$1-$2-$3")}</a> : <span className="text-earth-400">—</span>,
     },
     {
       key: "lineNotification",
-      header: "系統通知",
+      header: <span className="whitespace-nowrap">系統通知</span>,
       width: "w-24",
       noLink: true,
       accessor: (c) => {
@@ -220,14 +199,14 @@ export function CustomersTable({
         });
         const tone =
           status === "enabled"
-            ? "bg-green-50 text-green-700"
+            ? "text-green-700"
             : status === "disabled"
-              ? "bg-earth-100 text-earth-600"
+              ? "text-earth-600"
               : status === "needs_review"
-                ? "bg-amber-50 text-amber-700"
-                : "bg-red-50 text-red-700";
+                ? "text-amber-700"
+                : "text-red-700";
         return (
-          <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
+          <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
             {lineNotificationShortLabel(status)}
           </span>
         );
@@ -237,7 +216,8 @@ export function CustomersTable({
       // 有效堂數：用「剩 N 堂」措辭，避免與方案名稱「10堂」混淆。
       // 1–3 堂亮黃並標「提醒」；無有效 PACKAGE 顯示「—」。
       key: "validSessions",
-      header: balanceColumn?.label ?? "有效堂數",
+      noLink: true,
+      header: <span title="有效方案可用額度；共卡由授權成員共用">{balanceColumn?.label ?? "有效堂數"}</span>,
       width: "w-24",
       accessor: (c) => {
         if (balanceColumn) return balanceColumn.render(c);
@@ -261,7 +241,8 @@ export function CustomersTable({
     },
     {
       key: "assignedStaff",
-      header: "直屬店長",
+      noLink: true,
+      header: assignedStaffLabel,
       width: "w-28",
       accessor: (c) => {
         if (isInactiveRow(c)) {
@@ -275,11 +256,7 @@ export function CustomersTable({
             className="inline-flex max-w-full items-center gap-1.5 truncate text-[12px] text-earth-700"
             title={c.assignedStaff.displayName}
           >
-            <span
-              aria-hidden
-              className="inline-block h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: c.assignedStaff.colorCode }}
-            />
+
             <span className="truncate">{c.assignedStaff.displayName}</span>
           </span>
         );
@@ -287,13 +264,14 @@ export function CustomersTable({
     },
     {
       key: "lastVisit",
-      header: lastVisitLabel,
+      noLink: true,
+      header: <span className="whitespace-nowrap" title="最近實際出席或完成服務的日期；不包含未來預約">{lastVisitLabel}</span>,
       align: "right",
       width: "w-24",
       accessor: (c) => (
-        <span className="whitespace-nowrap tabular-nums">
+        <span title={c.lastVisitAt ? formatTWTime(c.lastVisitAt) : undefined} className="whitespace-nowrap tabular-nums">
           {c.lastVisitAt ? (
-            formatTWTime(c.lastVisitAt, { dateOnly: true })
+            toLocalDateStr(new Date(c.lastVisitAt)).slice(5).replace("-", "/")
           ) : (
             <span className="text-earth-400">—</span>
           )}
@@ -301,25 +279,16 @@ export function CustomersTable({
       ),
     },
     {
-      key: "serviceNote",
-      header: "備註",
-      width: "w-44",
-      accessor: (c) =>
-        c.serviceNote ? (
-          // 一行截斷摘要（不加 title tooltip）— 完整內容於顧客 Drawer 查看。
-          <span className="block max-w-[11rem] truncate text-[12px] text-earth-600">
-            {c.serviceNote}
-          </span>
-        ) : (
-          <span className="text-[11px] text-earth-300">—</span>
-        ),
+      key: "notes", header: "標籤／備註", noLink: true, width: "min-w-[14rem]",
+      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty maxVisible={5} variant="dots"/><p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p></div>,
     },
     {
       key: "actions",
       sticky: stickyActions ? "right" : undefined,
-      header: "",
-      align: "right",
-      width: onQuickAssign ? "w-32" : "w-20",
+      header: "操作",
+      noLink: true,
+      align: "center",
+      width: "w-36 min-w-36",
       accessor: (c) => {
         if (isInactiveRow(c)) {
           return (
@@ -327,7 +296,7 @@ export function CustomersTable({
           );
         }
         return (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
             {onQuickAssign ? (
               <button
                 type="button"
@@ -336,24 +305,12 @@ export function CustomersTable({
                   e.preventDefault();
                   onQuickAssign(c);
                 }}
-                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "min-h-11 whitespace-nowrap text-sm" : "py-0.5 text-[11px]"}`}
+                className="min-h-11 min-w-14 shrink-0 whitespace-nowrap rounded px-2 text-sm font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600"
               >
-                ＋指派
+                {quickAssignLabel}
               </button>
             ) : null}
-            <button
-              type="button"
-              onMouseEnter={() => onPrefetch?.(c)}
-              onFocus={() => onPrefetch?.(c)}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                onView(c);
-              }}
-              className={`rounded border border-earth-200 px-2 text-earth-700 hover:bg-earth-50 ${stickyActions ? "min-h-11 whitespace-nowrap text-sm" : "py-0.5 text-[11px]"}`}
-            >
-              查看
-            </button>
+            <ExclusiveMenu label={`${c.name} 更多操作`} triggerText="⋯" quiet><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onView(c)}>查看／編輯顧客</button></ExclusiveMenu>
           </div>
         );
       },
@@ -380,7 +337,7 @@ export function CustomersTable({
 
   return (
     <DataTable
-      columns={columns}
+      columns={[...columns].sort((a,b)=>["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(a.key)-["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(b.key)).filter(column => !(hideAssignedStaff && column.key === "assignedStaff"))}
       rows={rows}
       rowKey={(c) => c.id}
       rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}

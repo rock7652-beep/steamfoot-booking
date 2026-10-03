@@ -11,6 +11,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { revalidateTransactions } from "@/lib/revalidation";
+import { revalidateBookingTransactionMutation } from "@/lib/booking-route-mutation";
 import type { ActionResult } from "@/types";
 import { Prisma } from "@prisma/client";
 import type { PaymentMethod, TransactionType, TransactionAuditAction } from "@prisma/client";
@@ -1285,7 +1286,7 @@ export async function voidTransaction(
       });
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateBookingTransactionMutation(original.customerId);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);

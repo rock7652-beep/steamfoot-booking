@@ -15,6 +15,7 @@ const m = vi.hoisted(() => ({
     },
     coursePointCard: { findFirst: vi.fn(), updateMany: vi.fn() },
     courseSession: { findFirst: vi.fn() },
+    courseTemplate: { findFirst: vi.fn() },
     courseBookingRule: { findUnique: vi.fn() },
     coursePointEntry: { create: vi.fn(), findUnique: vi.fn() },
     $queryRaw: vi.fn(),
@@ -206,6 +207,49 @@ describe("course point settlement", () => {
       data: expect.objectContaining({ kind: "RELEASE" }),
     });
   });
+  it("student leave records its reason and releases the reserved lesson", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","STUDENT_LEAVE");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}});
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"RELEASE",points:3})});
+  });
+  it("activates a music card on its first chargeable lesson, not when sold", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,musicValidityDays:35,musicActivatedAt:null}});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","ATTENDED");
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({remaining:{decrement:1},musicActivatedAt:new Date("2026-09-15T00:00:00Z"),expiresAt:expect.any(Date)})}));
+  });
+  it("published music group leave records leave and forfeits one lesson", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,session:{...reserved().session,templateId:"guitar-group"}});
+    m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
+    m.tx.courseTemplate.findFirst.mockResolvedValue({classType:"GROUP"});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","STUDENT_LEAVE");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"GROUP_LEAVE_FORFEITED"}});
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
+  });
+  it("self-organized music leave keeps the lesson for later makeup", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),session:{...reserved().session,templateId:"guitar-self"}});
+    m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
+    m.tx.courseTemplate.findFirst.mockResolvedValue({classType:"SELF_ORGANIZED"});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","STUDENT_LEAVE");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}});
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"RELEASE"})});
+  });
+  it("student no-show spends one term lesson without granting a makeup card", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,termSessionIds:["s1","s2","s3","s4"]}});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP");
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
+  });
+  it("rejects makeup coupons for music even if a caller sends the old option", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
+    await expect(settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP")).rejects.toThrow("音樂教室曠課只扣堂");
+    expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+  });
   it("denies customer attendance and post-cutoff cancellation", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await expect(
@@ -252,16 +296,23 @@ describe("course attendance stages", () => {
     await settleCourseBooking(tx, manager, "booking", "CHECKED_IN");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
   });
-  it("no-show releases the reservation without charging", async () => {
+  it("no-show releases the hold and charges the reserved course amount", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await settleCourseBooking(tx, manager, "booking", "NO_SHOW");
-    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "card",
+        storeId: "store-a",
+        remaining: { gte: 3 },
+      },
+      data: { remaining: { decrement: 3 } },
+    });
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ kind: "RELEASE", points: 3 }),
+      data: expect.objectContaining({ kind: "DEBIT", points: 3 }),
     });
     expect(m.tx.courseBooking.update).toHaveBeenCalledWith({
       where: { id: "booking" },
-      data: { status: "NO_SHOW" },
+      data: { status: "NO_SHOW", absenceKind: null },
     });
   });
   it("members cannot check in or mark no-show", async () => {
@@ -272,15 +323,14 @@ describe("course attendance stages", () => {
       ).rejects.toThrow("僅限有權限");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
   });
-  it("no-show cannot be recorded before class starts", async () => {
+  it.each(["ATTENDED", "NO_SHOW"] as const)("staff can record %s before class starts and debit once", async (target) => {
     m.tx.courseBooking.findFirst.mockResolvedValue({
-      ...reserved(),
-      session: { startsAt: new Date("2026-09-16T00:00:00Z") },
+      ...reserved(), session: { startsAt: new Date("2099-01-01T00:00:00Z") },
     });
-    await expect(
-      settleCourseBooking(tx, manager, "booking", "NO_SHOW"),
-    ).rejects.toThrow("尚未開始");
-    expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
+    await settleCourseBooking(tx, manager, "booking", target);
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledOnce();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data: expect.objectContaining({kind: "DEBIT", points: 3})});
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where: {id: "booking"}, data: {status: target, absenceKind: null}});
   });
 });
 
@@ -362,4 +412,19 @@ it.each([['HIDDEN',true,false],['HIDDEN',false,true],['OFF',true,false],['OFF',f
  m.tx.courseSession.findFirst.mockResolvedValue({id:'session',templateId:'t',template:{visibility,isActive:visibility!=='OFF'},startsAt:new Date('2026-09-16T10:00:00Z'),capacity:2,pointCost:3});
  const result=reserveCourse(member?actor:{storeId:actor.storeId,userId:'manager',name:'Manager'},input);
  if(allowed) await expect(result).resolves.toBeDefined();else {await expect(result).rejects.toThrow('不開放新增預約');expect(m.tx.courseBooking.create).not.toHaveBeenCalled();}
+});
+
+describe("music manager full-class enrollment",()=>{
+ const manager={storeId:"store-a",userId:"manager",name:"店長"};
+ beforeEach(()=>{
+  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true}},startsAt:new Date("2026-09-16T10:00:00Z"),endsAt:new Date("2026-09-16T11:00:00Z"),capacity:2,pointCost:1});
+  m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
+  m.tx.courseBooking.count.mockResolvedValue(2);
+ });
+ it("requires explicit manager confirmation",async()=>{await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+ it("confirmed manager can add a learner without changing public class capacity",async()=>{await reserveCourse(manager,{...input,allowOverCapacity:true});expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();expect(m.tx.courseBooking.create.mock.calls[0][0].data).not.toHaveProperty("allowOverCapacity");expect(m.tx.courseBooking.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store-a",customerId:"b",session:expect.objectContaining({startsAt:{lt:new Date("2026-09-16T11:00:00Z")}})})}));});
+ it("customer cannot use the override even if injected",async()=>{await expect(reserveCourse(actor,{...input,allowOverCapacity:true})).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+ it("fitness capacity remains protected",async()=>{m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC"},startsAt:new Date("2026-09-16T10:00:00Z"),capacity:2,pointCost:1});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("滿班");});
+ it("confirmed addition still rejects learner timetable collisions",async()=>{m.tx.courseBooking.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"overlap"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("同時段");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+ it("confirmed addition still rejects duplicate enrollment",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"duplicate"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("已預約");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
 });

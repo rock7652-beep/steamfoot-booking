@@ -4,6 +4,7 @@ import { listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { SubmitButton } from "@/components/submit-button";
@@ -16,7 +17,7 @@ import {
   PageHeader,
   StickyFormActions,
 } from "@/components/desktop";
-import { CashbookFormFields } from "../cashbook-form-fields";
+import { CashbookEntryFields } from "../_components/cashbook-entry-fields";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
 type PaymentMethod = "CASH" | "OTHER";
@@ -36,6 +37,7 @@ export default async function NewCashbookPage() {
 
   // 閉店日提示用：撈此店近 ~180 天到今天的已閉店營業日（前端即時提示，後端仍 guard）
   const activeStoreId = await getActiveStoreForRead(user);
+  const instantSearch = activeStoreId ? await getStoreIndustryModule(activeStoreId) === "steamfoot" : false;
   const [ty, tm, td] = today.split("-").map(Number);
   const fromDate = new Date(Date.UTC(ty, tm - 1, td));
   fromDate.setUTCDate(fromDate.getUTCDate() - 180);
@@ -52,6 +54,7 @@ export default async function NewCashbookPage() {
       amount: Number(formData.get("amount")),
       paymentMethod: (formData.get("paymentMethod") as PaymentMethod) || undefined,
       staffId: (formData.get("staffId") as string) || undefined,
+      customerId: (formData.get("customerId") as string) || undefined,
       note: (formData.get("note") as string) || undefined,
       confirmClosedCashbookChange: formData.get("confirmClosedCashbookChange") === "on",
     };
@@ -88,14 +91,7 @@ export default async function NewCashbookPage() {
         {/* 桌機 / iPad 橫向：2 欄（左 基本資料 + 登錄人、右 付款方式 + 備註），
             避免單欄扁長；窄螢幕自動落回單欄。 */}
         <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-          <CashbookFormFields
-            closedDates={closedDates}
-            defaultEntryDate={today}
-            defaultType="INCOME"
-            defaultCategory=""
-            defaultAmount=""
-            defaultPaymentMethod={null}
-          />
+          {activeStoreId && <CashbookEntryFields storeId={activeStoreId} today={today} editableDate instantSearch={instantSearch} closedDates={closedDates} />}
 
           {/* Staff —「登錄人」= 這筆紀錄的可見與編輯範圍歸屬。
               非 ADMIN 強制鎖定為自己；ADMIN 可指定其他店長（屬於 visibility 設定，
@@ -122,14 +118,6 @@ export default async function NewCashbookPage() {
             )}
           </FormSection>
 
-          <FormSection title="備註">
-            <textarea
-              name="note"
-              rows={4}
-              className={inputCls}
-              placeholder="輸入備註（選填）"
-            />
-          </FormSection>
         </div>
 
         <StickyFormActions>

@@ -35,6 +35,7 @@ import {
 import { isExpiringSoon } from "@/lib/liff/my-wallets";
 import { liffMessages } from "@/lib/liff/messages";
 import { fetchSpaLiffEntitlements } from "@/server/actions/spa-liff-member";
+import { fetchLiffConsumption, type LiffConsumptionRow } from "@/server/actions/liff-consumption";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 
 type State =
@@ -49,6 +50,7 @@ type State =
       expired: LiffWalletRow[];
       history: LiffWalletRow[];
       makeupCredits: LiffMakeupCreditRow[];
+      consumption: LiffConsumptionRow[];
     };
 
 interface Props {
@@ -106,10 +108,12 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
       // ── 2. fetch wallets ──
       // fetchLiffWallets 零 client 參數；session 在 server side 解
       let result;
+      let consumption;
       try {
-        result = dataSource === "spa"
-          ? await fetchSpaLiffEntitlements()
-          : await fetchLiffWallets();
+        [result, consumption] = await Promise.all([
+          dataSource === "spa" ? fetchSpaLiffEntitlements() : fetchLiffWallets(),
+          fetchLiffConsumption(),
+        ]);
       } catch (err) {
         if (cancelled) return;
         console.warn("[liff-my-wallets] fetchLiffWallets threw", err);
@@ -126,12 +130,17 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
         setState({ kind: "service_unavailable" });
         return;
       }
+      if (consumption.status === "service_unavailable") {
+        setState({ kind: "service_unavailable" });
+        return;
+      }
       setState({
         kind: "ready",
         active: result.active,
         expired: result.expired,
         history: result.history,
         makeupCredits: result.makeupCredits,
+        consumption: consumption.status === "ok" ? consumption.rows : [],
       });
     })();
     return () => {
@@ -199,11 +208,12 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
       )}
 
       {state.kind === "ready" && (
-        <ReadyView
+        <WalletReadyView
           active={state.active}
           expired={state.expired}
           history={state.history}
           makeupCredits={state.makeupCredits}
+          consumption={state.consumption}
           storeSlug={storeSlug}
           contactUrl={contactUrl}
           dataSource={dataSource}
@@ -217,24 +227,29 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
 // Ready view
 // ──────────────────────────────────────────────────────────
 
-function ReadyView({
+export function WalletReadyView({
+  readOnly = false,
   active,
   expired,
   history,
   makeupCredits,
+  consumption,
   storeSlug,
   contactUrl,
   dataSource,
 }: {
+  readOnly?: boolean;
   active: LiffWalletRow[];
   expired: LiffWalletRow[];
   history: LiffWalletRow[];
   makeupCredits: LiffMakeupCreditRow[];
+  consumption: LiffConsumptionRow[];
   storeSlug: string;
   /** PR-E：per-store LINE OA 連結。 */
   contactUrl: string;
   dataSource: IndustryModuleId;
 }) {
+  const [activeTab, setActiveTab] = useState<"plans" | "consumption">("plans");
   const totalCount =
     active.length + expired.length + history.length + makeupCredits.length;
   const isEmpty = totalCount === 0;
@@ -244,6 +259,11 @@ function ReadyView({
 
   return (
     <>
+      {!readOnly && <div className="grid grid-cols-2 rounded-xl bg-earth-100 p-1" role="tablist" aria-label="方案與消費紀錄">
+        <button type="button" role="tab" aria-selected={activeTab === "plans"} onClick={() => setActiveTab("plans")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${activeTab === "plans" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>我的方案</button>
+        <button type="button" role="tab" aria-selected={activeTab === "consumption"} onClick={() => setActiveTab("consumption")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${activeTab === "consumption" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>消費紀錄</button>
+      </div>}
+      {activeTab === "consumption" ? <ConsumptionList rows={consumption} /> : <>
       {isEmpty ? (
         <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} dataSource={dataSource} />
       ) : (
@@ -293,10 +313,12 @@ function ReadyView({
         </>
       )}
 
+      </>}
+
       {/* PR-G3：「立即預約」primary CTA — 用 active 加總 availableToBook > 0
           才顯示；同站內 LINE webview 用 next/link same-page nav 即可。
           連 /liff/member-booking (PR-G3 主體 page)。 */}
-      {showBookNow && (
+      {activeTab === "plans" && showBookNow && (
         <Link
           href={dataSource === "spa" ? `/s/${storeSlug}/book/new` : `/s/${storeSlug}/liff/member-booking`}
           className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
@@ -319,6 +341,16 @@ function ReadyView({
       </div>
     </>
   );
+}
+
+function ConsumptionList({ rows }: { rows: LiffConsumptionRow[] }) {
+  if (!rows.length) return <div className="rounded-xl border border-earth-200 bg-white px-4 py-8 text-center"><p className="font-semibold text-earth-800">目前還沒有消費紀錄</p><p className="mt-1 text-sm text-earth-500">購買方案或店內消費後會顯示在這裡。</p></div>;
+  return <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
+    {rows.map((row) => <article key={row.id} className="flex items-start justify-between gap-3 border-b border-earth-100 px-4 py-3 last:border-0">
+      <div className="min-w-0"><p className="font-medium text-earth-900">{row.item}</p><p className="mt-1 text-xs text-earth-500">{new Date(row.date).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })} · {row.paymentMethod} · {row.status}</p></div>
+      <p className="shrink-0 font-semibold tabular-nums text-earth-900">NT$ {row.amount.toLocaleString("zh-TW")}</p>
+    </article>)}
+  </section>;
 }
 
 function Section({

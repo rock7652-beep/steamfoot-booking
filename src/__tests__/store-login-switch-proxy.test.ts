@@ -9,6 +9,15 @@ function run(path: string, role = "OWNER", slug = "store-b") {
   return (proxy as unknown as (req: NextRequest) => NextResponse)(req);
 }
 describe("explicit store login with an existing session", () => {
+  it("allows unauthenticated staff to request and use a store-scoped recovery link", () => {
+    for (const path of ["/hq/forgot-password?store=course", "/hq/reset-password?store=course&token=abc"]) {
+      const req = new NextRequest(`https://preview.example${path}`);
+      Object.assign(req, { auth: null });
+      const response = (proxy as unknown as (req: NextRequest) => NextResponse)(req);
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+      expect(response.headers.get("location")).toBeNull();
+    }
+  });
   it("shows login instead of sending a different store session into a forbidden dashboard", () => {
     expect(run("/hq/login?store=store-a").headers.get("x-middleware-next")).toBe("1");
   });

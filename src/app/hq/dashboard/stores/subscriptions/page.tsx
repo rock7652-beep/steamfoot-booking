@@ -123,7 +123,7 @@ export default async function StoreSubscriptionsListPage({
   }
 
   return (
-    <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
+    <PageShell className="box-border flex w-full min-w-0 flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
       <PageHeader
         title="店家訂閱管理"
         subtitle="管理各店目前訂閱、試用期限與正式方案"
@@ -173,7 +173,7 @@ export default async function StoreSubscriptionsListPage({
       </div>
 
       <section className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="w-full min-w-[1020px] text-[13px]">
+        <table className="admin-list-table w-full min-w-[1020px] text-[13px]">
           <thead>
             <tr className="border-b border-earth-100 text-left text-[11px] text-earth-500">
               <th className="px-4 py-2.5 font-medium">店家</th>

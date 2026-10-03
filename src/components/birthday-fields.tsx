@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 
 interface BirthdayFieldsProps {
   defaultValue?: string | Date | null;
+  parts?: { year: string; month: string; day: string };
+  onPartsChange?: (parts: { year: string; month: string; day: string }) => void;
   required?: boolean;
   className?: string;
 }
@@ -24,15 +26,17 @@ function daysInMonth(year: number, month: number): number {
 
 export function BirthdayFields({
   defaultValue,
+  parts, onPartsChange,
   required = false,
   className = "",
 }: BirthdayFieldsProps) {
   const normalizedDefault = normalizeBirthdayInput(defaultValue);
   const [defaultYear = "1970", defaultMonth = "", defaultDay = ""] =
     normalizedDefault.split("-");
-  const [year, setYear] = useState(defaultYear || "1970");
-  const [month, setMonth] = useState(defaultMonth);
-  const [day, setDay] = useState(defaultDay);
+  const [localYear, setYear] = useState(defaultYear || "1970");
+  const [localMonth, setMonth] = useState(defaultMonth);
+  const [localDay, setDay] = useState(defaultDay);
+  const { year, month, day } = parts ?? { year: localYear, month: localMonth, day: localDay };
   const currentYear = new Date().getFullYear();
   const maxDay = daysInMonth(Number(year), Number(month));
   const safeDay = day && Number(day) <= maxDay ? day : "";
@@ -63,7 +67,7 @@ export function BirthdayFields({
             min={1920}
             max={currentYear}
             value={year}
-            onChange={(event) => setYear(event.target.value)}
+            onChange={(event) => { setYear(event.target.value); onPartsChange?.({ year: event.target.value, month, day }); }}
             required={required}
             className={fieldClass}
           />
@@ -79,6 +83,7 @@ export function BirthdayFields({
             onChange={(event) => {
               setMonth(event.target.value);
               setDay("");
+              onPartsChange?.({ year, month: event.target.value, day: "" });
             }}
             required={required}
             className={fieldClass}
@@ -94,7 +99,7 @@ export function BirthdayFields({
           <select
             id="birthday-day"
             value={safeDay}
-            onChange={(event) => setDay(event.target.value)}
+            onChange={(event) => { setDay(event.target.value); onPartsChange?.({ year, month, day: event.target.value }); }}
             required={required}
             className={fieldClass}
           >

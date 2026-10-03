@@ -21,9 +21,13 @@ const mockSignIn = vi.fn();
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockResolveCustomer = vi.fn();
+const mockCanOnboardCourse = vi.fn();
 vi.mock("@/lib/auth", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
 vi.mock("@/server/services/verified-line-customer", () => ({
   resolveVerifiedLineCustomer: (...args: unknown[]) => mockResolveCustomer(...args),
+}));
+vi.mock("@/server/services/course-line-onboarding", () => ({
+  canOnboardCentralLineAccountToCourse: (...args: unknown[]) => mockCanOnboardCourse(...args),
 }));
 
 vi.mock("@/lib/store-resolver", () => ({
@@ -74,6 +78,7 @@ describe("POST /api/liff/exchange", () => {
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockResolveCustomer.mockReset();
+    mockCanOnboardCourse.mockReset();
   });
 
   afterEach(() => {
@@ -87,6 +92,28 @@ describe("POST /api/liff/exchange", () => {
     const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ code: "IDENTITY_REVIEW_REQUIRED" });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+  it("offers onboarding for a verified central member joining an empty course store", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce({ id: "course-store", slug: "course" });
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    mockCanOnboardCourse.mockResolvedValueOnce(true);
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "course" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "need_onboarding", storeSlug: "course" });
+    expect(mockCanOnboardCourse).toHaveBeenCalledWith({
+      storeId: "course-store", lineUserId: LINE_USER_ID, identityProvider: "line",
+    });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+  it("keeps conflicting course memberships in staff review", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce({ id: "course-store", slug: "course" });
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    mockCanOnboardCourse.mockResolvedValueOnce(false);
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "course" }));
+    expect(response.status).toBe(409);
     expect(mockSignIn).not.toHaveBeenCalled();
   });
   it("keeps database outages retryable without routing to onboarding", async () => {

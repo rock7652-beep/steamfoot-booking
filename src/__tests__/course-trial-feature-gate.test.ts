@@ -13,6 +13,12 @@ describe("course trial availability", () => {
     expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(false);
     await expect(requireStoreFeature("test-store", FEATURES.CASHBOOK)).resolves.toBeUndefined();
   });
+  it("honors an explicit active HQ grant for multi-store access", async () => {
+    m.entitlement.mockResolvedValue({status:"ENABLED",startsAt:null,expiresAt:null});
+    expect(await hasStoreFeature("test-store",FEATURES.MULTI_STORE)).toBe(true);
+    m.entitlement.mockResolvedValue({status:"ENABLED",startsAt:new Date("2100-01-01"),expiresAt:null});
+    expect(await hasStoreFeature("test-store",FEATURES.MULTI_STORE)).toBe(false);
+  });
   it("keeps Steamfoot and SPA trial policies unchanged", async () => {
     for (const industry of ["steamfoot", "spa"]) {
       m.industry.mockResolvedValue(industry);

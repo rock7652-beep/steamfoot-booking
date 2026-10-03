@@ -17,6 +17,7 @@ import {
   deductSpaCredit,
   readSpaCreditOptions,
 } from "../spa-checkout-credit";
+import { recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 const inputSchema = z
   .object({
     isTrial: z.boolean().optional(),
@@ -92,6 +93,7 @@ export async function completeSpaBooking(input: z.infer<typeof inputSchema>) {
       },
       { timeout: 15000 },
     );
+    await recordOperationAuditBestEffort({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: d.bookingId, action: "COMPLETE", summary: "完成服務並結帳" });
     revalidatePath("/dashboard/spa-schedule");
     revalidatePath("/dashboard/spa-staff");
     return { success: true as const, receiptId: receipt.id };
@@ -236,6 +238,9 @@ export async function completeSpaBookingGroup(
       },
       { timeout: 25000 },
     );
+    for (const booking of d.bookings) {
+      await recordOperationAuditBestEffort({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.bookingId, action: "COMPLETE", summary: "完成同行服務並結帳" });
+    }
     revalidatePath("/dashboard/spa-schedule");
     revalidatePath("/dashboard/customers");
     return { success: true as const, receiptIds: ids };

@@ -41,7 +41,7 @@ describe("line_reminder effective entitlement contract", () => {
   });
 
   it("passes the concrete store effective result into sidebar navigation", () => {
-    const layout = read("src/app/(dashboard)/layout.tsx");
+    const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
 
     expect(layout).toContain("hasStoreFeature(\n          effectiveStoreId,\n          FEATURES.LINE_REMINDER");

@@ -1,6 +1,7 @@
 import { formatTWTime } from "@/lib/date-utils";
 import { formatBirthday } from "@/lib/birthday";
-import { SideCard, InfoList, type InfoListItem } from "@/components/desktop";
+import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
+import { SideCard, type InfoListItem } from "@/components/desktop";
 import type { LineLinkStatus } from "@prisma/client";
 import type { DerivedCustomerSource } from "@/lib/customer-source";
 
@@ -48,7 +49,7 @@ export function CustomerBasicInfo({
   notes,
 }: Props) {
   const items: InfoListItem[] = [
-    { label: "電話", value: phone || "—" },
+    { label: "電話", value: <CustomerPhoneLink phone={phone}/> },
     { label: "Email", value: email },
     {
       label: "LINE 名稱",
@@ -68,11 +69,11 @@ export function CustomerBasicInfo({
     { label: "性別", value: gender ? (GENDER_LABEL[gender] ?? gender) : null },
     {
       label: "生日",
-      value: birthday ? formatBirthday(birthday) : "尚未填寫",
+      value: birthday ? formatBirthday(birthday) : null,
     },
     { label: "身高", value: height ? `${height} cm` : null },
     {
-      label: "直屬店長",
+      label: "所屬店長",
       value: assignedStaff ? (
         <span className="inline-flex items-center gap-1.5">
           <span
@@ -111,9 +112,9 @@ export function CustomerBasicInfo({
   ];
 
   return (
-    <SideCard title="基本資料" subtitle="顧客核心檔案" flush>
+    <SideCard title="基本資料" className="[&_h3]:text-sm [&_h3]:text-primary-900" flush>
       <div className="px-3 py-2">
-        <InfoList items={items} columns={2} density="compact" />
+        <CustomerDetailFields items={items} />
       </div>
     </SideCard>
   );

@@ -14,6 +14,8 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...actual,
     useEffect: vi.fn(),
+    useLayoutEffect: vi.fn(),
+    useRef: <T,>(value: T) => ({ current: value }),
     useState: <T,>(initial: T | (() => T)) => {
       const index = harness.cursor++;
       if (!(index in harness.states)) {
@@ -37,6 +39,16 @@ vi.mock("react", async (importOriginal) => {
     ] as const,
   };
 });
+
+// This test checks modal argument wiring only; responsive lifecycle has real-render tests.
+vi.mock("@/hooks/use-responsive-action", () => ({
+  useResponsiveAction: () => ({
+    states: {}, isBlocked: () => false, check: vi.fn(),
+    run: (_id: string, action: () => Promise<unknown>) => {
+      const request = action(); harness.pending.push(request); return request;
+    },
+  }),
+}));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -181,84 +193,8 @@ describe("booking reschedule UI wiring", () => {
     harness.updateBooking.mockResolvedValue({ success: true });
   });
 
-  it("passes the selected cross-date and slot through RescheduleModal", () => {
-    const onConfirm = vi.fn();
-    harness.states = [
-      "2026-07-20",
-      "10:00",
-      [
-        {
-          startTime: "12:00",
-          capacity: 2,
-          bookedCount: 0,
-          available: 2,
-          isEnabled: true,
-          isPast: false,
-        },
-      ],
-      null,
-    ];
-
-    let tree = renderWithHookState(() =>
-      RescheduleModal({
-        open: true,
-        onClose: vi.fn(),
-        currentDate: "2026-07-20",
-        currentSlotTime: "10:00",
-        people: 1,
-        onConfirm,
-      }),
-    );
-    const dateInput = findElement(
-      tree,
-      (element) => element.type === "input" && element.props?.type === "date",
-    );
-    (dateInput.props?.onChange as (event: { target: { value: string } }) => void)({
-      target: { value: "2026-07-27" },
-    });
-
-    tree = renderWithHookState(() =>
-      RescheduleModal({
-        open: true,
-        onClose: vi.fn(),
-        currentDate: "2026-07-20",
-        currentSlotTime: "10:00",
-        people: 1,
-        onConfirm,
-      }),
-    );
-    const slotPicker = findElement(
-      tree,
-      (element) =>
-        typeof element.type === "function" && Array.isArray(element.props?.slots),
-    );
-    const slotTree = (
-      slotPicker.type as (props: Record<string, unknown>) => ReactNode
-    )(slotPicker.props ?? {});
-    const slotButton = findElement(
-      slotTree,
-      (element) => element.type === "button" && element.props?.children === "12:00",
-    );
-    (slotButton.props?.onClick as () => void)();
-
-    tree = renderWithHookState(() =>
-      RescheduleModal({
-        open: true,
-        onClose: vi.fn(),
-        currentDate: "2026-07-20",
-        currentSlotTime: "10:00",
-        people: 1,
-        onConfirm,
-      }),
-    );
-    const confirmButton = findElement(
-      tree,
-      (element) => element.type === "button" && element.props?.children === "確認",
-    );
-    (confirmButton.props?.onClick as () => void)();
-
-    expect(onConfirm).toHaveBeenCalledWith("2026-07-27", "12:00");
-  });
+  // Cross-date selection and asynchronous slot loading are exercised with real
+  // React rendering in reschedule-modal-race.test.ts.
 
   it("forwards RescheduleModal values to updateBooking unchanged", async () => {
     const payload = bookingPayload();

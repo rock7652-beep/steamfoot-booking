@@ -23,8 +23,8 @@ export async function getCourseReminderCandidates(storeId:string,now=new Date())
  if(!store) throw new Error("此提醒僅適用本店課程");
  const date=addTaiwanDuration(toLocalDateStr(now),1,"DAY"),range=dayRange(date);
  const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,status:"RESERVED",session:{storeId,cancelledAt:null,startsAt:{gte:range.start,lte:range.end}}},include:{session:true}});
- const customers=await prisma.customer.findMany({where:{storeId,id:{in:bookings.map(b=>b.customerId)},mergedIntoCustomerId:null},select:{id:true,name:true,lineUserId:true}});
- return bookings.flatMap(booking=>{const customer=customers.find(c=>c.id===booking.customerId);return customer?[{booking,customer,store,date}]:[];});
+ const customers=await prisma.customer.findMany({where:{storeId,id:{in:bookings.map(b=>b.customerId ?? b.reserverCustomerId).filter((id): id is string => !!id)},mergedIntoCustomerId:null},select:{id:true,name:true,lineUserId:true}});
+ return bookings.flatMap(booking=>{const customer=customers.find(c=>c.id===(booking.customerId ?? booking.reserverCustomerId));return customer?[{booking,customer,store,date}]:[];});
 }
 function retryKey(id:string) {
  const hex=createHash("sha256").update(id).digest("hex");

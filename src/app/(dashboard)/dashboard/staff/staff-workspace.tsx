@@ -88,6 +88,7 @@ const inputClass =
 
 export function StaffWorkspace({
   courseBasicOnly = false,
+  showSteamfootRent = false,
   people: initialPeople,
   today,
   canManage,
@@ -98,6 +99,7 @@ export function StaffWorkspace({
   today: string;
   canManage: boolean;
   courseBasicOnly?: boolean;
+  showSteamfootRent?: boolean;
   showSpaCompensation: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
 }) {
@@ -389,7 +391,7 @@ export function StaffWorkspace({
             停用後不再提供新排課選用，歷史紀錄保留。
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-            <table className="w-full min-w-[660px] text-left text-sm">
+            <table className="admin-list-table w-full min-w-[660px] text-left text-sm">
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {["姓名", "角色", "電話", "Email", "狀態", "操作"].map(
@@ -619,6 +621,7 @@ export function StaffWorkspace({
         <PersonDrawer
           courseBasicOnly={courseBasicOnly}
           person={selected}
+          showSteamfootRent={showSteamfootRent}
           showSpaCompensation={showSpaCompensation}
           onClose={() => setEditor(null)}
           onSpecialties={() =>
@@ -1360,6 +1363,7 @@ function ExceptionDrawer({
 
 function PersonDrawer({
   courseBasicOnly = false,
+  showSteamfootRent = false,
   person,
   showSpaCompensation,
   onClose,
@@ -1368,6 +1372,7 @@ function PersonDrawer({
   onCompensation,
 }: {
   courseBasicOnly?: boolean;
+  showSteamfootRent?: boolean;
   person: StaffWorkspacePerson;
   showSpaCompensation: boolean;
   onClose: () => void;
@@ -1544,6 +1549,7 @@ function PersonDrawer({
             設定抽成
           </button>
         ) : null}
+        {person.canEdit && showSteamfootRent && <Link href={`/dashboard/staff/${person.id}/rent`} className="inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm text-primary-700">空間租金</Link>}
         {person.canEdit ? (
           <Link
             href={`/dashboard/staff/${person.id}/edit`}
@@ -1929,7 +1935,7 @@ function Drawer({
         className="relative h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl"
       >
         <header className="mb-5 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-earth-900">{title}</h1>
+          <h1 className="admin-page-title">{title}</h1>
           <button
             type="button"
             onClick={onClose}

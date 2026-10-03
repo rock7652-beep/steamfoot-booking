@@ -2,8 +2,10 @@
 import {act,createElement,useState} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
+vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservations:vi.fn()}));
 const m=vi.hoisted(()=>({search:vi.fn(),cards:vi.fn()}));
-vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,browseCourseCards:m.cards}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses"}));
+vi.mock("@/server/actions/course-browse",()=>({loadCourseCustomerSearchIndex:async()=>({success:true,rows:[],complete:false}),searchCourseCustomers:m.search,browseCourseCards:m.cards}));
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseOptionSelect} from "@/components/admin/course-option-select";
 import {CourseCardBrowser,type CardBrowseState} from "@/app/(dashboard)/dashboard/courses/card-browser";
@@ -16,7 +18,8 @@ async function click(text:string){const b=[...host.querySelectorAll("button")].f
 it("retains existing shared members that are outside the current search results",async()=>{
   m.search.mockResolvedValue({success:true,rows:[{id:"new",name:"新成員",phone:"0900"}],hasMore:false});
   await act(async()=>root.render(createElement("form",null,createElement(CourseCustomerPicker,{name:"members",multiple:true,initial:[{id:"old",name:"原成員"}]}))));
-  await tick();await click("新成員 · 0900選取");
+  expect(m.search).not.toHaveBeenCalled();
+  await type(host.querySelector('input[aria-label]')!,"新成員");await tick();await click("新成員 · 0900選取");
   m.search.mockResolvedValue({success:true,rows:[],hasMore:false});await type(host.querySelector('input[aria-label]')!,"其他姓名");await tick();
   expect(new FormData(host.querySelector("form")!).getAll("members")).toEqual(["old","new"]);
 });

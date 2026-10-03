@@ -1,7 +1,11 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import React from "react";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 
+
+vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null, CustomerLabelFilter: () => null }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/bookings",
 }));
@@ -157,4 +161,130 @@ describe("當日清單備註", () => {
     expect(text).toMatch(/本次：\s*驗收完成扣堂test/);
     expect(text).not.toContain("店內：");
   });
+});
+
+
+describe("day booking contact actions", () => {
+  it("opens a telephone link without opening details or completing the booking", async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const onBookingClick = vi.fn();
+    const onCompleteSingle = vi.fn();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    try {
+      await act(async () => root.render(React.createElement(DayDetailPanel, {
+        date: "2026-09-26", bookings: [booking({})], slots: [],
+        onBookingClick, onCompleteSingle,
+      })));
+      const call = container.querySelector<HTMLAnchorElement>('a[href="tel:0912345678"]')!;
+      expect(call).not.toBeNull();
+      expect(call.closest("button")).toBeNull();
+      expect(call.textContent).toContain("0912-345-678");
+      expect(call.textContent).not.toContain("撥打");
+      expect(container.textContent).not.toContain("複製");
+      // Avoid launching a real dialer in the test environment.
+      call.addEventListener("click", event => event.preventDefault());
+      await act(async () => call.click());
+      expect(onBookingClick).not.toHaveBeenCalled();
+      expect(onCompleteSingle).not.toHaveBeenCalled();
+      await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label^="查看 11:00"]')!.click());
+      expect(onBookingClick).toHaveBeenCalledWith("booking-1");
+      const complete = [...container.querySelectorAll("button")].find(b => b.textContent === "完成")!;
+      await act(async () => complete.click());
+      expect(onCompleteSingle).toHaveBeenCalledWith("booking-1");
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it.each(["PENDING", "COMPLETED", "NO_SHOW"])("keeps phone visible for %s", (bookingStatus) => {
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-26", bookings: [booking({ bookingStatus })], slots: [],
+    }));
+    expect(textFromHtml(html)).toContain("0912-345-678");
+  });
+
+  it("does not offer a call action when the phone is blank", () => {
+    const row = booking({});
+    row.customer.phone = "  ";
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-26", bookings: [row], slots: [],
+    }));
+    expect(textFromHtml(html)).toContain("未留電話");
+    expect(html).not.toContain("tel:");
+  });
+});
+
+
+describe("per-booking save feedback", () => {
+  it("shows pending confirmation without marking attendance complete or blocking another row", () => {
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-27", slots: [],
+      bookings: [booking({ id: "a" }), booking({ id: "b" })],
+      actingIds: new Set(["a"]),
+      actionStates: { a: { phase: "saving", message: "儲存中…" } },
+      onCompleteSingle: () => {},
+    }));
+    const container = document.createElement("div"); container.innerHTML = html;
+    const rows = container.querySelectorAll("li");
+    expect(rows[0].textContent).toContain("正在確認預約狀態");
+    expect(rows[0].querySelector("button:disabled")).not.toBeNull();
+    expect(Array.from(rows[1].querySelectorAll("button")).find(button => button.textContent === "完成")?.disabled).toBe(false);
+    expect(rows[0].textContent).not.toContain("已到店");
+  });
+  it("keeps an uncertain result visible as an alert", () => {
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-27", slots: [], bookings: [booking({ id: "a" })],
+      actionStates: { a: { phase: "unknown", message: "結果待確認" } },
+      actingIds: new Set(["a"]), onCompleteSingle: () => {},
+    }));
+    const container = document.createElement("div"); container.innerHTML = html;
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("結果待確認");
+  });
+});
+
+it("offers read-only recovery only after automatic confirmation is inconclusive", async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const onCheckAction = vi.fn();
+  const onCompleteSingle = vi.fn();
+  const props = { date: "2026-09-27", slots: [], bookings: [booking({ id: "a" })], actingIds: new Set(["a"]), onCheckAction, onCompleteSingle };
+  try {
+    await act(async () => root.render(React.createElement(DayDetailPanel, { ...props, actionStates: { a: { phase: "checking", message: "正在確認最新狀態…" } } })));
+    expect(container.textContent).not.toContain("查看最新狀態");
+    await act(async () => root.render(React.createElement(DayDetailPanel, { ...props, actionStates: { a: { phase: "unknown", message: "暫時無法確認" } } })));
+    const check = [...container.querySelectorAll("button")].find(button => button.textContent === "查看最新狀態")!;
+    expect(check.disabled).toBe(false);
+    await act(async () => check.click());
+    expect(onCheckAction).toHaveBeenCalledWith("a");
+    expect(onCompleteSingle).not.toHaveBeenCalled();
+    await act(async () => root.render(React.createElement(DayDetailPanel, { ...props, actingIds: new Set<string>(), actionStates: { a: { phase: "saved", message: "已確認最新狀態" } } })));
+    expect(container.textContent).not.toContain("查看最新狀態");
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("offers restore in the completed row and disables it while saving", async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const restore = vi.fn();
+  const render = (acting = false, readOnly = false) => root.render(React.createElement(DayDetailPanel, {
+    date: "2026-06-26", bookings: [booking({ bookingStatus: "COMPLETED" })], slots: [],
+    onRevertSingle: restore, actingIds: new Set(acting ? ["booking-1"] : []), readOnly,
+  }));
+  try {
+    await act(async () => render());
+    const button = [...container.querySelectorAll("button")].find(b => b.textContent === "還原")!;
+    act(() => button.click());
+    expect(restore).toHaveBeenCalledExactlyOnceWith("booking-1");
+    await act(async () => render(true));
+    const saving = [...container.querySelectorAll("button")].find(b => b.textContent === "儲存中…")!;
+    expect(saving.disabled).toBe(true);
+    await act(async () => render(false, true));
+    expect(container.textContent).not.toContain("還原");
+  } finally { await act(async () => root.unmount()); }
 });

@@ -1,3 +1,4 @@
+import type { OperationTiming } from "@/lib/operation-timing";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { UserRole } from "@prisma/client";
@@ -89,6 +90,11 @@ export const ALL_PERMISSIONS = [
   // 人員
   "staff.view",
   "staff.manage", // 管理店員與權限（編輯權限 / 停用·啟用 / 改 role）— PR-3
+  "teacher.compensation.read",
+  "teacher.compensation.manage",
+  "teacher.settlement.read",
+  "teacher.settlement.confirm",
+  "teacher.settlement.pay",
   // 值班安排
   "duty.read",
   "duty.manage",
@@ -101,6 +107,8 @@ export const ALL_PERMISSIONS = [
   "trial.confirm", // 確認收款（開通堂數 / 計營收）
   "trial.cancel",  // 取消體驗 / 退款取消
   "trial.manage",  // 體驗課設定
+  // 系統稽核
+  "audit.read", // 查看本店操作紀錄中心
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -147,6 +155,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "人員管理",
     codes: ["staff.view", "staff.manage"],
   },
+  teacherFinance: { label: "教師拆帳與月結", codes: ["teacher.compensation.read", "teacher.compensation.manage", "teacher.settlement.read", "teacher.settlement.confirm", "teacher.settlement.pay"] },
   duty: {
     label: "值班安排",
     codes: ["duty.read", "duty.manage"],
@@ -158,6 +167,10 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   trial: {
     label: "體驗單",
     codes: ["trial.read", "trial.create", "trial.confirm", "trial.cancel", "trial.manage"],
+  },
+  audit: {
+    label: "操作紀錄",
+    codes: ["audit.read"],
   },
 };
 
@@ -191,6 +204,11 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "cashDrawer.open": "開店點錢",
   "cashDrawer.close": "閉店點錢",
   "cashDrawer.entry": "現金抽屜異動（提領 / 補入 / 調整）",
+  "teacher.compensation.read": "查看教師拆帳",
+  "teacher.compensation.manage": "修改教師拆帳",
+  "teacher.settlement.read": "查看教師月結",
+  "teacher.settlement.confirm": "確認教師月結",
+  "teacher.settlement.pay": "登錄／更正教師付款",
   "staff.view": "查看店員資料",
   "staff.manage": "管理店員與權限",
   "duty.read": "查看值班安排",
@@ -202,6 +220,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "trial.confirm": "確認體驗收款",
   "trial.cancel": "取消體驗 / 退款取消",
   "trial.manage": "管理體驗課設定",
+  "audit.read": "查看操作紀錄",
 };
 
 // ============================================================
@@ -250,6 +269,7 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "trial.confirm",
   "trial.cancel",
   "trial.manage",
+  "audit.read",
 ];
 
 /** 合作店長 預設權限（日常操作，不含營收報表/系統設定/人才管理） */
@@ -459,16 +479,25 @@ export async function assertNotLastStoreManager(
 // 用於 server actions / queries，無權限時拋 FORBIDDEN
 // ============================================================
 
-export async function requirePermission(permission: PermissionCode) {
+type PermissionTiming = Pick<OperationTiming, "measure">;
+function measurePermission<T>(timing: PermissionTiming | undefined, name: string, work: () => Promise<T>): Promise<T> {
+  return timing ? timing.measure(name, work) : work();
+}
+
+export async function requirePermission(
+  permission: PermissionCode,
+  timing?: PermissionTiming,
+  options: { deferSubscriptionGuard?: boolean } = {},
+) {
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
-  const user = await requireStaffSession();
+  const user = await measurePermission(timing, "permission.session", () => requireStaffSession());
   if (user.role === "ADMIN") return user;
-  const allowed = await checkPermission(user.role, user.staffId, permission);
+  const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
-  if (!/\.(read|view|export)$/.test(permission) && user.storeId) {
+  if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission) && user.storeId) {
     const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
-    await assertStoreSubscriptionWritable(user.storeId);
+    await measurePermission(timing, "permission.subscription", () => assertStoreSubscriptionWritable(user.storeId!));
   }
   return user;
 }
@@ -484,8 +513,9 @@ export async function requirePermission(permission: PermissionCode) {
 export async function requireWritablePermission(
   permission: PermissionCode,
   options?: { viewedStoreId?: string | null },
+  timing?: PermissionTiming,
 ) {
-  const user = await requirePermission(permission);
+  const user = await requirePermission(permission, timing);
   if (user.role === "ADMIN") return user;
 
   let viewOptions = options;
@@ -494,7 +524,7 @@ export async function requireWritablePermission(
     const { VIEWED_STORE_COOKIE_NAME } = await import(
       "@/lib/store-view-mode-constants"
     );
-    const cookieStore = await cookies();
+    const cookieStore = await measurePermission(timing, "permission.cookie", () => cookies());
     viewOptions = {
       viewedStoreId: cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null,
     };
@@ -502,7 +532,7 @@ export async function requireWritablePermission(
 
   const { resolveStoreViewContext, assertWritableStoreViewContext } =
     await import("@/lib/store-organization");
-  const ctx = await resolveStoreViewContext(user, viewOptions);
+  const ctx = await measurePermission(timing, "permission.store", () => resolveStoreViewContext(user, viewOptions));
   assertWritableStoreViewContext(ctx);
   return user;
 }

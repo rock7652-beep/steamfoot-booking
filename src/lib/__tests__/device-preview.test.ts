@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createDevicePreviewUrl,
+  getDevicePreviewPage,
+  isDevicePreviewPageId,
   getDevicePreviewPageForPath,
   normalizeDashboardPath,
   resolveDashboardPreviewPath,
@@ -57,5 +59,33 @@ describe("device preview route helpers", () => {
     expect(isPreviewableDashboardPath("/dashboard/revenue?page=2")).toBe(true);
     expect(isPreviewableDashboardPath("/dashboard/device-preview")).toBe(false);
     expect(isPreviewableDashboardPath("/pricing")).toBe(false);
+  });
+});
+
+describe("course device preview", () => {
+  it("maps shared course pathname by view while retaining the current store", () => {
+    const context = "/s/course-a/admin/dashboard/device-preview";
+    for (const id of ["customers", "plans", "settings", "catalog", "rooms", "analytics"] as const) {
+      const destination = resolveDashboardPreviewPath(getDevicePreviewPage(id, "course").path, context);
+      expect(destination).toBe(`/s/course-a/admin/dashboard/courses?view=${id}`);
+      expect(getDevicePreviewPageForPath(destination + "&search=林&devicePreview=1", "course")?.id).toBe(id);
+    }
+    expect(getDevicePreviewPageForPath("/dashboard/courses?view=schedule", "course")?.id).toBe("bookings");
+    expect(getDevicePreviewPageForPath("/dashboard/courses", "course")?.id).toBe("bookings");
+    expect(getDevicePreviewPageForPath("/dashboard/cashbook/new", "course")?.id).toBe("cashbook");
+  });
+
+  it("keeps Steamfoot destinations and does not accept course-only page ids there", () => {
+    expect(getDevicePreviewPage("bookings").path).toBe("/dashboard/bookings");
+    expect(getDevicePreviewPage("customers").path).toBe("/dashboard/customers");
+    expect(isDevicePreviewPageId("catalog")).toBe(false);
+    expect(isDevicePreviewPageId("catalog", "course")).toBe(true);
+    expect(isDevicePreviewPageId("unknown", "course")).toBe(false);
+  });
+
+  it("preserves the course workspace query and blocks recursive scoped previews", () => {
+    expect(createDevicePreviewUrl("/s/course-a/admin/dashboard/courses?view=customers&search=lin"))
+      .toBe("/s/course-a/admin/dashboard/courses?view=customers&search=lin&devicePreview=1");
+    expect(isPreviewableDashboardPath("/s/course-a/admin/dashboard/device-preview")).toBe(false);
   });
 });

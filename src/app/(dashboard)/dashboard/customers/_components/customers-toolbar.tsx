@@ -1,8 +1,11 @@
 "use client";
+import { CustomerLabelFilter } from "@/components/customer-labels";
 
+import { CustomerInstantSearch } from "@/components/customer-instant-search";
+import { normalizeCustomerSearch } from "@/lib/customer-search-index";
 import { NavigationNotice } from "@/components/navigation-notice";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 
@@ -25,6 +28,9 @@ interface Props {
   /** 語意 basePath（例：`/dashboard/customers`）— 僅供「清除篩選」Link 使用，DashboardLink 會自動 prefix */
   basePath: string;
   courseMode?: boolean;
+  musicMode?: boolean;
+  instantStoreId?: string;
+  trailing?: React.ReactNode;
 }
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -54,15 +60,17 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "points", label: "點數多寡" },
 ];
 
-const FILTER_KEYS = ["search", "status", "visit", "referral", "staff"] as const;
+const FILTER_KEYS = ["label", "search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
   const [isPending, startTransition] = useTransition();
+  const [composing, setComposing] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const current = useMemo(
+  const serverCurrent = useMemo(
     () => ({
       search: searchParams.get("search") ?? "",
       status: searchParams.get("status") ?? "",
@@ -74,19 +82,75 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
     [searchParams]
   );
 
+  const [filterDraft,setFilterDraft]=useState<typeof serverCurrent|null>(null);
+  const [lastServer,setLastServer]=useState(serverCurrent);
+  if(lastServer!==serverCurrent&&!isPending){setLastServer(serverCurrent);if(filterDraft)setFilterDraft(null);}
+  const current=filterDraft??serverCurrent;
+  const latestParams=useRef(new URLSearchParams(searchParams.toString()));
+  useEffect(()=>{if(!isPending){latestParams.current=new URLSearchParams(searchParams.toString());}},[searchParams,isPending]);
   const [draft, setDraft] = useState({source:current.search,value:current.search});
-  const searchDraft = draft.source === current.search ? draft.value : current.search;
+  const searchDraft = instantStoreId || courseMode || draft.source === current.search ? draft.value : current.search;
+  const instantQuery = normalizeCustomerSearch(searchDraft);
+  const indexFilters = new URLSearchParams();
+  for (const key of ["status", "visit", "referral", "staff", "stage"]) {
+    const value = searchParams.get(key);
+    if (value) indexFilters.set(key, value);
+  }
+  const lastListRequest = useRef<string | null>(null);
+
+  // Local suggestions are immediate; serialize list navigations and retain the
+  // latest input while the previous server-rendered list is still pending.
+  useEffect(() => {
+    if (composing || isPending || instantQuery === current.search) return;
+    const params = new URLSearchParams(latestParams.current.toString());
+    if (instantQuery) params.set("search", instantQuery);
+    else params.delete("search");
+    params.delete("page");
+    const url = `${pathname}?${params}`;
+    if (lastListRequest.current === url) return;
+    const timer = setTimeout(() => {
+      lastListRequest.current = url;
+      startTransition(() => router.replace(url, { scroll: false }));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [instantStoreId, courseMode, composing, isPending, instantQuery, current.search, searchParams, pathname, router]);
+
+  useEffect(() => {
+    if (!instantStoreId && !courseMode) return;
+    const restore = () => {
+      lastListRequest.current = null;
+      const search = new URLSearchParams(window.location.search).get("search") ?? "";
+      setDraft({ source: search, value: search });
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [instantStoreId, courseMode]);
 
   const hasActiveFilters = FILTER_KEYS.some((k) => {
     const v = searchParams.get(k);
     return !!v && v !== "";
   });
+  const advancedActiveCount = [current.status, current.visit, current.referral, current.staff, current.sort === "recent" ? "" : current.sort].filter(Boolean).length;
+  const courseLabel = (label: string) => label.replaceAll("來店", "上課").replace("點數多寡", musicMode ? "可用堂數" : "可用點數");
+  const activeFilterLabels = [
+    STATUS_OPTIONS.find((option) => option.value === current.status)?.label,
+    VISIT_OPTIONS.find((option) => option.value === current.visit)?.label,
+    REFERRAL_OPTIONS.find((option) => option.value === current.referral)?.label,
+    staffOptions.find((option) => option.id === current.staff)?.displayName,
+    current.sort !== "recent" ? SORT_OPTIONS.find((option) => option.value === current.sort)?.label : undefined,
+  ].filter((label): label is string => !!label && !label.startsWith("全部")).map(courseLabel);
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(latestParams.current.toString());
+    if (instantStoreId || courseMode) {
+      if (instantQuery) params.set("search", instantQuery);
+      else params.delete("search");
+    }
     mutate(params);
     // 任何篩選/排序變更都重置分頁
     params.delete("page");
+    latestParams.current=params;
+    setFilterDraft({search:params.get("search")??"",status:params.get("status")??"",visit:params.get("visit")??"",referral:params.get("referral")??"",staff:params.get("staff")??"",sort:params.get("sort")??"recent"});
     const qs = params.toString();
     startTransition(() => {
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -101,16 +165,123 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
 
   const onSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setParam("search", searchDraft.trim());
+    if (composing) return;
+    setParam("search", instantStoreId ? instantQuery : searchDraft.trim());
   };
 
   const selectClass =
     `${courseMode ? "min-h-11 min-w-0 flex-1 sm:flex-none " : ""}rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300 disabled:opacity-60`;
 
+  if (courseMode) {
+    return (
+      <div className="space-y-2 border-b border-earth-200 pb-3">
+      {isPending && <NavigationNotice />}
+        <div className="flex flex-wrap items-center gap-2">
+          <CustomerLabelFilter />
+          <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
+            <input
+              name="search"
+              aria-label="搜尋姓名、電話或 LINE 名稱"
+              onCompositionStart={() => setComposing(true)}
+              onCompositionEnd={() => setComposing(false)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault();
+              }}
+              value={searchDraft}
+              onChange={(e) => setDraft({source:current.search,value:e.target.value})}
+              placeholder="輸入姓名、電話或 LINE 名稱"
+              className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
+            />
+          </form>
+          <button
+            type="button"
+            aria-expanded={filtersOpen}
+            aria-controls="course-customer-filters"
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="min-h-11 shrink-0 rounded-md border border-earth-300 bg-white px-4 text-sm font-medium text-earth-700 hover:border-primary-400 hover:text-primary-700"
+          >
+            篩選{advancedActiveCount > 0 ? `（${advancedActiveCount}）` : ""}
+          </button>
+          {trailing}
+        </div>
+
+        {!filtersOpen && activeFilterLabels.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5" aria-label="目前篩選條件">
+            {activeFilterLabels.map((label) => (
+              <span key={label} className="rounded-full bg-primary-50 px-2.5 py-1 text-xs text-primary-700">{label}</span>
+            ))}
+            <Link href={basePath} className="ml-1 text-xs text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">
+              清除
+            </Link>
+          </div>
+        ) : null}
+
+        {filtersOpen ? (
+          <div id="course-customer-filters" className="rounded-lg border border-earth-200 bg-earth-50/50 p-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>顧客狀態</span>
+                <select value={current.status} onChange={(e) => setParam("status", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>上課狀態</span>
+                <select value={current.visit} onChange={(e) => setParam("visit", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {VISIT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>推薦紀錄</span>
+                <select value={current.referral} onChange={(e) => setParam("referral", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {REFERRAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              {staffOptions.length > 0 ? (
+                <label className="space-y-1 text-sm text-earth-600">
+                  <span>{courseMode ? "所屬店長" : "直屬店長"}</span>
+                  <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                    <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
+                    {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>排序方式</span>
+                <select value={current.sort} onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-3">
+              {hasActiveFilters || advancedActiveCount > 0 ? (
+                <Link href={basePath} className="inline-flex min-h-11 items-center px-2 text-sm text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">
+                  清除全部
+                </Link>
+              ) : null}
+              <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-md border border-earth-300 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">
+                收合
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
+      <CustomerLabelFilter />
       {isPending && <NavigationNotice />}
       <form onSubmit={onSearchSubmit} className={courseMode ? "flex min-w-0 basis-full items-center gap-2 lg:basis-64 lg:flex-1" : "flex min-w-[220px] flex-1 items-center gap-1.5"}>
+        {instantStoreId ? <CustomerInstantSearch key={instantStoreId} storeId={instantStoreId} value={searchDraft} filterQuery={indexFilters.toString()}
+          className="w-full min-w-0 rounded-md border border-earth-300 bg-white px-3 py-1.5 text-xs text-earth-800 focus:border-primary-400 focus:outline-none"
+          onChange={(value) => {
+            setDraft({ source: current.search, value });
+          }}
+          onSelect={(customer) => {
+            pushParams((p) => { p.set("customerId", customer.id); });
+          }} /> : <>
         <input
           name="search"
           value={searchDraft}
@@ -121,18 +292,19 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
         {searchDraft !== current.search ? (
           <button
             type="submit"
-            disabled={isPending}
+
             className="rounded-md bg-primary-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
             搜尋
           </button>
         ) : null}
+        </>}
       </form>
 
       <select
         value={current.status}
         onChange={(e) => setParam("status", e.target.value)}
-        disabled={isPending}
+
         className={selectClass}
         aria-label="狀態"
       >
@@ -146,7 +318,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
       <select
         value={current.visit}
         onChange={(e) => setParam("visit", e.target.value)}
-        disabled={isPending}
+
         className={selectClass}
         aria-label={courseMode ? "上課" : "來店"}
       >
@@ -160,7 +332,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
       <select
         value={current.referral}
         onChange={(e) => setParam("referral", e.target.value)}
-        disabled={isPending}
+
         className={selectClass}
         aria-label="推薦"
       >
@@ -175,11 +347,11 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
         <select
           value={current.staff}
           onChange={(e) => setParam("staff", e.target.value)}
-          disabled={isPending}
+
           className={selectClass}
-          aria-label="直屬店長"
+          aria-label={courseMode ? "所屬店長" : "直屬店長"}
         >
-          <option value="">全部店長</option>
+          <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
           {staffOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}
@@ -193,7 +365,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
         <select
           value={current.sort}
           onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)}
-          disabled={isPending}
+
           className={selectClass}
           aria-label="排序"
         >
@@ -208,6 +380,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
       {hasActiveFilters ? (
         <Link
           href={basePath}
+          onClick={() => setDraft({ source: "", value: "" })}
           className="text-[11px] text-earth-500 hover:text-earth-700 underline-offset-2 hover:underline"
         >
           清除篩選

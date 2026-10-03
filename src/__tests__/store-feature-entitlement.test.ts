@@ -35,7 +35,7 @@ function mockStore(plan: "EXPERIENCE" | "BASIC" | "GROWTH" | "ALLIANCE") {
 }
 
 function mockEntitlement(
-  status: "ENABLED" | "DISABLED",
+  status: "ENABLED" | "DISABLED" | "LOCKED" | "HIDDEN",
   dates?: { startsAt?: Date | null; expiresAt?: Date | null },
 ) {
   mockEntitlementFindUnique.mockResolvedValue({
@@ -58,7 +58,7 @@ describe("hasStoreFeature", () => {
     expect(await hasStoreFeature("new-course", FEATURES.DIGITAL_BUTLER)).toBe(true);
     expect(await hasStoreFeature("new-course", "multi_store" as FeatureKey)).toBe(false);
     expect(await hasStoreFeature("new-course", "headquarter_view" as FeatureKey)).toBe(false);
-    expect(mockEntitlementFindUnique).not.toHaveBeenCalled();
+    expect(mockEntitlementFindUnique).toHaveBeenCalled();
   });
   it("opens every registered feature for the isolated SPA Demo store", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
@@ -174,13 +174,13 @@ describe("hasStoreFeature", () => {
     ).resolves.toBe(true);
   });
 
-  it("專業版進階報表無 entitlement 時，依方案預設不可用", async () => {
+  it("專業版分析無 entitlement 時由方案內含", async () => {
     mockStore("GROWTH");
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
       hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
   });
 
   it("展店版分析無 entitlement 時由方案內含", async () => {
@@ -211,7 +211,7 @@ describe("hasStoreFeature", () => {
 
     await expect(
       hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
   });
 
   it("進階報表 entitlement 已過期時，回到方案預設", async () => {
@@ -223,7 +223,7 @@ describe("hasStoreFeature", () => {
 
     await expect(
       hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
   });
 
   it("展店版內含多店功能", async () => {
@@ -263,5 +263,38 @@ describe("requireStoreFeature", () => {
     await expect(
       requireStoreFeature("store-1", FEATURES.CUSTOMER_CARE),
     ).rejects.toThrow("此功能尚未開通，請聯絡總部加購或升級方案");
+  });
+});
+
+
+describe("explicit HQ three-state controls", () => {
+  it.each(["HIDDEN", "LOCKED"] as const)("%s also denies trial operations", async status => {
+    mockGetStoreForPlanByStoreId.mockResolvedValue({id:"store-1",plan:"EXPERIENCE",planStatus:"TRIAL",planEffectiveAt:new Date("2026-09-18"),planExpiresAt:new Date("2026-10-17")});
+    mockEntitlement(status);
+    const {hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature} = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1",FEATURES.CUSTOMER_LABELS)).toBe(false);
+    expect(await getStoreFeaturePresentation("store-1",FEATURES.CUSTOMER_LABELS)).toBe(status);
+    await expect(requireStoreFeature("store-1",FEATURES.CUSTOMER_LABELS)).rejects.toThrow();
+  });
+  it("an expired hidden override restores authorization and entry", async () => {
+    mockStore("ALLIANCE");mockEntitlement("HIDDEN",{expiresAt:new Date("2020-01-01")});
+    const {getStoreFeaturePresentation} = await import("@/lib/feature-gate");
+    expect(await getStoreFeaturePresentation("store-1",FEATURES.BASIC_REPORTS)).toBe("ENABLED");
+  });
+});
+
+
+describe("frontend preview paid add-on", () => {
+  it.each(["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const)("%s does not grant preview implicitly", async plan => {
+    mockStore(plan);
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+  });
+  it("dated single-store trial still requires an explicit grant", async () => {
+    mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+    mockEntitlement("ENABLED");
+    expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 /** First batch: time-slot booking module only. Source reviewed at 44c1f1f0.
- * Browser verification and screenshots remain pending; preview only.
+ * The guide is released; article interaction verification remains separate.
  */
 export const bookingGuides = [
   {
@@ -79,12 +79,30 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
 
 import { additionalGuides, guideCategories } from "./operation-guide-catalog";
 import { courseOperationGuides } from "./course-operation-guides";
+import { courseBasicOperationGuides } from "./course-basic-operation-guides";
+import { dailyOperationGuides20260925 } from "./operation-guide-daily-20260925";
+import { dailyOperationGuides20260926 } from "./operation-guide-daily-20260926";
+import { dailyOperationGuides20260927 } from "./operation-guide-daily-20260927";
+import { dailyOperationGuides20260928 } from "./operation-guide-daily-20260928";
+import { dailyOperationGuides20260929 } from "./operation-guide-daily-20260929";
+import { dailyOperationGuides20260930 } from "./operation-guide-daily-20260930";
+import { dailyOperationGuides20261001 } from "./operation-guide-daily-20261001";
+import { dailyOperationGuides20261003 } from "./operation-guide-daily-20261003";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 export const operationGuides: OperationGuide[] = [
   ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
   ...courseOperationGuides,
+  ...courseBasicOperationGuides,
+  ...dailyOperationGuides20260925,
+  ...dailyOperationGuides20260926,
+  ...dailyOperationGuides20260927,
+  ...dailyOperationGuides20260928,
+  ...dailyOperationGuides20260929,
+  ...dailyOperationGuides20260930,
+  ...dailyOperationGuides20261001,
+  ...dailyOperationGuides20261003,
 ];
 export function availableGuides(access: GuideAccess) {
   return operationGuides.filter(g => g.modules.includes(access.module) &&

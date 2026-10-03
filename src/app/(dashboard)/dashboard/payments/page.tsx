@@ -115,7 +115,7 @@ export default async function PendingPaymentsPage({
         <Link href="/dashboard" className="text-sm text-earth-500 hover:text-earth-700">
           ← 首頁
         </Link>
-        <h1 className="text-xl font-bold text-earth-900">付款確認工作台</h1>
+        <h1 className="admin-page-title">付款確認工作台</h1>
       </div>
 
       <p className="mb-4 text-sm text-earth-500">

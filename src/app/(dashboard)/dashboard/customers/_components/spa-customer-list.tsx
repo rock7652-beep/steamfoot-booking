@@ -1,5 +1,8 @@
 "use client";
-import { useState, useTransition } from "react";
+import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { CustomerLabelFilter } from "@/components/customer-labels";
+import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -21,8 +24,28 @@ export function SpaCustomerList({
   const router = useRouter(),
     pathname = usePathname();
   const [query, setQuery] = useState(search),
-    [filter, setFilter] = useState("all"),
+    [filter, setFilter] = useRetainedState("spa-customers:visit", "all", retainedString),
     [pending, start] = useTransition();
+  const [composing, setComposing] = useState(false);
+  const lastRequest = useRef<string | null>(null);
+  useEffect(() => {
+    if (pending || composing || query.trim() === search) return;
+    const next = query.trim();
+    if (lastRequest.current === next) return;
+    const timer = setTimeout(() => {
+      lastRequest.current = next;
+      const params = new URLSearchParams(location.search);
+      params.delete("page");
+      if (next) params.set("search", next); else params.delete("search");
+      start(() => router.replace(`${pathname}?${params}`, { scroll: false }));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, search, pending, composing, pathname, router]);
+  useEffect(() => {
+    const restore = () => { lastRequest.current = null; setQuery(new URLSearchParams(location.search).get("search") ?? ""); };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const [cutoff] = useState(() =>
     toLocalDateStr(new Date(Date.now() - 30 * 86400000)),
   );
@@ -37,9 +60,10 @@ export function SpaCustomerList({
   );
   return (
     <>
+      <CustomerLabelFilter />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">顧客管理</h1>
+          <h1 className="admin-page-title">顧客管理</h1>
           <p className="mt-1 text-sm text-earth-500">
             點選顧客，查看需求、方案或安排預約。
           </p>
@@ -55,26 +79,18 @@ export function SpaCustomerList({
       </header>
       <form
         className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          start(() =>
-            router.replace(
-              `${pathname}${query.trim() ? `?search=${encodeURIComponent(query.trim())}` : ""}`,
-              { scroll: false },
-            ),
-          );
-        }}
+        onSubmit={event => event.preventDefault()}
       >
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
           placeholder="搜尋姓名／電話"
           aria-label="搜尋姓名或電話"
           className="min-w-0 flex-1 rounded-lg border bg-white p-3"
         />
-        <button disabled={pending} className="rounded-lg border px-5">
-          {pending ? "搜尋中…" : "搜尋"}
-        </button>
+        {pending && <span role="status" className="self-center text-sm text-earth-500">搜尋中…</span>}
       </form>
       <div className="flex flex-wrap items-center gap-2">
         {(permissions.canReadBookings
@@ -96,36 +112,31 @@ export function SpaCustomerList({
           </button>
         ))}
         <span className="ml-auto text-sm text-earth-500">
-          {visible.length} 位顧客
+          {visible.length} 位顧客{customers.length >= 100 ? "（目前顯示前 100 筆，請輸入條件縮小範圍）" : ""}
         </span>
       </div>
       <div
         aria-busy={pending}
         className="overflow-hidden rounded-xl border border-earth-200 bg-white"
       >
-        <div className="spa-customer-columns hidden grid-cols-[1.1fr_1fr_1fr_1.2fr] gap-4 bg-earth-50 px-4 py-3 text-sm text-earth-500 lg:grid">
+        <div className="spa-customer-columns hidden grid-cols-[2fr_1fr_1fr] gap-4 bg-earth-50 px-4 py-3 text-sm text-earth-500 lg:grid">
           <span>顧客</span>
           <span>來店與預約</span>
           <span>方案與儲值</span>
-          <span>服務備註</span>
         </div>
         <div className="divide-y divide-earth-100">
           {visible.map((c) => (
-            <button
+            <div
               key={c.id}
+              role="button" tabIndex={0}
+              onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();onOpen(c);}}}
               onClick={() => onOpen(c)}
               onPointerEnter={() => onPrefetch(c.id)}
               onFocus={() => onPrefetch(c.id)}
-              className="spa-customer-row grid w-full grid-cols-1 gap-2 px-4 py-4 text-left hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-earth-600 sm:grid-cols-2 lg:grid-cols-[1.1fr_1fr_1fr_1.2fr] lg:gap-4"
+              className="spa-customer-row grid w-full grid-cols-1 gap-2 px-4 py-2 text-left hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-earth-600 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr] lg:gap-4"
             >
-              <span className="min-w-0">
-                <strong className="block truncate">{c.name}</strong>
-                <span className="text-sm text-earth-500">
-                  {c.phone?.startsWith("_")
-                    ? "未填電話"
-                    : c.phone || "未填電話"}
-                </span>
-              </span>
+              <CustomerListIdentity customerId={c.id} name={c.name} phone={c.phone} note={c.serviceNote} readOnly={!permissions.canEdit}/>
+
               <span className="text-sm">
                 {permissions.canReadBookings ? (
                   <>
@@ -171,10 +182,8 @@ export function SpaCustomerList({
                   "無帳務查看權限"
                 )}
               </span>
-              <span className="line-clamp-2 text-sm text-earth-600">
-                {c.serviceNote || "尚無服務備註"}
-              </span>
-            </button>
+
+            </div>
           ))}
         </div>
         {!visible.length && (

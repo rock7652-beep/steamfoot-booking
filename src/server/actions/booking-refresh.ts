@@ -1,5 +1,7 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
+
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -15,7 +17,11 @@ export async function refreshBookingManagement(input: {
   storeId?: string;
   date: string | null;
 }) {
-  const user = await requirePermission("booking.read");
+  // Fixed action label only; no arguments, customer data, or identifiers.
+  console.info("[BOOKING_ACTION]", "refreshBookingManagement");
+  const timing = new OperationTiming("steamfoot.refresh");
+  try {
+  const user = await timing.measure("permission", () => requirePermission("booking.read"));
   if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100 ||
       !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
     throw new AppError("VALIDATION", "月份無效");
@@ -26,21 +32,29 @@ export async function refreshBookingManagement(input: {
       Number(input.date.slice(8)) > new Date(Date.UTC(input.year, input.month, 0)).getUTCDate())) {
     throw new AppError("VALIDATION", "日期無效");
   }
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeId = input.storeId
-    ? await validateStoreAccess(user, input.storeId, "read")
-    : activeStoreId;
-  if (storeId && await getStoreIndustryModule(storeId) !== "steamfoot") {
+  // Month-only reads already have an explicit, validated scope. Resolve the
+  // active route/cookie scope only when needed for fallback or day slots.
+  const [activeStoreId, explicitStoreId] = await Promise.all([
+    !input.storeId || input.date !== null
+      ? timing.measure("activeStore", () => getActiveStoreForRead(user))
+      : Promise.resolve(null),
+    input.storeId
+      ? timing.measure("explicitStore", () => validateStoreAccess(user, input.storeId!, "read"))
+      : Promise.resolve(null),
+  ]);
+  const storeId = input.storeId ? explicitStoreId : activeStoreId;
+  if (storeId && await timing.measure("industry", () => getStoreIndustryModule(storeId)) !== "steamfoot") {
     throw new AppError("FORBIDDEN", "此更新僅適用蒸足預約管理");
   }
   // Slots still resolve their scope from the session. Do not combine a
   // notification's explicit store with slots from a different active store.
   const [monthData, monthSchedule, slotResult] = await Promise.all([
-    getMonthBookingSummary(input.year, input.month, storeId),
-    storeId ? getCachedMonthScheduleSummary(storeId, input.year, input.month) : Promise.resolve({}),
+    timing.measure("month", () => getMonthBookingSummary(input.year, input.month, storeId)),
+    timing.measure("schedule", () => storeId ? getCachedMonthScheduleSummary(storeId, input.year, input.month) : Promise.resolve({})),
     input.date && storeId && storeId === activeStoreId
-      ? fetchDaySlots(input.date)
+      ? timing.measure("slots", () => fetchDaySlots(input.date!))
       : Promise.resolve(null),
   ]);
   return { monthData, monthSchedule, slots: slotResult?.slots ?? null };
+  } finally { timing.finish(); }
 }

@@ -16,11 +16,11 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
-  it("presents analysis in management modules and includes it in alliance", () => {
+  it("includes analysis in professional and alliance plans", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
     expect(source).not.toContain('aria-label="分析功能方案比較"');
-    expect(source).toContain('{ label: "分析", values: ["加購", "可選", "內含"] }');
-    expect(source).toContain("健康／月結／分析再選 1 項");
+    expect(source).toContain('{ label: "分析", values: ["加購", "內含", "內含"] }');
+    expect(source).toContain("標籤／健康／月結／候補再選 1 項");
     expect(source).toContain("提醒／匯出再選 1 項");
     expect(source).not.toContain("分析另購");
     expect(source).not.toContain("獨立加購・展店版內含");
@@ -44,7 +44,7 @@ describe("pricing and growth plan copy", () => {
   });
 
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
-    const source = readSource(path);
+    const source = readSource(path) + (path === PUBLIC_PRICING_PAGE ? readSource("src/app/pricing/pricing-offer.tsx") : "");
 
     expect(source).toContain(path === PUBLIC_PRICING_PAGE ? 'label: "健康追蹤"' : "健康評估與體態追蹤");
     expect(source).toContain("LINE 顧客入口（LIFF）");
@@ -54,9 +54,13 @@ describe("pricing and growth plan copy", () => {
   });
 
   it.each(PLAN_PAGES)("keeps the alliance plan focused on multi-store and monthly settlement on %s", (path) => {
-    const source = readSource(path);
+    const source = readSource(path) + (path === PUBLIC_PRICING_PAGE ? readSource("src/app/pricing/pricing-offer.tsx") : "");
 
-    expect(source).toContain("分店系統月費另計");
+    expect(source).toContain(path === PUBLIC_PRICING_PAGE ? "分店系統月費另計" : "分店串接費與系統月費另計");
+    if (path === PUBLIC_PRICING_PAGE) {
+      expect(source).toContain("總部管理<br />分店另計");
+      expect(source).not.toContain("總部＋首家");
+    }
     expect(source).toContain("ALLIANCE_BRANCH_PRICING_COPY");
     expect(source).not.toContain("每家 +$1,000");
     expect(source).not.toContain("30 家以上");

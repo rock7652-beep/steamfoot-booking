@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => createElement("button", null, "查看紀錄") }));
 import { SpaBookingSummary } from "@/app/(dashboard)/dashboard/spa-schedule/booking-summary";
 import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";

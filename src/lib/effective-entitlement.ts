@@ -1,12 +1,12 @@
 export type FeatureEntitlementOverride = {
-  status: "ENABLED" | "DISABLED";
+  status: "ENABLED" | "DISABLED" | "LOCKED" | "HIDDEN";
   startsAt: Date | null;
   expiresAt: Date | null;
 };
 
 export type EffectiveEntitlementResolution = {
   enabled: boolean;
-  source: "PLAN_DEFAULT" | "ENABLED" | "DISABLED" | "NOT_STARTED" | "EXPIRED";
+  source: "PLAN_DEFAULT" | "ENABLED" | "DISABLED" | "LOCKED" | "HIDDEN" | "NOT_STARTED" | "EXPIRED";
 };
 
 /**
@@ -26,6 +26,15 @@ export function resolveEffectiveEntitlement(
   if (override.expiresAt && override.expiresAt < now) {
     return { enabled: planDefault, source: "EXPIRED" };
   }
+  if (override.status === "HIDDEN") return { enabled: false, source: "HIDDEN" };
+  if (override.status === "LOCKED") return { enabled: false, source: "LOCKED" };
   if (override.status === "DISABLED") return { enabled: false, source: "DISABLED" };
   return { enabled: true, source: "ENABLED" };
+}
+
+export type FeaturePresentationState = "HIDDEN" | "LOCKED" | "ENABLED";
+
+/** Hidden controls presentation only; every protected operation still checks enabled. */
+export function featurePresentationState(resolution: EffectiveEntitlementResolution): FeaturePresentationState {
+  return resolution.source === "HIDDEN" ? "HIDDEN" : resolution.enabled ? "ENABLED" : "LOCKED";
 }

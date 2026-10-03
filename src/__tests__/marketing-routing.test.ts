@@ -10,6 +10,12 @@ function route(path: string, role?: string, host = "www.steamfoot.com", cookie?:
 }
 
 describe("marketing URLs preserve store routing", () => {
+  it.each(["oa-permissions.png", "oa-invite.png", "friend.png", "developers-roles.webp", "create-entry.jpg"])("serves trial guide asset %s without login redirects", (file) => {
+    const response = route(`/pricing/trial-guides/${file}`);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
   it.each([undefined, "CUSTOMER", "OWNER", "ADMIN"])("serves homepage regardless of session %s", (role) => {
     const r = route("/?utm_source=line", role);
     expect(r.headers.get("x-middleware-rewrite")).toBe("https://www.steamfoot.com/pricing/business?utm_source=line");

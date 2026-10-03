@@ -261,6 +261,7 @@ export function CustomersListWithDrawer({
   // drawer 內成功操作（指派方案 / 歸屬設定）後刷新本人資料，
   // 不整頁 refresh、不重刷列表（列表 _count 短暫 stale 為已知取捨）。
   const refreshDrawer = useCallback(() => {
+    window.dispatchEvent(new Event("customer-search-invalidated"));
     if (openId) {
       cache.invalidate(openId);
       void fetchDetail(openId);
@@ -386,11 +387,11 @@ export function CustomersListWithDrawer({
         readOnly={readOnly}
       />
 
-      <RightSheet
+      <RightSheet presentation="centered"
         open={openId !== null}
         onClose={closeDrawer}
         labelledById={titleId}
-        width={520}
+        width={720}
       >
         {detail ? (
           <CustomerDetailDrawerContent

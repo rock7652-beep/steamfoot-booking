@@ -258,7 +258,7 @@ export function SpaProviderSchedule({
         <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">
           SPA 人員排程
         </span>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-earth-900 sm:text-3xl">
+        <h1 className="admin-page-title mt-3">
           {isHistory ? "歷史營運" : "今日營運"}
         </h1>
       </header>

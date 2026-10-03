@@ -19,7 +19,7 @@ export default async function TrainingPage() {
   return (
     <FeatureGate plan={plan} feature={FEATURES.TRAINING_CONTENT} enabled={await hasCurrentStoreFeature(FEATURES.TRAINING_CONTENT)}>
       <div className="space-y-5">
-        <h1 className="text-lg font-bold text-earth-900">學習中心</h1>
+        <h1 className="admin-page-title">學習中心</h1>
         <p className="text-sm text-earth-500">店務 SOP、營運技巧、系統教學</p>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -7,7 +7,7 @@
  * 零售再選常用方案。支出仍保留自由分類，避免破壞既有記帳習慣。
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FormSection, FormGrid } from "@/components/desktop";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
@@ -39,6 +39,8 @@ interface Props {
   allowedTypes?: CashbookEntryType[];
   /** 快速操作視窗使用：移除巢狀卡片，縮短表單。 */
   compact?: boolean;
+  onTypeChange?: (type: CashbookEntryType) => void;
+  customerField?: ReactNode;
 }
 
 const inputCls =
@@ -61,6 +63,8 @@ export function CashbookFormFields({
   defaultPaymentMethod,
   allowedTypes = ALL_TYPES,
   compact = false,
+  onTypeChange,
+  customerField,
 }: Props) {
   const [entryDate, setEntryDate] = useState(defaultEntryDate);
   const [entryType, setEntryType] = useState<CashbookEntryType>(defaultType);
@@ -77,10 +81,7 @@ export function CashbookFormFields({
   const involvesCash = method === "CASH" || defaultPaymentMethod === "CASH";
   const needsCashConfirm = isClosed && involvesCash;
 
-  return (
-    <>
-      <FormSection title="基本資料" description="日期、類型、金額為必填" compact={compact}>
-        <FormGrid>
+  const dateField = (
           <div>
             <label className={labelCls}>日期</label>
             <input
@@ -92,13 +93,19 @@ export function CashbookFormFields({
               className={`mt-1 ${inputCls}`}
             />
           </div>
+  );
+  const typeField = (
           <div>
             <label className={labelCls}>類型</label>
             <select
               name="type"
               required
               value={entryType}
-              onChange={(e) => setEntryType(e.target.value as CashbookEntryType)}
+              onChange={(e) => {
+                const nextType = e.target.value as CashbookEntryType;
+                setEntryType(nextType);
+                onTypeChange?.(nextType);
+              }}
               className={`mt-1 ${inputCls}`}
             >
               {allowedTypes.map((t) => (
@@ -108,9 +115,8 @@ export function CashbookFormFields({
               ))}
             </select>
           </div>
-        </FormGrid>
-
-        <FormGrid>
+  );
+  const categoryField = (
           <div>
             {entryType === "INCOME" ? (
               <>
@@ -198,6 +204,8 @@ export function CashbookFormFields({
               </>
             )}
           </div>
+  );
+  const amountField = (
           <div>
             <label className={labelCls}>金額（元）</label>
             <input
@@ -211,7 +219,33 @@ export function CashbookFormFields({
               placeholder="輸入金額"
             />
           </div>
-        </FormGrid>
+  );
+
+  return (
+    <>
+      <FormSection title="基本資料" description="日期、類型、金額為必填" compact={compact}>
+        {compact ? (
+          <>
+            {dateField}
+            <FormGrid>
+              {typeField}
+              {amountField}
+            </FormGrid>
+            {customerField}
+            {categoryField}
+          </>
+        ) : (
+          <>
+            <FormGrid>
+              {dateField}
+              {typeField}
+            </FormGrid>
+            <FormGrid>
+              {categoryField}
+              {amountField}
+            </FormGrid>
+          </>
+        )}
       </FormSection>
 
       <FormSection

@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { RightSheet } from "@/components/admin/right-sheet";
+import { CashbookEntryFields } from "./cashbook-entry-fields";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
 
 type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
 type Entry = Data["entries"][number];
 const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:opacity-50";
-const input = "mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 text-base text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
 
-export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; triggerClassName?: string }) {
+export function QuickCashbook({ storeId, triggerClassName, instantSearch = false }: { storeId: string; triggerClassName?: string; instantSearch?: boolean }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,8 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
   const locked = useRef(false);
+  const dialog = useRef<HTMLElement>(null);
+  const closeRef = useRef<() => void>(() => undefined);
   async function refresh(page = 1) {
     const version = ++request.current;
     setLoading(true); setError("");
@@ -34,6 +36,23 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
     if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
     request.current++; setOpen(false); setEditing(null);
   }
+  closeRef.current = close;
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+    dialog.current?.focus({ preventScroll: true });
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeRef.current();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus({ preventScroll: true });
+    };
+  }, [open]);
   async function save(form: FormData) {
     if (locked.current) return;
     locked.current = true; setBusy(true);
@@ -58,7 +77,9 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
     <button type="button" className={`${button} ${triggerClassName ?? ""}`} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
-    {open && <RightSheet open onClose={close} width={640} labelledById="quick-cashbook-title">
+    {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end bg-earth-950/35 sm:items-center sm:justify-center sm:p-5">
+      <button type="button" aria-label="關閉現金收支" onClick={close} className="absolute inset-0 cursor-default" />
+      <section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="quick-cashbook-title" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl outline-none sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-3xl sm:rounded-2xl">
       <header className="flex items-center justify-between border-b border-earth-200 bg-gradient-to-r from-primary-50 to-gold-50 px-5 py-4">
         <div>
           <div className="mb-1 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-gold-500" aria-hidden="true" /><h2 id="quick-cashbook-title" className="text-lg font-semibold text-primary-900">現金收支</h2></div>
@@ -71,28 +92,36 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
           {data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}
-          {editing ? <form onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
-            <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增收支"}</h3>
+          {editing ? <form id="quick-cashbook-entry-form" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
+            <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增記帳"}</h3>
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
-            <fieldset disabled={busy} className="grid grid-cols-2 gap-4">
-              <label className="text-sm font-medium text-earth-700">類型<select name="type" defaultValue={entry?.type ?? "EXPENSE"} className={input}><option value="EXPENSE">支出</option><option value="INCOME">收入</option></select></label>
-              <label className="text-sm font-medium text-earth-700">金額<input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue={entry?.amount ?? ""} className={input} /></label>
-              <label className="col-span-2 text-sm font-medium text-earth-700">分類<input name="category" defaultValue={entry?.category ?? ""} placeholder="例如：耗材、清潔用品、其他收入" className={input} /></label>
-              <label className="col-span-2 text-sm font-medium text-earth-700">付款方式<select name="paymentMethod" required defaultValue={entry?.paymentMethod ?? ""} className={input}><option value="" disabled>請選擇</option><option value="CASH">現金</option><option value="OTHER">其他（轉帳／非現金）</option></select></label>
-              <label className="col-span-2 text-sm font-medium text-earth-700">備註<textarea name="note" rows={3} defaultValue={entry?.note ?? ""} className={input} /></label>
-              {data.closedDates.length > 0 && <label className="col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800"><input type="checkbox" name="confirmClosedCashbookChange" /> 我知道今日已結帳，這只是補紀錄，不會重算關帳快照。</label>}
-            </fieldset>
-            <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
+            <CashbookEntryFields
+              key={entry?.id ?? "new"}
+              storeId={storeId}
+              today={data.today}
+              closedDates={data.closedDates}
+              instantSearch={instantSearch}
+              disabled={busy}
+              defaultEntry={entry ? {
+                type: entry.type === "EXPENSE" ? "EXPENSE" : "INCOME",
+                amount: entry.amount,
+                category: entry.category,
+                paymentMethod: entry.paymentMethod,
+                note: entry.note,
+                customer: entry.customer,
+              } : null}
+            />
           </form> : <>
-            <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => setEditing("new")} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
+            <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
             <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
             {!data.entries.length && <p className="steamfoot-brand-card rounded-xl border py-8 text-center text-earth-500">今日尚無手動收支紀錄</p>}
-            <div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => setEditing(e)}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>
+            <div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}{e.customer ? ` · ${e.customer.name}` : ""}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => { setEditing(e); }}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>
             {data.total > 20 && <div className="mt-4 flex items-center justify-between"><button className={button} disabled={loading || data.page === 1} onClick={() => void refresh(data.page - 1)}>上一頁</button><span className="text-sm text-earth-500">{data.page} / {Math.ceil(data.total / 20)}</span><button className={button} disabled={loading || data.page * 20 >= data.total} onClick={() => void refresh(data.page + 1)}>下一頁</button></div>}
           </>}
         </>}
       </div>
-      <footer className="border-t border-earth-200 bg-white p-4">{editing || busy ? <span className="text-sm text-earth-500">儲存或取消後可查看完整現金管理</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
-    </RightSheet>}
+      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
+      </section>
+    </div>, document.body)}
   </>;
 }

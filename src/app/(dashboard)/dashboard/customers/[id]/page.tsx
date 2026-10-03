@@ -1,3 +1,6 @@
+import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
+import { FeatureEntry } from "@/components/feature-presentation";
+import { CustomerLabels } from "@/components/customer-labels";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
 import { getCustomerDetailForUser } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
@@ -296,6 +299,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const recentHistory = historyBookings.slice(0, 5);
   const transactions = customer.transactions ?? [];
   const recentTransactions = transactions.slice(0, 5);
+  const cashbookEntries = customer.cashbookEntries ?? [];
+  const recentCashbookEntries = cashbookEntries.slice(0, 5);
 
   const referralCount = customer._count?.sponsoredCustomers ?? 0;
   const totalVisits = customer._count?.bookings ?? 0;
@@ -337,10 +342,12 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         <span className="text-earth-700">顧客詳情</span>
       </div>
 
+      <CustomerLabels customerId={customer.id} readOnly={isViewMode || !canEdit}/>
       {simplified ? (
         <header className="space-y-4">
           <div>
-            <h1 className="text-2xl font-bold text-earth-900">{customer.name}</h1>
+            <h1 className="admin-page-title">{customer.name}</h1>
+            <FrontendPreviewQuickLink storeId={effectiveStoreId} personId={id} />
             <a href={`tel:${customer.phone}`} className="inline-flex min-h-11 items-center text-base text-primary-700 underline underline-offset-4">{customer.phone}</a>
           </div>
           {canEdit && (
@@ -725,10 +732,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               {
                 key: "transactions",
                 label: "消費紀錄",
-                count: transactions.length,
+                count: transactions.length + cashbookEntries.length,
                 href: isViewMode ? undefined : simplified ? `/dashboard/customers/${id}/records?type=transactions` : `/dashboard/transactions?customerId=${id}`,
                 content:
-                  recentTransactions.length === 0 ? (
+                  recentTransactions.length === 0 && recentCashbookEntries.length === 0 ? (
                     <EmptyRow title="尚無消費紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
@@ -781,6 +788,24 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                               </tr>
                             );
                           })}
+                          {recentCashbookEntries.map((entry) => (
+                            <tr key={`cashbook-${entry.id}`} className="h-11">
+                              <td className="px-3 text-[13px] tabular-nums text-earth-600">
+                                {formatTWTime(entry.entryDate, { dateOnly: true })}
+                              </td>
+                              <td className="px-3 text-sm text-earth-800">
+                                {entry.id.startsWith("course-purchase:")
+                                  ? entry.note?.replace(/^線上購買：/, "").split(" / ")[0] || "課程方案"
+                                  : entry.category?.replace(/^零售-/, "") || "現場消費"}
+                              </td>
+                              <td className="px-3 text-right text-sm font-medium tabular-nums text-earth-900">
+                                NT$ {Number(entry.amount).toLocaleString()}
+                              </td>
+                              <td className="px-3 text-[13px] text-earth-500">
+                                {entry.paymentMethod === "CASH" ? "現金" : "其他（轉帳／非現金）"}
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -887,7 +912,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </SideCard>
 
 </CustomerDetailSection>
-{healthAssessmentEnabled && <CustomerDetailSection enabled={false} title="健康紀錄" >
+<FeatureEntry feature={FEATURES.AI_HEALTH_SUMMARY} label="健康紀錄">{healthAssessmentEnabled && <CustomerDetailSection enabled={false} title="健康紀錄" >
           {simplified && <Link href={`/dashboard/customers/${id}/health`} className="inline-flex min-h-11 items-center text-base text-primary-700">查看健康紀錄與曲線 →</Link>}
           {healthAssessmentEnabled && latestHealthRecord && !simplified && (
             <CustomerHealthOverviewCard
@@ -896,7 +921,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             />
           )}
 
-</CustomerDetailSection>}
+</CustomerDetailSection>}</FeatureEntry>
           {/* Basic info — 緊湊兩欄 */}
 <CustomerDetailSection enabled={false} title="完整基本資料" >
           <CustomerBasicInfo

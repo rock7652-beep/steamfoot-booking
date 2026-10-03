@@ -13,6 +13,7 @@ export const createPlanSchema = z.object({
 });
 
 export const updatePlanSchema = z.object({
+  expectedUpdatedAt: z.string().datetime().optional(),
   name: z.string().min(1).max(100).optional(),
   price: z.number().int().min(0).optional(),
   sessionCount: z.number().int().min(1).optional(),

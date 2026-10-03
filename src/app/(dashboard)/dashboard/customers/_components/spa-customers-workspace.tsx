@@ -1,4 +1,5 @@
 "use client";
+import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import {
   SPA_PAYMENT_LABELS,
   SPA_EXTERNAL_PAYMENT_METHODS,
@@ -80,7 +81,7 @@ export function SpaCustomersWorkspace({
   const customer = customers.find((c) => c.id === selected?.id);
   const profileRequest = selected?.request;
   return (
-    <main className="mx-auto max-w-7xl space-y-5 p-4 md:p-6">
+    <main className="w-full min-w-0 space-y-5 py-4 md:py-6">
       <SpaCustomerList
         customers={customers}
         search={search}
@@ -245,13 +246,11 @@ export function AccountPanel({
           <header className="flex items-center justify-between gap-3 pb-3">
             <h2
               id="spa-account-title"
-              className="min-w-0 break-words text-xl font-bold"
+              className="min-w-0 break-words text-base font-semibold text-primary-900"
             >
               {customer.name}
               <span className="mt-1 block text-sm font-normal text-earth-500">
-                {customer.phone && !customer.phone.startsWith("_")
-                  ? customer.phone
-                  : "未填電話"}
+                <CustomerPhoneLink phone={customer.phone}/>
               </span>
             </h2>
             <button

@@ -37,8 +37,8 @@ const statusLabel: Record<string, string> = {
   NO_SHOW: "未到店",
 };
 
-export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { storeName: string; storeSlug: string; liffId: string; today: string }) {
-  const [state, setState] = useState<ScreenState>("loading");
+export function StaffWorkScreen({ storeName, storeSlug, liffId, today, preview }: { preview?: { data: ReadyState; href: string }; storeName: string; storeSlug: string; liffId: string; today: string }) {
+  const [state, setState] = useState<ScreenState>(preview?.data ?? "loading");
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const selectedDateRef = useRef<string | undefined>(undefined);
@@ -57,6 +57,7 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
   }, [storeSlug]);
 
   useEffect(() => {
+    if (preview) return;
     let cancelled = false;
     (async () => {
       if (await load() || cancelled) return;
@@ -87,7 +88,7 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
       window.removeEventListener("pageshow", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [liffId, load, storeSlug]);
+  }, [liffId, load, storeSlug, preview]);
 
   if (state === "loading") return <Boundary title="正在讀取工作行程" />;
   if (state === "unavailable") return <Boundary title="目前無法讀取工作資料" retry />;
@@ -101,11 +102,12 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
   const selectedDay = state.calendarDays.find((day) => day.date === state.selectedDate);
   const [selectedYear, selectedMonth] = state.selectedDate.split("-").map(Number);
   const chooseDate = (date: string) => {
+    if (preview) { const url = new URL(preview.href, window.location.origin); url.searchParams.set("date", date); window.location.assign(url); return; }
     setExpandedBookingId(null);
     startTransition(() => { void load(date); });
   };
   return <main className="mx-auto min-h-screen max-w-md bg-[#f8f5ee] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-earth-900">
-    <header><p className="text-xs font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><div className="mt-2"><h1 className="text-2xl font-bold">我的工作</h1><p className="mt-1 text-sm text-earth-500">{state.staffName}</p></div><div className="mt-4"><SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="work" /></div></header>
+    <header><p className="text-xs font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><div className="mt-2"><h1 className="text-2xl font-bold">我的工作</h1><p className="mt-1 text-sm text-earth-500">{state.staffName}</p></div><div className="mt-4">{!preview && <SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="work" />}</div></header>
     <section aria-label="工作月曆" className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
       <div className="flex items-center justify-between gap-2 px-1">
         <button aria-label="上個月" disabled={pending} onClick={() => chooseDate(monthTarget(state.selectedDate, -1))} className="flex size-9 items-center justify-center rounded-xl border border-earth-200 text-xl">‹</button>

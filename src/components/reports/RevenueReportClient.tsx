@@ -85,6 +85,7 @@ type ReportMode = "store" | "coach";
 
 interface Props {
   courseMode?: boolean;
+  musicMode?: boolean;
   mode: ReportMode;
   stores: StoreOption[];
   coaches: CoachOption[];
@@ -142,6 +143,7 @@ function fmtDate(iso: string): string {
 export function RevenueReportClient({
   mode,
   courseMode = false,
+  musicMode = false,
   stores,
   coaches,
   isAdmin,
@@ -416,7 +418,7 @@ export function RevenueReportClient({
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              {courseMode ? <><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option><option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
+              {courseMode ? <>{!musicMode && <option value="POINT">點數方案</option>}<option value="SESSION">堂數方案</option><option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
             </select>
           </div>
 

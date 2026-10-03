@@ -1,3 +1,6 @@
+import {getStoreIndustryModule} from "@/lib/industry-module-server";
+import { SteamfootMonthly } from "./steamfoot-monthly";
+import {CourseMonthly} from "./course-monthly";
 import { redirect } from "next/navigation";
 import { EmptyRow, KpiStrip, PageHeader, PageShell } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -23,6 +26,7 @@ import { ServiceFeeCalculatorForm } from "./calculator-form";
 interface PageProps {
   searchParams: Promise<{
     month?: string;
+    view?: string;
   }>;
 }
 
@@ -49,6 +53,10 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
   if (gateStoreId && !(await hasStoreFeature(gateStoreId, FEATURES.SERVICE_FEE_CALCULATOR))) {
     return <ServiceFeeCalculatorLockedState />;
   }
+
+  if(calculatorStoreId && await getStoreIndustryModule(calculatorStoreId)==="course") return <CourseMonthly storeId={calculatorStoreId} month={month} readOnly={!!storeViewContext?.isViewMode}/>;
+
+  if (calculatorStoreId && params.view !== "legacy" && await getStoreIndustryModule(calculatorStoreId) === "steamfoot") return <SteamfootMonthly storeId={calculatorStoreId} month={month} readOnly={!!storeViewContext?.isViewMode}/>;
 
   const [summary, currentSettlement, settlements] = await Promise.all([
     getServiceFeeCalculatorSummary({ storeId: calculatorStoreId, month }),

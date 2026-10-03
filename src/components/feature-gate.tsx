@@ -1,5 +1,6 @@
 "use client";
 
+import { useFeaturePresentation } from "@/components/feature-presentation";
 import { useState } from "react";
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import type { PricingPlan } from "@prisma/client";
@@ -28,7 +29,9 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ plan, feature, enabled, children, fallback }: FeatureGateProps) {
-  if (enabled ?? hasFeature(plan, feature)) {
+  const presentation = useFeaturePresentation(feature);
+  if (presentation === "HIDDEN") return null;
+  if (presentation !== "LOCKED" && (enabled ?? (presentation === "ENABLED" || hasFeature(plan, feature)))) {
     return <>{children}</>;
   }
   return <>{fallback ?? <UpgradeCard feature={feature} />}</>;

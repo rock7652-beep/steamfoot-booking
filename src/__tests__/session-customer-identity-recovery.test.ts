@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   approvedUnlinksFindMany: vi.fn(),
   customerFindUnique: vi.fn(),
   staffFindUnique: vi.fn(),
+  staffFindFirst: vi.fn(),
 }));
 
 vi.mock("react", () => ({
@@ -33,7 +34,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: mocks.customerFindFirst,
       findUnique: mocks.customerFindUnique,
     },
-    staff: { findUnique: mocks.staffFindUnique },
+    staff: { findUnique: mocks.staffFindUnique, findFirst: mocks.staffFindFirst },
   },
 }));
 
@@ -277,6 +278,77 @@ describe("getCurrentUser customer identity recovery", () => {
       expect.objectContaining({
         where: expect.objectContaining({ mergedIntoCustomerId: null }),
       }),
+    );
+  });
+});
+
+
+describe("getCurrentUser staff store recovery", () => {
+  it("recovers an active course staff store from the dashboard selection", async () => {
+    mocks.auth.mockResolvedValue({
+      user: {
+        id: "user-manager",
+        name: "蔡店長",
+        email: "manager@example.test",
+        role: "OWNER",
+        staffId: null,
+        customerId: null,
+        storeId: null,
+        storeSlug: null,
+      },
+    });
+    mocks.headers.mockResolvedValue({ get: () => null });
+    mocks.cookies.mockResolvedValue({
+      get: (name: string) =>
+        name === "viewed-store-id" ? { value: "store-course" } : undefined,
+    });
+    mocks.staffFindFirst.mockResolvedValue({
+      id: "staff-manager",
+      storeId: "store-course",
+      store: { slug: "course-store" },
+    });
+
+    await expect(getCurrentUser()).resolves.toEqual(
+      expect.objectContaining({
+        staffId: "staff-manager",
+        storeId: "store-course",
+        storeSlug: "course-store",
+      }),
+    );
+    expect(mocks.staffFindFirst).toHaveBeenCalledWith({
+      where: {
+        userId: "user-manager",
+        status: "ACTIVE",
+        storeId: "store-course",
+      },
+      select: {
+        id: true,
+        storeId: true,
+        store: { select: { slug: true } },
+      },
+    });
+  });
+
+  it("does not trust a selected store without an active staff relation", async () => {
+    mocks.auth.mockResolvedValue({
+      user: {
+        id: "user-manager",
+        role: "OWNER",
+        staffId: null,
+        customerId: null,
+        storeId: null,
+        storeSlug: null,
+      },
+    });
+    mocks.headers.mockResolvedValue({ get: () => null });
+    mocks.cookies.mockResolvedValue({
+      get: (name: string) =>
+        name === "viewed-store-id" ? { value: "store-other" } : undefined,
+    });
+    mocks.staffFindFirst.mockResolvedValue(null);
+
+    await expect(getCurrentUser()).resolves.toEqual(
+      expect.objectContaining({ storeId: null, staffId: null }),
     );
   });
 });

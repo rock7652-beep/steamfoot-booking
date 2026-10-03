@@ -5,13 +5,15 @@ const read = (path: string) => readFileSync(path, "utf8");
 
 describe("digital butler dashboard entry entitlement contract", () => {
   it("passes the effective store entitlement into sidebar navigation", () => {
-    const layout = read("src/app/(dashboard)/layout.tsx");
+    const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
 
     expect(layout).toContain(
       "Object.values(FEATURES).map",
     );
-    expect(layout).toContain("hasStoreFeature(effectiveStoreId, feature)");
+    expect(layout).toContain("getStoreFeaturePresentation(effectiveStoreId, feature)");
+    expect(layout).toContain('state === "ENABLED"');
+    expect(layout).toContain("featureStates={featureStates}");
     expect(layout).toContain("effectiveFeatures={effectiveFeatures}");
     expect(sidebar).toContain("requiredFeature: FEATURES.DIGITAL_BUTLER");
     expect(sidebar).toContain(

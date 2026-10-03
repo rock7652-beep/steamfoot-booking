@@ -1,3 +1,4 @@
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({auth:vi.fn(),staff:vi.fn(),module:vi.fn()}));
 vi.mock("react",()=>({cache:(fn:unknown)=>fn}));

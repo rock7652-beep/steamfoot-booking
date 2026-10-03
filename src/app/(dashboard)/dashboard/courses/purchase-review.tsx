@@ -32,7 +32,7 @@ export function CoursePurchaseReview({
           <div>
             {o.customerName} · {o.name}
             <p className="text-sm">
-              NT$ {o.price.toLocaleString()} · 匯款後五碼 {o.transferLastFive}
+              NT$ {o.price.toLocaleString()} · 轉帳後四碼 {o.transferLastFive}
             </p>
           </div>
           {canConfirm &&

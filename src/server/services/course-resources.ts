@@ -8,7 +8,14 @@ export class ResourceConflict extends AppError {
   constructor(message: string, public conflicts: CourseConflict[]) { super("CONFLICT", message); }
 }
 export function handleCourseActionError(error: unknown) {
+  if(error instanceof Error && error.message.includes("SPACE_RENTAL_CONFLICT")) return {success:false as const,error:"此空間已有租借或課程，請換時間或空間",conflicts:[] as CourseConflict[]};
+  if(error instanceof Error && error.message.includes("SPACE_RENTAL_USAGE")) return {success:false as const,error:"此空間仍有未結束的租借，請先處理租借再停用",conflicts:[] as CourseConflict[]};
   if (error instanceof ResourceConflict) return { success: false as const, error: error.message, conflicts: error.conflicts };
+  // Keep the database's started-course compensation guard, including races at
+  // the start time, but explain its refusal instead of returning a generic error.
+  if (error instanceof Error && /Cannot change compensation (?:snapshot|identity) of a started course/.test(error.message)) {
+    return { success: false as const, error: "課程已開始，為保留鐘點費紀錄，無法變更上課時間或老師（包含恢復原時段）。", conflicts: [] as CourseConflict[] };
+  }
   return { ...handleActionError(error), conflicts: [] as CourseConflict[] };
 }
 export async function assertNoCourseResourceUse(tx: Pick<Prisma.TransactionClient,"courseSession">, storeId: string,
@@ -26,14 +33,14 @@ export async function assertCourseResources(tx: Pick<Prisma.TransactionClient,"$
   input: {templateId:string;roomId:string;coachId:string;capacity:number}, previous?: {templateId:string;coachId:string}) {
   const [room, template, staff] = await Promise.all([
     tx.courseRoom.findFirst({where:{id:input.roomId,storeId,isActive:true}}),
-    tx.courseTemplate.findFirst({where:{id:input.templateId,storeId}}),
+    tx.courseTemplate.findFirst({where:{id:input.templateId,storeId},include:{musicSubject:{select:{isActive:true}}}}),
     tx.$queryRaw<Array<{courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[]}>>`
       SELECT "courseCoachEnabled","courseQualificationsConfirmed","courseQualifiedTemplateIds" FROM "Staff"
       WHERE id=${input.coachId} AND "storeId"=${storeId} AND status::text='ACTIVE'`
   ]);
   if (!room || !template || !staff[0]?.courseCoachEnabled) throw new AppError("VALIDATION","請選擇本店啟用教室及具教練身分的人員");
-  if ((!previous || previous.templateId !== input.templateId) && (!template.isActive || template.visibility === 'OFF')) throw new AppError("VALIDATION","下架課程不可新增使用");
-  if (room.capacity !== null && input.capacity > room.capacity) throw new AppError("CONFLICT",`排課上限 ${input.capacity} 人超過教室容量 ${room.capacity} 人`);
+  if ((!previous || previous.templateId !== input.templateId) && (!template.isActive || template.visibility === 'OFF' || template.musicSubject?.isActive===false)) throw new AppError("VALIDATION","下架課程不可新增使用");
+  if (!template.musicSubject && room.capacity !== null && input.capacity > room.capacity) throw new AppError("CONFLICT",`排課上限 ${input.capacity} 人超過教室容量 ${room.capacity} 人`);
   const unchanged = previous?.coachId === input.coachId && previous.templateId === input.templateId;
   const coach = staff[0];
   if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(input.templateId))) throw new AppError("VALIDATION","教練尚未具備本課程授課資格，請先由店長一次設定可教課程");

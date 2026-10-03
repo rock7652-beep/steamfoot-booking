@@ -75,6 +75,20 @@ export type SubmitLiffTrialBookingResult =
   | { status: "idempotency_key_reused" }
   | { status: "service_unavailable" };
 
+// Existing member LIFF trial entry is a LINE booking surface. The update is
+// idempotent and scoped to the booking's customer and store.
+async function markLineTrialSource(bookingId: string, customerId: string, storeId: string) {
+  try {
+    await prisma.booking.updateMany({
+      where: { id: bookingId, customerId, storeId, bookingType: "FIRST_TRIAL", bookingSource: null },
+      data: { bookingSource: "LINE" },
+    });
+  } catch (error) {
+    // Booking has already succeeded; attribution must never turn it into a failed booking.
+    console.error("[liff-trial-booking] source attribution failed", { bookingId, error });
+  }
+}
+
 export async function submitLiffTrialBooking(
   input: SubmitLiffTrialBookingInput
 ): Promise<SubmitLiffTrialBookingResult> {
@@ -133,6 +147,7 @@ export async function submitLiffTrialBooking(
         if (!replay.success) {
           return mapCreateBookingErrorToStatus(replay.error, { customerId, storeId });
         }
+        await markLineTrialSource(replay.data.bookingId, customerId, storeId);
         return {
           status: "ok",
           bookingId: replay.data.bookingId,
@@ -221,6 +236,7 @@ export async function submitLiffTrialBooking(
     return mapCreateBookingErrorToStatus(result.error, { customerId, storeId });
   }
 
+  await markLineTrialSource(result.data.bookingId, customerId, storeId);
   return {
     status: "ok",
     bookingId: result.data.bookingId,

@@ -84,14 +84,14 @@ const PLANS: PlanCard[] = [
     key: "SCALE",
     name: "展店版",
     positioning: "多店與合作店長管理",
-    cardSubline: "含總部管理＋首間分店串接（分店系統月費另計）",
+    cardSubline: "含總部管理；分店串接費與系統月費另計",
     monthly: "NT$4,990 起",
     originalPrice: "原價 NT$7,100/月起",
     priceNote: "限時優惠價",
     description: "適合兩家店以上、多店經營與合作店長月結。",
     features: [
       "總部適用功能內含；分店依各自購買方案開通",
-      "包含總部管理＋首間分店串接（分店系統月費另計）",
+      "包含總部管理；分店串接費與系統月費另計",
       ALLIANCE_BRANCH_PRICING_COPY,
       "多店管理",
       "月結管理",
@@ -190,7 +190,7 @@ export default async function PlansCenterPage() {
   if (!(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();
 
   return (
-    <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
+    <PageShell className="flex w-full min-w-0 flex-col gap-4 py-4">
       <PageHeader
         title="成長方案中心"
         subtitle="依門市成長階段選擇方案，看懂目前狀態與功能差異"

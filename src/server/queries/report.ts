@@ -285,7 +285,7 @@ export async function monthlyStoreSummary(
     prisma.spaceFeeRecord.aggregate({
       where: {
         ...spaceFeeFilter,
-        month,
+        month: { gte: options?.startDate?.slice(0, 7) ?? month, lte: options?.endDate?.slice(0, 7) ?? month },
       },
       _sum: { feeAmount: true },
     }),
@@ -293,7 +293,7 @@ export async function monthlyStoreSummary(
     prisma.spaceFeeRecord.findMany({
       where: {
         ...spaceFeeFilter,
-        month,
+        month: { gte: options?.startDate?.slice(0, 7) ?? month, lte: options?.endDate?.slice(0, 7) ?? month },
       },
       select: { staffId: true, feeAmount: true },
     }),
@@ -347,7 +347,7 @@ export async function monthlyStoreSummary(
     txCountMap[sid] = cnt.id;
   }
   const spaceFeeMap: Record<string, number> = {};
-  for (const f of spaceFees) spaceFeeMap[f.staffId] = Number(f.feeAmount);
+  for (const f of spaceFees) spaceFeeMap[f.staffId] = (spaceFeeMap[f.staffId] ?? 0) + Number(f.feeAmount);
   const customerCountMap: Record<string, number> = {};
   for (const c of customerCounts) {
     const cnt = c._count as { id: number };

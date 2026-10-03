@@ -2,6 +2,8 @@
 import { act, createElement, type ComponentProps, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
+vi.mock("@/components/customer-labels", () => ({ CustomerLabelsSettings: () => createElement("section", {"aria-label":"顧客標籤設定"}, "顧客標籤") }));
+vi.mock("@/app/(dashboard)/dashboard/courses/course-waitlist-settings", () => ({ CourseWaitlistSettings: () => null }));
 const m = vi.hoisted(() => ({ save: vi.fn(), windowSave: vi.fn(), trialSave: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, push: vi.fn() }), usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/server/actions/course-settings", () => ({ saveCourseSettingsSection: m.save }));
@@ -13,14 +15,19 @@ vi.mock("@/server/actions/course-trial", () => ({ saveCourseTrialSettings: m.tri
 import { CourseSettingsWorkspace } from "@/app/(dashboard)/dashboard/courses/settings-workspace";
 let root: Root, host: HTMLDivElement;
 const defaults: ComponentProps<typeof CourseSettingsWorkspace> = { storeId: "a", name: "A 店", planLabel: "專業版", address: "地址", mapUrl: "", lineOfficialUrl: "https://line.me/a", bankName: "銀行", bankCode: "123", bankAccountNumber: "0001234567", bookingLeadMinutes: 10, cancellationLeadMinutes: 30, canEdit: true, canPayment: true, canStaff: true, canPlans: true, canHours: true, canDutyManage: true, canTrial: true, canReminders: true, canCare: true, subscriptionSummary: "使用中 · 到期日 2026-12-31" };
-async function render(props = defaults) { await act(async () => root.render(createElement(CourseSettingsWorkspace, props))); }
+async function render(props = defaults) { await act(async () => root.render(createElement(CourseSettingsWorkspace, props)));
+ const active=[...host.querySelectorAll('section[aria-label]')].find(el=>!el.hasAttribute('hidden'));
+ const row=active?.querySelector('section:has(h3)'); const button=[...row?.querySelectorAll('button')??[]].find(b=>b.textContent==='修改'); if(button) await act(async()=>button.click());
+}
 async function click(text: string) {
   const button = [...host.querySelectorAll("button")].find(node => node.textContent === text && !node.closest("[hidden]"));
   expect(button, text).toBeTruthy(); await act(async () => button!.click());
 }
 async function select(section: string) { await click(section); await render(); }
 async function input(name: string, value: string) {
-  const field = host.querySelector(`input[name="${name}"]`)!;
+  let field = host.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+  if(field.closest('[hidden]')) { const row=field.closest('form')?.parentElement?.parentElement;const modify=[...row?.querySelectorAll('button')??[]].find(b=>b.textContent==='修改'); if(modify) await act(async()=>modify.click());field=host.querySelector<HTMLInputElement>(`input[name="${name}"]`)!; }
+
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value); field.dispatchEvent(new Event("input", { bubbles: true })); });
 }
 async function submit() { await act(async () => [...host.querySelectorAll("form")].find(form => !form.closest("[hidden]"))!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); }
@@ -88,12 +95,14 @@ describe("five-section course settings", () => {
   });
   it("shows the basic unassigned-plan reminder even without the customer-care add-on", async () => {
     await render({ ...defaults, canUnassignedPlans: true, canCare: false, canReminders: false });
-    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=unassigned"]')).not.toBeNull(); expect(host.textContent).toContain("本階段不自動傳送 LINE");
+    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=unassigned"]')).not.toBeNull(); expect(host.textContent).toContain("尚無方案顧客待辦");
   });
 });
 
 it("edits the booking window directly and guards its draft when leaving", async () => {
  await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); await click("營業與預約"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14});
+ const windowRow=[...host.querySelectorAll("section")].find(el=>el.querySelector("h2")?.textContent?.includes("預約開放期限"));
+ await act(async()=>windowRow!.querySelector("button")!.click());
  const days=host.querySelector('select[aria-label="自動開放天數"]')!;
  await act(async()=>{(days as HTMLSelectElement).value="30";days.dispatchEvent(new Event("change",{bubbles:true}));});
  await click("店家資料"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); const before=new Event("beforeunload",{cancelable:true}); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(true);
@@ -102,6 +111,8 @@ it("edits the booking window directly and guards its draft when leaving", async 
 it("edits trial price directly, keeps failed drafts and restores without losing bank edits", async()=>{
  const props={...defaults,trialSettings:{trialEnabled:true,trialDefaultPrice:350,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000}};
  await render(props); await select("收款與體驗"); await render(props); await input("bankCode","999");
+ const trialRow=[...host.querySelectorAll("section")].find(el=>el.querySelector("h3")?.textContent==="體驗設定");
+ if(trialRow?.querySelector("button")) await act(async()=>trialRow!.querySelector("button")!.click());
  const price=host.querySelector('form[aria-label="體驗設定"] input[type="number"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(price,"400");price.dispatchEvent(new Event("input",{bubbles:true}));});
  m.trialSave.mockRejectedValueOnce(new Error("network")); await act(async()=>host.querySelector('form[aria-label="體驗設定"]')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
@@ -121,4 +132,14 @@ it("converts hours without changing saved minutes on unit switches, validates an
   await click("取消"); await click("捨棄本區修改"); expect(field.value).toBe("1.5"); expect(field.checkValidity()).toBe(true);
   await input("bookingLeadMinutes", ""); await submit(); expect(m.save).toHaveBeenCalledTimes(1);
   await input("bookingLeadMinutes", "0"); await submit(); expect(m.save).toHaveBeenLastCalledWith({ section: "booking", bookingLeadMinutes: 0, cancellationLeadMinutes: 30 });
+});
+
+it("keeps customer labels inside the customer settings category rather than above all settings",async()=>{
+  await render();
+  const labels=host.querySelector('[aria-label="顧客標籤設定"]')!;
+  expect(labels.closest('section[aria-label="通知與顧客經營"]')).toBeTruthy();
+  expect(labels.closest('[hidden]')).toBeTruthy();
+  await select("通知與顧客經營");
+  expect(labels.closest('[hidden]')).toBeNull();
+  expect(host.querySelector('nav[aria-label="設定分類"]')?.textContent).not.toContain("顧客標籤設定");
 });

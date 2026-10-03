@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -6,6 +7,7 @@ import {
   toDateInputValue,
   toLocalDateStr,
 } from "@/lib/date-utils";
+import { OperationTiming } from "@/lib/operation-timing";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -17,7 +19,8 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { FormSuccessToast } from "@/components/form-success-toast";
-import { BookingsManager } from "./bookings-manager";
+import { BookingMonthWorkspace } from "./booking-month-workspace";
+import { BookingWorkspaceLoading } from "./booking-workspace-loading";
 import { BookingLoadError } from "./booking-load-error";
 import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -34,28 +37,32 @@ interface PageProps {
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
-  const user = await getCurrentUser();
+  const timing = new OperationTiming("steamfoot.page.shell");
+  try {
+  const user = await timing.measure("session", () => getCurrentUser());
   if (
     !user ||
-    !(await checkPermission(user.role, user.staffId, "booking.read"))
+    !(await timing.measure("permission", () => checkPermission(user.role, user.staffId, "booking.read")))
   ) {
     redirect("/dashboard");
   }
-  const canManageHours = await checkPermission(user.role, user.staffId, "business_hours.manage");
   const operationGuidePreview = isOperationGuidePreview();
   const params = await searchParams;
 
   // getActiveStoreForRead() already gives an authorized route-first store scope.
   // Reapplying the viewed-store cookie here can replace /s/:slug with a stale store.
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const [activeStoreId, storeViewContext, canManageHours, accessibleStoreIds] = await Promise.all([
+    timing.measure("activeStore", () => getActiveStoreForRead(user)),
+    timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user)),
+    timing.measure("hoursPermission", () => checkPermission(user.role, user.staffId, "business_hours.manage")),
+    params.bookingId
+      ? timing.measure("accessibleStores", () => getAccessibleStoreIds(user))
+      : Promise.resolve([]),
+  ]);
   const fallbackStoreId = activeStoreId;
   // Booking ids are globally unique. Resolve legacy and current notification
   // links only within stores this user is authorized to read, then let the
   // matched booking determine both data scope and read-only mode.
-  const accessibleStoreIds = params.bookingId
-    ? await getAccessibleStoreIds(user)
-    : [];
   const deepLinkedBooking = params.bookingId
     ? (await prisma.booking.findFirst({
         where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
@@ -100,9 +107,72 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     userId: user.id,
     sessionRole: user.role,
   };
+  return (
+    <PageShell>
+      <FormSuccessToast />
+      <PageHeader
+        title="預約管理"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+          {
+          isViewMode ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+              查看模式不可新增預約
+            </span>
+          ) : (
+            <div className="flex items-center gap-2">
+            <CashbookShortcut readOnly={isViewMode} />
+            <Link
+              href="/dashboard/bookings/new"
+              prefetch={false}
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+            >
+              ＋ 新增預約
+            </Link>
+            </div>
+          )
+          }
+          </div>
+        }
+      />
+      <Suspense fallback={<BookingWorkspaceLoading year={year} month={month} />}>
+        <BookingWorkspaceData
+          userId={user.id}
+          bookingsStoreId={bookingsStoreId}
+          year={year}
+          month={month}
+          isViewMode={isViewMode}
+          canManageHours={canManageHours}
+          operationGuidePreview={operationGuidePreview}
+          initialBookingId={deepLinkedBooking?.id ?? null}
+          logCtx={logCtx}
+        />
+      </Suspense>
+    </PageShell>
+  );
+  } finally { timing.finish(); }
+}
+
+
+async function BookingWorkspaceData({
+  userId, bookingsStoreId, year, month, isViewMode, canManageHours,
+  operationGuidePreview, initialBookingId, logCtx,
+}: {
+  userId: string;
+  bookingsStoreId: string | null;
+  year: number;
+  month: number;
+  isViewMode: boolean;
+  canManageHours: boolean;
+  operationGuidePreview: boolean;
+  initialBookingId: string | null;
+  logCtx: Record<string, unknown>;
+}) {
+  const timing = new OperationTiming("steamfoot.page.data");
+  try {
   const timer = new ServerTiming("/dashboard/bookings");
   const [monthData, monthSchedule, servicePlans] =
-    await Promise.all([
+    await timing.measure("data", () => Promise.all([
       // 查詢失敗與成功但沒有預約必須分開，避免店長誤判空檔。
       withTiming("getMonthBookingSummary", timer, () =>
         getMonthBookingSummary(year, month, bookingsStoreId).catch((e) => {
@@ -154,39 +224,11 @@ export default async function BookingsPage({ searchParams }: PageProps) {
               })
           : Promise.resolve([]),
       ),
-    ]);
+    ]));
   timer.finish();
-  return (
-    <PageShell>
-      <FormSuccessToast />
-      <PageHeader
-        title="預約管理"
-        subtitle={`${year} 年 ${month} 月`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-          {
-          isViewMode ? (
-            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
-              查看模式不可新增預約
-            </span>
-          ) : (
-            <div className="flex items-center gap-2">
-            <CashbookShortcut readOnly={isViewMode} />
-            <Link
-              href="/dashboard/bookings/new"
-              prefetch={false}
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
-            >
-              ＋ 新增預約
-            </Link>
-            </div>
-          )
-          }
-          </div>
-        }
-      />
-      {monthData === null ? <BookingLoadError /> : (
-      <BookingsManager
+  return monthData === null ? <BookingLoadError /> : (
+      <BookingMonthWorkspace
+        key={`${userId}:${bookingsStoreId ?? "ALL"}:${isViewMode}:${year}:${month}:${initialBookingId ?? ""}`}
         operationGuidePreview={operationGuidePreview}
         storeId={bookingsStoreId ?? undefined}
         year={year}
@@ -196,11 +238,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         servicePlans={servicePlans}
         readOnly={isViewMode}
         canManageHours={canManageHours}
-        initialBookingId={deepLinkedBooking?.id ?? null}
+        initialBookingId={initialBookingId}
       />
-      )}
-    </PageShell>
   );
+  } finally { timing.finish(); }
 }
 
 function normalizeRequestedDate(
