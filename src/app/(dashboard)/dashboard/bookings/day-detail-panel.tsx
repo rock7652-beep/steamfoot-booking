@@ -1,5 +1,6 @@
 "use client";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
+import styles from "./day-detail-panel.module.css";
 
 import { BookingActionFeedback } from "./booking-action-feedback";
 
@@ -220,6 +221,12 @@ export function DayDetailPanel({
               ＋ 新增
             </Link>
           )}
+        </div>
+
+        <div aria-hidden="true" className={`${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
+          <span />
+          <div className={styles.rowBody}><span>時間／人數</span><span>顧客／標籤</span><span>方案／狀態</span><span>直屬店長</span></div>
+          <span className="w-20 text-center">操作</span>
         </div>
 
         {/* Selection bar — only when at least one row picked */}
@@ -454,7 +461,7 @@ function TimelineItem({
       </div>
 
       {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
-      <div className="relative isolate flex min-w-0 flex-1 flex-col gap-1 py-2 text-left">
+      <div className={`${styles.rowBody} relative isolate min-w-0 flex-1 gap-1 py-2 text-left`}>
         <button
           type="button"
           onClick={handleBodyClick}
@@ -462,7 +469,7 @@ function TimelineItem({
           disabled={!onClick || isActing}
           className="absolute inset-0 z-10 rounded focus-visible:outline-2 focus-visible:outline-primary-600 disabled:cursor-default"
         />
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className={styles.timeCell}>
           <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
           </span>
@@ -478,12 +485,9 @@ function TimelineItem({
                 （實到 {booking.attendedPeople}/{booking.people}）
               </span>
             )}
-          <div className="min-w-0 flex-1"><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/></div>
-          <span className="shrink-0 text-xs text-earth-500">
-            {assignedStaffName}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          </div>
+        <div className={styles.identityCell}><CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/></div>
+        <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
@@ -523,7 +527,7 @@ function TimelineItem({
                 : `剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
-            <span className="w-full break-words text-sm font-medium text-emerald-700">
+            <span className="min-w-0 break-words text-sm font-medium text-emerald-700">
               已扣堂｜方案：{deductedPlanLabel}
             </span>
           ) : planBadge.kind === "not_deducted" ? (
@@ -535,7 +539,7 @@ function TimelineItem({
           ) : null}
         </div>
         {booking.bookingType !== "FIRST_TRIAL" && planBadge.kind !== "deducted" && planLabel !== "—" ? (
-          <span className="flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600">
+          <span className={`${styles.noteCell} flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600`}>
             <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
@@ -544,17 +548,18 @@ function TimelineItem({
           { label: "本次", value: booking.notes },
           { label: "店內", value: booking.customer?.serviceNote },
         ].filter((note) => note.value?.trim()).map((note) => (
-          <div key={note.label} className="flex min-w-0 items-center gap-1 text-sm text-amber-700">
+          <div key={note.label} className={`${styles.noteCell} flex min-w-0 items-center gap-1 text-sm text-amber-700`}>
             <span className="shrink-0">{note.label}：</span>
             <span className="min-w-0 flex-1 truncate" title={note.value ?? undefined}>
               {note.value}
             </span>
           </div>
         ))}
+        <span className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>
 
       {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
-      <div className="flex shrink-0 flex-col justify-center gap-2 py-2">
+      <div className="flex w-20 shrink-0 flex-col justify-center gap-2 py-2">
         {actionable && onCompleteSingle ? (
           <button
             type="button"

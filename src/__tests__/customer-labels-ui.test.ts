@@ -9,13 +9,29 @@ vi.mock('@/server/actions/customer-labels',()=>({loadCustomerLabels:m.load,setCu
 vi.mock('next/navigation',()=>({usePathname:()=>'/dashboard/customers',useRouter:()=>({replace:vi.fn()}),useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:()=>null}));
 vi.mock('sonner',()=>({toast:{error:m.error}}));
-import {CustomerLabelsProvider,CustomerLabels,CustomerLabelsSeed} from '@/components/customer-labels';
+import {CustomerLabelsProvider,CustomerLabels,CustomerLabelsSeed,CustomerLabelPicker,useCustomerLabelSnapshot} from '@/components/customer-labels';
 const data:LabelSnapshot={available:true,enabled:true,canEdit:true,canManage:true,categories:[{id:'cat',name:'需求',number:1,position:0,active:true}],labels:[{id:'a',name:'初次',categoryId:'cat',active:true},{id:'b',name:'常客',categoryId:'cat',active:true},{id:'c',name:'重點',categoryId:'cat',active:true}],assignments:{customer:['a','b','c']}};
 let root:Root,host:HTMLDivElement;
 beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockResolvedValue(data);m.save.mockResolvedValue({success:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 async function render(initial=data,readOnly=false){await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial,children:jsx(CustomerLabels,{customerId:"customer",readOnly})},String(initial.enabled))));}
 async function click(label:string){const button=document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);expect(button).toBeTruthy();await act(async()=>button!.click());}
+it('shares the controlled picker and loads assignments even when a customer row is filtered out',async()=>{
+ vi.useFakeTimers();
+ const change=vi.fn();
+ function Workspace(){const snapshot=useCustomerLabelSnapshot(['customer','hidden']);return jsx('div',{children:[jsx(CustomerLabelPicker,{value:'a',onChange:change}),jsx('output',{children:snapshot.assignments.hidden?.join(',')??'loading'})]});}
+ try {
+  m.load.mockResolvedValue({...data,assignments:{customer:['a'],hidden:['b']}});
+  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:data,children:jsx(Workspace,{})})));
+  expect(host.querySelector('select')?.value).toBe('a');
+  await act(async()=>vi.advanceTimersByTimeAsync(40));
+  expect(m.load).toHaveBeenCalledWith(['hidden']);
+  expect(host.querySelector('output')?.textContent).toBe('b');
+  const picker=host.querySelector('select')!;
+  await act(async()=>{picker.value='b';picker.dispatchEvent(new Event('change',{bubbles:true}));});
+  expect(change).toHaveBeenCalledWith('b');
+ } finally {vi.useRealTimers();}
+});
 it('shows two labels and remaining count, and portals the dialog outside a clipped row',async()=>{await render();expect(host.textContent).toContain('＋1');expect(host.textContent).not.toContain('＋標籤');expect(host.textContent).not.toContain('重點');await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')).toBeTruthy();expect(host.querySelector('[role="dialog"]')).toBeNull();});
 it('updates immediately, retains the dialog, and rolls back failed saves',async()=>{await render();await click('查看或修改顧客標籤');let finish!:(v:{success:boolean,error:string})=>void;m.save.mockReturnValue(new Promise(resolve=>finish=resolve));const button=[...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].find(b=>b.textContent?.includes('重點'))!;await act(async()=>button.click());expect(host.textContent).not.toContain('＋1');expect(document.querySelector('[role="dialog"]')).toBeTruthy();await act(async()=>finish({success:false,error:'失敗'}));expect(host.textContent).toContain('＋1');expect(m.error).toHaveBeenCalledWith('失敗');expect(m.save).toHaveBeenCalledWith({customerId:'customer',labelId:'c',selected:false});});
 it('hides disabled tags without deleting and exposes no writable buttons to readonly users',async()=>{await render({...data,enabled:false});expect(host.textContent).toBe('');expect(m.save).not.toHaveBeenCalled();await render(data,true);await click('查看或修改顧客標籤');expect([...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].every(b=>b.disabled)).toBe(true);});

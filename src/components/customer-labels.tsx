@@ -210,8 +210,27 @@ function ResponsiveDotLabels({labels,maxVisible}:{labels:{id:string;name:string;
   </span>;
 }
 
+/** Register the whole visible workspace before filtering, including rows hidden by a label. */
+export function useCustomerLabelSnapshot(customerIds: string[]) {
+  const ctx = useContext(Context);
+  const register = ctx?.snapshot.enabled ? ctx.register : undefined;
+  const key = JSON.stringify([...new Set(customerIds)].sort());
+  useEffect(() => {
+    if (!register) return;
+    const releases = (JSON.parse(key) as string[]).map(register);
+    return () => releases.forEach(release => release());
+  }, [register, key]);
+  return ctx?.snapshot ?? EMPTY_LABELS;
+}
+
+export function CustomerLabelPicker({value,onChange}:{value:string;onChange:(value:string)=>void}) {
+  const ctx=useContext(Context);
+  if(!ctx?.snapshot.enabled)return null;
+  return <select aria-label="依顧客標籤篩選" value={value} className="min-h-11 rounded border border-earth-200 bg-white px-2 text-sm" onChange={e=>onChange(e.target.value)}><option value="">全部標籤</option>{ctx.snapshot.categories.map(c=><optgroup key={c.id} label={c.name}>{ctx.snapshot.labels.filter(l=>l.categoryId===c.id).map(l=><option key={l.id} value={l.id}>{l.name}{!l.active?"（停用）":""}</option>)}</optgroup>)}</select>;
+}
+
 export function CustomerLabelFilter() {
   const ctx=useContext(Context), params=useSearchParams(), router=useRouter(), pathname=usePathname();
   if(!ctx?.snapshot.enabled)return null;
-  return <select aria-label="依顧客標籤篩選" value={params.get("label")??""} className="min-h-10 rounded border border-earth-200 bg-white px-2 text-sm" onChange={e=>{const next=new URLSearchParams(params.toString());next.delete("page");if(e.target.value)next.set("label",e.target.value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}><option value="">全部標籤</option>{ctx.snapshot.categories.map(c=><optgroup key={c.id} label={c.name}>{ctx.snapshot.labels.filter(l=>l.categoryId===c.id).map(l=><option key={l.id} value={l.id}>{l.name}{!l.active?"（停用）":""}</option>)}</optgroup>)}</select>;
+  return <CustomerLabelPicker value={params.get("label")??""} onChange={value=>{const next=new URLSearchParams(params.toString());next.delete("page");if(value)next.set("label",value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}/>;
 }

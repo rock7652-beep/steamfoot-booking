@@ -1,0 +1,26 @@
+.rowBody {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+}
+.timeCell { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.identityCell { min-width: 0; }
+.statusCell, .noteCell { grid-column: 1 / -1; min-width: 0; }
+.staffCell { grid-column: 2; }
+.columnHeader { display: none; }
+
+/* The same row renderer adapts to desktop and portrait iPad without horizontal scrolling. */
+@media (min-width: 900px) {
+  .rowBody {
+    grid-template-columns: 86px minmax(0, 1fr) minmax(0, 1.2fr) 90px;
+  }
+  .statusCell { grid-column: 3; }
+  .staffCell { grid-column: 4; grid-row: 1; }
+  .noteCell { grid-column: 2 / 4; }
+  .columnHeader {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 80px;
+    column-gap: 0.5rem;
+  }
+}
