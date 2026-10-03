@@ -135,6 +135,8 @@ export interface BookingPrefill {
 }
 
 interface BookingDetailDrawerProps {
+  /** A roster shortcut opens the existing payment flow after authoritative detail loads. */
+  initialIntent?: "collect";
   sharedActions?: ReturnType<typeof useResponsiveAction>;
   operationGuidePreview?: boolean;
   open: boolean;
@@ -170,6 +172,7 @@ interface BookingDetailDrawerProps {
 }
 
 export function BookingDetailDrawer({
+  initialIntent,
   sharedActions,
   operationGuidePreview = false,
   open,
@@ -186,6 +189,7 @@ export function BookingDetailDrawer({
   durationMinutes,
   spaMode = false,
 }: BookingDetailDrawerProps) {
+  const collectionIntentHandled=useRef<string|null>(null);
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [prefillStatus, setPrefillStatus] = useState<string | null>(null);
   const [pendingBalance, setPendingBalance] = useState<number | null>(null);
@@ -265,6 +269,7 @@ export function BookingDetailDrawer({
   // `canceled` 會丟掉「被更新後的 run（如 mutation reloadNonce）取代」的舊回應，
   // 避免過期 revalidate 蓋掉 optimistic 結果。
   useEffect(() => {
+    if (!open || !initialIntent) collectionIntentHandled.current=null;
     if (!open || !bookingId || isActing) return;
     const id = bookingId;
     let canceled = false;
@@ -275,6 +280,17 @@ export function BookingDetailDrawer({
         setData(payload);
         setPendingBalance(null);
         setError(null);
+        // Only route the explicit shortcut; never collect or complete without confirmation.
+        if(initialIntent === "collect" && !readOnly && collectionIntentHandled.current !== id && payload.booking.id === id) {
+          collectionIntentHandled.current=id;
+          const b=payload.booking;
+          if(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
+            if(b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
+              if(b.people>1 && b.attendedPeople==null) {setAttendanceIntent("collect");setAttendanceOpen(true);}
+              else setCollectOpen(true);
+            } else if(b.bookingType === "SINGLE" && payload.single && !payload.single.collected) setCollectSingleOpen(true);
+          }
+        }
       })
       .catch((e) => {
         if (canceled) return;
@@ -287,7 +303,7 @@ export function BookingDetailDrawer({
     return () => {
       canceled = true;
     };
-  }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing]);
+  }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing, initialIntent, readOnly]);
 
   /** Only an unambiguous single-person package deduction is projected locally. */
   function wrapAction(
