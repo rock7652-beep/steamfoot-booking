@@ -4,7 +4,7 @@ import { FeatureEntry, useFeaturePresentation } from "@/components/feature-prese
 import { FEATURES } from "@/lib/feature-flags";
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { loadCustomerLabels, setCustomerLabel } from "@/server/actions/customer-labels";
-import { EMPTY_LABELS, labelColor, type LabelSnapshot } from "@/lib/customer-labels";
+import { EMPTY_LABELS, labelColor, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   const pendingRef=useRef(new Set<string>());
   const ids=useRef(new Map<string,number>());
   const loaded=useRef(new Map(Object.keys(initial.assignments).map(id=>[id,Date.now()])));
+  const metadataRevision=useRef(0);
   const revisions=useRef(new Map<string,number>());
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const inFlight=useRef<Promise<void>|null>(null);
@@ -31,6 +32,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     if(inFlight.current){queued.current=true;return inFlight.current;}
     const requested=[...ids.current.keys()].filter(id=>Date.now()-(loaded.current.get(id)??0)>=LABEL_CACHE_MS);
     if(!requested.length&&!force)return Promise.resolve();
+    const metadataVersion=metadataRevision.current;
     const versions=new Map(requested.map(id=>[id,revisions.current.get(id)??0]));
     queued.current=false;
     const run=(async()=>{
@@ -39,7 +41,9 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
         if(!mounted.current)return;
         const result={...batches[0],assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
         setSnapshot(old=>{
-          if(!result.enabled)return {...result,assignments:{}};
+          if(metadataRevision.current!==metadataVersion)return old;
+          const metadata=result;
+          if(!metadata.enabled)return {...metadata,assignments:{}};
           const assignments={...old.assignments};
           for(const id of requested){
             if(pendingRef.current.has(id)||(revisions.current.get(id)??0)!==versions.get(id))continue;
@@ -47,7 +51,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
             delete assignments[id];
             if(id in result.assignments)assignments[id]=result.assignments[id];
           }
-          return {...result,assignments};
+          return {...metadata,assignments};
         });
       } catch {if(mounted.current)toast.error("標籤讀取失敗，請重新整理");}
       finally {
@@ -69,7 +73,14 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     setSnapshot(old=>({...data,assignments:data.enabled?{...old.assignments,...accepted}:{}}));
   },[]);
   useEffect(()=>{
-    const changed=()=>void refresh();
+    const changed=(event:Event)=>{
+      const metadata=(event as CustomEvent<(LabelMetadata & {restoreAssignments?:boolean})|undefined>).detail;
+      if(!metadata){void refresh();return;}
+      metadataRevision.current++;
+      setSnapshot(old=>({...old,...metadata,assignments:metadata.enabled?old.assignments:{}}));
+      // Enabling restores the saved assignments that were hidden while disabled.
+      if(metadata.enabled && metadata.restoreAssignments){loaded.current.clear();void fetchLabels();}
+    };
     const focus=()=>void fetchLabels();
     window.addEventListener("customer-labels:refresh",changed);window.addEventListener("focus",focus);
     return()=>{window.removeEventListener("customer-labels:refresh",changed);window.removeEventListener("focus",focus);};
@@ -119,7 +130,7 @@ export function CustomerLabelsSettingsLink() {
   const state=useFeaturePresentation(FEATURES.CUSTOMER_LABELS);
   if(state === "HIDDEN" || state === "LOCKED")return null;
   if(!ctx?.snapshot.available)return null;
-  return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings/customer-labels"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
+  return <DashboardLink href={pathname.includes("/courses")?courseSettingsPanelHref("/dashboard/settings/customer-labels"):"/dashboard/settings?section=notifications"} className="inline-flex min-h-10 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">顧客標籤設定</DashboardLink>;
 }
 export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hideEmpty=false,maxVisible=2,variant="dots"}:{customerId:string;readOnly?:boolean;displayOnly?:boolean;hideEmpty?:boolean;maxVisible?:number;variant?:"badge"|"dots"}) {
   const ctx=useContext(Context);
@@ -156,7 +167,7 @@ export function CustomerLabels({customerId,readOnly=false,displayOnly=false,hide
     finally {setPending(false);ctx?.unlock(customerId);}
   }
   return <span ref={host} className={`relative z-20 ${maxVisible > 2 ? "flex w-full min-w-0" : "inline-flex max-w-full flex-wrap"} items-center gap-1`} onClick={e=>e.stopPropagation()}>
-    {variant === "dots" ? (chosen.length > 0 || canEdit && !displayOnly) && <button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} disabled={displayOnly} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className={`inline-flex min-h-5 ${maxVisible > 2 ? "w-full min-w-0" : "max-w-full flex-wrap"} items-center gap-x-3 gap-y-1 text-left text-xs focus-visible:outline-2 focus-visible:outline-primary-600`}><ResponsiveDotLabels labels={chosen.map(l=>({id:l.id,name:l.name,color:["bg-orange-500","bg-blue-500","bg-purple-500","bg-teal-500","bg-pink-500","bg-indigo-500","bg-amber-500","bg-slate-500"][((categories.find(c=>c.id===l.categoryId)?.number??1)-1)%8]}))} maxVisible={maxVisible}/>{!chosen.length&&canEdit&&!displayOnly&&<span className="text-primary-700">＋標籤</span>}</button> : <>
+    {variant === "dots" ? (chosen.length > 0 || canEdit && !displayOnly) && <button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} disabled={displayOnly} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className={`inline-flex min-h-5 ${maxVisible > 2 ? "w-full min-w-0" : "max-w-full flex-wrap"} items-center gap-x-3 gap-y-1 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary-600`}>{chosen.length > 0 && <ResponsiveDotLabels labels={chosen.map(l=>({id:l.id,name:l.name,color:["bg-orange-500","bg-blue-500","bg-purple-500","bg-teal-500","bg-pink-500","bg-indigo-500","bg-amber-500","bg-slate-500"][((categories.find(c=>c.id===l.categoryId)?.number??1)-1)%8]}))} maxVisible={maxVisible}/>}{!chosen.length&&canEdit&&!displayOnly&&<span className="shrink-0 whitespace-nowrap text-primary-700">＋標籤</span>}</button> : <>
     {chosen.slice(0,2).map(l=><span key={l.id} className={`rounded border px-1.5 py-0.5 text-[11px] ${labelColor(categories.find(c=>c.id===l.categoryId)?.number??1)}`}>{l.name}</span>)}
     {!displayOnly&&chosen.length>2&&<span className="text-xs text-earth-500" title={chosen.map(l=>l.name).join("、")}>＋{chosen.length-2}</span>}
     {!displayOnly&&(canEdit||chosen.length>2)&&<button type="button" aria-label="查看或修改顧客標籤" aria-expanded={open} onClick={()=>{const rect=host.current?.getBoundingClientRect();if(rect)setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-264)),top:Math.max(8,Math.min(rect.bottom+4,window.innerHeight-360))});setOpen(!open);}} className="min-h-10 shrink-0 whitespace-nowrap rounded px-2 text-xs text-primary-700 hover:bg-primary-50">{canEdit?"＋標籤":"查看標籤"}</button>}
@@ -210,8 +221,27 @@ function ResponsiveDotLabels({labels,maxVisible}:{labels:{id:string;name:string;
   </span>;
 }
 
+/** Register the whole visible workspace before filtering, including rows hidden by a label. */
+export function useCustomerLabelSnapshot(customerIds: string[]) {
+  const ctx = useContext(Context);
+  const register = ctx?.snapshot.enabled ? ctx.register : undefined;
+  const key = JSON.stringify([...new Set(customerIds)].sort());
+  useEffect(() => {
+    if (!register) return;
+    const releases = (JSON.parse(key) as string[]).map(register);
+    return () => releases.forEach(release => release());
+  }, [register, key]);
+  return ctx?.snapshot ?? EMPTY_LABELS;
+}
+
+export function CustomerLabelPicker({value,onChange}:{value:string;onChange:(value:string)=>void}) {
+  const ctx=useContext(Context);
+  if(!ctx?.snapshot.enabled)return null;
+  return <select aria-label="依顧客標籤篩選" value={value} className="min-h-11 rounded border border-earth-200 bg-white px-2 text-sm" onChange={e=>onChange(e.target.value)}><option value="">全部標籤</option>{ctx.snapshot.categories.map(c=><optgroup key={c.id} label={c.name}>{ctx.snapshot.labels.filter(l=>l.categoryId===c.id).map(l=><option key={l.id} value={l.id}>{l.name}{!l.active?"（停用）":""}</option>)}</optgroup>)}</select>;
+}
+
 export function CustomerLabelFilter() {
   const ctx=useContext(Context), params=useSearchParams(), router=useRouter(), pathname=usePathname();
   if(!ctx?.snapshot.enabled)return null;
-  return <select aria-label="依顧客標籤篩選" value={params.get("label")??""} className="min-h-10 rounded border border-earth-200 bg-white px-2 text-sm" onChange={e=>{const next=new URLSearchParams(params.toString());next.delete("page");if(e.target.value)next.set("label",e.target.value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}><option value="">全部標籤</option>{ctx.snapshot.categories.map(c=><optgroup key={c.id} label={c.name}>{ctx.snapshot.labels.filter(l=>l.categoryId===c.id).map(l=><option key={l.id} value={l.id}>{l.name}{!l.active?"（停用）":""}</option>)}</optgroup>)}</select>;
+  return <CustomerLabelPicker value={params.get("label")??""} onChange={value=>{const next=new URLSearchParams(params.toString());next.delete("page");if(value)next.set("label",value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}/>;
 }

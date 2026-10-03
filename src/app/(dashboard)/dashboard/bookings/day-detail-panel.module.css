@@ -1,0 +1,44 @@
+.rowBody {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+.timeCell { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; grid-row: 1 / 3; align-self: start; padding-top: 0.5rem; }
+.identityCell { min-width: 0; grid-column: 2 / 4; }
+.statusCell { grid-column: 2; min-width: 0; }
+.noteCell { grid-column: 3; min-width: 0; grid-row: 2; }
+.staffCell { display: none; min-width: 0; }
+.inlineStaff { display: inline; }
+.planCell { flex-basis: 100%; min-width: 0; }
+.columnHeader { display: none; }
+@media (min-width: 1000px) {
+  .rowBody { grid-template-columns: 70px minmax(0, 1.7fr) 104px minmax(0, 1.2fr) minmax(0, 1.5fr); }
+  .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
+  .identityCell { grid-column: 2; }
+  .staffCell { display: block; grid-column: 3; grid-row: 1; overflow-wrap: anywhere; }
+  .inlineStaff { display: none; }
+  .statusCell { grid-column: 4; grid-row: 1; }
+  .noteCell { grid-column: 5; grid-row: 1; }
+  /* Header and rows share both outer tracks and inner column widths. */
+  .rosterRow, .columnHeader { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; column-gap: 0.5rem; }
+  .columnHeader { padding-left: 15px; padding-right: 12px; }
+  .rosterRow[data-batch="true"], .columnHeader[data-batch="true"] { grid-template-columns: 24px 44px minmax(0, 1fr) 44px; }
+  .identityHeader { display: grid; grid-template-columns: minmax(0, 1fr) 148px; column-gap: 0.5rem; }
+  .identityHeader > :last-child { justify-self: start; }
+}
+
+
+
+/* Keep telephone numbers aligned while long names and status text wrap safely. */
+.identityCell .identityLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 148px;
+}
+.identityCell .identityLayout > a { justify-self: start; padding-inline: 0; }
+.statusCell { align-content: center; }
+@media (max-width: 639px) {
+  .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr); }
+  .identityCell .identityLayout > a { justify-self: start; }
+}

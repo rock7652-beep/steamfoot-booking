@@ -126,7 +126,7 @@ describe("trial service label", () => {
         slots: [],
       }),
     ));
-    expect(text).toContain("服務：首次體驗");
+    expect(text).toContain("體驗・未收");
     expect(text).not.toContain("方案：");
     expect(text).toContain("NT$499");
   });
@@ -142,24 +142,24 @@ describe("當日清單備註", () => {
       date: "2026-09-10", bookings: [entry], slots: [],
     }));
   }
-  it("shows this booking's note before the store note with distinct labels", () => {
+  it("shows usual notes before emphasized booking notes", () => {
     const html = renderNotes("今天晚到", "怕冷");
     const text = textFromHtml(html);
     expect(text).toMatch(/本次：\s*今天晚到/);
-    expect(text).toMatch(/店內：\s*怕冷/);
-    expect(text.indexOf("本次：")).toBeLessThan(text.indexOf("店內："));
+    expect(text).toMatch(/平時：\s*怕冷/);
+    expect(text.indexOf("平時：")).toBeLessThan(text.indexOf("本次："));
     expect(text).not.toContain("已停用的顧客資料備註");
     expect(html).toContain('truncate');
   });
   it.each([[null, null], ["  ", "  "]])("omits empty notes", (notes, serviceNote) => {
     const text = textFromHtml(renderNotes(notes, serviceNote));
     expect(text).not.toContain("本次：");
-    expect(text).not.toContain("店內：");
+    expect(text).not.toContain("平時：");
   });
   it("shows a booking note even without a store note", () => {
     const text = textFromHtml(renderNotes("驗收完成扣堂test", null));
     expect(text).toMatch(/本次：\s*驗收完成扣堂test/);
-    expect(text).not.toContain("店內：");
+    expect(text).not.toContain("平時：");
   });
 });
 
@@ -278,13 +278,37 @@ it("offers restore in the completed row and disables it while saving", async () 
   }));
   try {
     await act(async () => render());
-    const button = [...container.querySelectorAll("button")].find(b => b.textContent === "還原")!;
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="還原 陳沛妍 的預約"]')!;
     act(() => button.click());
     expect(restore).toHaveBeenCalledExactlyOnceWith("booking-1");
     await act(async () => render(true));
-    const saving = [...container.querySelectorAll("button")].find(b => b.textContent === "儲存中…")!;
+    const saving = container.querySelector<HTMLButtonElement>('button[aria-label="還原 陳沛妍 的預約"]')!;
     expect(saving.disabled).toBe(true);
     await act(async () => render(false, true));
     expect(container.textContent).not.toContain("還原");
   } finally { await act(async () => root.unmount()); }
+});
+
+
+describe("batch selection mode", () => {
+  it("hides checkboxes until batch mode and clears selection on exit", async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const clear = vi.fn();
+    try {
+      await act(async () => root.render(React.createElement(DayDetailPanel, {
+        date: "2026-09-26", bookings: [booking({})], slots: [],
+        selectedIds: new Set<string>(), onToggleSelect: vi.fn(),
+        onCompleteBatch: vi.fn(), onClearSelection: clear,
+      })));
+      expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+      const toggle = [...container.querySelectorAll("button")].find(b => b.textContent === "批次完成")!;
+      await act(async () => toggle.click());
+      expect(container.querySelector('input[type="checkbox"]')).not.toBeNull();
+      await act(async () => toggle.click());
+      expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+      expect(clear).toHaveBeenCalledTimes(2);
+    } finally { await act(async () => root.unmount()); }
+  });
 });

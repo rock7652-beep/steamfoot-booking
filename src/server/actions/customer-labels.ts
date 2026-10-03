@@ -8,7 +8,6 @@ import { requireStoreFeature, hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { AppError, handleActionError } from "@/lib/errors";
 import { EMPTY_LABELS, type LabelSnapshot } from "@/lib/customer-labels";
-import { revalidatePath } from "next/cache";
 const nameSchema = z.string().trim().min(1).max(8);
 const idSchema = z.string().min(1).max(100);
 export async function loadCustomerLabels(ids: string[] = []): Promise<LabelSnapshot> {
@@ -43,7 +42,7 @@ export async function manageCustomerLabels(input: unknown) {
       z.object({action:z.literal("active"),kind:z.enum(["category","label"]),id:idSchema,active:z.boolean()}),
       z.object({action:z.literal("order"),ids:z.array(idSchema).max(100)}),
     ]).parse(input);
-    await prisma.$transaction(async tx=>{
+    const metadata=await prisma.$transaction(async tx=>{
       // Serializes category numbers, settings and assignments for this store.
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
       await tx.customerLabelSetting.upsert({where:{storeId},create:{storeId},update:{}});
@@ -76,9 +75,14 @@ export async function manageCustomerLabels(input: unknown) {
         for(const [position,id] of data.ids.entries()) await tx.customerLabelCategory.updateMany({where:{storeId,id},data:{position}});
       }
       await tx.auditLog.create({data:{actorUserId:user.id,targetType:"CustomerLabel",targetId:storeId,action:"CUSTOMER_LABEL_MANAGE",afterJson:data}});
+      const [setting,categories,labels]=await Promise.all([
+        tx.customerLabelSetting.findUniqueOrThrow({where:{storeId},select:{enabled:true}}),
+        tx.customerLabelCategory.findMany({where:{storeId},orderBy:[{position:"asc"},{number:"asc"}],select:{id:true,name:true,number:true,position:true,active:true}}),
+        tx.customerLabel.findMany({where:{storeId},orderBy:{name:"asc"},select:{id:true,categoryId:true,name:true,active:true}}),
+      ]);
+      return {enabled:setting.enabled,categories,labels};
     });
-    revalidatePath("/dashboard","layout");
-    return {success:true as const};
+    return {success:true as const,metadata};
   }catch(error){return handleActionError(error);}
 }
 export async function setCustomerLabel(input: unknown) {

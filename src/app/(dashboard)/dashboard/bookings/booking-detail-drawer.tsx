@@ -635,6 +635,7 @@ export function BookingDetailDrawer({
   return (
     <>
       <RightSheet
+        presentation={spaMode ? "side" : "centered"}
         open={open}
         onClose={onClose}
         labelledById="booking-drawer-title"

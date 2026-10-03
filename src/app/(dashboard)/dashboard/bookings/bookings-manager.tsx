@@ -1,5 +1,6 @@
 "use client";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
 import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
@@ -205,6 +206,8 @@ export function BookingsManager({
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useRetainedState<BookingFilters>("steamfoot-bookings:filters", EMPTY_FILTERS, validBookingFilters);
+  const [labelFilter, setLabelFilter] = useRetainedState<string>("steamfoot-bookings:label", "", value => typeof value === "string");
+  const [unpaidOnly, setUnpaidOnly] = useState(false);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
     initialBookingId,
   );
@@ -418,8 +421,12 @@ export function BookingsManager({
 
   const matchesFilters = useCallback((booking: DayBooking) =>
     matchesBookingSearch(booking, filters, servicePlans), [filters, servicePlans]);
-  const filteredDayBookings = useMemo(() => dayBookings.filter(matchesFilters),
-    [dayBookings, matchesFilters]);
+  const labels = useCustomerLabelSnapshot(dayBookings.flatMap(booking => booking.customer.id ? [booking.customer.id] : []));
+  const labelsLoading = labels.enabled && !!labelFilter && dayBookings.some(booking => booking.customer.id && !(booking.customer.id in labels.assignments));
+  const filteredDayBookings = useMemo(() => dayBookings.filter(booking => matchesFilters(booking) &&
+    (!unpaidOnly || (booking.bookingType === "FIRST_TRIAL" && !booking.collected && booking.bookingStatus !== "CANCELED")) &&
+    (!labels.enabled || !labelFilter || labels.assignments[booking.customer.id ?? ""]?.includes(labelFilter))),
+    [dayBookings, matchesFilters, labels.enabled, labels.assignments, labelFilter, unpaidOnly]);
   const monthSearchResults = useMemo(() => monthData
     .filter((day) => day.date.startsWith(`${year}-${String(month).padStart(2, "0")}-`))
     .flatMap((day) => (day.bookings ?? []).filter(matchesFilters)
@@ -507,14 +514,12 @@ export function BookingsManager({
   const openBooking = useCallback(
     (id: string) => {
       if (saves.isBlocked(id)) return;
-      // 點「查看」直接清掉選取日期：關閉 Booking Detail 後回到月曆，
-      // 不自動重開當日 Drawer。
-      setSelectedDate(null);
+      // 當日清單暫時隱藏；關閉詳情後回到原日期、篩選與捲動位置。
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById, setSelectedDate, saves],
+    [summaryById, prefillById, saves],
   );
 
   const closeBooking = useCallback(() => {
@@ -607,12 +612,12 @@ export function BookingsManager({
   const selectAllActionable = useCallback(() => {
     setSelectedIds(
       new Set(
-        dayBookings
+        filteredDayBookings
           .filter((b) => COMPLETABLE_STATUSES.has(b.bookingStatus))
           .map((b) => b.id),
       ),
     );
-  }, [dayBookings]);
+  }, [filteredDayBookings]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -667,7 +672,7 @@ export function BookingsManager({
 
   async function completeBatch() {
     if (readOnly || batchSending.current) return;
-    const ids = dayBookings
+    const ids = filteredDayBookings
       .filter(b => selectedIds.has(b.id) && !saves.isBlocked(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus))
       .map(b => b.id);
     if (ids.length === 0) return;
@@ -729,12 +734,13 @@ export function BookingsManager({
         </div>
       </div>
 
-      {/* 當日預約改用右側 Drawer：避免窄螢幕（iPad/小視窗）被擠到月曆下方看不到。
-          開啟條件 = 有選日期且未開啟 Booking Detail，故兩層 Drawer 不會疊在一起。 */}
+      {/* 與課程名單共用中央工作視窗；詳情開啟時隱藏清單，避免雙層彈窗。 */}
       <RightSheet
+        presentation="centered"
+        fixedHeight
         open={!!selectedDate && !activeBookingId}
         onClose={closeDay}
-        width={520}
+        width={1200}
         labelledById="day-detail-sheet-title"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-3">
@@ -748,7 +754,8 @@ export function BookingsManager({
                 )}（${formatWeekdayZh(selectedDate)}） 當日預約`
               : "當日預約"}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {!readOnly && <CustomerLabelsSettingsLink />}
             {!readOnly && canManageHours && selectedDate && (
               <DaySlotManager
                 date={selectedDate}
@@ -760,16 +767,34 @@ export function BookingsManager({
             type="button"
             onClick={closeDay}
             aria-label="關閉"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100 hover:text-earth-700"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100 hover:text-earth-700"
           >
             ✕
           </button>
           </div>
         </div>
-        <div className="border-b border-earth-100 px-4 py-2">{syncControl}
-        </div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
+            toolbar={<>
+              <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => b.bookingType === "FIRST_TRIAL" && !b.collected && b.bookingStatus !== "CANCELED").length}</button>
+              <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
+                onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); }}
+                className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]" />
+              <details className="relative text-sm">
+                <summary className="min-h-11 cursor-pointer rounded-lg border border-earth-200 px-3 py-3">篩選{filters.status || filters.staffName || filters.servicePlanId || labelFilter ? "・已套用" : ""}</summary>
+                <div className="absolute left-0 top-full z-40 mt-1 flex w-64 flex-col gap-2 rounded-lg border border-earth-200 bg-white p-3 shadow-lg">
+                  <label>狀態<select aria-label="當日狀態" value={filters.status} onChange={e => {setFilters({...filters,status:e.target.value});setSelectedIds(new Set());}} className="mt-1 min-h-11 w-full rounded border border-earth-200 px-2"><option value="">全部</option>{STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
+                  <label>服務<select aria-label="當日服務" value={filters.servicePlanId} onChange={e => {setFilters({...filters,servicePlanId:e.target.value});setSelectedIds(new Set());}} className="mt-1 min-h-11 w-full rounded border border-earth-200 px-2"><option value="">全部</option>{servicePlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+                  <label>人員<select aria-label="當日人員" value={filters.staffName} onChange={e => {setFilters({...filters,staffName:e.target.value});setSelectedIds(new Set());}} className="mt-1 min-h-11 w-full rounded border border-earth-200 px-2"><option value="">全部</option>{staffOptions.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>
+                  <CustomerLabelPicker value={labelFilter} onChange={value => {setLabelFilter(value);setSelectedIds(new Set());}} />
+                  <button type="button" className="min-h-11 rounded border border-earth-200 px-3" onClick={() => {setFilters(EMPTY_FILTERS);setLabelFilter("");setUnpaidOnly(false);setSelectedIds(new Set());}}>清除篩選</button>
+                </div>
+              </details>
+              {labelsLoading && <span role="status" className="text-sm text-earth-500">標籤載入中…</span>}
+              <button type="button" disabled={syncing || refreshPaused} title={syncStatus} aria-label={syncStatus}
+                onClick={() => void refreshRef.current?.()}
+                className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-earth-600 disabled:opacity-50">{syncing ? "更新中…" : "更新"}</button>
+            </>}
             date={selectedDate}
             bookings={filteredDayBookings}
             slots={daySlots}
@@ -793,7 +818,7 @@ export function BookingsManager({
                 : null
             }
             readOnly={readOnly}
-            selectedIds={readOnly ? undefined : selectedIds}
+            selectedIds={readOnly ? undefined : new Set(filteredDayBookings.filter(booking => selectedIds.has(booking.id)).map(booking => booking.id))}
             onToggleSelect={readOnly ? undefined : toggleSelect}
             onSelectAllActionable={readOnly ? undefined : selectAllActionable}
             onClearSelection={readOnly ? undefined : clearSelection}
