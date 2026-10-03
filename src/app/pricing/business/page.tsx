@@ -1,4 +1,5 @@
 import { StoreTestimonial } from "@/components/store-testimonial";
+import { MarketingUsageStatistics } from "@/components/marketing-usage-statistics";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
@@ -47,6 +48,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
+        <MarketingUsageStatistics />
         <BookingOverview />
         <BookingTypes />
 
