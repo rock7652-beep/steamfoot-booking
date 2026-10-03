@@ -1,7 +1,7 @@
 "use client";
 import { createPortal } from "react-dom";
 
-import { useState, useTransition, useId, useRef } from "react";
+import { useState, useTransition, useId, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -49,6 +49,8 @@ export function TrialBookingDrawer({
   const router = useRouter();
   const titleId = useId();
   const [open, setOpen] = useState(false);
+  const created=useRef(false);
+  useEffect(()=>{if(!open&&created.current){created.current=false;if(onCreated)onCreated();else router.refresh();}},[open,onCreated,router]);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<TrialSettings | null>(null);
   const [staff, setStaff] = useState<{ id: string; displayName: string }[]>([]);
@@ -207,9 +209,9 @@ export function TrialBookingDrawer({
         requestKey.complete();
         toast.success("已建立體驗預約（未收款）");
         reset();
+        created.current=true;
         setOpen(false);
         mark("router.refresh start");
-        if(onCreated)onCreated();else router.refresh();
         mark("router.refresh triggered");
       } else {
         requestKey.handleError(r.error);

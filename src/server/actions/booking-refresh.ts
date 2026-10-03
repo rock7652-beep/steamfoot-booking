@@ -8,6 +8,7 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { fetchDaySlots } from "@/server/actions/slots";
+import { loadBookingRosterLabels } from "@/server/queries/booking-roster-labels";
 import { AppError } from "@/lib/errors";
 
 /** Reuse the complete calendar DTO, including wallets, notes and collections. */
@@ -55,6 +56,7 @@ export async function refreshBookingManagement(input: {
       ? timing.measure("slots", () => fetchDaySlots(input.date!))
       : Promise.resolve(null),
   ]);
-  return { monthData, monthSchedule, slots: slotResult?.slots ?? null };
+  const customerLabels=await timing.measure("labels",()=>loadBookingRosterLabels(monthData,storeId));
+  return { monthData, monthSchedule, slots: slotResult?.slots ?? null, customerLabels };
   } finally { timing.finish(); }
 }

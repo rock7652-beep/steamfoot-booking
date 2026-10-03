@@ -1,0 +1,11 @@
+import {beforeEach,it,expect,vi} from "vitest";
+import {EMPTY_LABELS} from "@/lib/customer-labels";
+import {AppError} from "@/lib/errors";
+const m=vi.hoisted(()=>({load:vi.fn()}));
+vi.mock("@/server/actions/customer-labels",()=>({loadCustomerLabels:m.load}));
+import {loadBookingRosterLabels} from "@/server/queries/booking-roster-labels";
+beforeEach(()=>{vi.resetAllMocks();m.load.mockImplementation(async(ids:string[])=>({...EMPTY_LABELS,available:true,enabled:true,assignments:Object.fromEntries(ids.map(id=>[id,["tag"]]))}));});
+it("preloads deduplicated customers for every day within the explicitly authorized store",async()=>{const result=await loadBookingRosterLabels([{bookings:[{customer:{id:"a"}},{customer:{id:"a"}}]},{bookings:[{customer:{id:"b"}}]}],"store");expect(m.load).toHaveBeenCalledExactlyOnceWith(["a","b"],"store");expect(result.assignments).toEqual({a:["tag"],b:["tag"]});});
+it("batches large rosters without dropping assignments",async()=>{const customers=Array.from({length:501},(_,i)=>({customer:{id:String(i)}}));const result=await loadBookingRosterLabels([{bookings:customers}],"store");expect(m.load.mock.calls.map(c=>c[0].length)).toEqual([500,1]);expect(Object.keys(result.assignments)).toHaveLength(501);});
+it("keeps all-store views and roles without customer.read label-free",async()=>{expect(await loadBookingRosterLabels([],null)).toBe(EMPTY_LABELS);expect(m.load).not.toHaveBeenCalled();m.load.mockRejectedValue(new AppError("FORBIDDEN","denied"));expect(await loadBookingRosterLabels([],"store")).toBe(EMPTY_LABELS);});
+it("does not silently erase labels after a database failure",async()=>{m.load.mockRejectedValue(new Error("database"));await expect(loadBookingRosterLabels([],"store")).rejects.toThrow("database");});

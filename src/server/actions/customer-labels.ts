@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission, requireWritablePermission, checkPermission } from "@/lib/permissions";
-import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
+import { getActiveStoreForRead, resolveWriteStoreId, validateStoreAccess } from "@/lib/store";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { requireStoreFeature, hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -10,9 +10,10 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { EMPTY_LABELS, type LabelSnapshot } from "@/lib/customer-labels";
 const nameSchema = z.string().trim().min(1).max(8);
 const idSchema = z.string().min(1).max(100);
-export async function loadCustomerLabels(ids: string[] = []): Promise<LabelSnapshot> {
+export async function loadCustomerLabels(ids: string[] = [], requestedStoreId?: string): Promise<LabelSnapshot> {
+  const fetchedAt=Date.now();
   const user = await requirePermission("customer.read");
-  const storeId = await getActiveStoreForRead(user);
+  const storeId = requestedStoreId ? await validateStoreAccess(user, idSchema.parse(requestedStoreId), "read") : await getActiveStoreForRead(user);
   if (!storeId || !await hasStoreFeature(storeId, FEATURES.CUSTOMER_LABELS)) return EMPTY_LABELS;
   const customerIds = z.array(idSchema).max(500).parse(ids);
   const [setting, categories, labels, visible, canEdit] = await Promise.all([
@@ -27,7 +28,7 @@ export async function loadCustomerLabels(ids: string[] = []): Promise<LabelSnaps
   const assignments: Record<string,string[]> = {};
   for(const c of visible) assignments[c.id]=[];
   for(const row of rows) assignments[row.customerId].push(row.labelId);
-  return {available:true,enabled,canEdit:canEdit && (user.role==="ADMIN" || storeId===user.storeId),canManage:user.role==="ADMIN" || (user.role==="OWNER" && storeId===user.storeId),categories,labels,assignments};
+  return {storeId,fetchedAt,available:true,enabled,canEdit:canEdit && (user.role==="ADMIN" || storeId===user.storeId),canManage:user.role==="ADMIN" || (user.role==="OWNER" && storeId===user.storeId),categories,labels,assignments};
 }
 export async function manageCustomerLabels(input: unknown) {
   try {

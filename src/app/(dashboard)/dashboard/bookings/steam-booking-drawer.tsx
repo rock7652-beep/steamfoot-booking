@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -11,11 +11,13 @@ import { BookingCreateForm, BookingCreateSubmit, useBookingFormValidation } from
 const button="inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium";
 type Data=Extract<Awaited<ReturnType<typeof loadSteamBookingForm>>,{success:true}>["data"];
 
-export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated}:{date:string;makeup?:boolean;triggerLabel:string;onCreated?:()=>void}) {
+export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,triggerClassName}:{date:string;makeup?:boolean;triggerLabel:string;onCreated?:()=>void;triggerClassName?:string}) {
   const titleId=useId();
   const [open,setOpen]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState("");
   const [data,setData]=useState<Data|null>(null);
   const dirty=useRef(false),pending=useRef(false),generation=useRef(0);
+  const created=useRef(false);
+  useEffect(()=>{if(!open&&created.current){created.current=false;if(onCreated)onCreated();else window.dispatchEvent(new Event("booking:created"));}},[open,onCreated]);
   function close(){if(pending.current)return;if(dirty.current&&!window.confirm("尚有未儲存的預約資料，要捨棄嗎？"))return;generation.current++;setOpen(false);}
   async function show(){
     const request=++generation.current;dirty.current=false;setData(null);setError("");setOpen(true);setLoading(true);
@@ -25,11 +27,11 @@ export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated}:{d
   }
   async function submit(form:FormData){
     pending.current=true;
-    try {const result=await submitSteamBookingForm(form);if(!result.success)return {error:result.error??"建立失敗"};dirty.current=false;setOpen(false);toast.success("已建立預約");onCreated?.();}
+    try {const result=await submitSteamBookingForm(form);if(!result.success)return {error:result.error??"建立失敗"};dirty.current=false;created.current=true;setOpen(false);toast.success("已建立預約");}
     finally {pending.current=false;}
   }
   return <>
-    <button type="button" className={`${button} ${makeup?"border-earth-300 bg-white text-earth-700 hover:bg-earth-50":"border-primary-600 bg-primary-600 text-white hover:bg-primary-700"}`} onClick={()=>void show()}>{triggerLabel}</button>
+    <button type="button" className={triggerClassName??`${button} ${makeup?"border-earth-300 bg-white text-earth-700 hover:bg-earth-50":"border-primary-600 bg-primary-600 text-white hover:bg-primary-700"}`} onClick={()=>void show()}>{triggerLabel}</button>
     {open&&createPortal(<RightSheet className="!z-[90]" compact open={open} onClose={close} width={860} labelledById={titleId}>
       <div className="flex h-full min-h-0 flex-col">
         <header className="flex shrink-0 items-center justify-between border-b border-earth-100 px-5 py-4"><h2 id={titleId} className="font-semibold text-primary-900">{makeup?"新增補課":"新增預約"}</h2><button type="button" aria-label="關閉新增預約" className="min-h-11 min-w-11 text-earth-500" onClick={close}>✕</button></header>

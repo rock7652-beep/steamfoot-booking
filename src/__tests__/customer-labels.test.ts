@@ -1,9 +1,9 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
 import {labelColor} from "@/lib/customer-labels";
-const m=vi.hoisted(()=>({permission:vi.fn(),writable:vi.fn(),readStore:vi.fn(),writeStore:vi.fn(),feature:vi.fn(),requireFeature:vi.fn(),setting:vi.fn(),customers:vi.fn(),labels:vi.fn(),categories:vi.fn(),assignments:vi.fn(),customer:vi.fn(),label:vi.fn(),category:vi.fn(),upsert:vi.fn(),remove:vi.fn(),audit:vi.fn(),lock:vi.fn(),settingWrite:vi.fn(),labelUpdate:vi.fn(),metadataSetting:vi.fn(),revalidate:vi.fn()}));
+const m=vi.hoisted(()=>({permission:vi.fn(),writable:vi.fn(),readStore:vi.fn(),validateStore:vi.fn(),writeStore:vi.fn(),feature:vi.fn(),requireFeature:vi.fn(),setting:vi.fn(),customers:vi.fn(),labels:vi.fn(),categories:vi.fn(),assignments:vi.fn(),customer:vi.fn(),label:vi.fn(),category:vi.fn(),upsert:vi.fn(),remove:vi.fn(),audit:vi.fn(),lock:vi.fn(),settingWrite:vi.fn(),labelUpdate:vi.fn(),metadataSetting:vi.fn(),revalidate:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:m.revalidate}));
 vi.mock("@/lib/permissions",()=>({requirePermission:m.permission,requireWritablePermission:m.writable,checkPermission:async()=>true}));
-vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.readStore,resolveWriteStoreId:m.writeStore}));
+vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.readStore,validateStoreAccess:m.validateStore,resolveWriteStoreId:m.writeStore}));
 vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:m.feature,requireStoreFeature:m.requireFeature}));
 vi.mock("@/lib/manager-visibility",()=>({getManagerCustomerWhere:()=>({storeId:"store"})}));
 vi.mock("@/lib/db",()=>{const db={customerLabelSetting:{findUnique:m.setting,findUniqueOrThrow:m.metadataSetting,upsert:m.settingWrite,update:m.settingWrite},customerLabelCategory:{findMany:m.categories,findFirst:m.category},customerLabel:{findMany:m.labels,findFirst:m.label,updateMany:m.labelUpdate},customerLabelAssignment:{findMany:m.assignments,upsert:m.upsert,deleteMany:m.remove},customer:{findMany:m.customers,findFirst:m.customer},auditLog:{create:m.audit},$queryRaw:m.lock};return{prisma:{...db,$transaction:async(fn:(tx:typeof db)=>unknown)=>fn(db)}};});
@@ -38,3 +38,5 @@ it("persists only a complete same-store same-category label permutation",async()
  m.category.mockResolvedValue(null);expect((await manageCustomerLabels({action:"label-order",categoryId:"foreign",ids:["a","b"]})).success).toBe(false);
  expect(m.labelUpdate).not.toHaveBeenCalled();
 });
+
+it("uses validated explicit roster scope instead of a stale active store",async()=>{m.validateStore.mockResolvedValue("other");await loadCustomerLabels([],"other");expect(m.validateStore).toHaveBeenCalledWith(expect.anything(),"other","read");expect(m.categories).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"other"}}));expect(m.readStore).not.toHaveBeenCalled();});

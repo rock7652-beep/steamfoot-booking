@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
   permission: vi.fn(), active: vi.fn(), validate: vi.fn(), module: vi.fn(),
-  bookings: vi.fn(), schedule: vi.fn(), slots: vi.fn(),
+  labels:vi.fn(), bookings: vi.fn(), schedule: vi.fn(), slots: vi.fn(),
 }));
+vi.mock("@/server/queries/booking-roster-labels",()=>({loadBookingRosterLabels:m.labels}));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.active, validateStoreAccess: m.validate }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: m.module }));
@@ -71,3 +72,5 @@ describe("booking refresh read boundary", () => {
     expect(m.bookings).not.toHaveBeenCalled();
   });
 });
+
+it("returns authorized customer labels with the same roster response",async()=>{const labels={enabled:true,assignments:{customer:["tag"]}};m.labels.mockResolvedValue(labels);const result=await refreshBookingManagement(input);expect(m.labels).toHaveBeenCalledWith(result.monthData,"store-a");expect(result.customerLabels).toBe(labels);});
