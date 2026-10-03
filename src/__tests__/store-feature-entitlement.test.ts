@@ -287,7 +287,7 @@ describe("explicit HQ three-state controls", () => {
 
 
 describe("frontend preview paid add-on", () => {
-  it.each(["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const)("%s does not grant preview implicitly", async plan => {
+  it.each(["BASIC", "GROWTH", "ALLIANCE"] as const)("%s does not grant preview implicitly", async plan => {
     mockStore(plan);
     const { hasStoreFeature } = await import("@/lib/feature-gate");
     expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
@@ -306,6 +306,26 @@ describe("frontend preview paid add-on", () => {
     mockEntitlement(status);
     const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
     expect(await hasStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(false);
+    expect(await getStoreFeaturePresentation("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(status);
+    await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).rejects.toThrow();
+  });
+});
+
+describe("full single-store trial across industries", () => {
+  it("includes preview, LIFF and all single-store features for legacy undated trial stores", async () => {
+    mockStore("EXPERIENCE");
+    const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
+    const excluded = new Set<FeatureKey>([FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS, FEATURES.COACH_REVENUE, FEATURES.SPONSOR_TREE]);
+    for (const feature of Object.values(FEATURES)) {
+      expect(await hasStoreFeature("store-1", feature), feature).toBe(!excluded.has(feature));
+    }
+    expect(await getStoreFeaturePresentation("store-1", FEATURES.FRONTEND_PREVIEW)).toBe("ENABLED");
+    await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).resolves.toBeUndefined();
+  });
+  it.each(["HIDDEN", "LOCKED"] as const)("retains the HQ %s override on trial preview", async status => {
+    mockStore("EXPERIENCE");
+    mockEntitlement(status);
+    const { getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
     expect(await getStoreFeaturePresentation("store-1", FEATURES.FRONTEND_PREVIEW)).toBe(status);
     await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).rejects.toThrow();
   });

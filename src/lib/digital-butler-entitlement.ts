@@ -5,8 +5,8 @@ import { AppError } from "@/lib/errors";
 import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 
 /**
- * Requires the HQ-controlled feature entitlement. DIGITAL_BUTLER has no plan
- * default, so this fails closed until HQ explicitly enables a store override.
+ * Requires the shared feature entitlement. Full single-store trials include it;
+ * paid plans require an explicit HQ grant. Conversation activation stays separate.
  */
 export async function requireDigitalButlerEntitlement(storeId: string): Promise<void> {
   await requireStoreFeature(storeId, FEATURES.DIGITAL_BUTLER);
