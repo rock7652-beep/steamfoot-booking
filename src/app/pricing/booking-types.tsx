@@ -41,9 +41,8 @@ export function BookingTypes({ compact = false }: { compact?: boolean }) {
           <h3 className="text-xl font-semibold">{item.name}</h3>
         </div>
         <p className="mt-4 text-base font-medium">{item.question}</p>
-        <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.who}</p>
-        <p className="mb-3 mt-2 text-sm leading-6 text-[#4C6259]">{item.detail}</p>
-        <Link href={`/pricing/features/${item.id}`} className="mt-auto inline-flex min-h-11 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">{item.cta}<span aria-hidden="true" className="ml-2">→</span></Link>
+        <p className="mb-3 mt-1 text-sm leading-6 text-[#4C6259]">{item.who}</p>
+        <Link href={`/pricing/features/${item.id}`} className="mt-auto inline-flex min-h-11 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"><span aria-hidden="true">了解更多</span><span className="sr-only">了解{item.name}</span><span aria-hidden="true" className="ml-2">→</span></Link>
       </article>)}
     </div>
     <p className="mt-3 text-sm leading-6 text-[#4C6259]">不確定適合哪一種？<a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-block py-2 underline underline-offset-4">加 LINE 聊聊 ↗</a></p>
