@@ -58,8 +58,7 @@ export async function saveCourseCompanionUsage(input: unknown) {
     }
     await courseTransaction(storeId, async tx => {
       await authorize(tx, storeId, user.id, data.bookingId, data.coach);
-      const {coach: _coach, ...change} = data;
-      return changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {...change, trialPrice});
+      return changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {...data, trialPrice});
     });
     refresh();
     return {success: true as const};

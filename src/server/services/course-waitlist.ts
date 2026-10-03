@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreLimitsByStoreId, hasStoreFeature } from "@/lib/feature-gate";

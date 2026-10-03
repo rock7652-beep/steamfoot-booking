@@ -51,7 +51,7 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     mocks.limits.mockResolvedValue({maxMonthlyBookings: null}); mocks.feature.mockResolvedValue(true);
     mocks.window.mockReturnValue({closesAt: new Date("2099-12-31")});
     mocks.db.$transaction = database().$transaction.bind(database());
-    for (const key of ["courseWaitlistSetting", "courseSession", "courseWaitlistEntry"]) mocks.db[key] = (database() as any)[key];
+    for (const key of ["courseWaitlistSetting", "courseSession", "courseWaitlistEntry"] as const) mocks.db[key] = database()[key];
   }, 30000);
   afterAll(async () => {if (db) {await db.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`); await db.$disconnect();}});
 
