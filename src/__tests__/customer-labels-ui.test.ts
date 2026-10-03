@@ -3,13 +3,13 @@ import {act} from 'react';
 import {jsx} from 'react/jsx-runtime';
 import {createRoot, type Root} from 'react-dom/client';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
-import type {LabelSnapshot} from '@/lib/customer-labels';
+import {nextCustomerLabelRevision, type LabelSnapshot} from '@/lib/customer-labels';
 const m=vi.hoisted(()=>({load:vi.fn(),save:vi.fn(),error:vi.fn()}));
 vi.mock('@/server/actions/customer-labels',()=>({loadCustomerLabels:m.load,setCustomerLabel:m.save}));
 vi.mock('next/navigation',()=>({usePathname:()=>'/dashboard/customers',useRouter:()=>({replace:vi.fn()}),useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:()=>null}));
 vi.mock('sonner',()=>({toast:{error:m.error}}));
-import {CustomerLabelsProvider,CustomerLabels,CustomerLabelsSeed,CustomerLabelPicker,useCustomerLabelSnapshot} from '@/components/customer-labels';
+import {CustomerLabelsProvider,CustomerLabels,CustomerLabelsSeed,CustomerLabelPicker,useCustomerLabelSnapshot,useSeedCustomerLabels} from '@/components/customer-labels';
 const data:LabelSnapshot={available:true,enabled:true,canEdit:true,canManage:true,categories:[{id:'cat',name:'需求',number:1,position:0,active:true}],labels:[{id:'a',name:'初次',categoryId:'cat',active:true},{id:'b',name:'常客',categoryId:'cat',active:true},{id:'c',name:'重點',categoryId:'cat',active:true}],assignments:{customer:['a','b','c']}};
 let root:Root,host:HTMLDivElement;
 beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockResolvedValue(data);m.save.mockResolvedValue({success:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);});
@@ -142,3 +142,15 @@ it('keeps server labels after hydration even when the surrounding provider start
  expect(host.textContent).toContain('初次');await act(async()=>vi.advanceTimersByTimeAsync(50));expect(m.load).not.toHaveBeenCalled();expect(host.textContent).toContain('初次');
  }finally{vi.useRealTimers();}
 });
+
+it.each([1,9999999999999])('accepts newer requests and rejects stale snapshots regardless of browser clock %s',async(clock)=>{
+ const now=vi.spyOn(Date,'now').mockReturnValue(clock);
+ const stale={...data,clientRevision:nextCustomerLabelRevision(),fetchedAt:9999999999999,assignments:{customer:['a']}};
+ const current={...data,clientRevision:nextCustomerLabelRevision(),fetchedAt:1000,assignments:{customer:['b']}};
+ const fresh={...data,clientRevision:nextCustomerLabelRevision(),fetchedAt:2000,assignments:{customer:['c']}};
+ function SeedButton({value}:{value:LabelSnapshot}){const seed=useSeedCustomerLabels();return jsx('button',{onClick:()=>seed?.(value),children:'同步'});}
+ const paint=async(value:LabelSnapshot)=>act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:current,children:jsx('div',{children:[jsx(SeedButton,{value}),jsx(CustomerLabels,{customerId:'customer'})]})})));
+ try{await paint(fresh);await act(async()=>host.querySelector('button')!.click());expect(host.textContent).toContain('重點');expect(host.textContent).not.toContain('常客');await paint(stale);await act(async()=>host.querySelector('button')!.click());expect(host.textContent).toContain('重點');expect(host.textContent).not.toContain('初次');}finally{now.mockRestore();}
+});
+
+it('accepts newly navigated server data after previous client reads',async()=>{const prior={...data,fetchedAt:1000,clientRevision:nextCustomerLabelRevision(),assignments:{customer:['a']}};const navigated={...data,fetchedAt:2000,assignments:{customer:['b']}};await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:prior,children:jsx(CustomerLabelsSeed,{initial:navigated,children:jsx(CustomerLabels,{customerId:'customer'})})})));expect(host.textContent).toContain('常客');expect(host.textContent).not.toContain('初次');});

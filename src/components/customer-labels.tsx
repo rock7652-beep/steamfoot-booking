@@ -4,7 +4,7 @@ import { FeatureEntry, useFeaturePresentation } from "@/components/feature-prese
 import { FEATURES } from "@/lib/feature-flags";
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { loadCustomerLabels, setCustomerLabel } from "@/server/actions/customer-labels";
-import { EMPTY_LABELS, labelColor, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
+import { EMPTY_LABELS, labelColor, nextCustomerLabelRevision, newerLabelSnapshot, receiveCustomerLabelSnapshot, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   const pendingRef=useRef(new Set<string>());
   const ids=useRef(new Map<string,number>());
   const loaded=useRef(new Map(Object.keys(initial.assignments).map(id=>[id,Date.now()])));
+  const seedRevisions=useRef(new Map(Object.keys(initial.assignments).map(id=>[id,initial.clientRevision??0])));
   const metadataRevision=useRef(0);
   const revisions=useRef(new Map<string,number>());
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -33,6 +34,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     if(inFlight.current){queued.current=true;return inFlight.current;}
     const requested=[...ids.current.keys()].filter(id=>Date.now()-(loaded.current.get(id)??0)>=LABEL_CACHE_MS);
     if(!requested.length&&!force)return Promise.resolve();
+    const clientRevision=nextCustomerLabelRevision();
     const metadataVersion=metadataRevision.current;
     const versions=new Map(requested.map(id=>[id,revisions.current.get(id)??0]));
     queued.current=false;
@@ -40,15 +42,15 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
       try {
         const batches=await Promise.all(Array.from({length:Math.max(1,Math.ceil(requested.length/500))},(_,i)=>initial.storeId?loadCustomerLabels(requested.slice(i*500,(i+1)*500),initial.storeId):loadCustomerLabels(requested.slice(i*500,(i+1)*500))));
         if(!mounted.current)return;
-        const result={...batches[0],assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
+        const result={...batches[0],clientRevision,assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
         setSnapshot(old=>{
           if(metadataRevision.current!==metadataVersion)return old;
-          const metadata=result;
+          const metadata=newerLabelSnapshot(old,result)?old:result;
           if(!metadata.enabled)return {...metadata,assignments:{}};
           const assignments={...old.assignments};
           for(const id of requested){
             if(pendingRef.current.has(id)||(revisions.current.get(id)??0)!==versions.get(id))continue;
-            loaded.current.set(id,Date.now());
+            loaded.current.set(id,Date.now());seedRevisions.current.set(id,clientRevision);
             delete assignments[id];
             if(id in result.assignments)assignments[id]=result.assignments[id];
           }
@@ -71,16 +73,20 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     if(!initial.enabled)loaded.current.clear();
   },[initial]);
   const seed=useCallback((data:LabelSnapshot)=>{
-    const accepted=Object.fromEntries(Object.entries(data.assignments).filter(([id])=>!pendingRef.current.has(id)&&(data.fetchedAt===undefined||(loaded.current.get(id)??0)<=data.fetchedAt)));
-    for(const id of Object.keys(accepted)){loaded.current.set(id,Date.now());revisions.current.set(id,(revisions.current.get(id)??0)+1);}
-    setSnapshot(old=>{const metadata=data.fetchedAt!==undefined&&(old.fetchedAt??0)>data.fetchedAt?old:data;return {...metadata,assignments:metadata.enabled?{...old.assignments,...accepted}:{}};});
+    setSnapshot(old=>{
+      const newer=newerLabelSnapshot(old,data);
+      const accepted=Object.fromEntries(Object.entries(data.assignments).filter(([id])=>!pendingRef.current.has(id)&&(seedRevisions.current.get(id)??0)<=(data.clientRevision??0)&&!(newer&&id in old.assignments)));
+      for(const id of Object.keys(accepted)){loaded.current.set(id,Date.now());seedRevisions.current.set(id,data.clientRevision??0);revisions.current.set(id,(revisions.current.get(id)??0)+1);}
+      const metadata=newer?old:data;
+      return {...metadata,assignments:metadata.enabled?{...old.assignments,...accepted}:{}};
+    });
   },[]);
   useEffect(()=>{
     const changed=(event:Event)=>{
       const metadata=(event as CustomEvent<(LabelMetadata & {restoreAssignments?:boolean})|undefined>).detail;
       if(!metadata){void refresh();return;}
       metadataRevision.current++;
-      setSnapshot(old=>({...old,...metadata,fetchedAt:Date.now(),assignments:metadata.enabled?old.assignments:{}}));
+      setSnapshot(old=>({...old,...metadata,clientRevision:nextCustomerLabelRevision(),assignments:metadata.enabled?old.assignments:{}}));
       // Enabling restores the saved assignments that were hidden while disabled.
       if(metadata.enabled && metadata.restoreAssignments){loaded.current.clear();void fetchLabels();}
     };
@@ -98,8 +104,9 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   },[fetchLabels]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;if(timer.current)clearTimeout(timer.current);};},[]);
   const update=useCallback((id:string,labels:string[])=>{
-    revisions.current.set(id,(revisions.current.get(id)??0)+1);loaded.current.set(id,Date.now());
-    setSnapshot(old=>({...old,fetchedAt:Date.now(),assignments:{...old.assignments,[id]:labels}}));
+    const clientRevision=nextCustomerLabelRevision();
+    seedRevisions.current.set(id,clientRevision);revisions.current.set(id,(revisions.current.get(id)??0)+1);loaded.current.set(id,Date.now());
+    setSnapshot(old=>({...old,clientRevision,assignments:{...old.assignments,[id]:labels}}));
   },[]);
   const lock=useCallback((id:string)=>{if(pendingRef.current.has(id))return false;pendingRef.current.add(id);setPendingIds(new Set(pendingRef.current));return true;},[]);
   const unlock=useCallback((id:string)=>{pendingRef.current.delete(id);setPendingIds(new Set(pendingRef.current));if(!pendingRef.current.size)void fetchLabels();},[fetchLabels]);
@@ -107,7 +114,8 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
 }
 /** Supply row labels with the server-rendered list, then retain them across shared views. */
 export function useSeedCustomerLabels() { return useContext(Context)?.seed; }
-export function CustomerLabelsSeed({initial,children}:{initial:LabelSnapshot;children:ReactNode}) {
+export function CustomerLabelsSeed({initial:serverInitial,children}:{initial:LabelSnapshot;children:ReactNode}) {
+  const initial=receiveCustomerLabelSnapshot(serverInitial);
   const ctx=useContext(Context);
   const seed=ctx?.snapshot.storeId===initial.storeId?ctx?.seed:undefined;
   const [seeded,setSeeded]=useState<LabelSnapshot|null>(null);
@@ -115,8 +123,8 @@ export function CustomerLabelsSeed({initial,children}:{initial:LabelSnapshot;chi
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(()=>{seed?.(initial);setSeeded(initial);},[seed,initial]);
   if(!ctx||ctx.snapshot.storeId!==initial.storeId)return <CustomerLabelsProvider initial={initial}>{children}</CustomerLabelsProvider>;
-  const metadata=initial.fetchedAt!==undefined&&(ctx.snapshot.fetchedAt??0)>initial.fetchedAt?ctx.snapshot:initial;
-  const assignments=Object.fromEntries(Object.entries(initial.assignments).filter(([id])=>!ctx.pendingIds.has(id)&&!(initial.fetchedAt!==undefined&&(ctx.snapshot.fetchedAt??0)>initial.fetchedAt&&id in ctx.snapshot.assignments)));
+  const metadata=newerLabelSnapshot(ctx.snapshot,initial)?ctx.snapshot:initial;
+  const assignments=Object.fromEntries(Object.entries(initial.assignments).filter(([id])=>!ctx.pendingIds.has(id)&&!(newerLabelSnapshot(ctx.snapshot,initial)&&id in ctx.snapshot.assignments)));
   return <Context.Provider value={{...ctx,snapshot:seeded===initial?ctx.snapshot:{...metadata,assignments:metadata.enabled?{...ctx.snapshot.assignments,...assignments}:{}}}}>{children}</Context.Provider>;
 }
 export function CustomerLabelsSettings() {
