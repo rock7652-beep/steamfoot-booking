@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 
 import { useState, useTransition, useId, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ interface TrialSettings {
 }
 
 interface Props {
+  onCreated?: () => void;
   /** 從顧客頁進入時帶入既有顧客 */
   preset?: { customerId?: string; customerName?: string; date?: string };
   triggerLabel?: string;
@@ -38,6 +40,7 @@ const inputCls =
 const labelCls = "block text-sm font-medium text-earth-700";
 
 export function TrialBookingDrawer({
+  onCreated,
   preset,
   triggerLabel = "建立體驗預約",
   triggerClassName = "rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700",
@@ -114,6 +117,8 @@ export function TrialBookingDrawer({
     // 初始 1 人 → 預設等於單價（× 1）。
     setAmount(String(r.data.settings.trialDefaultPrice));
     setAmountTouched(false);
+    setBookingDate(preset?.date ?? "");
+    setSlotTime("");
     if (preset?.date) void loadSlots(preset.date); // calendar entry → prefilled date
   }
 
@@ -204,7 +209,7 @@ export function TrialBookingDrawer({
         reset();
         setOpen(false);
         mark("router.refresh start");
-        router.refresh();
+        if(onCreated)onCreated();else router.refresh();
         mark("router.refresh triggered");
       } else {
         requestKey.handleError(r.error);
@@ -234,7 +239,7 @@ export function TrialBookingDrawer({
         {triggerLabel}
       </button>
 
-      <RightSheet open={open} onClose={close} labelledById={titleId}>
+      {open&&createPortal(<RightSheet className="!z-[90]" open={open} onClose={close} labelledById={titleId}>
         <div className="flex h-full flex-col">
           <header className="flex items-center justify-between border-b border-earth-100 px-5 py-4">
             <h2 id={titleId} className="text-sm font-semibold text-earth-900">
@@ -416,7 +421,7 @@ export function TrialBookingDrawer({
             ) : null}
           </div>
         </div>
-      </RightSheet>
+      </RightSheet>,document.body)}
     </>
   );
 }

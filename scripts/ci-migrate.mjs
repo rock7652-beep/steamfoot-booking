@@ -27,6 +27,13 @@ if (
   console.info("[operation-audit-preview-preflight] isolated_database=true");
 }
 
+// Creation-sheet and drag-order verification must use the isolated preview database.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/steam-booking-create-sheets") {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Booking sheets Preview requires the isolated preview database.");
+  console.info("[booking-sheets-preview-preflight] isolated_database=true");
+}
+
 // Shared labels preview is restricted to the isolated test database.
 if (process.env.VERCEL_ENV === "preview" && ["feat/shared-customer-labels", "feat/hq-feature-three-state", "feat/shared-admin-visual-alignment"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))

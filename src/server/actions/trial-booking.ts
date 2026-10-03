@@ -8,7 +8,7 @@ import {
 } from "@/lib/permissions";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
-import { currentStoreId } from "@/lib/store";
+import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 import { getTrialSettings, clampTrialTotal } from "@/lib/shop-config";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { createCustomer } from "@/server/actions/customer";
@@ -42,7 +42,8 @@ export async function loadTrialBookingFormData(): Promise<
 > {
   try {
     const user = await requirePermission("trial.create");
-    const storeId = currentStoreId(user);
+    const storeId = await getActiveStoreForRead(user);
+    if (!storeId) throw new AppError("VALIDATION", "請先選擇門市再建立體驗預約");
     const [settings, staffOptions] = await Promise.all([
       getTrialSettings(storeId),
       listStaffSelectOptions(storeId),
@@ -107,7 +108,7 @@ export async function createTrialBooking(
     mark("requireWritablePermission");
     const data = createTrialBookingSchema.parse(input);
     mark("parse input");
-    storeId = currentStoreId(user);
+    storeId = await resolveWriteStoreId(user);
     bookingDate = data.bookingDate;
     slotTime = data.slotTime;
     const bookingPeople = data.people ?? 1;
@@ -291,7 +292,7 @@ export async function collectTrialPayment(
     const user = await requireWritablePermission("trial.confirm");
     const data = collectTrialPaymentSchema.parse(input);
     const completeService = data.completeService === true;
-    const storeId = currentStoreId(user);
+    const storeId = await resolveWriteStoreId(user);
     // 訂閱到期保護：到期店家不可體驗收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
 
@@ -503,7 +504,7 @@ export async function correctTrialCollection(
   try {
     const user = await requireWritablePermission("transaction.void");
     const data = correctTrialCollectionSchema.parse(input);
-    const storeId = currentStoreId(user);
+    const storeId = await resolveWriteStoreId(user);
 
     const booking = await prisma.booking.findFirst({
       where: { id: data.bookingId, storeId },

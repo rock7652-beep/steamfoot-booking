@@ -7,9 +7,9 @@ import styles from "./day-detail-panel.module.css";
 import { BookingActionFeedback } from "./booking-action-feedback";
 
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { LinkPendingLabel } from "@/components/link-pending-label";
 import { bookingStatusMeta } from "@/components/admin/status-badge";
 import { EmptyStateCompact } from "@/components/admin/empty-state-compact";
+import { SteamBookingDrawer } from "./steam-booking-drawer";
 import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import { resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
@@ -75,6 +75,7 @@ export interface DayBooking {
 const ACTIONABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
 interface DayDetailPanelProps {
+  onCreated?: () => void;
   toolbar?: ReactNode;
   date: string | null;
   bookings: DayBooking[];
@@ -113,6 +114,7 @@ interface DayDetailPanelProps {
 }
 
 export function DayDetailPanel({
+  onCreated,
   toolbar,
   date,
   bookings,
@@ -263,6 +265,7 @@ export function DayDetailPanel({
                 slotsLoading,
                 slotsCount: slots.length,
                 readOnly,
+                onCreated,
               })}
             />
           </div>
@@ -305,29 +308,14 @@ export function DayDetailPanel({
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {/* PR #312-A 止血：#311 的裸 prefetch(=true) 會 FULL-prefetch 動態頁 /bookings/new
-                （連 loading.tsx 都跳過、整段 SSR 含 fetchDaySlots），Drawer 一開就背景跑兩次，
-                是 production RSC 請求風暴來源。改 prefetch={false} 完全不背景打；點擊仍有
-                loading.tsx 骨架即時回饋。warm 化的策略留 #312-B 再評估。 */}
-            <Link
-              href={`/dashboard/bookings/new?date=${date}`}
-              prefetch={false}
-              className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700"
-            >
-              <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
-            </Link>
-            <Link
-              href={`/dashboard/bookings/new?date=${date}&mode=makeup`}
-              prefetch={false}
-              className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
-            >
-              <LinkPendingLabel>新增補課</LinkPendingLabel>
-            </Link>
+            <SteamBookingDrawer date={date} triggerLabel={`＋ 新增預約於 ${monthDay}`} onCreated={onCreated}/>
+            <SteamBookingDrawer date={date} makeup triggerLabel="新增補課" onCreated={onCreated}/>
             {/* 體驗 499 PR-2：從月曆空時段建立未收款體驗預約（預填日期；同一 Drawer） */}
             <TrialBookingDrawer
               preset={{ date: date ?? undefined }}
               triggerLabel="建立體驗預約"
-              triggerClassName="inline-flex h-8 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100"
+              onCreated={onCreated}
+              triggerClassName="inline-flex min-h-11 items-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100"
             />
           </div>
         )}
@@ -608,6 +596,7 @@ function buildEmptyStateProps(input: {
   slotsKnown: boolean;
   slotsLoading: boolean;
   slotsCount: number;
+  onCreated?: () => void;
   readOnly?: boolean;
 }) {
   const {
@@ -619,6 +608,7 @@ function buildEmptyStateProps(input: {
     slotsLoading,
     slotsCount,
     readOnly = false,
+    onCreated,
   } = input;
 
   if (filteredFrom != null && filteredFrom > 0) {
@@ -664,13 +654,7 @@ function buildEmptyStateProps(input: {
         ? `${monthDay} 共 ${daySchedule.slotCount} 個可預約時段，目前尚無預約`
         : `${monthDay} 共 ${daySchedule.slotCount} 個可預約時段，點下方按鈕新增`,
       cta: readOnly ? undefined : (
-        <Link
-          href={`/dashboard/bookings/new?date=${date}`}
-          prefetch={false}
-          className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
-        </Link>
+        <SteamBookingDrawer date={date} triggerLabel={`＋ 新增預約於 ${monthDay}`} onCreated={onCreated}/>
       ),
     };
   }
@@ -687,13 +671,7 @@ function buildEmptyStateProps(input: {
           : "點上方 ＋ 新增一筆",
     cta:
       !readOnly && slotsKnown && !slotsLoading && slotsCount > 0 ? (
-        <Link
-          href={`/dashboard/bookings/new?date=${date}`}
-          prefetch={false}
-          className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <LinkPendingLabel>＋ 新增預約於 {monthDay}</LinkPendingLabel>
-        </Link>
+        <SteamBookingDrawer date={date} triggerLabel={`＋ 新增預約於 ${monthDay}`} onCreated={onCreated}/>
       ) : undefined,
   };
 }

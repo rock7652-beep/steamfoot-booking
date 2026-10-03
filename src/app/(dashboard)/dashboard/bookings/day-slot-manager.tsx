@@ -168,7 +168,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
       <button
         type="button"
         onClick={() => void openManager()}
-        className="rounded border border-primary-300 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
+        className="inline-flex min-h-11 min-w-32 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700 hover:bg-primary-50"
       >
         管理時段
       </button>

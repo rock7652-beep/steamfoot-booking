@@ -18,7 +18,7 @@ export async function loadCustomerLabels(ids: string[] = []): Promise<LabelSnaps
   const [setting, categories, labels, visible, canEdit] = await Promise.all([
     prisma.customerLabelSetting.findUnique({where:{storeId}}),
     prisma.customerLabelCategory.findMany({where:{storeId},orderBy:[{position:"asc"},{number:"asc"}]}),
-    prisma.customerLabel.findMany({where:{storeId},orderBy:{name:"asc"}}),
+    prisma.customerLabel.findMany({where:{storeId},orderBy:[{position:"asc"},{name:"asc"},{id:"asc"}]}),
     customerIds.length ? prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),id:{in:customerIds},mergedIntoCustomerId:null},select:{id:true}}) : [],
     checkPermission(user.role,user.staffId,"customer.update"),
   ]);
@@ -41,6 +41,7 @@ export async function manageCustomerLabels(input: unknown) {
       z.object({action:z.literal("label"),id:idSchema.optional(),categoryId:idSchema,name:nameSchema}),
       z.object({action:z.literal("active"),kind:z.enum(["category","label"]),id:idSchema,active:z.boolean()}),
       z.object({action:z.literal("order"),ids:z.array(idSchema).max(100)}),
+      z.object({action:z.literal("label-order"),categoryId:idSchema,ids:z.array(idSchema).max(500)}),
     ]).parse(input);
     const metadata=await prisma.$transaction(async tx=>{
       // Serializes category numbers, settings and assignments for this store.
@@ -63,7 +64,10 @@ export async function manageCustomerLabels(input: unknown) {
         if(data.id) {
           const result=await tx.customerLabel.updateMany({where:{id:data.id,storeId},data:{name:data.name,categoryId:data.categoryId}});
           if(!result.count) throw new AppError("NOT_FOUND","標籤不存在");
-        } else await tx.customerLabel.create({data:{storeId,categoryId:data.categoryId,name:data.name}});
+        } else {
+          const last=await tx.customerLabel.findFirst({where:{storeId,categoryId:data.categoryId},orderBy:{position:"desc"},select:{position:true}});
+          await tx.customerLabel.create({data:{storeId,categoryId:data.categoryId,name:data.name,position:(last?.position??-1)+1}});
+        }
       }
       if(data.action==="active") {
         const result=data.kind==="category" ? await tx.customerLabelCategory.updateMany({where:{storeId,id:data.id},data:{active:data.active}}) : await tx.customerLabel.updateMany({where:{storeId,id:data.id},data:{active:data.active}});
@@ -74,11 +78,17 @@ export async function manageCustomerLabels(input: unknown) {
         if(new Set(data.ids).size!==data.ids.length || categories.length!==data.ids.length || categories.some(c=>!data.ids.includes(c.id))) throw new AppError("CONFLICT","分類已變更，請重新整理");
         for(const [position,id] of data.ids.entries()) await tx.customerLabelCategory.updateMany({where:{storeId,id},data:{position}});
       }
+      if(data.action==="label-order") {
+        const labels=await tx.customerLabel.findMany({where:{storeId,categoryId:data.categoryId},select:{id:true}});
+        const category=await tx.customerLabelCategory.findFirst({where:{storeId,id:data.categoryId}});
+        if(!category || new Set(data.ids).size!==data.ids.length || labels.length!==data.ids.length || labels.some(l=>!data.ids.includes(l.id))) throw new AppError("CONFLICT","標籤已變更，請重新整理");
+        for(const [position,id] of data.ids.entries()) await tx.customerLabel.updateMany({where:{storeId,categoryId:data.categoryId,id},data:{position}});
+      }
       await tx.auditLog.create({data:{actorUserId:user.id,targetType:"CustomerLabel",targetId:storeId,action:"CUSTOMER_LABEL_MANAGE",afterJson:data}});
       const [setting,categories,labels]=await Promise.all([
         tx.customerLabelSetting.findUniqueOrThrow({where:{storeId},select:{enabled:true}}),
         tx.customerLabelCategory.findMany({where:{storeId},orderBy:[{position:"asc"},{number:"asc"}],select:{id:true,name:true,number:true,position:true,active:true}}),
-        tx.customerLabel.findMany({where:{storeId},orderBy:{name:"asc"},select:{id:true,categoryId:true,name:true,active:true}}),
+        tx.customerLabel.findMany({where:{storeId},orderBy:[{position:"asc"},{name:"asc"},{id:"asc"}],select:{id:true,categoryId:true,name:true,active:true,position:true}}),
       ]);
       return {enabled:setting.enabled,categories,labels};
     });

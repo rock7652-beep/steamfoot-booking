@@ -12,7 +12,7 @@ export function labelColor(number: number) {
   return LABEL_PALETTE[(Math.max(1, number) - 1) % LABEL_PALETTE.length];
 }
 export type LabelCategory = { id: string; name: string; number: number; position: number; active: boolean };
-export type CustomerLabel = { id: string; categoryId: string; name: string; active: boolean };
+export type CustomerLabel = { id: string; categoryId: string; name: string; active: boolean; position?: number };
 export type LabelSnapshot = {
   available: boolean; enabled: boolean; canEdit: boolean; canManage: boolean;
   categories: LabelCategory[]; labels: CustomerLabel[];
@@ -26,7 +26,8 @@ export type LabelManagementInput =
   | { action: "category"; id?: string; name: string }
   | { action: "label"; id?: string; categoryId: string; name: string }
   | { action: "active"; kind: "category" | "label"; id: string; active: boolean }
-  | { action: "order"; ids: string[] };
+  | { action: "order"; ids: string[] }
+  | { action: "label-order"; categoryId: string; ids: string[] };
 
 /** Pending creations remain local until the server assigns their permanent IDs. */
 export function previewLabelManagement(data: LabelSnapshot, input: LabelManagementInput): LabelSnapshot {
@@ -39,10 +40,11 @@ export function previewLabelManagement(data: LabelSnapshot, input: LabelManageme
     }
     case "label": return { ...data, labels: input.id
       ? data.labels.map(l => l.id === input.id ? { ...l, name: input.name.trim(), categoryId: input.categoryId } : l)
-      : [...data.labels, { id: "pending-label", categoryId: input.categoryId, name: input.name.trim(), active: true }] };
+      : [...data.labels, { id: "pending-label", categoryId: input.categoryId, name: input.name.trim(), active: true, position: Math.max(-1,...data.labels.filter(l=>l.categoryId===input.categoryId).map(l=>l.position??0))+1 }] };
     case "active": return input.kind === "category"
       ? { ...data, categories: data.categories.map(c => c.id === input.id ? { ...c, active: input.active } : c) }
       : { ...data, labels: data.labels.map(l => l.id === input.id ? { ...l, active: input.active } : l) };
+    case "label-order": return { ...data, labels: data.labels.map(l => l.categoryId === input.categoryId ? { ...l, position: input.ids.indexOf(l.id) } : l).sort((a,b)=>(a.position??0)-(b.position??0)||a.name.localeCompare(b.name)) };
     case "order": return { ...data, categories: data.categories.map(c => ({ ...c, position: input.ids.indexOf(c.id) })) };
   }
 }

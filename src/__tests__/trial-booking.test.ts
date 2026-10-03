@@ -18,7 +18,7 @@ const CUID = {
 
 const h = vi.hoisted(() => ({
   requirePermission: vi.fn(async () => ({ storeId: "store_1", staffId: "op" })),
-  currentStoreId: vi.fn(() => "store_1"),
+  resolveWriteStoreId: vi.fn(() => "store_1"),
   getTrialSettings: vi.fn(async () => ({
     trialEnabled: true,
     trialDefaultPrice: 499,
@@ -56,7 +56,7 @@ vi.mock("@/lib/permissions", () => ({
   requirePermission: h.requirePermission,
   requireWritablePermission: h.requirePermission,
 }));
-vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
+vi.mock("@/lib/store", () => ({ getActiveStoreForRead: h.resolveWriteStoreId, resolveWriteStoreId: h.resolveWriteStoreId }));
 vi.mock("@/lib/shop-config", () => ({
   getTrialSettings: h.getTrialSettings,
   clampTrialPrice: (input: number, s: { trialAllowPriceEdit: boolean; trialDefaultPrice: number; trialMinPrice: number; trialMaxPrice: number }) =>
@@ -91,7 +91,7 @@ vi.mock("@/lib/errors", () => ({
   handleActionError: (e: unknown) => ({ success: false, error: e instanceof Error ? e.message : "err" }),
 }));
 
-import { createTrialBooking } from "@/server/actions/trial-booking";
+import { createTrialBooking, loadTrialBookingFormData } from "@/server/actions/trial-booking";
 
 type BkArg = { bookingType: string; servicePlanId?: string; expectedAmount?: number; customerPlanWalletId?: string; customerId: string; people?: number };
 const lastBookingArg = (): BkArg => (h.createBooking.mock.calls.at(-1) as unknown as [BkArg])[0];
@@ -99,7 +99,7 @@ const lastBookingArg = (): BkArg => (h.createBooking.mock.calls.at(-1) as unknow
 beforeEach(() => {
   vi.clearAllMocks();
   h.requirePermission.mockResolvedValue({ storeId: "store_1", staffId: "op" });
-  h.currentStoreId.mockReturnValue("store_1");
+  h.resolveWriteStoreId.mockReturnValue("store_1");
   h.getTrialSettings.mockResolvedValue({ trialEnabled: true, trialDefaultPrice: 499, trialAllowPriceEdit: true, trialMinPrice: 0, trialMaxPrice: 3000 });
   h.ensureTrialPlan.mockResolvedValue({ id: CUID.plan });
   h.createBooking.mockResolvedValue({ success: true, data: { bookingId: "ckbk0000000000000000000aa" } });
@@ -407,4 +407,10 @@ describe("validators accept non-cuid staging-style IDs (Invalid-cuid regression)
       }),
     ).not.toThrow();
   });
+});
+
+it("loads HQ selected store settings without requiring a session storeId",async()=>{
+ h.requirePermission.mockResolvedValue({storeId:undefined,staffId:"op"} as unknown as {storeId:string;staffId:string});
+ expect((await loadTrialBookingFormData()).success).toBe(true);
+ expect(h.getTrialSettings).toHaveBeenCalledWith("store_1");
 });

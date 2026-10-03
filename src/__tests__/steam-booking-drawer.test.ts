@@ -1,0 +1,20 @@
+// @vitest-environment jsdom
+import React,{act} from "react";
+import {createRoot,type Root} from "react-dom/client";
+import {beforeEach,afterEach,it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({load:vi.fn(),submit:vi.fn()}));
+vi.mock("@/server/actions/steam-booking-form",()=>({loadSteamBookingForm:m.load,submitSteamBookingForm:m.submit}));
+vi.mock("react-dom",async importOriginal=>({...await importOriginal<Record<string,unknown>>(),createPortal:(node:React.ReactNode)=>node}));
+vi.mock("next/navigation",()=>({unstable_rethrow:()=>{}}));
+vi.mock("sonner",()=>({toast:{success:vi.fn()}}));
+vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({open,children}:{open:boolean;children:React.ReactNode})=>open?React.createElement("div",{role:"dialog"},children):null}));
+vi.mock("@/app/(dashboard)/dashboard/bookings/new/booking-form",()=>({DashboardBookingForm:({defaultDate}:{defaultDate:string})=>React.createElement("div",{},React.createElement("input",{name:"bookingDate",defaultValue:defaultDate}),React.createElement("input",{name:"slotTime",defaultValue:"10:00"}))}));
+vi.mock("@/app/(dashboard)/dashboard/bookings/new/customer-and-plan-fields",()=>({CustomerAndPlanFields:({defaultMode}:{defaultMode?:string})=>React.createElement("div",{},React.createElement("input",{name:"customerId",defaultValue:"customer"}),React.createElement("input",{name:"isMakeup",type:"checkbox",defaultChecked:defaultMode==="makeup"}))}));
+import {SteamBookingDrawer} from "@/app/(dashboard)/dashboard/bookings/steam-booking-drawer";
+let host:HTMLDivElement,root:Root;
+beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.load.mockResolvedValue({success:true,data:{days:["2026-10-05"],defaultDate:"2026-10-05",todayStr:"2026-10-04",initialSlots:[],isAdmin:false}});});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+async function open(makeup=false,onCreated=vi.fn()){await act(async()=>root.render(React.createElement(SteamBookingDrawer,{date:"2026-10-05",triggerLabel:"新增",makeup,onCreated})));await act(async()=>host.querySelector("button")!.click());return onCreated;}
+it("opens the shared form in place, defaults makeup and closes only after successful creation",async()=>{const onCreated=await open(true);expect(m.load).toHaveBeenCalledWith("2026-10-05");expect(host.querySelector("a")).toBeNull();expect((host.querySelector('[name="isMakeup"]') as HTMLInputElement).checked).toBe(true);m.submit.mockResolvedValue({success:true});await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));expect(m.submit).toHaveBeenCalledTimes(1);expect((m.submit.mock.calls[0][0] as FormData).get("requestKey")).toBeTruthy();expect(onCreated).toHaveBeenCalledTimes(1);expect(host.querySelector('[role="dialog"]')).toBeNull();});
+it("retains notes and request identity after a failed save for safe retry",async()=>{await open();const notes=host.querySelector("textarea")!;notes.value="保留備註";m.submit.mockResolvedValue({success:false,error:"時段已滿"});const submit=()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));await act(async()=>submit());expect(host.querySelector('[role="alert"]')?.textContent).toBe("時段已滿");expect(notes.value).toBe("保留備註");await act(async()=>submit());expect(m.submit.mock.calls[0][0].get("requestKey")).toBe(m.submit.mock.calls[1][0].get("requestKey"));});
+it("discards a late loader result after closing the sheet",async()=>{let resolve!:(value:unknown)=>void;m.load.mockReturnValue(new Promise(r=>resolve=r));await open();await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="關閉新增預約"]')!.click());await act(async()=>resolve({success:false,error:"逾時"}));expect(host.querySelector('[role="dialog"]')).toBeNull();});

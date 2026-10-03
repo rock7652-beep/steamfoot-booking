@@ -20,6 +20,8 @@ vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({
   TrialBookingDrawer: () => null,
 }));
 
+vi.mock("@/app/(dashboard)/dashboard/bookings/steam-booking-drawer", () => ({SteamBookingDrawer: ({triggerLabel}: {triggerLabel:string}) => React.createElement("button", {}, triggerLabel)}));
+
 import { DayDetailPanel, type DayBooking } from "@/app/(dashboard)/dashboard/bookings/day-detail-panel";
 
 function textFromHtml(html: string) {
