@@ -1453,7 +1453,7 @@ export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; i
                   </fieldset>
                   )}
                   <p>
-                    共{participantCount}人，共{amount(session, card) * participantCount}{unit(card.unit)}
+                    共 {participantCount} 人，暫占 {amount(session, card) * participantCount} {unit(card.unit)}額度
                   </p>
                   {card.available <
                     amount(session, card) * Math.max(participantCount, 1) && (
