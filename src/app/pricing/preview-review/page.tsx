@@ -17,7 +17,7 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
   const query = await searchParams;
   const device = devices.find(item => item.id === query.device) ?? devices[0];
   const page = query.page === "home" ? "home" : query.page === "cases" ? "cases" : query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
-  const section = query.section === "usage" ? "usage" : query.section === "how-it-works" ? "how-it-works" : "testimonials";
+  const section = query.section === "faq" ? "faq" : query.section === "hero" ? "hero-title" : query.section === "usage" ? "usage" : query.section === "how-it-works" ? "how-it-works" : "testimonials";
   const pageUrl = page === "home" ? "/pricing/business#" + section : page === "cases" ? "/pricing/cases?store=nuanmu" : page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
   // Render the real success markup without scripts or sending a test application.
   const successPreview = page === "apply-success"
