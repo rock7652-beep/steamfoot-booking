@@ -6,6 +6,7 @@ import {
   trialApplicationSchema,
   trialDraftSchema,
   trialChecklist,
+  trialNotificationSummary,
 } from "@/lib/trial-application";
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -74,7 +75,7 @@ describe("trial application input", () => {
   it("allows submitting basic information before LINE authorization", () => {
     expect(trialApplicationSchema.safeParse(data).success).toBe(true);
     expect(
-      trialChecklist(data).find((x) => x.label.includes("Developers"))?.state,
+      trialChecklist(data).find((x) => x.label === "Provider Admin")?.state,
     ).toBe("待補充");
   });
   it.each([
@@ -138,7 +139,9 @@ describe("receipt boundary", () => {
     });
   });
   it("returns durable receipt even if storing notification result fails", async () => {
-    mocks.updateMany.mockResolvedValueOnce({ count: 1 }).mockRejectedValueOnce(new Error("connection dropped"));
+    mocks.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockRejectedValueOnce(new Error("connection dropped"));
     expect(
       (await POST(request({ requestId, token, action: "save", data }))).status,
     ).toBe(200);
@@ -190,8 +193,107 @@ describe("receipt boundary", () => {
       status: "CONFIGURING",
     });
     expect(mocks.updateMany.mock.calls[0][0].data).not.toHaveProperty("status");
-    expect(mocks.updateMany.mock.calls[0][0].data.notificationStatus).toBe("PENDING");
+    expect(mocks.updateMany.mock.calls[0][0].data.notificationStatus).toBe(
+      "PENDING",
+    );
     expect(mocks.notify).toHaveBeenCalledWith("test-id");
-    expect(mocks.updateMany).toHaveBeenCalledWith({where:{id:"test-id",revision:2,notificationStatus:"SENDING"},data:{notificationStatus:"SENT"}});
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: "test-id", revision: 2, notificationStatus: "SENDING" },
+      data: { notificationStatus: "SENT" },
+    });
+  });
+});
+
+describe("complete per-store intake", () => {
+  it("accepts old records and fills new fields for supplements", () => {
+    const legacy = {
+      storeName: data.storeName,
+      industry: data.industry,
+      contactName: data.contactName,
+      phone: data.phone,
+      email: data.email,
+      mapsUrl: "",
+      lineStatus: "existing",
+      lineId: "",
+      friendUrl: "",
+      inviteUrl: "",
+      developers: "pending",
+      integration: "unknown",
+      integrationName: "",
+    };
+    expect(trialApplicationSchema.parse(legacy).attachments).toEqual([]);
+    expect(trialApplicationSchema.parse(legacy).providerAdmin).toBe("pending");
+  });
+  it.each(["UFUN", "a b", "-butler", "admin/path"])(
+    "rejects invalid slug %s",
+    (slug) =>
+      expect(trialApplicationSchema.safeParse({ ...data, slug }).success).toBe(
+        false,
+      ),
+  );
+  it("allows requested but unallocated slug and independent admin progress", () => {
+    const d = trialApplicationSchema.parse({
+      ...data,
+      slug: "butler",
+      providerAdmin: "invited",
+      messagingAdmin: "absent",
+      loginAdmin: "help",
+    });
+    expect(trialChecklist(d)).toContainEqual({
+      label: "Provider Admin",
+      state: "已邀請，待確認 Admin",
+    });
+    expect(trialNotificationSummary(d)).toContain(
+      "Messaging API Admin：尚未建立",
+    );
+    expect(trialNotificationSummary(d)).toContain("希望網址：butler（待確認）");
+  });
+  it("rejects fabricated file bytes and oversized aggregate without throwing", () => {
+    expect(
+      trialApplicationSchema.safeParse({
+        ...data,
+        attachments: [
+          { name: "bad.pdf", type: "pdf", content: btoa("not a PDF") },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      trialApplicationSchema.safeParse({
+        ...data,
+        attachments: [
+          { name: "bad.pdf", type: "pdf", content: "!not base64!" },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+  it("requires notes or attachment when claiming setup provided", () => {
+    expect(
+      trialChecklist({ ...data, planProgress: "provided" }).find(
+        (i) => i.label === "收費方案",
+      )?.state,
+    ).toBe("待補充");
+  });
+  it("notification contains submitted configuration but no attachment content", () => {
+    const d = trialApplicationSchema.parse({
+      ...data,
+      brandName: "品牌",
+      staffNotes: "老師甲",
+      attachments: [
+        { name: "課表.pdf", type: "pdf", content: btoa("%PDF-1.7 test") },
+      ],
+    });
+    const summary = trialNotificationSummary(d);
+    expect(summary).toContain("品牌：品牌");
+    expect(summary).toContain("教練名單：老師甲");
+    expect(summary).toContain("課表.pdf");
+    expect(summary).not.toContain(d.attachments[0].content);
+    expect(summary.length).toBeLessThanOrEqual(2500);
+  });
+  it("limits repeated requests per store instead of all stores sharing an email", async () => {
+    await POST(request({ requestId, token, action: "save", data }));
+    expect(mocks.count.mock.calls[0][0].where).toMatchObject({
+      storeName: data.storeName,
+      contactEmail: data.email,
+    });
   });
 });

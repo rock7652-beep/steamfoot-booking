@@ -37,7 +37,7 @@ export const trialGuides: Record<string, TrialGuide> = {
       },
       {
         title: "這個階段完成了",
-        text: "蒸管家會用工作帳號接受邀請。連結 24 小時內有效、只能用一次；過期時重新產生並補件。",
+        text: "蒸管家會以 rock7652@gmail.com 工作帳號接受「管理員」邀請並核對。連結 24 小時內有效、只能用一次；過期時重新產生並補件。",
       },
     ],
   },

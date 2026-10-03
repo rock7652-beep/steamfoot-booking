@@ -9,6 +9,7 @@ import {
   applicationStatuses,
   trialApplicationSchema,
   trialChecklist,
+  trialSetupSummary,
 } from "@/lib/trial-application";
 import { updateApplication, retryApplicationNotification } from "./actions";
 export default async function Page({
@@ -175,6 +176,20 @@ export default async function Page({
                       ) : null,
                     )}
                   </div>
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm">
+                    {trialSetupSummary(parsed.data)}
+                  </pre>
+                  <div className="flex flex-wrap gap-3">
+                    {parsed.data.attachments.map((a, index) => (
+                      <a
+                        key={`${a.name}-${index}`}
+                        href={`/api/trial-applications/${item.id}/attachments/${index}`}
+                        className="rounded border px-3 py-2 text-sm text-primary-700"
+                      >
+                        下載 {a.name}
+                      </a>
+                    ))}
+                  </div>
                   <ul className="space-y-2 text-sm">
                     {trialChecklist(parsed.data).map((i) => (
                       <li key={i.label}>
@@ -184,7 +199,11 @@ export default async function Page({
                   </ul>
                 </>
               )}
-              <form key={item.status} action={updateApplication} className="flex flex-wrap gap-3">
+              <form
+                key={item.status}
+                action={updateApplication}
+                className="flex flex-wrap gap-3"
+              >
                 <input type="hidden" name="id" value={item.id} />
                 <select
                   name="status"

@@ -35,12 +35,12 @@ export async function POST(req: NextRequest) {
     )
   )
     return reply({ error: "操作較頻繁，請稍後再試" }, 429);
-  if (Number(req.headers.get("content-length") ?? 0) > 16000)
+  if (Number(req.headers.get("content-length") ?? 0) > 3_000_000)
     return reply({ error: "資料過長" }, 413);
   let body;
   try {
     const raw = await req.text();
-    if (raw.length > 16000) return reply({ error: "資料過長" }, 413);
+    if (raw.length > 3_000_000) return reply({ error: "資料過長" }, 413);
     body = envelope.safeParse(JSON.parse(raw));
   } catch {
     return reply({ error: "資料格式有誤" }, 400);
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       return record
         ? reply({
             id: record.id,
-            data: record.payload,
+            data: trialApplicationSchema.parse(record.payload),
             revision: record.revision,
             status: record.status,
           })
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     if (record) {
       if (
         (revision === undefined || revision <= record.revision) &&
-        isDeepStrictEqual(record.payload, data)
+        isDeepStrictEqual(trialApplicationSchema.parse(record.payload), data)
       )
         return reply({
           id: record.id,
@@ -97,17 +97,16 @@ export async function POST(req: NextRequest) {
         where: { requestId },
       });
     } else {
+      // Different stores may share an email; only throttle repeated new requests for this same store.
       const recent = await prisma.trialApplication.count({
         where: {
           contactEmail: data.email,
+          storeName: data.storeName,
           createdAt: { gte: new Date(Date.now() - 3_600_000) },
         },
       });
       if (recent >= 3)
-        return reply(
-          { error: "此 Email 已有近期申請，請使用原申請頁補件" },
-          429,
-        );
+        return reply({ error: "此門市已有近期申請，請使用原申請頁補件" }, 429);
       try {
         record = await prisma.trialApplication.create({
           data: {
@@ -134,7 +133,9 @@ export async function POST(req: NextRequest) {
           )
         )
           return reply({ error: "補件連結無效" }, 403);
-        if (!isDeepStrictEqual(record.payload, data))
+        if (
+          !isDeepStrictEqual(trialApplicationSchema.parse(record.payload), data)
+        )
           return reply({ error: "申請已收件，請重新載入補件" }, 409);
       }
     }
@@ -142,13 +143,21 @@ export async function POST(req: NextRequest) {
     try {
       if (record.notificationStatus === "PENDING") {
         const claim = await prisma.trialApplication.updateMany({
-          where: { id: record.id, revision: record.revision, notificationStatus: "PENDING" },
+          where: {
+            id: record.id,
+            revision: record.revision,
+            notificationStatus: "PENDING",
+          },
           data: { notificationStatus: "SENDING" },
         });
         if (claim.count) {
           const notificationStatus = await notifyTrialApplication(record.id);
           await prisma.trialApplication.updateMany({
-            where: { id: record.id, revision: record.revision, notificationStatus: "SENDING" },
+            where: {
+              id: record.id,
+              revision: record.revision,
+              notificationStatus: "SENDING",
+            },
             data: { notificationStatus },
           });
         }
@@ -156,7 +165,11 @@ export async function POST(req: NextRequest) {
     } catch {
       try {
         await prisma.trialApplication.updateMany({
-          where: { id: record.id, revision: record.revision, notificationStatus: "SENDING" },
+          where: {
+            id: record.id,
+            revision: record.revision,
+            notificationStatus: "SENDING",
+          },
           data: { notificationStatus: "FAILED" },
         });
       } catch {
