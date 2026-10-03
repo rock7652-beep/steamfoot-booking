@@ -1,3 +1,4 @@
+import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
@@ -49,6 +50,10 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Preview pages expose GET-only projections; reject every Server Action/form/API write.
+  if (blocksFrontendPreviewWrite(req.method, pathname, req.headers.get("referer"))) {
+    return NextResponse.json({ error: "預覽中不會儲存" }, { status: 403 });
+  }
   // Public, demonstration-only onboarding guides on isolated previews.
   // Keep the exception confined to these static files, never store/admin routes.
   if (pathname === "/line-onboarding-preview" || pathname.startsWith("/line-onboarding-preview/")) {

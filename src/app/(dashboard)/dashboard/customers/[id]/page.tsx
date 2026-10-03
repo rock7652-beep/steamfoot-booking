@@ -1,3 +1,4 @@
+import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import { FeatureEntry } from "@/components/feature-presentation";
 import { CustomerLabels } from "@/components/customer-labels";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
@@ -346,6 +347,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         <header className="space-y-4">
           <div>
             <h1 className="admin-page-title">{customer.name}</h1>
+            <FrontendPreviewQuickLink storeId={effectiveStoreId} personId={id} />
             <a href={`tel:${customer.phone}`} className="inline-flex min-h-11 items-center text-base text-primary-700 underline underline-offset-4">{customer.phone}</a>
           </div>
           {canEdit && (

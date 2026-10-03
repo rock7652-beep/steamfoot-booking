@@ -1,4 +1,5 @@
 "use client";
+import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 
@@ -247,6 +248,7 @@ export function CustomerDetailDrawerContent({
         <section className="border-t border-earth-100 pt-3">
           <h3 className="mb-2 text-sm font-semibold text-primary-900">身份狀態</h3>
           <dl className="grid grid-cols-2 gap-2 text-xs">
+            <FrontendPreviewQuickLink storeId={customer.storeId} personId={customer.id} />
             <StatusItem label="顧客資料" value="已建立" tone="ok" />
             <StatusItem
               label="會員帳號"

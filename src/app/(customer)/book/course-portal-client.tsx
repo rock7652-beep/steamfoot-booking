@@ -191,7 +191,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+export function CoursePortalClient(p: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -234,11 +234,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   const [confirmedAttendance, setConfirmedAttendance] = useState<Record<string, AttendanceUpdate>>({});
   useEffect(() => {
     if (preferredRole === role) return;
-    rememberCoursePortalRole(p.rolePreferenceKey, role);
+    if (!p.readOnly) rememberCoursePortalRole(p.rolePreferenceKey, role);
     setRole(role);
     setPage("home");
     setRoster(null);
-  }, [preferredRole, role, p.rolePreferenceKey]);
+  }, [preferredRole, role, p.rolePreferenceKey, p.readOnly]);
   const pending = saving || (role !== "coach" && refreshing);
   // Keep confirmed writes visible across an older in-flight refresh; newer server rows win.
   const work = p.work.map(s => ({ ...s, bookings: s.bookings.map(b => {
@@ -322,7 +322,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       ];
   function switchRole(next: "member" | "coach") {
     if (role === next || resolveCoursePortalRole(next, p.memberEnabled, p.hasWork) !== next || !leaveNote()) return;
-    rememberCoursePortalRole(p.rolePreferenceKey, next);
+    if (!p.readOnly) rememberCoursePortalRole(p.rolePreferenceKey, next);
     setRole(next);
     setDate(today);
     if (next === "coach" && !today.startsWith(p.month)) month(today.slice(0, 7));
@@ -379,6 +379,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     bookingIds: string[] = [],
     refreshOnFailure = true,
   ) {
+    if (p.readOnly) { setError("預覽中不會儲存"); return; }
     if (busyRef.current) return;
     busyRef.current = true;
     setSaving(true);
@@ -827,7 +828,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
-          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><button type="button" className="cp-menu" onClick={(event) => { go("guide"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>操作指南</button><form action={logoutAction}><input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
+          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><button type="button" className="cp-menu" onClick={(event) => { go("guide"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>操作指南</button><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}><input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
         </header>
         <nav className="cp-nav" aria-label="主要功能">
           {nav.map(([v, label, icon]) => (
@@ -1290,7 +1291,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             </>
           )}
           {(page === "account") && (
-            <form action={logoutAction} className="cp-logout">
+            <form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction} className="cp-logout">
               <input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""} />
               <LogoutButton className="cp-menu" />
             </form>

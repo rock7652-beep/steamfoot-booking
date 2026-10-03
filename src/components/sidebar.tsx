@@ -179,6 +179,13 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     ),
   },
   {
+    href: "/dashboard/frontend-preview",
+    requiredFeature: FEATURES.FRONTEND_PREVIEW,
+    label: "前台預覽",
+    permission: "customer.read",
+    icon: <span aria-hidden="true">▣</span>,
+    },
+  {
     href: "/dashboard/device-preview",
     requiredFeature: FEATURES.DEVICE_PREVIEW,
     label: "裝置預覽",
@@ -487,6 +494,13 @@ export const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
+        href: "/dashboard/frontend-preview",
+        requiredFeature: FEATURES.FRONTEND_PREVIEW,
+        label: "前台預覽",
+        permission: "customer.read",
+        icon: <span aria-hidden="true">▣</span>,
+        },
+      {
         href: "/dashboard/device-preview",
     requiredFeature: FEATURES.DEVICE_PREVIEW,
         label: "裝置預覽",
@@ -754,6 +768,7 @@ export default function DashboardShell({
         {...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,href:"/dashboard/teachers",label:musicEnabled?"教師管理":"教練管理"},
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/frontend-preview")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/device-preview")!,
       ] }];
     }
