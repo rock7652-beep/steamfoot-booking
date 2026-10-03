@@ -48,4 +48,18 @@ describe("HQ feature list", () => {
     expect(host.querySelector("form")).toBeNull(); expect(host.textContent).not.toContain("前台預覽");
     expect(mock.save).not.toHaveBeenCalled();
   });
+  it("retains inputs after a rejected save and saves only the selected feature", async () => {
+    mock.save.mockResolvedValueOnce({ success: null, error: "日期範圍錯誤" });
+    await click("修改"); await input(host.querySelector('input[name="note"]')!, "保留草稿");
+    await act(async () => host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(host.textContent).toContain("日期範圍錯誤");
+    expect((host.querySelector('input[name="note"]') as HTMLInputElement).value).toBe("保留草稿");
+    expect(mock.save.mock.calls[0][1].get("featureKey")).toBe("frontend_preview");
+    expect(host.textContent).toContain("未儲存");
+    await act(async () => host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(host.textContent).toContain("功能設定已更新");
+    const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); expect(event.defaultPrevented).toBe(false);
+    await input(host.querySelector('input[name="note"]')!, "第二次修改");
+    const next = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(next); expect(next.defaultPrevented).toBe(true);
+  });
 });

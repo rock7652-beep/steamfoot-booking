@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { getStoreFeatureSourceLabel } from "@/lib/store-feature-catalog";
 import {
   saveStoreFeatureEntitlementAction,
@@ -39,28 +39,25 @@ export function FeatureEntitlementForm({
     saveStoreFeatureEntitlementAction,
     initialState,
   );
-  const formRef = useRef<HTMLFormElement>(null);
-  const baseline = useRef<string | null>(null);
+  const [values, setValues] = useState({ override: override === "DISABLED" ? "LOCKED" : override, source, startsAt, expiresAt, note });
+  const baseline = useRef(JSON.stringify(values));
   const lastResult = useRef(state);
   useEffect(() => {
-    if (!formRef.current) return;
-    const value = JSON.stringify([...new FormData(formRef.current).entries()].filter(([key]) => !key.startsWith("$ACTION")));
-    if (baseline.current === null || (state !== lastResult.current && state.success)) baseline.current = value;
+    if (state !== lastResult.current && state.success) baseline.current = JSON.stringify(values);
     lastResult.current = state;
-    onEditState?.({ dirty: value !== baseline.current, pending });
-  }, [state, pending, onEditState]);
+    onEditState?.({ dirty: JSON.stringify(values) !== baseline.current, pending });
+  }, [state, values, pending, onEditState]);
+  function edit(field: keyof typeof values, value: string) {
+    const next = { ...values, [field]: value };
+    setValues(next);
+    onEditState?.({ dirty: JSON.stringify(next) !== baseline.current, pending });
+  }
 
   const isAnalysis = featureKey === "basic_reports";
 
   return (
     <form
-      ref={formRef}
       action={action}
-      onChange={() => {
-        if (!formRef.current) return;
-        const value = JSON.stringify([...new FormData(formRef.current).entries()].filter(([key]) => !key.startsWith("$ACTION")));
-        onEditState?.({ dirty: value !== baseline.current, pending });
-      }}
       className="grid gap-3 rounded-md border border-earth-100 bg-earth-50/40 p-3"
     >
       <input type="hidden" name="storeId" value={storeId} />
@@ -71,7 +68,8 @@ export function FeatureEntitlementForm({
           <select
             id={`${featureKey}-override`}
             name="override"
-            defaultValue={override === "DISABLED" ? "LOCKED" : override}
+            value={values.override}
+            onChange={event => edit("override", event.target.value)}
             className="min-h-11 w-full rounded-md border border-earth-200 bg-white px-2 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
           >
             <option value="INHERIT">跟隨方案</option>
@@ -85,7 +83,8 @@ export function FeatureEntitlementForm({
           <select
             id={`${featureKey}-source`}
             name="source"
-            defaultValue={source}
+            value={values.source}
+            onChange={event => edit("source", event.target.value)}
             className="min-h-11 w-full rounded-md border border-earth-200 bg-white px-2 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
           >
             {SOURCE_OPTIONS.map((option) => (
@@ -105,7 +104,8 @@ export function FeatureEntitlementForm({
             id={`${featureKey}-startsAt`}
             name="startsAt"
             type="date"
-            defaultValue={startsAt}
+            value={values.startsAt}
+            onChange={event => edit("startsAt", event.target.value)}
             className="min-h-11 w-full rounded-md border border-earth-200 bg-white px-2 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
           />
         </Field>
@@ -119,7 +119,8 @@ export function FeatureEntitlementForm({
             id={`${featureKey}-expiresAt`}
             name="expiresAt"
             type="date"
-            defaultValue={expiresAt}
+            value={values.expiresAt}
+            onChange={event => edit("expiresAt", event.target.value)}
             className="min-h-11 w-full rounded-md border border-earth-200 bg-white px-2 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
           />
         </Field>
@@ -130,7 +131,8 @@ export function FeatureEntitlementForm({
           <input
             id={`${featureKey}-note`}
             name="note"
-            defaultValue={note}
+            value={values.note}
+            onChange={event => edit("note", event.target.value)}
             className="min-h-11 w-full rounded-md border border-earth-200 bg-white px-2 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
             placeholder="HQ 內部備註"
           />
