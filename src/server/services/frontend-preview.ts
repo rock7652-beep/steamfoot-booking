@@ -1,7 +1,7 @@
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import "server-only";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { checkPermission, requirePermission } from "@/lib/permissions";
 import { validateStoreAccess } from "@/lib/store";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -36,4 +36,29 @@ export async function authorizeFrontendPreview(input: FrontendPreviewSelection) 
   });
   if (!customer) throw new AppError("NOT_FOUND", "沒有符合條件的顧客");
   return { user, moduleId, storeId: input.storeId, personId: customer.id, name: customer.name, personUserId: customer.userId, role: input.role };
+}
+
+/** Resolve only explicit, active same-store links, then authorize each visible role. */
+export async function resolveCoursePreviewIdentity(access: Awaited<ReturnType<typeof authorizeFrontendPreview>>) {
+  const result = { customerId: access.role === "member" ? access.personId : "", workStaffId: access.role === "work" ? access.personId : null as string | null, memberEnabled: access.role === "member" };
+  if (access.moduleId !== "course") return result;
+  if (access.role === "member" && (!access.personUserId || (access.user.role !== "OWNER" && access.user.role !== "ADMIN") || !await checkPermission(access.user.role, access.user.staffId, "staff.view"))) return result;
+  const link = await prisma.staffMemberLink.findFirst({
+    where: { storeId: access.storeId, revokedAt: null, ...(access.role === "member" ? { userId: access.personUserId! } : { staffId: access.personId }), staff: { status: "ACTIVE", courseCoachEnabled: true } },
+    select: { staffId: true, userId: true, courseMemberEnabled: true },
+  });
+  if (!link) return result;
+  if (access.role === "member") {
+    // The same checks as selecting work in HQ must pass before loading rosters.
+    await authorizeFrontendPreview({ storeId: access.storeId, personId: link.staffId, role: "work" });
+    return { ...result, workStaffId: link.staffId, memberEnabled: link.courseMemberEnabled };
+  }
+  if (!link.courseMemberEnabled || !await checkPermission(access.user.role, access.user.staffId, "wallet.read")) return result;
+  const customer = await prisma.customer.findFirst({
+    where: { ...getManagerCustomerWhere(access.user.role, access.user.staffId, access.storeId), storeId: access.storeId, userId: link.userId, mergedIntoCustomerId: null },
+    select: { id: true },
+  });
+  if (!customer) return result;
+  await authorizeFrontendPreview({ storeId: access.storeId, personId: customer.id, role: "member" });
+  return { ...result, customerId: customer.id, memberEnabled: true };
 }

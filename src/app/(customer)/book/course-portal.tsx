@@ -1,4 +1,4 @@
-import { authorizeFrontendPreview, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
+import { authorizeFrontendPreview, resolveCoursePreviewIdentity, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
 import { cookies } from "next/headers";
 import { coursePortalRoleCookie, resolveCoursePortalRole } from "@/lib/course-portal-role";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
@@ -22,8 +22,9 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     now = new Date();
   const access = preview ? await authorizeFrontendPreview(preview) : null;
   if (access && access.moduleId !== "course") throw new Error("課程模組不符");
+  const previewIdentity = access ? await resolveCoursePreviewIdentity(access) : null;
   const { user, storeId, customer } = access
-    ? { user: { id: access.personUserId ?? "" }, storeId: access.storeId, customer: { id: access.role === "member" ? access.personId : "", name: access.name } }
+    ? { user: { id: access.personUserId ?? "" }, storeId: access.storeId, customer: { id: previewIdentity!.customerId, name: access.name } }
     : await courseAccount();
   const [
     identity,
@@ -79,8 +80,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
     access ? Promise.resolve(null) : personalIncomeAccess(user.id, storeId),
   ]);
-  const memberEnabled = access ? access.role === "member" : identity?.courseMemberEnabled !== false;
-  const workLink = access ? (access.role === "work" ? { staffId: access.personId } : null) : link;
+  const memberEnabled = access ? previewIdentity!.memberEnabled : identity?.courseMemberEnabled !== false;
+  const workLink = access ? (previewIdentity!.workStaffId ? { staffId: previewIdentity!.workStaffId } : null) : link;
   const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
   const waitlistFeature = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
   const waitlistSetting = waitlistFeature

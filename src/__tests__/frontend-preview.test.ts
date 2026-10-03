@@ -1,18 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
-const mocks = vi.hoisted(() => ({ permission: vi.fn(), store: vi.fn(), feature: vi.fn(), module: vi.fn(), customer: vi.fn(), staff: vi.fn(), visibility: vi.fn() }));
+const mocks = vi.hoisted(() => ({ permission: vi.fn(), check: vi.fn(), link: vi.fn(), store: vi.fn(), feature: vi.fn(), module: vi.fn(), customer: vi.fn(), staff: vi.fn(), visibility: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission, checkPermission: mocks.check }));
 vi.mock("@/lib/store", () => ({ validateStoreAccess: mocks.store }));
 vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: mocks.feature }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.module }));
-vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: mocks.customer }, staff: { findFirst: mocks.staff } } }));
+vi.mock("@/lib/db", () => ({ prisma: { staffMemberLink: { findFirst: mocks.link }, customer: { findFirst: mocks.customer }, staff: { findFirst: mocks.staff } } }));
 vi.mock("@/lib/manager-visibility", () => ({ getManagerCustomerWhere: mocks.visibility }));
-import { authorizeFrontendPreview } from "@/server/services/frontend-preview";
+import { authorizeFrontendPreview, resolveCoursePreviewIdentity } from "@/server/services/frontend-preview";
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.permission.mockResolvedValue({ id: "viewer", role: "OWNER", staffId: "manager", storeId: "own" });
+  mocks.check.mockResolvedValue(true);
+  mocks.link.mockResolvedValue(null);
   mocks.store.mockResolvedValue("store");
   mocks.module.mockResolvedValue("steamfoot");
   mocks.visibility.mockReturnValue({ assignedStaffId: "manager" });
@@ -77,5 +79,52 @@ describe("GET-only preview transport", () => {
     expect(blocksFrontendPreviewWrite("GET", "/frontend-preview", null)).toBe(false);
     expect(blocksFrontendPreviewWrite("POST", "/s/course/book", "https://www.steamfoot.com/s/course/book")).toBe(false);
     expect(blocksFrontendPreviewWrite("POST", "/api/payment/webhook", null)).toBe(false);
+  });
+});
+
+describe("course preview linked identities", () => {
+  const access = { user: { id: "viewer", role: "OWNER", staffId: "manager" }, moduleId: "course", storeId: "store", personId: "person", name: "會員", personUserId: "line-user", role: "member" } as Extract<Awaited<ReturnType<typeof authorizeFrontendPreview>>, { role: "member" }>;
+  beforeEach(() => {
+    mocks.module.mockResolvedValue("course");
+    mocks.link.mockResolvedValue({ staffId: "coach", userId: "line-user", courseMemberEnabled: true });
+  });
+  it("enables work from the linked member only after work authorization", async () => {
+    expect(await resolveCoursePreviewIdentity(access)).toEqual({ customerId: "person", workStaffId: "coach", memberEnabled: true });
+    expect(mocks.link).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store", userId: "line-user", revokedAt: null, staff: { status: "ACTIVE", courseCoachEnabled: true } } }));
+    expect(mocks.staff).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "coach", storeId: "store" }) }));
+  });
+  it.each(["PARTNER", "CUSTOMER"])("does not expand %s access", async role => {
+    const result = await resolveCoursePreviewIdentity({ ...access, user: { ...access.user, role: role as typeof access.user.role } });
+    expect(result.workStaffId).toBeNull();
+    expect(mocks.link).not.toHaveBeenCalled();
+  });
+  it("does not infer identity from a matching name or absent login", async () => {
+    expect((await resolveCoursePreviewIdentity({ ...access, personUserId: null })).workStaffId).toBeNull();
+    expect(mocks.link).not.toHaveBeenCalled();
+  });
+  it("keeps work hidden without personnel permission or an active link", async () => {
+    mocks.check.mockResolvedValue(false);
+    expect((await resolveCoursePreviewIdentity(access)).workStaffId).toBeNull();
+    mocks.check.mockResolvedValue(true);
+    mocks.link.mockResolvedValue(null);
+    expect((await resolveCoursePreviewIdentity(access)).workStaffId).toBeNull();
+  });
+  it("rejects an invalid linked coach through existing work checks", async () => {
+    mocks.staff.mockResolvedValue(null);
+    await expect(resolveCoursePreviewIdentity(access)).rejects.toThrow("沒有符合條件");
+  });
+  it("enables member from work through the same-store linked account", async () => {
+    const result = await resolveCoursePreviewIdentity({ ...access, moduleId: "course", personUserId: "line-user", personId: "coach", role: "work" });
+    expect(result).toEqual({ customerId: "person", workStaffId: "coach", memberEnabled: true });
+    expect(mocks.customer).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "store", userId: "line-user", mergedIntoCustomerId: null, assignedStaffId: "manager" }) }));
+  });
+  it("keeps coach-only identities and restricted member reads separate", async () => {
+    mocks.link.mockResolvedValue({ staffId: "coach", userId: "line-user", courseMemberEnabled: false });
+    expect((await resolveCoursePreviewIdentity({ ...access, moduleId: "course", personUserId: "line-user", personId: "coach", role: "work" })).memberEnabled).toBe(false);
+    expect(mocks.customer).not.toHaveBeenCalled();
+    expect((await resolveCoursePreviewIdentity(access)).memberEnabled).toBe(false);
+    mocks.link.mockResolvedValue({ staffId: "coach", userId: "line-user", courseMemberEnabled: true });
+    mocks.check.mockResolvedValue(false);
+    expect((await resolveCoursePreviewIdentity({ ...access, moduleId: "course", personUserId: "line-user", personId: "coach", role: "work" })).memberEnabled).toBe(false);
   });
 });
