@@ -45,7 +45,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
         const result={...batches[0],clientRevision,assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
         setSnapshot(old=>{
           if(metadataRevision.current!==metadataVersion)return old;
-          const metadata=result;
+          const metadata=newerLabelSnapshot(old,result)?old:result;
           if(!metadata.enabled)return {...metadata,assignments:{}};
           const assignments={...old.assignments};
           for(const id of requested){
