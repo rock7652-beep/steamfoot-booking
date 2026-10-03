@@ -211,6 +211,7 @@ export function BookingsManager({
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
     initialBookingId,
   );
+  const [activeBookingIntent, setActiveBookingIntent] = useState<"collect" | undefined>();
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
@@ -424,7 +425,7 @@ export function BookingsManager({
   const labels = useCustomerLabelSnapshot(dayBookings.flatMap(booking => booking.customer.id ? [booking.customer.id] : []));
   const labelsLoading = labels.enabled && !!labelFilter && dayBookings.some(booking => booking.customer.id && !(booking.customer.id in labels.assignments));
   const filteredDayBookings = useMemo(() => dayBookings.filter(booking => matchesFilters(booking) &&
-    (!unpaidOnly || (booking.bookingType === "FIRST_TRIAL" && !booking.collected && booking.bookingStatus !== "CANCELED")) &&
+    (!unpaidOnly || ((booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE") && !booking.collected && COMPLETABLE_STATUSES.has(booking.bookingStatus))) &&
     (!labels.enabled || !labelFilter || labels.assignments[booking.customer.id ?? ""]?.includes(labelFilter))),
     [dayBookings, matchesFilters, labels.enabled, labels.assignments, labelFilter, unpaidOnly]);
   const monthSearchResults = useMemo(() => monthData
@@ -512,17 +513,19 @@ export function BookingsManager({
   }, [dayBookings]);
 
   const openBooking = useCallback(
-    (id: string) => {
-      if (saves.isBlocked(id)) return;
+    (id: string, intent?: "collect") => {
+      if (saves.isBlocked(id) || (intent && readOnly)) return;
+      setActiveBookingIntent(intent);
       // 當日清單暫時隱藏；關閉詳情後回到原日期、篩選與捲動位置。
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById, saves],
+    [summaryById, prefillById, saves, readOnly],
   );
 
   const closeBooking = useCallback(() => {
+    setActiveBookingIntent(undefined);
     setActiveBookingId(null);
     setActiveSummary(null);
     setActivePrefill(null);
@@ -776,7 +779,7 @@ export function BookingsManager({
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             toolbar={<>
-              <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => b.bookingType === "FIRST_TRIAL" && !b.collected && b.bookingStatus !== "CANCELED").length}</button>
+              <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length}</button>
               <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
                 onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); }}
                 className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]" />
@@ -838,6 +841,7 @@ export function BookingsManager({
         operationGuidePreview={operationGuidePreview}
         open={!!activeBookingId}
         bookingId={activeBookingId}
+        initialIntent={activeBookingIntent}
         resolvedStoreId={storeId}
         summary={activeSummary}
         prefill={activePrefill}

@@ -95,7 +95,7 @@ interface DayDetailPanelProps {
   /** 若有篩選，原始筆數（>0 代表已套篩選） */
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
-  onBookingClick?: (bookingId: string) => void;
+  onBookingClick?: (bookingId: string, intent?: "collect") => void;
   /** ── Batch / inline action wiring (omit to disable) ── */
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (id: string) => void;
@@ -349,7 +349,7 @@ function TimelineItem({
 }: {
   booking: DayBooking;
   readOnly?: boolean;
-  onClick?: (id: string) => void;
+  onClick?: (id: string, intent?: "collect") => void;
   actionable: boolean;
   selected: boolean;
   onToggleSelect?: (id: string) => void;
@@ -357,6 +357,7 @@ function TimelineItem({
   onRevertSingle?: (id: string) => void;
   isActing: boolean;
 }) {
+  const needsCollection = !booking.collected && (booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE");
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   // 有效 PACKAGE 堂數提醒（複用 PR #280 顧客清單同款 helper，定義一致）。
   const sessions = remainingSessionsState(booking.customer?.validPackageSessions ?? 0);
@@ -451,11 +452,14 @@ function TimelineItem({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (!isActing) onCompleteSingle(booking.id);
+              if (!isActing) {
+                if(needsCollection && onClick) onClick(booking.id,"collect");
+                else onCompleteSingle(booking.id);
+              }
             }}
             disabled={isActing}
             className={rosterStatusButtonClassName}
-            aria-label={`完成 ${booking.customer.name} 的預約`} title="完成服務"
+            aria-label={`${needsCollection ? "收款並完成" : "完成"} ${booking.customer.name} 的預約`} title={needsCollection ? "先收款，再完成服務" : "完成服務"}
           >
             <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-earth-400">{isActing ? "…" : ""}</span><span className="sr-only">{isActing ? "儲存中…" : "完成"}</span>
           </button>
@@ -511,6 +515,9 @@ function TimelineItem({
           ) : null}
 <span className={`${styles.inlineStaff} font-normal text-earth-500`}> · {assignedStaffName}</span></span>} phone={booking.customer.phone} showLabels={false} readOnly={readOnly}/></div>
         <div className={`${styles.statusCell} flex flex-wrap items-center gap-x-2 gap-y-1`}>
+          {!readOnly && actionable && needsCollection && onClick && <button type="button" disabled={isActing}
+            onClick={()=>onClick(booking.id,"collect")} aria-label={`收款 ${booking.customer.name} 的預約`}
+            className="min-h-11 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 disabled:opacity-50">收款</button>}
           {/* 只有待到店的套餐預約才顯示目前剩餘堂數；歷史預約顯示本次
               是否已扣堂。體驗／單次不顯示方案警示。 */}
           {planBadge.kind === "remaining" ? (
@@ -537,9 +544,9 @@ function TimelineItem({
             </span>
           ) : null}
         {booking.bookingType !== "FIRST_TRIAL" && planBadge.kind !== "deducted" && planLabel !== "—" ? (
-          <span className={`${styles.planCell} flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600`}>
-            <span className="min-w-0 break-words" title={planLabel}>{planLabel}</span>
-            {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
+          <span className={`${styles.planCell} flex w-full min-w-0 flex-col items-start gap-0 text-sm leading-relaxed text-earth-600`}>
+            <span className="w-full min-w-0 [overflow-wrap:anywhere]" title={planLabel}>{planLabel}</span>
+            {expiry && <span title={expiry.detail} className={`w-full min-w-0 [overflow-wrap:anywhere] ${expiry.className}`}>{expiry.compact}</span>}
           </span>
         ) : null}
         </div>

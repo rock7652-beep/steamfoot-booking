@@ -312,3 +312,35 @@ describe("batch selection mode", () => {
     } finally { await act(async () => root.unmount()); }
   });
 });
+
+describe("roster collection shortcut",()=>{
+ it("opens collection without directly completing or submitting payment",async()=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const container=document.createElement("div");const root=createRoot(container);const open=vi.fn(),complete=vi.fn();
+  try {
+   await act(async()=>root.render(React.createElement(DayDetailPanel,{date:"2026-10-23",slots:[],bookings:[booking({bookingType:"FIRST_TRIAL",expectedAmount:499})],onBookingClick:open,onCompleteSingle:complete})));
+   const button=container.querySelector<HTMLButtonElement>('button[aria-label="收款 陳沛妍 的預約"]')!;expect(button.textContent).toBe("收款");
+   await act(async()=>button.click());expect(open).toHaveBeenCalledWith("booking-1","collect");expect(complete).not.toHaveBeenCalled();
+   open.mockClear();await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="收款並完成 陳沛妍 的預約"]')!.click());expect(open).toHaveBeenCalledWith("booking-1","collect");expect(complete).not.toHaveBeenCalled();
+  } finally {await act(async()=>root.unmount());}
+ });
+ it.each([
+  {bookingType:"FIRST_TRIAL",collected:true},
+  {bookingType:"SINGLE",bookingStatus:"COMPLETED"},
+  {bookingType:"FIRST_TRIAL",bookingStatus:"CANCELED"},
+  {bookingType:"FIRST_TRIAL",bookingStatus:"NO_SHOW"},
+  {bookingType:"PACKAGE_SESSION"},
+ ])("omits collection for ineligible rows %j",overrides=>{
+  const html=renderToStaticMarkup(React.createElement(DayDetailPanel,{date:"2026-10-23",slots:[],bookings:[booking(overrides)],onBookingClick:vi.fn()}));expect(html).not.toContain('aria-label="收款 陳沛妍');
+ });
+ it("hides collection in read-only views and disables it while saving",()=>{
+  const props={date:"2026-10-23",slots:[],bookings:[booking({bookingType:"SINGLE"})],onBookingClick:vi.fn()};
+  expect(renderToStaticMarkup(React.createElement(DayDetailPanel,{...props,readOnly:true}))).not.toContain('aria-label="收款 陳沛妍');
+  const container=document.createElement("div");container.innerHTML=renderToStaticMarkup(React.createElement(DayDetailPanel,{...props,actingIds:new Set(["booking-1"])}));expect(container.querySelector<HTMLButtonElement>('button[aria-label="收款 陳沛妍 的預約"]')?.disabled).toBe(true);
+ });
+ it("keeps long plan names and cross-year expiry on separate wrapping lines",()=>{
+  const row=booking({customerPlanWallet:{status:"ACTIVE",remainingSessions:8,expiryDate:new Date("2027-01-09T00:00:00Z"),plan:{name:"$299會員限定(1000點)"}}});
+  const container=document.createElement("div");container.innerHTML=renderToStaticMarkup(React.createElement(DayDetailPanel,{date:"2026-10-23",slots:[],bookings:[row]}));
+  const name=container.querySelector('[title="$299會員限定(1000點)"]')!;expect(name.parentElement?.className).toContain("flex-col");
+  const expiry=name.nextElementSibling!;expect(expiry.textContent).toContain("2027/01/09 到期");expect(expiry.className).not.toContain("whitespace-nowrap");expect(expiry.className).toContain("overflow-wrap:anywhere");
+ });
+});
