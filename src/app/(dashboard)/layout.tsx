@@ -96,7 +96,11 @@ export default async function DashboardLayout({
       : ("EXPERIENCE" as const);
   const featureStates = effectiveStoreId
     ? Object.fromEntries(await Promise.all(Object.values(FEATURES).map(async feature => [feature, await getStoreFeaturePresentation(effectiveStoreId, feature)])))
-    : { [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const };
+    // HQ opens a store selector; page and iframe enforce the selected store's grant.
+    : {
+      [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+      [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+    };
   const effectiveFeatures = Object.fromEntries(Object.entries(featureStates).map(([feature, state]) => [feature, state === "ENABLED"]));
 
 

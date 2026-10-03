@@ -21,7 +21,7 @@ export default async function FrontendPreviewDashboard({ searchParams }: { searc
   try { await validateStoreAccess(user, storeId, "read"); } catch { notFound(); }
   const state = await getStoreFeaturePresentation(storeId, FEATURES.FRONTEND_PREVIEW);
   if (state === "HIDDEN") notFound();
-  if (state !== "ENABLED") return <div className="space-y-3"><h1 className="admin-page-title">前台預覽</h1><p>尚未開通功能，請聯絡總部加購。</p></div>;
+  if (state !== "ENABLED") return <div className="space-y-3"><h1 className="admin-page-title">前台預覽</h1><FrontendPreviewSelector key={storeId} stores={stores} storeId={storeId} role="member" query="" people={[]} allowWork={false} previewHref={null} locked /></div>;
   const moduleId = await getStoreIndustryModule(storeId);
   const allowWork = moduleId !== "steamfoot" && (user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "staff.view");
   const role = p.role === "work" && allowWork ? "work" : "member";
