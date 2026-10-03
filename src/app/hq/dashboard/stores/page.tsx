@@ -58,8 +58,8 @@ export default async function StoresPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
-        <table className="admin-list-table w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+        <table className="admin-list-table w-full min-w-[1100px] text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <thead className="border-b border-earth-200 bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>
@@ -111,7 +111,7 @@ export default async function StoresPage() {
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={`/hq/dashboard/stores/${store.id}/features`}
-                        className="text-xs font-medium text-primary-600 hover:underline"
+                        className="whitespace-nowrap text-xs font-medium text-primary-600 hover:underline"
                       >
                         功能設定
                       </Link>

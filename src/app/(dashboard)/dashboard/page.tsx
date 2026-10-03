@@ -1,3 +1,4 @@
+import { BrandOverviewContent } from "@/components/hq-brand-overview";
 import { CourseHome } from "./courses/home";
 import { SpaHome } from "./spa-home";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -76,6 +77,9 @@ export default async function DashboardHomePage() {
   if (!user) return null;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (user.role === "ADMIN" && !activeStoreId && await checkPermission(user.role, user.staffId, "report.read")) {
+    return <BrandOverviewContent />;
+  }
   if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
     return <CourseHome user={user} storeId={activeStoreId} />;
   }

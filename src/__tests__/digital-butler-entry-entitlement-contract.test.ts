@@ -5,7 +5,7 @@ const read = (path: string) => readFileSync(path, "utf8");
 
 describe("digital butler dashboard entry entitlement contract", () => {
   it("passes the effective store entitlement into sidebar navigation", () => {
-    const layout = read("src/app/(dashboard)/layout.tsx");
+    const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
 
     expect(layout).toContain(
