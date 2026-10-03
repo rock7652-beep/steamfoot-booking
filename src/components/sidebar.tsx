@@ -19,11 +19,12 @@ import { hasFeature, type FeatureKey, FEATURES } from "@/lib/feature-flags";
 
 import { APP_VERSION } from "@/lib/version";
 import type { PricingPlan } from "@prisma/client";
+import { isHqPlatformPath, isNavigationItemActive } from "@/lib/hq-navigation";
+import { ReturnToHqButton } from "@/components/return-to-hq-button";
 import StoreSwitcher from "@/components/store-switcher";
 import { StoreViewModeSwitcher } from "@/components/store-view-mode-switcher";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
 import type { IndustryModuleId } from "@/lib/industry-modules";
-import { bookingDashboardPath } from "@/lib/industry-dashboard-routes";
 import { createDevicePreviewUrl } from "@/lib/device-preview";
 
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
@@ -209,7 +210,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
 // core 組的項目直接顯示在側邊欄頂部，不顯示分組標題。
 // ============================================================
 
-export const NAV_GROUPS: NavGroup[] = [
+const ORIGINAL_NAV_GROUPS: NavGroup[] = [
   // ── 第一層：主選單（核心功能，永遠展開） ──
   {
     id: "core",
@@ -591,6 +592,42 @@ export const NAV_GROUPS: NavGroup[] = [
 // Component
 // ============================================================
 
+// Group the existing HQ entries without duplicating page or entitlement rules.
+const hqItems = ORIGINAL_NAV_GROUPS.flatMap(group => group.items);
+const hqItem = (href: string, label?: string): NavItem => {
+  const item = hqItems.find(item => item.href === href);
+  if (!item) throw new Error(`Missing HQ navigation entry: ${href}`);
+  return label ? { ...item, label } : item;
+};
+const storeIcon = hqItem("/dashboard/stores").icon;
+const hqExtra = (href: string, label: string): NavItem => ({ href, label, ownerOnly: true, icon: storeIcon });
+export const NAV_GROUPS: NavGroup[] = [
+  { id: "core", label: "", icon: <></>, defaultOpen: true, items: [hqItem("/dashboard", "HQ 首頁"), hqItem("/dashboard/brand-overview")] },
+  { id: "stores", label: "店舖管理", icon: storeIcon, defaultOpen: true, items: [
+    hqItem("/dashboard/stores", "店舖清單"),
+    hqExtra("/dashboard/trial-applications", "體驗申請"),
+    hqExtra("/dashboard/stores/subscriptions", "訂閱管理"),
+    hqExtra("/dashboard/stores/organization", "店舖組織"),
+  ] },
+  { id: "operations", label: "營運與財務", icon: ORIGINAL_NAV_GROUPS[1].icon, items: [
+    hqItem("/dashboard/bookings"), hqItem("/dashboard/customers"), hqItem("/dashboard/staff"),
+    hqItem("/dashboard/duty"), hqItem("/dashboard/plans", "顧客方案"),
+    hqItem("/dashboard/store-revenue"), hqItem("/dashboard/transactions"), hqItem("/dashboard/cashbook"),
+    hqItem("/dashboard/reconciliation"), hqItem("/dashboard/reports"), hqItem("/dashboard/coach-revenue"),
+    hqItem("/dashboard/ops"),
+  ] },
+  { id: "growth", label: "顧客經營", icon: hqItem("/dashboard/growth").icon, items: [
+    hqItem("/dashboard/growth"), hqItem("/dashboard/reminders"), hqItem("/dashboard/bonus-rules"),
+    hqItem("/dashboard/training"), hqItem("/dashboard/ranking"), hqItem("/dashboard/analytics"),
+  ] },
+  { id: "settings", label: "系統工具", icon: ORIGINAL_NAV_GROUPS[2].icon, items: [
+    hqItem("/dashboard/frontend-preview"), hqItem("/dashboard/device-preview"),
+    hqItem("/dashboard/system-status"), hqItem("/dashboard/operation-audits"), hqItem("/dashboard/member-link-reviews"),
+    hqItem("/dashboard/settings/plans", "系統方案介紹"), hqItem("/dashboard/settings/hours"),
+    hqItem("/dashboard/settings/duty"), hqItem("/dashboard/upgrade-requests"),
+  ] },
+];
+
 interface StoreOption {
   id: string;
   name: string;
@@ -615,7 +652,7 @@ interface DashboardShellProps {
   userName: string;
   roleLabel: string;
   logoutButton: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   /** Layout-level status UI. Kept out of iframe preview mode with the shell chrome. */
   notices?: React.ReactNode;
   trialStatus?: TrialStatus;
@@ -703,13 +740,16 @@ export default function DashboardShell({
   // Give the fitness timetable room on tablet widths; an explicit toggle wins.
   const sidebarPreference = useRef<boolean | null>(null);
   const compactCourseTablet = industryModule === "course" && !musicEnabled && isCourseSchedule;
+  const compactHqTablet = !!storeOptions?.length;
   useEffect(() => {
     const tablet = window.matchMedia("(min-width: 1024px) and (max-width: 1366px)");
-    const update = () => setCollapsed(sidebarPreference.current ?? (compactCourseTablet && tablet.matches));
+    const portrait = window.matchMedia("(min-width: 768px) and (max-width: 1023px)");
+    const update = () => setCollapsed(sidebarPreference.current ?? ((compactCourseTablet && tablet.matches) || (compactHqTablet && portrait.matches)));
     update();
     tablet.addEventListener("change", update);
-    return () => tablet.removeEventListener("change", update);
-  }, [compactCourseTablet]);
+    portrait.addEventListener("change", update);
+    return () => { tablet.removeEventListener("change", update); portrait.removeEventListener("change", update); };
+  }, [compactCourseTablet, compactHqTablet]);
 
   // isAdmin: ADMIN 才有 storeOptions（用於 HQ 專屬 UI）
   const isAdmin = !!storeOptions?.length;
@@ -735,11 +775,14 @@ export default function DashboardShell({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [userMenuOpen]);
 
-  // Sidebar 選用依「目前所在 route」決定，不依角色：
-  //   /hq/*              → HQ NAV_GROUPS（完整版）
+  // HQ platform pages use global tools; a selected store uses its industry navigation.
+  //   /hq/* without a store or platform pages → HQ NAV_GROUPS
   //   /s/{slug}/admin/*  → 店家後台 STORE_ADMIN_NAV（7 項扁平）
   //   legacy /dashboard/*（未經 proxy 進入）→ 沿用舊邏輯以 isAdmin 判斷，避免破壞既有入口
   const isHqRoute = rawPathname.startsWith("/hq");
+  const isHqStoreView = isHqRoute && isAdmin && !!activeStoreId && !isHqPlatformPath(rawPathname);
+  const isHqPlatformView = isHqRoute && !isHqStoreView;
+  const navStateKey = isHqPlatformView ? "hq-nav-groups-v1" : `store-nav-groups-v1:${industryModuleId}`;
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
   const spaNavigation = useMemo<NavItem[]>(() => {
@@ -748,10 +791,11 @@ export default function DashboardShell({
       {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
     ];
     const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
-    return items.sort((a,b)=>order.indexOf(a.href)-order.indexOf(b.href));
+    return items.sort((a,b)=>(order.includes(a.href) ? order.indexOf(a.href) : order.length) - (order.includes(b.href) ? order.indexOf(b.href) : order.length));
   },[]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {
+    if (isHqPlatformView) return NAV_GROUPS;
     if (industryModuleId === "course") {
       return [{ id: "course-daily", label: "日常工作", defaultOpen: true, icon: <></>, items: [
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard")!, href: "/dashboard", label: "首頁", permission: "booking.read" },
@@ -772,25 +816,14 @@ export default function DashboardShell({
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/device-preview")!,
       ] }];
     }
-    if (isHqRoute) {
-      if (industryModuleId !== "spa") return NAV_GROUPS;
-      return NAV_GROUPS.map((group) => ({
-        ...group,
-        items: group.items.map((item) =>
-          item.href === "/dashboard/bookings"
-            ? { ...item, href: bookingDashboardPath("spa"), label: "芳療師排程" }
-            : item,
-        ),
-      }));
-    }
-    if (isStoreAdminRoute) {
+    if (isStoreAdminRoute || isHqStoreView) {
       return [
         {
           id: "core",
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
+          items: industryModule === "spa" ? spaNavigation : isHqStoreView ? STORE_ADMIN_NAV : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
         },
       ];
     }
@@ -805,7 +838,7 @@ export default function DashboardShell({
         items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation,musicEnabled]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation,musicEnabled]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
@@ -832,15 +865,9 @@ export default function DashboardShell({
       const visibleItems = categorizedItems.filter((c) => c.visible);
 
       // Check if any item in this group is active
-      const hasActive = group.items.some((item) => {
-        if (industryModuleId === "course" && item.href.startsWith("/dashboard/courses")) {
-          return pathname === "/dashboard/courses" &&
-            (new URLSearchParams(item.href.split("?")[1] || "").get("view") || "schedule") ===
-            (new URLSearchParams(routeQuery).get("view") || "schedule");
-        }
-        if (item.href === "/dashboard") return pathname === "/dashboard";
-        return pathname.startsWith(item.href);
-      });
+      const hasActive = group.items.some(item => isNavigationItemActive(
+        item.href, pathname, routeQuery, navGroupsToRender.flatMap(group => group.items.map(item => item.href)),
+      ));
 
       return { group, categorizedItems: visibleItems, hasVisibleItems: visibleItems.length > 0, hasActive };
     }).filter((g) => g.hasVisibleItems);
@@ -848,14 +875,27 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, isOwner, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
 
-  // Group expand/collapse state — core always open; others collapsed unless they contain active item
+  // Core stays open; other groups honor defaults, saved choices and the active page.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const initial = new Set<string>(industryModuleId === "course" ? ["course-daily", "course-setup"] : ["core"]);
+    const initial = new Set<string>(navGroupsToRender.filter(group => group.defaultOpen).map(group => group.id));
     if (activeGroupId && activeGroupId !== "core") initial.add(activeGroupId);
     return initial;
   });
+
+  // Restore only explicit choices, then always reveal the active page's group.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(navStateKey);
+      if (!saved) return;
+      const ids: unknown = JSON.parse(saved);
+      if (!Array.isArray(ids) || !ids.every(id => typeof id === "string")) return;
+      const next = new Set<string>(ids.filter(id => navGroupsToRender.some(group => group.id === id)));
+      if (activeGroupId) next.add(activeGroupId);
+      setOpenGroups(next); // eslint-disable-line react-hooks/set-state-in-effect
+    } catch { /* Navigation remains usable when storage is unavailable. */ }
+  }, [navStateKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open group when navigating to a page in a collapsed group
   useEffect(() => {
@@ -882,10 +922,8 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
-    if (href.startsWith("/dashboard/courses")) return pathname === "/dashboard/courses" && (new URLSearchParams(href.split("?")[1] || "").get("view") || "schedule") === (searchParams.get("view") || "schedule");
     if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
+    return isNavigationItemActive(href, pathname, routeQuery, navGroupsToRender.flatMap(group => group.items.map(item => item.href)));
   }
 
   function navHref(href: string) {
@@ -901,6 +939,7 @@ export default function DashboardShell({
       } else {
         next.add(groupId);
       }
+      try { window.localStorage.setItem(navStateKey, JSON.stringify([...next])); } catch { /* Optional preference. */ }
       return next;
     });
   }
@@ -932,7 +971,7 @@ export default function DashboardShell({
           // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
           // 已回 200 後仍不 commit，導致導頁指示永久 pending；完整導頁可確保
           // 每次點擊都由瀏覽器完成並清除舊頁狀態。
-          className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`group flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
               : isHighlighted
@@ -976,7 +1015,7 @@ export default function DashboardShell({
         <a
           href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
-          className={`group relative flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`group relative flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
               : "text-earth-700 hover:bg-earth-100 hover:text-earth-900"
@@ -994,7 +1033,8 @@ export default function DashboardShell({
   // The mobile drawer is a navigation overlay, not a compact sidebar. Keep its
   // rendering mode independent from the desktop sidebar's collapse preference.
   const renderNavGroups = (isCollapsed: boolean) => (
-    <nav className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
+    <nav aria-label={isHqPlatformView ? "HQ 功能導覽" : "店舖功能導覽"} className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
+      {isHqStoreView && <div className="mb-2 border-b border-earth-200 pb-2"><ReturnToHqButton collapsed={isCollapsed} /></div>}
       {readingPage && <NavigationNotice />}
       <div className="space-y-1">
         {visibleGroups.map(({ group, categorizedItems }) => {
@@ -1010,6 +1050,8 @@ export default function DashboardShell({
                     <div
                       className="mx-auto my-1 flex h-8 w-8 items-center justify-center rounded-lg text-earth-400 hover:bg-earth-100 hover:text-earth-600 cursor-pointer"
                       title={group.label}
+                      aria-label={group.label}
+                      aria-expanded={isOpen}
                       onClick={() => toggleGroup(group.id)}
                     >
                       {group.icon}
@@ -1021,7 +1063,8 @@ export default function DashboardShell({
                       <button
                         type="button"
                         onClick={() => toggleGroup(group.id)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition-colors"
+                        aria-expanded={isOpen}
+                        className="flex w-full items-center gap-2 rounded-lg min-h-11 px-3 py-1.5 text-sm font-semibold text-earth-400 hover:bg-earth-50 hover:text-earth-600 transition-colors"
                       >
                         <span className="shrink-0">{group.icon}</span>
                         <span className="flex-1 text-left">{group.label}</span>
@@ -1075,8 +1118,8 @@ export default function DashboardShell({
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
-        className={`sidebar-transition ${industryModule === "spa" ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
-          industryModule === "spa" ? (collapsed ? "md:w-(--sidebar-collapsed-width)" : "md:w-(--sidebar-width)") : (collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)")
+        className={`sidebar-transition ${(industryModule === "spa" || isAdmin) ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
+          (industryModule === "spa" || isAdmin) ? (collapsed ? "md:w-(--sidebar-collapsed-width)" : "md:w-(--sidebar-width)") : (collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)")
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
@@ -1163,7 +1206,7 @@ export default function DashboardShell({
       {/* Main area — offset by sidebar on desktop */}
       <div
         className={`sidebar-transition ${
-          industryModule === "spa" ? (collapsed ? "md:pl-(--sidebar-collapsed-width)" : "md:pl-(--sidebar-width)") : (collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)")
+          (industryModule === "spa" || isAdmin) ? (collapsed ? "md:pl-(--sidebar-collapsed-width)" : "md:pl-(--sidebar-width)") : (collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)")
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
@@ -1173,7 +1216,7 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className={industryModule === "spa" ? "md:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800" : "lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"}
+              className={(industryModule === "spa" || isAdmin) ? "md:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800" : "lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"}
               aria-label="開啟選單"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1185,7 +1228,7 @@ export default function DashboardShell({
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
             </details>}
-            <div className={industryModule === "spa" ? "md:hidden min-w-0" : guideEnabled ? "hidden" : "lg:hidden min-w-0"}>
+            <div className={(industryModule === "spa" || isAdmin) ? "md:hidden min-w-0" : guideEnabled ? "hidden" : "lg:hidden min-w-0"}>
               {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
             <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
@@ -1200,7 +1243,7 @@ export default function DashboardShell({
               /* ADMIN: HQ label + store switcher */
               <div className="hidden sm:flex items-center gap-1.5">
                 <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
-                  HQ 總部
+                  {isHqStoreView ? "店舖後台" : "HQ 總部・全部店舖"}
                 </span>
                 {storeOptions && storeOptions.length > 0 && (
                   <StoreSwitcher
