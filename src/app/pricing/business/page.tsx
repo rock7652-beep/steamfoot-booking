@@ -1,5 +1,6 @@
 import { StoreTestimonial } from "@/components/store-testimonial";
 import { MarketingUsageStatistics } from "@/components/marketing-usage-statistics";
+import { getMarketingUsage } from "@/lib/marketing-usage-server";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
@@ -23,7 +24,10 @@ function ConsultLink({ light = false }: { light?: boolean }) {
   </a>;
 }
 
-export default function BusinessPage() {
+export const revalidate = 3600;
+
+export default async function BusinessPage() {
+  const usage = await getMarketingUsage();
   return (
     <div className="bg-[#F8F5EE] text-[#153B31] selection:bg-[#DFC99D]">
       <a href="#main" className="sr-only focus:not-sr-only focus:block focus:p-4">跳至主要內容</a>
@@ -48,7 +52,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
-        <MarketingUsageStatistics />
+        <MarketingUsageStatistics snapshot={usage} />
         <BookingOverview />
         <BookingTypes />
 

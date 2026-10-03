@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatDateZh } from "@/lib/date-utils";
+import type { MarketingUsageSnapshot } from "@/lib/marketing-usage-snapshot";
 
 // Verified aggregate snapshot; see docs/marketing-usage-statistics.md.
 // No customer records or database credentials are sent to the browser.
-const statistics = [
-  { label: "正式使用門市", value: 3, unit: "間" },
-  { label: "服務顧客名單", value: 328, unit: "筆" },
-  { label: "累計完成服務", value: 1631, unit: "人次" },
-] as const;
-
-export function MarketingUsageStatistics() {
+export function MarketingUsageStatistics({ snapshot }: { snapshot: MarketingUsageSnapshot }) {
+  const statistics = [
+    { label: "使用門市", value: snapshot.stores, unit: "間" },
+    { label: "服務顧客名單", value: snapshot.customers, unit: "筆" },
+    { label: "累計完成服務", value: snapshot.completedPeople, unit: "人次" },
+  ];
   const sectionRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(1);
 
@@ -50,7 +51,7 @@ export function MarketingUsageStatistics() {
 
   return <section ref={sectionRef} id="usage" aria-labelledby="usage-title" className="mx-auto max-w-6xl scroll-mt-24 px-5 pb-7 sm:px-8 sm:pb-8">
     <div className="border-y border-[#153B31]/15 py-6 sm:py-7">
-      <h2 id="usage-title" className="text-sm font-medium tracking-widest text-[#74603C]">每天的服務，累積真實的使用紀錄</h2>
+      <h2 id="usage-title" className="text-sm font-medium tracking-widest text-[#74603C]">從預約到服務，店家每天都在使用</h2>
       <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-6">
         {statistics.map((item, index) => <div key={item.label} className={index > 0 ? "border-l border-[#153B31]/15 pl-3 sm:pl-6" : ""}>
           <dt className="min-h-12 text-sm leading-6 text-[#4C6259] sm:min-h-0 sm:text-base">{item.label}</dt>
@@ -61,11 +62,7 @@ export function MarketingUsageStatistics() {
           </dd>
         </div>)}
       </dl>
-      <p className="mt-5 text-sm leading-6 text-[#4C6259]">截至 2026/10/2・依正式門市系統紀錄統計</p>
-      <details className="mt-1 text-sm leading-6 text-[#4C6259]">
-        <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4">統計方式</summary>
-        <p className="mt-2 max-w-2xl">排除展示與體驗門市。顧客名單為有完成服務紀錄的名單，按門市計算，未作跨店人數去重；服務人次依實際出席人數累計，同一位顧客再次到店會再計一次。統計涵蓋自 2026/4/28 起的系統紀錄。</p>
-      </details>
+      <p className="mt-5 text-sm leading-6 text-[#4C6259]">截至 {formatDateZh(snapshot.asOf)}</p>
     </div>
   </section>;
 }
