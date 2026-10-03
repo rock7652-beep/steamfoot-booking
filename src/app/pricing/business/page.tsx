@@ -1,3 +1,4 @@
+import { MarketingFaq } from "../marketing-faq";
 import { StoreTestimonial } from "@/components/store-testimonial";
 import { MarketingUsageStatistics } from "@/components/marketing-usage-statistics";
 import { getMarketingUsage } from "@/lib/marketing-usage-server";
@@ -39,7 +40,8 @@ export default async function BusinessPage() {
             <h1 id="hero-title" className="text-[clamp(1.8rem,3.5vw,3rem)] font-semibold leading-[1.3] tracking-tight">
               <span className="block sm:inline">每一家店，</span>都值得擁有<span>一位<span className="text-[#967039]">數位管家</span>。</span>
             </h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，一處管理。</p>
+            <p className="mt-3 text-lg font-medium leading-7 text-[#153B31] sm:text-xl">預約變簡單，顧客不用換習慣。</p>
+              <p className="mt-2 max-w-2xl text-base leading-7 text-[#4C6259]">從熟悉的 LINE 開始，不用下載新 App，就能選擇服務與時間。</p>
           </div>
 
           <div>
@@ -141,36 +143,7 @@ export default async function BusinessPage() {
               <Link href="/pricing" className="mt-5 inline-block py-2 text-base underline underline-offset-8">查看完整方案與加購說明</Link>
             </div>
           </div>
-          <details className="mt-5 rounded-xl border border-[#153B31]/15 bg-white p-4">
-            <summary className="cursor-pointer py-2 text-base font-semibold">體驗範圍與到期後怎麼辦？</summary>
-            <div className="mt-3 space-y-3 text-base leading-7 text-[#4C6259]">
-              <p>所選模組已提供的單店功能完整開放；人員權限依店長設定。最多 3 位啟用人員（含店長）、100 筆顧客資料、每月新建預約 100 筆、自動提醒每月 50 次。</p>
-              <p>網頁前台可先使用；需要測試 LINE 流程時，再協助設定 LIFF。LINE 功能須完成設定後才能使用。</p>
-              <p>到期後後台改為唯讀，資料保留 30 天。保留期間轉正式，可沿用原帳號與資料，功能及額度依購買方案。</p>
-              <p>系統體驗免費，不含跨店總部管理或代辦金流申請與串接；LINE 訊息、金流等外部服務費用於使用前確認。</p>
-              <Link href="/pricing" className="inline-flex min-h-11 items-center underline underline-offset-4">查看完整體驗說明與正式價格 →</Link>
-            </div>
-          </details>
-          <div className="mt-6 border-t border-[#153B31]/15 pt-8">
-            <h3 className="text-xl font-semibold">店家常見問題</h3>
-            <p className="mt-3 leading-8 text-[#4C6259]">從店家最常問的問題開始。</p>
-            <div className="mt-6 divide-y divide-[#153B31]/15">
-              {[
-                ["一人店、兩人店適合用嗎？", "可以先從預約、顧客資料與堂數管理開始，依門市人數和實際需求選配功能。"],
-                ["我不熟電腦，會不會很難學？", "先從查看預約、查詢顧客、完成服務等日常操作開始。免費介紹可帶你看操作，再確認是否適合店內流程。"],
-                ["顧客需要另外下載 App 嗎？", "顧客可從店家 LINE 的顧客入口使用預約與會員功能，不需另外下載蒸管家 App；首次使用仍須完成必要授權與資料填寫。"],
-                ["已經有官方 LINE，可以接著使用嗎？", "先確認現有官方 LINE 的設定與管理權限，再安排顧客入口串接。三個付費方案皆內含 LIFF 顧客入口，數位管家則需另行開通。"],
-                ["原有顧客與剩餘堂數，要怎麼帶進來？", "先確認資料格式、方案期限與剩餘堂數，再安排建檔或評估匯入方式；核對完成後再開始使用。"],
-                ["顧客預約後，我還要手動抄名單嗎？", "顧客完成預約後，名單與時段會進入後台，減少重複抄寫。單純在 LINE 私訊詢問，仍須完成預約流程。"],
-                ["到店提醒、方案到期提醒都有嗎？", "可依門市功能與設定安排提醒。到店卡片可提供確認、改期或取消，方案到期卡片引導預約或諮詢店長；通知須完成 LINE 串接並啟用相關設定。"],
-                ["月費之外，還有哪些費用？", "額外模組與分店串接管理費依選擇另計。主方案年繳送 2 個月，優惠範圍與內含項目可查看方案頁；LINE 訊息等第三方費用需另外確認。"],
-                ["可以先看操作，再決定要不要用嗎？", "可以。點選「申請體驗帳號」，填寫門市需求後，由專人聯繫確認體驗內容與期限，再提供登入方式。也可以先加 LINE 預約免費介紹。"],
-              ].map(([question, answer]) => <details key={question} name="business-faq" className="py-2">
-                <summary className="cursor-pointer py-2 font-medium">{question}</summary>
-                <p className="mt-2 leading-8 text-[#4C6259]">{answer}</p>
-              </details>)}
-            </div>
-          </div>
+          <MarketingFaq />
         </section>
       </main>
       <MarketingFooter />
