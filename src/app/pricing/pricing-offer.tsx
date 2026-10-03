@@ -104,14 +104,17 @@ export function AddonRate({ initialNow, original }: { initialNow: number; origin
 
 export function HomepageOffer({ initialNow }: { initialNow: number }) {
   const offer = getPublicOfferHighlights(useNow(initialNow));
-  return <aside aria-labelledby="home-offer-title" className="rounded-2xl bg-[#123E32] p-5 text-[#F8F5EE] sm:p-6">
-    <h3 id="home-offer-title" className="text-xl font-semibold">現在開始，更划算。</h3>
-    <dl className="mt-4 grid gap-4">
+  return <aside aria-labelledby="home-offer-title" className="rounded-2xl bg-[#123E32] px-5 py-4 text-[#F8F5EE] sm:p-6">
+    <h3 id="home-offer-title" className="text-xl font-semibold">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "限時優惠，年繳更划算。" : "年繳更划算。"}</h3>
+    <dl className="mt-3 grid gap-3 sm:mt-4 sm:gap-4">
       <div><dt className="text-base text-[#D4E0D8]">主方案年繳最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.annualSavings)}</dd></div>
-      {offer.addonSavings > 0 && <div><dt className="text-base text-[#D4E0D8]">加購每項年繳最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.addonSavings)}</dd></div>}
+      {offer.addonSavings > 0 && <div><dt className="text-base text-[#D4E0D8]">加購功能年繳，每項最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.addonSavings)}</dd></div>}
     </dl>
-    {offer.bonusMonths > 0 && <p className="mt-4 text-base font-semibold">年繳再送 {offer.bonusMonths} 個月</p>}
-    {(offer.addonSavings > 0 || offer.bonusMonths > 0) && <p className="mt-3 border-t border-white/15 pt-3 text-sm leading-6 text-[#D4E0D8]">{offer.addonSavings > 0 && <span className="block">加購優惠至 2026/10/31</span>}{offer.bonusMonths > 0 && <span className="block">贈送月份至 2026/12/31</span>}期限前完成付款，自正式啟用日起算。</p>}
-    <a href="/pricing" className="mt-3 inline-flex min-h-11 items-center text-base font-medium underline underline-offset-4">查看優惠詳情<span aria-hidden="true" className="ml-2">→</span></a>
+    {offer.bonusMonths > 0 && <p className="mt-3 text-base font-semibold sm:mt-4">年繳再送 {offer.bonusMonths} 個月</p>}
+    <div className="mt-3 border-t border-white/15 pt-2 text-sm leading-5 text-[#D4E0D8] sm:leading-6">
+      <p>省額依方案{offer.addonSavings > 0 ? "／加購項目" : ""}而定。</p>
+      {(offer.addonSavings > 0 || offer.bonusMonths > 0) && <p>{offer.addonSavings > 0 && <span className="block">加購優惠至 2026/10/31</span>}{offer.bonusMonths > 0 && <span className="block">贈送月份至 2026/12/31</span>}期限前完成付款，自正式啟用日起算。</p>}
+    </div>
+    <a href="/pricing" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#F5EEDC] px-5 py-2 text-base font-semibold text-[#123E32] hover:bg-[#ECD5A4] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ECD5A4] sm:w-auto">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "查看優惠詳情" : "查看方案詳情"}<span aria-hidden="true" className="ml-2">→</span></a>
   </aside>;
 }
