@@ -1,3 +1,4 @@
+import styles from "@/components/admin/profile-plan-layout.module.css";
 import { createPlan } from "@/server/actions/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -47,7 +48,7 @@ export default async function NewPlanPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <FormErrorToast />
 
-      <form action={handleSubmit}>
+      <form action={handleSubmit} className={styles.form}>
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 border-b border-earth-200 pb-5 md:flex-row md:items-start md:justify-between">
           <div>
@@ -62,7 +63,7 @@ export default async function NewPlanPage() {
               設定價格、堂數、有效期限與前台顯示狀態
             </p>
           </div>
-          <div className="flex flex-shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/dashboard/plans"
               className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
@@ -78,15 +79,15 @@ export default async function NewPlanPage() {
         </div>
 
         {/* 2-column layout */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className={styles.planColumns}>
           {/* Left: 基本資料 */}
-          <section className="lg:col-span-2 space-y-6">
+          <section className={`${styles.planMain} space-y-6`}>
             <div className="rounded-xl border border-earth-200 bg-white p-6 shadow-sm">
               <h2 className="mb-5 text-base font-semibold text-earth-800">基本資料</h2>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className={styles.fieldGrid}>
                 {/* Name — full width on 2-col grid */}
-                <div className="sm:col-span-2">
+                <div className={styles.fullWidth}>
                   <label className="block text-sm font-medium text-earth-700">
                     方案名稱 <span className="text-red-500">*</span>
                   </label>
@@ -162,7 +163,7 @@ export default async function NewPlanPage() {
                 </div>
 
                 {/* Validity Days */}
-                <div className="sm:col-span-2">
+                <div className={styles.fullWidth}>
                   <label className="block text-sm font-medium text-earth-700">有效天數（選填）</label>
                   <input
                     type="number"
@@ -175,7 +176,7 @@ export default async function NewPlanPage() {
                 </div>
 
                 {/* Description — full width */}
-                <div className="sm:col-span-2">
+                <div className={styles.fullWidth}>
                   <label className="block text-sm font-medium text-earth-700">描述（選填）</label>
                   <textarea
                     name="description"

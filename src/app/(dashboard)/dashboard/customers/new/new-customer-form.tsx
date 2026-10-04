@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/admin/profile-plan-layout.module.css";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
@@ -30,7 +31,7 @@ export function NewCustomerForm({ isSpa, staffOptions, save, returnUrl }: {
   },{error:"",existingCustomerId:""});
   return (
       <FormShell width="md">
-        <form action={action} className="space-y-6 pb-4">
+        <form action={action} className={`${styles.form} space-y-6 pb-4`}>
           <FormDraftNotice dirty={draft.dirty} stale={false} onDiscard={()=>draft.discard()} />
           {state.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
           {state.existingCustomerId && <Link href={`/dashboard/customers/${state.existingCustomerId}`}>前往既有顧客 →</Link>}
@@ -82,7 +83,7 @@ export function NewCustomerForm({ isSpa, staffOptions, save, returnUrl }: {
             </summary>
             <div className="space-y-6 border-t border-earth-100 px-4 py-5">
               <FormSection title="個人資訊">
-                <FormGrid>
+                <FormGrid className={styles.fieldGrid}>
                   <div>
                     <label className={labelCls}>Email</label>
                     <input
