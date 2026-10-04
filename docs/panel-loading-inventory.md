@@ -9,7 +9,7 @@
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
-| 一般顧客 | customer-detail | intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate |
+| 一般顧客 | customer-detail | 清單姓名／電話／同門市標籤直接顯示，intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate；摘要無寫入操作 |
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |

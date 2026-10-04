@@ -416,6 +416,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 共用 focus 狀態、Tab 順序、Escape 關閉、aria label、switch / checkbox label、錯誤訊息位置、鍵盤操作。
 
+巢狀收款／確認視窗使用 `src/components/admin/modal-panel.tsx` 接入 RightSheet 的共用焦點與捲動堆疊；portal 脫離祖先的裁切與疊層。Escape 只關閉最上層，處理交易時不得關閉；取消返回原視窗，不送出交易。
+
 ---
 
 # 30. 禁止事項
@@ -609,6 +611,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 # 41. 右滑視窗與彈窗資料載入
 
 - **MUST** 先顯示視窗外框及已知摘要，不以頁面重新導航作為開啟 client 表單的前置條件。
+- 顧客清單開啟詳情時，姓名、電話與目前門市已載入的標籤 **MUST** 直接呈現；摘要只供辨識，權限與帳務操作等完整資料讀取成功後才提供。換顧客、讀取錯誤或重試時不得顯示上一位的摘要或明細。
 - 已由 RSC／頁面 props 提供的資料直接顯示；設定中心沿用 DashboardLink／Next 路由預讀與 SettingsPanel，不為同一份資料增加 client 請求。
 - client 讀取共用 `src/lib/client-read-cache.ts`；跨入口用 `src/components/operations/panel-read-cache.tsx` 的 `usePanelReader`／`usePanelReadCache`。既有 booking transport 使用同一核心的 adapter，保留門市參數與 authoritative payload 檢查。
 - `PanelReadProvider` 僅掛在帳號／門市／模組／權限 keyed OperationScope 內；**禁止** module global、localStorage 或跨使用者共享個資快取。額外門市、權限或 loader 捕捉的變數，以及 server 資料修訂，必須納入 scopeVersion。
