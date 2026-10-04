@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "@/components/admin/management-layout.module.css";
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { StorePerformanceTrend } from "@/server/queries/performance-trends";
@@ -21,7 +22,7 @@ export function PerformanceTrendChart({ data }: { data: StorePerformanceTrend[] 
   const showRetailEmptyState = metric === "retailRevenue" && !hasRetailData;
 
   return (
-    <section className="rounded-xl border border-earth-200 bg-white p-3" aria-labelledby="performance-trend-title">
+    <section className={`${styles.workspace} rounded-xl border border-earth-200 bg-white p-3`} aria-labelledby="performance-trend-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="performance-trend-title" className="text-sm font-semibold text-earth-800">近 6 個月趨勢</h2>
@@ -53,7 +54,7 @@ export function PerformanceTrendChart({ data }: { data: StorePerformanceTrend[] 
           </div>
         </div>
       ) : (
-        <div className="mt-3 h-[260px] w-full">
+        <div className={`${styles.chartScroll} mt-3`}><div className={`${styles.chart} h-[260px] w-full`}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e7e2dc" />
@@ -77,8 +78,9 @@ export function PerformanceTrendChart({ data }: { data: StorePerformanceTrend[] 
               <Line type="monotone" dataKey={metric} name={config.label} stroke="#65a30d" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </div></div>
       )}
     </section>
   );
 }
+

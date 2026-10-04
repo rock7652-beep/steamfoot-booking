@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "@/components/admin/management-layout.module.css";
 import { useRouter } from "next/navigation";
 import { updateStaff } from "@/server/actions/staff";
 import { useMemo, useState, useTransition } from "react";
@@ -284,7 +285,7 @@ export function StaffWorkspace({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={`${styles.workspace} space-y-4`}>
       {notice ? (
         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
           <span>{notice}</span>
@@ -318,7 +319,7 @@ export function StaffWorkspace({
                 : "設定專業項目與每週固定班表後，請假、臨時加班才需要再次調整。"}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {!courseBasicOnly && servicePeople.length > 0 ? (
               <button
                 type="button"
@@ -449,7 +450,7 @@ export function StaffWorkspace({
         </section>
       ) : (
         <section
-          className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3"
+          className={`${styles.cards} gap-3`}
           aria-label="人員總覽"
         >
           {people.map((person) => (
@@ -475,7 +476,7 @@ export function StaffWorkspace({
                     {initials(person.displayName)}
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-earth-900">
+                    <span className="block break-words text-sm font-semibold text-earth-900">
                       {person.displayName}
                     </span>
                     <span className="mt-0.5 block text-xs text-earth-500">
@@ -848,7 +849,7 @@ function ScheduleDrawer({
       </section>
       <section className="mt-5">
         <h3 className="text-sm font-semibold text-earth-800">每週接客日</h3>
-        <div className="mt-2 grid grid-cols-7 gap-1.5">
+        <div className={`${styles.weekdays} mt-2 grid gap-1.5`}>
           {WEEK_DAYS.map((day) => (
             <button
               key={day.dayOfWeek}
@@ -921,7 +922,7 @@ function CompensationDrawer({
     (mode !== "PERCENTAGE" || value <= 100);
   return (
     <Drawer title={`抽成設定｜${person.displayName}`} onClose={onClose}>
-      <div className="space-y-4">
+      <div className={`${styles.workspace} space-y-4`}>
         <div>
           <p className="text-sm font-medium text-earth-700">計算方式</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -1114,7 +1115,7 @@ function SpaStaffSetupDrawer({
         </section>
         <section className="border-t border-earth-100 pt-5">
           <h3 className="text-sm font-semibold text-earth-900">固定班表</h3>
-          <div className="mt-3 grid grid-cols-7 gap-1.5">
+          <div className={`${styles.weekdays} mt-3 grid gap-1.5`}>
             {WEEK_DAYS.map((day) => (
               <button
                 key={day.dayOfWeek}
@@ -1258,7 +1259,7 @@ function ExceptionDrawer({
       : `${isLeave ? "請假" : "臨時加班"} ${startTime}–${endTime}${reason ? `・${reason}` : ""}`;
   return (
     <Drawer title="請假／臨時加班" onClose={onClose}>
-      <div className="space-y-4">
+      <div className={`${styles.workspace} space-y-4`}>
         <Field label="人員">
           <select
             value={personId}
@@ -1708,7 +1709,7 @@ function CreatePersonDrawer({
             </section>
             <section className="border-t border-earth-100 pt-5">
               <h3 className="text-sm font-semibold text-earth-900">固定班表</h3>
-              <div className="mt-3 grid grid-cols-7 gap-1.5">
+              <div className={`${styles.weekdays} mt-3 grid gap-1.5`}>
                 {WEEK_DAYS.map((day) => (
                   <label
                     key={day.dayOfWeek}
@@ -1921,7 +1922,7 @@ function Drawer({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div data-rwd-panel className={`${styles.panel} fixed inset-0 z-50 flex justify-end`}>
       <button
         type="button"
         aria-label="關閉側邊面板"
@@ -2050,3 +2051,4 @@ function clonePerson(person: StaffWorkspacePerson): StaffWorkspacePerson {
     scheduleExceptions: person.scheduleExceptions.map((item) => ({ ...item })),
   };
 }
+

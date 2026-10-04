@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "@/components/admin/management-layout.module.css";
 import { NavigationNotice } from "@/components/navigation-notice";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -65,7 +66,7 @@ export default function ReportDateRange({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={`${styles.workspace} space-y-3`}>
       {reading && <NavigationNotice />}
       {/* Preset pills */}
       <div className="flex flex-wrap gap-2">
@@ -95,7 +96,7 @@ export default function ReportDateRange({
       {showCustom && (
         <>
           <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); handleCustomSubmit(event.currentTarget); }}>
-            <div className="flex-1">
+            <div className={styles.dateField}>
               <label className="block text-xs text-earth-500 mb-0.5">起始</label>
               <input
                 type="date"
@@ -107,7 +108,7 @@ export default function ReportDateRange({
                 className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               />
             </div>
-            <div className="flex-1">
+            <div className={styles.dateField}>
               <label className="block text-xs text-earth-500 mb-0.5">結束</label>
               <input
                 type="date"
@@ -135,3 +136,4 @@ export default function ReportDateRange({
     </div>
   );
 }
+

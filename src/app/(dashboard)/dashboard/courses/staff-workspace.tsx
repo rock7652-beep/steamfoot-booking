@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/admin/management-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
@@ -209,7 +210,7 @@ export function CourseStaffWorkspace({
     setOpen(false);
   }
   return (
-    <>
+    <div className={styles.workspace}>
       <div className="flex flex-wrap gap-2">
         <input
           className={`${field} max-w-xs`}
@@ -271,9 +272,9 @@ export function CourseStaffWorkspace({
                 className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
               >
                 <td className="whitespace-nowrap px-3 py-2">{canManage&&order.handle(p.id,p.name)}{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}{music?<span className="font-medium">{p.name}</span>:<button type="button" className="min-h-11 font-medium text-primary-900 hover:underline" onClick={()=>{edit(p);setReadOnly(!canManage);}}>{p.name}</button>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
-                {music ? <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 truncate text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td> : <>
+                {music ? <td className="px-3 py-2"><a className="block whitespace-nowrap text-primary-800 hover:underline" href={p.phone?`tel:${p.phone}`:undefined}>{p.phone||"未填電話"}</a><span className="block max-w-56 break-words text-xs text-earth-500">{p.kind==="manager"?p.email:p.contactEmail||"未填 Email"}</span></td> : <>
                   <td className="whitespace-nowrap px-3 py-2">{p.phone ? <a className="inline-flex min-h-11 items-center text-primary-800 hover:underline" href={`tel:${p.phone}`}>{p.phone}</a> : "—"}</td>
-                  <td className="px-3 py-2"><span title={p.kind === "manager" ? p.email : p.contactEmail ?? ""} className="block max-w-64 truncate">{(p.kind === "manager" ? p.email : p.contactEmail) || "—"}</span></td>
+                  <td className="px-3 py-2"><span title={p.kind === "manager" ? p.email : p.contactEmail ?? ""} className="block max-w-64 break-words">{(p.kind === "manager" ? p.email : p.contactEmail) || "—"}</span></td>
                 </>}
                 <td className="px-3 py-2">{identity(p,music)}{music ? <span className="block whitespace-nowrap text-xs text-earth-600">{!p.active?"停用":music?"啟用":""}{p.coachEnabled?` · ${p.qualificationsConfirmed&&p.qualificationIds.length?"授課已設定":"授課待補"}`:""}</span> : ((!p.active || (p.coachEnabled && !(p.qualificationsConfirmed && p.qualificationIds.length))) && <span className="block whitespace-nowrap text-sm text-earth-600">{[!p.active ? "停用" : null, p.coachEnabled && !(p.qualificationsConfirmed && p.qualificationIds.length) ? "授課待設定" : null].filter(Boolean).join(" · ")}</span>)}</td>
                 <td className="px-3 py-2"><span className={p.notificationsEnabled!==false&&p.coachLoginReady?"text-primary-800":"text-earth-500"}>{p.notificationsEnabled===false?"已關閉":p.coachLoginReady?(music?"可通知":"已開啟"):"待連結 LINE"}</span></td>
@@ -292,7 +293,7 @@ export function CourseStaffWorkspace({
       </div>
       {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>啟用 {activeRows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
       {open && (
-        <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
+        <RightSheet className={`${styles.panel} ${music ? "" : "fitness-management-editor"}`} presentation="centered"
           compact={music}
           maxHeight={music ? 900 : 680}
           open
@@ -300,7 +301,7 @@ export function CourseStaffWorkspace({
           width={920}
           labelledById="course-staff-title"
         >
-          <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-earth-200 bg-primary-50/60 px-4 py-2">
             <h2 id="course-staff-title" className="font-semibold">
               {person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":"查看教練"):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":"編輯教練"):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":"新增教練"):"新增人員")}
             </h2>
@@ -683,6 +684,7 @@ export function CourseStaffWorkspace({
           </footer>
         </RightSheet>
       )}
-    </>
+    </div>
   );
 }
+
