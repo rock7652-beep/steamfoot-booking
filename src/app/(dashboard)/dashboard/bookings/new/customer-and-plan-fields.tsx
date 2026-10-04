@@ -31,7 +31,7 @@ import {
  */
 
 const inputCls =
-  "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+  "block min-h-11 min-w-0 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
 // UI 選項：MAKEUP 為前端虛擬值；送出時轉成 bookingType=PACKAGE_SESSION + isMakeup=on。
@@ -326,3 +326,4 @@ export function CustomerAndPlanFields({
     </>
   );
 }
+

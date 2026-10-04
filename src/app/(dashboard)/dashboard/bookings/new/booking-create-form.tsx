@@ -15,6 +15,7 @@ import {
 import { getBookingSubmitErrors, type BookingSubmitErrors } from "./booking-submit-validation";
 import { unstable_rethrow } from "next/navigation";
 import { createBookingRequestKey, isBookingRequestKeyMismatch } from "@/lib/booking-request-key";
+import styles from "../booking-layout.module.css";
 import { SubmitButton } from "@/components/submit-button";
 
 type FieldName = "customer" | "treatment" | "slot";
@@ -144,7 +145,7 @@ export function BookingCreateForm({ action, children, preserveOnFailure = false 
 
   return (
     <BookingFormValidationContext.Provider value={value}>
-      <form action={preserveOnFailure ? undefined : async (data) => { await action(data); }} method={preserveOnFailure ? "post" : undefined} onSubmit={handleSubmit} noValidate className="space-y-6 pb-4" aria-busy={submitting}>
+      <form action={preserveOnFailure ? undefined : async (data) => { await action(data); }} method={preserveOnFailure ? "post" : undefined} onSubmit={handleSubmit} noValidate className={`${styles.form} space-y-6 pb-4`} aria-busy={submitting}>
         {preserveOnFailure ? <>
           <input type="hidden" name="requestKey" value={requestKey} suppressHydrationWarning />
           {submitError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{submitError}</p>}
@@ -154,3 +155,4 @@ export function BookingCreateForm({ action, children, preserveOnFailure = false 
     </BookingFormValidationContext.Provider>
   );
 }
+
