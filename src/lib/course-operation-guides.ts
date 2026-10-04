@@ -3,14 +3,35 @@ import type { OperationGuide } from "./operation-guide-types";
 /** Course instructions use the course actions, never the steamfoot wallet rules. */
 export const courseOperationGuides: OperationGuide[] = [
   {
-    id: "C101", category: "booking", title: "共卡會員只替另一位學員預約，怎麼操作？",
-    summary: "先選實際上課者，再核對使用方案與占用額度。", answer: "預約人可以不上課；名額與額度依實際上課者計算。",
-    keywords: "共卡 代約 多人 本人 學員 點數", path: "會員專區 → 預約課程 → 誰要上課？",
-    steps: ["選日期與課程，點預約。", "只勾選要上課的已授權共卡成員；本人不上課就不要勾本人。", "核對上課者、適用方案及總占用額度，再確認預約。"],
-    important: "共卡授權不會開放其他成員的健康資料，也不會授予教練權限。",
-    success: "我的預約依同堂課合併，學員逐人列出，能辨識本人與代約。",
-    details: ["方案必須未過期、適用該課程且可用額度足夠；預約先占用，完成出席才正式使用。", "滿班或送出時額度已被使用會拒絕預約，不能以畫面先前顯示的餘額為準。"],
-    permission: "booking.read", feature: null, sources: ["src/app/(customer)/book/course-portal-client.tsx", "src/server/services/course-booking.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    "id": "C101",
+    "category": "booking",
+    "title": "共卡會員只替另一位學員預約，怎麼操作？",
+    "summary": "先選實際上課者，再核對使用方案與占用額度。",
+    "answer": "預約人可以不上課；名額與額度依實際上課者計算。",
+    "keywords": "共卡 代約 多人 本人 學員 點數 指定成員 同行模式",
+    "path": "會員專區 → 預約課程 → 誰要上課？",
+    "steps": [
+      "選日期與課程，點預約。",
+      "只勾選要上課的已授權共卡成員；本人不上課就不要勾本人。",
+      "核對上課者、適用方案及總占用額度，再確認預約。"
+    ],
+    "important": "共卡授權不會開放其他成員的健康資料，也不會授予教練權限。",
+    "success": "我的預約依同堂課合併，學員逐人列出，能辨識本人與代約。",
+    "details": [
+      "方案須有效、適用課程且額度足夠；預約保留，出席才正式使用。",
+      "此題是指定已授權成員代約。運動自由選課另有含本人 1～3 人同行，不能用它代替本人不上課的指定成員代約。"
+    ],
+    "permission": "booking.read",
+    "feature": null,
+    "sources": [
+      "src/app/(customer)/book/course-portal-client.tsx",
+      "src/server/services/course-booking.ts"
+    ],
+    "kind": "howto",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C102", category: "booking", title: "同堂多人只取消其中一人，怎麼處理？",
