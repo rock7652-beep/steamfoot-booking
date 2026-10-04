@@ -45,7 +45,7 @@ function OnlinePayment() {
   return <section id="payment" aria-labelledby="payment-title" className="mt-8 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
     <p className="text-sm font-semibold tracking-widest text-[#74603C]">綠界 ECPay 金流</p>
     <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
-    <p className="mt-2 text-base leading-7 text-[#4C6259]">已確認方案的店家，請依雙方確認的方案及加購總額付款。</p>
+    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案及金額，再進行付款。付款金額請填寫雙方確認的方案及加購總額。</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
