@@ -5,7 +5,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ detail: vi.fn(), save: vi.fn(), params: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/dashboard/customers", useSearchParams: () => m.params }));
 vi.mock("@/server/actions/customer", () => ({ getCustomerDrawerDetailAction: m.detail, bulkUpdateCustomerAssignment: vi.fn() }));
-vi.mock("@/server/actions/trial-booking", () => ({ collectTrialPayment: m.save }));
+vi.mock("@/server/actions/trial-booking", () => ({ collectTrialPayment: m.save, correctTrialCollection: m.save }));
+vi.mock("@/server/actions/booking-checkout", () => ({ adjustCheckoutToPackage: m.save, adjustCheckoutToSingle: m.save }));
+vi.mock("@/server/actions/slots", () => ({ fetchDaySlots: async () => ({slots:[]}) }));
 vi.mock("@/server/actions/single-booking", () => ({ collectSinglePayment: m.save }));
 vi.mock("@/server/actions/booking-plan-purchase", () => ({ getSingleBookingPurchasePlans: vi.fn(), purchasePlanForSingleBooking: m.save }));
 vi.mock("@/server/actions/spa-checkout-compat", () => ({ settleSpaBookingWithPackage: m.save, settleSpaBookingWithPayment: m.save, settleSpaBookingWithStoredValue: m.save }));
@@ -19,6 +21,10 @@ import { RightSheet } from "@/components/admin/right-sheet";
 import { CollectTrialModal } from "@/app/(dashboard)/dashboard/bookings/collect-trial-modal";
 import { CollectSingleModal } from "@/app/(dashboard)/dashboard/bookings/collect-single-modal";
 import { AttendanceModal } from "@/app/(dashboard)/dashboard/bookings/attendance-modal";
+import { NoShowModal } from "@/app/(dashboard)/dashboard/bookings/no-show-modal";
+import { RescheduleModal } from "@/app/(dashboard)/dashboard/bookings/reschedule-modal";
+import { AdjustCheckoutModal } from "@/app/(dashboard)/dashboard/bookings/adjust-checkout-modal";
+import { CorrectTrialCollectionModal } from "@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal";
 import { CustomersListWithDrawer } from "@/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer";
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
@@ -29,13 +35,23 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); document.body.innerHTML = ""; document.body.style.overflow = ""; vi.restoreAllMocks(); });
 const props = { open:true, onClose:vi.fn(), bookingId:"booking", customerName:"驗收顧客", dateLabel:"2026-10-23 17:30", onCollected:vi.fn() };
 const trial = { ...props, expectedAmount:499, people:1, attendedPeople:null, settings:{allowEdit:true,defaultPrice:499,minPrice:0,maxPrice:3000} };
-for (const kind of ["trial", "single", "attendance"] as const) {
+for (const kind of ["trial", "single", "attendance", "no-show", "reschedule", "adjust", "correct"] as const) {
   it(`${kind} collection escapes the parent stacking context and cancels without a payment`, async () => {
     const parentClose = vi.fn(), childClose = vi.fn();
     // eslint-disable-next-line react/no-children-prop
     const parent = React.createElement(RightSheet, {key:"parent",open:true,presentation:"centered",onClose:parentClose,children:React.createElement("button", {}, "原預約")});
     await act(async () => root.render(parent));
-    const child = kind === "trial" ? React.createElement(CollectTrialModal, {...trial,key:"child",onClose:childClose}) : kind === "single" ? React.createElement(CollectSingleModal, {...props,key:"child",defaultPrice:799,onClose:childClose}) : React.createElement(AttendanceModal, {key:"child",open:true,people:2,onClose:childClose,onConfirm:m.save});
+    const shared = {key:"child",open:true,onClose:childClose,onConfirm:m.save};
+    const children = {
+      trial: React.createElement(CollectTrialModal, {...trial,...shared}),
+      single: React.createElement(CollectSingleModal, {...props,...shared,defaultPrice:799}),
+      attendance: React.createElement(AttendanceModal, {...shared,people:2}),
+      "no-show": React.createElement(NoShowModal, shared),
+      reschedule: React.createElement(RescheduleModal, {...shared,currentDate:"2026-10-23",currentSlotTime:"17:30",people:1}),
+      adjust: React.createElement(AdjustCheckoutModal, {...props,...shared,onAdjusted:m.save}),
+      correct: React.createElement(CorrectTrialCollectionModal, {...trial,...shared,originalTransactionId:"tx",originalAmount:499,originalMethod:"CASH",originalDate:"2026-10-23",onCorrected:m.save}),
+    };
+    const child = children[kind];
     await act(async () => root.render([parent, child]));
     const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
     expect(dialogs).toHaveLength(2);
