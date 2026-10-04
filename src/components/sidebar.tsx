@@ -1196,7 +1196,7 @@ export default function DashboardShell({
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
         <header data-dashboard-header className="sticky top-0 z-20 flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-earth-200 bg-white/95 px-3 py-1 backdrop-blur-sm sm:px-6">
           {/* Left: hamburger + breadcrumb + single guide entry */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:min-w-64">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -1212,7 +1212,7 @@ export default function DashboardShell({
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
             </details>}
-            <div className={(industryModule === "spa" || isAdmin) ? "md:hidden min-w-0 max-w-full shrink-0 break-words" : guideEnabled ? "hidden" : "lg:hidden min-w-0 max-w-full shrink-0 break-words"}>
+            <div className={industryModule === "course" && guideEnabled ? "hidden" : (industryModule === "spa" || isAdmin) ? "md:hidden min-w-0 max-w-full shrink-0 break-words" : guideEnabled ? "hidden" : "lg:hidden min-w-0 max-w-full shrink-0 break-words"}>
               {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
             <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
