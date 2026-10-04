@@ -47,14 +47,14 @@ function OnlinePayment() {
     <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
     <p className="mt-2 text-base leading-7 text-[#4C6259]">已確認方案的店家，請依雙方確認的方案及加購總額付款。</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
-      {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
+      {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6 shrink-0"><rect x="2" y="5" width="20" height="14" rx="3" /><path d="M2 10h20M6 15h4" /></svg>
           {method.title}
         </h3>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">{method.description}</p>
         {method.installment && <p className="mt-1 text-sm leading-6 text-[#4C6259]">請輸入完整總額，非每期金額；可用銀行依綠界付款頁顯示為準。</p>}
-        <a href={method.href} target="_blank" rel="noopener noreferrer" aria-label={method.button + "（開啟綠界付款頁，新分頁）"} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#123E32] px-4 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#123E32]">
+        <a href={method.href} target="_blank" rel="noopener noreferrer" aria-label={method.button + "（開啟綠界付款頁，新分頁）"} className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#123E32] px-4 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#123E32]">
           {method.button}<span aria-hidden="true">↗</span>
         </a>
       </article>)}
