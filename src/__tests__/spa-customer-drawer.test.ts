@@ -15,6 +15,7 @@ vi.mock("@/lib/permissions", () => ({
 }));
 vi.mock("@/server/actions/spa-resources", () => ({
   spaResourceStore: m.store,
+  spaResourceStoreRead: async () => ({ storeId: await m.store() }),
 }));
 vi.mock("@/server/queries/spa-customer-summary", () => ({
   spaCustomerSummaries: m.summaries,

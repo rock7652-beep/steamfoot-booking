@@ -21,6 +21,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission }));
 vi.mock("@/server/actions/spa-resources", () => ({
   spaResourceStore: m.store,
+  spaResourceStoreRead: async () => ({ storeId: await m.store() }),
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
