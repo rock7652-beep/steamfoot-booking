@@ -1,3 +1,8 @@
+/* Keep schedule panels above the responsive dashboard header (z-index 60). */
+.panel[data-right-sheet] {
+  z-index: 80;
+}
+
 /* Opt-in controls for schedule/booking panels. No remount on resize. */
 .panel :global([role="dialog"]) {
   container: schedule-panel / inline-size;
