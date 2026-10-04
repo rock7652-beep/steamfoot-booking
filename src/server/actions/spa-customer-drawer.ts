@@ -1,6 +1,6 @@
 "use server";
 import { getSpaCustomerProfile } from "./spa-customer-profile";
-import { spaResourceStore } from "./spa-resources";
+import { spaResourceStoreRead } from "./spa-resources";
 import { requirePermission, checkPermission } from "@/lib/permissions";
 import { spaCustomerSummaries } from "@/server/queries/spa-customer-summary";
 import { handleActionError } from "@/lib/errors";
@@ -8,7 +8,7 @@ import { handleActionError } from "@/lib/errors";
 export async function getSpaCustomerDrawer(customerId: string) {
   try {
     const user = await requirePermission("customer.read");
-    const storeId = await spaResourceStore("customer.read");
+    const { storeId } = await spaResourceStoreRead("customer.read");
     const profile = await getSpaCustomerProfile(customerId);
     if (!profile.success) return profile;
     const [canReadBookings, canReadWallet, canReadTransactions] =

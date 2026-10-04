@@ -3,6 +3,7 @@ const m=vi.hoisted(()=>({permission:vi.fn(),context:vi.fn(),staff:vi.fn(),module
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requirePermission:m.permission}));
 vi.mock("@/lib/store-context",()=>({getStoreContext:m.context}));
+vi.mock("@/lib/store",()=>({getActiveStoreForRead:vi.fn()}));
 vi.mock("@/lib/industry-module-server",()=>({requireSpaStore:m.module}));
 vi.mock("@/lib/db",()=>({prisma:{staff:{findFirst:m.staff}}}));
 vi.mock("@/lib/spa-db",()=>({spaPrisma:{$transaction:m.transaction}}));

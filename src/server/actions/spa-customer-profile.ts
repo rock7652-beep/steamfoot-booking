@@ -8,12 +8,12 @@ import {
   checkPermission,
   requirePermission,
 } from "@/lib/permissions";
-import { spaResourceStore } from "./spa-resources";
+import { spaResourceStore, spaResourceStoreRead } from "./spa-resources";
 import { AppError, handleActionError } from "@/lib/errors";
 
 export async function getSpaCustomerProfile(customerId: string) {
   try {
-    const storeId = await spaResourceStore("customer.read");
+    const { storeId } = await spaResourceStoreRead("customer.read");
     const user = await requirePermission("customer.read");
     const customer = await prisma.customer.findFirst({
       where: { id: customerId, storeId },

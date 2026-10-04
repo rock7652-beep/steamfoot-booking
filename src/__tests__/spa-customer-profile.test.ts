@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   store: vi.fn(),
+  readStore: vi.fn(),
   permission: vi.fn(),
   writable: vi.fn(),
   check: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("@/lib/permissions", () => ({
 }));
 vi.mock("@/server/actions/spa-resources", () => ({
   spaResourceStore: m.store,
+  spaResourceStoreRead: m.readStore,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -37,6 +39,7 @@ import {
 beforeEach(() => {
   vi.resetAllMocks();
   m.store.mockResolvedValue("test-store");
+  m.readStore.mockResolvedValue({ storeId: "test-store" });
   m.permission.mockResolvedValue({ id: "user", role: "OWNER" });
   m.writable.mockResolvedValue({ id: "user" });
   m.check.mockResolvedValue(true);
@@ -54,6 +57,18 @@ beforeEach(() => {
   );
 });
 describe("SPA customer profile scope and note updates", () => {
+  it("reads the HQ-selected customer even when no writable shop context exists", async () => {
+    m.store.mockRejectedValue(new Error("請從店家後台開啟設定"));
+    expect((await getSpaCustomerProfile("customer")).success).toBe(true);
+    expect(m.store).not.toHaveBeenCalled();
+    expect(m.readStore).toHaveBeenCalledWith("customer.read");
+  });
+  it("stops before customer data when active-store authorization fails", async () => {
+    m.readStore.mockRejectedValue(new Error("forbidden"));
+    expect((await getSpaCustomerProfile("customer")).success).toBe(false);
+    expect(m.customer).not.toHaveBeenCalled();
+    expect(m.bookings).not.toHaveBeenCalled();
+  });
   it("does not read bookings for a foreign customer", async () => {
     m.customer.mockResolvedValue(null);
     expect((await getSpaCustomerProfile("foreign")).success).toBe(false);

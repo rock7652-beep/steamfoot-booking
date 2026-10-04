@@ -8,6 +8,7 @@ import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreContext } from "@/lib/store-context";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import {
@@ -83,8 +84,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const customersUser = userForViewContext(user, storeViewContext);
   const industryModule = customersStoreId ? await getStoreIndustryModule(customersStoreId) : null;
   if(customersStoreId && industryModule === "spa") {
-    const canSell=!isViewMode && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
-    const canRefund=!isViewMode && await checkPermission(user.role,user.staffId,"transaction.refund");
+    // SPA mutations require the shop context; an HQ-selected store is read-only.
+    const writeContext = isViewMode ? null : await getStoreContext();
+    const canWrite = !isViewMode && writeContext?.storeId === customersStoreId;
+    const canSell=canWrite && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
+    const canRefund=canWrite && await checkPermission(user.role,user.staffId,"transaction.refund");
     const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions,canManageStaff]=await Promise.all([
       checkPermission(user.role,user.staffId,"customer.update"),checkPermission(user.role,user.staffId,"customer.create"),
       checkPermission(user.role,user.staffId,"booking.create"),checkPermission(user.role,user.staffId,"booking.read"),
@@ -92,8 +96,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       checkPermission(user.role,user.staffId,"duty.manage"),
     ]);
     return <SpaCustomers labelId={params.label} storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
-      canEdit={!isViewMode&&canEdit} canCreate={!isViewMode&&canCreate} canBook={!isViewMode&&canBook&&canReadBookings}
-      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={!isViewMode&&user.role==="OWNER"&&canManageStaff}/>;
+      canEdit={canWrite&&canEdit} canCreate={canWrite&&canCreate} canBook={canWrite&&canBook&&canReadBookings}
+      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={canWrite&&user.role==="OWNER"&&canManageStaff}/>;
   }
   const logCtx = {
     page: "customers" as const,
