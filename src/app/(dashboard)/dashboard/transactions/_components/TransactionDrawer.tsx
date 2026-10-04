@@ -121,13 +121,14 @@ export function TransactionDrawer({
       // Reset to loading state for this fetch session
       if (cancelled) return;
       setLoading(true);
+      setData(null);
       setError(null);
       setView("main");
 
       let res: Awaited<ReturnType<typeof fetchTransactionDetailDTO>>;
       try { res = await readTransaction.read(transactionId); }
       catch { if (!cancelled) { setError("載入失敗，請重新開啟"); setLoading(false); } return; }
-      if (cancelled) return;
+      if (cancelled || requestVersion.current !== version) return;
       if (res.success) {
         setData(res.data);
         setNoteEdit(res.data.note ?? "");
@@ -150,7 +151,7 @@ export function TransactionDrawer({
       cancelled = true;
       // Generation guards refresh responses; this ref is not a DOM node.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      if (requestVersion.current === version) requestVersion.current++;
+      requestVersion.current++;
     };
   }, [open, transactionId, readTransaction]);
 
@@ -171,8 +172,10 @@ export function TransactionDrawer({
   const handleSaveNote = () => {
     if (!transactionId) return;
     setError(null);
+    const version = requestVersion.current;
     startTransition(async () => {
       const res = await updateTransactionNote({ transactionId, note: noteEdit });
+      if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
         setEditingNote(false);
         refresh();
@@ -185,6 +188,7 @@ export function TransactionDrawer({
   const handleSavePayment = () => {
     if (!transactionId) return;
     setError(null);
+    const version = requestVersion.current;
     startTransition(async () => {
       const res = await updateTransactionPaymentMethod({
         transactionId,
@@ -197,6 +201,7 @@ export function TransactionDrawer({
           | "UNPAID",
         reason: paymentReason,
       });
+      if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
         setEditingPayment(false);
         refresh();
@@ -209,12 +214,14 @@ export function TransactionDrawer({
   const handleSaveStaff = () => {
     if (!transactionId) return;
     setError(null);
+    const version = requestVersion.current;
     startTransition(async () => {
       const res = await updateTransactionOwnerStaff({
         transactionId,
         staffId: staffIdEdit,
         reason: staffReason,
       });
+      if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
         setEditingStaff(false);
         refresh();
@@ -227,8 +234,10 @@ export function TransactionDrawer({
   const handleVoidConfirm = () => {
     if (!transactionId) return;
     setError(null);
+    const version = requestVersion.current;
     startTransition(async () => {
       const res = await voidTransaction({ transactionId, reason: voidReason });
+      if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
         setView("main");
         refresh();
@@ -241,12 +250,14 @@ export function TransactionDrawer({
   const handleRefundConfirm = () => {
     if (!transactionId) return;
     setError(null);
+    const version = requestVersion.current;
     startTransition(async () => {
       const res = await refundTransaction({
         transactionId,
         reason: refundReasonInput,
         refundMode,
       });
+      if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
         setView("main");
         refresh();
