@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
+import styles from "@/components/admin/commerce-layout.module.css";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { voidPendingTransaction } from "@/server/actions/transaction";
@@ -20,6 +22,7 @@ export function VoidPaymentButton({
   amount,
   paymentMethodLabel,
 }: Props) {
+  const titleId = useId();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
@@ -45,27 +48,20 @@ export function VoidPaymentButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+        className={`${styles.trigger} rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50`}
       >
         作廢
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => !pending && setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-3 text-lg font-semibold text-earth-900">作廢這筆付款紀錄？</h3>
+      <ModalPanel open={open} onClose={() => setOpen(false)} pending={pending} labelledById={titleId}>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-5">
+            <h3 id={titleId} className="mb-3 text-lg font-semibold text-earth-900">作廢這筆付款紀錄？</h3>
 
             <p className="mb-3 text-sm text-earth-600">
               確定要作廢這筆付款紀錄嗎？作廢後不會開通堂數，也不會出現在待確認清單。
             </p>
 
-            <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
+            <div className={`${styles.summary} mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm`}>
               <div className="flex justify-between">
                 <span className="text-earth-500">顧客</span>
                 <span className="font-medium text-earth-900">{customerName}</span>
@@ -94,10 +90,10 @@ export function VoidPaymentButton({
               onChange={(e) => setReason(e.target.value)}
               placeholder="例：測試資料 / 顧客取消 / 重複建單"
               maxLength={200}
-              className="mb-4 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm"
+              className="mb-4 min-h-11 min-w-0 w-full max-w-full rounded-lg border border-earth-300 px-3 py-2 text-sm"
             />
 
-            <div className="flex justify-end gap-2">
+            <div className={styles.actions}>
               <button
                 onClick={() => setOpen(false)}
                 disabled={pending}
@@ -114,8 +110,8 @@ export function VoidPaymentButton({
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </ModalPanel>
     </>
   );
 }
+

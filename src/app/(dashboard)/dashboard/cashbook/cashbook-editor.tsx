@@ -132,7 +132,7 @@ export function CashbookEditor({
             </button>
           </header>
           <form
-            className="flex min-h-0 flex-1 flex-col"
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
             onChange={() => setDirty(true)}
             onSubmit={(event) => {
               event.preventDefault();
@@ -141,7 +141,7 @@ export function CashbookEditor({
           >
             <fieldset
               disabled={busy}
-              className="flex-1 space-y-4 overflow-y-auto p-4"
+              className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4"
             >
               {entry && entry.type !== "INCOME" && entry.type !== "EXPENSE" ? <CashbookFormFields
                 closedDates={closedDates}
@@ -172,7 +172,7 @@ export function CashbookEditor({
                   <select
                     name="staffId"
                     defaultValue={entry?.staffId || ""}
-                    className="mt-1 min-h-11 w-full rounded-lg border p-2"
+                    className="mt-1 min-h-11 min-w-0 w-full max-w-full rounded-lg border p-2"
                   >
                     <option value="">不指定</option>
                     {staffOptions.map((s) => (
@@ -223,3 +223,4 @@ export function CashbookEditor({
     </>
   );
 }
+
