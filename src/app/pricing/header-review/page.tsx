@@ -15,7 +15,7 @@ export default async function HeaderReviewPage({ searchParams }: { searchParams:
   const widths = [360, 390, 768, 1024, 1366, 1920];
   const width = widths.find(value => String(value) === query.width) ?? 390;
   const params = new URLSearchParams({ module: industryModule, role: admin ? "admin" : "owner" });
-  if (query.frame === "1") return <DashboardShell industryModule={industryModule} industryModuleId={industryModule} isOwner permissions={[]} pricingPlan="EXPERIENCE" userName="RWD 驗收使用者" roleLabel={admin ? "系統管理者" : "店長"} logoutButton={null} trialStatus={industryModule === "course" ? trial : undefined} storeName="驗收店家" storeOptions={admin ? [{ id: "rwd-fixture", name: "RWD 驗收店家", isDefault: false }] : undefined}>
+  if (query.frame === "1") return <DashboardShell industryModule={industryModule} industryModuleId={industryModule} isOwner operationGuidePreview permissions={["booking.read"]} pricingPlan="EXPERIENCE" userName="RWD 驗收使用者" roleLabel={admin ? "系統管理者" : "店長"} logoutButton={null} trialStatus={industryModule === "course" ? trial : undefined} storeName="驗收店家" storeOptions={admin ? [{ id: "rwd-fixture", name: "RWD 驗收店家", isDefault: false }] : undefined}>
     <p>純介面驗收：使用共用後台外框與虛擬資料，無儲存操作。請勿使用導覽連結切換實際後台。</p>
   </DashboardShell>;
   return <main className="p-4">
