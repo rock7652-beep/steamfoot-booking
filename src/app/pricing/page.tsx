@@ -37,6 +37,39 @@ const groups = [
   ] },
 ] as const;
 
+function OnlinePayment() {
+  const methods = [
+    { title: "一般付款", description: "信用卡一次付清／ATM 轉帳／Apple Pay", href: "https://p.ecpay.com.tw/034265F", button: "一般付款", installment: false },
+    { title: "信用卡 3 期", description: "年繳分 3 期，適用年繳優惠與贈送活動。", href: "https://p.ecpay.com.tw/025288F", button: "信用卡 3 期付款", installment: true },
+  ];
+  return <section id="payment" aria-labelledby="payment-title" className="mt-8 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
+    <p className="text-sm font-semibold tracking-widest text-[#74603C]">綠界 ECPay 金流</p>
+    <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
+    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案及金額，再進行付款。付款金額請填寫雙方確認的方案及加購總額。</p>
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6 shrink-0"><rect x="2" y="5" width="20" height="14" rx="3" /><path d="M2 10h20M6 15h4" /></svg>
+          {method.title}
+        </h3>
+        <p className="mt-2 text-base leading-7 text-[#4C6259]">{method.description}</p>
+        {method.installment && <p className="mt-1 text-sm leading-6 text-[#4C6259]">請輸入完整總額，非每期金額；可用銀行依綠界付款頁顯示為準。</p>}
+        <a href={method.href} target="_blank" rel="noopener noreferrer" aria-label={method.button + "（開啟綠界付款頁，新分頁）"} className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#123E32] px-4 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#123E32]">
+          {method.button}<span aria-hidden="true">↗</span>
+        </a>
+      </article>)}
+    </div>
+    <div className="mt-4 flex flex-col gap-1 border-t border-[#153B31]/15 pt-3 text-base leading-7 sm:flex-row sm:items-center sm:justify-between">
+      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">無年繳贈送，確認月費後提供專屬連結。</span></p>
+      <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">請洽專人 ↗</a>
+    </div>
+    <div className="mt-2 space-y-1 text-sm leading-6 text-[#4C6259]">
+      <p>付款後由專人核對並開通；綠界付款頁顯示的收款商店名稱為「陸比音樂」。</p>
+      <p>綠界 ATM 付款金額限 NT$16～49,999；超過上限請使用信用卡或洽專人確認轉帳方式。</p>
+    </div>
+  </section>;
+}
+
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
@@ -123,6 +156,7 @@ export default async function PricingPage() {
             <div><dt className="font-medium">健康追蹤提供什麼？</dt><dd className="mt-1 text-[#4C6259]">量測紀錄、歷史數據與變化趨勢，協助體態追蹤；不作醫療診斷或效果保證。</dd></div>
           </dl></details>
       </section>
+      <OnlinePayment />
     </main>
     <section className="bg-[#123E32] px-5 py-8 text-center text-white">
       <h2 className="text-2xl font-semibold"><span className="block sm:inline">每一家店，</span><span>都值得擁有一位<span className="whitespace-nowrap">數位管家。</span></span></h2>
