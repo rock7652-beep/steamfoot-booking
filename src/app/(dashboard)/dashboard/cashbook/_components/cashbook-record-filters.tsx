@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import styles from "@/components/admin/commerce-layout.module.css";
 import { usePathname, useRouter } from "next/navigation";
 
 type RecordKind = "" | "income" | "retail" | "other" | "expense" | "withdraw" | "adjustment";
@@ -28,11 +29,11 @@ export function CashbookRecordFilters({ month, kind, keyword }: { month: string;
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  return <div className="flex flex-wrap items-end gap-2" aria-label="現金帳紀錄篩選">
-    <label className="text-xs text-earth-600">月份
+  return <div className={styles.filters} aria-label="現金帳紀錄篩選">
+    <label className={`${styles.filterField} text-sm text-earth-600`}>月份
       <input type="month" value={month} onChange={(event) => replace({ month: event.target.value }, true)} className="mt-1 block min-h-11 rounded-lg border border-earth-300 bg-white px-3 text-sm focus:outline-none" />
     </label>
-    <label className="text-xs text-earth-600">收支類型
+    <label className={`${styles.filterField} text-sm text-earth-600`}>收支類型
       <select value={kind} onChange={(event) => {
         const next = event.target.value as RecordKind;
         replace({
@@ -49,7 +50,7 @@ export function CashbookRecordFilters({ month, kind, keyword }: { month: string;
         <option value="adjustment">調整</option>
       </select>
     </label>
-    <label className="min-w-52 flex-1 text-xs text-earth-600">搜尋記帳
+    <label className={`${styles.filterSearch} text-sm text-earth-600`}>搜尋記帳
       <input value={value} onChange={(event) => {
         const next = event.target.value;
         setValue(next);
@@ -60,3 +61,4 @@ export function CashbookRecordFilters({ month, kind, keyword }: { month: string;
     {pending && <span role="status" className="pb-3 text-xs text-earth-500">搜尋中…</span>}
   </div>;
 }
+

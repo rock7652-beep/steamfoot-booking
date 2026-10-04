@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import styles from "@/components/admin/commerce-layout.module.css";
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
 import { cashbookCategoryForKind, isRetailCashbookCategory, type CashbookEntryKind } from "@/lib/cashbook-entry-kind";
 
 type EntryType = "INCOME" | "EXPENSE";
 type Customer = { id: string; name: string };
 
-const input = "mt-1 block h-[52px] w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
-const textarea = "mt-1 block min-h-[52px] w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+const input = "mt-1 block h-[52px] min-w-0 w-full max-w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+const textarea = "mt-1 block min-h-[52px] min-w-0 w-full max-w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 
 function initialKind(entry: { type: EntryType; category: string } | null | undefined): CashbookEntryKind {
   if (!entry) return "RETAIL";
@@ -58,8 +59,8 @@ export function CashbookEntryFields({
   const isClosed = closedDates.includes(entryDate);
   const needsConfirmation = isClosed && (paymentMethod === "CASH" || defaultEntry?.paymentMethod === "CASH");
 
-  return <fieldset disabled={disabled} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-    <div className="sm:col-span-2 text-sm font-medium text-earth-700">
+  return <div className={styles.container}><fieldset disabled={disabled} className={styles.fieldGrid}>
+    <div className={`${styles.fullWidth} text-sm font-medium text-earth-700`}>
       <span className="mb-2 block">這筆是什麼收支？</span>
       <div className="grid grid-cols-3 gap-2" role="group" aria-label="收支分類">
         {([ ["RETAIL", "零售收入"], ["OTHER", "其他收入"], ["EXPENSE", "支出"] ] as const).map(([value, label]) => (
@@ -95,20 +96,20 @@ export function CashbookEntryFields({
         <option value="" disabled>請選擇</option><option value="CASH">現金</option><option value="OTHER">其他（轉帳／非現金）</option>
       </select>
     </label>
-    <label className="sm:col-span-2 text-sm font-medium text-earth-700">
+    <label className={`${styles.fullWidth} text-sm font-medium text-earth-700`}>
       備註
       <textarea name="note" rows={1} defaultValue={defaultEntry?.note ?? ""} className={textarea} style={{ minHeight: 52 }} />
     </label>
-    {isClosed && <label className="sm:col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800">
+    {isClosed && <label className={`${styles.fullWidth} rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800`}>
       <input type="checkbox" name="confirmClosedCashbookChange" required={needsConfirmation} /> 我知道這一天已結帳，這只是補紀錄，不會重算關帳快照。
     </label>}
-  </fieldset>;
+  </fieldset></div>;
 }
 
 function CashbookCustomerPicker({ storeId, defaultCustomer }: { storeId: string; defaultCustomer: { id: string; name: string } | null }) {
   const [query, setQuery] = useState(defaultCustomer?.name ?? "");
   const [selected, setSelected] = useState(defaultCustomer);
-  return <div className="sm:col-span-2 text-sm font-medium text-earth-700">
+  return <div className={`${styles.fullWidth} text-sm font-medium text-earth-700`}>
     <label htmlFor="quick-cashbook-customer">關聯顧客 <span className="font-normal text-earth-400">（選填）</span></label>
     <input type="hidden" name="customerId" value={selected?.id ?? ""} />
     <CustomerInstantSearch key={storeId} storeId={storeId} id="quick-cashbook-customer" value={query} className={input}
@@ -159,7 +160,7 @@ function LegacyCashbookCustomerPicker({ defaultCustomer }: { storeId: string; de
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [query, selected]);
-  return <div className="sm:col-span-2 text-sm font-medium text-earth-700">
+  return <div className={`${styles.fullWidth} text-sm font-medium text-earth-700`}>
     <label htmlFor="quick-cashbook-customer">關聯顧客 <span className="font-normal text-earth-400">（選填）</span></label>
     <input type="hidden" name="customerId" value={selected?.id ?? ""}/>
     <input id="quick-cashbook-customer" value={query} onChange={(event) => { const value=event.target.value; setQuery(value); setSelected(null); setResults([]); setSearchError(""); setSearching(Boolean(value.trim())); }} placeholder="輸入姓名、手機前幾碼或 LINE 名稱" autoComplete="off" className={input}/>
@@ -170,3 +171,4 @@ function LegacyCashbookCustomerPicker({ defaultCustomer }: { storeId: string; de
     {selected && <p className="mt-1 text-xs font-normal text-primary-700">已關聯 {selected.name}，儲存後會顯示在消費紀錄。</p>}
   </div>;
 }
+

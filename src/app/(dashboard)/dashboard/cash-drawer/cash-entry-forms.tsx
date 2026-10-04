@@ -15,15 +15,16 @@
  *   當 `action` prop 傳入，並傳 `returnPath` 給 wrapper 做成功導航。
  */
 
+import styles from "@/components/admin/commerce-layout.module.css";
 import { CashDrawerActionForm, type CashDrawerFormAction } from "./cash-drawer-action-form";
 
 const inputCls =
-  "mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+  "mt-1 block min-h-[44px] min-w-0 w-full max-w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const textInputCls =
-  "mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+  "mt-1 block min-h-[44px] min-w-0 w-full max-w-full rounded-lg border border-earth-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 const noteCls =
-  "mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+  "mt-1 block min-w-0 w-full max-w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 
 interface FormProps {
   /** server action：caller 綁好 sessionId 後傳入（成功只回 result，不 redirect）。 */
@@ -41,9 +42,9 @@ export function WithdrawalForm({ action, returnPath }: FormProps) {
       submitLabel="送出提領"
       successPendingLabel="已送出，跳轉中…"
       submitClassName="min-h-[44px] w-full bg-orange-600 px-5 text-base text-white hover:bg-orange-700 md:ml-auto md:flex md:w-auto md:min-w-40"
-      className="space-y-3 p-4 md:space-y-4"
+      className={`${styles.container} space-y-3 p-4 md:space-y-4`}
     >
-      <div className="md:grid md:grid-cols-2 md:gap-4">
+      <div className={styles.fieldGrid}>
         <div>
           <label className={labelCls}>金額（NT$）</label>
           <input
@@ -56,7 +57,7 @@ export function WithdrawalForm({ action, returnPath }: FormProps) {
             placeholder="例如 5000"
           />
         </div>
-        <div className="mt-3 md:mt-0">
+        <div className="min-w-0">
           <label className={labelCls}>原因（必填）</label>
           <input
             type="text"
@@ -86,9 +87,9 @@ export function DepositForm({ action, returnPath }: FormProps) {
       submitLabel="送出補入"
       successPendingLabel="已送出，跳轉中…"
       submitClassName="min-h-[44px] w-full bg-green-600 px-5 text-base text-white hover:bg-green-700 md:ml-auto md:flex md:w-auto md:min-w-40"
-      className="space-y-3 p-4 md:space-y-4"
+      className={`${styles.container} space-y-3 p-4 md:space-y-4`}
     >
-      <div className="md:grid md:grid-cols-2 md:gap-4">
+      <div className={styles.fieldGrid}>
         <div>
           <label className={labelCls}>金額（NT$）</label>
           <input
@@ -101,7 +102,7 @@ export function DepositForm({ action, returnPath }: FormProps) {
             placeholder="例如 2000"
           />
         </div>
-        <div className="mt-3 md:mt-0">
+        <div className="min-w-0">
           <label className={labelCls}>原因（必填）</label>
           <input
             type="text"
@@ -131,7 +132,7 @@ export function AdjustmentForm({ action, returnPath }: FormProps) {
       submitLabel="送出調整"
       successPendingLabel="已送出，跳轉中…"
       submitClassName="min-h-[44px] bg-earth-700 px-5 text-base text-white hover:bg-earth-800"
-      className="space-y-3 p-4 md:space-y-4"
+      className={`${styles.container} space-y-3 p-4 md:space-y-4`}
     >
       <div>
         <p className={labelCls}>方向（必選）</p>
@@ -146,7 +147,7 @@ export function AdjustmentForm({ action, returnPath }: FormProps) {
           </label>
         </div>
       </div>
-      <div className="md:grid md:grid-cols-2 md:gap-4">
+      <div className={styles.fieldGrid}>
         <div>
           <label className={labelCls}>金額（NT$）</label>
           <input
@@ -159,7 +160,7 @@ export function AdjustmentForm({ action, returnPath }: FormProps) {
             placeholder="例如 100"
           />
         </div>
-        <div className="mt-3 md:mt-0">
+        <div className="min-w-0">
           <label className={labelCls}>原因（必填）</label>
           <input
             type="text"
@@ -179,3 +180,4 @@ export function AdjustmentForm({ action, returnPath }: FormProps) {
     </CashDrawerActionForm>
   );
 }
+

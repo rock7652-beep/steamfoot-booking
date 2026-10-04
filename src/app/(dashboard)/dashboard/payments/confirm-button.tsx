@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
+import styles from "@/components/admin/commerce-layout.module.css";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { confirmTransactionPayment } from "@/server/actions/transaction";
@@ -28,6 +30,7 @@ export function ConfirmPaymentButton({
   paymentMethodLabel,
   transferCode = "",
 }: Props) {
+  const titleId = useId();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -49,23 +52,16 @@ export function ConfirmPaymentButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+        className={`${styles.trigger} rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700`}
       >
         確認已入帳
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
-          onClick={() => !pending && setOpen(false)}
-        >
-          <div
-            className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-3 text-lg font-semibold text-earth-900">確認已收到款項？</h3>
+      <ModalPanel open={open} onClose={() => setOpen(false)} pending={pending} labelledById={titleId}>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-5">
+            <h3 id={titleId} className="mb-3 text-lg font-semibold text-earth-900">確認已收到款項？</h3>
 
-            <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
+            <div className={`${styles.summary} mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm`}>
               <div className="flex justify-between">
                 <span className="text-earth-500">顧客</span>
                 <span className="font-medium text-earth-900">{customerName}</span>
@@ -98,7 +94,7 @@ export function ConfirmPaymentButton({
                 : "顧客未提供轉帳末碼，請先核對銀行帳戶確實入帳。確認後會立即開通方案與堂數。"}
             </p>
 
-            <div className="flex justify-end gap-2">
+            <div className={styles.actions}>
               <button
                 onClick={() => setOpen(false)}
                 disabled={pending}
@@ -115,8 +111,8 @@ export function ConfirmPaymentButton({
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </ModalPanel>
     </>
   );
 }
+
