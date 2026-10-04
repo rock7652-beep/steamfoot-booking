@@ -2786,6 +2786,7 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "平板直向選項已移除，舊網址轉為平板橫向；不代表真實直向 iPad 已驗收。",
       "前台預覽另需 frontend_preview 授權，裝置預覽不能繞過。",
+      "桌機後台可使用側欄以外的可用寬度；個別表單仍可保留閱讀寬度，不能只憑左右留白判定故障。",
       "尺寸模擬不替代 iPad、Safari、LINE 登入或業務驗收。"
     ],
     "modules": [
