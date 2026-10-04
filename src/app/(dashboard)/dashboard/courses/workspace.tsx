@@ -1,4 +1,5 @@
 "use client";
+import styles from "./schedule-layout.module.css";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { WeeklyRepeatFields } from "@/components/admin/weekly-repeat-fields";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
@@ -709,7 +710,7 @@ export function CourseWorkspace({
     <>
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
-        <div className="flex flex-col gap-1">
+        <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 shrink-0">
@@ -726,7 +727,7 @@ export function CourseWorkspace({
                     type="button"
                     disabled={pending}
                     onClick={() => changeScheduleMode(mode)}
-                    className={`min-h-8 rounded-md px-3 text-sm ${
+                    className={`${styles.touchControl} min-h-8 rounded-md px-3 text-sm ${
                       scheduleMode === mode
                         ? "bg-primary-50 font-medium text-primary-900"
                         : "text-earth-600"
@@ -738,7 +739,7 @@ export function CourseWorkspace({
               </div>
               <div className="inline-flex items-center gap-1">
                 <button
-                  className={`${button} min-h-9 px-2.5`}
+                  className={`${styles.touchControl} ${button} min-h-9 px-2.5`}
                   disabled={pending}
                   aria-label={
                     scheduleMode === "month"
@@ -762,14 +763,14 @@ export function CourseWorkspace({
                   ‹
                 </button>
                 <button
-                  className={`${button} min-h-9 px-3`}
+                  className={`${styles.touchControl} ${button} min-h-9 px-3`}
                   disabled={pending}
                   onClick={() => go(today)}
                 >
                   今天
                 </button>
                 <button
-                  className={`${button} min-h-9 px-2.5`}
+                  className={`${styles.touchControl} ${button} min-h-9 px-2.5`}
                   disabled={pending}
                   aria-label={
                     scheduleMode === "month"
@@ -909,10 +910,10 @@ export function CourseWorkspace({
                 <div className="ml-auto [&>div]:flex-nowrap">{scheduleLegend}</div>
               </CourseScheduleToolbar>}
               <div
-            className="overflow-hidden rounded-lg border border-earth-200 bg-white"
+            className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-earth-200 bg-white"
             aria-busy={pending}
           >
-            <div className="grid grid-cols-7">
+            <div className="grid min-w-[700px] grid-cols-7">
               {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
                 <div
                   key={day}
@@ -941,7 +942,7 @@ export function CourseWorkspace({
                 return (
                   <div
                     key={date}
-                    className={`relative flex min-w-0 h-24 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 sm:py-1 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
+                    className={`${styles.monthDay} relative flex min-w-0 h-24 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 sm:py-1 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
@@ -965,9 +966,9 @@ export function CourseWorkspace({
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
-                      return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className="relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500"><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
+                      return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500`}><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
-                    {list.length > visibleCount && <button type="button" className="relative text-xs text-primary-800 hover:underline" onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
+                    {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
                   </div>
                 );

@@ -1,4 +1,5 @@
 "use client";
+import styles from "./schedule-layout.module.css";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
 import { courseClassPresentation } from "@/lib/course-class-presentation";
 
@@ -131,7 +132,7 @@ type ResourceView = "room" | "coach";
 type QuickFilter = "all" | "trial" | "near-full" | "full" | "pending";
 
 const tab =
-  "min-h-8 rounded-md px-2 py-1 text-xs font-medium transition disabled:opacity-50";
+  `${styles.touchControl} min-h-8 rounded-md px-2 py-1 text-xs font-medium transition disabled:opacity-50`;
 
 function hhmm(iso: string) {
   return formatTWDateTime(new Date(iso)).slice(11);
@@ -537,7 +538,7 @@ export function CourseScheduleBoard({
           {legend && <div className="ml-auto [&>div]:flex-nowrap">{legend}</div>}
         </Toolbar>
         <div className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg border border-earth-200 bg-white">
-          <div className="grid w-full" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
+          <div className="grid w-full min-w-[900px]" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div data-schedule-sticky-header className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-600">時間</div>
             {dates.map((date, index) => {
               const total = scheduleTotals(scheduleOnDate(weekSessions, date));
@@ -728,14 +729,14 @@ export function CourseScheduleBoard({
     <div className={musicDense ? "inline-flex rounded-lg border border-earth-200 bg-white p-0.5" : "inline-flex shrink-0 gap-1"} aria-label="課表資源視角">
           <button
             type="button"
-            className={`${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            className={`${styles.touchControl} ${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("room")}
           >
             教室視角
           </button>
           <button
             type="button"
-            className={`${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            className={`${styles.touchControl} ${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
             {businessProfile === "MUSIC" ? "老師視角" : "教練視角"}
