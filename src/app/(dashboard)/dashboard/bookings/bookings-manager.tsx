@@ -1,4 +1,5 @@
 "use client";
+import styles from "./booking-layout.module.css";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabelsSeed, useSeedCustomerLabels, CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
 import { readBookingDetail, updateBookingStatus } from "@/lib/booking-client-transport";
@@ -952,11 +953,11 @@ function Toolbar({
   });
 
   return (
-    <div data-booking-filter-bar className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border border-earth-200 bg-white px-3 py-2">
+    <div data-booking-filter-bar className={`${styles.filters} flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border border-earth-200 bg-white px-3 py-2`}>
       <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
         <BookingMonthLink
           href={`/dashboard/bookings?year=${prevYear}&month=${prevMonth}`}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
+          className={`${styles.monthLink} inline-flex items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50`}
           year={prevYear} month={prevMonth} direction="previous"
         />
         <span className="min-w-[90px] text-center text-sm font-semibold text-earth-900">
@@ -964,13 +965,13 @@ function Toolbar({
         </span>
         <BookingMonthLink
           href={`/dashboard/bookings?year=${nextYear}&month=${nextMonth}`}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
+          className={`${styles.monthLink} inline-flex items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50`}
           year={nextYear} month={nextMonth} direction="next"
         />
         <button
           type="button"
           onClick={() => onJumpToday(todayIso)}
-          className="inline-flex min-h-11 items-center rounded border border-earth-300 bg-white px-3 text-xs font-semibold text-earth-700 hover:bg-earth-50"
+          className={`${styles.filterAction} inline-flex items-center rounded border border-earth-300 bg-white px-3 text-xs font-semibold text-earth-700 hover:bg-earth-50`}
         >
           今日
         </button>
@@ -1000,7 +1001,7 @@ function Toolbar({
           <button
             type="button"
             onClick={() => setFilters(EMPTY_FILTERS)}
-            className="inline-flex min-h-11 items-center rounded border border-earth-300 bg-earth-50 px-2.5 text-xs font-medium text-earth-600 hover:bg-earth-100"
+            className={`${styles.filterAction} inline-flex items-center rounded border border-earth-300 bg-earth-50 px-2.5 text-xs font-medium text-earth-600 hover:bg-earth-100`}
             title="清除所有篩選"
           >
             清除 ({activeFilterCount})
@@ -1014,7 +1015,7 @@ function Toolbar({
             placeholder="搜尋本月預約：姓名／手機"
             aria-label="搜尋本月預約：姓名或手機"
             // Keep search readable while sharing the toolbar row when space permits.
-            style={{ width: "100%", height: 44 }}
+            style={{ width: "100%" }}
             value={compositionText ?? filters.search}
             onCompositionStart={(e) => { composing.current = true; setCompositionText(e.currentTarget.value); }}
             onCompositionEnd={(e) => { composing.current = false; setCompositionText(null); setFilters({ ...filters, search: e.currentTarget.value }); }}
@@ -1080,7 +1081,7 @@ function FilterSelect({
   const active = !!value;
   return (
     <label
-      className={`inline-flex min-h-11 min-w-0 max-w-full items-center gap-1 rounded border pl-2.5 pr-1 text-xs font-medium transition-colors ${
+      className={`${styles.filterSelect} inline-flex min-w-0 max-w-full items-center gap-1 rounded border pl-2.5 pr-1 text-xs font-medium transition-colors ${
         active
           ? "border-primary-500 bg-primary-50 text-primary-700"
           : "border-earth-300 bg-white text-earth-700 hover:bg-earth-50"

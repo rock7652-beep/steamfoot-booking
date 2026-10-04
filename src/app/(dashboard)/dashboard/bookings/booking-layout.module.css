@@ -44,3 +44,60 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.filters {
+  container: booking-filters / inline-size;
+}
+
+.filterSelect, .filterAction {
+  min-height: 28px;
+}
+
+.monthLink {
+  min-height: 28px;
+  min-width: 28px;
+}
+
+/* Override the old global compact-select rule without affecting other pages. */
+.filterSelect select {
+  width: auto;
+  min-width: 0;
+  max-width: 14rem;
+  height: 28px;
+  min-height: 28px;
+}
+
+.filters input[type="search"] {
+  height: 40px;
+  min-height: 40px;
+}
+
+@container booking-filters (max-width: 64rem) {
+  .filterSelect, .filterAction, .monthLink {
+    min-height: 44px;
+  }
+
+  .monthLink {
+    min-width: 44px;
+  }
+
+  .filterSelect select, .filters input[type="search"] {
+    height: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (any-pointer: coarse) {
+  .filterSelect, .filterAction, .monthLink {
+    min-height: 44px;
+  }
+
+  .monthLink {
+    min-width: 44px;
+  }
+
+  .filterSelect select, .filters input[type="search"] {
+    height: 44px;
+    min-height: 44px;
+  }
+}
