@@ -1,8 +1,40 @@
+/* Shared sizing does not remount forms when the viewport changes. */
+.panel {
+  min-width: 0;
+  max-width: 100%;
+}
+.panel > * { min-width: 0; }
+.panel > header, .panel > footer,
+.panel > form > header, .panel > form > footer {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.panel > header > div, .panel > footer > div,
+.panel > form > header > div, .panel > form > footer > div {
+  min-width: 0;
+}
+.panel > header :is(h1, h2, h3, p),
+.panel > form > header :is(h1, h2, h3, p) {
+  overflow-wrap: anywhere;
+}
+.side {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
 .centered {
+  /* Centering is geometry, not the side-sheet opening animation. */
+  transition: none;
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
   outline: none;
@@ -13,7 +45,7 @@
     inset: 50% auto auto 50%;
     transform: translate(-50%, -50%);
     width: min(var(--sheet-width), calc(100% - 3rem));
-    height: calc(100% - 3rem);
+    height: calc(100dvh - 3rem);
     max-height: var(--sheet-max-height, 900px);
     border: 1px solid var(--color-earth-200);
     border-radius: 1rem;
@@ -23,18 +55,18 @@
 @media (min-width: 640px) {
   .centered[data-compact="true"] {
     height: auto;
-    max-height: calc(100% - 3rem);
+    max-height: calc(100dvh - 3rem);
     overflow-y: auto;
   }
 
   .centered[data-fit-content="true"] {
     height: auto;
-    max-height: calc(100% - 3rem);
+    max-height: calc(100dvh - 3rem);
     overflow-y: auto;
   }
 
   .centered[data-compact="true"][data-fixed-height="true"] {
-    height: calc(100% - 3rem);
+    height: calc(100dvh - 3rem);
     max-height: 900px;
     overflow: hidden;
   }
