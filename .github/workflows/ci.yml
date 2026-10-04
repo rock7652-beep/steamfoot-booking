@@ -92,7 +92,7 @@ jobs:
         run: |
           mapfile -t tests < <(find src -type f \( -name '*digital-butler*.test.ts' -o -name '*digital-butler*.test.tsx' \) | sort)
           tests+=(src/__tests__/client-read-cache.test.ts src/__tests__/panel-read-cache.test.ts)
-          tests+=(src/__tests__/trial-booking-panel-loading.test.ts src/__tests__/steam-booking-drawer.test.ts src/__tests__/transaction-panel-loading.test.ts)
+          tests+=(src/__tests__/trial-booking-panel-loading.test.ts src/__tests__/steam-booking-drawer.test.ts src/__tests__/transaction-panel-loading.test.ts src/__tests__/booking-form-live-slots.test.ts)
           tests+=(src/__tests__/course-staff-teaching-ui.test.ts src/__tests__/course-large-list-ui.test.ts src/__tests__/course-coach-work-ui.test.ts)
           tests+=(src/__tests__/reminder-send-result.test.ts)
           tests+=(src/__tests__/verified-reminder-line-route.test.ts)

@@ -13,7 +13,7 @@ const button="inline-flex min-h-11 items-center justify-center rounded-lg border
 type Data=Extract<Awaited<ReturnType<typeof loadSteamBookingForm>>,{success:true}>["data"];
 
 export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,triggerClassName}:{date:string;makeup?:boolean;triggerLabel:string;onCreated?:()=>void;triggerClassName?:string}) {
-  const formReader=usePanelReader("steam-booking-form",loadSteamBookingForm,"",15_000);
+  const formReader=usePanelReader("steam-booking-form",loadSteamBookingForm);
   const titleId=useId();
   const [open,setOpen]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState("");
   const [data,setData]=useState<Data|null>(null);

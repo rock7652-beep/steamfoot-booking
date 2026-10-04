@@ -7,7 +7,7 @@
 | 入口 | 資料來源／共用資源 | 策略 |
 | --- | --- | --- |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
-| 蒸足新增／補課 | steam-booking-form | intent 預讀、15 秒表單快取，提交後失效；提交仍檢查名額 |
+| 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
 | 一般顧客 | customer-detail | intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate |
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
@@ -41,4 +41,4 @@
 - 自動驗證：in-flight 去重、TTL／stale 上限、失敗重試、失效後舊請求不可寫回、資源修訂與 account/store provider 隔離、live balance 不重用完成結果、體驗快速切日期不覆蓋、新增預約開關與草稿保留。
 - 不新增 schema、migration、WebSocket 或第三方套件，不操作正式收款／預約資料。
 - Preview 必須通過 isolated database guard。桌機 1366／寬螢幕、iPad 1024×768／768×1024、窄容器與手機 touch intent 均納入驗收範圍。
-- 本次瀏覽器有 native credentials observation 保護，實際登入後桌機／iPad／手機畫面驗收尚未完成；程式測試不能代替完整業務與真機驗收。
+- 先前瀏覽器曾有 native credentials observation 保護；本次新預覽可開啟但停在 HQ 登入頁，未取得登入後桌機／iPad／手機畫面驗收；程式測試不能代替完整業務與真機驗收。
