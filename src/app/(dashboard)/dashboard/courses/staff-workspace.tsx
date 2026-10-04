@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 import styles from "@/components/admin/management-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
@@ -292,7 +293,7 @@ export function CourseStaffWorkspace({
         </table>
       </div>
       {staffPages>1 && <nav aria-label="人員分頁" className="mt-3 flex flex-wrap items-center justify-end gap-3 text-sm"><span>啟用 {activeRows.length} 人 · 第 {currentStaffPage+1}／{staffPages} 頁</span><button className={button} disabled={!currentStaffPage} onClick={()=>setStaffPage(currentStaffPage-1)}>上一頁</button><button className={button} disabled={currentStaffPage+1>=staffPages} onClick={()=>setStaffPage(currentStaffPage+1)}>下一頁</button></nav>}
-      {open && (
+      {open && createPortal(
         <RightSheet className={`${styles.panel} ${music ? "" : "fitness-management-editor"}`} presentation="centered"
           compact={music}
           maxHeight={music ? 900 : 680}
@@ -682,7 +683,7 @@ export function CourseStaffWorkspace({
             </div>
             </>}
           </footer>
-        </RightSheet>
+        </RightSheet>, document.body
       )}
     </div>
   );

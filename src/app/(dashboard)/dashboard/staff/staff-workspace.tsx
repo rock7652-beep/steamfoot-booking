@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 
 import styles from "@/components/admin/management-layout.module.css";
 import { useRouter } from "next/navigation";
@@ -682,10 +683,10 @@ export function StaffWorkspace({
           onClose={() => setEditor(null)}
         />
       ) : null}
-      {isPending ? (
+      {isPending ? createPortal(
         <div className="fixed bottom-5 right-5 z-[60] rounded-lg bg-earth-900 px-4 py-2 text-sm text-white shadow-lg">
           儲存中…
-        </div>
+        </div>, document.body
       ) : null}
     </div>
   );
@@ -1921,7 +1922,7 @@ function Drawer({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  return (
+  return createPortal(
     <div data-rwd-panel className={`${styles.panel} fixed inset-0 z-50 flex justify-end`}>
       <button
         type="button"
@@ -1948,7 +1949,7 @@ function Drawer({
         </header>
         {children}
       </aside>
-    </div>
+    </div>, document.body
   );
 }
 function Field({
