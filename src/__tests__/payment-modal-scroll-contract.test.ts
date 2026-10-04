@@ -18,7 +18,7 @@ describe("payment modal viewport scrolling", () => {
       const shell = readFileSync(resolve(process.cwd(), "src/components/admin/modal-panel.tsx"), "utf8");
       const geometry = readFileSync(resolve(process.cwd(), "src/components/admin/right-sheet.module.css"), "utf8");
       expect(shell).toContain("<RightSheet");
-      expect(geometry).toContain("max-height: calc(100% - 3rem)");
+      expect(geometry).toContain("max-height: calc(100dvh - 3rem)");
       expect(geometry).toContain("100dvh");
     } else {
       expect(source).toContain("overflow-y-auto bg-black/40 px-4 py-4");

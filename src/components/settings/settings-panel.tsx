@@ -114,8 +114,8 @@ export function SettingsPanel({
         onClose={() => request(closeHref)}
         labelledById="settings-panel-title"
       >
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
             <p className="text-xs text-earth-500">設定</p>
             <h2 id="settings-panel-title" className="font-semibold text-primary-900">{title}</h2>
           </div>
@@ -127,7 +127,7 @@ export function SettingsPanel({
         {destination ? (
           <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
             <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
-            <div className="mt-2 flex gap-3">
+            <div className="mt-2 flex flex-wrap gap-3">
               <button autoFocus className="min-h-11 rounded border px-3 text-sm" onClick={() => setDestination(null)}>繼續編輯</button>
               {!pending ? (
                 <button className="min-h-11 rounded bg-primary-700 px-3 text-sm text-white" onClick={() => go(destination)}>
