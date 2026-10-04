@@ -7,6 +7,7 @@ import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { AppError } from "@/lib/errors";
+import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 
 export type FrontendPreviewSelection = { storeId: string; personId: string; role: "member" | "work" };
 
@@ -42,9 +43,21 @@ export async function authorizeFrontendPreview(input: FrontendPreviewSelection) 
 export async function resolveCoursePreviewIdentity(access: Awaited<ReturnType<typeof authorizeFrontendPreview>>) {
   const result = { customerId: access.role === "member" ? access.personId : "", workStaffId: access.role === "work" ? access.personId : null as string | null, memberEnabled: access.role === "member" };
   if (access.moduleId !== "course") return result;
-  if (access.role === "member" && (!access.personUserId || (access.user.role !== "OWNER" && access.user.role !== "ADMIN") || !await checkPermission(access.user.role, access.user.staffId, "staff.view"))) return result;
+  let memberUserId = access.personUserId;
+  if (access.role === "member") {
+    if ((access.user.role !== "OWNER" && access.user.role !== "ADMIN") || !await checkPermission(access.user.role, access.user.staffId, "staff.view")) return result;
+    const identities = await prisma.customerIdentityLink.findMany({
+      where: { customerId: access.personId, storeId: access.storeId },
+      select: { userId: true },
+    });
+    const userIds = [...new Set([memberUserId, ...identities.map(identity => identity.userId)].filter((id): id is string => !!id))];
+    if (userIds.length !== 1) return result;
+    memberUserId = userIds[0];
+    const membership = await resolveCentralMemberCustomerForStore(memberUserId, access.storeId);
+    if (membership?.customerId !== access.personId) return result;
+  }
   const link = await prisma.staffMemberLink.findFirst({
-    where: { storeId: access.storeId, revokedAt: null, ...(access.role === "member" ? { userId: access.personUserId! } : { staffId: access.personId }), staff: { status: "ACTIVE", courseCoachEnabled: true } },
+    where: { storeId: access.storeId, revokedAt: null, ...(access.role === "member" ? { userId: memberUserId! } : { staffId: access.personId }), staff: { status: "ACTIVE", courseCoachEnabled: true } },
     select: { staffId: true, userId: true, courseMemberEnabled: true },
   });
   if (!link) return result;
@@ -54,11 +67,8 @@ export async function resolveCoursePreviewIdentity(access: Awaited<ReturnType<ty
     return { ...result, workStaffId: link.staffId, memberEnabled: link.courseMemberEnabled };
   }
   if (!link.courseMemberEnabled || !await checkPermission(access.user.role, access.user.staffId, "wallet.read")) return result;
-  const customer = await prisma.customer.findFirst({
-    where: { ...getManagerCustomerWhere(access.user.role, access.user.staffId, access.storeId), storeId: access.storeId, userId: link.userId, mergedIntoCustomerId: null },
-    select: { id: true },
-  });
-  if (!customer) return result;
-  await authorizeFrontendPreview({ storeId: access.storeId, personId: customer.id, role: "member" });
-  return { ...result, customerId: customer.id, memberEnabled: true };
+  const membership = await resolveCentralMemberCustomerForStore(link.userId, access.storeId);
+  if (!membership) return result;
+  await authorizeFrontendPreview({ storeId: access.storeId, personId: membership.customerId, role: "member" });
+  return { ...result, customerId: membership.customerId, memberEnabled: true };
 }

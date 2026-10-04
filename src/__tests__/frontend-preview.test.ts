@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
-const mocks = vi.hoisted(() => ({ permission: vi.fn(), check: vi.fn(), link: vi.fn(), store: vi.fn(), feature: vi.fn(), module: vi.fn(), customer: vi.fn(), staff: vi.fn(), visibility: vi.fn() }));
+const mocks = vi.hoisted(() => ({ permission: vi.fn(), check: vi.fn(), link: vi.fn(), identities: vi.fn(), membership: vi.fn(), store: vi.fn(), feature: vi.fn(), module: vi.fn(), customer: vi.fn(), staff: vi.fn(), visibility: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission, checkPermission: mocks.check }));
 vi.mock("@/lib/store", () => ({ validateStoreAccess: mocks.store }));
 vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: mocks.feature }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.module }));
-vi.mock("@/lib/db", () => ({ prisma: { staffMemberLink: { findFirst: mocks.link }, customer: { findFirst: mocks.customer }, staff: { findFirst: mocks.staff } } }));
+vi.mock("@/lib/db", () => ({ prisma: { customerIdentityLink: { findMany: mocks.identities }, staffMemberLink: { findFirst: mocks.link }, customer: { findFirst: mocks.customer }, staff: { findFirst: mocks.staff } } }));
+vi.mock("@/server/services/central-member-resolver", () => ({ resolveCentralMemberCustomerForStore: mocks.membership }));
 vi.mock("@/lib/manager-visibility", () => ({ getManagerCustomerWhere: mocks.visibility }));
 import { authorizeFrontendPreview, resolveCoursePreviewIdentity } from "@/server/services/frontend-preview";
 
@@ -15,6 +16,8 @@ beforeEach(() => {
   mocks.permission.mockResolvedValue({ id: "viewer", role: "OWNER", staffId: "manager", storeId: "own" });
   mocks.check.mockResolvedValue(true);
   mocks.link.mockResolvedValue(null);
+  mocks.identities.mockResolvedValue([]);
+  mocks.membership.mockResolvedValue({ customerId: "person", storeId: "store", userId: "line-user" });
   mocks.store.mockResolvedValue("store");
   mocks.module.mockResolvedValue("steamfoot");
   mocks.visibility.mockReturnValue({ assignedStaffId: "manager" });
@@ -116,7 +119,28 @@ describe("course preview linked identities", () => {
   it("enables member from work through the same-store linked account", async () => {
     const result = await resolveCoursePreviewIdentity({ ...access, moduleId: "course", personUserId: "line-user", personId: "coach", role: "work" });
     expect(result).toEqual({ customerId: "person", workStaffId: "coach", memberEnabled: true });
-    expect(mocks.customer).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "store", userId: "line-user", mergedIntoCustomerId: null, assignedStaffId: "manager" }) }));
+    expect(mocks.membership).toHaveBeenCalledWith("line-user", "store");
+    expect(mocks.customer).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "person", storeId: "store", mergedIntoCustomerId: null, assignedStaffId: "manager" }) }));
+  });
+  it("resolves central LINE membership when legacy customer userId is null", async () => {
+    mocks.identities.mockResolvedValue([{ userId: "line-user" }]);
+    expect((await resolveCoursePreviewIdentity({ ...access, personUserId: null })).workStaffId).toBe("coach");
+    expect(mocks.identities).toHaveBeenCalledWith({ where: { customerId: "person", storeId: "store" }, select: { userId: true } });
+  });
+  it("rejects contradictory legacy and central accounts", async () => {
+    mocks.identities.mockResolvedValue([{ userId: "another-user" }]);
+    expect((await resolveCoursePreviewIdentity(access)).workStaffId).toBeNull();
+    expect(mocks.link).not.toHaveBeenCalled();
+  });
+  it.each([null, { customerId: "another-person" }])("does not expand a conflicted or mismatched central membership", async membership => {
+    mocks.membership.mockResolvedValue(membership);
+    expect((await resolveCoursePreviewIdentity(access)).workStaffId).toBeNull();
+    expect(mocks.link).not.toHaveBeenCalled();
+  });
+  it("keeps work-only when central member resolution rejects the account", async () => {
+    mocks.membership.mockResolvedValue(null);
+    expect((await resolveCoursePreviewIdentity({ ...access, personId: "coach", role: "work" })).memberEnabled).toBe(false);
+    expect(mocks.customer).not.toHaveBeenCalled();
   });
   it("keeps coach-only identities and restricted member reads separate", async () => {
     mocks.link.mockResolvedValue({ staffId: "coach", userId: "line-user", courseMemberEnabled: false });
