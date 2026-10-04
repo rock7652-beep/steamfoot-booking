@@ -442,7 +442,7 @@ function MoreBookingsPopover({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="text-[10px] font-semibold text-primary-600 hover:text-primary-700"
+        className={`${styles.calendarBooking} text-[10px] font-semibold text-primary-600 hover:text-primary-700`}
         title="展開全部預約"
       >
         +{remaining.length} 更多
@@ -477,4 +477,3 @@ function MoreBookingsPopover({
     </div>
   );
 }
-

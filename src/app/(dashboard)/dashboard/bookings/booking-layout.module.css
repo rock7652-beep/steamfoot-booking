@@ -107,10 +107,11 @@
   container: booking-calendar / inline-size;
 }
 
-@container booking-calendar (max-width: 64rem) {
+@container booking-calendar (max-width: 48rem) {
   .calendarBooking {
     height: auto;
     min-height: 44px;
+    min-width: 44px;
   }
 }
 
@@ -118,6 +119,6 @@
   .calendarBooking {
     height: auto;
     min-height: 44px;
+    min-width: 44px;
   }
 }
-
