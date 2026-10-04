@@ -1,0 +1,86 @@
+.root {
+  container: settings-form / inline-size;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.columns,
+.twoColumns,
+.compactFields,
+.priceRange,
+.courseFields,
+.optionGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 1rem;
+}
+
+.twoColumns,
+.priceRange,
+.courseFields,
+.optionGrid { gap: 0.75rem; }
+.compactFields { gap: 0.5rem; }
+
+.main,
+.preview,
+.fields,
+.columns > *,
+.twoColumns > *,
+.compactFields > *,
+.priceRange > *,
+.courseFields > *,
+.optionGrid > * { min-width: 0; }
+
+.fields { container: settings-fields / inline-size; }
+.fullWidth { grid-column: 1 / -1; }
+.preview { align-self: start; }
+
+.statusRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-height: 4rem;
+  padding-block: 0.5rem;
+}
+
+.root fieldset { min-width: 0; }
+.root input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.root select,
+.root textarea { min-width: 0; max-width: 100%; min-height: 44px; }
+.root button,
+.root summary,
+.root a,
+.switchLabel,
+.optionGrid > label { min-height: 44px; }
+.root input[type="checkbox"],
+.root input[type="radio"] { flex-shrink: 0; }
+
+@container settings-form (min-width: 52rem) {
+  .columns { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .columns > .preview { position: sticky; top: 1rem; }
+}
+
+@container settings-fields (min-width: 32rem) {
+  .twoColumns,
+  .compactFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container settings-fields (min-width: 24rem) {
+  .priceRange { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container settings-form (min-width: 32rem) {
+  .courseFields,
+  .optionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container settings-form (min-width: 40rem) {
+  .bankFields { grid-template-columns: minmax(0, 1fr) 100px minmax(0, 1.4fr); }
+}
+
+@container settings-form (min-width: 48rem) {
+  .statusRow { grid-template-columns: 200px minmax(0, 1fr) 200px; }
+  .indented { margin-left: 216px; }
+}

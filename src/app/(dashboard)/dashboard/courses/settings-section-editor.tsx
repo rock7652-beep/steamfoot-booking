@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/settings/settings-form-layout.module.css";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveCourseSettingsSection } from "@/server/actions/course-settings";
@@ -42,7 +43,7 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   useEffect(() => { onStatus(section, dirty, pending); }, [section, dirty, pending, onStatus]);
   const label = section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
-  return <form aria-label={`編輯${label}`} className="m-0" onSubmit={event => {
+  return <form aria-label={`編輯${label}`} className={`${styles.root} m-0`} onSubmit={event => {
     event.preventDefault();
     if (saving.current || !dirty || !event.currentTarget.reportValidity()) return;
     saving.current = true;
@@ -58,8 +59,8 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
       finally { saving.current = false; }
     });
   }}>
-    <fieldset disabled={pending} className={section === "payment" ? "grid min-w-0 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_100px_minmax(0,1.4fr)]" : "grid min-w-0 gap-2 sm:grid-cols-2"}>
-      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" ? "sm:col-span-2" : ""}`}>
+    <fieldset disabled={pending} className={`${styles.courseFields} ${section === "payment" ? `${styles.bankFields} items-end` : ""}`}>
+      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" ? styles.fullWidth : ""}`}>
         {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-900" />
       </label>)}
     </fieldset>
@@ -72,3 +73,4 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
     </div>
   </form>;
 }
+
