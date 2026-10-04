@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/settings/settings-form-layout.module.css";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -65,10 +66,11 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
     <form
       data-store-id={storeId}
       onSubmit={handleSubmit}
-      className={compact ? "space-y-4" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
+      className={styles.root}
     >
+      <div className={compact ? "space-y-4" : styles.columns}>
       {/* Left: form */}
-      <div className={compact ? "" : "lg:col-span-7"}>
+      <div className={styles.main}>
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <header className="mb-4">
             <h2 className="text-sm font-semibold text-earth-900">付款資訊</h2>
@@ -77,8 +79,8 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
             </p>
           </header>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className={`${styles.fields} space-y-4`}>
+            <div className={styles.twoColumns}>
               <div>
                 <label className={labelCls}>銀行名稱</label>
                 <input
@@ -136,7 +138,7 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
             </div>
           </div>
 
-          <div className={`mt-6 flex items-center justify-end gap-3 border-t border-earth-100 pt-4 ${compact ? "sticky bottom-0 bg-white pb-3" : ""}`}>
+          <div className={`mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 pt-4 ${compact ? "sticky bottom-0 bg-white pb-3" : ""}`}>
             <span className="text-[11px] text-earth-400">
               {pending ? "儲存中..." : "變更後請儲存"}
             </span>
@@ -152,9 +154,9 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
       </div>
 
       {/* Right: customer-facing preview */}
-      <div className={compact ? "" : "lg:col-span-5"}>
-        <section className="lg:sticky lg:top-4 rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
-          <header className="mb-3 flex items-center justify-between">
+      <div className={compact ? "min-w-0" : styles.preview}>
+        <section className="rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
+          <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-earth-900">前台預覽</h2>
             <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-earth-500">
               顧客看到的樣子
@@ -176,7 +178,7 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
               <dl className="space-y-2 text-sm">
                 <div className="flex items-baseline justify-between gap-2">
                   <dt className="shrink-0 text-xs text-earth-500">銀行</dt>
-                  <dd className="text-right font-medium text-earth-800">
+                  <dd className="min-w-0 text-right font-medium text-earth-800">
                     {bankName || (
                       <span className="text-earth-300">（未填）</span>
                     )}
@@ -187,10 +189,10 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
                     )}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <dt className="shrink-0 text-xs text-earth-500">帳號</dt>
-                  <dd className="flex items-center gap-2">
-                    <span className="font-mono text-sm tabular-nums text-earth-800">
+                  <dd className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+                    <span className="min-w-0 font-mono text-sm tabular-nums text-earth-800">
                       {bankAccountNumber || (
                         <span className="font-sans text-earth-300">（未填）</span>
                       )}
@@ -199,7 +201,7 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
                       <button
                         type="button"
                         onClick={copyAccount}
-                        className="rounded-md border border-earth-200 bg-white px-2 py-0.5 text-[11px] text-earth-600 hover:bg-earth-50"
+                        className="min-w-11 shrink-0 rounded-md border border-earth-200 bg-white px-2 py-0.5 text-[11px] text-earth-600 hover:bg-earth-50"
                       >
                         複製
                       </button>
@@ -219,12 +221,12 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
                   href={lineOfficialUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-10 w-full items-center justify-center rounded-lg bg-[#06C755] text-sm font-semibold text-white hover:bg-[#05b34c]"
+                  className="flex min-h-11 w-full items-center justify-center rounded-lg bg-[#06C755] text-sm font-semibold text-white hover:bg-[#05b34c]"
                 >
                   聯繫店長 LINE
                 </a>
               ) : (
-                <div className="flex h-10 w-full items-center justify-center rounded-lg bg-earth-100 text-sm font-medium text-earth-400">
+                <div className="flex min-h-11 w-full items-center justify-center rounded-lg bg-earth-100 text-sm font-medium text-earth-400">
                   尚未設定 LINE 連結
                 </div>
               )}
@@ -236,6 +238,8 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
           </p>
         </section>
       </div>
+      </div>
     </form>
   );
 }
+

@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useId, useRef, useState, useTransition } from "react";
@@ -84,8 +85,9 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       data-store-id={storeId}
       onSubmit={handleSubmit}
       aria-label="體驗設定"
-      className={compact ? "mt-2" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
+      className={`${styles.root} ${compact ? "mt-2" : ""}`}
     >
+      <div className={compact ? undefined : styles.columns}>
       {compact && !forceExpanded && !expanded && (
         <div className="flex justify-end">
           <button type="button" onClick={() => setExpanded(true)} className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">修改</button>
@@ -93,8 +95,8 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       )}
 
       {/* Left: form */}
-      <fieldset disabled={pending} hidden={compact && !expanded} className={compact ? "min-w-0" : "min-w-0 lg:col-span-7"}>
-        <section className={compact ? "bg-white" : "rounded-xl border border-earth-200 bg-white p-5 shadow-sm"}>
+      <fieldset disabled={pending} hidden={compact && !expanded} className={styles.main}>
+        <section className={`${styles.fields} ${compact ? "bg-white" : "rounded-xl border border-earth-200 bg-white p-5 shadow-sm"}`}>
           <header hidden={compact} className="mb-4">
             <h2 data-panel-secondary-title className="text-sm font-semibold text-earth-900">體驗課設定</h2>
             <p className="mt-0.5 text-[11px] text-earth-500">
@@ -102,8 +104,8 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             </p>
           </header>
 
-          <div className={compact ? "grid gap-2 sm:grid-cols-2" : "space-y-4"}>
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2">
+          <div className={compact ? styles.compactFields : "space-y-4"}>
+            <label className={`${styles.switchLabel} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
               <span>
                 <span className="text-sm font-medium text-earth-800">啟用體驗單功能</span>
                 <span className="hidden">
@@ -135,7 +137,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               </p>
             </div>
 
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2">
+            <label className={`${styles.switchLabel} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
               <span>
                 <span className="text-sm font-medium text-earth-800">
                   允許建立時調整價格
@@ -152,7 +154,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               />
             </label>
 
-            <div className={compact ? "grid grid-cols-2 gap-2 sm:col-span-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
+            <div className={`${styles.priceRange} ${compact ? styles.fullWidth : ""}`}>
               <div>
                 <label htmlFor={`${formId}-最低可輸入價格`} className={labelCls}>最低可輸入價格</label>
 
@@ -209,10 +211,10 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       </fieldset>
 
       {/* Right: behavior preview */}
-      <details hidden={compact && !expanded} open={compact ? undefined : true} className={compact ? "text-sm" : "lg:col-span-5"}>
+      <details hidden={compact && !expanded} open={compact ? undefined : true} className={compact ? "min-w-0 text-sm" : styles.preview}>
         <summary className={compact ? "min-h-10 cursor-pointer py-2 text-sm text-primary-700" : "hidden"}>建立體驗單預覽</summary>
-        <section className="lg:sticky lg:top-4 rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
-          <header className="mb-3 flex items-center justify-between">
+        <section className="rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
+          <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-earth-900">建立體驗單預覽</h2>
             <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-earth-500">
               店長看到的樣子
@@ -229,7 +231,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             ) : (
               <>
                 <h3 className="mb-1 text-sm font-semibold text-earth-900">體驗費用</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-earth-500">NT$</span>
                   <span className="rounded-md border border-earth-200 px-3 py-1.5 font-mono text-sm tabular-nums text-earth-800">
                     {invalid ? "—" : d}
@@ -256,6 +258,8 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
           </p>}
         </section>
       </details>
+      </div>
     </form>
   );
 }
+
