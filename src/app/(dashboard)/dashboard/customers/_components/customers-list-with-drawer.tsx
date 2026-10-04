@@ -152,11 +152,17 @@ export function CustomersListWithDrawer({
   // URL and cache scope changes are external inputs; reopening after a scope
   // change revalidates even when the same customerId remains in the URL.
   useEffect(() => {
-    const cid = searchParams.get("customerId");
+    // A server refresh can arrive after the user closed or switched the drawer.
+    // On a rows revision, use the current history URL rather than stale params
+    // captured by the refresh request.
+    const params = cache !== lastCacheRef.current
+      ? new URLSearchParams(window.location.search)
+      : searchParams;
+    const cid = params.get("customerId");
     if (cid === lastUrlCidRef.current && cache === lastCacheRef.current) return; // URL cid 沒真的變 → 忽略
     lastCacheRef.current = cache;
     lastUrlCidRef.current = cid;
-    const f = searchParams.get("drawerFocus") === "plan" ? "plan" : null;
+    const f = params.get("drawerFocus") === "plan" ? "plan" : null;
     if (cid) {
       applyOpen(cid, f);
     } else {
@@ -256,15 +262,16 @@ export function CustomersListWithDrawer({
     return () => window.removeEventListener("popstate", onPopState);
   }, [applyOpen, requestGate]);
 
-  // drawer 內成功操作（指派方案 / 歸屬設定）後刷新本人資料，
-  // 不整頁 refresh、不重刷列表（列表 _count 短暫 stale 為已知取捨）。
+  // Read the changed customer immediately, then reconcile the server list in
+  // the background so notes, assignment and package balances stay in sync.
   const refreshDrawer = useCallback(() => {
     window.dispatchEvent(new Event("customer-search-invalidated"));
     if (openId) {
       cache.invalidate(openId);
       void fetchDetail(openId);
     }
-  }, [openId, cache, fetchDetail]);
+    router.refresh();
+  }, [openId, cache, fetchDetail, router]);
 
   // ── 批次選取 state（僅 canAssign 才啟用） ─────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
