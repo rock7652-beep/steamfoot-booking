@@ -2291,6 +2291,7 @@ export function CourseWorkspace({
                 : "＋ 新顧客／體驗客";
           return (
             <RightSheet
+              className={styles.rosterPanel}
               open
               presentation="centered"
               fitContent={rentalDialog ? businessProfile !== "MUSIC" && !dialogSession.rentalId : (oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC"))}

@@ -2,6 +2,17 @@
   container: course-schedule / inline-size;
 }
 
+.rosterPanel :global([role="dialog"]) {
+  container: course-roster / inline-size;
+}
+
+@container course-roster (max-width: 64rem) {
+  .rosterPanel :is(button, select, input:not([type="checkbox"]):not([type="radio"])) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* Keep the desktop calendar density; use the actual workspace width in HQ
    and device previews, rather than the browser width. */
 @container course-schedule (max-width: 64rem) {

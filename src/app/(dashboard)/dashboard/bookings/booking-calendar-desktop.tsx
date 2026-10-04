@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./booking-layout.module.css";
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { BookingMonthLink } from "./booking-month-link";
@@ -135,7 +136,7 @@ export function BookingCalendarDesktop({
   }
 
   return (
-    <div aria-label={compactHeader ? `${monthLabel}預約月曆` : undefined} className={`rounded-lg border border-earth-200 bg-white ${compactHeader ? "px-3 py-2" : "p-4"}`}>
+    <div aria-label={compactHeader ? `${monthLabel}預約月曆` : undefined} className={`${styles.calendar} min-w-0 rounded-lg border border-earth-200 bg-white ${compactHeader ? "px-3 py-2" : "p-4"}`}>
       {!compactHeader && <div className="flex items-center justify-between gap-3 pb-3">
         <h2 className="text-lg font-semibold text-earth-900">{monthLabel}</h2>
         <div className="flex items-center gap-2">
@@ -173,6 +174,8 @@ export function BookingCalendarDesktop({
       {headerActions}
       </div>
 
+      <div className="max-w-full overflow-auto overscroll-x-contain" tabIndex={0} role="region" aria-label="預約月曆捲動區">
+      <div className="min-w-[700px]">
       <div className="grid grid-cols-7 border-b border-earth-200">
         {WEEKDAY_LABELS.map((label, i) => (
           <div
@@ -303,6 +306,8 @@ export function BookingCalendarDesktop({
           );
         })}
       </div>
+      </div>
+      </div>
     </div>
   );
 }
@@ -379,7 +384,7 @@ const BookingStrip = memo(function BookingStrip({
           : undefined
       }
       disabled={!clickable}
-      className={`flex h-[18px] w-full items-center gap-1 truncate rounded-[3px] px-1.5 text-left text-[11px] font-medium ${style.bg} ${
+      className={`${styles.calendarBooking} flex h-[18px] w-full items-center gap-1 truncate rounded-[3px] px-1.5 text-left text-[11px] font-medium ${style.bg} ${
         dimmed ? "opacity-50" : ""
       } ${clickable ? "cursor-pointer hover:brightness-95" : "cursor-default"}`}
       title={`${booking.slotTime} ${booking.customerName} · ${style.label} · ${booking.staffName ?? "未指派"}`}
@@ -472,3 +477,4 @@ function MoreBookingsPopover({
     </div>
   );
 }
+

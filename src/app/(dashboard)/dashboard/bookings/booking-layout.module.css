@@ -101,3 +101,23 @@
     min-height: 44px;
   }
 }
+
+
+.calendar {
+  container: booking-calendar / inline-size;
+}
+
+@container booking-calendar (max-width: 64rem) {
+  .calendarBooking {
+    height: auto;
+    min-height: 44px;
+  }
+}
+
+@media (pointer: coarse) {
+  .calendarBooking {
+    height: auto;
+    min-height: 44px;
+  }
+}
+
