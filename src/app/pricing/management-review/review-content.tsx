@@ -37,6 +37,6 @@ export function ManagementReviewContent({variant}: {variant: string}) {
     <RevenueMixTrend points={months.map(m => ({key: m.date, label: m.date, packageRevenue: m.revenue, retailRevenue: 0, otherRevenue: 0, refunds: 0, expense: 2000, netRevenue: m.revenue, balance: m.revenue - 2000}))} />
   </div>;
   if (variant === "music" || variant === "fitness") return <CourseStaffWorkspace staff={coursePeople} maxStaff={null} templates={[]} customers={[]} canManage permissionGroups={[]} music={variant === "music"} accountKind="coach" feeEnabled={false} canEditFees={false} />;
-  if (variant === "spa") return <StaffScheduleWorkspace people={people.map(p => ({id: p.id, name: p.displayName, phone: p.phone, editable: true, memberLinked: true, treatmentIds: ["rwd-service"], shifts: [{dayOfWeek: 1, startTime: "09:00", endTime: "18:00"}]}))} services={[{id: "rwd-service", name: "驗收長名稱服務・頭部肩頸舒壓與芳療"}]} exceptions={[]} month="2026-10" today="2026-10-04" />;
+  if (variant === "spa") return <StaffScheduleWorkspace people={people.map(p => ({id: p.id, name: p.displayName, phone: p.phone ?? undefined, editable: true, memberLinked: true, treatmentIds: ["rwd-service"], shifts: [{dayOfWeek: 1, startTime: "09:00", endTime: "18:00"}]}))} services={[{id: "rwd-service", name: "驗收長名稱服務・頭部肩頸舒壓與芳療"}]} exceptions={[]} month="2026-10" today="2026-10-04" />;
   return <StaffWorkspace people={people} today="2026-10-04" canManage showSpaCompensation createAction={() => { throw new Error("驗收頁不送出新增資料"); }} />;
 }
