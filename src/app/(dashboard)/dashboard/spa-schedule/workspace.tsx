@@ -1,4 +1,5 @@
 "use client";
+import scheduleControls from "@/components/admin/schedule-controls.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabels } from "@/components/customer-labels";
@@ -666,6 +667,7 @@ export function SpaScheduleWorkspace(props: Props) {
       )}
       {draft && (
         <RightSheet
+          className={scheduleControls.panel}
           open
           onClose={() => {
             if (!pending) setDraft(null);
@@ -1130,3 +1132,4 @@ export function SpaScheduleWorkspace(props: Props) {
     </>
   );
 }
+

@@ -1,0 +1,18 @@
+/* Opt-in controls for schedule/booking panels. No remount on resize. */
+.panel :global([role="dialog"]) {
+  container: schedule-panel / inline-size;
+}
+
+@container schedule-panel (max-width: 64rem) {
+  .panel :is(button, select, input:not([type="checkbox"]):not([type="radio"])) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (pointer: coarse) {
+  .panel :is(button, select, input:not([type="checkbox"]):not([type="radio"])) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

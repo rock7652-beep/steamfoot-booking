@@ -1,5 +1,6 @@
 "use client";
 import styles from "./schedule-layout.module.css";
+import scheduleControls from "@/components/admin/schedule-controls.module.css";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { WeeklyRepeatFields } from "@/components/admin/weekly-repeat-fields";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
@@ -2291,7 +2292,7 @@ export function CourseWorkspace({
                 : "＋ 新顧客／體驗客";
           return (
             <RightSheet
-              className={styles.rosterPanel}
+              className={scheduleControls.panel}
               open
               presentation="centered"
               fitContent={rentalDialog ? businessProfile !== "MUSIC" && !dialogSession.rentalId : (oneToOneMusicDialog || (courseDialog.kind === "roster" && businessProfile !== "MUSIC"))}
