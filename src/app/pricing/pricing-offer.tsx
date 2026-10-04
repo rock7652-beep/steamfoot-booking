@@ -34,8 +34,8 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         </div>
         <div className="shrink-0">
           <p className="mb-2 text-sm text-[#E0E9E3]">優惠倒數</p>
-          <div role="timer" aria-label="距離年底付款優惠截止" aria-live="off" className="flex gap-2">
-            {offer.countdown.map((value, index) => <div key={index} className="min-w-0 flex-1 rounded-lg border border-[#ECD5A4]/30 bg-white/5 px-3 py-2 text-center sm:min-w-16">
+          <div role="timer" aria-label="距離年底付款優惠截止" aria-live="off" className="grid grid-cols-4 gap-2">
+            {offer.countdown.map((value, index) => <div key={index} className="min-w-0 flex-1 rounded-lg border border-[#ECD5A4]/30 bg-white/5 px-2 py-2 text-center sm:min-w-16 sm:px-3">
               <span className="block text-3xl font-semibold tabular-nums text-[#ECD5A4]">{String(value).padStart(2, "0")}</span>
               <span className="mt-1 block text-sm text-[#E0E9E3]">{["天", "時", "分", "秒"][index]}</span>
             </div>)}
@@ -52,7 +52,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         <div className="mt-3 border-t border-[#153B31]/15 pt-3">
           <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
           <p className="mt-2 text-sm font-medium text-[#4C6259]">年繳換算・平均每月{offer.active ? "約" : ""}</p>
-          <p className="mt-1 whitespace-nowrap"><span className="text-4xl font-semibold tracking-tight">NT${money(Math.round(plan.annual / offer.months))}</span><span className="ml-1 text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-1"><span className="text-4xl font-semibold tracking-tight">NT${money(Math.round(plan.annual / offer.months))}</span><span className="text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
           <p className="mt-2 text-base font-semibold">年繳 NT${money(plan.annual)}{plan.id === "ALLIANCE" ? "起" : ""}<span className="block text-sm font-normal text-[#4C6259]">一次繳清</span></p>
           <p className="mt-2 text-lg font-semibold text-[#805C1B]">年繳省 NT${money(annualSavings(plan))}</p>
           <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active ? <>12 個月<span className="ml-1 text-[#805C1B]">＋贈送 2 個月</span></> : "使用 12 個月"}</p>
@@ -76,8 +76,8 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
     {offer.active && <div className="rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] p-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div><p className="text-lg font-semibold text-[#59441E]">雙十店務升級優惠</p><p className="mt-1 text-base text-[#59441E]">十月限定・加購每項年繳最高省 NT$3,600</p></div>
-        <div><p className="mb-1 text-sm text-[#59441E]">加購優惠倒數</p><div role="timer" aria-label="距離雙十加購付款優惠截止" aria-live="off" className="flex gap-2">
-          {offer.countdown.map((value, index) => <div key={index} className="rounded-lg bg-white px-3 py-2 text-center"><span className="block text-2xl font-semibold tabular-nums">{String(value).padStart(2, "0")}</span><span className="text-sm">{["天", "時", "分", "秒"][index]}</span></div>)}
+        <div><p className="mb-1 text-sm text-[#59441E]">加購優惠倒數</p><div role="timer" aria-label="距離雙十加購付款優惠截止" aria-live="off" className="grid grid-cols-4 gap-2">
+          {offer.countdown.map((value, index) => <div key={index} className="min-w-0 rounded-lg bg-white px-2 py-2 text-center sm:px-3"><span className="block text-2xl font-semibold tabular-nums">{String(value).padStart(2, "0")}</span><span className="text-sm">{["天", "時", "分", "秒"][index]}</span></div>)}
         </div></div>
       </div>
       <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>

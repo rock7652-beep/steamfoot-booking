@@ -54,7 +54,7 @@ function FeatureComparison() {
       {groups.map(group => <tbody key={group.title}>
         <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span></th></tr>
         {group.rows.map(row => <tr key={row.label}>
-          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
+          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
           {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
         </tr>)}
       </tbody>)}
@@ -64,7 +64,7 @@ function FeatureComparison() {
           const value = PLAN_LIMITS[plan.id][item.field];
           return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">多店管理</a></th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">多店管理</a></th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
       </tbody>
     </table>
   </section>;
@@ -105,7 +105,7 @@ export default async function PricingPage() {
       <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
-        <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
+        <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="inline-flex min-h-11 items-center underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
         <AddonOffer initialNow={initialNow} />
         <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或使用任選名額的功能不另收費，超出名額才加購。選定後由總部協助開通。</p>
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
