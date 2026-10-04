@@ -31,3 +31,9 @@ it("shows a recoverable error after a rejected detail read",async()=>{
  m.read.mockRejectedValueOnce(new Error("offline"));await render("a");
  expect(host.textContent).toContain("載入失敗，請重新開啟");expect(host.textContent).not.toContain("載入中…");
 });
+
+it("does not display or offer edits for the old transaction while the new read is pending",async()=>{
+ await render("a");const next=deferred<ReturnType<typeof payload>>();m.read.mockReturnValueOnce(next.promise);
+ await render("b");expect(host.textContent).not.toContain("customer-a");expect(host.querySelector("textarea")).toBeNull();
+ await act(async()=>next.resolve(payload("b")));expect(host.textContent).toContain("customer-b");
+});

@@ -92,7 +92,8 @@ export function TransactionDrawer({
   const requestVersion = useRef(0);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [data, setData] = useState<TransactionDetailDTO | null>(null);
+  const [loadedData, setData] = useState<TransactionDetailDTO | null>(null);
+  const data = loadedData?.id === transactionId ? loadedData : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("main");
