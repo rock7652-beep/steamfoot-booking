@@ -1,3 +1,4 @@
+import styles from "../booking-layout.module.css";
 import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { getCurrentUser } from "@/lib/session";
@@ -229,7 +230,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       <FormShell width="lg">
         <BookingCreateForm action={handleCreate} preserveOnFailure={!isSpaStore}>
           {isSpaStore && <BookingRequestKeyField />}
-          <div className={isSpaStore ? "space-y-6" : "grid grid-cols-1 gap-6 md:grid-cols-2"}>
+          <div className={isSpaStore ? "space-y-6" : styles.columns}>
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">
               {isSpaStore ? (
@@ -317,3 +318,4 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     </PageShell>
   );
 }
+

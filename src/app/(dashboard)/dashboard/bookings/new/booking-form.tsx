@@ -1,4 +1,5 @@
 "use client";
+import styles from "../booking-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -133,7 +134,7 @@ export function DashboardBookingForm({
             value={selectedDate}
             disabled={lockScheduleSelection}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+            className="mt-1.5 block min-h-11 min-w-0 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
           >
             {days.map((d) => (
               <option key={d} value={d}>
@@ -167,7 +168,7 @@ export function DashboardBookingForm({
           name="people"
           value={people}
           onChange={(event) => handlePeopleChange(Number(event.target.value))}
-          className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+          className="mt-1.5 block min-h-11 min-w-0 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
         >
           <option value="1">1 人</option>
           <option value="2">2 人</option>
@@ -182,7 +183,7 @@ export function DashboardBookingForm({
       </div>
 
       {/* Slot Time */}
-      <div data-booking-slot-section tabIndex={-1}>
+      <div data-booking-slot-section tabIndex={-1} className={styles.slotSection}>
         <label className="block text-sm font-medium text-earth-700">
           時段 <span className="text-red-500">*</span>
         </label>
@@ -197,7 +198,7 @@ export function DashboardBookingForm({
           // Slot skeleton：8 個 placeholder tile（同 grid-cols-4 兩列），保持版面高度
           // 不跳動，比 spinner 視覺上更明確且不打斷店長視線。
           <div
-            className="mt-1.5 grid grid-cols-4 gap-2"
+            className={styles.slots}
             role="status"
             aria-label="載入時段中…"
           >
@@ -213,7 +214,7 @@ export function DashboardBookingForm({
             {isPastDate ? "過去日期無法預約" : "此日無可預約時段"}
           </p>
         ) : (
-          <div className="mt-1.5 grid grid-cols-4 gap-2">
+          <div className={styles.slots}>
             {slots.map((s) => {
               const isPast = isSlotPastToday(selectedDate, s.startTime);
               const display = getSlotCapacityDisplay(s.capacity, s.bookedCount, people);
@@ -229,7 +230,7 @@ export function DashboardBookingForm({
                         ? display.selectionStatus === "full" ? "此時段已額滿" : "此時段無法容納目前預約人數"
                         : display.label ?? "可預約"
                   }
-                  className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-sm font-medium transition-colors ${
+                  className={`flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-sm font-medium transition-colors ${
                     disabled
                       ? "cursor-not-allowed border-earth-200 bg-earth-100 text-earth-400"
                       : display.capacityStatus === "low"
@@ -251,7 +252,7 @@ export function DashboardBookingForm({
                     className="sr-only"
                   />
                   <span>{s.startTime}</span>
-                  <span className={`mt-0.5 text-[10px] ${disabled ? "text-earth-400" : display.capacityStatus === "low" ? "text-yellow-800" : "text-earth-500"}`}>
+                  <span className={`mt-0.5 text-center text-sm ${disabled ? "text-earth-400" : display.capacityStatus === "low" ? "text-yellow-800" : "text-earth-500"}`}>
                     {isPast ? "已過" : display.label ?? "可預約"}
                   </span>
                 </label>
@@ -281,3 +282,4 @@ export function DashboardBookingForm({
     </>
   );
 }
+
