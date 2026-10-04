@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import { requirePermission } from "@/lib/permissions";
-import { spaResourceStore } from "./spa-resources";
+import { spaResourceStore, spaResourceStoreRead } from "./spa-resources";
 import { AppError, handleActionError } from "@/lib/errors";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import type { Prisma } from "../../../generated/spa-client";
@@ -26,7 +26,9 @@ async function activeStore(
     | "transaction.void"
     | "customer.read",
 ) {
-  const storeId = await spaResourceStore(permission);
+  const storeId = permission === "customer.read"
+    ? (await spaResourceStoreRead(permission)).storeId
+    : await spaResourceStore(permission);
   if (
     (
       await prisma.storeModuleInstallation.findUnique({
