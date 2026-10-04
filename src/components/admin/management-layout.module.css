@@ -1,0 +1,50 @@
+.workspace {
+  container: management-workspace / inline-size;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.workspace > * { min-width: 0; }
+.workspace :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.cards { display: grid; grid-template-columns: minmax(0, 1fr); }
+.weekdays { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.dateField { flex: 1 1 10rem; min-width: 0; }
+.chartScroll { max-width: 100%; overflow-x: auto; }
+.chart { min-width: 480px; }
+.panel[data-right-sheet], .panel[data-rwd-panel] { z-index: 80; }
+.panel :global([role="dialog"]) {
+  container: management-panel / inline-size;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.panel :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.panel :is(h1, h2, dd) { min-width: 0; }
+.panel :global([role="dialog"]) > header { gap: 0.5rem; }
+.panel :global([role="dialog"]) > header > button { flex-shrink: 0; }
+.panel :global([role="dialog"]) > header > div { min-width: 0; }
+
+@container management-workspace (min-width: 48rem) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container management-workspace (min-width: 80rem) {
+  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container management-workspace (max-width: 64rem) {
+  .workspace :is(button, select, input:not([type="checkbox"]):not([type="radio"]), summary) { min-height: 44px; }
+  .workspace button { min-width: 44px; }
+  .workspace :global([data-page-header]) a { min-height: 44px; }
+}
+@container management-panel (max-width: 64rem) {
+  .panel :is(button, select, input:not([type="checkbox"]):not([type="radio"]), summary) { min-height: 44px; }
+  .panel button { min-width: 44px; }
+  .panel label:has(> input[type="checkbox"]) { min-height: 44px; align-items: center; }
+}
+@container management-panel (max-width: 28rem) {
+  .weekdays { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (pointer: coarse) {
+  .workspace :is(button, select, input:not([type="checkbox"]):not([type="radio"]), summary),
+  .panel :is(button, select, input:not([type="checkbox"]):not([type="radio"]), summary) { min-height: 44px; }
+  .workspace button, .panel button { min-width: 44px; }
+}
