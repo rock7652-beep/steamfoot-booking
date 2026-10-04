@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
 
 /**
  * 「實際到店幾位？」modal — 多人首次體驗或套餐預約
@@ -73,6 +74,7 @@ export function AttendanceModal({
   loading = false,
   trialDefaultUnit,
 }: AttendanceModalProps) {
+  const titleId = useId();
   // 預設選「全部到店」，符合常見情境；店長若實際是部分到店再切換。
   // 關 → 開 的瞬間將 choice 重置為 people。採 React 19 官方建議的
   // same-render guard pattern（prevOpen 與 choice 在同一 render 內一起更新），
@@ -91,15 +93,9 @@ export function AttendanceModal({
   const options = buildOptions(people, trialDefaultUnit);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={() => !loading && onClose()}
-    >
-      <div
-        className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-2 text-lg font-semibold text-earth-900">
+    <ModalPanel open={open} onClose={onClose} labelledById={titleId} pending={loading}>
+      <div className="min-h-0 w-full overflow-y-auto overscroll-contain p-5 [&_button]:min-h-11">
+        <h3 id={titleId} className="mb-2 text-lg font-semibold text-earth-900">
           此預約共 {people} 位，實際到店幾位？
         </h3>
         <p className="mb-3 text-[12px] leading-relaxed text-earth-500">
@@ -159,6 +155,6 @@ export function AttendanceModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }

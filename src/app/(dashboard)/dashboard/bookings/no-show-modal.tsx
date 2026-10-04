@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
+
+import { useId, useState } from "react";
 
 // 未到處理只保留兩個選項：兩者皆「扣堂」（名額已被佔用，原堂照扣），
 // 差別僅在是否額外發 7 日補課券。規則交給系統執行，不讓店長做人情判斷。
@@ -47,6 +49,7 @@ export function NoShowModal({
   affectedPeople,
   partial = false,
 }: NoShowModalProps) {
+  const titleId = useId();
   const [choice, setChoice] = useState<NoShowChoice>("DEDUCTED_WITH_MAKEUP");
 
   // 每次開啟時重設為預設選項（render 階段調整 state，避免在 effect 內 setState
@@ -59,30 +62,13 @@ export function NoShowModal({
     setWasOpen(false);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !loading) onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose, loading]);
-
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div
-        onClick={loading ? undefined : onClose}
-        className="absolute inset-0 bg-earth-900/40"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative w-[400px] max-w-[92vw] rounded-lg bg-white shadow-[0_8px_32px_rgba(20,24,31,0.18)]"
-      >
+    <ModalPanel open onClose={onClose} labelledById={titleId} pending={loading}>
+      <div className="min-h-0 w-full overflow-y-auto overscroll-contain [&_button]:min-h-11">
         <div className="border-b border-earth-200 px-5 py-3">
-          <h3 className="text-base font-semibold text-earth-900">
+          <h3 id={titleId} className="text-base font-semibold text-earth-900">
             {partial ? `處理未到的 ${affectedPeople ?? 1} 人` : "標記未到"}
           </h3>
           <p className="mt-0.5 text-xs text-earth-500">
@@ -160,6 +146,6 @@ export function NoShowModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }

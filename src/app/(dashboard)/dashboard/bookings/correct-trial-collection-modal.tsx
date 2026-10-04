@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
+
+import { useId, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { correctTrialCollection } from "@/server/actions/trial-booking";
 
@@ -76,6 +78,7 @@ export function CorrectTrialCollectionModal({
   onReconcile,
   saveAction = correctTrialCollection,
 }: Props) {
+  const titleId = useId();
   // PR-3c + PR-3d：effectivePeople = attendedPeople ?? people（最小 1）。
   // 預設帶總額 = originalAmount(快照) ?? default × effectivePeople。
   // 例外：部分到店 + originalAmount 是手動值（非 default × people）→
@@ -144,15 +147,9 @@ export function CorrectTrialCollectionModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
-      onClick={() => !pending && onClose()}
-    >
-      <div
-        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-3 text-lg font-semibold text-earth-900">收款更正</h3>
+    <ModalPanel open onClose={onClose} labelledById={titleId} pending={pending}>
+      <div className="min-h-0 w-full overflow-y-auto overscroll-contain [&_button]:min-h-11 [&_input]:min-h-11 [&_select]:min-h-11 p-5">
+        <h3 id={titleId} className="mb-3 text-lg font-semibold text-earth-900">收款更正</h3>
 
         <div className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">
           此操作會<b>作廢原本的體驗收款</b>，並重新建立一筆新的收款。
@@ -272,6 +269,6 @@ export function CorrectTrialCollectionModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }

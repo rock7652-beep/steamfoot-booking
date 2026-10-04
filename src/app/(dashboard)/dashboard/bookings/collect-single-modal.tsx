@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { toast } from "sonner";
 import { collectSinglePayment } from "@/server/actions/single-booking";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
@@ -73,6 +74,7 @@ export function CollectSingleModal({
   storedValue = null,
   onCollected,
 }: Props) {
+  const titleId = useId();
   const [amount, setAmount] = useState(String(defaultPrice));
   const [method, setMethod] = useState<string>("CASH");
   const [paymentSplits, setPaymentSplits] = useState<
@@ -266,25 +268,16 @@ export function CollectSingleModal({
     });
   }
 
-  return (
-    <div
-      className={
-        embedded
-          ? "flex h-full min-h-0 flex-col bg-white"
-          : "fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
-      }
-      onClick={embedded ? undefined : () => !pending && onClose()}
-    >
+  const content = (
       <div
         className={
           embedded
             ? "h-full w-full overflow-y-auto overscroll-contain p-5"
-            : `my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl${!spaMode ? " [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm" : ""}`
+            : `min-h-0 w-full overflow-y-auto overscroll-contain p-5${!spaMode ? " [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm" : ""}`
         }
-        onClick={(e) => e.stopPropagation()}
       >
         <h3
-          id={embedded ? "booking-drawer-title" : undefined}
+          id={embedded ? "booking-drawer-title" : titleId}
           className="mb-3 text-lg font-semibold text-earth-900"
         >
           {spaMode
@@ -724,7 +717,11 @@ export function CollectSingleModal({
           </button>
         </div>
       </div>
-    </div>
+  );
+  return embedded ? content : (
+    <ModalPanel open={open} onClose={onClose} pending={pending} labelledById={titleId}>
+      {content}
+    </ModalPanel>
   );
 }
 

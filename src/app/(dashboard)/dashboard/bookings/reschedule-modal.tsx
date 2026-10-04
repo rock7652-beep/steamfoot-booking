@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
+
+import { useEffect, useId, useState } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
 import type { SlotAvailability } from "@/types";
 
@@ -29,6 +31,7 @@ function OpenRescheduleModal({
   onConfirm,
   loading = false,
 }: RescheduleModalProps) {
+  const titleId = useId();
   const [date, setDate] = useState(currentDate);
   const [slotTime, setSlotTime] = useState(currentSlotTime);
   const [result, setResult] = useState<{
@@ -39,14 +42,6 @@ function OpenRescheduleModal({
   const slotsError = slotsLoading ? null : result?.error;
 
   // ESC 關閉
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !loading) onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, loading]);
-
   // 改日期 → 重抓該日 slots
   useEffect(() => {
     if (!date) return;
@@ -77,18 +72,10 @@ function OpenRescheduleModal({
     (!sameDateAsCurrent || slotTime !== currentSlotTime);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div
-        onClick={loading ? undefined : onClose}
-        className="absolute inset-0 bg-earth-900/40"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative w-[440px] max-w-[92vw] rounded-lg bg-white shadow-[0_8px_32px_rgba(20,24,31,0.18)]"
-      >
+    <ModalPanel open onClose={onClose} labelledById={titleId} pending={loading}>
+      <div className="min-h-0 w-full overflow-y-auto overscroll-contain [&_button]:min-h-11 [&_input]:min-h-11 [&_select]:min-h-11">
         <div className="border-b border-earth-200 px-5 py-3">
-          <h3 className="text-base font-semibold text-earth-900">改期預約</h3>
+          <h3 id={titleId} className="text-base font-semibold text-earth-900">改期預約</h3>
           <p className="mt-0.5 text-xs text-earth-500">
             選擇新的日期與時段；舊時段容量會釋放
           </p>
@@ -158,7 +145,7 @@ function OpenRescheduleModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }
 

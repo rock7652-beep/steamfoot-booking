@@ -12,10 +12,10 @@ let root: ReturnType<typeof createRoot>;
 const confirm = vi.fn();
 const pending = new Map<string, { resolve: (data: { slots: SlotAvailability[] }) => void; reject: (error: Error) => void }>();
 const slot = (time: string, available = 2) => ({ startTime: time, available, isEnabled: true, isPast: false } as SlotAvailability);
-const button = (text: string) => [...container.querySelectorAll("button")].find(b => b.textContent === text)!;
+const button = (text: string) => [...document.body.querySelectorAll("button")].find(b => b.textContent === text)!;
 async function date(value: string) {
   await act(async () => {
-    const input = container.querySelector("input")!;
+    const input = document.body.querySelector("input")!;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -32,7 +32,7 @@ beforeEach(async () => {
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); });
 it("shows loading immediately and ignores an older date response", async () => {
-  expect(container.querySelector('[role="status"]')).not.toBeNull();
+  expect(document.body.querySelector('[role="status"]')).not.toBeNull();
   await date("2026-10-02");
   expect(button("確認").disabled).toBe(true);
   await resolve("2026-10-02", [slot("11:00")]);
@@ -59,9 +59,9 @@ it("clears the old selection and blocks confirmation until a new usable slot is 
 it("ignores stale failures and keeps confirmation blocked on the current date's failure", async () => {
   await date("2026-10-02");
   await act(async () => pending.get("2026-10-01")!.reject(new Error("old failure")));
-  expect(container.textContent).not.toContain("old failure");
-  expect(container.querySelector('[role="status"]')).not.toBeNull();
+  expect(document.body.textContent).not.toContain("old failure");
+  expect(document.body.querySelector('[role="status"]')).not.toBeNull();
   await act(async () => pending.get("2026-10-02")!.reject(new Error("讀取失敗")));
-  expect(container.textContent).toContain("讀取失敗");
+  expect(document.body.textContent).toContain("讀取失敗");
   expect(button("確認").disabled).toBe(true);
 });
