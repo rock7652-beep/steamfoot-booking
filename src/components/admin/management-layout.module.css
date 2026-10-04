@@ -8,6 +8,7 @@
 .workspace > * { min-width: 0; }
 .workspace :is(input, select, textarea) { min-width: 0; max-width: 100%; }
 .cards { display: grid; grid-template-columns: minmax(0, 1fr); }
+.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .weekdays { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .dateField { flex: 1 1 10rem; min-width: 0; }
 .chartScroll { max-width: 100%; overflow-x: auto; }
@@ -30,10 +31,12 @@
 @container management-workspace (min-width: 80rem) {
   .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@container management-workspace (min-width: 56rem) {
+  .metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
 @container management-workspace (max-width: 64rem) {
   .workspace :is(button, select, input:not([type="checkbox"]):not([type="radio"]), summary) { min-height: 44px; }
   .workspace button { min-width: 44px; }
-  .workspace :global([data-page-header]) a { min-height: 44px; }
 }
 @container management-panel (max-width: 64rem) {
   .panel :is(button, select, input:not([type="checkbox"]):not([type="radio"]), summary) { min-height: 44px; }

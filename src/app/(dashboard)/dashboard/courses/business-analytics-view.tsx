@@ -45,7 +45,7 @@ export function BusinessAnalyticsView({data,all,staffId,music=false}:{data:Cours
       {pending&&<span role="status" className="text-sm text-earth-500">更新分析中…</span>}
     </div>
     <p className="text-xs text-earth-500">{data.comparison?`比較${data.comparison.label}：${data.comparison.range.startDate} ～ ${data.comparison.range.endDate}；本期截至 ${data.effectiveEndDate}`:"所選區間尚未開始，暫無同期比較。"}</p>
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+    <div className={`${styles.metrics} gap-3`}>
       {attendanceCard}
       {metricCard("trial")}
       {coach?<><Summary label="實際授課" value={`${data.sessions} 堂`}/><Summary label="授課時數" value={`${data.hours.toFixed(1)} 小時`}/><Summary label="應計授課費" value={moneyValue(data.fee,data.sessions-data.missingFees,data.missingFees)} note={data.missingFees?`${data.missingFees} 堂費率待核對，未計入` : "依已結束且有出席課次的固定費率"} action={data.missingFees>0?<button type="button" aria-expanded={review==="fees"} onClick={()=>toggleReview("fees")} className="min-h-11 text-sm text-primary-700 underline underline-offset-4">查看待核對明細</button>:undefined}/></>:<>{metricCard("newCard")}{metricCard("renewal")}<button disabled={!data.segments||pending} onClick={()=>show("converted")} className="min-h-20 rounded-xl border border-earth-200 bg-white p-3 text-left"><span className="text-sm text-earth-600">體驗開卡率</span><strong className="mt-1 block text-xl text-primary-900">{data.conversionRate===null?"—":`${data.conversionRate.toFixed(1)}%`}</strong><span className="mt-1 block text-xs text-earth-500">{data.counts.converted} / {data.eligibleTrials} 位新客體驗者</span></button></>}
@@ -55,7 +55,7 @@ export function BusinessAnalyticsView({data,all,staffId,music=false}:{data:Cours
         <span>收款淨額 <strong>{data.netRevenue===null?"無檢視權限":`NT$ ${data.netRevenue.toLocaleString()}`}</strong></span>
         {data.scope.view==="manager"&&<span>方案利潤 <strong>{moneyValue(data.profit,data.knownProfit,data.missingProfit)}</strong>{data.missingProfit>0&&<button type="button" aria-expanded={review==="profit"} onClick={()=>toggleReview("profit")} className="ml-2 min-h-11 text-amber-700 underline underline-offset-4">{data.missingProfit} 筆待核對・查看明細</button>}</span>}
       </div>}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 xl:grid-cols-5">
+      <div className={`${styles.metrics} gap-x-4 gap-y-1`}>
         {(["unconverted","tracked","visitors","newVisitors","oldVisitors"] as Segment[]).map(key=><button key={key} disabled={!data.segments||pending} className="min-h-11 py-2 text-left text-primary-700 underline underline-offset-4 disabled:no-underline" onClick={()=>show(key)}><span className="block">{names[key]}</span><strong className="block font-medium">{data.counts[key]} 人</strong></button>)}
       </div>
     </div>
@@ -99,4 +99,3 @@ function moneyValue(value:number|null,known:number,missing:number) {
   if(missing>0&&known===0)return "待核對";
   return `${missing>0?"已確認金額 ":""}NT$ ${value.toLocaleString()}`;
 }
-
