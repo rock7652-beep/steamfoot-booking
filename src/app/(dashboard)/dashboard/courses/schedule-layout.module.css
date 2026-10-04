@@ -1,0 +1,35 @@
+.workspace {
+  container: course-schedule / inline-size;
+}
+
+/* Keep the desktop calendar density; use the actual workspace width in HQ
+   and device previews, rather than the browser width. */
+@container course-schedule (max-width: 64rem) {
+  .touchControl {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .monthDay {
+    height: auto;
+    min-height: 160px;
+  }
+
+  .monthAction {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (pointer: coarse) {
+  .touchControl,
+  .monthAction {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .monthDay {
+    height: auto;
+    min-height: 160px;
+  }
+}
