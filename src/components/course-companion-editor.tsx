@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useEffect, useRef, useState } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { addCourseCompanion, loadCourseCompanionUsage, saveCourseCompanionUsage } from "@/server/actions/course-companions";
@@ -10,6 +11,7 @@ const field = "min-h-11 w-full rounded-lg border px-3 py-2 text-base";
 const button = "min-h-11 rounded-lg border px-4 py-2 text-sm disabled:opacity-50";
 
 export function CourseCompanionEditor({bookingId, coach = false, add = false, onClose, onSaved}: {bookingId: string; coach?: boolean; add?: boolean; onClose: () => void; onSaved: (receipt?: CompanionUsageReceipt) => void}) {
+  const readCompanion = usePanelReader("course-companion", loadCourseCompanionUsage);
   const [data, setData] = useState<Data | null>(null);
   const [mode, setMode] = useState<"RESERVER" | "TRIAL" | "MEMBER">("RESERVER");
   const [customerId, setCustomerId] = useState("");
@@ -25,7 +27,7 @@ export function CourseCompanionEditor({bookingId, coach = false, add = false, on
     const request = ++version.current;
     setLoading(true); setError("");
     try {
-      const result = await loadCourseCompanionUsage({bookingId, coach, search: query});
+      const result = await readCompanion.read({bookingId, coach, search: query});
       if (request !== version.current) return;
       if (!result.success) { setError(result.error); return; }
       setData(previous => initial || !previous ? result.data : {...result.data, booking: previous.booking});

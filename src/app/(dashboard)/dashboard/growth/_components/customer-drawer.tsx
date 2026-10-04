@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { LoadingStatus } from "@/components/loading-status";
 
@@ -50,6 +51,7 @@ export function GrowthCustomerDrawer({
   isOwner,
   onClose,
 }: Props) {
+  const readGrowth = usePanelReader("growth-customer", fetchGrowthCustomerDrawer);
   const [data, setData] = useState<GrowthCustomerDrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +64,7 @@ export function GrowthCustomerDrawer({
   useEffect(() => {
     if (!open || !customerId) return;
     let canceled = false;
-    fetchGrowthCustomerDrawer(customerId)
+    readGrowth.read(customerId)
       .then((payload) => {
         if (canceled) return;
         setData(payload);
@@ -75,7 +77,7 @@ export function GrowthCustomerDrawer({
     return () => {
       canceled = true;
     };
-  }, [open, customerId]);
+  }, [open, customerId, readGrowth]);
 
   // Header rendering uses summary first, then full data when ready —
   // gives an instant header band on click instead of all-skeleton.

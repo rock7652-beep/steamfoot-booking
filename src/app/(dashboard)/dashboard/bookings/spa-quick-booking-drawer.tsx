@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ export function SpaQuickBookingDrawer({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const readAvailability = usePanelReader("spa-availability", fetchSpaBookingAvailability);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState("");
   const [customerFallbackLabel, setCustomerFallbackLabel] = useState("");
@@ -54,6 +56,7 @@ export function SpaQuickBookingDrawer({
   const [submitError, setSubmitError] = useState("");
   const [pending, startTransition] = useTransition();
   const requestIdRef = useRef(0);
+  useEffect(() => () => { requestIdRef.current++; }, []);
   const requestKeyRef = useRef("");
 
   const selectedIds = useMemo(
@@ -83,7 +86,7 @@ export function SpaQuickBookingDrawer({
     setLoadingAvailability(true);
     setAvailabilityError("");
     setAppointment(null);
-    void fetchSpaBookingAvailability({ date, treatmentIds })
+    void readAvailability.read({ date, treatmentIds })
       .then((result) => {
         if (requestId !== requestIdRef.current) return;
         if (!result.success) {

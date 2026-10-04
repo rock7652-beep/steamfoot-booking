@@ -15,7 +15,7 @@ import {
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
-import { createClientReadCache } from "@/lib/client-read-cache";
+import { usePanelReadCache } from "@/components/operations/panel-read-cache";
 
 type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
 
@@ -73,13 +73,11 @@ export function CustomersListWithDrawer({
   // Server Actions may return fresh row objects without changing their contents.
   // Compare values so an in-flight read does not invalidate and restart itself.
   const rowsKey = JSON.stringify(rows);
-  const cache = useMemo(() => createClientReadCache<DrawerDetail>(async (customerId) => {
+  const cache = usePanelReadCache<DrawerDetail>("customer-detail", async (customerId) => {
     const result = await getCustomerDrawerDetailAction(customerId);
     if (!result.success) throw new Error(result.error ?? "讀取顧客資料失敗");
     return result.data;
-  // Rows/store changes intentionally reset the cache even with the same fetcher.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [rowsKey, pathname]);
+  }, JSON.stringify([rowsKey, pathname]));
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);

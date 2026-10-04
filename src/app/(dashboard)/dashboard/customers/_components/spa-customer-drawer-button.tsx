@@ -1,4 +1,6 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { getSpaCustomerDrawer } from "@/server/actions/spa-customer-drawer";
@@ -13,6 +15,7 @@ export function SpaCustomerDrawerButton({
 }: {
   customerId: string;
 }) {
+  const reader = usePanelReader("spa-customer-drawer", getSpaCustomerDrawer);
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   return (
@@ -22,6 +25,9 @@ export function SpaCustomerDrawerButton({
         ref={trigger}
         aria-expanded={open}
         aria-haspopup="dialog"
+        onPointerEnter={() => reader.prefetch(customerId)}
+        onFocus={() => reader.prefetch(customerId)}
+        onTouchStart={() => reader.prefetch(customerId)}
         onClick={() => setOpen(true)}
         className="mt-2 inline-flex min-h-11 items-center whitespace-nowrap text-primary-700 underline underline-offset-4"
       >
@@ -46,6 +52,8 @@ function CustomerDrawer({
   customerId: string;
   onClose: () => void;
 }) {
+  const reader = usePanelReader("spa-customer-drawer", getSpaCustomerDrawer);
+  const router = useRouter();
   const [loaded, setLoaded] = useState<{
     data: Loaded;
     request: Promise<Loaded["profile"]>;
@@ -54,7 +62,7 @@ function CustomerDrawer({
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
-    getSpaCustomerDrawer(customerId)
+    reader.read(customerId)
       .then((result) => {
         if (!active) return;
         if (result.success)
@@ -67,14 +75,14 @@ function CustomerDrawer({
     return () => {
       active = false;
     };
-  }, [customerId, retry]);
+  }, [customerId, retry, reader]);
   if (loaded)
     return (
       <AccountPanel
         customer={loaded.data.customer}
         permissions={loaded.data.permissions}
         profileRequest={loaded.request}
-        onChanged={() => {}}
+        onChanged={() => { reader.invalidate(customerId); setRetry(v => v + 1); router.refresh(); }}
         onClose={onClose}
       />
     );

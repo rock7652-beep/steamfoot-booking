@@ -1,6 +1,7 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
@@ -87,6 +88,8 @@ export function TransactionDrawer({
   canEdit,
   canRefund,
 }: DrawerProps) {
+  const readTransaction = usePanelReader("transaction-detail", fetchTransactionDetailDTO);
+  const requestVersion = useRef(0);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState<TransactionDetailDTO | null>(null);
@@ -112,6 +115,7 @@ export function TransactionDrawer({
   // inside the awaited promise so it doesn't trigger react-hooks/set-state-in-effect
   useEffect(() => {
     if (!open || !transactionId) return;
+    const version = ++requestVersion.current;
     let cancelled = false;
     void (async () => {
       // Reset to loading state for this fetch session
@@ -120,7 +124,9 @@ export function TransactionDrawer({
       setError(null);
       setView("main");
 
-      const res = await fetchTransactionDetailDTO(transactionId);
+      let res: Awaited<ReturnType<typeof fetchTransactionDetailDTO>>;
+      try { res = await readTransaction.read(transactionId); }
+      catch { if (!cancelled) { setError("載入失敗，請重新開啟"); setLoading(false); } return; }
       if (cancelled) return;
       if (res.success) {
         setData(res.data);
@@ -142,15 +148,22 @@ export function TransactionDrawer({
     })();
     return () => {
       cancelled = true;
+      // Generation guards refresh responses; this ref is not a DOM node.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (requestVersion.current === version) requestVersion.current++;
     };
-  }, [open, transactionId]);
+  }, [open, transactionId, readTransaction]);
 
   const refresh = () => {
     if (!transactionId) return;
+    const version = ++requestVersion.current;
+    readTransaction.invalidate(transactionId);
     startTransition(() => {
-      fetchTransactionDetailDTO(transactionId).then((res) => {
+      readTransaction.read(transactionId).then((res) => {
+        if (requestVersion.current !== version) return;
         if (res.success) setData(res.data);
-      });
+        else setError(res.error ?? "載入失敗");
+      }).catch(() => { if (requestVersion.current === version) setError("更新失敗，請重新開啟"); });
       router.refresh();
     });
   };

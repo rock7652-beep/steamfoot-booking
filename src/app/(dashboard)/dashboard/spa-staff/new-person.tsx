@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ export function NewSpaPerson({ onCreated, staffId }: {
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const memberReader = usePanelReader("spa-staff-member-search", searchSpaStaffMembers);
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<MemberResult[]>([]);
   const [error, setError] = useState("");
@@ -43,7 +45,7 @@ export function NewSpaPerson({ onCreated, staffId }: {
     setError("");
     setNotice("");
     startTransition(async () => {
-      const result = await searchSpaStaffMembers({ query });
+      const result = await memberReader.read({ query });
       if (!result.success) return setError(result.error);
       setMembers(result.members);
       if (!result.members.length) setNotice("找不到可加入的本店會員，請先完成會員註冊與 LINE 綁定。");
