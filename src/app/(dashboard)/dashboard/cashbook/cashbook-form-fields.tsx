@@ -8,6 +8,7 @@
  */
 
 import { useState, type ReactNode } from "react";
+import styles from "@/components/admin/commerce-layout.module.css";
 import { FormSection, FormGrid } from "@/components/desktop";
 
 type CashbookEntryType = "INCOME" | "EXPENSE" | "WITHDRAW" | "ADJUSTMENT";
@@ -44,7 +45,7 @@ interface Props {
 }
 
 const inputCls =
-  "block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
+  "block min-h-11 min-w-0 w-full max-w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
 const methodCardCls =
@@ -222,12 +223,12 @@ export function CashbookFormFields({
   );
 
   return (
-    <>
+    <div className={`${styles.container} space-y-4`}>
       <FormSection title="基本資料" description="日期、類型、金額為必填" compact={compact}>
         {compact ? (
           <>
             {dateField}
-            <FormGrid>
+            <FormGrid className={styles.fieldGrid}>
               {typeField}
               {amountField}
             </FormGrid>
@@ -236,11 +237,11 @@ export function CashbookFormFields({
           </>
         ) : (
           <>
-            <FormGrid>
+            <FormGrid className={styles.fieldGrid}>
               {dateField}
               {typeField}
             </FormGrid>
-            <FormGrid>
+            <FormGrid className={styles.fieldGrid}>
               {categoryField}
               {amountField}
             </FormGrid>
@@ -253,7 +254,7 @@ export function CashbookFormFields({
         description="請選擇此筆現金帳的收付方式（必選）"
         compact={compact}
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className={styles.fieldGrid}>
           <label className="cursor-pointer">
             <input
               type="radio"
@@ -312,6 +313,7 @@ export function CashbookFormFields({
           </label>
         )}
       </FormSection>
-    </>
+    </div>
   );
 }
+
