@@ -33,7 +33,7 @@ export function PanelDeviceReview({ mode, spa = false }: { mode: PanelMode; spa?
     </div>
     <p>{device.width} × {device.height}</p>
     <div className="mt-3 overflow-x-auto">
-      <iframe title="共用視窗測試" src={"/pricing/panel-review?frame=1&mode=" + mode} width={device.width} height={device.height} className="block border-0 bg-white" />
+      <iframe title="共用視窗測試" src={"/pricing/panel-review?frame=1&mode=" + mode + (spa ? "&theme=spa" : "")} width={device.width} height={device.height} className="block border-0 bg-white" />
     </div>
   </main>;
 }
