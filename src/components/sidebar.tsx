@@ -1106,9 +1106,9 @@ export default function DashboardShell({
           (industryModule === "spa" || isAdmin) ? (collapsed ? "md:w-(--sidebar-collapsed-width)" : "md:w-(--sidebar-width)") : (collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)")
         }`}
       >
-        <div className="flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-earth-200 px-3">
+        <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
           {!collapsed && (
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
                 {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : <SteamButlerLogo compact />}
               </Link>
@@ -1194,9 +1194,9 @@ export default function DashboardShell({
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
-        <header data-dashboard-header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 py-1 backdrop-blur-sm sm:px-6">
+        <header data-dashboard-header className="sticky top-0 z-20 flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-earth-200 bg-white/95 px-3 py-1 backdrop-blur-sm sm:px-6">
           {/* Left: hamburger + breadcrumb + single guide entry */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
