@@ -68,7 +68,7 @@ describe("settings store-scope source contracts", () => {
     expect(dutyPage).toContain("key={storeId}");
     expect(remindersPage).toContain("key={`${storeId}-balance`}");
     expect(remindersPage).toContain("key={`${storeId}-expiry`}");
-    expect(remindersPage).toContain("key={`${storeId}-customer`}");
+    expect(remindersPage).toContain("key={`${storeId}-customer-${customerSection}`}");
   });
 
   it("keeps reminder reads and final updates store-scoped", () => {
