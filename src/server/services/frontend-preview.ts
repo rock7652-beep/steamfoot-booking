@@ -11,6 +11,14 @@ import { resolveCentralMemberCustomerForStore } from "@/server/services/central-
 
 export type FrontendPreviewSelection = { storeId: string; personId: string; role: "member" | "work" };
 
+async function resolvePreviewMemberUserId(customerId: string, storeId: string, legacyUserId: string | null) {
+  const identities = await prisma.customerIdentityLink.findMany({ where: { customerId, storeId }, select: { userId: true } });
+  const userIds = [...new Set([legacyUserId, ...identities.map(identity => identity.userId)].filter((id): id is string => !!id))];
+  if (userIds.length !== 1) return null;
+  const membership = await resolveCentralMemberCustomerForStore(userIds[0], storeId);
+  return membership?.customerId === customerId ? userIds[0] : null;
+}
+
 /** Every render/read rechecks manager authority. Never creates a customer session. */
 export async function authorizeFrontendPreview(input: FrontendPreviewSelection) {
   const user = await requirePermission("customer.read");
@@ -36,7 +44,8 @@ export async function authorizeFrontendPreview(input: FrontendPreviewSelection) 
     select: { id: true, name: true, userId: true },
   });
   if (!customer) throw new AppError("NOT_FOUND", "沒有符合條件的顧客");
-  return { user, moduleId, storeId: input.storeId, personId: customer.id, name: customer.name, personUserId: customer.userId, role: input.role };
+  const personUserId = moduleId === "course" ? await resolvePreviewMemberUserId(customer.id, input.storeId, customer.userId) : customer.userId;
+  return { user, moduleId, storeId: input.storeId, personId: customer.id, name: customer.name, personUserId, role: input.role };
 }
 
 /** Resolve only explicit, active same-store links, then authorize each visible role. */
@@ -46,15 +55,8 @@ export async function resolveCoursePreviewIdentity(access: Awaited<ReturnType<ty
   let memberUserId = access.personUserId;
   if (access.role === "member") {
     if ((access.user.role !== "OWNER" && access.user.role !== "ADMIN") || !await checkPermission(access.user.role, access.user.staffId, "staff.view")) return result;
-    const identities = await prisma.customerIdentityLink.findMany({
-      where: { customerId: access.personId, storeId: access.storeId },
-      select: { userId: true },
-    });
-    const userIds = [...new Set([memberUserId, ...identities.map(identity => identity.userId)].filter((id): id is string => !!id))];
-    if (userIds.length !== 1) return result;
-    memberUserId = userIds[0];
-    const membership = await resolveCentralMemberCustomerForStore(memberUserId, access.storeId);
-    if (membership?.customerId !== access.personId) return result;
+    memberUserId = await resolvePreviewMemberUserId(access.personId, access.storeId, memberUserId);
+    if (!memberUserId) return result;
   }
   const link = await prisma.staffMemberLink.findFirst({
     where: { storeId: access.storeId, revokedAt: null, ...(access.role === "member" ? { userId: memberUserId! } : { staffId: access.personId }), staff: { status: "ACTIVE", courseCoachEnabled: true } },

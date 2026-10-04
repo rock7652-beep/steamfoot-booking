@@ -39,6 +39,13 @@ describe("preview authorization", () => {
     expect(mocks.customer).not.toHaveBeenCalled();
     expect(mocks.feature).not.toHaveBeenCalled();
   });
+  it("reports verified central course identity in preview metadata", async () => {
+    mocks.module.mockResolvedValue("course");
+    mocks.identities.mockResolvedValue([{ userId: "line-user" }]);
+    const access = await authorizeFrontendPreview(member);
+    expect(access.personUserId).toBe("line-user");
+    expect(access.user.id).toBe("viewer");
+  });
   it.each(["hidden", "locked", "expired"])("blocks %s entitlement before reading people", async () => {
     mocks.feature.mockRejectedValue(new Error("not enabled"));
     await expect(authorizeFrontendPreview(member)).rejects.toThrow("not enabled");
