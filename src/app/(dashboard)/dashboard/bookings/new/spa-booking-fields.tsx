@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormSection } from "@/components/desktop";
@@ -33,6 +34,7 @@ export function SpaBookingFields({ days, defaultDate, treatments, defaultService
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [requestedSlotUnavailable, setRequestedSlotUnavailable] = useState(false);
+  const readAvailability = usePanelReader("spa-availability", fetchSpaBookingAvailability);
   const requestIdRef = useRef(0);
   const selectedIds = useMemo(() => (mainId ? [mainId, ...addOnIds] : []), [mainId, addOnIds]);
   const mainServices = treatments.filter((item) => item.kind !== "ADD_ON");
@@ -47,7 +49,7 @@ export function SpaBookingFields({ days, defaultDate, treatments, defaultService
   useEffect(() => {
     if (!date || !mainId) return;
     const requestId = ++requestIdRef.current;
-    void fetchSpaBookingAvailability({ date, treatmentIds: selectedIds }).then((result) => {
+    void readAvailability.read({ date, treatmentIds: selectedIds }).then((result) => {
       if (requestId !== requestIdRef.current) return;
       if (!result.success) { setAvailability(null); setLoadError(result.error || "暫時無法計算可預約時間"); return; }
       setAvailability(result.data);
@@ -69,7 +71,7 @@ export function SpaBookingFields({ days, defaultDate, treatments, defaultService
     }).catch(() => {
       if (requestId === requestIdRef.current) { setAvailability(null); setLoadError("暫時無法計算可預約時間"); }
     }).finally(() => { if (requestId === requestIdRef.current) setLoading(false); });
-  }, [date, mainId, addOnIds, selectedIds, defaultDate, defaultServiceStaffId, defaultSlotTime]);
+  }, [date, mainId, addOnIds, selectedIds, defaultDate, defaultServiceStaffId, defaultSlotTime, readAvailability]);
 
   const appointments = (availability?.providers ?? []).filter((provider) => providerFilter === "all" || provider.id === providerFilter)
     .flatMap((provider) => provider.startTimes.map((time) => ({ provider, time })))

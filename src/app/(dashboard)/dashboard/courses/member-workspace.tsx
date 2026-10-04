@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
@@ -137,6 +138,7 @@ export function CourseMemberWorkspace({
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
+  const readCard = usePanelReader("course-card", browseCourseCards);
   const [cardLoading,setCardLoading]=useState(false);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
@@ -160,13 +162,13 @@ export function CourseMemberWorkspace({
   useEffect(()=>{
     if(panel!=="card" || !cardId)return;
     let active=true;
-    browseCourseCards({cardId}).then(r=>{
+    readCard.read({cardId}).then(r=>{
       if(!active)return;
       if(r.success && r.rows[0])setLoadedCard(r.rows[0]);
       else setError(r.success ? "找不到方案，請重新整理" : r.error);
     }).catch(()=>{if(active)setError("讀取方案失敗，請重新開啟");}).finally(()=>{if(active)setCardLoading(false);});
     return ()=>{active=false;};
-  },[panel,cardId]);
+  },[panel,cardId,readCard]);
   function open(value: typeof panel) {
     if (!canLeave()) return false;
     setDirty(false);

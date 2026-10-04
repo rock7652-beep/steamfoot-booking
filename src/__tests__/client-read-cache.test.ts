@@ -74,3 +74,26 @@ describe("component-owned read cache", () => {
     expect(first.get("3")).toBe("store-a:3");
   });
 });
+
+it("shows bounded stale data while explicitly revalidating and deduplicating", async () => {
+  vi.useFakeTimers();
+  const fetcher = vi.fn().mockResolvedValueOnce("old").mockResolvedValueOnce("new");
+  const cache = createClientReadCache<string>(fetcher, { ttlMs: 100, staleMs: 200 });
+  await cache.load("a");
+  vi.advanceTimersByTime(100);
+  expect(cache.get("a")).toBeUndefined();
+  expect(cache.peek("a")).toBe("old");
+  const refresh = cache.load("a", { revalidate: true });
+  expect(cache.load("a", { revalidate: true })).toBe(refresh);
+  await refresh;
+  expect(cache.get("a")).toBe("new");
+  vi.advanceTimersByTime(300);
+  expect(cache.peek("a")).toBeUndefined();
+});
+it("does not cache unsuccessful action results", async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce({success:false}).mockResolvedValueOnce({success:true});
+  const cache = createClientReadCache<{success:boolean}>(fetcher, {shouldCache: r => r.success});
+  expect(await cache.load("a")).toEqual({success:false});
+  expect(await cache.load("a")).toEqual({success:true});
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});

@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import {
   SPA_CHECKOUT_PAYMENT_METHODS,
   SPA_PAYMENT_LABELS,
@@ -30,6 +31,7 @@ export function SpaCheckoutPanel({
   onClose: () => void;
   onCompleted: () => void;
 }) {
+  const readCheckout = usePanelReader("spa-checkout", getSpaCheckoutOptions);
   const [scope, setScope] = useState<"PERSON" | "GROUP">("PERSON");
   const [method, setMethod] = useState<Method>("CASH");
   const [transferLast4, setTransferLast4] = useState("");
@@ -57,7 +59,7 @@ export function SpaCheckoutPanel({
   const [pending, start] = useTransition();
   useEffect(() => {
     let active = true;
-    getSpaCheckoutOptions(booking.id)
+    readCheckout.read(booking.id)
       .then((r) => {
         if (!active) return;
         if (r.success) {
@@ -71,7 +73,7 @@ export function SpaCheckoutPanel({
     return () => {
       active = false;
     };
-  }, [booking.id, revision]);
+  }, [booking.id, revision, readCheckout]);
   const unpaid = (options?.groupMembers ?? groupBookings).filter((b) =>
     ["PENDING", "CONFIRMED"].includes(b.status),
   );

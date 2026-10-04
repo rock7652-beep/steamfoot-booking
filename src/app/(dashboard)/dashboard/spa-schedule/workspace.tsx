@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabels } from "@/components/customer-labels";
 import { createCustomer } from "@/server/actions/customer";
@@ -115,6 +116,7 @@ export function SpaScheduleWorkspace(props: Props) {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  const readProviders = usePanelReader("spa-providers", getSpaAvailableProviders);
   const [availabilityRevision, setAvailabilityRevision] = useState(0);
   const [providerResult, setProviderResult] = useState<{
     key: string;
@@ -144,7 +146,7 @@ export function SpaScheduleWorkspace(props: Props) {
     const [requestedDate, startTime, treatmentIds, bookingId] = JSON.parse(
       providerKey,
     ) as [string, string, string[], string?];
-    getSpaAvailableProviders({
+    readProviders.read({
       date: requestedDate,
       startTime,
       treatmentIds,
@@ -202,7 +204,7 @@ export function SpaScheduleWorkspace(props: Props) {
     return () => {
       current = false;
     };
-  }, [providerKey]);
+  }, [providerKey, readProviders]);
   const checkingProviders = !!providerKey && providerResult.key !== providerKey;
   const queuedConflict = (c: CreateSpaBookingInput) => {
     if (!draft || c.bookingDate !== draft.bookingDate) return false;

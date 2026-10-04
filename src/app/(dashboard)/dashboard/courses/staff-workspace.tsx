@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import {MusicTeacherFeeEditor,type TeacherFeeDraft,type TeacherPlan} from "@/components/admin/music-teacher-fee-editor";
@@ -132,6 +133,7 @@ export function CourseStaffWorkspace({
   const [permissions, setPermissions] = useState<string[]>([]);
   const [permissionSearch, setPermissionSearch] = useState("");
   const [pending, start] = useTransition();
+  const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
   const router = useRouter();
   useEffect(() => {
     if (!open || !dirty) return;
@@ -142,7 +144,7 @@ export function CourseStaffWorkspace({
   useEffect(() => {
     if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
     let active = true;
-    readCourseStaffTeaching(person.id).then(result => {
+    readTeaching.read(person.id).then(result => {
       if (!active) return;
       if (!result.success) { setFeesError(result.error); return; }
       const loadedFees:Record<string,TeacherFeeDraft>=Object.fromEntries(result.fees.map(f => [f.templateId, {
@@ -159,7 +161,7 @@ export function CourseStaffWorkspace({
       setFeesReady(true);
     }).catch(() => { if (active) setFeesError("授課費讀取失敗，請重試；尚未覆蓋原設定。"); });
     return () => { active = false; };
-  }, [open, tab, feesReady, person, canManage, reloadFees, music, feeEnabled, templates]);
+  }, [open, tab, feesReady, person, canManage, reloadFees, music, feeEnabled, templates, readTeaching]);
   const activeCount = staff.filter(p => p.active).length;
   const atLimit = maxStaff !== null && activeCount >= maxStaff;
   const order=useCourseDisplayOrder("staff",staff,displayOrder,canManage&&!search&&filter==="all"&&role==="all"&&!hideTestData&&!busyIds.length,p=>p.active);

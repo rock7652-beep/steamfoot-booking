@@ -48,3 +48,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 官網、HQ、所有模組後台、顧客／工作前台與 LINE LIFF 的新增或修改 UI，MUST 依 Framework 第 40 節納入 RWD；不需要使用者再次提出。
 - 共用元件按自身可用寬度排列，保留桌機密度、字級、觸控操作及編輯狀態；表格只在區塊內捲動。
 - UI PR 必須列明受影響入口、驗收尺寸、結果與限制；官網／前台驗手機，後台驗桌機與 iPad，共用元件驗窄容器。靜態 fixture 或登入受阻不得寫成完整業務驗收。
+
+## 全站視窗資料載入
+
+- 右滑／彈窗新增或修改時遵守 Framework 第 41 節與 `docs/panel-loading-inventory.md`。
+- client 資料讀取共用 panel reader／client read cache；已由 props 提供的資料直接顯示，設定面板沿用路由預讀。
+- 現金、額度、名額及修訂資料維持權威查詢；快取與 stale 摘要不可取代後端授權或交易檢查。

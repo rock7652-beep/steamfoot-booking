@@ -15,6 +15,7 @@
 import {
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
+import { createClientReadCache } from "@/lib/client-read-cache";
 import { readBookingDetail } from "@/lib/booking-client-transport";
 
 export interface BookingDetailCache {
@@ -31,39 +32,6 @@ export interface BookingDetailCache {
 }
 
 export function createBookingDetailCache(resolvedStoreId?: string): BookingDetailCache {
-  const cache = new Map<string, BookingDrawerPayload>();
-  const inflight = new Map<string, Promise<BookingDrawerPayload>>();
-
-  return {
-    get(id) {
-      return cache.get(id);
-    },
-    invalidate(id) {
-      cache.delete(id);
-      // 丟掉去重 handle → 下次 load() 會重新發；同時讓還在路上的舊請求
-      // 在 resolve 時 `inflight.get(id) !== p` 而跳過 commit（不覆蓋新資料）。
-      inflight.delete(id);
-    },
-    load(id) {
-      const existing = inflight.get(id);
-      if (existing) return existing;
-
-      const p = readBookingDetail(id, resolvedStoreId).then(
-        (payload) => {
-          // 只有仍是當前 in-flight 才寫入 cache（被 invalidate/取代則跳過）。
-          if (inflight.get(id) === p) {
-            cache.set(id, payload);
-            inflight.delete(id);
-          }
-          return payload;
-        },
-        (err) => {
-          if (inflight.get(id) === p) inflight.delete(id);
-          throw err;
-        },
-      );
-      inflight.set(id, p);
-      return p;
-    },
-  };
+  const cache = createClientReadCache(id => readBookingDetail(id, resolvedStoreId));
+  return { get: cache.peek, invalidate: cache.invalidate, load: id => cache.load(id, {revalidate:true}) };
 }

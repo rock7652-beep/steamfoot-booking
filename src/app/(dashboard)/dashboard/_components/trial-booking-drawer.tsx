@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { createPortal } from "react-dom";
 
 import { useState, useTransition, useId, useRef, useEffect } from "react";
@@ -45,6 +46,10 @@ export function TrialBookingDrawer({
   triggerLabel = "建立體驗預約",
   triggerClassName = "rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700",
 }: Props) {
+  const formReader = usePanelReader("trial-booking-form", loadTrialBookingFormData, "", 15_000);
+  const slotReader = usePanelReader("steam-day-slots", fetchDaySlots);
+  const generation = useRef(0), slotGeneration = useRef(0);
+  useEffect(() => () => { generation.current++; slotGeneration.current++; }, []);
   const requestKey = useBookingRequestKey();
   const router = useRouter();
   const titleId = useId();
@@ -74,41 +79,41 @@ export function TrialBookingDrawer({
   const [notes, setNotes] = useState("");
 
   async function loadSlots(date: string) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const request = ++slotGeneration.current;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { setSlots([]); setSlotsLoadedFor(null); setSlotsLoading(false); return; }
     setSlotsLoading(true);
     setSlotTime("");
     try {
-      const r = await fetchDaySlots(date);
+      const r = await slotReader.read(date);
+      if (request !== slotGeneration.current) return;
       const usable = (r?.slots ?? []).filter(
         (s) => s.isEnabled && s.available > 0 && !s.isPast,
       );
       setSlots(usable);
       setSlotsLoadedFor(date);
     } catch {
+      if (request !== slotGeneration.current) return;
       setSlots([]);
       setSlotsLoadedFor(date);
     } finally {
-      setSlotsLoading(false);
+      if (request === slotGeneration.current) setSlotsLoading(false);
     }
   }
 
   const isExisting = Boolean(preset?.customerId);
 
-  // 效能：滑入 / focus 觸發按鈕時就先載表單資料（設定 + 店長清單），
-  // 等真的點開時多半已就緒 → drawer 開啟更即時、少看到「載入中…」。
-  // 用 ref 去重；消費後清掉，下次 hover 再重新取最新。
-  const prewarmRef = useRef<ReturnType<typeof loadTrialBookingFormData> | null>(null);
-  function prewarmFormData() {
-    if (!prewarmRef.current) prewarmRef.current = loadTrialBookingFormData();
-  }
+  function prewarmFormData() { formReader.prefetch(); }
 
   async function handleOpen() {
+    const request = ++generation.current;
     requestKey.complete();
     setOpen(true);
     setLoading(true);
     setLoadErr(null);
-    const r = await (prewarmRef.current ?? loadTrialBookingFormData());
-    prewarmRef.current = null;
+    let r: Awaited<ReturnType<typeof loadTrialBookingFormData>>;
+    try { r = await formReader.read(); }
+    catch { if (request === generation.current) { setLoading(false); setLoadErr("載入失敗，請重試"); } return; }
+    if (request !== generation.current) return;
     setLoading(false);
     if (!r.success) {
       setLoadErr(r.error);
@@ -145,6 +150,7 @@ export function TrialBookingDrawer({
   }
 
   function close() {
+    generation.current++; slotGeneration.current++;
     setOpen(false);
   }
 
@@ -209,6 +215,8 @@ export function TrialBookingDrawer({
         requestKey.complete();
         toast.success("已建立體驗預約（未收款）");
         reset();
+        formReader.clear(); slotReader.clear();
+        generation.current++; slotGeneration.current++;
         created.current=true;
         setOpen(false);
         mark("router.refresh start");
@@ -234,7 +242,8 @@ export function TrialBookingDrawer({
       <button
         type="button"
         onClick={handleOpen}
-        onMouseEnter={prewarmFormData}
+        onPointerEnter={prewarmFormData}
+        onTouchStart={prewarmFormData}
         onFocus={prewarmFormData}
         className={triggerClassName}
       >

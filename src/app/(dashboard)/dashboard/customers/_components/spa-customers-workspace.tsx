@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import {
   SPA_PAYMENT_LABELS,
@@ -7,7 +8,7 @@ import {
   isSpaExternalPayment,
   type SpaExternalPaymentMethod,
 } from "@/lib/spa-payment-methods";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SpaCustomerList } from "./spa-customer-list";
 import {
@@ -51,33 +52,8 @@ export function SpaCustomersWorkspace({
     request: Promise<Awaited<ReturnType<typeof getSpaCustomerProfile>>>;
   } | null>(null);
   const router = useRouter();
-  // Cache only for this mounted store/list revision; refresh invalidates notes and summaries together.
-  const cache = useMemo(
-    () => ({
-      rows: customers,
-      requests: new Map<
-        string,
-        Promise<Awaited<ReturnType<typeof getSpaCustomerProfile>>>
-      >(),
-    }),
-    [customers],
-  );
-  const loadProfile = (id: string) => {
-    let request = cache.requests.get(id);
-    if (!request) {
-      request = getSpaCustomerProfile(id)
-        .then((r) => {
-          if (!r.success) cache.requests.delete(id);
-          return r;
-        })
-        .catch((e) => {
-          cache.requests.delete(id);
-          throw e;
-        });
-      cache.requests.set(id, request);
-    }
-    return request;
-  };
+  const profileReader = usePanelReader("spa-customer-profile", getSpaCustomerProfile, JSON.stringify(customers), 15_000);
+  const loadProfile = profileReader.read;
   const customer = customers.find((c) => c.id === selected?.id);
   const profileRequest = selected?.request;
   return (
@@ -98,7 +74,7 @@ export function SpaCustomersWorkspace({
           permissions={permissions}
           profileRequest={profileRequest}
           onChanged={() => {
-            cache.requests.delete(customer.id);
+            profileReader.invalidate(customer.id);
             const request = loadProfile(customer.id);
             setSelected((current) =>
               current?.id === customer.id
@@ -126,6 +102,8 @@ export function AccountPanel({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const accountReader = usePanelReader("spa-customer-account", getSpaCustomerAccount);
+  const retryProfile = usePanelReader("spa-customer-profile-retry", getSpaCustomerProfile);
   const customerId = customer.id;
   const {
     canSell,
@@ -154,7 +132,7 @@ export function AccountPanel({
   useEffect(() => {
     let live = true;
     const request = profileRetry
-      ? getSpaCustomerProfile(customerId)
+      ? retryProfile.read(customerId)
       : profileRequest;
     request
       .then((r) => {
@@ -171,7 +149,7 @@ export function AccountPanel({
     return () => {
       live = false;
     };
-  }, [customerId, profileRequest, profileRetry]);
+  }, [customerId, profileRequest, profileRetry, retryProfile]);
   const [account, setAccount] = useState<Account | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -194,7 +172,7 @@ export function AccountPanel({
   useEffect(() => {
     if (!canReadAccounts || tab === "overview") return;
     let live = true;
-    getSpaCustomerAccount(customerId)
+    accountReader.read(customerId)
       .then((r) => {
         if (live) {
           if (r.success) {
@@ -209,7 +187,7 @@ export function AccountPanel({
     return () => {
       live = false;
     };
-  }, [customerId, revision, canReadAccounts, tab]);
+  }, [customerId, revision, canReadAccounts, tab, accountReader]);
   const historyScroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     historyScroll.current?.scrollTo({ top: 0 });

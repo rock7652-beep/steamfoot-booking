@@ -20,3 +20,14 @@ it("retains notes and request identity after a failed save for safe retry",async
 it("discards a late loader result after closing the sheet",async()=>{let resolve!:(value:unknown)=>void;m.load.mockReturnValue(new Promise(r=>resolve=r));await open();await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="關閉新增預約"]')!.click());await act(async()=>resolve({success:false,error:"逾時"}));expect(host.querySelector('[role="dialog"]')).toBeNull();});
 
 it("refreshes the top-entry roster only after the sheet has closed",async()=>{const listener=vi.fn(()=>expect(host.querySelector('[role="dialog"]')).toBeNull());window.addEventListener("booking:created",listener);try{await act(async()=>root.render(React.createElement(SteamBookingDrawer,{date:"2026-10-05",triggerLabel:"新增預約"})));await act(async()=>host.querySelector("button")!.click());m.submit.mockResolvedValue({success:true});await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));expect(listener).toHaveBeenCalledTimes(1);}finally{window.removeEventListener("booking:created",listener);}});
+
+it("does not reuse a completed intent preload containing slot capacity",async()=>{
+ await act(async()=>root.render(React.createElement(SteamBookingDrawer,{date:"2026-10-05",triggerLabel:"新增"})));
+ await act(async()=>host.querySelector("button")!.dispatchEvent(new Event("pointerover",{bubbles:true})));
+ // Opening twice always confirms capacity, even within the metadata cache window.
+ await act(async()=>host.querySelector("button")!.click());
+ const before=m.load.mock.calls.length;
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="關閉新增預約"]')!.click());
+ await act(async()=>host.querySelector("button")!.click());
+ expect(m.load).toHaveBeenCalledTimes(before+1);
+});

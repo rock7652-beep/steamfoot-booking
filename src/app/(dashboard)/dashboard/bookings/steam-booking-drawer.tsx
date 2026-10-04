@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useId, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ const button="inline-flex min-h-11 items-center justify-center rounded-lg border
 type Data=Extract<Awaited<ReturnType<typeof loadSteamBookingForm>>,{success:true}>["data"];
 
 export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,triggerClassName}:{date:string;makeup?:boolean;triggerLabel:string;onCreated?:()=>void;triggerClassName?:string}) {
+  const formReader=usePanelReader("steam-booking-form",loadSteamBookingForm);
   const titleId=useId();
   const [open,setOpen]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState("");
   const [data,setData]=useState<Data|null>(null);
@@ -21,17 +23,18 @@ export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,tri
   function close(){if(pending.current)return;if(dirty.current&&!window.confirm("尚有未儲存的預約資料，要捨棄嗎？"))return;generation.current++;setOpen(false);}
   async function show(){
     const request=++generation.current;dirty.current=false;setData(null);setError("");setOpen(true);setLoading(true);
-    try {const result=await loadSteamBookingForm(date);if(request!==generation.current)return;if(result.success)setData(result.data);else setError(result.error);}
+    try {const result=await formReader.read(date);if(request!==generation.current)return;if(result.success)setData(result.data);else setError(result.error);}
     catch {if(request===generation.current)setError("載入失敗，請重試");}
     finally {if(request===generation.current)setLoading(false);}
   }
+  useEffect(()=>()=>{generation.current++;},[]);
   async function submit(form:FormData){
     pending.current=true;
-    try {const result=await submitSteamBookingForm(form);if(!result.success)return {error:result.error??"建立失敗"};dirty.current=false;created.current=true;setOpen(false);toast.success("已建立預約");}
+    try {const result=await submitSteamBookingForm(form);if(!result.success)return {error:result.error??"建立失敗"};formReader.invalidate(date);dirty.current=false;created.current=true;setOpen(false);toast.success("已建立預約");}
     finally {pending.current=false;}
   }
   return <>
-    <button type="button" className={triggerClassName??`${button} ${makeup?"border-earth-300 bg-white text-earth-700 hover:bg-earth-50":"border-primary-600 bg-primary-600 text-white hover:bg-primary-700"}`} onClick={()=>void show()}>{triggerLabel}</button>
+    <button type="button" className={triggerClassName??`${button} ${makeup?"border-earth-300 bg-white text-earth-700 hover:bg-earth-50":"border-primary-600 bg-primary-600 text-white hover:bg-primary-700"}`} onPointerEnter={()=>formReader.prefetch(date)} onFocus={()=>formReader.prefetch(date)} onTouchStart={()=>formReader.prefetch(date)} onClick={()=>void show()}>{triggerLabel}</button>
     {open&&createPortal(<RightSheet className="!z-[90]" compact open={open} onClose={close} width={860} labelledById={titleId}>
       <div className="flex h-full min-h-0 flex-col">
         <header className="flex shrink-0 items-center justify-between border-b border-earth-100 px-5 py-4"><h2 id={titleId} className="font-semibold text-primary-900">{makeup?"新增補課":"新增預約"}</h2><button type="button" aria-label="關閉新增預約" className="min-h-11 min-w-11 text-earth-500" onClick={close}>✕</button></header>

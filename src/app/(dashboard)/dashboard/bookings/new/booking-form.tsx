@@ -1,4 +1,5 @@
 "use client";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { fetchDaySlots } from "@/server/actions/slots";
@@ -30,11 +31,8 @@ interface Props {
  * - SlotOverride disabled → 該時段消失
  * - SlotOverride enabled → 強制顯示
  *
- * Client cache：dateStr → SlotAvailability[]
- * 切回看過的日期同步秒開、不打 server。Race guard 確保快速切日期時最後選擇
- * 的日期才會顯示。Form 被 submit 後 page.tsx 走 redirect，本元件 unmount，
- * cache 自然失效；不需要手動 clear（也沒辦法 — submit 是 server action，client
- * 拿不到成功訊號）。
+ * SSR 初始時段只消費一次；之後切日期一律讀取最新名額。
+ * 共用 TTL-0 reader 僅去重在途請求，requestId 保護快速切日期與卸載。
  */
 export function DashboardBookingForm({
   days,
@@ -54,38 +52,37 @@ export function DashboardBookingForm({
   const [selectedSlot, setSelectedSlot] = useState<string | null>(defaultSlotTime ?? null);
   const [people, setPeople] = useState(1);
   const [slotResetMessage, setSlotResetMessage] = useState(false);
-  // 把 SSR 時段種進 cache → mount effect 的 loadSlots 直接 cache hit，不打 server、不閃 skeleton。
-  const slotCacheRef = useRef<Map<string, SlotAvailability[]>>(
-    new Map(initialSlots ? [[initialDate, initialSlots]] : [])
-  );
+  const readSlots = usePanelReader("steam-day-slots", fetchDaySlots);
+  const initialSlotsConsumed = useRef(false);
   const requestIdRef = useRef(0);
+  useEffect(() => () => { requestIdRef.current++; }, []);
 
   // 過去日期整天不可預約
   const isPastDate = selectedDate < todayStr;
 
-  // 載入時段（cache hit 秒開、cache miss 走 server + race guard）
+  // Fresh SSR seed on first mount; all subsequent date reads are authoritative.
   const loadSlots = useCallback(async (date: string) => {
     if (!lockScheduleSelection) setSelectedSlot(null);
     const requestId = ++requestIdRef.current;
-    const cached = slotCacheRef.current.get(date);
-    if (cached) {
-      setSlots(cached);
+    if (!initialSlotsConsumed.current && initialSlots !== undefined && date === initialDate) {
+      initialSlotsConsumed.current = true;
+      setSlots(initialSlots);
       setLoading(false);
       return;
     }
+    initialSlotsConsumed.current = true;
     setLoading(true);
     try {
-      const result = await fetchDaySlots(date);
+      const result = await readSlots.read(date);
       // 慢回來的舊請求 — 使用者已經切到別的日期，丟掉結果
       if (requestId !== requestIdRef.current) return;
-      slotCacheRef.current.set(date, result.slots);
       setSlots(result.slots);
     } catch {
       if (requestId === requestIdRef.current) setSlots([]);
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [lockScheduleSelection]);
+  }, [lockScheduleSelection, initialDate, initialSlots, readSlots]);
 
   // 初次載入 + 切換日期時重新載入
   useEffect(() => {
@@ -96,6 +93,7 @@ export function DashboardBookingForm({
     if (selectedDate && !isPastDate) {
       loadSlots(selectedDate);
     } else {
+      requestIdRef.current++;
       setSlots([]);
       setLoading(false);
     }
