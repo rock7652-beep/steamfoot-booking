@@ -3,17 +3,43 @@ import type { OperationGuide } from "./operation-guide-types";
 /** Source review at main ecca3f09. Logged-in operation acceptance remains separate. */
 export const dailyOperationGuides20261003: OperationGuide[] = [
   {
-    id: "C160", category: "customers", title: "課程顧客標籤如何建立、套用與篩選？",
-    summary: "總部開通顧客標籤後，店長還要在本店設定啟用並建立分類；同店各模組會共用標籤。",
-    answer: "分類與標籤名稱最多 8 字；在顧客或名單勾選即時儲存，顧客清單可先依標籤篩選再分頁。",
-    path: "設定 → 顧客標籤；顧客管理／上課名單 → 標籤",
-    keywords: "顧客標籤 分類 八字 顏色 篩選 共用 即時儲存 停用 所屬教練",
-    steps: ["先確認總部已開通顧客標籤，再由店長在課程設定啟用。", "建立分類與標籤，核對固定編號、顏色及排序；再到顧客或上課名單勾選正確標籤。", "回顧客清單用標籤篩選並翻頁核對；停用前先確認既有顧客仍需保留哪些標籤。"],
-    important: "關閉功能或停用分類不會刪除既有資料；標籤只供店內人員使用，沒有顧客編輯權限者不能修改。",
-    success: "同店不同模組顯示一致標籤，篩選後每頁只出現符合顧客，儲存失敗會還原。",
-    details: ["分類編號固定且不重用，顏色依編號循環；改名與排序不改色。", "名單顯示會依欄寬收合，點開才能看全部；目前不提供批次貼標籤。", "運動顧客可另設所屬教練；音樂顧客隱藏此欄。"],
-    modules: ["course"], permission: "customer.read", additionalPermissions: ["customer.update"], feature: "customer_labels", kind: "howto", verification: "source-reviewed",
-    sources: ["docs/shared-customer-labels.md", "src/lib/customer-labels.ts", "src/app/(dashboard)/dashboard/courses/member-workspace.tsx"],
+    "id": "C160",
+    "category": "customers",
+    "title": "顧客標籤如何建立、套用、排序與篩選？",
+    "summary": "總部開通顧客標籤後，店長還要在本店設定啟用並建立分類；同店各模組會共用標籤。",
+    "answer": "分類與標籤名稱最多 8 字；在顧客或名單勾選即時儲存，顧客清單可先依標籤篩選再分頁。",
+    "path": "設定 → 通知與顧客經營 → 顧客標籤；顧客管理／當日名單",
+    "keywords": "顧客標籤 分類 八字 顏色 篩選 共用 即時儲存 停用 所屬教練 拖拉 排序 方向鍵 Escape",
+    "steps": [
+      "功能開通後，由本店店長或 HQ 啟用並建立分類／標籤，名稱最多 8 字。",
+      "拖拉 ⠿ 排分類或同分類內標籤，放開自動儲存；也可用方向鍵移動。",
+      "在顧客或名單勾選，核對儲存結果；有篩選入口的清單可依標籤縮小範圍。"
+    ],
+    "important": "關閉功能或停用分類不會刪除既有資料；標籤只供店內人員使用，沒有顧客編輯權限者不能修改。",
+    "success": "同店不同模組顯示一致標籤，篩選後每頁只出現符合顧客，儲存失敗會還原。",
+    "details": [
+      "物件隨拖拉移動、鄰近項目讓位；Escape 或取消拖拉恢復原序，完成放開才儲存。",
+      "失敗還原，新增／改名失敗保留輸入；排序不改編號或顏色。",
+      "停用不刪標記；跨店唯讀不能管理。分類管理限店長／HQ，貼標籤另需顧客編輯權限。",
+      "同店跨模組共用；運動另有所屬教練，音樂隱藏此欄。"
+    ],
+    "modules": [
+      "steamfoot",
+      "spa",
+      "course"
+    ],
+    "permission": "customer.read",
+    "additionalPermissions": [
+      "customer.update"
+    ],
+    "feature": "customer_labels",
+    "kind": "howto",
+    "verification": "source-reviewed",
+    "sources": [
+      "src/app/(dashboard)/dashboard/settings/customer-labels/label-manager.tsx",
+      "src/server/actions/customer-labels.ts",
+      "src/components/customer-labels.tsx"
+    ]
   },
   {
     id: "C161", category: "booking", title: "如何新增空間租借、收款或取消？",
@@ -94,16 +120,39 @@ export const dailyOperationGuides20261003: OperationGuide[] = [
     sources: ["docs/hq-feature-three-state.md", "src/lib/store-feature-catalog.ts", "src/lib/effective-entitlement.ts"],
   },
   {
-    id: "I15", category: "settings", title: "總部如何查看體驗版申請、改進度或重試通知？",
-    summary: "HQ 管理員可查看申請與補件版本、更新處理進度，並對失敗通知執行重試。",
-    answer: "申請者可用專屬補件連結續填同一申請；總部重試通知不會另建一筆申請，預覽環境仍禁止真實寄信。",
-    path: "總部後台 → 店舖管理 → 體驗版申請",
-    keywords: "體驗版申請 總部 收件 補件 同一編號 修訂 進度 待補件 通知重試 Email Google Sheet",
-    steps: ["由 HQ ADMIN 開啟體驗版申請，依店名與進度篩選後展開正確申請。", "核對基本資料、缺件與最新修訂，再更新處理進度；重新整理確認畫面與紀錄一致。", "只有通知失敗時才重試，先核對固定收件、服務設定與發送紀錄；不要用手動寄信冒充系統成功。"],
-    important: "此頁限 HQ ADMIN 且需人員管理權限。專屬補件 token 不出現在通知內容，預覽禁寄也不能解除來做驗收。",
-    success: "同一申請保留修訂版本與最新進度，通知狀態可追查，未授權帳號無法查看。",
-    details: ["公開入口先收基本資料，LINE 可後補；補件連結用 fragment，伺服器只存 token 雜湊。", "正式通知可同步 Email 與同一 Google Sheet 列；重複修訂依版本避免舊頁覆寫。", "程式測試或畫面顯示已送不代表信箱實際收到；真實投遞須由可讀收件匣的人員確認。"],
-    modules: ["steamfoot", "spa", "course"], permission: "staff.manage", feature: null, kind: "howto", verification: "source-reviewed",
-    sources: ["docs/trial-application-release.md", "src/lib/trial-application.ts", "src/app/hq/dashboard/trial-applications/page.tsx"],
+    "id": "I15",
+    "category": "settings",
+    "title": "總部如何查看體驗版申請、改進度或重試通知？",
+    "summary": "HQ 管理員可查看申請與補件版本、更新處理進度，並對失敗通知執行重試。",
+    "answer": "申請者可用專屬補件連結續填同一申請；總部重試通知不會另建一筆申請，預覽環境仍禁止真實寄信。",
+    "path": "總部後台 → 店舖管理 → 體驗版申請",
+    "keywords": "體驗版申請 收件 補件 修訂 進度 通知重試 Email Google Sheet 六項基本資料 視訊操作教學 附件 選填",
+    "steps": [
+      "由 HQ ADMIN 開啟體驗版申請，依店名與進度篩選後展開正確申請。",
+      "核對基本資料、缺件與最新修訂，再更新處理進度；重新整理確認畫面與紀錄一致。",
+      "只有通知失敗時才重試，先核對固定收件、服務設定與發送紀錄；不要用手動寄信冒充系統成功。"
+    ],
+    "important": "此頁限 HQ ADMIN 且需人員管理權限。專屬補件 token 不出現在通知內容，預覽禁寄也不能解除來做驗收。",
+    "success": "同一申請保留修訂版本與最新進度，通知狀態可追查，未授權帳號無法查看。",
+    "details": [
+      "申請頁先填六項基本資料，詳細設定及學員匯入可選填；每間門市分開申請，教練 LINE 身分另設。",
+      "視訊教學帶店家完成第一筆排課、預約與出席，不要求先備完整課表。基本設定及教學完成後開通，開通日起算 30 天。",
+      "附件選填，最多 3 個、合計 2 MiB；HQ 附件受授權保護，非公開檔案。",
+      "同筆補件沿用編號與 Sheet 列，重試不另建申請；系統顯示已送不代表收件匣已收到。"
+    ],
+    "modules": [
+      "steamfoot",
+      "spa",
+      "course"
+    ],
+    "permission": "staff.manage",
+    "feature": null,
+    "kind": "howto",
+    "verification": "source-reviewed",
+    "sources": [
+      "src/app/pricing/trial/trial-application-form.tsx",
+      "src/app/hq/dashboard/trial-applications/page.tsx",
+      "src/app/api/trial-applications/[id]/attachments/[index]/route.ts"
+    ]
   },
 ];
