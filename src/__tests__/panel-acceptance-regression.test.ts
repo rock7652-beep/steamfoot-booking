@@ -18,6 +18,7 @@ vi.mock("@/app/(dashboard)/dashboard/customers/_components/bulk-assign-bar", () 
 import { RightSheet } from "@/components/admin/right-sheet";
 import { CollectTrialModal } from "@/app/(dashboard)/dashboard/bookings/collect-trial-modal";
 import { CollectSingleModal } from "@/app/(dashboard)/dashboard/bookings/collect-single-modal";
+import { AttendanceModal } from "@/app/(dashboard)/dashboard/bookings/attendance-modal";
 import { CustomersListWithDrawer } from "@/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer";
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
@@ -28,13 +29,13 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); document.body.innerHTML = ""; document.body.style.overflow = ""; vi.restoreAllMocks(); });
 const props = { open:true, onClose:vi.fn(), bookingId:"booking", customerName:"驗收顧客", dateLabel:"2026-10-23 17:30", onCollected:vi.fn() };
 const trial = { ...props, expectedAmount:499, people:1, attendedPeople:null, settings:{allowEdit:true,defaultPrice:499,minPrice:0,maxPrice:3000} };
-for (const kind of ["trial", "single"] as const) {
+for (const kind of ["trial", "single", "attendance"] as const) {
   it(`${kind} collection escapes the parent stacking context and cancels without a payment`, async () => {
     const parentClose = vi.fn(), childClose = vi.fn();
     // eslint-disable-next-line react/no-children-prop
     const parent = React.createElement(RightSheet, {key:"parent",open:true,presentation:"centered",onClose:parentClose,children:React.createElement("button", {}, "原預約")});
     await act(async () => root.render(parent));
-    const child = kind === "trial" ? React.createElement(CollectTrialModal, {...trial,key:"child",onClose:childClose}) : React.createElement(CollectSingleModal, {...props,key:"child",defaultPrice:799,onClose:childClose});
+    const child = kind === "trial" ? React.createElement(CollectTrialModal, {...trial,key:"child",onClose:childClose}) : kind === "single" ? React.createElement(CollectSingleModal, {...props,key:"child",defaultPrice:799,onClose:childClose}) : React.createElement(AttendanceModal, {key:"child",open:true,people:2,onClose:childClose,onConfirm:m.save});
     await act(async () => root.render([parent, child]));
     const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
     expect(dialogs).toHaveLength(2);
