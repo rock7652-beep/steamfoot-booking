@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { toast } from "sonner";
 import { collectTrialPayment } from "@/server/actions/trial-booking";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
@@ -64,6 +65,7 @@ export function CollectTrialModal({
   courseMode = false,
   saveAction = collectTrialPayment,
 }: Props) {
+  const titleId = useId();
   // PR-3c + PR-3d：effectivePeople = attendedPeople ?? people（最小 1）。
   // 預設總額 = expectedAmount(快照) ?? default × effectivePeople。
   // 例外：部分到店 + expectedAmount 是手動值（非 default × people）→
@@ -146,15 +148,11 @@ export function CollectTrialModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
-      onClick={() => !pending && onClose()}
-    >
+    <ModalPanel open={open} onClose={onClose} pending={pending} labelledById={titleId}>
       <div
-        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm"
-        onClick={(e) => e.stopPropagation()}
+        className="min-h-0 w-full overflow-y-auto overscroll-contain p-5 [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm"
       >
-        <h3 className="mb-3 text-lg font-semibold text-earth-900">
+        <h3 id={titleId} className="mb-3 text-lg font-semibold text-earth-900">
           {courseMode ? "確認體驗收款" : "收款並完成服務"}
         </h3>
         <p className="mb-3 text-sm text-earth-600">
@@ -289,6 +287,6 @@ export function CollectTrialModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }

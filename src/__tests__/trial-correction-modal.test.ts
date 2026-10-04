@@ -11,7 +11,7 @@ let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 const corrected = vi.fn();
 const reconcile = vi.fn();
-const confirm = () => [...container.querySelectorAll("button")].at(-1)!;
+const confirm = () => [...document.body.querySelectorAll("button")].at(-1)!;
 beforeEach(async () => {
   vi.clearAllMocks();
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -23,7 +23,7 @@ beforeEach(async () => {
     saveAction: h.save, onCorrected: corrected, onReconcile: reconcile,
   })));
   await act(async () => {
-    const input = container.querySelector<HTMLInputElement>('input[maxlength="500"]')!;
+    const input = document.body.querySelector<HTMLInputElement>('input[maxlength="500"]')!;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "金額更正");
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });

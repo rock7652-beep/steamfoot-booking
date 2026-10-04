@@ -391,7 +391,7 @@ export function CustomersListWithDrawer({
         labelledById={titleId}
         width={720}
       >
-        {detail ? (
+        {detail && detail.id === openId ? (
           <CustomerDetailDrawerContent
             key={detail.id}
             customer={detail}
@@ -406,17 +406,10 @@ export function CustomersListWithDrawer({
             onMutated={refreshDrawer}
             titleId={titleId}
           />
-        ) : openId && loadError ? (
-          <div className="space-y-4 p-5">
-            <h2 id={titleId} className="font-semibold">顧客資料</h2>
-            <p role="alert">{loadError}</p>
-            <div className="flex gap-3">
-              <button type="button" className="rounded border px-4 py-2" onClick={() => void fetchDetail(openId)}>重新讀取</button>
-              <button type="button" className="rounded border px-4 py-2" onClick={closeDrawer}>關閉</button>
-            </div>
-          </div>
         ) : openId ? (
-          <CustomerDrawerSkeleton titleId={titleId} loading={loading} onClose={closeDrawer} />
+          <CustomerDrawerSkeleton key={openId} titleId={titleId} loading={loading} onClose={closeDrawer}
+            summary={rows.find(row => row.id === openId)} error={loadError}
+            onRetry={() => void fetchDetail(openId)} />
         ) : null}
       </RightSheet>
 

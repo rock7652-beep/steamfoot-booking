@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
+
+import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   adjustCheckoutToPackage,
@@ -62,6 +64,7 @@ export function AdjustCheckoutModal({
   currentRemaining,
   singleDefaultPrice = 799,
 }: Props) {
+  const titleId = useId();
   const walletList = wallets ?? [];
   const recommended = walletList.find((w) => w.recommended) ?? walletList[0];
   const [walletId, setWalletId] = useState<string>(recommended?.id ?? "");
@@ -106,15 +109,9 @@ export function AdjustCheckoutModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={() => !pending && onClose()}
-    >
-      <div
-        className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-3 text-lg font-semibold text-earth-900">
+    <ModalPanel open onClose={onClose} labelledById={titleId} pending={pending}>
+      <div className="min-h-0 w-full overflow-y-auto overscroll-contain [&_button]:min-h-11 [&_input]:min-h-11 [&_select]:min-h-11 p-5">
+        <h3 id={titleId} className="mb-3 text-lg font-semibold text-earth-900">
           {isToSingle ? "調整本次預約結帳方式" : "補選本次預約方案"}
         </h3>
 
@@ -258,6 +255,6 @@ export function AdjustCheckoutModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }
