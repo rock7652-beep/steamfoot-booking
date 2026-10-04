@@ -139,7 +139,7 @@ describe("course preview linked identities", () => {
   });
   it("keeps work-only when central member resolution rejects the account", async () => {
     mocks.membership.mockResolvedValue(null);
-    expect((await resolveCoursePreviewIdentity({ ...access, moduleId: "course", personId: "coach", role: "work" })).memberEnabled).toBe(false);
+    expect((await resolveCoursePreviewIdentity({ ...access, moduleId: "course", personUserId: "line-user", personId: "coach", role: "work" })).memberEnabled).toBe(false);
     expect(mocks.customer).not.toHaveBeenCalled();
   });
   it("keeps coach-only identities and restricted member reads separate", async () => {
