@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 import styles from "@/components/admin/management-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
@@ -74,7 +75,7 @@ export function NewSpaPerson({ onCreated, staffId }: {
     <button type="button" className="rounded-lg bg-earth-800 px-4 py-3 text-sm font-medium text-white" onClick={() => setOpen(true)}>
       {staffId ? "連結會員" : "＋新增人員"}
     </button>
-    <RightSheet className={styles.panel} open={open} onClose={close} labelledById="spa-member-staff-title">
+    {open && createPortal(<RightSheet className={styles.panel} open={open} onClose={close} labelledById="spa-member-staff-title">
       <header className="flex items-center justify-between border-b border-earth-200 p-5">
         <div><h2 id="spa-member-staff-title" className="text-xl font-bold">{staffId ? "連結既有人員" : "從本店會員加入人員"}</h2><p className="mt-1 text-sm text-earth-500">沿用會員姓名與 LINE 登入；加入後可查看自己的工作。</p></div>
         <button aria-label="關閉" disabled={pending} onClick={close}>✕</button>
@@ -90,7 +91,7 @@ export function NewSpaPerson({ onCreated, staffId }: {
         <div className="space-y-2">{members.map((member) => <button key={member.customerId} type="button" disabled={pending || (member.workAccess && member.staffId !== staffId)} onClick={() => select(member)} className="flex w-full items-center justify-between gap-4 rounded-xl border border-earth-200 p-4 text-left disabled:bg-earth-50 disabled:opacity-60"><span><strong className="block text-earth-900">{member.name}</strong><span className="mt-1 block text-sm text-earth-500">{member.maskedPhone}</span></span><span className="text-right text-xs text-earth-500"><span className="block">LINE {member.lineLinked ? "已綁定" : "未綁定"}</span><span className="mt-1 block font-medium text-primary-700">{member.workAccess ? "已是服務人員" : staffId ? "連結此會員" : "加入服務人員"}</span></span></button>)}</div>
         <p className="text-xs leading-5 text-earth-500">加入不會開放接單；仍需設定可提供服務與班表。停用工作權限不影響顧客身分、方案或歷史預約。</p>
       </div>
-    </RightSheet>
+    </RightSheet>, document.body)}
   </>;
 }
 
