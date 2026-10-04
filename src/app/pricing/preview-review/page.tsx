@@ -18,9 +18,9 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
   const device = devices.find(item => item.id === query.device) ?? devices[2];
-  const page = query.page === "login" ? "login" : query.page === "home" ? "home" : query.page === "cases" ? "cases" : query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
+  const page = query.page === "guides" ? "guides" : query.page === "privacy" ? "privacy" : query.page === "fitness" ? "fitness" : query.page === "music" ? "music" : query.page === "services" ? "services" : query.page === "slots" ? "slots" : query.page === "login" ? "login" : query.page === "home" ? "home" : query.page === "cases" ? "cases" : query.page === "features" ? "features" : query.page === "apply-success" ? "apply-success" : query.page === "apply" ? "apply" : "pricing";
   const section = query.section === "trial" ? "trial" : query.section === "faq" ? "faq" : query.section === "hero" ? "hero-title" : query.section === "usage" ? "usage" : query.section === "how-it-works" ? "how-it-works" : "testimonials";
-  const pageUrl = page === "login" ? "/hq/login" : page === "home" ? "/pricing/business#" + section : page === "cases" ? "/pricing/cases?store=nuanmu" : page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
+  const pageUrl = page === "guides" ? "/guides" : page === "privacy" ? "/privacy" : ["fitness", "music", "services", "slots"].includes(page) ? "/pricing/features/" + page : page === "login" ? "/hq/login" : page === "home" ? "/pricing/business#" + section : page === "cases" ? "/pricing/cases?store=nuanmu" : page === "features" ? "/pricing/features" : page === "apply" ? "/apply" : "/pricing";
   // Render the real success markup without scripts or sending a test application.
   const successPreview = page === "apply-success"
     ? (await readFile(process.cwd() + "/public/pricing/apply.html", "utf8"))
@@ -37,7 +37,7 @@ export default async function PricingPreviewReview({ searchParams }: { searchPar
     <p className="mb-3 text-sm">{device.label}｜{device.width} × {device.height}</p>
     {successPreview && <p className="mb-3 text-sm">送出成功畫面預覽，未寄送任何申請。</p>}
     <div className="overflow-x-auto">
-      <iframe title={device.label + (page === "features" ? "功能頁" : page.startsWith("apply") ? "需求問卷" : "價格頁")} src={successPreview ? undefined : pageUrl} srcDoc={successPreview} width={device.width} height={device.height} className="block rounded-xl border bg-white" />
+      <iframe title={device.label + (page === "features" ? "功能頁" : page.startsWith("apply") ? "需求問卷" : "價格頁")} src={successPreview ? undefined : pageUrl} srcDoc={successPreview} width={device.width} height={device.height} className="box-content block rounded-xl border bg-white" />
     </div>
   </main>;
 }

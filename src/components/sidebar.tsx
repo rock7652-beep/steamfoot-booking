@@ -1194,13 +1194,13 @@ export default function DashboardShell({
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
-        <header data-dashboard-header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 backdrop-blur-sm sm:px-6">
+        <header data-dashboard-header className="sticky top-0 z-20 flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-earth-200 bg-white/95 px-3 py-1 backdrop-blur-sm sm:px-6">
           {/* Left: hamburger + breadcrumb + single guide entry */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:min-w-64">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className={(industryModule === "spa" || isAdmin) ? "md:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800" : "lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"}
+              className={(industryModule === "spa" || isAdmin) ? "md:hidden min-h-11 min-w-11 shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800" : "lg:hidden min-h-11 min-w-11 shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"}
               aria-label="開啟選單"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1208,11 +1208,11 @@ export default function DashboardShell({
               </svg>
             </button>
             <OperationGuideTrigger />
-            {industryModule === "course" && trialStatus?.isFree && <details className="relative shrink-0">
+            {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
             </details>}
-            <div className={(industryModule === "spa" || isAdmin) ? "md:hidden min-w-0" : guideEnabled ? "hidden" : "lg:hidden min-w-0"}>
+            <div className={industryModule === "course" && guideEnabled ? "hidden" : (industryModule === "spa" || isAdmin) ? "md:hidden min-w-0 max-w-full shrink-0 break-words" : guideEnabled ? "hidden" : "lg:hidden min-w-0 max-w-full shrink-0 break-words"}>
               {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
             <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
@@ -1221,7 +1221,7 @@ export default function DashboardShell({
           </div>
 
           {/* Right: store context + user menu */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */
@@ -1256,7 +1256,7 @@ export default function DashboardShell({
               <button
                 type="button"
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-earth-600 hover:bg-earth-50 hover:text-earth-800 transition-colors"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-earth-600 hover:bg-earth-50 hover:text-earth-800 transition-colors"
               >
                 <span className="hidden sm:inline max-w-[120px] truncate">{userName}</span>
                 <span className="rounded-md bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 sm:text-xs">
