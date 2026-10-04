@@ -57,7 +57,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
           <p className="mt-2 text-lg font-semibold text-[#805C1B]">年繳省 NT${money(annualSavings(plan))}</p>
           <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active ? <>12 個月<span className="ml-1 text-[#805C1B]">＋贈送 2 個月</span></> : "使用 12 個月"}</p>
         </div>
-        <ul className="my-3 space-y-1 text-sm leading-6">{plan.benefits.map(benefit => <li key={benefit} className="grid grid-cols-4 gap-2"><span aria-hidden="true" className="font-semibold text-[#805C1B]">✓</span><span>{benefit}</span></li>)}</ul>
+        <ul className="my-3 space-y-1 text-sm leading-6">{plan.benefits.map(benefit => <li key={benefit} className="flex gap-2"><span aria-hidden="true" className="font-semibold text-[#805C1B]">✓</span><span>{benefit}</span></li>)}</ul>
         {plan.id === "ALLIANCE" && <p className="mb-3 text-sm leading-6 text-[#4C6259]">串接費依實際分店數另計；各分店系統月費另計。</p>}
         <a href={trialUrl} className="mt-auto inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
       </article>)}
@@ -76,7 +76,7 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
     {offer.active && <div className="rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] p-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div><p className="text-lg font-semibold text-[#59441E]">雙十店務升級優惠</p><p className="mt-1 text-base text-[#59441E]">十月限定・加購每項年繳最高省 NT$3,600</p></div>
-        <div><p className="mb-1 text-sm text-[#59441E]">加購優惠倒數</p><div role="timer" aria-label="距離雙十加購付款優惠截止" aria-live="off" className="flex gap-2">
+        <div><p className="mb-1 text-sm text-[#59441E]">加購優惠倒數</p><div role="timer" aria-label="距離雙十加購付款優惠截止" aria-live="off" className="grid grid-cols-4 gap-2">
           {offer.countdown.map((value, index) => <div key={index} className="min-w-0 rounded-lg bg-white px-2 py-2 text-center sm:px-3"><span className="block text-2xl font-semibold tabular-nums">{String(value).padStart(2, "0")}</span><span className="text-sm">{["天", "時", "分", "秒"][index]}</span></div>)}
         </div></div>
       </div>
