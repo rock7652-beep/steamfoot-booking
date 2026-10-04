@@ -28,6 +28,8 @@
   overscroll-behavior-y: contain;
 }
 .centered {
+  /* Centering is geometry, not the side-sheet opening animation. */
+  transition: none;
   position: absolute;
   inset: 0;
   width: 100%;
