@@ -17,7 +17,6 @@
 .panel :global([role="dialog"]) {
   container: management-panel / inline-size;
   overflow-wrap: anywhere;
-  max-width: 100%;
 }
 .panel :is(input, select, textarea) { min-width: 0; max-width: 100%; }
 .panel :is(h1, h2, dd) { min-width: 0; }
