@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/admin/profile-plan-layout.module.css";
 
 import { useActionState } from "react";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
@@ -107,15 +108,11 @@ export function EditCustomerForm({
 
   return (
     <FormShell width="md">
-      <form action={action} className="space-y-6 pb-4">
+      <form action={action} className={`${styles.form} space-y-6 pb-4`}>
         <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
         <fieldset disabled={pending} className="contents">
         <div
-          className={
-            isSpa
-              ? "grid grid-cols-1 gap-4 md:grid-cols-2"
-              : "grid grid-cols-1 gap-6 md:grid-cols-2"
-          }
+          className={`${styles.customerColumns} ${isSpa ? "gap-4" : "gap-6"}`}
         >
           {/* 左欄 */}
           <div className="space-y-6">
@@ -136,7 +133,7 @@ export function EditCustomerForm({
                 />
               </div>
 
-              <FormGrid>
+              <FormGrid className={styles.fieldGrid}>
                 <div>
                   <label className={labelCls}>
                     電話 <span className="text-red-500">*</span>
@@ -170,7 +167,7 @@ export function EditCustomerForm({
 
             {!isSpa && (
               <FormSection title="個人資訊">
-                <FormGrid>
+                <FormGrid className={styles.fieldGrid}>
                   <div>
                     <label className={labelCls}>
                       性別

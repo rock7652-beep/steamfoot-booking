@@ -1,0 +1,45 @@
+.form {
+  container: profile-plan-form / inline-size;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.form section, .fieldsContainer {
+  container: profile-plan-fields / inline-size;
+  min-width: 0;
+}
+.form .fieldGrid, .compactGrid, .customerColumns, .planColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 1rem;
+}
+.planColumns { gap: 1.5rem; }
+.fieldGrid > *, .compactGrid > *, .customerColumns > *, .planColumns > * {
+  min-width: 0;
+}
+.fullWidth { grid-column: 1 / -1; }
+@container profile-plan-fields (min-width: 32rem) {
+  .form .fieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container profile-plan-fields (min-width: 24rem) {
+  .compactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container profile-plan-form (min-width: 56rem) {
+  .customerColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .planMain { grid-column: span 2; }
+}
+.form fieldset { min-width: 0; }
+.form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.form select, .form textarea {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+}
+.form button, .form a {
+  min-height: 44px;
+}
+.form a {
+  display: inline-flex;
+  align-items: center;
+}

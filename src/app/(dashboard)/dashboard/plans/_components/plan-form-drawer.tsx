@@ -1,4 +1,5 @@
 "use client";
+import styles from "@/components/admin/profile-plan-layout.module.css";
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -184,8 +185,8 @@ function PlanFormBody({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex h-full flex-col">
-      <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-5 py-4">
+    <form onSubmit={handleSubmit} className={`${styles.form} flex h-full min-h-0 flex-col`}>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-earth-200 px-5 py-4">
         <div>
           <h2
             id="plan-drawer-title"
@@ -202,14 +203,14 @@ function PlanFormBody({
         <button
           type="button"
           onClick={()=>{if(!draft.busy.current)onClose();}}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
           aria-label="關閉"
         >
           ✕
         </button>
       </div>
 
-        <fieldset disabled={pending} className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <fieldset disabled={pending} className={`${styles.fieldsContainer} min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4`}>
           <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
           <div>
             <label className={labelCls}>
@@ -245,7 +246,7 @@ function PlanFormBody({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={styles.compactGrid}>
             <div>
               <label className={labelCls}>
                 價格（元） <span className="text-red-500">*</span>
@@ -276,7 +277,7 @@ function PlanFormBody({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={styles.compactGrid}>
             <div>
               <label className={labelCls}>
                 有效天數 <span className="text-[11px] text-earth-400">（選填）</span>
@@ -381,19 +382,19 @@ function PlanFormBody({
           )}
         </fieldset>
 
-        <div className="flex items-center justify-between gap-2 border-t border-earth-200 bg-earth-50 px-5 py-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-earth-200 bg-earth-50 px-5 py-3">
           <button
             type="button"
             onClick={()=>{if(!draft.busy.current)onClose();}}
             disabled={pending}
-            className="inline-flex h-9 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-50"
           >
             取消
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex h-9 items-center rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-11 items-center rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? "儲存中..." : isEdit ? "儲存變更" : "新增"}
         </button>

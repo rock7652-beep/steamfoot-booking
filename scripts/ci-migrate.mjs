@@ -28,7 +28,7 @@ if (
 }
 
 // Creation-sheet and drag-order verification must use the isolated preview database.
-if (process.env.VERCEL_ENV === "preview" && ["fix/steam-booking-create-sheets", "fix/shared-label-sort-motion", "fix/label-sync-sequence", "fix/booking-header-density", "fix/shared-panel-loading", "fix/panel-acceptance-collection-summary", "fix/booking-form-filter-rwd", "fix/cash-payment-form-rwd"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
+if (process.env.VERCEL_ENV === "preview" && ["fix/steam-booking-create-sheets", "fix/shared-label-sort-motion", "fix/label-sync-sequence", "fix/booking-header-density", "fix/shared-panel-loading", "fix/panel-acceptance-collection-summary", "fix/booking-form-filter-rwd", "fix/cash-payment-form-rwd", "fix/customer-plan-form-rwd"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
     throw new Error("Booking sheets Preview requires the isolated preview database.");
   console.info("[booking-sheets-preview-preflight] isolated_database=true");
