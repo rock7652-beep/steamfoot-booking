@@ -45,28 +45,21 @@ const Field = ({ label, children }: {
     children: ReactNode;
 }) => <label className={styles.field}><span>{label}</span>{children}</label>;
 function PartyPicker({label,parties,value,query,onQuery,onSelect,locked}:{label:string;parties:{id:string;name:string;phone:string}[];value:string;query:string;onQuery:(value:string)=>void;onSelect:(id:string)=>void;locked:boolean}) {
-    const id=useId(),[open,setOpen]=useState(false),container=useRef<HTMLDivElement>(null);
-    useEffect(()=>{
-      if(!open)return;
-      const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!container.current?.contains(event.target))setOpen(false);};
-      document.addEventListener("pointerdown",outside,true);
-      return()=>document.removeEventListener("pointerdown",outside,true);
-    },[open]);
-    const selected=parties.find(p=>p.id===value);
+    const id=useId();
     const normalized=query.trim().toLowerCase().replace(/[\s\-()（）]/g,"");
-    const matches=parties.filter(p=>[p.name,p.phone].some(v=>v.toLowerCase().replace(/[\s\-()（）]/g,"").includes(normalized)));
-    // Safari may blur to null before firing click on a touch option. Keep it mounted
-    // until selection or an explicit outside pointer/focus, without blocking scroll.
-    return <div ref={container} className={styles.field} onBlur={e=>{if(e.relatedTarget&&!e.currentTarget.contains(e.relatedTarget as Node))setOpen(false);}}>
+    const matches=parties.filter(p=>p.id===value||[p.name,p.phone].some(v=>v.toLowerCase().replace(/[\s\-()（）]/g,"").includes(normalized)));
+    const select=(id:string)=>{onSelect(id);onQuery("");};
+    return <div className={styles.field}>
       <label htmlFor={id}>{label}・必選</label>
-      {value?<div className={styles.toolbar}><span>{selected?`${selected.name}・${selected.phone}`:"已選擇對象"}</span>{!locked&&<button type="button" onClick={()=>{onSelect("");setOpen(true);}}>更換</button>}</div>:<>
-        <input id={id} type="search" aria-label="即時搜尋姓名或電話" aria-controls={`${id}-results`} placeholder="點選或搜尋姓名／電話" value={query} autoComplete="off" onFocus={()=>setOpen(true)} onChange={e=>{onQuery(e.target.value);setOpen(true);}} onKeyDown={e=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();setOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();setOpen(true);requestAnimationFrame(()=>document.getElementById(`${id}-results`)?.querySelector<HTMLButtonElement>("button")?.focus());}if(e.key==="Enter"){e.preventDefault();if(matches.length===1){onSelect(matches[0].id);setOpen(false);}else setOpen(true);}}}/>
-        {open&&<div id={`${id}-results`} className={`${styles.results} ${styles.partyResults}`} aria-label={`${label}選項`}>
-          {matches.slice(0,50).map(p=><button type="button" key={p.id} onClick={()=>{onSelect(p.id);setOpen(false);}}>{p.name}・{p.phone}</button>)}
-          {!matches.length&&<p role="status" className={styles.sub}>{parties.length?`找不到符合的${label}，請更換姓名或電話搜尋`:`目前門市沒有可選${label}`}</p>}
-          {matches.length>50&&<p className={styles.sub}>顯示前 50 位，請輸入姓名或電話縮小範圍</p>}
-        </div>}
-      </>}
+      <div className={styles.partyControls}>
+        <select id={id} aria-label={`選擇${label}`} value={value} disabled={locked} required onChange={e=>select(e.target.value)}>
+          <option value="">{parties.length?`請選擇${label}`:`目前門市沒有可選${label}`}</option>
+          {value&&!parties.some(p=>p.id===value)&&<option value={value}>原單據對象</option>}
+          {matches.map(p=><option key={p.id} value={p.id}>{p.name}・{p.phone}</option>)}
+        </select>
+        {!locked&&<input type="search" aria-label="即時搜尋姓名或電話" placeholder="搜尋姓名／電話" value={query} autoComplete="off" onChange={e=>onQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();if(matches.length===1)select(matches[0].id);}}}/>}
+      </div>
+      {normalized&&!matches.length&&<p role="status" className={styles.sub}>找不到符合的{label}，請更換姓名或電話搜尋</p>}
     </div>;
 }
 export function InventoryWorkspace({ initial }: {

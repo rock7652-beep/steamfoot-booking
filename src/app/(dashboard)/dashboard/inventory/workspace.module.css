@@ -29,4 +29,4 @@
 .narrowFilters{display:none}@container (max-width:760px){.filterRow>.secondaryFilter{display:none}.narrowFilters{display:flex;flex-direction:column;gap:8px}}
 .orderMeta{grid-template-columns:160px minmax(0,1fr) 140px}.heading h1{margin-right:auto}.heading>.toolbar{margin-bottom:0}@container inventory-editor (max-width:479px){.orderMeta{grid-template-columns:1fr}}
 
-.partyResults{max-height:240px;overflow-y:auto;overscroll-behavior:contain}.field>label{color:#63736b}
+.partyControls{display:flex;gap:8px;min-width:0}.partyControls select{flex:3;min-width:0;text-overflow:ellipsis}.partyControls input{flex:2;min-width:0}.field>label{color:#63736b}

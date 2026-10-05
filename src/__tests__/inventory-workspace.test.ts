@@ -104,44 +104,41 @@ it('filters product names by brand and keeps long metadata reachable',()=>{
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,products:[{...initial.products[0],brand:'品牌甲',specification:'非常完整的規格名稱'}]},key:'brand'})));click('商品與庫存');fill(host.querySelector('[aria-label="搜尋商品"]') as HTMLInputElement,'品牌甲');expect(host.textContent).toContain('保暖襪');choose('商品品牌篩選','品牌甲');expect(host.querySelector('details summary')?.textContent).toContain('非常完整的規格名稱');
 });
 
-it('opens customer choices on focus and saves the selected duplicate-name customer',async()=>{
+it('saves the customer selected through the native picker with duplicate names',async()=>{
  click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
- act(()=>input.focus());expect(host.querySelector('[aria-label="顧客選項"]')).not.toBeNull();
- expect(host.textContent).toContain('0912345678');expect(host.textContent).toContain('0922333444');
- fill(input,' 0922-333-444 ');expect(host.textContent).not.toContain('0912345678');click('陳怡君・0922333444');
- expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();
+ const picker=host.querySelector<HTMLSelectElement>('[aria-label="選擇顧客"]')!;
+ expect([...picker.options].map(o=>o.textContent)).toContain('陳怡君・0912345678');expect([...picker.options].map(o=>o.textContent)).toContain('陳怡君・0922333444');
+ fill(input,' 0922-333-444 ');expect([...picker.options].map(o=>o.value)).toEqual(['','c2']);choose('選擇顧客','c2');
+ expect(picker.value).toBe('c2');expect(picker.selectedOptions[0].textContent).toBe('陳怡君・0922333444');expect(input.value).toBe('');
  fill(host.querySelector<HTMLInputElement>('[aria-label="即時篩選商品"]')!,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');
- const form=host.querySelector('form')!;await act(async()=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ await act(async()=>{host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
  expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({partyId:'c2',priceCategory:'GENERAL'}));
 });
-it('shows a search miss and allows changing the customer without changing identity price',()=>{
+it('retains the selected customer during a search miss and changes customer without changing price category',()=>{
  click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
- fill(input,'不存在');expect(host.textContent).toContain('找不到符合的顧客');
- fill(input,'陳怡君');click('陳怡君・0912345678');choose('身份價格','STUDENT');click('更換');
- click('林雅婷・0933555666');expect((host.querySelector('[aria-label="身份價格"]') as HTMLSelectElement).value).toBe('STUDENT');
+ fill(input,'不存在');expect(host.textContent).toContain('找不到符合的顧客');fill(input,'陳怡君');choose('選擇顧客','c1');choose('身份價格','STUDENT');
+ fill(input,'林雅');expect((host.querySelector('[aria-label="選擇顧客"]') as HTMLSelectElement).value).toBe('c1');choose('選擇顧客','c3');
+ expect((host.querySelector('[aria-label="選擇顧客"]') as HTMLSelectElement).selectedOptions[0].textContent).toBe('林雅婷・0933555666');expect((host.querySelector('[aria-label="身份價格"]') as HTMLSelectElement).value).toBe('STUDENT');
 });
-it('selects a single customer with Enter without submitting the order',()=>{
+it('selects a single searched customer with Enter without submitting',()=>{
  click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
  fill(input,'0933');act(()=>input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})));
- expect(host.textContent).toContain('林雅婷・0933555666');expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();expect(mocks.save).not.toHaveBeenCalled();
+ expect((host.querySelector('[aria-label="選擇顧客"]') as HTMLSelectElement).value).toBe('c3');expect(mocks.save).not.toHaveBeenCalled();
 });
-it('explains an empty store customer list',()=>{
+it('explains an empty customer list in the native picker',()=>{
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,customers:[]},key:'empty-customers'})));click('＋ 新增銷貨');
- act(()=>host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!.focus());expect(host.textContent).toContain('目前門市沒有可選顧客');
+ expect(host.querySelector<HTMLSelectElement>('[aria-label="選擇顧客"]')!.options[0].textContent).toBe('目前門市沒有可選顧客');
 });
-
-it('keeps a touch customer option mounted when Safari blurs the input before click',()=>{
+it('keeps native options available across input blur and outside touch before committing a selection',()=>{
  click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
- act(()=>input.focus());const option=[...host.querySelectorAll('button')].find(b=>b.textContent==='陳怡君・0922333444')!;
- act(()=>option.dispatchEvent(new Event('pointerdown',{bubbles:true})));
+ const picker=host.querySelector<HTMLSelectElement>('[aria-label="選擇顧客"]')!;
+ act(()=>input.focus());fill(input,'0922');
  act(()=>input.dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:null})));
- expect(option.isConnected).toBe(true);
- act(()=>option.click());expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();expect(host.textContent).toContain('陳怡君・0922333444');
+ act(()=>host.querySelector('[name="date"]')!.dispatchEvent(new Event('pointerdown',{bubbles:true})));
+ expect(picker.isConnected).toBe(true);expect([...picker.options].map(o=>o.value)).toEqual(['','c2']);choose('選擇顧客','c2');
+ expect(picker.selectedOptions[0].textContent).toBe('陳怡君・0922333444');
 });
-it('closes customer options on outside touch and keyboard focus without losing the query',()=>{
- click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
- act(()=>input.focus());fill(input,'陳');const date=host.querySelector<HTMLInputElement>('[name="date"]')!;
- act(()=>date.dispatchEvent(new Event('pointerdown',{bubbles:true})));expect(host.querySelector('[aria-label="顧客選項"]')).toBeNull();expect(input.value).toBe('陳');
- act(()=>input.dispatchEvent(new FocusEvent('focusin',{bubbles:true})));expect(host.querySelector('[aria-label="顧客選項"]')).not.toBeNull();
- act(()=>input.dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:date})));expect(host.querySelector('[aria-label="顧客選項"]')).toBeNull();
+it('locks the existing sale customer and preserves its selection',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,orders:[sale('sale-native','2026-10-05')]},key:'locked-party'})));click('編輯銷貨單');
+ const picker=host.querySelector<HTMLSelectElement>('[aria-label="選擇顧客"]')!;expect(picker.disabled).toBe(true);expect(picker.value).toBe('c1');expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();
 });
