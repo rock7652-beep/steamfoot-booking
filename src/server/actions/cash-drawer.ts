@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requirePermission, requireWritablePermission } from "@/lib/permissions";
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { currentStoreId, resolveWriteStoreId } from "@/lib/store";
@@ -82,6 +83,7 @@ function toBusinessDate(dateStr: string | undefined): Date {
 
 async function requireCashDrawerFeature(storeId: string): Promise<void> {
   await requireStoreFeature(storeId, FEATURES.CASH_DRAWER);
+  await requireInventoryFinanceAccess(storeId);
 }
 
 async function requireCashDrawerFeatureForSession(sessionId: string): Promise<void> {

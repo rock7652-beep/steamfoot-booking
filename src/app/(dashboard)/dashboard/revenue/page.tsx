@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { InstantFilterForm } from "@/components/instant-filter-form";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -132,6 +133,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
       canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
       canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
+  if(!await canReadInventoryFinance(revenueStoreId,user)) return <div className="p-4 text-sm">完整財務資料需有查看進貨成本的權限。一般商品收款請使用進銷存的收款單。</div>;
   const showMonthly = Boolean(
     revenueStoreId &&
     (user.role === "OWNER" || user.role === "ADMIN") &&

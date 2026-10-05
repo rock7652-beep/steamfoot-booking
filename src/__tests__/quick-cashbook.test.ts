@@ -1,3 +1,4 @@
+vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:async()=>true,inventoryCashbookReadFilter:async()=>({})}));
 import { beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));

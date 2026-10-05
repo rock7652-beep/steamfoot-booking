@@ -41,7 +41,7 @@ export default async function EditCashbookPage({ params }: PageProps) {
   const entry = await prisma.cashbookEntry.findUnique({
     where: { id },
   });
-  if (!entry) notFound();
+  if (!entry || entry.id.startsWith("inventory:")) notFound();
   const activeStoreId = await getActiveStoreForRead(user);
   if (entry.storeId !== activeStoreId) notFound();
   const instantSearch = await getStoreIndustryModule(entry.storeId) === "steamfoot";

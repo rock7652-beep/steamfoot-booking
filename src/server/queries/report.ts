@@ -4,6 +4,7 @@
  * customerConsumptionDetail supports optional month filter
  */
 
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requireStaffSession, requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
@@ -198,6 +199,7 @@ export async function monthlyStoreSummary(
     : monthRange(month);
 
   const reportStoreId = activeStoreId ?? readUser.storeId;
+  await requireInventoryFinanceAccess(reportStoreId,readUser);
   const revenueFilter = getManagerReadFilter(
     readUser.role,
     readUser.staffId,

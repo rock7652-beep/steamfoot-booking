@@ -163,3 +163,18 @@ it('normalizes a leading zero quantity on blur without changing the calculated a
  click('＋ 新增銷貨');fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');const qty=host.querySelector<HTMLInputElement>('[aria-label="保暖襪 數量"]')!;
  act(()=>qty.focus());fill(qty,'08');act(()=>qty.blur());expect(qty.value).toBe('8');expect((host.querySelector('[name="paid"]') as HTMLInputElement).value).toBe('1600');
 });
+
+it('normalizes the collection amount after blur and submits exactly 1120 once',async()=>{
+ const order={...sale('sale-prmvrfcv','2026-10-05'),total:1120};
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,orders:[order]},key:'receipt-leading-zero'})));
+ click('收款單');
+ const party=host.querySelector('button[aria-label="陳怡君 0912345678 收款紀錄"]') as HTMLButtonElement;
+ act(()=>party.click());click('收取未付款');
+ const amount=host.querySelector('input[aria-label="PRMVRFCV 收付款金額"]') as HTMLInputElement;
+ amount.focus();fill(amount,'01120');
+ act(()=>amount.blur());expect(amount.value).toBe('1120');
+ expect(host.textContent).toContain('本次收款');expect(host.textContent).not.toContain('本次收付款');
+ await act(async()=>{(amount.closest('form') as HTMLFormElement).dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(mocks.save).toHaveBeenCalledTimes(1);
+ expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({kind:'SALE',allocations:[{orderId:order.id,amount:1120}]}));
+});

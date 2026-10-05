@@ -1,5 +1,6 @@
 "use server";
 
+import { inventoryCashbookReadFilter, canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission, requireWritablePermission } from "@/lib/permissions";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
@@ -26,10 +27,10 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
   const today = toLocalDateStr();
   const date = new Date(today + "T00:00:00Z");
   const scope = getManagerReadFilter(user.role, user.staffId, "staffId", storeId);
-  const where = { ...scope, storeId, entryDate: date };
+  const where = { ...scope, storeId, entryDate: date, AND:[await inventoryCashbookReadFilter(user)] };
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const canWrite = !viewContext?.isViewMode && await checkPermission(user.role, user.staffId, "cashbook.create");
-  const canDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
+  const canDrawer = await canReadInventoryFinance(storeId,user) && await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
   const currentPage = Number.isInteger(page) && page > 0 ? page : 1;
   const [entries, total, view, closedDates] = await Promise.all([
     prisma.cashbookEntry.findMany({ where, orderBy: { createdAt: "desc" }, skip: (currentPage - 1) * 20, take: 20, include: { customer: { select: { id: true, name: true } } } }),

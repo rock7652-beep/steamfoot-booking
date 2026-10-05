@@ -1,12 +1,13 @@
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
-const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),firsts:vi.fn(),staff:vi.fn(),revenue:vi.fn(),cash:vi.fn()}));
+const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),firsts:vi.fn(),staff:vi.fn(),revenue:vi.fn(),cash:vi.fn(),finance:vi.fn()}));
+vi.mock("@/server/inventory-finance-access",()=>({canReadInventoryFinance:m.finance}));
 vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:m.scope}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({courseSession:{findMany:m.sessions},$queryRaw:m.firsts})}}));
 vi.mock("@/lib/db",()=>({prisma:{staff:{findMany:m.staff},cashbookEntry:{findMany:m.cash}}}));
 vi.mock("@/server/queries/course-revenue-report",()=>({getCourseRevenueReport:m.revenue}));
 import {getCourseAnalytics} from "@/server/queries/course-analytics";
-beforeEach(()=>{vi.resetAllMocks();m.sessions.mockResolvedValue([]);m.firsts.mockResolvedValue([]);m.staff.mockResolvedValue([]);m.revenue.mockResolvedValue({kpi:{netRevenue:0},data:[]});m.cash.mockResolvedValue([]);});
+beforeEach(()=>{vi.resetAllMocks();m.finance.mockResolvedValue(true);m.sessions.mockResolvedValue([]);m.firsts.mockResolvedValue([]);m.staff.mockResolvedValue([]);m.revenue.mockResolvedValue({kpi:{netRevenue:0},data:[]});m.cash.mockResolvedValue([]);});
 it("scopes sessions, nested bookings, earliest attendance and staff to the course store",async()=>{
  await getCourseAnalytics("store",{startDate:"2026-09-17",endDate:"2026-09-17"},true);
  expect(m.scope).toHaveBeenCalledWith("store");
@@ -30,4 +31,10 @@ it("reads manual cash only with its own permission and excludes course-linked re
  const result=await getCourseAnalytics("store",{startDate:"2026-09-17",endDate:"2026-09-17"},true,true);
  expect(m.cash).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store",NOT:[{id:{startsWith:"course-trial:"}},{id:{startsWith:"course-trial-void:"}},{id:{startsWith:"course-purchase:"}},{id:{startsWith:"course-refund:"}},{id:{startsWith:"course-void:"}}]})}));
  expect(result.financial.manualIncome).toBe(100);expect(result.priorFinancial.manualIncome).toBe(0);
+});
+
+it("keeps attendance and course revenue available but hides manual finance without inventory cost access",async()=>{
+ m.finance.mockResolvedValue(false);
+ const result=await getCourseAnalytics("store",{startDate:"2026-09-17",endDate:"2026-09-17"},true,true);
+ expect(m.cash).not.toHaveBeenCalled();expect(result.financial.manualIncome).toBeNull();expect(result.financial.manualExpense).toBeNull();expect(result.current.sessions).toBe(0);expect(result.revenue).not.toBeNull();
 });

@@ -1,11 +1,13 @@
 /**
  * Report snapshot — read/write pre-computed monthly report data
  */
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 
 type SnapshotType = string;
 
 export async function getReportSnapshot(storeId: string, month: string, type: SnapshotType) {
+  await requireInventoryFinanceAccess(storeId);
   const snapshot = await prisma.reportSnapshot.findUnique({
     where: { storeId_month_type: { storeId, month, type } },
   });
@@ -21,6 +23,7 @@ export async function getReportSnapshotWithMeta(
   month: string,
   type: SnapshotType,
 ): Promise<{ data: unknown; updatedAt: Date } | null> {
+  await requireInventoryFinanceAccess(storeId);
   const snapshot = await prisma.reportSnapshot.findUnique({
     where: { storeId_month_type: { storeId, month, type } },
     select: { data: true, updatedAt: true },

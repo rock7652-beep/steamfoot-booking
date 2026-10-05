@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     ["本期回流人數", data.returned], ["回流率", `${data.retentionRate.toFixed(1)}%`],
   ];
   if (await checkPermission(user.role, user.staffId, "transaction.read")) {
+    if(!await canReadInventoryFinance(storeId,user)) return new NextResponse("完整財務分析需有查看進貨成本的權限",{status:403});
     const revenue = await getIndustryRevenueMix(storeId, selection.startDate, effectiveEndDate);
     rows.push(["本期已收營收", revenue.netRevenue], ["方案與儲值", revenue.packageRevenue], ["服務與其他", revenue.otherRevenue], ["零售", revenue.retailRevenue], ["退款", revenue.refunds], ["已記錄支出", revenue.expense], ["收支結餘", revenue.balance]);
   }

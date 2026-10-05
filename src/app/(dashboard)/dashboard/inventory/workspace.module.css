@@ -42,3 +42,12 @@
 @media (max-width:639px) and (pointer:coarse),(max-height:500px) and (pointer:coarse){
  .workspace input,.workspace select,.workspace textarea{font-size:16px}
 }
+
+/* Read-only detail tables fit the panel; only editable item grids retain horizontal scroll. */
+.editor .compactTable table{min-width:0;table-layout:fixed}
+.editor .compactTable th,.editor .compactTable td{white-space:normal;overflow-wrap:anywhere;padding-inline:6px}
+.editor .compactTable th:first-child{width:42%}
+.editor .compactTable .number{white-space:nowrap}
+.editor .compactTable td input{min-width:0;padding-inline:4px;box-sizing:border-box}
+.editor .compactTable .actions{width:44px;min-width:44px}
+.editor .compactTable .quantity{width:48px}

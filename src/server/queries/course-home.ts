@@ -1,3 +1,4 @@
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -83,6 +84,7 @@ export async function getCourseCareCounts(storeId: string, scope: string | null,
 }
 
 export async function getCourseHomeCash(storeId: string) {
+  await requireInventoryFinanceAccess(storeId);
   const session = await prisma.cashDrawerSession.findFirst({ where: { storeId, businessDate: { lte: bookingDateToday() } }, orderBy: { businessDate: "desc" } });
   if (!session) return { state: "EMPTY" as const };
   if (session.businessDate.valueOf() !== bookingDateToday().valueOf()) return { state: session.status === "OPEN" ? "PREVIOUS_OPEN" as const : "NOT_OPEN" as const };
