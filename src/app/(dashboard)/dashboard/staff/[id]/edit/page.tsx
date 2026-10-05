@@ -62,7 +62,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   const actorPerms = user.role === "MANAGER" && user.staffId ? await getStaffPermissions(user.staffId, activeStoreId) : new Set<PermissionCode>(ALL_PERMISSIONS);
 
   if (industry !== "spa") {
-    const visibleCodes = industry === "course" ? COURSE_PERMISSIONS : ALL_PERMISSIONS;
+    const visibleCodes = industry === "course" ? COURSE_PERMISSIONS : ALL_PERMISSIONS.filter(code => !code.startsWith("teacher."));
     return <StaffAccountRoute person={{
       id: staff.id, userId: staff.userId, displayName: staff.displayName, legalName: staff.user.name,
       role: staff.user.role, permissions: Array.from(currentPerms), roleLabel: ROLE_LABELS[staff.user.role],

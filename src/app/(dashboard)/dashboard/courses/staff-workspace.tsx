@@ -361,7 +361,7 @@ export function CourseStaffWorkspace({
                 const deactivating=person?.active && d.get("active")==="no";
                 if(person?.linkedStaffId && !linkedStaffId && !window.confirm("確定解除同一人連結？兩個身分及過往紀錄都會保留。"))return;
                 if(deactivating && !window.confirm(`確認停用？立即撤銷所有工作存取，${person.assignments.length} 堂未結束課次保留待交接；會員與歷史不變。`)) return;
-                if(person && kind === "manager" && backendRole !== person.role && !window.confirm(`確認將 ${person.name} 的後台角色改為 ${backendRole}？將依目前選定的權限儲存。`))return;
+                if(person && kind === "manager" && backendRole !== (person.role ?? "STAFF") && !window.confirm(`確認將 ${person.name} 的後台角色改為 ${backendRole}？將依目前選定的權限儲存。`))return;
                 start(async () => {
                   try {
                     const r = await saveCourseStaff({
@@ -403,7 +403,7 @@ export function CourseStaffWorkspace({
                           ? d.get("memberEnabled") === "yes"
                           : person?.memberEnabled ?? true,
                       financeTeacherIds:music&&kind==="manager"?financeTeacherIds:undefined,
-                      backendRole: kind === "manager" && (!person || backendRole !== person.role) ? backendRole : undefined,
+                      backendRole: kind === "manager" && (!person || backendRole !== (person.role ?? "STAFF")) ? backendRole : undefined,
                       applyRolePreset: kind === "manager" && applyRolePreset,
                       permissions:
                         kind === "manager" ? permissions : undefined,

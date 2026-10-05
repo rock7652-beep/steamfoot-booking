@@ -77,3 +77,11 @@ it("combined editor cannot reduce the last Owner or override Owner permissions",
   expect((await updateStaff("target", { permissions: { "inventory.read": false } })).success).toBe(false);
   expect(m.update).not.toHaveBeenCalled(); expect(m.userUpdate).not.toHaveBeenCalled();
 });
+
+it("combined editor status changes revoke backend login and enforce activation capacity", async () => {
+  expect((await updateStaff("target", { status: "INACTIVE", displayName: "門市" })).success).toBe(true);
+  expect(m.userUpdate).toHaveBeenCalledWith({ where: { id: "u-target" }, data: { status: "SUSPENDED" } });
+  m.target.mockResolvedValue({ ...target(), status: "INACTIVE" }); m.count.mockResolvedValue(10); m.update.mockClear();
+  expect((await updateStaff("target", { status: "ACTIVE" })).success).toBe(false);
+  expect(m.update).not.toHaveBeenCalled();
+});

@@ -126,6 +126,7 @@ const updateStaffSchema = z.object({
   phone: z.string().trim().max(30).optional(),
   permissions: z.record(z.enum(ALL_PERMISSIONS), z.boolean()).optional(),
   email: z.string().trim().email().optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
 const resetStaffPasswordSchema = z.object({
@@ -267,6 +268,7 @@ export async function updateStaff(
       user: { role: staff.user.role },
     });
 
+    const activationLimits = data.status === "ACTIVE" ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(writeStoreId) : null;
     const { role: newRole, applyRolePreset, permissions, email, ...staffData } = data;
     if (permissions && applyRolePreset) throw new AppError("VALIDATION", "請選擇角色預設或自訂權限");
     if (newRole && newRole !== staff.user.role && !canAssignStaffRole(sessionUser.role, newRole)) {
@@ -278,7 +280,12 @@ export async function updateStaff(
       const storedPermissions = (await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission).sort();
       const actorGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       if (current.userId === sessionUser.id || !canManageStaffRole(sessionUser.role, current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
-      if (newRole && newRole !== "OWNER") await assertStoreRetainsOwner(tx, writeStoreId, staffId);
+      if (data.status === "INACTIVE" || (newRole && newRole !== "OWNER")) await assertStoreRetainsOwner(tx, writeStoreId, staffId);
+      if (data.status === "ACTIVE" && current.status !== "ACTIVE" && activationLimits?.maxStaff !== null) {
+        const activeCount = await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } });
+        if (activationLimits && activeCount >= activationLimits.maxStaff!) throw new AppError("FORBIDDEN", `本店最多 ${activationLimits.maxStaff} 位可啟用人員`);
+      }
+      if (data.status === "INACTIVE" && current.user.role === "ADMIN" && await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { not: current.userId } } }) === 0) throw new AppError("FORBIDDEN", "至少須保留一位系統管理者");
       const resultingRole = newRole ?? current.user.role;
       const resultingPermissions = new Set(storedPermissions);
       if (permissions) {
@@ -293,6 +300,7 @@ export async function updateStaff(
         if (current.user.role === "ADMIN" && await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { not: current.userId } } }) === 0) throw new AppError("FORBIDDEN", "至少須保留一位系統管理者");
         await tx.user.update({ where: { id: current.userId }, data: { role: newRole } });
       }
+      if (data.status !== undefined && data.status !== current.status) await tx.user.update({ where: { id: current.userId }, data: { status: data.status === "ACTIVE" ? "ACTIVE" : "SUSPENDED" } });
       if (email !== undefined) await tx.user.update({ where: { id: current.userId }, data: { email: normalizeEmail(email) } });
       if (permissions) {
         for (const [permission, granted] of Object.entries(permissions)) {
@@ -315,8 +323,8 @@ export async function updateStaff(
       await recordOperationAudit({
         actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
         module: "SYSTEM", targetType: "Staff", targetId: staffId, action: "UPDATE", summary: "調整人員角色與資料",
-        before: { role: current.user.role, permissions: current.user.role === "OWNER" ? [...ALL_PERMISSIONS] : storedPermissions },
-        after: { role: newRole ?? current.user.role, applyRolePreset: Boolean(applyRolePreset),
+        before: { status: current.status, role: current.user.role, permissions: current.user.role === "OWNER" ? [...ALL_PERMISSIONS] : storedPermissions },
+        after: { status: data.status ?? current.status, role: newRole ?? current.user.role, applyRolePreset: Boolean(applyRolePreset),
           permissions: (newRole ?? current.user.role) === "OWNER" ? [...ALL_PERMISSIONS] : applyRolePreset ? getDefaultPermissionsForRole(newRole ?? current.user.role) : Array.from(resultingPermissions).sort() },
       }, tx);
     }, { maxWait: 5_000, timeout: 15_000 });

@@ -34,11 +34,12 @@ export function StaffAccountEditor({ person, policy, onClose }: {
   const [role, setRole] = useState(person.role ?? "STAFF");
   const [permissions, setPermissions] = useState<string[]>(person.permissions ?? []);
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState(person.status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const allCodes = policy.permissionGroups.flatMap(g => g.codes.map(c => c.code));
   const fullAccess = role === "OWNER" || role === "ADMIN";
-  const dirty = email !== (person.email === "尚未設定" ? "" : person.email) || name !== person.displayName || phone !== (person.phone ?? "") || color !== person.colorCode || role !== (person.role ?? "STAFF") || [...permissions].sort().join() !== [...(person.permissions ?? [])].sort().join();
+  const dirty = status !== person.status || email !== (person.email === "尚未設定" ? "" : person.email) || name !== person.displayName || phone !== (person.phone ?? "") || color !== person.colorCode || role !== (person.role ?? "STAFF") || [...permissions].sort().join() !== [...(person.permissions ?? [])].sort().join();
   useEffect(() => {
     if (!dirty) return;
     const guard = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
@@ -54,14 +55,16 @@ export function StaffAccountEditor({ person, policy, onClose }: {
   }
   async function save() {
     if (saving || !person.canEdit) return;
-    if (role !== person.role && !window.confirm(`確認將 ${person.displayName} 的後台角色改為 ${role}？將依目前選定的權限儲存。`)) return;
+    if (role !== (person.role ?? "STAFF") && !window.confirm(`確認將 ${person.displayName} 的後台角色改為 ${role}？將依目前選定的權限儲存。`)) return;
+    if (person.status === "ACTIVE" && status === "INACTIVE" && !window.confirm(`確認停用 ${person.displayName}？後台登入將停止，歷史紀錄保留。`)) return;
     setSaving(true); setError("");
     try {
       const result = await updateStaff(person.id, {
         displayName: name.trim(), phone: phone.trim(), colorCode: color,
+        ...(status !== person.status ? { status: status as "ACTIVE" | "INACTIVE" } : {}),
         ...(email !== (person.email === "尚未設定" ? "" : person.email) ? { email: email.trim() } : {}),
-        ...(role !== person.role ? { role: role as Exclude<UserRole, "ADMIN" | "CUSTOMER"> } : {}),
-        ...(!fullAccess ? { permissions: Object.fromEntries(allCodes.map(code => [code, permissions.includes(code)])) } : {}),
+        ...(role !== (person.role ?? "STAFF") ? { role: role as Exclude<UserRole, "ADMIN" | "CUSTOMER"> } : {}),
+        ...(!fullAccess ? { permissions: Object.fromEntries([...new Set([...allCodes, ...(person.permissions ?? []), ...permissions])].map(code => [code, permissions.includes(code)])) } : {}),
       });
       if (!result.success) { setError(result.error || "儲存失敗"); return; }
       router.refresh(); onClose();
@@ -85,7 +88,7 @@ export function StaffAccountEditor({ person, policy, onClose }: {
             <label className="block text-sm">姓名 *<input name="displayName" required maxLength={100} className={field} value={name} onChange={e => setName(e.target.value)}/></label>
             <label className="block text-sm">電話<input name="phone" maxLength={30} className={field} value={phone} onChange={e => setPhone(e.target.value)}/></label>
             <label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e => setColor(e.target.value)}/></label>
-            <div className="text-sm">狀態<p className="py-3">{person.status === "ACTIVE" ? "啟用" : "停用"}</p></div>
+            <label className="block text-sm">狀態<select name="status" className={field} value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option></select></label>
           </div>
           <div hidden={tab !== "permissions"} className="space-y-3">
             <label className="block text-sm">後台登入信箱<input name="email" type="email" className={field} value={email} onChange={e => setEmail(e.target.value)}/></label>

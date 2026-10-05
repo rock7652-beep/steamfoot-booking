@@ -98,7 +98,7 @@ export default async function StaffPage({
       legalName: staff.user.name,
       roleLabel: ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
       email: staff.user.email ?? "尚未設定",
-      phone: staff.phone || staff.user.phone,
+      phone: staff.phone,
       colorCode: staff.colorCode,
       status: staff.status,
       customerCount: staff._count.assignedCustomers,
@@ -179,7 +179,7 @@ export default async function StaffPage({
                 canAssignRoles: user.role === "OWNER" || user.role === "ADMIN",
                 editablePermissions: Array.from(actorPermissions),
                 rolePresets: Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as const).map(role => [role, getDefaultPermissionsForRole(role)])),
-                permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: g.label, codes: g.codes.map(code => ({ code, label: PERMISSION_LABELS[code] })) })),
+                permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: g.label, codes: g.codes.filter(code => !code.startsWith("teacher.")).map(code => ({ code, label: PERMISSION_LABELS[code] })) })).filter(g => g.codes.length),
               }}
               accountListOnly={!isSpaStore}
               showSteamfootRent={industryModule === "steamfoot"}
