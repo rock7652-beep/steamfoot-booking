@@ -801,7 +801,9 @@ function BookingsManagerContent({
             batchResult={batchResult}
             onCreated={()=>{void refreshRef.current?.();}}
             toolbar={<>
+              {(unpaidOnly || dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length > 0) && (
               <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); setBatchResult(""); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length}</button>
+              )}
               <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
                 onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); setBatchResult(""); }}
                 className="min-h-11 w-full basis-48 grow shrink-0 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]" />
