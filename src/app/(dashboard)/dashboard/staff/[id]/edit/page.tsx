@@ -215,7 +215,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
       {/* 權限設定（僅非 Owner 員工、且操作者具店員管理權限時顯示） */}
       {!(staff.user.role === "OWNER") && canManageStaff && (
-        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">
+        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2 lg:self-start">
           <details><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">細項權限・{ALL_PERMISSIONS.every(code => currentPerms.has(code) === getDefaultPermissionsForRole(staff.user.role).includes(code)) ? "角色預設" : "已自訂"}</summary>
           <p className="mb-4 text-xs text-earth-400">
             設定此員工可操作的功能範圍，勾選為允許。角色預設權限已自動帶入，可依需求額外增減。
