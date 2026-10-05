@@ -16,12 +16,12 @@ vi.mock("@/server/actions/store-switch", () => ({ switchActiveStore: vi.fn() }))
 import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 
-function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard") {
+function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = []) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
-    industryModule: module, industryModuleId: module, isOwner: true,
-    permissions: [], pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
+    industryModule: module, industryModuleId: module, musicEnabled, isOwner,
+    permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
     storeOptions: [{id: "a", name: "店 A", isDefault: true}], activeStoreId: selected,
     effectiveFeatures: Object.fromEntries(Object.values(FEATURES).map(key => [key, true])),
     logoutButton: null,
@@ -29,6 +29,23 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
 }
 
 describe("actual HQ shell rendering", () => {
+  it.each(["steamfoot", "spa", "course"] as const)("requires staff.view for the common %s staff link", module => {
+    const path = "/s/store-a/admin/dashboard";
+    expect(render(module, "a", path, false, false)).not.toContain('href="/s/store-a/admin/dashboard/staff"');
+    expect(render(module, "a", path, false, false, ["staff.view"])).toContain('href="/s/store-a/admin/dashboard/staff"');
+  });
+  it.each([
+    ["steamfoot", false], ["spa", false], ["course", false], ["course", true],
+  ] as const)("has one common staff-management link in the store sidebar for %s (music=%s)", (module, music) => {
+    const html = render(module, "a", "/s/store-a/admin/dashboard", music);
+    expect(html.match(/href="\/s\/store-a\/admin\/dashboard\/staff"/g)).toHaveLength(1);
+    expect(html).toContain("人員管理");
+    if (module === "spa") {
+      expect(html).toContain('href="/s/store-a/admin/dashboard/spa-staff"');
+      expect(html).toContain("服務與排班");
+    }
+    if (module === "course") expect(html).toContain(music ? "教師管理" : "教練管理");
+  });
   it.each(["steamfoot", "course", "spa"] as const)("retains a store navigation and HQ return for %s", module => {
     const html = render(module, "a");
     expect(html).toContain('aria-label="店舖功能導覽"');

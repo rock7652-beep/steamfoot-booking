@@ -772,11 +772,11 @@ export default function DashboardShell({
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
   const spaNavigation = useMemo<NavItem[]>(() => {
-    const items: NavItem[] = [...STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff").map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
-      {href:"/dashboard/spa-staff",label:"人員管理",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
+    const items: NavItem[] = [...STORE_ADMIN_NAV.map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
+      {href:"/dashboard/spa-staff",label:"服務與排班",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
       {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
     ];
-    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
+    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/staff","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
     return items.sort((a,b)=>(order.includes(a.href) ? order.indexOf(a.href) : order.length) - (order.includes(b.href) ? order.indexOf(b.href) : order.length));
   },[]);
 
@@ -810,7 +810,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: industryModule === "spa" ? spaNavigation : isHqStoreView ? STORE_ADMIN_NAV : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
+          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
         },
       ];
     }
@@ -822,7 +822,7 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
+        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
       },
     ];
   }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation,musicEnabled]);
@@ -909,7 +909,6 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
-    if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
     return isNavigationItemActive(href, pathname, routeQuery, navGroupsToRender.flatMap(group => group.items.map(item => item.href)));
   }
 
