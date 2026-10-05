@@ -6,9 +6,10 @@ import { toast } from "sonner";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { CashbookEntryFields } from "./cashbook-entry-fields";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
+import { saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
+import { readQuickCashbook, type QuickCashbookData } from "@/lib/quick-cashbook-client-transport";
 
-type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
+type Data = QuickCashbookData;
 type Entry = Data["entries"][number];
 const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:opacity-50";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
@@ -18,7 +19,7 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
 }
 
 function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { storeId: string; triggerClassName?: string; instantSearch: boolean }) {
-  const reader = usePanelReader("quick-cashbook", fetchQuickCashbook, storeId);
+  const reader = usePanelReader("quick-cashbook", readQuickCashbook, storeId);
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);

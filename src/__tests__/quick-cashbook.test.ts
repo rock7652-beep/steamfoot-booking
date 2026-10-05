@@ -103,3 +103,17 @@ it("keeps view mode read-only even with create permission", async () => {
   expect(result.canWrite).toBe(false);
   expect(result.entries[0].canEdit).toBe(false);
 });
+
+
+it("read permission denial does not start financial queries", async () => {
+  m.permission.mockRejectedValue(new Error("denied"));
+  await expect(fetchQuickCashbook("store")).rejects.toThrow("denied");
+  expect(m.entries).not.toHaveBeenCalled();
+  expect(m.summary).not.toHaveBeenCalled();
+});
+it("disabled cashbook feature does not start financial queries", async () => {
+  m.feature.mockResolvedValue(false);
+  await expect(fetchQuickCashbook("store")).rejects.toThrow("尚未開通");
+  expect(m.entries).not.toHaveBeenCalled();
+  expect(m.summary).not.toHaveBeenCalled();
+});

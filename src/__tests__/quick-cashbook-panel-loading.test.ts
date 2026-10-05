@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), remove: vi.fn() }));
 vi.mock("@/server/actions/quick-cashbook", () => ({ fetchQuickCashbook: m.read, saveQuickCashbook: m.save, deleteQuickCashbook: m.remove }));
+vi.mock("@/lib/quick-cashbook-client-transport", () => ({ readQuickCashbook: m.read }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: ({ children }: { children: React.ReactNode }) => React.createElement("span", null, children) }));
 vi.mock("@/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields", () => ({ CashbookEntryFields: () => React.createElement("input", { name: "amount", defaultValue: "100" }) }));

@@ -15,7 +15,7 @@
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
 | 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要；每次開啟及切顧客重新建立讀取狀態，舊錯誤／晚到回應隔離；視窗內重試 |
 | 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
-| 預約管理現金收支 | quick-cashbook | TTL 0，門市及頁碼納入讀取鍵；pointer／focus／touch intent 在途去重；換頁隱藏舊金額，失敗原頁重試；關閉與寫入成功清除資源，晚到回應隔離 |
+| 預約管理現金收支 | quick-cashbook | 獨立 GET /api/cashbook/quick，共用既有後端授權及餘額服務，避免讀取 Server Action 的頁面回應；TTL 0，門市及頁碼納入讀取鍵；pointer／focus／touch intent 在途去重；換頁隱藏舊金額，失敗原頁重試；關閉與寫入成功清除資源，晚到回應隔離 |
 | 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
@@ -113,3 +113,13 @@
 - 通過現金帳授權、門市及功能檢查後，清單、筆數、關帳日期、唯讀上下文、寫入權限與抽屜權限分支並行。抽屜資料仍須先通過其讀取權限與功能檢查；TTL 0、共用 panel reader、寫入規則及 UI 外觀維持原樣。
 - Vercel 每次成功讀取記錄 authorizationMs／dataMs／totalMs，僅含耗時，不記錄帳號、門市、顧客、金額或備註；可用來區分後端等待與瀏覽器端等待。後端耗時不等於使用者看到資料的端到端耗時。
 - 本機7組137項測試通過，包含新舊餘額相等、混合付款、退款、現金帳異動、關帳零餘額／null、重讀新餘額、並行查詢與門市隔離。截圖不能量測改善幅度；新支線須另做 Preview 與實際速度驗收，不宣稱速度已通過或全站完成。
+
+
+## 現金收支獨立傳輸接續（2026-10-05）
+
+- 使用者操作後，上一版預覽在 13:02:38–13:02:44（Asia/Taipei）取得 4 筆讀取紀錄（可能含 intent prefetch）：授權 51/84/314/745ms、資料 51/103/112/180ms、後端合計 102/187/426/925ms。同一 POST 還出現課表與標籤讀取；沒有 client trace，不能直接相加或當作端到端速度。
+- 新版透過 GET /api/cashbook/quick 返回純 JSON，保留 fetchQuickCashbook 共用授權、門市與功能檢查、員工範圍、現金餘額公式；不重複在 route 增加第二次 requirePermission。回應 private/no-store，client fetch no-store；storeId 與 page 回應不符即拒絕，不啟用操作。
+- 新增 quick-cashbook.authorization 分段耗時：permission.session、permission.grant（非 ADMIN）、activeStore、cashbookFeature；沿用共用 OperationTiming，僅固定名稱與耗時，不記個資或金額。不延長金融資料快取，不省略授權。
+- 原有 panel reader 的 pointer/focus/touch、在途去重、TTL 0、失敗重試、關閉/換店晚到隔離、成功寫入後失效保留。僅修改讀取傳輸，儲存/刪除仍走既有 server actions；本輪不聲稱消除寫入後必要的頁面更新。
+- 本機8組155項測試通過；前版遠端全量71失敗與 #1208 清單相同、沒有新增失敗，Workers Build 在 main 亦失敗但尚無詳細根因。新 head CI 與預覽另行核對，不能沿用前版結果當作新 head 通過。
+- 未修改視窗外框、字級與欄位尺寸；受影響入口為預約管理 QuickCashbook（HQ/門市）。登入瀏覽器觀察受 credentials protection 阻擋，不繞過；新傳輸的桌機/iPad真實操作、首次/重開/儲存後更新耗時與 RSC 重讀是否消除仍待新版實測。不合併正式站。

@@ -11,19 +11,23 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { getCashDrawerBalanceSummary, listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { createCashbookEntry, updateCashbookEntry, deleteCashbookEntry } from "./cashbook";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { OperationTiming } from "@/lib/operation-timing";
 
-async function context(storeId: string, write = false) {
-  const user = write ? await requireWritablePermission("cashbook.create") : await requirePermission("cashbook.read");
-  const active = await getActiveStoreForRead(user);
+async function context(storeId: string, write = false, timing?: OperationTiming) {
+  const user = write ? await requireWritablePermission("cashbook.create") : await requirePermission("cashbook.read", timing);
+  const active = timing ? await timing.measure("activeStore", () => getActiveStoreForRead(user)) : await getActiveStoreForRead(user);
   if (!storeId || active !== storeId) throw new AppError("FORBIDDEN", "店別已變更，請重新開啟現金收支");
   if (write && await resolveWriteStoreId(user) !== storeId) throw new AppError("FORBIDDEN", "目前店別不可記帳");
-  if (!(await hasStoreFeature(storeId, FEATURES.CASHBOOK))) throw new AppError("FORBIDDEN", "尚未開通現金收支");
+  const allowed = timing ? await timing.measure("cashbookFeature", () => hasStoreFeature(storeId, FEATURES.CASHBOOK)) : await hasStoreFeature(storeId, FEATURES.CASHBOOK);
+  if (!allowed) throw new AppError("FORBIDDEN", "尚未開通現金收支");
   return user;
 }
 
 export async function fetchQuickCashbook(storeId: string, page = 1) {
   const startedAt = performance.now();
-  const user = await context(storeId);
+  const timing = process.env.VERCEL ? new OperationTiming("quick-cashbook.authorization") : undefined;
+  const user = await context(storeId, false, timing);
+  timing?.finish();
   const authorizedAt = performance.now();
   const today = toLocalDateStr();
   const date = new Date(today + "T00:00:00Z");
