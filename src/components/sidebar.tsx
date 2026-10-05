@@ -839,7 +839,9 @@ export default function DashboardShell({
         .map((item) => {
         if (item.requiredFeature && featureStates[item.requiredFeature] === "HIDDEN") return { item, visible: false, locked: false };
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
-        if (item.permission && !isOwner && !permissions.includes(item.permission))
+        // isOwner also represents Manager/Staff backend identities. Navigation
+        // must use the effective grants, just like the destination page.
+        if (item.permission && !isHqPlatformView && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };
         if (
           item.requiredFeature &&
@@ -862,7 +864,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, routeQuery, isOwner, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, isOwner, isHqPlatformView, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
 
   // Core stays open; other groups honor defaults, saved choices and the active page.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {

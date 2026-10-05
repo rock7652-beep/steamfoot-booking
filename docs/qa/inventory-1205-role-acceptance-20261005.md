@@ -50,3 +50,12 @@
 - 隔離Preview唯讀盤點：兩位有效Owner已有登入密碼；QA Manager與Staff各一位，均為SUSPENDED／INACTIVE且無密碼。沒有可登入的Manager／Staff，因此真人三角色驗收尚未開始，不能用Admin替代。
 - [上線與回復執行表](inventory-1205-release-recovery.md)明確保留新enum、單據與稽核；不直接退回不識別Manager／Staff的舊main，不將Preview部署當作正式回復ID。未執行正式migration、正式發佈或資料恢復。
 - 下一步需使用者為隔離Preview的兩筆QA帳號親自設定新密碼及啟用；憑證不在對話傳送，依瀏覽器的安全登入／手動接手流程處理。正式人員帳號不變。
+
+### 2026-10-05 QA 帳號啟用及首次 Staff 真實登入
+
+- 使用者亲自設定 QA Manager／Staff 密碼並在啟用當下授權。管理介面啟用成功；隔離 Preview 的 User.status／Staff.status 都為 ACTIVE。未改正式人員。
+- 第一輪安全登入回到 Staging Admin，不计為角色驗收；第二輪實際登入 QA1005 門市權限驗收（STAFF），導向 `/s/staging/admin/dashboard`，顯示門市角色與測試店，沒有 HQ 入口。
+- Staff 實測商品與庫存無成本、更多操作僅查看紀錄；可開收貨表單，廠商選填、不顯示成本。收款紀錄 PRMVRFCV／K04J8WTS 顯示1120已收、尚欠0，收取未付款停用。僅查看及開關表單，未新增帳務、付款或庫存異動。
+- 發現并修正三項問題：router.refresh 保留本機人員狀態造成啟用後仍顯示停用；Store sidebar 將後台身分旗標錯當成免檢授權（Staff 無staff.view卻看得到入口，點入404，頁面守門仍有效）；無成本權限的收貨頁仍有空白應付金額表頭／付款狀態篩選。
+- 6575b209 已部署READY，實際頁尾18:17。後續側欄／收貨顯示修正以同支線下一次Preview驗收為準；未宣稱真實Manager／Owner登入或授權變更即時生效完整通過。
+- 所有權限入口繼續依已生效授權；沒有為使Staff進頁而擴增staff.view或staff.manage。HQ總部導覽保留獨立總部入口規則。

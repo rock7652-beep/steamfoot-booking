@@ -15,8 +15,9 @@ vi.mock("@/components/store-view-mode-switcher", () => ({ StoreViewModeSwitcher:
 vi.mock("@/server/actions/store-switch", () => ({ switchActiveStore: vi.fn() }));
 import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
+import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = []) {
+function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : []) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
@@ -33,6 +34,9 @@ describe("actual HQ shell rendering", () => {
     const path = "/s/store-a/admin/dashboard";
     expect(render(module, "a", path, false, false)).not.toContain('href="/s/store-a/admin/dashboard/staff"');
     expect(render(module, "a", path, false, false, ["staff.view"])).toContain('href="/s/store-a/admin/dashboard/staff"');
+    // Manager/Staff share the backend identity flag with Owner; it is not a grant.
+    expect(render(module, "a", path, false, true, [])).not.toContain('href="/s/store-a/admin/dashboard/staff"');
+    expect(render(module, "a", path, false, true, ["staff.view"])).toContain('href="/s/store-a/admin/dashboard/staff"');
   });
   it.each([
     ["steamfoot", false], ["spa", false], ["course", false], ["course", true],

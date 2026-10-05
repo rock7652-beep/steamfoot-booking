@@ -47,7 +47,12 @@ it('disables collecting payment for a settled customer', () => {
 });
 it("lets receiving staff enter items without exposing costs or supplier payments",()=>{
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canReceive:true},key:"receiving"})));
- click("進貨單");click("＋ 登錄收貨");
+ click("進貨單");
+ expect(host.textContent).not.toContain("應付金額");
+ expect(host.textContent).not.toContain("已付金額");
+ expect(host.textContent).not.toContain("尚欠");
+ expect(host.querySelector('[aria-label="收付款狀態篩選"]')).toBeNull();
+ click("＋ 登錄收貨");
  expect(host.textContent).toContain("廠商・選填");
  expect(host.textContent).not.toContain("進貨成本");
  expect(host.textContent).not.toContain("確認成本");
