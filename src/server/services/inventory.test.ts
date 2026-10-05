@@ -10,6 +10,7 @@ vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: mocks.feature }));
 vi.mock("@/lib/data-export-gate", () => ({ hasDataExportFeature: vi.fn(async () => true) }));
 vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: mocks.audit }));
 import { saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
+import { receiveInventory, completeReceiving } from "./inventory-receiving";
 import { saveStockCount, savePayment } from "@/server/actions/inventory";
 import { inventoryReport, orderSchema, publicLines, lineTotal } from "@/lib/inventory";
 const ctx: any = { storeId: "store-1", canCost: true, user: { id: "user-1", name: "店長", role: "ADMIN", staffId: "staff-1" } };
@@ -28,7 +29,7 @@ describe("inventory preview isolation", () => {
         expect(() => assertInventoryPreviewIsolation({ ...env, VERCEL_GIT_COMMIT_REF: "main" })).not.toThrow();
     });
 });
-let products: any[], orders: any[], commands: any[], payments: any[], cash: any[], counts: any[], sequence: number;
+let products: any[], orders: any[], commands: any[], payments: any[], cash: any[], counts: any[], receivings: any[], sequence: number;
 const matches = (row: any, where: any) => Object.entries(where).every(([k, v]) => typeof v === 'object' && v !== null ? true : row[k] === v);
 function apply(row: any, data: any) { for (const [k, v] of Object.entries(data))
     row[k] = v && typeof v === 'object' && 'increment' in v ? row[k] + (v as any).increment : v; return row; }
@@ -40,6 +41,8 @@ beforeEach(() => {
     payments = [];
     cash = [];
     counts = [];
+    receivings = [];
+    mocks.db.inventoryReceiving = { findFirst: async ({where}:any)=>receivings.find(r=>matches(r,where)), create:async ({data}:any)=>{const r={revision:1,orderId:null,...data};receivings.push(r);return r;},update:async ({where,data}:any)=>apply(receivings.find(r=>r.id===where.id),data) };
     mocks.permission.mockResolvedValue(ctx.user);
     mocks.feature.mockResolvedValue(true);
     mocks.audit.mockResolvedValue({});
@@ -48,18 +51,18 @@ beforeEach(() => {
     mocks.db.inventoryStockCount = { findUnique: async ({ where }: any) => counts.find(c => matches(c, where.storeId_requestId)), create: async ({ data }: any) => { const c = { id: `count-${++sequence}`, ...data }; counts.push(c); return c; } };
     mocks.db.inventoryProduct = { findFirst: async ({ where }: any) => products.find(p => matches(p, where)), findFirstOrThrow: async ({ where }: any) => { const p = products.find(p => matches(p, where)); if (!p)
             throw Error('not found'); return p; }, update: async ({ where, data }: any) => apply(products.find(p => p.id === where.id), data) };
-    mocks.db.inventoryOrder = { findFirst: async ({ where }: any) => orders.find(o => matches(o, where)), create: async ({ data }: any) => { const o = { id: `order-${++sequence}`, paid: 0, revision: 1, ...data }; orders.push(o); return o; }, update: async ({ where, data }: any) => apply(orders.find(o => o.id === where.id), data) };
+    mocks.db.inventoryOrder = { findMany:async ({where}:any)=>orders.filter(o=>matches(o,where)), findFirst: async ({ where }: any) => orders.find(o => matches(o, where)), create: async ({ data }: any) => { const o = { id: `order-${++sequence}`, paid: 0, revision: 1, ...data }; orders.push(o); return o; }, update: async ({ where, data }: any) => apply(orders.find(o => o.id === where.id), data) };
     mocks.db.inventoryCommand = { findUnique: async ({ where }: any) => commands.find(c => matches(c, where.storeId_requestId)), create: async ({ data }: any) => { commands.push(data); return data; } };
     mocks.db.customer = { findFirst: async ({ where }: any) => where.id === 'customer-1' && where.storeId === ctx.storeId ? { id: where.id, name: "顧客", phone: "0912345678" } : null };
     mocks.db.inventorySupplier = { findFirst: async ({ where }: any) => ['vendor-1', 'vendor-2'].includes(where.id) && where.storeId === ctx.storeId ? { id: where.id, name: where.id, phone: "0222222222" } : null };
     mocks.db.inventoryPayment = { findUnique: async ({ where }: any) => payments.find(p => matches(p, where.storeId_requestId)), create: async ({ data }: any) => { const p = { id: `payment-${++sequence}`, ...data }; payments.push(p); return p; } };
     mocks.db.cashbookEntry = { create: async ({ data }: any) => { cash.push(data); return data; } };
     mocks.db.cashDrawerSession = { findFirst: vi.fn(async () => null) };
-    mocks.db.$transaction = async (fn: any) => { const snapshot = { products: products.map(p => ({ ...p })), orders: orders.map(o => ({ ...o })), commands: [...commands], payments: [...payments], cash: [...cash], counts: [...counts] }; try {
+    mocks.db.$transaction = async (fn: any) => { const snapshot = { products: products.map(p => ({ ...p })), orders: orders.map(o => ({ ...o })), commands: [...commands], payments: [...payments], cash: [...cash], counts: [...counts],receivings:receivings.map(r=>({...r})) }; try {
         return await fn(mocks.db);
     }
     catch (e) {
-        ({ products, orders, commands, payments, cash, counts } = snapshot);
+        ({ products, orders, commands, payments, cash, counts, receivings } = snapshot);
         throw e;
     } };
 });
@@ -126,4 +129,60 @@ describe("inventory transaction acceptance", () => {
     it("blocks inventory without an explicit HQ grant", async () => { mocks.db.storeFeatureEntitlement.findUnique.mockResolvedValue(null); await expect(inventoryContext()).rejects.toThrow('尚未開通'); });
     it("records actor/date/count difference and replays without duplicate adjustment", async () => { const v = { requestId: crypto.randomUUID(), date: '2026-10-05', reason: '月末盤點', lines: [{ productId: 'a', revision: 1, actual: 8 }] }; expect((await saveStockCount(v)).success).toBe(true); expect((await saveStockCount(v)).success).toBe(true); expect(counts).toHaveLength(1); expect(counts[0]).toMatchObject({ actorName: '店長', actorId: 'user-1', date: new Date(v.date), lines: [{ productId: 'a', name: '商品 A', before: 10, actual: 8, difference: -2 }] }); expect(products[0].stock).toBe(8); expect(Number(products[0].averageCost)).toBe(100); });
     it("rejects a stale count after a sale", async () => { await saveInventoryOrder(ctx, input()); const r = await saveStockCount({ requestId: crypto.randomUUID(), date: '2026-10-05', reason: '月末盤點', lines: [{ productId: 'a', revision: 1, actual: 10 }] }); expect(r.success).toBe(false); expect(products[0].stock).toBe(8); expect(counts).toHaveLength(0); });
+});
+
+describe("staff receiving and pending costs",()=>{
+ const receiving=(overrides:any={})=>({requestId:crypto.randomUUID(),date:"2026-10-05",lines:[{productId:"a",expected:10,quantity:6}],...overrides});
+ it("receives two batches once, then fills supplier and costs without duplicating stock",async()=>{
+  const first=receiving();const id=await receiveInventory(first);await receiveInventory(first);
+  expect(products[0].stock).toBe(16);expect(orders).toHaveLength(0);
+  await receiveInventory(receiving({id,revision:1,lines:[{productId:"a",expected:10,quantity:4}]}));
+  expect(products[0].stock).toBe(20);
+  const confirm={requestId:crypto.randomUUID(),id,revision:2,supplierId:"vendor-1",lines:[{productId:"a",unitCost:120}]};
+  await completeReceiving(confirm);await completeReceiving(confirm);
+  expect(products[0].stock).toBe(20);expect(Number(products[0].averageCost)).toBe(110);
+  expect(orders).toHaveLength(1);expect(orders[0].total).toBe(1200);expect(cash).toHaveLength(0);
+ });
+ it("marks sales costs pending and backfills weighted cost after supplier confirmation",async()=>{
+  const id=await receiveInventory(receiving({lines:[{productId:"a",expected:10,quantity:10}]}));
+  await saveInventoryOrder(ctx,input({lines:[{...input().lines[0],quantity:4}]}));
+  expect(orders[0].lines[0].pendingCostShares[id]).toBe(2);
+  expect(inventoryReport(orders.map(o=>({...o,date:"2026-10-05"})),"2026-10-01","2026-10-31")[0].costPending).toBe(true);
+  await completeReceiving({requestId:crypto.randomUUID(),id,revision:1,supplierId:"vendor-1",lines:[{productId:"a",unitCost:120}]});
+  expect(products[0].stock).toBe(16);expect(Number(products[0].averageCost)).toBe(110);
+  expect(orders[0].lines[0].cost).toBe(440);expect(orders[0].lines[0].pendingCostShares).toEqual({});
+ });
+ it("allows confirmed zero cost but rejects cost completion before all goods arrive",async()=>{
+  const id=await receiveInventory(receiving());
+  await expect(completeReceiving({requestId:crypto.randomUUID(),id,revision:1,supplierId:"vendor-1",lines:[{productId:"a",unitCost:0}]})).rejects.toThrow("分批");
+  expect(orders).toHaveLength(0);
+  await receiveInventory(receiving({id,revision:1,lines:[{productId:"a",expected:10,quantity:4}]}));
+  await completeReceiving({requestId:crypto.randomUUID(),id,revision:2,supplierId:"vendor-1",lines:[{productId:"a",unitCost:0}]});
+  expect(receivings[0].lines[0].unitCost).toBe(0);expect(Number(products[0].averageCost)).toBe(50);
+ });
+ it("denies staff receipt writes without the receiving permission",async()=>{
+  mocks.permission.mockImplementation(async(code:string)=>{if(code==="inventory.receive")throw new Error("forbidden");return ctx.user;});
+  await expect(receiveInventory(receiving())).rejects.toThrow("forbidden");
+  expect(products[0].stock).toBe(10);
+ });
+});
+describe("receiving corrections and permission boundaries",()=>{
+ it("rolls back every line when a later receiving item is invalid",async()=>{
+  await expect(receiveInventory({requestId:crypto.randomUUID(),date:"2026-10-05",lines:[{productId:"a",expected:2,quantity:2},{productId:"missing",expected:1,quantity:1}]})).rejects.toThrow("商品");
+  expect(products[0].stock).toBe(10);expect(receivings).toHaveLength(0);
+ });
+ it("requires a reason for negative corrections and preserves the revision on failure",async()=>{
+  const id=await receiveInventory({requestId:crypto.randomUUID(),date:"2026-10-05",lines:[{productId:"a",expected:5,quantity:5}]});
+  const correction={requestId:crypto.randomUUID(),id,revision:1,date:"2026-10-05",lines:[{productId:"a",expected:5,quantity:-1}]};
+  await expect(receiveInventory(correction)).rejects.toThrow("原因");
+  expect(products[0].stock).toBe(15);
+  await receiveInventory({...correction,note:"實收核對為四件"});
+  expect(products[0].stock).toBe(14);expect(receivings[0].lines[0].received).toBe(4);
+ });
+ it("denies purchase payment when only purchase management is granted",async()=>{
+  const id=await saveInventoryOrder(ctx,input({kind:"PURCHASE",partyId:"vendor-1",lines:[{...input().lines[0],unitPrice:100,discountMode:"NONE",discount:0}]}));
+  mocks.permission.mockImplementation(async(code:string)=>{if(code==="inventory.purchase.pay")throw new Error("forbidden");return ctx.user;});
+  expect((await savePayment({requestId:crypto.randomUUID(),kind:"PURCHASE",date:"2026-10-05",method:"現金",allocations:[{orderId:id,amount:200}]})).success).toBe(false);
+  expect(payments).toHaveLength(0);expect(cash).toHaveLength(0);expect(orders[0].paid).toBe(0);
+ });
 });

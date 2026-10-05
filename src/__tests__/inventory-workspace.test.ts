@@ -25,23 +25,38 @@ it('keeps cost reports and exports hidden without permissions', () => { expect(h
 it('keeps the same focused quantity input and date while editing rows', () => { click('＋ 新增銷貨'); const query = host.querySelector('input[aria-label="即時篩選商品"]') as HTMLInputElement; fill(query, '保暖'); click('保暖襪・庫存 20・$200　＋ 加入'); const date = host.querySelector('input[name="date"]') as HTMLInputElement; fill(date, '2026-10-02'); const qty = host.querySelector('input[aria-label="保暖襪 數量"]') as HTMLInputElement; qty.focus(); fill(qty, '2'); expect(host.querySelector('input[aria-label="保暖襪 數量"]')).toBe(qty); expect(document.activeElement).toBe(qty); expect(date.value).toBe('2026-10-02'); expect((host.querySelector('input[name="paid"]') as HTMLInputElement).value).toBe('400'); });
 it('preserves tab search when switching away and back', () => { click('收款單'); const query = host.querySelector('input[aria-label="顧客姓名或電話"]') as HTMLInputElement; fill(query, '0922'); click('商品與庫存'); click('收款單'); expect((host.querySelector('input[aria-label="顧客姓名或電話"]') as HTMLInputElement).value).toBe('0922'); });
 it('opens purchase records with supplier balances and batch payment permission', () => {
-    const fixture: InventoryData = { ...initial, canCost: true, canManage: true, canWrite: false,
+    const fixture: InventoryData = { ...initial, canCost: true, canManage: true, canPurchasePay: true, canWrite: false,
         suppliers: [{ id: 'v1', name: '測試供應商', phone: '0222222222', contact: '', address: '', active: true }],
         orders: [{ id: 'purchase-001', kind: 'PURCHASE', date: '2026-10-05', partyId: 'v1', partyName: '測試供應商', partyPhone: '0222222222', lines: [], freight: 0, delivery: '自取', channel: '', shippingNote: '', internalNote: '', total: 1000, paid: 400, revision: 2 }],
         payments: [{ id: 'payment-001', kind: 'PURCHASE', partyId: 'v1', partyName: '測試供應商', partyPhone: '0222222222', date: '2026-10-05', method: '現金', total: 400, allocations: [{ orderId: 'purchase-001', amount: 400, remainingAfter: 600 }] }],
     };
     act(() => root.render(createElement(InventoryWorkspace, { initial: fixture, key: 'purchase' })));
     click('進貨單'); click('收付款紀錄');
-    expect(host.textContent).toContain('日期／進貨單');
-    expect(host.textContent).toContain('應付金額');
+    expect(host.textContent).toContain('单據明細'.replace('单','單'));
+    expect(host.textContent).toContain('應付');
     expect(host.textContent).toContain('$600');
-    const pay = [...host.querySelectorAll('button')].find(b => b.textContent === '支付未付款')!;
+    const pay = [...host.querySelectorAll('button')].find(b => b.textContent === '付款')!;
     expect(pay.disabled).toBe(false);
-    click('支付未付款');
+    click('付款');
     expect(host.querySelector('input[aria-label="HASE-001 收付款金額"]')).not.toBeNull();
 });
 it('disables collecting payment for a settled customer', () => {
-    click('收款單'); click('陳怡君・0912345678・尚欠 $0');
+    click('收款單'); const query = host.querySelector('input[aria-label="顧客姓名或電話"]') as HTMLInputElement; fill(query, '0912345678'); const row = host.querySelector('button[aria-label="陳怡君 0912345678 收款紀錄"]') as HTMLButtonElement; act(()=>row.click());
     const pay = [...host.querySelectorAll('button')].find(b => b.textContent === '收取未付款')!;
     expect(pay.disabled).toBe(true);
+});
+it("lets receiving staff enter items without exposing costs or supplier payments",()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canReceive:true},key:"receiving"})));
+ click("進貨單");click("＋ 登錄收貨");
+ expect(host.textContent).toContain("廠商・選填");
+ expect(host.textContent).not.toContain("進貨成本");
+ expect(host.textContent).not.toContain("確認成本");
+ expect(host.textContent).not.toContain("廠商付款");
+});
+it("keeps supplier payment selection out of customer receipts",()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canCost:true,canManage:true,canPurchasePay:true},key:"receipt-only"})));
+ click("收款單");
+ expect(host.querySelector('[aria-label="收付款紀錄對象類型"]')).toBeNull();
+ expect(host.textContent).not.toContain("廠商付款");
+ expect(host.textContent).not.toContain("陳怡君");
 });

@@ -51,7 +51,7 @@ export async function saveSupplier(raw: unknown) {
 export async function saveOrder(raw: unknown) { return action(async () => { const v = orderSchema.parse(raw), c = await inventoryContext(v.kind === "PURCHASE" ? "inventory.manage" : "inventory.write"); return saveInventoryOrder(c, v); }); }
 export async function savePayment(raw: unknown) {
     return action(async () => {
-        const v = paymentSchema.parse(raw), c = await inventoryContext(v.kind === "PURCHASE" ? "inventory.manage" : "inventory.write");
+        const v = paymentSchema.parse(raw), c = await inventoryContext(v.kind === "PURCHASE" ? "inventory.purchase.pay" : "inventory.write");
         if (v.kind === "PURCHASE")
             ensureCost(c);
         return inventoryTransaction(c, async (tx) => {
@@ -81,7 +81,7 @@ export async function saveStockCount(raw: unknown) {
                 if (!p || p.revision !== l.revision)
                     throw new AppError("CONFLICT", "盤點期間庫存已異動，請重新核對");
                 lines.push({ productId: p.id, name: p.name, before: p.stock, actual: l.actual, difference: l.actual - p.stock });
-                await tx.inventoryProduct.update({ where: { id: p.id }, data: { stock: l.actual, revision: { increment: 1 } } });
+                await tx.inventoryProduct.update({ where: { id: p.id }, data: { stock: l.actual, pendingCosts: Object.fromEntries(Object.entries((p.pendingCosts||{}) as Record<string,number>).map(([key,value])=>[key,p.stock?value*l.actual/p.stock:0]).filter(([,value])=>Number(value)>0)), revision: { increment: 1 } } });
             }
             const count = await tx.inventoryStockCount.create({ data: { storeId: c.storeId, date: new Date(v.date), reason: v.reason, lines, requestId: v.requestId, requestHash: hashInput(v), actorId: c.user.id, actorName: c.user.name } });
             await inventoryAudit(c, tx, "InventoryStockCount", count.id, "完成庫存盤點", { date: v.date, lines });
@@ -89,3 +89,6 @@ export async function saveStockCount(raw: unknown) {
         });
     });
 }
+
+export async function receiveGoods(raw:unknown) {return action(async()=> (await import("@/server/services/inventory-receiving")).receiveInventory(raw));}
+export async function confirmReceivingCost(raw:unknown) {return action(async()=> (await import("@/server/services/inventory-receiving")).completeReceiving(raw));}

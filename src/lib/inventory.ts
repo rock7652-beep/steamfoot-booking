@@ -14,6 +14,7 @@ export type InventoryLine = LineInput & {
     name: string;
     total: number;
     cost?: number;
+    pendingCostShares?: Record<string,number>;
 };
 export type InventoryProductView = {
     id: string;
@@ -23,8 +24,10 @@ export type InventoryProductView = {
     active: boolean;
     revision: number;
     averageCost?: number;
+    costPending?: boolean;
 };
 export type InventoryOrderView = {
+    actorName?: string;
     id: string;
     kind: string;
     date: string;
@@ -42,6 +45,7 @@ export type InventoryOrderView = {
     revision: number;
 };
 export type InventoryPaymentView = {
+    actorName?: string;
     id: string;
     kind: string;
     partyId: string;
@@ -63,6 +67,9 @@ export type InventoryData = {
         phone: string | null;
         address: string | null;
     };
+    receivings?: ReceivingView[];
+    canReceive?: boolean;
+    canPurchasePay?: boolean;
     canCost: boolean;
     canWrite: boolean;
     canManage: boolean;
@@ -107,7 +114,7 @@ export function lineTotal(line: LineInput, kind: "SALE" | "PURCHASE" = "SALE") {
 }
 export function uniqueIds(ids: string[]) { if (new Set(ids).size !== ids.length)
     throw new Error("同一筆商品或單據不可重複，請合併數量"); }
-export function publicLines(lines: InventoryLine[], cost: boolean): InventoryLine[] { return lines.map(l => { const { cost: value, ...safe } = l; return cost ? { ...safe, cost: value } : safe; }); }
+export function publicLines(lines: InventoryLine[], cost: boolean): InventoryLine[] { return lines.map(l => { const { cost: value, pendingCostShares, ...safe } = l; return cost ? { ...safe, cost: value, ...(pendingCostShares ? {pendingCostShares} : {}) } : safe; }); }
 export function inventoryReport(orders: InventoryOrderView[], from: string, to: string, daily = false) {
     const rows = new Map<string, {
         date: string;
@@ -116,16 +123,28 @@ export function inventoryReport(orders: InventoryOrderView[], from: string, to: 
         gifts: number;
         total: number;
         cost: number;
+        costPending: boolean;
     }>();
     for (const o of orders.filter(o => o.kind === "SALE" && o.date >= from && o.date <= to))
         for (const l of o.lines) {
             const key = (daily ? o.date + ":" : "") + l.productId;
-            const r = rows.get(key) || { date: daily ? o.date : "", name: l.name, sold: 0, gifts: 0, total: 0, cost: 0 };
+            const r = rows.get(key) || { date: daily ? o.date : "", name: l.name, sold: 0, gifts: 0, total: 0, cost: 0, costPending:false };
             r.sold += l.gift ? 0 : l.quantity;
             r.gifts += l.gift ? l.quantity : 0;
             r.total += l.total;
             r.cost += l.cost || 0;
+            r.costPending ||= !!Object.keys(l.pendingCostShares || {}).length;
             rows.set(key, r);
         }
     return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)).map(r => ({ ...r, profit: r.total - r.cost, margin: r.total ? 100 * (r.total - r.cost) / r.total : null }));
 }
+
+export type ReceivingLine = {productId:string;name:string;expected:number;received:number;unitCost:number|null};
+export type ReceivingView = {id:string;date:string;supplierId:string;supplierName:string;deliveryNumber:string;note:string;lines:ReceivingLine[];revision:number;orderId:string|null;actorName:string;history:{requestId:string;date:string;actorName:string;quantities:{productId:string;quantity:number}[]}[]};
+export const receivingSchema = z.object({
+ requestId:z.string().uuid(),id:id.optional(),revision:z.number().int().positive().optional(),date:dateSchema,
+ supplierId:z.string().max(160).default(""),deliveryNumber:z.string().max(200).default(""),note:z.string().max(2000).default(""),
+ lines:z.array(z.object({productId:id,expected:z.number().int().min(1).max(100000),quantity:z.number().int().min(-100000).max(100000)})).min(1).max(200)
+});
+export const receivingCostSchema=z.object({requestId:z.string().uuid(),id,revision:z.number().int().positive(),supplierId:id,
+ lines:z.array(z.object({productId:id,unitCost:moneySchema})).min(1).max(200)});

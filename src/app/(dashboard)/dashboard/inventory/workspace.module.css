@@ -6,3 +6,18 @@
 @container (max-width:500px){.stats{gap:12px}.tabs{gap:4px}.tabs button{padding:8px}.toolbar{align-items:stretch}}
 
 .editor input[type=number]{text-align:right;font-variant-numeric:tabular-nums}.editor .lines td:nth-child(3) input{text-align:center}
+
+.workspace button[aria-expanded]{border:0;background:transparent;min-width:44px;padding:8px}
+.workspace button[aria-expanded]:hover,.workspace button[aria-expanded]:focus-visible{background:#edf2ee}
+.table .actions{width:64px;min-width:64px}
+.table th{position:sticky;top:0;z-index:1}
+.table{max-height:65vh}
+.clickable{cursor:pointer}.clickable:hover{background:#f5f7f5}
+.results button{border:0;border-bottom:1px solid #e1e6e2;border-radius:0}
+.editor .footer{position:sticky;bottom:0;background:white;padding-bottom:8px;z-index:2}
+
+.workspace button.quiet{border:0;background:transparent}
+.receivingForm{display:flex;flex-direction:column;gap:10px}
+.filters{margin:8px 0}.filters summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.table td:first-child input[type=checkbox]{min-width:20px;width:20px}
+.table td:not(.number):not(.quantity):not(.actions){max-width:360px;overflow-wrap:anywhere}

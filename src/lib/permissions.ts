@@ -50,7 +50,7 @@ export function isNonOwnerStaff(role: UserRole | string): boolean {
 // ============================================================
 
 export const ALL_PERMISSIONS = [
-  "inventory.read", "inventory.write", "inventory.manage", "inventory.cost.read",
+  "inventory.read", "inventory.write", "inventory.manage", "inventory.cost.read", "inventory.receive", "inventory.purchase.pay",
   // 顧客
   "customer.read",
   "customer.create",
@@ -116,7 +116,7 @@ export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
 
 // 權限分類（UI 用）
 export const PERMISSION_GROUPS: Record<string, { label: string; codes: PermissionCode[] }> = {
-  inventory: {label:"進銷存",codes:["inventory.read","inventory.write","inventory.manage","inventory.cost.read"]},
+  inventory: {label:"進銷存",codes:["inventory.read","inventory.write","inventory.manage","inventory.cost.read","inventory.receive","inventory.purchase.pay"]},
   customer: {
     label: "顧客管理",
     codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export", "customer.identity.rebind"],
@@ -182,6 +182,8 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "inventory.write":"銷貨編輯與收款",
   "inventory.manage":"管理商品、進貨與盤點",
   "inventory.cost.read":"查看成本、進貨金額與毛利",
+  "inventory.receive":"登錄進貨收貨與入庫",
+  "inventory.purchase.pay":"支付進貨款項",
   "customer.read": "查看顧客",
   "customer.create": "新增顧客",
   "customer.update": "編輯顧客",

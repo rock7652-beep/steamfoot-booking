@@ -7,7 +7,7 @@ import { requirePermission, checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 import { recordOperationAudit } from "@/server/services/operation-audit";
 import { hasDataExportFeature } from "@/lib/data-export-gate";
-import { publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryData } from "@/lib/inventory";
+import { publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryData, type ReceivingLine, type ReceivingView } from "@/lib/inventory";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 export type InventoryContext = Awaited<ReturnType<typeof inventoryContext>>;
@@ -26,7 +26,7 @@ export function assertInventoryPreviewIsolation(env: Record<string, string | und
     if (![env.DATABASE_URL, env.DIRECT_URL].every(isolated))
         throw new AppError("FORBIDDEN", "測試版尚未設定隔離資料庫，進銷存操作已暫停");
 }
-export async function inventoryContext(permission: "inventory.read" | "inventory.write" | "inventory.manage" = "inventory.read") {
+export async function inventoryContext(permission: "inventory.read" | "inventory.write" | "inventory.manage" | "inventory.receive" | "inventory.purchase.pay" = "inventory.read") {
     assertInventoryPreviewIsolation();
     const user = await requirePermission(permission);
     const storeId = permission === "inventory.read" ? await getActiveStoreForRead(user) : await resolveWriteStoreId(user);
@@ -103,6 +103,7 @@ export async function createInventoryPayment(ctx: InventoryContext, tx: Prisma.T
         amount: number;
     }[];
 }) {
+    if (input.kind === "PURCHASE") { ensureCost(ctx); await requirePermission("inventory.purchase.pay"); }
     uniqueIds(input.allocations.map(a => a.orderId));
     let partyId = "", partyName = "", partyPhone = "", freight = 0, total = 0;
     const snapshots = [];
@@ -137,16 +138,25 @@ export async function inventoryData(ctx: InventoryContext): Promise<InventoryDat
         prisma.customer.findMany({ where: { storeId: ctx.storeId, mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" } }),
         checkPermission(ctx.user.role, ctx.user.staffId, "inventory.write"), checkPermission(ctx.user.role, ctx.user.staffId, "inventory.manage"), Promise.all([inventoryExportEnabled(ctx.storeId), checkPermission(ctx.user.role, ctx.user.staffId, "report.export")]).then(v => v.every(Boolean)), checkPermission(ctx.user.role, ctx.user.staffId, "customer.create"),
     ]);
-    return { store: {id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null}, canCost: ctx.canCost, canWrite, canManage, canExport, canCreateCustomer,
-        products: products.map(p => ({ id: p.id, name: p.name, stock: p.stock, price: p.price, active: p.active, revision: p.revision, ...(ctx.canCost ? { averageCost: Number(p.averageCost) } : {}) })),
+    const actorIds=[...new Set([...orders,...payments].map(r=>r.actorId))];
+    const actors=actorIds.length?await prisma.user.findMany({where:{id:{in:actorIds}},select:{id:true,name:true}}):[];
+    const actorNames=new Map(actors.map(a=>[a.id,a.name]));
+    const canPurchasePay = ctx.canCost && await checkPermission(ctx.user.role,ctx.user.staffId,"inventory.purchase.pay");
+    const canReceive = await checkPermission(ctx.user.role,ctx.user.staffId,"inventory.receive");
+    const receivingRows = canReceive || canManage ? await prisma.inventoryReceiving.findMany({where:{storeId:ctx.storeId},orderBy:{createdAt:"desc"}}) : [];
+    const receivings = receivingRows.map(r=>({...r,date:r.date.toISOString().slice(0,10),lines:(r.lines as unknown as ReceivingLine[]).map(l=>({...l,unitCost:ctx.canCost?l.unitCost:null})),history:r.history as unknown as ReceivingView["history"]}));
+    return { receivings, canReceive, canPurchasePay, store: {id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null}, canCost: ctx.canCost, canWrite, canManage, canExport, canCreateCustomer,
+        products: products.map(p => ({ id: p.id, name: p.name, stock: p.stock, price: p.price, active: p.active, revision: p.revision, ...(ctx.canCost ? { averageCost: Number(p.averageCost),costPending:Object.keys((p.pendingCosts||{}) as Record<string,number>).length>0 } : {}) })),
         suppliers: suppliers.map(s => ({ id: s.id, name: s.name, contact: s.contact, phone: s.phone, address: s.address, active: s.active })),
-        orders: orders.map(o => ({ id: o.id, kind: o.kind, date: o.date.toISOString().slice(0, 10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone, lines: publicLines(o.lines as unknown as InventoryLine[], ctx.canCost), freight: o.freight, delivery: o.delivery, channel: o.channel, shippingNote: o.shippingNote, internalNote: o.internalNote, total: o.total, paid: o.paid, revision: o.revision })),
-        payments: payments.map(p => ({ id: p.id, kind: p.kind, partyId: p.partyId, partyName: p.partyName, partyPhone: p.partyPhone, date: p.date.toISOString().slice(0, 10), method: p.method, total: p.total, allocations: p.allocations as unknown as InventoryData["payments"][number]["allocations"] })),
+        orders: orders.map(o => ({ actorName:actorNames.get(o.actorId)||"", id: o.id, kind: o.kind, date: o.date.toISOString().slice(0, 10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone, lines: publicLines(o.lines as unknown as InventoryLine[], ctx.canCost), freight: o.freight, delivery: o.delivery, channel: o.channel, shippingNote: o.shippingNote, internalNote: o.internalNote, total: o.total, paid: o.paid, revision: o.revision })),
+        payments: payments.map(p => ({ actorName:actorNames.get(p.actorId)||"", id: p.id, kind: p.kind, partyId: p.partyId, partyName: p.partyName, partyPhone: p.partyPhone, date: p.date.toISOString().slice(0, 10), method: p.method, total: p.total, allocations: p.allocations as unknown as InventoryData["payments"][number]["allocations"] })),
         counts: counts.map(c => ({ id: c.id, date: c.date.toISOString().slice(0, 10), reason: c.reason, actorName: c.actorName, createdAt: c.createdAt.toISOString(), lines: c.lines as unknown as InventoryData["counts"][number]["lines"] })), customers };
 }
 export async function saveInventoryOrder(ctx: InventoryContext, input: import("@/lib/inventory").OrderInput) {
-    if (input.kind === "PURCHASE")
+    if (input.kind === "PURCHASE") {
         ensureCost(ctx);
+        if (input.paid > 0) await requirePermission("inventory.purchase.pay");
+    }
     return inventoryTransaction(ctx, async (tx) => {
         const replay = await tx.inventoryCommand.findUnique({ where: { storeId_requestId: { storeId: ctx.storeId, requestId: input.requestId } } });
         if (replay) {
@@ -184,14 +194,20 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
             const oldCost = new Prisma.Decimal(oldLine?.cost || 0);
             const average = new Prisma.Decimal(p.averageCost);
             const cost = input.kind === "PURCHASE" ? new Prisma.Decimal(amount) : oldQuantity ? oldCost.div(oldQuantity).mul(Math.min(oldQuantity, l.quantity)).add(average.mul(Math.max(0, l.quantity - oldQuantity))) : average.mul(l.quantity);
-            lines.push({ ...l, gift: input.kind === "SALE" && (l.gift || amount === 0), name: p.name, total: amount, cost: Number(cost.toFixed(6)) });
+            const pending = (p.pendingCosts || {}) as Record<string,number>;
+            const originalShares = oldLine?.pendingCostShares || {};
+            const shares = Object.fromEntries([...new Set([...Object.keys(pending),...Object.keys(originalShares)])].map(key => [key,
+                (originalShares[key] || 0) * (oldQuantity ? Math.min(oldQuantity,l.quantity)/oldQuantity : 0) +
+                (pending[key] || 0) * (p.stock ? Math.max(0,l.quantity-oldQuantity)/p.stock : 0)
+            ]).filter(([,value])=>Number(value)>0)) as Record<string,number>;
+            lines.push({ ...(Object.keys(shares).length ? {pendingCostShares:shares} : {}), ...l, gift: input.kind === "SALE" && (l.gift || amount === 0), name: p.name, total: amount, cost: Number(cost.toFixed(6)) });
             total += amount;
             if (input.kind === "PURCHASE")
                 await tx.inventoryProduct.update({ where: { id: p.id }, data: { stock: { increment: l.quantity }, averageCost: average.mul(p.stock).add(amount).div(p.stock + l.quantity), revision: { increment: 1 } } });
             else {
                 const stock = available - l.quantity;
                 const remainingValue = average.mul(p.stock).add(oldCost).sub(cost);
-                await tx.inventoryProduct.update({ where: { id: p.id }, data: { stock, averageCost: stock ? remainingValue.div(stock) : average, revision: { increment: 1 } } });
+                await tx.inventoryProduct.update({ where: { id: p.id }, data: { stock, pendingCosts: Object.fromEntries([...new Set([...Object.keys(pending),...Object.keys(originalShares)])].map(key=>[key,(pending[key]||0)+(originalShares[key]||0)-(shares[key]||0)]).filter(([,value])=>Number(value)>0)), averageCost: stock ? remainingValue.div(stock) : average, revision: { increment: 1 } } });
             }
             originalQuantities.delete(p.id);
         }
@@ -199,7 +215,7 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         for (const [id, quantity] of originalQuantities) {
             const p = await tx.inventoryProduct.findFirstOrThrow({ where: { id, storeId: ctx.storeId } });
             const returnedCost = original!.find(l => l.productId === id)!.cost || 0;
-            await tx.inventoryProduct.update({ where: { id }, data: { stock: { increment: quantity }, averageCost: new Prisma.Decimal(p.averageCost).mul(p.stock).add(returnedCost).div(p.stock + quantity), revision: { increment: 1 } } });
+            await tx.inventoryProduct.update({ where: { id }, data: { stock: { increment: quantity }, pendingCosts: Object.fromEntries([...new Set([...Object.keys((p.pendingCosts||{}) as Record<string,number>),...Object.keys(original!.find(l=>l.productId===id)?.pendingCostShares||{})])].map(key=>[key,Number((p.pendingCosts as Record<string,number>)?.[key]||0)+Number(original!.find(l=>l.productId===id)?.pendingCostShares?.[key]||0)])), averageCost: new Prisma.Decimal(p.averageCost).mul(p.stock).add(returnedCost).div(p.stock + quantity), revision: { increment: 1 } } });
         }
         const freight = input.kind === "SALE" && input.delivery === "寄送" ? input.freight : 0;
         total += freight;

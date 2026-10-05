@@ -706,6 +706,7 @@ model Store {
 
   @@index([parentStoreId])
   @@index([industryModule])
+  inventoryReceivings InventoryReceiving[]
 }
 
 model StoreLineNotificationRecipient {
@@ -3188,6 +3189,7 @@ model InventoryProduct {
   name String
   stock Int @default(0)
   averageCost Decimal @default(0) @db.Decimal(18, 6)
+  pendingCosts Json @default("{}")
   price Int
   active Boolean @default(true)
   revision Int @default(1)
@@ -3265,4 +3267,28 @@ model InventoryCommand {
   orderId String
   createdAt DateTime @default(now())
   @@id([storeId, requestId])
+}
+
+
+model InventoryReceiving {
+  store Store @relation(fields:[storeId],references:[id],onDelete:Restrict)
+  id String @id @default(cuid())
+  storeId String
+  date DateTime @db.Date
+  supplierId String @default("")
+  supplierName String @default("")
+  deliveryNumber String @default("")
+  note String @default("")
+  lines Json
+  history Json
+  revision Int @default(1)
+  orderId String?
+  requestId String
+  requestHash String
+  actorId String
+  actorName String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([storeId, requestId])
+  @@index([storeId, date])
 }

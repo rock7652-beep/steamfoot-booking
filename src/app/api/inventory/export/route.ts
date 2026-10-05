@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/permissions";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { AppError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-export async function GET() {
+export async function GET(request?: Request) {
     try {
         const ctx = await inventoryContext();
         await requirePermission("report.export");
@@ -17,8 +17,9 @@ export async function GET() {
         const data = await inventoryData(ctx), book = new ExcelJS.Workbook();
         const sheet = book.addWorksheet("商品庫存與盤點");
         sheet.columns = [{ header: "商品", key: "name", width: 32 }, { header: "帳面庫存", key: "stock", width: 16 }, { header: "預設售價", key: "price", width: 16 }, ...(ctx.canCost ? [{ header: "平均成本", key: "averageCost", width: 18 }] : []), { header: "使用狀態", key: "status", width: 14 }, { header: "實際盤點數量", key: "actual", width: 18 }, { header: "盤點備註", key: "note", width: 32 }];
-        for (const p of data.products)
-            sheet.addRow({ ...p, status: p.active ? "使用中" : "停用", actual: "", note: "" });
+        const query=new URL(request?.url||"https://inventory.local").searchParams.get("q")||"";
+        for (const p of data.products.filter(p=>p.name.includes(query)))
+            sheet.addRow({ ...p, averageCost:p.costPending?"待確認":p.averageCost,status: p.active ? "使用中" : "停用", actual: "", note: "" });
         sheet.getRow(1).font = { bold: true };
         sheet.views = [{ state: "frozen", ySplit: 1 }];
         sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sheet.columnCount } };
