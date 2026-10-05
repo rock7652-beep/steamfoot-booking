@@ -85,6 +85,11 @@
 
 ## 課程方案與顧客經營接續（2026-10-05）
 
+- 補充驗收：隔離 course-start-0918-a 的林宥辰共卡（剩餘16／預約8／可用8，9筆紀錄）與李承恩個人卡（18／2／16，4筆）切換及重開正確；1024×768、768×1024、390×844 無整頁溢出。
+- 快速切換時曾觀察顧客 URL 與視窗不同步。一般頁再次操作未重現；Next 16 action refresh 可能重放請求開始時的 route state，不能據此斷定唯一原因。改由目前 client panel identity 同步 customerId，保留當前篩選及 hash，並先通過離開 guard 才切顧客；回歸測試涵蓋晚到舊網址與關閉後舊網址。
+- Growth 實際入口 /hq/dashboard/growth/candidates：預覽資料庫 steamfoot-preview 的 staging-store 暫將 QA1005、QA1124 兩位既有測試顧客設為 PARTNER；摘要立即顯示，完整資料各為0／115點，關閉切換時只顯示目前姓名及載入狀態。桌機1363×936，drawer寬520，無整頁水平溢出。
+- 權限失敗實驗：暫將 QA1005 測試顧客移至另一預覽門市，後端拒絕跨店資料；action 引發清單更新移除該列及抽屜，因此此操作未能驗證原地重試，不計為瀏覽器重試通過。已即刻恢復門市，驗收結束須恢復兩位人才階段。重試成功與晚到隔離仍有自動化測試；沒有變更正式資料或提交金流。
+
 - 以 #1204 正式 main bf896dd9 為起點，運動／音樂沿用同一 CourseMemberWorkspace 與 course-card reader。方案瀏覽列補意圖預讀；完整卡片讀取失敗可重新載入；摘要不授權修改，關閉或切換後的晚到結果不得更新目前方案，重新開啟仍取最新額度。
 - 顧客經營詳情沿用 growth-customer reader；開啟／切換顧客時隔離上一筆內容與錯誤，失敗可視窗內重試。不更改業務 action、RWD 外框、schema 或 migration。
 - PR #1206 產品提交 d9dfbeb0，Vercel dpl_7vZzqX9osoUWyqezF2NVXQBpGFWt READY，建置確認 isolated_database=true、recovery_skipped_outside_production。沒有提交資料寫入或合併正式站。
