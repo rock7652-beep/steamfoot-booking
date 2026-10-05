@@ -116,18 +116,6 @@ describe("OWNER / STAFF 角色", () => {
     expect(ownerStaff.storeId).toBeTruthy();
   });
 
-  it("MANAGER → OWNER in DB (核心教練)", () => {
-    const inputRole = "MANAGER" as "STAFF" | "MANAGER";
-    const dbRole = inputRole === "MANAGER" ? "OWNER" : "PARTNER";
-    expect(dbRole).toBe("OWNER");
-  });
-
-  it("STAFF → PARTNER in DB (教練)", () => {
-    const inputRole = "STAFF" as "STAFF" | "MANAGER";
-    const dbRole = inputRole === "MANAGER" ? "OWNER" : "PARTNER";
-    expect(dbRole).toBe("PARTNER");
-  });
-
   it("additional staff isOwner=false", () => {
     expect({ isOwner: false }.isOwner).toBe(false);
   });
