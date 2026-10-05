@@ -15,6 +15,7 @@
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
 | 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要；每次開啟及切顧客重新建立讀取狀態，舊錯誤／晚到回應隔離；視窗內重試 |
 | 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
+| 預約管理現金收支 | quick-cashbook | TTL 0，門市及頁碼納入讀取鍵；pointer／focus／touch intent 在途去重；換頁隱藏舊金額，失敗原頁重試；關閉與寫入成功清除資源，晚到回應隔離 |
 | 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
@@ -96,4 +97,11 @@
 - 觸控 preview 55a9a8ee／產品07333863：手機390與360、iPad橫直及1440桌機無整頁水平溢出，關閉44×44、調整階段60×44、加分81.36×44、新增轉介紹83.58×44、完整顧客入口98.70×44。原地503→重新載入→0點成功，未带入另一位115點。QA1124顯示115點與10筆近期紀錄，尺寸切換保留目前顧客。截圖 qa1206-touch-controls-20261005.jpg，故障已解除、測試顧客已還原。
 - 產品07333863 CI 37257462429：Targeted、Typecheck、Changed ESLint全部通過，本機4組21項通過。完整測試6526通過／71失敗／81略過，73條正規化FAIL與 #1204 baseline完全相同、added=[]、removed=[]。最終紀錄提交只更新本文件，不更動已驗產品程式。
 - head 595103e7 的 CI 37255536284：Targeted 66組593項、Typecheck及Changed ESLint通過；完整6526通過／71失敗／81略過，73條正規化 FAIL 與 #1204 baseline job111570390770完全相同，added=[]、removed=[]，不宣稱全绿。booking-form-live-slots 僅固定測試 Date，沒有改營業規則。
-- 模擬尺寸不等於實機觸控；Safari／LINE、手機鍵盤及超寬尺寸仍未完整驗收。PR #1206 保留 draft，尚未合併正式站。
+- 模擬尺寸不等於實機觸控；Safari／LINE、手機鍵盤及超寬尺寸仍未完整驗收。PR #1206 已於2026-10-05合併，production 2ae3fdab部署成功；正式站運動唯一顧客無持有方案，且全店潛力名單0人、無音樂門市，對應完整業務驗收仍缺資料。
+
+## 現金收支讀取接續（2026-10-05）
+
+- 以正式main 2ae3fdab建立乾淨支線；預約管理QuickCashbook是直接client讀取的剩餘缺口，接入既有usePanelReader，不新增快取核心。金額維持TTL 0；一般現金編輯與課程交易沿用props直接呈現，不額外加讀取。
+- 門市變更卸載舊panel；關閉／卸載隔離晚到回應。intent與開啟只共用在途請求；重開重新查權威金額。換頁清除舊值，錯誤在原頁重試；成功儲存／刪除清除各頁後重讀。後端權限、金額計算與寫入規則未修改。
+- 活躍支線#1205進銷存與#1207批次簽到均不帶入；本輪不更動其功能。
+- 本機3組30項通過，涵蓋pointer／focus／touch去重、重開取新值、原頁重試、舊值不可操作、關閉重開及跨門市晚到隔離、成功寫入後更新。Preview與桌機／iPad瀏覽器驗收尚待部署，不宣稱上線或完整驗收。
