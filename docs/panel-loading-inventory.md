@@ -13,9 +13,9 @@
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
-| 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要，active cleanup |
+| 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要；每次開啟及切顧客重新建立讀取狀態，舊錯誤／晚到回應隔離；視窗內重試 |
 | 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
-| 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0，active cleanup |
+| 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
 | SPA 預約服務／人員 | spa-providers | TTL 0，選項 key 與 active cleanup 防止舊回應 |
@@ -82,3 +82,18 @@
 - 登入後桌機 1363×936：QA來源驗收LINE 的 1598 元單次與全額折抵課程交易（實付 0、10 堂）顯示正確；鍵盤 Enter 開啟、關閉重開正常。桌機視窗 (321.5,24,720,888)，頁寬 1363。
 - 相同共用元件在營運工作台：1024×768 視窗 (152,24,720,720)、768×1024 視窗 (24,62,720,900)、1440×900 視窗 (360,24,720,852)、390×844 視窗 (0,0,390,844)，頁寬皆等於視窗寬。平板橫轉直保留 QA1204 未儲存備註，之後取消恢復未填寫；手機 Escape 關閉後保留原查詢。全部只讀取與取消，未提交收款、退款、作廢或備註。
 - 錯誤重試與 touch intent 的請求去重為自動化行為測試，沒有在瀏覽器故意阻斷網路；模擬尺寸不等於真機觸控，超寬螢幕／Safari／LINE 依既有指示保留未驗。尚未合併正式站。
+
+## 課程方案與顧客經營接續（2026-10-05）
+
+- 以 #1204 main bf896dd9 為起點，運動／音樂沿用 CourseMemberWorkspace 與 course-card reader；意圖預讀只去重在途請求，TTL 0，完整權威資料取得後才開啟修改。錯誤可在原視窗重試；晚到回應與舊錯誤不得覆蓋目前方案／顧客。
+- 快速換顧客曾觀察 URL 與視窗不同步；唯一觸發來源未證實。改由目前 client panel identity 同步 customerId，保留篩選／hash，並先通過離開 guard；自動化涵蓋晚到 route、關閉後舊 route。
+- 音樂劉語彤・08 吉他4堂卡（剩4／預約0／可用4）、運動林宥辰共卡（16／8／8、9筆）及李承恩個人卡（18／2／16、4筆）開啟與重開正確。桌機1363×936、iPad1024×768／768×1024及手機390×844，切換尺寸維持目前顧客與 URL，無整頁水平溢出。
+- Growth 實際候選入口 /hq/dashboard/growth/candidates：隔離 steamfoot-preview/staging-store 暫設 QA1005、QA1124 為 PARTNER。先姓名摘要再完整0／115點，關閉換人不帶入舊資料。跨店權限試驗會由 RSC 移除候選列，不計為原地重試通過；storeId 已即刻還原。
+- 補齊 HTTP 503 原地重試：獨立 qa/panel-1206-network-rwd-20261005，d66424ac，Vercel dpl_2UtqZvBDubJiEvSHM7JC57kypWg6 READY；僅指定 preview 支線、ADMIN、候選頁 action 可注入故障，不更改產品 reader／component，此 QA 支線不合併。正常115點顧客關閉後，故障開啟0點顧客只顯示目前姓名及錯誤；持續故障重試仍留原顧客，恢復後同視窗 loading→0點成功，候選 URL 不變、僅1個 dialog。
+- Growth 390×844、360×800、768×1024、1024×768、1440×900，document.clientWidth=scrollWidth；手機全寬、平板／桌機520寬。360手機內容938／捲動區634，鍵盤可到下方轉介紹控制，固定頁尾可見。尺寸切換不清除顧客。驗收截圖 qa1206-mobile-retry-rwd-20261005.jpg。
+- 清理 SQL 再查：QA1005、QA1124 talentStage=CUSTOMER、storeId=staging-store、stageNote=null；沒有修改正式資料、點數、交易或預約。
+- 本輪觸控改善：沿用共用 TalentPipelineSection、ManualPointsForm、ReferralSection，調整階段／手動加分／新增轉介紹／轉介紹狀態控制至少44×44；Growth 關閉44×44及完整顧客入口至少44高。這些共用區塊目前實際掛在成長抽屜；完整顧客頁只提供前往顧客經營入口，不列為相同區塊驗收。沒有複製另一套元件，不改清單字級、讀取或交易規則。
+- 觸控 preview 55a9a8ee／產品07333863：手機390與360、iPad橫直及1440桌機無整頁水平溢出，關閉44×44、調整階段60×44、加分81.36×44、新增轉介紹83.58×44、完整顧客入口98.70×44。原地503→重新載入→0點成功，未带入另一位115點。QA1124顯示115點與10筆近期紀錄，尺寸切換保留目前顧客。截圖 qa1206-touch-controls-20261005.jpg，故障已解除、測試顧客已還原。
+- 產品07333863 CI 37257462429：Targeted、Typecheck、Changed ESLint全部通過，本機4組21項通過。完整測試6526通過／71失敗／81略過，73條正規化FAIL與 #1204 baseline完全相同、added=[]、removed=[]。最終紀錄提交只更新本文件，不更動已驗產品程式。
+- head 595103e7 的 CI 37255536284：Targeted 66組593項、Typecheck及Changed ESLint通過；完整6526通過／71失敗／81略過，73條正規化 FAIL 與 #1204 baseline job111570390770完全相同，added=[]、removed=[]，不宣稱全绿。booking-form-live-slots 僅固定測試 Date，沒有改營業規則。
+- 模擬尺寸不等於實機觸控；Safari／LINE、手機鍵盤及超寬尺寸仍未完整驗收。PR #1206 保留 draft，尚未合併正式站。
