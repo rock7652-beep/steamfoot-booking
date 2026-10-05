@@ -129,3 +129,19 @@ it('explains an empty store customer list',()=>{
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,customers:[]},key:'empty-customers'})));click('＋ 新增銷貨');
  act(()=>host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!.focus());expect(host.textContent).toContain('目前門市沒有可選顧客');
 });
+
+it('keeps a touch customer option mounted when Safari blurs the input before click',()=>{
+ click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
+ act(()=>input.focus());const option=[...host.querySelectorAll('button')].find(b=>b.textContent==='陳怡君・0922333444')!;
+ act(()=>option.dispatchEvent(new Event('pointerdown',{bubbles:true})));
+ act(()=>input.dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:null})));
+ expect(option.isConnected).toBe(true);
+ act(()=>option.click());expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();expect(host.textContent).toContain('陳怡君・0922333444');
+});
+it('closes customer options on outside touch and keyboard focus without losing the query',()=>{
+ click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
+ act(()=>input.focus());fill(input,'陳');const date=host.querySelector<HTMLInputElement>('[name="date"]')!;
+ act(()=>date.dispatchEvent(new Event('pointerdown',{bubbles:true})));expect(host.querySelector('[aria-label="顧客選項"]')).toBeNull();expect(input.value).toBe('陳');
+ act(()=>input.dispatchEvent(new FocusEvent('focusin',{bubbles:true})));expect(host.querySelector('[aria-label="顧客選項"]')).not.toBeNull();
+ act(()=>input.dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:date})));expect(host.querySelector('[aria-label="顧客選項"]')).toBeNull();
+});
