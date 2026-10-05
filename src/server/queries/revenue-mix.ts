@@ -1,3 +1,4 @@
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
@@ -58,6 +59,7 @@ export async function getRevenueMix(
   startDate: string,
   endDate: string,
 ): Promise<RevenueMix> {
+  await requireInventoryFinanceAccess(storeId);
   const todayOnly = startDate === endDate;
   const trendStart = todayOnly ? previousSixDays(startDate) : startDate;
   const { start } = dayRange(trendStart);

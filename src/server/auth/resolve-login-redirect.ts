@@ -61,7 +61,7 @@ export function resolveLoginRedirect(
    * 不在此階段新增 HQ / SUPER_ADMIN。
    */
   const isAdmin = role === "ADMIN";
-  const isStoreStaff = role === "OWNER" || role === "PARTNER";
+  const isStoreStaff = ["OWNER", "MANAGER", "STAFF", "PARTNER"].includes(role);
   const isCustomer = role === "CUSTOMER";
 
   if (input.entry === "hq") {

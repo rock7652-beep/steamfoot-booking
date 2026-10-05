@@ -1,3 +1,4 @@
+import { inventoryCashbookReadFilter, requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getManagerReadFilter } from "@/lib/manager-visibility";
@@ -49,6 +50,7 @@ export async function listCashbookEntries(options: ListCashbookOptions & { activ
     ...staffFilter,
     ...(type ? { type } : {}),
     AND: [
+      await inventoryCashbookReadFilter(readUser),
       ...(categoryGroup === "retail" ? [{ category: { startsWith: "零售-" } }] : []),
       ...(categoryGroup === "other" ? [{ OR: [{ category: null }, { category: { not: { startsWith: "零售-" } } }] }] : []),
       ...(keyword ? [{ OR: [
@@ -103,6 +105,7 @@ export async function getDailySummary(date: string, activeStoreId?: string | nul
     readStoreId ?? readUser.storeId,
   );
 
+  await requireInventoryFinanceAccess(readStoreId ?? readUser.storeId,readUser);
   const dayStart = new Date(date + "T00:00:00Z");
   const dayEnd = new Date(date + "T23:59:59Z");
 
@@ -151,6 +154,7 @@ export async function getMonthlySummary(month: string, activeStoreId?: string | 
     readStoreId ?? readUser.storeId,
   );
 
+  await requireInventoryFinanceAccess(readStoreId ?? readUser.storeId,readUser);
   const [year, mon] = month.split("-").map(Number);
   const monthStart = new Date(Date.UTC(year, mon - 1, 1));
   const monthEnd = new Date(Date.UTC(year, mon, 0, 23, 59, 59)); // last day of month

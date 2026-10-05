@@ -6,6 +6,7 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { SubmitButton } from "@/components/submit-button";
 import {
   getStaffPermissions,
+  getDefaultPermissionsForRole,
   checkPermission,
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
@@ -19,6 +20,9 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { CourseStaffAvailabilityEditor } from "../../../courses/course-staff-availability-editor";
 
+import { RoleEditForm } from "../../role-edit-form";
+import { canManageStaffRole } from "@/lib/staff-role-policy";
+
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ err?: string }>;
@@ -29,7 +33,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   const user = await getCurrentUser();
   if (!user) notFound();
   const activeStoreId = await getActiveStoreForRead(user);
-  if (user.role !== "OWNER" && !(user.role === "ADMIN" && activeStoreId)) notFound();
+  if (!activeStoreId || !(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
   const { id } = await params;
 
@@ -39,28 +43,32 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   const isSteamfoot = await getStoreIndustryModule(staff.storeId) === "steamfoot";
 
   // 取得該店長的現有權限
-  const currentPerms = staff.isOwner
+  const storedPerms = await getStaffPermissions(id, activeStoreId!);
+  const currentPerms = staff.user.role === "OWNER"
     ? new Set<PermissionCode>(ALL_PERMISSIONS as unknown as PermissionCode[])
-    : await getStaffPermissions(id, activeStoreId!);
+    : storedPerms;
 
   // Layer 1：是否可管理店員（ADMIN 由 checkPermission 自動 true；
   // 否則須具 staff.manage）。false → 頁面唯讀，不顯示變更用 UI。
-  const canManageStaff = await checkPermission(
+  const canManageStaff = staff.userId !== user.id && canManageStaffRole(user.role, staff.user.role) && await checkPermission(
     user.role,
     user.staffId,
     "staff.manage",
   );
+
+  const actorPerms = user.role === "MANAGER" && user.staffId ? await getStaffPermissions(user.staffId, activeStoreId) : new Set<PermissionCode>(ALL_PERMISSIONS);
 
   async function handleUpdate(formData: FormData) {
     "use server";
     const monthlyFeeRaw = formData.get("monthlySpaceFee") as string;
     const roleValue = formData.get("role") as string | null;
     const result = await updateStaff(id, {
+      applyRolePreset: formData.get("applyRolePreset") === "true",
       displayName: formData.get("displayName") as string,
       colorCode: formData.get("colorCode") as string,
       ...(!isSteamfoot ? { monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
       spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true" } : {}),
-      ...(roleValue ? { role: roleValue as "OWNER" | "PARTNER" } : {}),
+      ...(roleValue ? { role: roleValue as "OWNER" | "MANAGER" | "STAFF" | "PARTNER" } : {}),
     });
 
     if (!result.success) {
@@ -78,7 +86,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
     const perms: Record<string, boolean> = {};
     for (const code of ALL_PERMISSIONS) {
-      perms[code] = formData.get(`perm_${code}`) === "on";
+      perms[code] = actorPerms.has(code) ? formData.get(`perm_${code}`) === "on" : currentPerms.has(code);
     }
     // 走有守門的 action（server 端把關 staff.manage + 階層 + 防自鎖），
     // 不再直呼 updateStaffPermissions（原本 server 端零守門）。
@@ -97,7 +105,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   }
 
   // Owner（系統管理者）沒有權限設定區塊，維持原本窄版；其他員工 (含 PARTNER) 才用桌機版加寬。
-  const containerWidth = staff.isOwner ? "max-w-lg" : "max-w-6xl";
+  const containerWidth = (staff.user.role === "OWNER") ? "max-w-lg" : "max-w-6xl";
 
   return (
     <div className={`mx-auto ${containerWidth} space-y-6 px-4 py-4`}>
@@ -122,36 +130,23 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
       {/* 桌機 / iPad 橫向：基本資料 + 權限並排（基本資料 1 欄、權限 2 欄寬）；
           手機 / iPad 直向（< lg）：上下單欄堆疊維持既有體驗。 */}
-      <div className={`grid grid-cols-1 gap-6 ${!staff.isOwner ? "lg:grid-cols-3" : ""}`}>
+      <div className={`grid grid-cols-1 gap-6 ${!(staff.user.role === "OWNER") ? "lg:grid-cols-3" : ""}`}>
         {/* 基本資料 */}
         <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-1 lg:self-start">
         <h1 className="admin-page-title mb-1">編輯員工資料</h1>
         <p className="mb-5 text-sm text-earth-400">
           {staff.user.name}（{staff.user.email}）
           <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${
-            staff.isOwner ? "bg-yellow-100 text-yellow-700" : "bg-primary-100 text-primary-700"
+            (staff.user.role === "OWNER") ? "bg-yellow-100 text-yellow-700" : "bg-primary-100 text-primary-700"
           }`}>
-            {staff.isOwner ? "系統管理者" : ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}
+            {ROLE_LABELS[staff.user.role as UserRole] ?? staff.user.role}
           </span>
         </p>
 
-        <form action={handleUpdate} className="space-y-4">
-          {/* 角色選擇（僅非 Owner 且具店員管理權限者可修改） */}
-          {!staff.isOwner && canManageStaff && (
-            <div>
-              <label className="block text-sm font-medium text-earth-700">角色</label>
-              <select
-                name="role"
-                defaultValue={staff.user.role}
-                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-              >
-                <option value="OWNER">店長（主要經營者）</option>
-                <option value="PARTNER">合作店長</option>
-              </select>
-              <p className="mt-1 text-xs text-earth-400">變更角色不會自動調整已設定的權限，請在下方手動調整</p>
-            </div>
-          )}
-
+        <RoleEditForm action={handleUpdate} initialRole={staff.user.role} permissions={Array.from(storedPerms)}
+          canAssignRoles={canManageStaff && (user.role === "OWNER" || user.role === "ADMIN")}
+          presets={Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as UserRole[]).map(role => [role, getDefaultPermissionsForRole(role)]))}
+          labels={PERMISSION_LABELS} roleLabels={ROLE_LABELS} allPermissions={[...ALL_PERMISSIONS]}>
           <div>
             <label className="block text-sm font-medium text-earth-700">顯示名稱</label>
             <input
@@ -214,14 +209,14 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
               {canManageStaff ? "取消" : "返回"}
             </Link>
           </div>
-        </form>
+        </RoleEditForm>
 
       </div>
 
       {/* 權限設定（僅非 Owner 員工、且操作者具店員管理權限時顯示） */}
-      {!staff.isOwner && canManageStaff && (
-        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="mb-1 text-lg font-bold text-earth-900">操作權限</h2>
+      {!(staff.user.role === "OWNER") && canManageStaff && (
+        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2 lg:self-start">
+          <details><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">細項權限・{ALL_PERMISSIONS.every(code => currentPerms.has(code) === getDefaultPermissionsForRole(staff.user.role).includes(code)) ? "角色預設" : "已自訂"}</summary>
           <p className="mb-4 text-xs text-earth-400">
             設定此員工可操作的功能範圍，勾選為允許。角色預設權限已自動帶入，可依需求額外增減。
           </p>
@@ -237,12 +232,13 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
                   {group.codes.map((code) => (
                     <label
                       key={code}
-                      className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-earth-50"
+                      className="flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-earth-50"
                     >
                       <input
                         type="checkbox"
                         name={`perm_${code}`}
                         defaultChecked={currentPerms.has(code)}
+                        disabled={!actorPerms.has(code)}
                         className="h-4 w-4 rounded border-earth-300 text-primary-600 focus:ring-primary-500"
                       />
                       <span className="text-sm text-earth-700">
@@ -258,6 +254,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
               <SubmitButton label="儲存權限" pendingLabel="儲存中..." className="bg-primary-600 text-white hover:bg-primary-700" />
             </div>
           </form>
+          </details>
         </div>
       )}
       </div>

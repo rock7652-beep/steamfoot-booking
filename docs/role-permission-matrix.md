@@ -1,142 +1,45 @@
-# 角色權限矩陣
+# 門市角色與權限
 
-> 最後更新：2026-04-06（v1.2 更新）
-> 適用版本：穩定模組 v1.2+
+2026-10-05：本次變更於進銷存 PR #1205 測試站驗收；尚未合併正式站。
 
-## 角色定義
+| 身分 | 代碼 | 預設 | 可管理人員 |
+| --- | --- | --- | --- |
+| 總部 | ADMIN | 跨店系統管理 | 全部；仍禁止自我停用，並保留各店至少一位 Owner |
+| 老闆 | OWNER | 授權店內所有已開通功能 | 店內其他帳號；不能管理 Admin |
+| 店長 | MANAGER | 店務管理、顧客、預約、銷貨、收款、收貨 | Staff／舊 PARTNER；只能調整自己持有的權限 |
+| 門市人員 | STAFF | 顧客、預約、銷貨、收款、收貨等日常操作 | 無 |
+| 舊門市帳號 | PARTNER | 保留既有個別授權，不批次改角色或權限 | 無 |
+| 前台會員 | CUSTOMER | 會員／學員前台 | 無後台權限 |
 
-| 角色 | DB 值 | 說明 |
-|------|-------|------|
-| **Owner** | `OWNER` | 店主，擁有全部權限 |
-| **Manager** | `MANAGER` | 店長，動態權限（透過 `StaffPermission` 表） |
-| **Customer** | `CUSTOMER` | 顧客，僅前台自助功能 |
+Owner 不會因舊 StaffPermission 缺少勾選而失去店內權限；不會因此取得 Admin 的跨店權限。店舖範圍、母子店既有授權、訂閱及模組開通限制仍需各入口檢查。舊 `isOwner()` helper 代表 Admin，不能改為 Owner 放行跨店。
 
----
+## 進銷存預設
 
-## 權限碼清單（共 16 個）
+| 權限 | Owner | Manager | Staff |
+| --- | --- | --- | --- |
+| 查看／建立銷貨、收款 | 開 | 開 | 開 |
+| 品項、數量收貨登記 | 開 | 開 | 開 |
+| 商品及庫存管理 | 開 | 關 | 關 |
+| 成本查看 | 開 | 關 | 關 |
+| 進貨付款 | 開 | 關 | 關 |
+| 身分價格設定／手動覆價 | 開 | 關 | 關 |
+| 人員管理 | 開 | 開（限門市） | 關 |
 
-| 群組 | 權限碼 | 說明 |
-|------|--------|------|
-| 顧客 | `customer.read` | 查看顧客列表/詳情 |
-| | `customer.create` | 新增顧客 |
-| | `customer.update` | 編輯顧客資料 |
-| | `customer.assign` | 轉移顧客歸屬 |
-| | `customer.export` | 匯出顧客資料 |
-| | `customer.identity.rebind` | 建立或取消受控 LINE 重新綁定 capture request；不含實際重新綁定 |
-| 預約 | `booking.read` | 查看預約 |
-| | `booking.create` | 新增預約 |
-| | `booking.update` | 更新預約（報到/完成/未到） |
-| 交易 | `transaction.read` | 查看交易紀錄 |
-| | `transaction.create` | 新增交易 |
-| 課程 | `wallet.read` | 查看課程方案 |
-| | `wallet.create` | 新增/編輯/停用方案 |
-| 報表 | `report.read` | 查看報表 |
-| | `report.export` | 匯出報表 |
-| 現金帳 | `cashbook.read` | 查看現金帳 |
-| | `cashbook.create` | 新增/編輯現金帳 |
+Manager／Staff 由 StaffPermission 控制實際操作，角色預設只在建立或明確套用預設時寫入，不能以預設值替代後端授權。沒有成本權限時，完整財務合計、匯出、現金結帳等仍遵循進銷存財務保護，不顯示不完整餘額。
 
-> ⚠️ 上表為 v1.2 快照，未含後續新增群組（`cashDrawer.*`、`talent.*`）。
-> 權限碼唯一真相為 `src/lib/permissions.ts` 的 `ALL_PERMISSIONS`。
+## 調整規則
 
-### 體驗單（體驗客流程 PR-trial 新增）
+- 角色切換顯示增加／移除權限，儲存前確認。預設保留現有個別授權；勾選「套用角色預設權限」才取代。
+- 細項權限收合呈現，標示「角色預設」或「已自訂」。Owner 的細項權限不縮減。
+- Manager 不能管理自己、Owner、Admin 或其他 Manager，不能提升 Staff 角色，也不能調整自己未持有的權限。Owner／Admin 可套用角色預設。
+- 所有帳號管理均驗證店舖範圍；交易內重新檢查操作者與目標角色。
+- 角色、停用及權限寫入共用店舖鎖。最後一位啟用中的 Owner 不可停用／降級，即使有全域 Admin 也不得取代。
+- 權限變更使權限快取立即失效；角色／帳號狀態變更會撤銷舊登入狀態。角色與權限異動保留稽核前後值。
+- 教練／教師、芳療師及會員連結維持原有前台身分；不得用改角色取代身分連結，也不得因新增教練而取得後台全權。
+- 課程人員頁修改課程權限，保留其他模組既有授權。
 
-| 權限碼 | 說明 | OWNER default | PARTNER default |
-|--------|------|:-------------:|:---------------:|
-| `trial.read` | 查看體驗單 | ✅ | ✅ |
-| `trial.create` | 建立體驗單 | ✅ | ✅ |
-| `trial.confirm` | 確認體驗收款（開通堂數 / 計營收） | ✅ | — |
-| `trial.cancel` | 取消體驗 / 退款取消 | ✅ | — |
-| `trial.manage` | 管理體驗課設定 | ✅ | — |
+## 資料與上線
 
-> 既有 staff 需跑 `scripts/backfill-trial-permissions.ts --apply` 才會取得上述 default
-> （`checkPermission` 只讀 `StaffPermission` 表，無 role-default fallback）。
-> 體驗收款計入營收/業績/現金抽屜的時機：僅在 `trial.confirm` 確認收款後；
-> `UNPAID + PENDING` 一律不計（沿用既有 revenue/cash-drawer query 過濾）。
+新增 enum MANAGER、STAFF；保留 PARTNER。此 migration 不修改既有 User、Staff、交易或會員連結。
 
----
-
-## 功能權限矩陣
-
-### 後台功能 (`/dashboard/*`)
-
-| 功能 | Owner | Manager | Customer | UI 檢查 | 後端檢查 |
-|------|:-----:|:-------:|:--------:|---------|---------|
-| **Dashboard 首頁** | R | R（自己名下） | — | `getCurrentUser()` | layout redirect |
-| **預約管理 - 月曆** | R | R（全部） | — | `checkPermission(booking.read)` | `requireStaffSession()` |
-| **預約管理 - 日檢視** | R | R（全部） | — | 同上 | `requireStaffSession()` |
-| **預約管理 - 新增** | CRU | CRU | — | `checkPermission(booking.create)` | `createBooking()` 內部檢查 |
-| **預約管理 - 詳情** | RU | RU（自己名下） | — | `checkPermission(booking.read)` | `getBookingDetail()` 隔離 |
-| **顧客管理 - 列表** | R | R（全部共享） | — | `checkPermission(customer.read)` | `requireStaffSession()` |
-| **顧客管理 - 詳情** | RU | RU（全部可看） | — | `checkPermission(customer.read)` | `getCustomerDetail()` |
-| **顧客管理 - 新增** | C | C | — | `checkPermission(customer.create)` | `requirePermission(customer.create)` |
-| **交易紀錄** | R | R（自己名下） | — | `checkPermission(transaction.read)` | `listTransactions()` staffFilter |
-| **現金帳 - 列表** | R | R（自己名下） | — | `checkPermission(cashbook.read)` | `listCashbookEntries()` staffFilter |
-| **現金帳 - 新增** | C | C（綁定自己） | — | `checkPermission(cashbook.create)` | `requirePermission(cashbook.create)` |
-| **操作紀錄中心** | R（跨店） | 依 `audit.read` 授權 | — | `checkPermission(audit.read)` | 伺服器頁面同權限檢查＋門市範圍 |
-| **課程方案 - 列表** | R | R | — | `checkPermission(wallet.read)` | `requireStaffSession()` |
-| **課程方案 - 新增** | C | — | — | `isOwner` 按鈕隱藏 | `requirePermission(wallet.create)` |
-| **課程方案 - 編輯** | U | — | — | `isOwner` 條件渲染 | `requirePermission(wallet.create)` |
-| **店長管理 - 列表** | CRUD | — | — | `user.role !== "OWNER"` → notFound | `requireOwnerSession()` |
-| **店長管理 - 編輯** | U | — | — | `user.role !== "OWNER"` → notFound | `updateStaff()` 內部檢查 |
-| **報表** | R | R（自己名下） | — | `checkPermission(report.read)` | `requireStaffSession()` + staffFilter |
-| **匯出 CSV** | R | R（自己名下） | — | 頁面上連結 | `requireStaffSession()` + staffFilter |
-
-> R=讀取 C=新增 U=更新 D=刪除
-
-### 前台功能 (`/(customer)/*`)
-
-| 功能 | Owner | Manager | Customer | 檢查方式 |
-|------|:-----:|:-------:|:--------:|---------|
-| **首頁 `/book`** | — | — | R | `getCurrentUser()` + `customerId` |
-| **自助預約 `/book/new`** | — | — | C（需啟用） | `selfBookingEnabled` + 餘額檢查 |
-| **我的預約 `/my-bookings`** | — | — | R | `listBookings()` customerId 隔離 |
-| **取消預約** | — | — | U | `cancelBooking()` 僅限自己 |
-| **我的課程 `/my-plans`** | — | — | R | `customerId` 直接查詢 |
-| **個人資料 `/profile`** | — | — | RU | `getCustomerDetail()` 僅限自己 |
-
----
-
-## Manager 資料隔離規則
-
-| 資料類型 | 檢視範圍 | 修改範圍 |
-|---------|---------|---------|
-| **顧客** | 全部（共享查看） | 僅自己名下 |
-| **預約** | 全部（共享查看，含日曆/時段表） | 僅自己名下顧客 |
-| **交易** | 僅自己 `revenueStaffId` | 僅自己名下 |
-| **現金帳** | 僅自己 `staffId` | 僅自己的紀錄 |
-| **報表** | 僅自己的營收數據 | — |
-| **課程方案** | 全部方案（唯讀） | 不可修改 |
-
----
-
-## 審計結果（v1.2 更新）
-
-| # | 類型 | 描述 | 狀態 |
-|---|------|------|------|
-| 1 | ~~UI 缺 check~~ | `/dashboard/customers/new` | ✅ 已補齊 `checkPermission(customer.create)` |
-| 2 | ~~UI 缺 check~~ | `/dashboard/bookings/new` | ✅ 已補齊 `checkPermission(booking.create)` |
-| 3 | ~~UI 缺 check~~ | `/dashboard/cashbook/new` | ✅ 已補齊 `checkPermission(cashbook.create)` |
-| 4 | ~~UI 缺 check~~ | `/dashboard/staff/[id]/edit` 無 Owner 檢查 | ✅ v1.2 已補齊 `user.role !== "OWNER"` |
-| 5 | 設計決策 | Manager 可查看所有顧客/預約（共享模式） | 無風險（by design） |
-| 6 | 設計決策 | `(dashboard)` layout 做 auth + role 攔截，不做 middleware | 見下方說明 |
-
-### 結論
-
-- **後端防護覆蓋率：100%** — 所有 server action 和 query 皆有權限檢查
-- **UI 防護覆蓋率：100%** — 所有頁面皆有 `checkPermission()` 或 role 檢查
-- **無安全漏洞**
-- **Manager 隔離完整** — 交易、現金帳、報表皆強制 staffFilter
-
-### 關於 `(dashboard)` 統一保護
-
-目前 `(dashboard)/layout.tsx` 已做：
-- 未登入 → `/login`
-- CUSTOMER → `/book`
-- OWNER / MANAGER → 放行 + 載入權限
-
-**不建議**加 middleware 層級路由保護，原因：
-1. Layout 已提供 auth + role 攔截，覆蓋所有子路由
-2. 各頁面的細粒度 `checkPermission()` 無法在 middleware 做（需查 DB）
-3. Next.js middleware 跑在 Edge Runtime，無法使用 Prisma（本專案 DB 查詢依賴）
-4. 加 middleware 會造成雙重查詢（middleware 查一次 + 頁面查一次）
-5. 現有架構是「layout 擋身份 + 頁面擋權限」二層防護，已足夠
+測試資料庫已加入新角色。正式站 migration 尚未執行，合併前需確認角色 migration 與進銷存 schema 均就緒，並完成實際角色登入驗收。不得將靜態檢查或 Admin 操作寫成三角色完整業務驗收。

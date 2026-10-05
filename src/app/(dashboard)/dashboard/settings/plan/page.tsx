@@ -36,7 +36,7 @@ export default async function PlanSettingsPage() {
   if (!user) {
     redirect("/hq/login");
   }
-  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
+  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER") {
     notFound();
   }
   if (!(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();

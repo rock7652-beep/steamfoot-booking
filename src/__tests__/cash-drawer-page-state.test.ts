@@ -1,3 +1,5 @@
+// Cost access is covered by inventory-finance-access.test.ts; these cases retain their original finance scope.
+vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:async()=>true,inventoryCashbookReadFilter:async()=>({})}));
 /**
  * Cash Drawer page state derivation — pure logic tests
  *
@@ -10,7 +12,7 @@
  *   - NOT_OPENED_TODAY：今日沒 session，且上一個 session 已 CLOSED → 可開店
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { CashDrawerSession } from "@prisma/client";
 import {

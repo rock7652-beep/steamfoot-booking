@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Customer } from "@prisma/client";
 const course = vi.hoisted(() => ({ lock: vi.fn(), move: vi.fn() }));
+const inventory = vi.hoisted(() => ({ query: vi.fn(), orders: vi.fn(), payments: vi.fn() }));
 vi.mock("@/server/services/course-store-lock", () => ({ lockCourseStore: course.lock }));
 vi.mock("@/server/services/course-customer-merge", () => ({ moveCourseCustomerRelations: course.move }));
 
@@ -151,7 +152,9 @@ vi.mock("@/lib/db", () => ({
     auditLog: auditLogModel,
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
-        $queryRaw: vi.fn().mockResolvedValue([]),
+        $queryRaw: inventory.query,
+        inventoryOrder: { updateMany: inventory.orders },
+        inventoryPayment: { updateMany: inventory.payments },
         customer: customerModel,
         booking: bookingModel,
         transaction: transactionModel,
@@ -227,9 +230,22 @@ function makeCustomer(overrides: CustomerOverrides): Row {
 beforeEach(() => {
   resetTables();
   vi.clearAllMocks();
+  inventory.query.mockResolvedValue([]);
+  inventory.orders.mockResolvedValue({ count: 2 });
+  inventory.payments.mockResolvedValue({ count: 1 });
 });
 
 describe("mergeCustomerIntoCustomer — FK relocation", () => {
+  it("moves inventory customer links inside the same merge and preserves document snapshots", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+    tables.customer.push(makeCustomer({ id: "src" }) as Customer, makeCustomer({ id: "tgt" }) as Customer);
+    inventory.query.mockResolvedValue([{ orders: true, payments: true }]);
+    const out = await mergeCustomerIntoCustomer({ sourceCustomerId: "src", targetCustomerId: "tgt", performedByUserId: PERFORMER });
+    expect(out.movedCounts).toMatchObject({ inventoryOrders: 2, inventoryPayments: 1 });
+    expect(inventory.orders).toHaveBeenCalledWith({ where: { storeId: STORE_A, kind: "SALE", partyId: "src" }, data: { partyId: "tgt", revision: { increment: 1 } } });
+    expect(inventory.payments).toHaveBeenCalledWith({ where: { storeId: STORE_A, kind: "SALE", partyId: "src" }, data: { partyId: "tgt" } });
+    expect(tables.customer.find(c => c.id === "src")!.mergedIntoCustomerId).toBe("tgt");
+  });
   it("把 booking / wallet / transaction / pointRecord 從 source 搬到 target", async () => {
     const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
 

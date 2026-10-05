@@ -8,7 +8,7 @@ import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
 import { StaffScheduleWorkspace } from "./workspace";
 export default async function SpaStaffPage({searchParams}:{searchParams:Promise<{month?:string}>}){
- const user=await getCurrentUser();if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"duty.manage"))notFound();
+ const user=await getCurrentUser();if(!user||!["OWNER","MANAGER","ADMIN"].includes(user.role)||!await checkPermission(user.role,user.staffId,"duty.manage"))notFound();
  const {storeId,isChildStoreView}=await spaResourceStoreRead("duty.manage");
  const today=toLocalDateStr();const query=await searchParams;
  const month=query.month&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(query.month)?query.month:today.slice(0,7);

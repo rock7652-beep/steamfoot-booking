@@ -18,7 +18,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## 權限檢查
 
 - 每個 dashboard 頁面（含 new/edit 子頁）必須在頁面頂部做 `checkPermission()` UI 檢查
-- Staff 相關頁面必須加 `user.role !== "OWNER"` → `notFound()` 檢查
+- Staff 相關頁面必須檢查 `staff.view`；管理操作須檢查 `staff.manage` 與 Owner / Manager / Staff 階層，不能只以 OWNER 角色判斷
 - Server action 必須用 `requirePermission()` 做後端檢查（不可只靠 UI）
 - 權限矩陣文件：`docs/role-permission-matrix.md`
 

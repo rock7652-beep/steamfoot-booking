@@ -94,7 +94,7 @@ export default async function DutySettingsPage() {
   if (!user) {
     redirect("/hq/login");
   }
-  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
+  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER") {
     notFound();
   }
 

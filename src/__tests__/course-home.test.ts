@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({raw:vi.fn(),session:vi.fn(),live:vi.fn(),scope:vi.fn(),permission:vi.fn(),blocked:vi.fn()}));
+const m=vi.hoisted(()=>({raw:vi.fn(),session:vi.fn(),live:vi.fn(),scope:vi.fn(),permission:vi.fn(),blocked:vi.fn(),finance:vi.fn()}));
+vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:m.finance}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/db",()=>({prisma:{$queryRaw:m.raw,cashDrawerSession:{findFirst:m.session}}}));
 vi.mock("@/lib/manager-visibility",()=>({getManagerCustomerWhere:m.scope}));
@@ -10,7 +11,7 @@ import {getCourseHomeToday,getCourseReceiptTotals,getCourseHomeCustomers,getCour
 import {courseHomeAccess} from "@/server/queries/course-home-access";
 import {bookingDateToday} from "@/lib/date-utils";
 const amount=(n:number)=>({toNumber:()=>n});
-beforeEach(()=>{vi.clearAllMocks();m.scope.mockReturnValue({});m.blocked.mockResolvedValue(false);m.permission.mockResolvedValue(true);});
+beforeEach(()=>{vi.clearAllMocks();m.finance.mockResolvedValue(true);m.scope.mockReturnValue({});m.blocked.mockResolvedValue(false);m.permission.mockResolvedValue(true);});
 describe("course home bounded read models",()=>{
  it("uses Taipei day boundaries and distinct participants, excludes cancelled bookings",async()=>{m.raw.mockResolvedValue([{sessions:13,ended:12,bookings:236,attended:60,nextEnd:null}]);expect(await getCourseHomeToday("a","2026-09-18")).toEqual({sessions:13,ended:12,bookings:236,attended:60,nextEnd:null});const q=m.raw.mock.calls[0][0];expect(q.values).toContain("a");expect(q.values).toContainEqual(new Date("2026-09-17T16:00:00.000Z"));expect(q.values).toContainEqual(new Date("2026-09-18T15:59:59.999Z"));expect(q.sql).toContain('count(DISTINCT s.id) FILTER (WHERE s."endsAt"<=');expect(q.sql).toContain("b.status<>'CANCELLED'");});
  it("separates gross receipts, refunds and receipt reversals without cash balance",async()=>{m.raw.mockResolvedValue([{purchases:1000,purchaseCount:1,trial:2100,refunds:200,voids:700}]);expect(await getCourseReceiptTotals("a","2026-09-18","2026-09-18")).toMatchObject({gross:3100,net:2200,refunds:200,voids:700});expect(m.raw.mock.calls[0][0].sql).not.toContain('CashDrawer');});
@@ -31,3 +32,5 @@ describe("course home access",()=>{
  it("subscription read-only preserves summaries but disables tasks",async()=>{m.blocked.mockResolvedValue(true);expect(await courseHomeAccess(user,"a")).toMatchObject({bookings:true,customers:true,create:false,todos:{payments:false,attendance:false,followUp:false}});});
  it("uses existing visibility scope instead of interpreting OWNER as headquarters",()=>{m.scope.mockReturnValue({assignedStaffId:"staff"});expect(courseCustomerStaffScope(user,"a")).toBe("staff");});
 });
+
+it("hides the course-home drawer while preserving attendance and sales without cost visibility",async()=>{m.finance.mockResolvedValue(false);const a=await courseHomeAccess({id:"manager",role:"OWNER",staffId:"staff",storeId:"a"} as Parameters<typeof courseHomeAccess>[0],"a");expect(a.cash).toBe(false);expect(a.bookings).toBe(true);expect(a.revenue).toBe(true);});

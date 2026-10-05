@@ -13,7 +13,7 @@ export interface SessionUser {
   id: string;
   name: string;
   email: string | null;
-  role: "ADMIN" | "OWNER" | "PARTNER" | "CUSTOMER";
+  role: "ADMIN" | "OWNER" | "MANAGER" | "STAFF" | "PARTNER" | "CUSTOMER";
   staffId?: string;
   customerId?: string;
   storeId?: string;

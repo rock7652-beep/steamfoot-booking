@@ -70,6 +70,8 @@ export interface NavGroup {
 // ============================================================
 
 export const STORE_ADMIN_NAV: NavItem[] = [
+  { href: "/dashboard/inventory", label: "進銷存", permission: "inventory.read", requiredFeature: FEATURES.INVENTORY,
+    icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10" /></svg> },
   {
     href: "/dashboard",
     label: "首頁",
@@ -770,11 +772,11 @@ export default function DashboardShell({
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
   const spaNavigation = useMemo<NavItem[]>(() => {
-    const items: NavItem[] = [...STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff").map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
-      {href:"/dashboard/spa-staff",label:"人員管理",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
+    const items: NavItem[] = [...STORE_ADMIN_NAV.map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
+      {href:"/dashboard/spa-staff",label:"服務與排班",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
       {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
     ];
-    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
+    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/staff","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
     return items.sort((a,b)=>(order.includes(a.href) ? order.indexOf(a.href) : order.length) - (order.includes(b.href) ? order.indexOf(b.href) : order.length));
   },[]);
 
@@ -787,6 +789,7 @@ export default function DashboardShell({
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: FEATURES.BASIC_REPORTS },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/inventory")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,
       ] }, { id: "course-setup", label: "店務設定", defaultOpen: true, icon: <></>, items: [
@@ -807,7 +810,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: industryModule === "spa" ? spaNavigation : isHqStoreView ? STORE_ADMIN_NAV : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
+          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
         },
       ];
     }
@@ -819,7 +822,7 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
+        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
       },
     ];
   }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation,musicEnabled]);
@@ -836,7 +839,9 @@ export default function DashboardShell({
         .map((item) => {
         if (item.requiredFeature && featureStates[item.requiredFeature] === "HIDDEN") return { item, visible: false, locked: false };
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
-        if (item.permission && !isOwner && !permissions.includes(item.permission))
+        // isOwner also represents Manager/Staff backend identities. Navigation
+        // must use the effective grants, just like the destination page.
+        if (item.permission && !isHqPlatformView && !permissions.includes(item.permission))
           return { item, visible: false, locked: false };
         if (
           item.requiredFeature &&
@@ -859,7 +864,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, routeQuery, isOwner, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, isOwner, isHqPlatformView, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
 
   // Core stays open; other groups honor defaults, saved choices and the active page.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -906,7 +911,6 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
-    if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
     return isNavigationItemActive(href, pathname, routeQuery, navGroupsToRender.flatMap(group => group.items.map(item => item.href)));
   }
 

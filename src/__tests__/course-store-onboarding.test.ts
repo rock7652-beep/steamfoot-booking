@@ -100,3 +100,14 @@ it.each(["STEAMFOOT", "SPA"] as const)("preserves the existing %s onboarding and
     expect(m.storeCreate.mock.calls[0][0].data.moduleInstallation.create.status).toBe("PROVISIONING");
   }
 });
+
+it("creates true Manager and Staff accounts without promoting them to Owner", async () => {
+  const result = await createStoreAction({ ...input, industryModule: "STEAMFOOT", initialStaff: [
+    { name: "店長", email: "manager@example.test", role: "MANAGER" },
+    { name: "門市", email: "staff@example.test", role: "STAFF" },
+  ] });
+  expect(result).toMatchObject({ success: true });
+  expect(m.userCreate.mock.calls.map(call => call[0].data.role)).toEqual(["OWNER", "MANAGER", "STAFF"]);
+  expect(m.legacyPermissions).toHaveBeenCalledWith("owner-staff", "MANAGER");
+  expect(m.legacyPermissions).toHaveBeenCalledWith("owner-staff", "STAFF");
+});

@@ -1,3 +1,5 @@
+const finance = vi.hoisted(() => ({ allowed: vi.fn(), filter: vi.fn() }));
+vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:finance.allowed,inventoryCashbookReadFilter:finance.filter}));
 import { beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), check: vi.fn(), view: vi.fn(), entries: vi.fn(), count: vi.fn(), summary: vi.fn(), closed: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
@@ -12,7 +14,7 @@ vi.mock("@/lib/db", () => ({ prisma: { cashbookEntry: { findFirst: m.find, findM
 vi.mock("@/server/actions/cashbook", () => ({ createCashbookEntry: m.create, updateCashbookEntry: m.update, deleteCashbookEntry: m.remove }));
 import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
 beforeEach(() => {
-  vi.resetAllMocks(); m.check.mockResolvedValue(true); m.view.mockResolvedValue(null); m.entries.mockResolvedValue([]); m.count.mockResolvedValue(0); m.closed.mockResolvedValue([]); m.summary.mockResolvedValue({ balance: null, balanceLabel: "現金抽屜尚未啟用" }); m.permission.mockResolvedValue(m.user); m.active.mockResolvedValue("store"); m.write.mockResolvedValue("store"); m.feature.mockResolvedValue(true);
+  vi.resetAllMocks(); finance.allowed.mockResolvedValue(true); finance.filter.mockResolvedValue({}); m.check.mockResolvedValue(true); m.view.mockResolvedValue(null); m.entries.mockResolvedValue([]); m.count.mockResolvedValue(0); m.closed.mockResolvedValue([]); m.summary.mockResolvedValue({ balance: null, balanceLabel: "現金抽屜尚未啟用" }); m.permission.mockResolvedValue(m.user); m.active.mockResolvedValue("store"); m.write.mockResolvedValue("store"); m.feature.mockResolvedValue(true);
   m.find.mockResolvedValue({ id: "e", staffId: "s", entryDate: new Date("2026-09-11T00:00:00Z") });
   m.create.mockResolvedValue({ success: true }); m.update.mockResolvedValue({ success: true }); m.remove.mockResolvedValue({ success: true });
 });
@@ -82,7 +84,7 @@ it("starts authorized list queries while view metadata is still pending", async 
   await vi.waitFor(() => expect(m.entries).toHaveBeenCalledTimes(1));
   expect(m.count).toHaveBeenCalledTimes(1);
   expect(m.closed).toHaveBeenCalledTimes(1);
-  expect(m.entries).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store", entryDate: new Date("2026-09-11T00:00:00Z"), staffId: "s" }, skip: 20, take: 20 }));
+  expect(m.entries).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store", entryDate: new Date("2026-09-11T00:00:00Z"), staffId: "s", AND: [{}] }, skip: 20, take: 20 }));
   finish(null);
   expect((await read).page).toBe(2);
 });
@@ -116,4 +118,30 @@ it("disabled cashbook feature does not start financial queries", async () => {
   await expect(fetchQuickCashbook("store")).rejects.toThrow("尚未開通");
   expect(m.entries).not.toHaveBeenCalled();
   expect(m.summary).not.toHaveBeenCalled();
+});
+
+it("keeps inventory-linked income and expense read-only while ordinary entries remain editable", async () => {
+  m.entries.mockResolvedValue([
+    { id: "inventory:receipt:goods", type: "INCOME", staffId: "s", amount: 1120 },
+    { id: "inventory:purchase:goods", type: "EXPENSE", staffId: "s", amount: 400 },
+    { id: "ordinary", type: "EXPENSE", staffId: "s", amount: 20 },
+  ]);
+  m.count.mockResolvedValue(3);
+  const result = await fetchQuickCashbook("store");
+  expect(result.entries.map(entry => ({ id: entry.id, canEdit: entry.canEdit }))).toEqual([
+    { id: "inventory:receipt:goods", canEdit: false },
+    { id: "inventory:purchase:goods", canEdit: false },
+    { id: "ordinary", canEdit: true },
+  ]);
+});
+
+it("preserves cost filtering and denies drawer totals despite drawer permission", async () => {
+  const filter = { NOT: { type: "EXPENSE", category: "進貨" } };
+  finance.allowed.mockResolvedValue(false);
+  finance.filter.mockResolvedValue(filter);
+  const result = await fetchQuickCashbook("store");
+  expect(result.canDrawer).toBe(false);
+  expect(m.summary).not.toHaveBeenCalled();
+  expect(m.entries).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ AND: [filter] }) }));
+  expect(m.count).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ AND: [filter] }) }));
 });

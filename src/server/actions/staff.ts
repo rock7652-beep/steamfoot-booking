@@ -9,11 +9,9 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import {
-  createDefaultPermissions,
+  ALL_PERMISSIONS,
+  getDefaultPermissionsForRole,
   checkPermission,
-  assertNotLastStoreManager,
-  getStaffPermissions,
-  updateStaffPermissions,
   type PermissionCode,
 } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
@@ -26,32 +24,22 @@ import { requireSpaStore } from "@/lib/industry-module-server";
 import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
 import { recordOperationAudit } from "@/server/services/operation-audit";
 
+import { canManageStaffRole, canAssignStaffRole, assertStoreRetainsOwner, readStaffManagerGrants } from "@/lib/staff-role-policy";
+
 const spaSkillKeys = ["body", "head", "foot", "face"] as const;
 const spaTimePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/**
- * 要求可管理人員的身份：OWNER（店長）或 ADMIN（系統管理者，需已選定分店）。
- * PARTNER / CUSTOMER 一律拒絕。
- */
+/** 管理身份與 staff.manage 雙重守門，所有 mutation 仍須驗證 store scope。 */
 async function requireStaffManageSession() {
   const user = await requireStaffSession();
-  if (user.role !== "OWNER" && user.role !== "ADMIN") {
-    throw new AppError("FORBIDDEN", "此功能僅限店長或系統管理者使用");
+  if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role) ||
+      !(await checkPermission(user.role, user.staffId, "staff.manage"))) {
+    throw new AppError("FORBIDDEN", "您沒有店員管理權限");
   }
   return user;
 }
 
-/**
- * PR-3 帳號管理階層守則（server 端，非僅 UI）。
- * 套用於：編輯權限 / 改 role / 停用 / 啟用 等「管理他人帳號」操作。
- *
- * - ADMIN（rock7652）：最高權限，可穿透 isOwner，管理所有分店 staff（pass/ggg）
- * - 非 ADMIN：必須具 staff.manage（→ pass 有、ggg 無），且
- *     · 不可管理 ADMIN 目標
- *     · 不可管理 isOwner=true 的主要店長（pass）
- * - 任何人不可對「自己」執行此類操作（防自鎖：停用自己 / 改自己 role /
- *   移除自己 staff.manage）。
- */
+/** Owner 管理店內帳號；Manager 僅管理 Staff / 舊 PARTNER；禁止自我調整。 */
 async function assertCanManageStaff(
   sessionUser: { id: string; role: UserRole; staffId: string | null },
   targetStaff: {
@@ -72,7 +60,7 @@ async function assertCanManageStaff(
 
   if (isAdmin) return; // ADMIN 最高權限：穿透 isOwner、可管理所有分店 staff
 
-  // 非 ADMIN：需具 staff.manage（ggg/合作店長無 → 全擋）
+  // 非 ADMIN 仍需管理權限。
   const ok = await checkPermission(
     sessionUser.role,
     sessionUser.staffId,
@@ -80,13 +68,8 @@ async function assertCanManageStaff(
   );
   if (!ok) throw new AppError("FORBIDDEN", "您沒有店員管理權限");
 
-  // 非 ADMIN 不可管理 ADMIN 目標
-  if (targetStaff.user.role === "ADMIN") {
-    throw new AppError("FORBIDDEN", "無權管理系統管理者帳號");
-  }
-  // 非 ADMIN 不可管理 isOwner=true 的主要店長
-  if (targetStaff.isOwner) {
-    throw new AppError("FORBIDDEN", "無權管理主要店長帳號");
+  if (!canManageStaffRole(sessionUser.role, targetStaff.user.role)) {
+    throw new AppError("FORBIDDEN", "店長僅可管理門市人員，不能調整老闆或其他店長");
   }
 }
 
@@ -108,7 +91,7 @@ const createStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
-  role: z.enum(["OWNER", "PARTNER"]).optional(),
+  role: z.enum(["OWNER", "MANAGER", "STAFF", "PARTNER"]).optional(),
   spaCompensation: z.object({
     mode: z.enum(["PERCENTAGE", "FIXED"]),
     value: z.number().min(0).max(1_000_000),
@@ -138,7 +121,8 @@ const updateStaffSchema = z.object({
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
-  role: z.enum(["OWNER", "PARTNER"]).optional(),
+  role: z.enum(["OWNER", "MANAGER", "STAFF", "PARTNER"]).optional(),
+  applyRolePreset: z.boolean().optional(),
 });
 
 const resetStaffPasswordSchema = z.object({
@@ -147,7 +131,7 @@ const resetStaffPasswordSchema = z.object({
 });
 
 // ============================================================
-// createStaff — Owner only
+// createStaff — scoped account management
 // ============================================================
 
 export async function createStaff(
@@ -156,6 +140,8 @@ export async function createStaff(
   try {
     const sessionUser = await requireStaffManageSession();
     const data = createStaffSchema.parse(input);
+    const staffRole: UserRole = data.role ?? "STAFF";
+    if (!canAssignStaffRole(sessionUser.role, staffRole)) throw new AppError("FORBIDDEN", "店長只能建立門市人員帳號");
     const writeStoreId = await resolveWriteStoreId(sessionUser);
     const hasSpaSetup = Boolean(data.spaCompensation || data.spaSkillKeys || data.spaWeeklyAvailability);
     if (hasSpaSetup) await requireSpaStore(writeStoreId);
@@ -182,13 +168,12 @@ export async function createStaff(
       if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
     }
     const existingPhone = await prisma.user.findFirst({
-      where: { phone: data.phone, role: data.role ?? "PARTNER" },
+      where: { phone: data.phone, role: staffRole },
       select: { id: true },
     });
     if (existingPhone) throw new AppError("CONFLICT", "此手機號碼已建立相同身分的帳號");
 
     const passwordHash = hashSync(data.password, 10);
-    const staffRole: UserRole = data.role ?? "OWNER";
 
     if (data.spaSkillKeys) {
       await spaPrisma.$transaction(async (tx) => {
@@ -205,6 +190,8 @@ export async function createStaff(
     }
 
     const user = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      const managerGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
       await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId);
       const created = await tx.user.create({
@@ -227,6 +214,11 @@ export async function createStaff(
         },
         include: { staff: true },
       });
+      if (created.staff) {
+        const defaults = getDefaultPermissionsForRole(staffRole);
+        await tx.staffPermission.createMany({ data: ALL_PERMISSIONS.map(permission => ({ staffId: created.staff!.id, permission, granted: defaults.includes(permission) && (managerGrants === null || managerGrants.has(permission)) })) });
+      }
+      await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId, module: "SYSTEM", targetType: "Staff", targetId: created.staff!.id, action: "CREATE", summary: "建立人員帳號", after: { role: staffRole } }, tx);
       return created;
     });
 
@@ -238,11 +230,6 @@ export async function createStaff(
       });
     }
 
-    // 根據角色建立預設權限
-    if (user.staff) {
-      await createDefaultPermissions(user.staff.id, staffRole);
-    }
-
     revalidateStaff();
     return { success: true, data: { staffId: user.staff!.id } };
   } catch (e) {
@@ -251,7 +238,7 @@ export async function createStaff(
 }
 
 // ============================================================
-// updateStaff — Owner only
+// updateStaff — scoped account management
 // ============================================================
 
 export async function updateStaff(
@@ -277,30 +264,40 @@ export async function updateStaff(
       user: { role: staff.user.role },
     });
 
-    // 更新 Staff 基本資料
-    const { role: newRole, ...staffData } = data;
-    await prisma.staff.update({
-      where: { id: staffId, storeId: writeStoreId },
-      data: staffData,
-    });
-
-    // 如果角色變更，同步更新 User.role
-    if (newRole) {
-      // 防呆：不允許降級最後一位 ADMIN
-      const currentUser = await prisma.user.findUnique({
-        where: { id: staff.user.id },
-        select: { role: true },
-      });
-      if (currentUser?.role === "ADMIN") {
-        const { assertNotLastAdmin } = await import("@/lib/permissions");
-        await assertNotLastAdmin(staff.user.id);
-      }
-      await prisma.user.update({
-        where: { id: staff.user.id },
-        data: { role: newRole },
-      });
+    const { role: newRole, applyRolePreset, ...staffData } = data;
+    if (newRole && newRole !== staff.user.role && !canAssignStaffRole(sessionUser.role, newRole)) {
+      throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     }
-
+    await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      const storedPermissions = (await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission).sort();
+      await readStaffManagerGrants(tx, sessionUser, writeStoreId);
+      if (current.userId === sessionUser.id || !canManageStaffRole(sessionUser.role, current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
+      if (newRole && newRole !== "OWNER") await assertStoreRetainsOwner(tx, writeStoreId, staffId);
+      await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: staffData });
+      if (newRole && newRole !== current.user.role) {
+        if (current.user.role === "ADMIN" && await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { not: current.userId } } }) === 0) throw new AppError("FORBIDDEN", "至少須保留一位系統管理者");
+        await tx.user.update({ where: { id: current.userId }, data: { role: newRole } });
+      }
+      if (applyRolePreset) {
+        if (sessionUser.role === "MANAGER") throw new AppError("FORBIDDEN", "請由老闆套用角色預設");
+        const defaults = getDefaultPermissionsForRole(newRole ?? current.user.role);
+        for (const permission of ALL_PERMISSIONS) await tx.staffPermission.upsert({
+          where: { staffId_permission: { staffId, permission } },
+          create: { staffId, permission, granted: defaults.includes(permission) },
+          update: { granted: defaults.includes(permission) },
+        });
+      }
+      await recordOperationAudit({
+        actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
+        module: "SYSTEM", targetType: "Staff", targetId: staffId, action: "UPDATE", summary: "調整人員角色與資料",
+        before: { role: current.user.role, permissions: current.user.role === "OWNER" ? [...ALL_PERMISSIONS] : storedPermissions },
+        after: { role: newRole ?? current.user.role, applyRolePreset: Boolean(applyRolePreset),
+          permissions: (newRole ?? current.user.role) === "OWNER" ? [...ALL_PERMISSIONS] : applyRolePreset ? getDefaultPermissionsForRole(newRole ?? current.user.role) : storedPermissions },
+      }, tx);
+    });
+    revalidateStaffPermissions();
     revalidateStaff();
     return { success: true, data: undefined };
   } catch (e) {
@@ -309,7 +306,7 @@ export async function updateStaff(
 }
 
 // ============================================================
-// deactivateStaff — Owner only
+// deactivateStaff — scoped account management
 // ============================================================
 
 export async function deactivateStaff(staffId: string): Promise<ActionResult<void>> {
@@ -330,13 +327,15 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
       isOwner: staff.isOwner,
       user: { role: staff.user.role },
     });
-    // 最小防呆：停用後該店不可無人可管理（無 active ADMIN 時才擋）
-    await assertNotLastStoreManager(staff.storeId, staff.id);
-
-    await prisma.$transaction([
-      prisma.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "INACTIVE" } }),
-      prisma.user.update({ where: { id: staff.userId }, data: { status: "SUSPENDED" } }),
-    ]);
+    await prisma.$transaction(async tx => {
+      await assertStoreRetainsOwner(tx, writeStoreId, staffId);
+      const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      await readStaffManagerGrants(tx, sessionUser, writeStoreId);
+      if (current.userId === sessionUser.id || !canManageStaffRole(sessionUser.role, current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
+      await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "INACTIVE" } });
+      await tx.user.update({ where: { id: current.userId }, data: { status: "SUSPENDED" } });
+      await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId, module: "SYSTEM", targetType: "Staff", targetId: staffId, action: "DEACTIVATE", summary: "停用人員", before: { status: current.status, role: current.user.role }, after: { status: "INACTIVE", role: current.user.role } }, tx);
+    });
 
     revalidateStaff();
     return { success: true, data: undefined };
@@ -369,26 +368,18 @@ export async function resetStaffPasswordAction(
       include: { user: { select: { id: true, role: true } } },
     });
     if (!targetStaff) throw new AppError("NOT_FOUND", "員工不存在");
-    if (targetStaff.isOwner) {
-      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
-    }
-
-    const targetRole = targetStaff.user.role;
-
-    // ADMIN 身份目標一律拒絕（系統管理者不應透過此流程）
-    if (targetRole === "ADMIN") {
-      throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
-    }
-
-    // OWNER 僅能重設 PARTNER；不得重設其他 OWNER
-    if (sessionUser.role === "OWNER" && targetRole !== "PARTNER") {
-      throw new AppError("FORBIDDEN", "店長僅可重設合作店長 / 員工帳號的密碼");
-    }
+    await assertCanManageStaff(sessionUser, targetStaff);
+    if (targetStaff.user.role === "ADMIN") throw new AppError("FORBIDDEN", "無法重設系統管理者帳號");
 
     const passwordHash = hashSync(data.newPassword, 10);
-    await prisma.user.update({
-      where: { id: data.userId },
-      data: { passwordHash },
+    await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      await readStaffManagerGrants(tx, sessionUser, writeStoreId);
+      const current = await tx.staff.findUniqueOrThrow({ where: { id: targetStaff.id }, include: { user: true } });
+      if (!canManageStaffRole(sessionUser.role, current.user.role) || current.user.role === "ADMIN") throw new AppError("FORBIDDEN", "無權管理此帳號");
+      await tx.user.update({ where: { id: data.userId }, data: { passwordHash } });
+      await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
+        module: "SYSTEM", targetType: "Staff", targetId: current.id, action: "PASSWORD_RESET", summary: "重設人員登入密碼" }, tx);
     });
 
     return { success: true, data: undefined };
@@ -398,7 +389,7 @@ export async function resetStaffPasswordAction(
 }
 
 // ============================================================
-// activateStaff — Owner only
+// activateStaff — scoped account management
 // ============================================================
 
 export async function activateStaff(staffId: string): Promise<ActionResult<void>> {
@@ -425,6 +416,10 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
     const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
     const activationLimits = await getStoreLimitsByStoreId(writeStoreId);
     await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      await readStaffManagerGrants(tx, sessionUser, writeStoreId);
+      const target = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      if (!canManageStaffRole(sessionUser.role, target.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId } });
       if (current.status !== "ACTIVE") {
@@ -434,7 +429,8 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
         }
       }
       await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "ACTIVE" } });
-      await tx.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } });
+      await tx.user.update({ where: { id: target.userId }, data: { status: "ACTIVE" } });
+      await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId, module: "SYSTEM", targetType: "Staff", targetId: staffId, action: "ACTIVATE", summary: "啟用人員", before: { status: current.status, role: target.user.role }, after: { status: "ACTIVE", role: target.user.role } }, tx);
     }, { maxWait: 5_000, timeout: 15_000 });
 
     revalidateStaff();
@@ -472,23 +468,28 @@ export async function updateStaffPermissionsAction(
       user: { role: staff.user.role },
     });
 
-    const beforePermissions = Array.from(await getStaffPermissions(staffId, writeStoreId)).sort();
-    await updateStaffPermissions(staffId, permissions);
-    const afterPermissions = Object.entries(permissions)
-      .filter(([, granted]) => granted)
-      .map(([permission]) => permission)
-      .sort();
-    await recordOperationAudit({
-      actorUserId: sessionUser.id,
-      actorNameSnapshot: sessionUser.name,
-      storeId: writeStoreId,
-      module: "SYSTEM",
-      targetType: "StaffPermission",
-      targetId: staffId,
-      action: "UPDATE",
-      summary: "調整人員權限",
-      before: { permissions: beforePermissions },
-      after: { permissions: afterPermissions },
+    for (const [code, granted] of Object.entries(permissions)) {
+      if (!(ALL_PERMISSIONS as readonly string[]).includes(code) || typeof granted !== "boolean") throw new AppError("VALIDATION", "權限設定不正確");
+    }
+    await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      const actorGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
+      const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      if (current.userId === sessionUser.id || !canManageStaffRole(sessionUser.role, current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
+      if (current.user.role === "OWNER" || current.user.role === "ADMIN") throw new AppError("FORBIDDEN", "老闆權限全開放，請以角色調整管理帳號");
+      const before = new Set((await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission));
+      const after = new Set(before);
+      for (const [permission, granted] of Object.entries(permissions)) {
+        if (actorGrants && before.has(permission) !== granted && !actorGrants.has(permission)) throw new AppError("FORBIDDEN", "只能調整自己已獲授權的功能");
+        if (granted) after.add(permission); else after.delete(permission);
+        await tx.staffPermission.upsert({ where: { staffId_permission: { staffId, permission } },
+          create: { staffId, permission, granted }, update: { granted } });
+      }
+      await recordOperationAudit({
+        actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
+        module: "SYSTEM", targetType: "StaffPermission", targetId: staffId, action: "UPDATE", summary: "調整人員權限",
+        before: { permissions: Array.from(before).sort() }, after: { permissions: Array.from(after).sort() },
+      }, tx);
     });
     revalidateStaffPermissions();
     revalidateStaff();

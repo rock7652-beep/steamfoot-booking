@@ -75,7 +75,7 @@ export function OperationHistoryButton({
   targetId,
   className = "text-xs text-earth-500 underline underline-offset-2 hover:text-earth-800",
 }: {
-  targetType: "Booking" | "SpaBooking" | "CourseBooking" | "CashbookEntry" | "StaffPermission";
+  targetType: "Booking" | "SpaBooking" | "CourseBooking" | "CashbookEntry" | "StaffPermission" | "InventoryOrder" | "InventoryProduct" | "InventorySupplier" | "InventoryPayment" | "InventoryStockCount";
   targetId: string;
   className?: string;
 }) {

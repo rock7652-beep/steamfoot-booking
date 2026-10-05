@@ -9,6 +9,7 @@
  * 本頁只負責 fetch + 權限 + render workspace。
  */
 
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { CourseTodaySummary } from "../courses/today-summary";
 import { redirect } from "next/navigation";
 
@@ -58,6 +59,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
     return <CashDrawerLockedState />;
   }
 
+  if(!await canReadInventoryFinance(storeId,user)) return <PageShell><PageHeader title="現金抽屜" /><p>完整結帳需有查看進貨成本的權限。</p></PageShell>;
   const todayStr = toLocalDateStr();
   const [y, m, d] = todayStr.split("-").map(Number);
   const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));

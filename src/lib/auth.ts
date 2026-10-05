@@ -1594,7 +1594,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Handle stale JWTs with deprecated role values — force re-read from DB
       // Uses try-catch because the middleware Prisma client may not support new fields yet
-      const DEPRECATED_ROLES = ["OWNER", "BRANCH_MANAGER", "INTERN_MANAGER", "MANAGER"];
+      const DEPRECATED_ROLES = ["OWNER", "BRANCH_MANAGER", "INTERN_MANAGER"];
       if (!user && appToken.role && DEPRECATED_ROLES.includes(appToken.role as string)) {
         try {
           const dbUser = await prisma.user.findUnique({

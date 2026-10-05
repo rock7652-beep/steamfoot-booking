@@ -158,7 +158,10 @@ export default async function DashboardHomePage() {
 
   // 顧客經營摘要 — 需 customer.read；只讀 count（不讀名單）。
   // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
-  const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
+  const [canViewCustomers, canViewReports] = await Promise.all([
+    checkPermission(user.role, user.staffId, "customer.read"),
+    checkPermission(user.role, user.staffId, "report.read"),
+  ]);
   // Central identity health is HQ-only. OWNER can have identity.rebind for
   // store-level workflows, but must not see or trigger this cross-identity scan.
   const pendingMemberLinkReviews = user.role === "ADMIN" && dashboardStoreId
@@ -596,12 +599,12 @@ export default async function DashboardHomePage() {
                 >
                   營收 →
                 </Link>
-                <Link
+                {canViewReports && <Link
                   href="/dashboard/reports"
                   className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
                 >
                   報表 →
-                </Link>
+                </Link>}
               </>
             )}
           </div>

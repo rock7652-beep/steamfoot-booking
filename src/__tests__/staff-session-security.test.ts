@@ -110,3 +110,22 @@ describe("staff session revocation through the real auth callbacks", () => {
     expect(await config.callbacks.jwt({ token: memberToken, trigger: "update" })).toEqual(memberToken);
   });
 });
+
+ it.each(["MANAGER", "STAFF"])("verifies %s credentials and revokes stale sessions after a role change", async role => {
+   const current = state({ role }); mocks.findFirst.mockResolvedValue(current); mocks.findUnique.mockResolvedValue(current);
+   const provider = config.providers.find(p => p.id === "credentials")!;
+   const signed = await provider.authorize({ email: "owner@example.invalid", password: "test-password" });
+   expect(signed).toMatchObject({ role, staffId: "test-staff", storeId: "store-a" });
+   expect(await config.callbacks.jwt({ token: token(current) })).not.toBeNull();
+   mocks.findUnique.mockResolvedValue(state({ role: "CUSTOMER" }));
+   expect(await config.callbacks.jwt({ token: token(current) })).toBeNull();
+ });
+
+it.each(["OWNER", "MANAGER", "STAFF"])("revokes %s's open session after account or staff deactivation", async role => {
+  const current = state({ role });
+  const old = token(current);
+  mocks.findUnique.mockResolvedValue(state({ role, status: "SUSPENDED" }));
+  expect(await config.callbacks.jwt({ token: old })).toBeNull();
+  mocks.findUnique.mockResolvedValue(state({ role, staff: { id: "test-staff", storeId: "store-a", status: "INACTIVE" } }));
+  expect(await config.callbacks.jwt({ token: old })).toBeNull();
+});

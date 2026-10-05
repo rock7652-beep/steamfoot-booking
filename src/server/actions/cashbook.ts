@@ -197,6 +197,7 @@ export async function updateCashbookEntry(
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+    if (entry.id.startsWith("inventory:")) throw new AppError("BUSINESS_RULE", "此為進銷存連動款項，不能單獨修改或刪除現金帳。");
     if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
@@ -300,6 +301,7 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+    if (entry.id.startsWith("inventory:")) throw new AppError("BUSINESS_RULE", "此為進銷存連動款項，不能單獨修改或刪除現金帳。");
     if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 

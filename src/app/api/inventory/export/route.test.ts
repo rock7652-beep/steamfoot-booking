@@ -1,0 +1,12 @@
+import { beforeEach, it, expect, vi } from "vitest";
+import ExcelJS from "exceljs";
+const mock = vi.hoisted(() => ({ allowed: vi.fn(), permission: vi.fn(), data: vi.fn(), gate: vi.fn() }));
+vi.mock("@/server/services/inventory", () => ({ inventoryContext: async () => ({ storeId: 'qa', canCost: false }), inventoryExportEnabled: mock.allowed, inventoryData: mock.data }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: mock.permission }));
+vi.mock("@/lib/data-export-gate", () => ({ requireDataExportFeature: mock.gate }));
+import { GET } from "./route";
+beforeEach(() => { mock.allowed.mockResolvedValue(true); mock.permission.mockResolvedValue({}); mock.gate.mockResolvedValue(null); mock.data.mockResolvedValue({ products: [{ name: '=SUM(1,2)', stock: 8, price: 200, averageCost: 123, active: true }] }); });
+it('blocks direct export requests when the feature is disabled', async () => { mock.allowed.mockResolvedValue(false); const response = await GET(); expect(response.status).toBe(403); });
+it('creates a genuine Excel workbook with no cost column for staff', async () => { const response = await GET(); expect(response.status).toBe(200); const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(await response.arrayBuffer()); const sheet = workbook.worksheets[0]; expect(sheet.getRow(1).values).not.toContain('平均成本'); expect(sheet.getCell('A2').value).toBe('=SUM(1,2)'); expect(sheet.getCell('F2').value).toBe(8); expect(sheet.getCell('A2').type).toBe(ExcelJS.ValueType.String); });
+
+it('exports only products matching both text and brand filters',async()=>{mock.data.mockResolvedValue({products:[{name:'A',brand:'品牌甲',stock:2,price:10,active:true},{name:'A',brand:'品牌乙',stock:3,price:20,active:true}]});const response=await GET(new Request('https://inventory.local/api/inventory/export?q=A&brand='+encodeURIComponent('品牌乙')));const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await response.arrayBuffer());expect(workbook.worksheets[0].rowCount).toBe(2);expect(workbook.worksheets[0].getCell('B2').value).toBe('品牌乙');});

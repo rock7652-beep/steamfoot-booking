@@ -1,3 +1,5 @@
+// Cost access is covered by inventory-finance-access.test.ts; these cases retain their original finance scope.
+vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:async()=>true,inventoryCashbookReadFilter:async()=>({})}));
 /**
  * PR-4：cashbook 付款方式可視化 + 閉店日防呆 guard 單元測試
  *

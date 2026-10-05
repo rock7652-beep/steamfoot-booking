@@ -52,7 +52,7 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
   const requestHeaders = await headers();
   const storeSlug = requestHeaders.get("x-store-slug") ?? user?.storeSlug ?? "demo";
   if (!user) redirect(`/s/${storeSlug}/staff/login`);
-  if (user.role !== "PARTNER" || !user.staffId || !user.storeId) notFound();
+  if (!["PARTNER", "STAFF"].includes(user.role) || !user.staffId || !user.storeId) notFound();
   if (!isSpaDemoStoreId(user.storeId)) notFound();
 
   const requested = (await searchParams).date;

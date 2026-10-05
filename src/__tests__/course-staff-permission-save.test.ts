@@ -8,7 +8,7 @@ vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermis
 vi.mock("next/cache",()=>({revalidatePath:vi.fn(),unstable_cache:(fn:unknown)=>fn}));
 import {saveCourseStaff} from "@/server/actions/course-staff";
 const input={id:"manager2",name:"Manager",kind:"manager",requestKey:"11111111-1111-4111-a111-111111111111"};
-beforeEach(()=>{vi.resetAllMocks();m.music.mockResolvedValue(false);m.scope.mockResolvedValue(null);m.raw.mockResolvedValue([]);m.manager.mockResolvedValue({user:{id:"owner",role:"OWNER",staffId:"manager1"},storeId:"s"});m.limits.mockResolvedValue({maxStaff:10});m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});m.count.mockResolvedValue(2);m.linkFind.mockResolvedValue(null);m.linkCreate.mockResolvedValue({id:"link1",managerStaffId:"manager2",instructorStaffId:"coach2"});});
+beforeEach(()=>{vi.resetAllMocks();m.music.mockResolvedValue(false);m.scope.mockResolvedValue(null);m.raw.mockResolvedValue([]);m.manager.mockResolvedValue({user:{id:"owner",role:"OWNER",staffId:"manager1"},storeId:"s"});m.limits.mockResolvedValue({maxStaff:10});m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});m.count.mockResolvedValue(2);m.linkFind.mockResolvedValue(null);m.linkCreate.mockResolvedValue({id:"link1",managerStaffId:"manager2",instructorStaffId:"coach2"});});
 it("can grant implemented transaction permissions, then explicitly revoke refund without granting headquarters",async()=>{
  expect(await saveCourseStaff({...input,permissions:["transaction.read","transaction.create","transaction.void","transaction.refund","customer.assign"]})).toMatchObject({success:true});
  expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission:"transaction.refund"}},update:{granted:true}}));
@@ -24,7 +24,7 @@ it("does not invalidate the current login when only its permissions change",asyn
 });
 it("requires an authorized owner and rejects permissions outside the course module",async()=>{
  m.manager.mockResolvedValue({user:{role:"CUSTOMER"},storeId:"s"});expect(await saveCourseStaff(input)).toMatchObject({success:false});expect(m.staff).not.toHaveBeenCalled();
- m.manager.mockResolvedValue({user:{role:"OWNER"},storeId:"s"});expect(await saveCourseStaff({...input,permissions:["transaction.discount"]})).toMatchObject({success:false});expect(m.permission).not.toHaveBeenCalled();
+ m.manager.mockResolvedValue({user:{role:"STAFF"},storeId:"s"});expect(await saveCourseStaff({...input,permissions:["transaction.discount"]})).toMatchObject({success:false});expect(m.permission).not.toHaveBeenCalled();
 });
 it("saves and revokes course export permissions independently",async()=>{
  expect(await saveCourseStaff({...input,permissions:["customer.read","customer.export","report.read","report.export"]})).toMatchObject({success:true});
@@ -38,7 +38,7 @@ it("saves and revokes course export permissions independently",async()=>{
  }
 });
 it("blocks coach removal with an ongoing class but allows confirmed whole-person revocation without suspending the member account",async()=>{
- m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"OWNER"}});
+ m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"STAFF"}});
  m.raw.mockImplementation(async(sql:TemplateStringsArray)=>sql.join("").includes('FROM "CourseSession"') ? [{id:"ongoing",name:"進行中課程",startsAt:new Date(),capacity:5}] : []);
  expect(await saveCourseStaff({...input,coachEnabled:false})).toMatchObject({success:false,conflicts:[{id:"ongoing"}]});
  expect(m.update).not.toHaveBeenCalled();
@@ -48,7 +48,7 @@ it("blocks coach removal with an ongoing class but allows confirmed whole-person
  expect(m.user).toHaveBeenCalledWith(expect.objectContaining({data:expect.not.objectContaining({status:"SUSPENDED"})}));
 });
 it("removing coach role after handover preserves the manager role and one Staff row",async()=>{
- m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"OWNER"}});
+ m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"STAFF"}});
  m.raw.mockResolvedValue([]);
  expect(await saveCourseStaff({...input,coachEnabled:false})).toMatchObject({success:true});
  expect(m.update).toHaveBeenCalledWith(expect.objectContaining({where:{id:"manager2"},data:expect.objectContaining({status:"ACTIVE",courseCoachEnabled:false})}));
@@ -56,7 +56,8 @@ it("removing coach role after handover preserves the manager role and one Staff 
 });
 
 it("delegated staff cannot grant a financial permission they do not hold",async()=>{
- m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:false,permissions:[{permission:"staff.manage"}]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});
+ m.manager.mockResolvedValue({user:{id:"owner",role:"MANAGER",staffId:"manager1"},storeId:"s"});
+ m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:false,permissions:[{permission:"staff.manage"}]}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
  expect(await saveCourseStaff({...input,permissions:["teacher.settlement.pay"]})).toMatchObject({success:false});expect(m.permission).not.toHaveBeenCalled();
 });
 
@@ -78,15 +79,37 @@ it("teacher scope is restricted to the same store and recorded with an audit",as
 });
 
 it("links only the opposite work role in the same store, without granting permissions to that role",async()=>{
- m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]} : where.id==="coach2"?{id:"coach2",userId:"coach-user",user:{role:"CUSTOMER"}}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});
+ m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]} : where.id==="coach2"?{id:"coach2",userId:"coach-user",user:{role:"CUSTOMER"}}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
  expect(await saveCourseStaff({...input,linkedStaffId:"coach2",phone:"0912345678"})).toMatchObject({success:true});
  expect(m.linkCreate).toHaveBeenCalledWith({data:{storeId:"s",managerStaffId:"manager2",instructorStaffId:"coach2",linkedByUserId:"owner"}});
  expect(m.update).toHaveBeenCalledWith(expect.objectContaining({where:{id:"coach2"},data:expect.objectContaining({phone:"0912345678",displayName:"Manager"})}));
  expect(m.user).toHaveBeenCalledWith({where:{id:"coach-user"},data:{name:"Manager"}});
  expect(m.permission.mock.calls.every(c=>c[0].where.staffId_permission.staffId==="manager2")).toBe(true);
- m.linkCreate.mockClear();m.staff.mockImplementation(async({where})=>where.id==="coach2"?{id:"coach2",user:{role:"OWNER"}}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"OWNER"}});
+ m.linkCreate.mockClear();m.staff.mockImplementation(async({where})=>where.id==="coach2"?{id:"coach2",user:{role:"STAFF"}}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
  expect(await saveCourseStaff({...input,linkedStaffId:"coach2"})).toMatchObject({success:false});
  expect(m.linkCreate).not.toHaveBeenCalled();
+});
+
+it("rejects an instructor already linked to another person",async()=>{
+ m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]} : where.id==="coach2"?{id:"coach2",userId:"coach-user",user:{role:"CUSTOMER"}}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
+ m.linkFind.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"occupied",managerStaffId:"another-manager",instructorStaffId:"coach2"});
+ const result=await saveCourseStaff({...input,linkedStaffId:"coach2"});
+ expect(result).toMatchObject({success:false,error:expect.stringContaining("已連結其他身分")});
+ expect(m.linkCreate).not.toHaveBeenCalled(); expect(m.linkDelete).not.toHaveBeenCalled();
+});
+
+it("rejects self links and a counterpart outside the current store",async()=>{
+ expect(await saveCourseStaff({...input,linkedStaffId:"manager2"})).toMatchObject({success:false});
+ m.staff.mockImplementation(async({where})=>where.id==="foreign-coach"?null:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
+ expect(await saveCourseStaff({...input,linkedStaffId:"foreign-coach"})).toMatchObject({success:false});
+ expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({where:{id:"foreign-coach",storeId:"s"}}));
+ expect(m.linkCreate).not.toHaveBeenCalled();
+});
+
+it("preserves an existing person link instead of silently replacing it",async()=>{
+ m.linkFind.mockResolvedValue({id:"prior",managerStaffId:"manager2",instructorStaffId:"original-coach"});
+ expect(await saveCourseStaff({...input,linkedStaffId:"different-coach"})).toMatchObject({success:false,error:expect.stringContaining("先解除舊連結")});
+ expect(m.linkCreate).not.toHaveBeenCalled(); expect(m.linkDelete).not.toHaveBeenCalled();
 });
 
  it("rejects a stale default coach fee without overwriting the newer value",async()=>{

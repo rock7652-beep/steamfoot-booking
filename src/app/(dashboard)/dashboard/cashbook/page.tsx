@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { CashbookEditor } from "./cashbook-editor";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
@@ -124,6 +125,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const canManageCashbook =
     !isViewMode && (await checkPermission(user.role, user.staffId, "cashbook.create"));
 
+  const canFullFinance = await canReadInventoryFinance(cashbookStoreId,user);
   // 平行 fetch：cashbook（必要）+ cash drawer（依權限）
   const [cashbookList, summary, plan, cashDrawerData] = await Promise.all([
     listCashbookEntries({
@@ -136,9 +138,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       pageSize: 30,
       activeStoreId: cashbookStoreId,
     }),
-    getMonthlySummary(month, cashbookStoreId),
+    canFullFinance ? getMonthlySummary(month, cashbookStoreId) : Promise.resolve(null),
     getCachedStorePlan(cashbookStoreId ?? undefined),
-    !isCourse && canViewCashDrawer && cashbookStoreId
+    canFullFinance && !isCourse && canViewCashDrawer && cashbookStoreId
       ? (async () => {
           const cashDrawerEnabled = await hasStoreFeature(cashbookStoreId, FEATURES.CASH_DRAWER);
           if (!cashDrawerEnabled) {
@@ -277,7 +279,8 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           )}
 
           {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {!summary&&<p className="text-sm text-earth-600">進貨付款已依權限隱藏；完整收支統計與結帳需有成本權限。</p>}
+          {summary&&<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex items-baseline justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
               <p className="text-xs text-green-600">收入</p>
               <p className="text-lg font-bold tabular-nums text-green-700">
@@ -308,6 +311,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             </div>
           </div>
 
+          }
           {/* 明細列表 */}
           <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -378,6 +382,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       ) : (
                         <div className="flex items-center gap-3">
                           <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
+                          {e.id.startsWith("inventory:") ? <span className="text-sm text-earth-500">進銷存連動</span> : <>
                           {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
@@ -385,6 +390,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                             編輯
                           </Link>}
                           {canManageCashbook && <CashbookEntryDeleteButton entryId={e.id} />}
+                          </>}
                         </div>
                       )}
                     </td>

@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { analysisExportRows } from "@/server/queries/analysis-export";
 import { isAnalysisDate } from "@/lib/date-utils";
 import { NextRequest, NextResponse } from "next/server";
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
   const dataExportLocked = await requireDataExportFeature(activeStoreId);
   if (dataExportLocked) return dataExportLocked;
 
+  if(!await canReadInventoryFinance(activeStoreId,user)) return new NextResponse("完整財務報表匯出需有查看進貨成本的權限",{status:403});
   const storeFilter = getStoreFilter(user, activeStoreId);
 
   // PricingPlan: 報表匯出次數限制

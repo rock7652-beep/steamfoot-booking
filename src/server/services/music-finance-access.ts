@@ -9,8 +9,8 @@ export const isMusicFinanceStore=cache(async(storeId:string)=>!!await prisma.sto
 /** Fresh per request: absent configuration preserves explicit whole-store grants.
  * Missing/inactive/cross-store operators always receive an empty scope. */
 export async function readMusicFinanceScope(user:Actor,storeId:string):Promise<string[]|null> {
- if(!await isMusicFinanceStore(storeId))return null;
- const rows=await prisma.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT CASE WHEN s."isOwner" THEN NULL ELSE f."teacherIds" END AS "teacherIds" FROM "Staff" s LEFT JOIN "CourseTeacherFinanceScope" f ON f."staffId"=s.id AND f."storeId"=s."storeId" WHERE s.id=${user.staffId??""} AND s."storeId"=${storeId} AND s.status='ACTIVE'`;
+ if(!await isMusicFinanceStore(storeId) || user.role === "ADMIN")return null;
+ const rows=await prisma.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT CASE WHEN u.role::text='OWNER' THEN NULL ELSE f."teacherIds" END AS "teacherIds" FROM "Staff" s JOIN "User" u ON u.id=s."userId" LEFT JOIN "CourseTeacherFinanceScope" f ON f."staffId"=s.id AND f."storeId"=s."storeId" WHERE s.id=${user.staffId??""} AND s."storeId"=${storeId} AND s.status='ACTIVE'`;
  return rows.length?rows[0].teacherIds:[];
 }
 export async function canMusicFinance(user:Actor,storeId:string,permission:PermissionCode,target?:string) {

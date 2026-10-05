@@ -20,7 +20,7 @@ function maskPhone(phone:string){
 
 async function requireSpaStaffOwner(){
  const user=await requirePermission("duty.manage");
- if(user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可管理服務人員");
+ if(!["OWNER","MANAGER","ADMIN"].includes(user.role))throw new AppError("FORBIDDEN","僅店長可管理服務人員");
  const storeId=await spaResourceStore("duty.manage");
  await requireStoreFeature(storeId,FEATURES.STAFF_MANAGEMENT);
  return{user,storeId};
@@ -88,7 +88,7 @@ export async function linkSpaPersonToMember(input:z.infer<typeof linkSchema>){
 export async function createSpaPerson(input:z.infer<typeof schema>){
  try{
   const user=await requirePermission("duty.manage");
-  if(user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可新增服務人員");
+  if(!["OWNER","MANAGER","ADMIN"].includes(user.role))throw new AppError("FORBIDDEN","僅店長可新增服務人員");
   const storeId=await spaResourceStore("duty.manage");const d=schema.parse(input);
   await requireStoreFeature(storeId,FEATURES.STAFF_MANAGEMENT);
   const limits=await getStoreLimitsByStoreId(storeId);
@@ -110,7 +110,7 @@ const personEdit=z.object({staffId:z.string().min(1),name:z.string().trim().min(
 export async function updateSpaPerson(input:z.infer<typeof personEdit>){
  try{
   const user=await requirePermission("duty.manage");
-  if(user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可修改服務人員");
+  if(!["OWNER","MANAGER","ADMIN"].includes(user.role))throw new AppError("FORBIDDEN","僅店長可修改服務人員");
   const storeId=await spaResourceStore("duty.manage"),d=personEdit.parse(input);
   await prisma.$transaction(async tx=>{
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;

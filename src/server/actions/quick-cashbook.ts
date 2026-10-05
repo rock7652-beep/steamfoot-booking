@@ -1,5 +1,6 @@
 "use server";
 
+import { inventoryCashbookReadFilter, canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission, requireWritablePermission } from "@/lib/permissions";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
@@ -32,14 +33,14 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
   const today = toLocalDateStr();
   const date = new Date(today + "T00:00:00Z");
   const scope = getManagerReadFilter(user.role, user.staffId, "staffId", storeId);
-  const where = { ...scope, storeId, entryDate: date };
+  const where = { ...scope, storeId, entryDate: date, AND: [await inventoryCashbookReadFilter(user)] };
   const currentPage = Number.isInteger(page) && page > 0 ? page : 1;
   // 已通過現金帳權限、門市與功能檢查；獨立讀取不再等待其他 UI 權限。
   const [entries, total, drawer, closedDates, viewContext, writePermission] = await Promise.all([
     prisma.cashbookEntry.findMany({ where, orderBy: { createdAt: "desc" }, skip: (currentPage - 1) * 20, take: 20, include: { customer: { select: { id: true, name: true } } } }),
     prisma.cashbookEntry.count({ where }),
     (async () => {
-      const canDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
+      const canDrawer = await canReadInventoryFinance(storeId, user) && await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
       const summary = canDrawer ? await getCashDrawerBalanceSummary(storeId, date) : { balance: null, balanceLabel: "今日尚未開店點錢" };
       return { canDrawer, ...summary };
     })(),
@@ -58,7 +59,7 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
     }));
   }
   return { today, page: currentPage, total, canWrite, closedDates, canDrawer, balance, balanceLabel,
-    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
+    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: !e.id.startsWith("inventory:") && canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
   };
 }
 

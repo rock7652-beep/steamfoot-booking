@@ -6,7 +6,6 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { getCachedShopConfig, getCachedBusinessHours } from "@/lib/query-cache";
-import { listStaff } from "@/server/queries/staff";
 import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
@@ -45,7 +44,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
-  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
+  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER") {
     notFound();
   }
 
@@ -99,7 +98,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
   const [
     plan,
     shopConfig,
-    staffList,
     rules,
     weeklyHours,
     store,
@@ -119,7 +117,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
       lineOfficialUrl: null as string | null,
       referralShareTemplate: null as string | null,
     })),
-    listStaff(activeStoreId).catch(() => []),
     listReminderRules(activeStoreId).catch(() => []),
     getCachedBusinessHours(activeStoreId).catch(() => []),
     prisma.store.findUnique({
@@ -134,8 +131,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     checkPermission(user.role, user.staffId, "duty.manage"),
   ]);
 
-  const staffCount = staffList.length;
-  const activeStaffCount = staffList.filter((s) => s.status === "ACTIVE").length;
   const planInfo = PRICING_PLAN_INFO[plan];
   const planLabel = planInfo?.label ?? plan;
   const openDays = weeklyHours.filter((h) => h.isOpen);
@@ -185,6 +180,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
             <>
               {canHours ? <SettingsListRow title="營業與預約時間" summary={hoursLine} href="/dashboard/settings/hours" action="修改" /> : null}
               {canBooking ? <SettingsListRow title="預約排程" summary="人員・服務・位置排程" href="/dashboard/spa-schedule" action="查看" /> : null}
+              {canDuty ? <SettingsListRow title="值班聯動" summary={dutyOn ? "開啟・未值班時段不開放" : "關閉"} href="/dashboard/settings/duty" action="設定" /> : null}
             </>
           ),
         },
@@ -195,16 +191,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
             <>
               {canPayment ? <SettingsListRow title="銀行轉帳資訊" summary={bankLine} href="/dashboard/settings/payment" action="修改" /> : null}
               {canManageTrial ? <SettingsListRow title="體驗設定" summary={trialLine} href="/dashboard/settings/trial" action="修改" /> : null}
-            </>
-          ),
-        },
-        {
-          id: "staff",
-          label: "人員與服務",
-          content: (
-            <>
-              {canDuty && user.role === "OWNER" ? <SettingsListRow title="人員與排班" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/spa-staff" action="管理" /> : null}
-              <SettingsListRow title="值班聯動" summary={dutyOn ? "開啟・未值班時段不開放" : "關閉"} href="/dashboard/settings/duty" action="設定" />
             </>
           ),
         },
@@ -240,13 +226,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
               <SettingsListRow title="銀行轉帳資訊" summary={bankLine} href="/dashboard/settings/payment" action="修改" />
               {canManageTrial ? <SettingsListRow title="體驗設定" summary={trialLine} href="/dashboard/settings/trial" action="修改" /> : null}
             </>
-          ),
-        },
-        {
-          id: "staff",
-          label: "人員與權限",
-          content: (
-            <SettingsListRow title="人員狀態" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/staff" action="管理" />
           ),
         },
         {

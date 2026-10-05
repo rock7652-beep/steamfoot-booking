@@ -1,5 +1,6 @@
 import "server-only";
 
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import { coursePrisma } from "@/lib/course-db";
@@ -106,6 +107,7 @@ async function courseEvents(storeId: string, startDate: string, endDate: string)
 }
 
 export async function getIndustryRevenueMix(storeId: string, startDate: string, endDate: string): Promise<RevenueMix> {
+  await requireInventoryFinanceAccess(storeId);
   const industry = await getStoreIndustryModule(storeId);
   if (industry === "steamfoot") return getRevenueMix(storeId, startDate, endDate);
   const [systemEvents, manualEvents] = await Promise.all([

@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import "server-only";
 import type { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -11,5 +12,5 @@ export async function courseHomeAccess(user: User, storeId: string) {
         checkPermission(user.role, user.staffId, "wallet.read"),
     ]);
     const writable = !blocked && (user.role === "ADMIN" || user.storeId === storeId);
-    return { bookings, create: create && bookings && writable, customers, planStatus, revenue, cash, staffScope: courseCustomerStaffScope(user, storeId), todos: { payments: revenue && confirm && writable, attendance: bookings && attendance && writable, followUp: customers && updateCustomers && writable, staffScope: courseCustomerStaffScope(user, storeId) } };
+    return { bookings, create: create && bookings && writable, customers, planStatus, revenue, cash: cash && await canReadInventoryFinance(storeId,user), staffScope: courseCustomerStaffScope(user, storeId), todos: { payments: revenue && confirm && writable, attendance: bookings && attendance && writable, followUp: customers && updateCustomers && writable, staffScope: courseCustomerStaffScope(user, storeId) } };
 }

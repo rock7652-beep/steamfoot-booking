@@ -20,7 +20,7 @@ describe("SPA service staff workspace", () => {
   it("pins booking reads to the current session staff and store", () => {
     expect(page).toContain("serviceStaffId: user.staffId");
     expect(page).toContain("storeId: user.storeId");
-    expect(page).toContain('user.role !== "PARTNER"');
+    expect(page).toContain('!["PARTNER", "STAFF"].includes(user.role)');
   });
 
   it("selects only the customer name and never sends private customer fields", () => {

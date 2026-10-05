@@ -12,6 +12,7 @@
  *   - NOT_OPENED_TODAY：今日無 session，且最近 session 是 CLOSED → 可開店
  */
 
+import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import type { CashDrawerSession, CashDrawerEntry, Prisma } from "@prisma/client";
 import {
@@ -236,6 +237,7 @@ export async function getCashDrawerView(
   storeId: string,
   todayBusinessDate: Date,
 ): Promise<CashDrawerView> {
+  await requireInventoryFinanceAccess(storeId);
   const [todaySession, latestSession] = await Promise.all([
     prisma.cashDrawerSession.findUnique({
       where: { storeId_businessDate: { storeId, businessDate: todayBusinessDate } },

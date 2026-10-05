@@ -12,7 +12,7 @@ export type StaffSecurityState = {
 
 export function isStaffSessionRole(role: unknown): boolean {
   return typeof role === "string" && [
-    "ADMIN", "OWNER", "PARTNER", "BRANCH_MANAGER", "INTERN_MANAGER", "MANAGER",
+    "ADMIN", "OWNER", "STAFF", "PARTNER", "BRANCH_MANAGER", "INTERN_MANAGER", "MANAGER",
   ].includes(role);
 }
 

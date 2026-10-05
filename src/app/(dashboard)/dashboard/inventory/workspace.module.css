@@ -1,0 +1,57 @@
+.workspace{min-width:0;container-type:inline-size;font-size:14px;color:#263d34}
+.workspace button,.workspace input,.workspace select,.workspace textarea{font:inherit;min-height:44px;border:1px solid #d9e1db;border-radius:6px;padding:8px 10px;max-width:100%;background:white;color:inherit}
+.workspace button{white-space:nowrap}.workspace button:disabled{opacity:.5}.workspace button.primary,.workspace button.active{background:#28614b;border-color:#28614b;color:white}
+/* Portal editors also need explicit control sizing; Safari's native select
+   appearance otherwise ignores the shared minimum height. */
+.workspace input:not([type=checkbox]):not([type=radio]),.workspace select,.workspace button{box-sizing:border-box;height:44px}
+.workspace select{appearance:none;-webkit-appearance:none;padding-right:32px;line-height:1.4;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2363736b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px}
+.heading,.toolbar,.tabs,.footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.heading{justify-content:space-between;margin-bottom:8px}.heading h1,.heading h2{font-size:16px;font-weight:600;margin:0}.tabs{border-bottom:1px solid #d9e1db;padding-bottom:8px;margin-bottom:8px}.tabs button{flex:none;height:44px}.toolbar{margin-bottom:8px}.search{flex:1;min-width:160px}.table{overflow:auto;border:1px solid #d9e1db;border-radius:7px}.table table{width:100%;border-collapse:collapse;min-width:720px}.table th,.table td{padding:6px 10px;border-bottom:1px solid #e1e6e2;text-align:left;vertical-align:middle}.table th{white-space:nowrap;color:#69776f;font-weight:400;background:#f5f7f5}.table td input,.table td select{width:100%;min-width:80px}.table .number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.table .quantity{text-align:center;font-variant-numeric:tabular-nums}.table .actions{text-align:center;width:144px;min-width:144px}.actionGroup{display:flex;align-items:center;justify-content:center;gap:4px}.sub{display:block;color:#6b776f;margin-top:3px}.unpaid,.error{color:#a23830}.empty{padding:20px;color:#68766e}.editor{padding:16px;container:inventory-editor/inline-size}.editor form{display:flex;flex-direction:column;gap:10px}.field{display:flex;flex-direction:column;gap:4px;min-width:0}.field>span{color:#63736b;white-space:nowrap}.field input,.field select,.field textarea{width:100%}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.meta{display:grid;grid-template-columns:160px minmax(0,1fr);gap:8px}.delivery{display:grid;grid-template-columns:minmax(100px,15fr) minmax(100px,15fr) minmax(104px,15fr) minmax(0,55fr);gap:8px}.payment{display:grid;grid-template-columns:minmax(120px,1fr) minmax(110px,1fr) minmax(0,2fr);gap:8px}.footer{justify-content:space-between;border-top:1px solid #d9e1db;padding-top:8px}.results{display:flex;flex-direction:column;gap:3px}.results button{text-align:left}.stats{display:flex;gap:24px;flex-wrap:wrap;margin:8px 0}.stats strong{display:block;font-size:18px;font-variant-numeric:tabular-nums}.editor .lines table{min-width:870px}.editor .lines td:first-child{min-width:190px}.editor .lines input[type=checkbox]{width:20px;min-width:20px;height:20px;min-height:20px}.menu{display:flex;flex-direction:column;gap:3px}.menu button{text-align:left;border:0;background:white;min-height:44px;padding:8px}.notice{color:#28614b;margin:6px 0}.wide{grid-column:1/-1}
+@container inventory-editor (max-width:479px){.delivery{grid-template-columns:repeat(3,minmax(0,1fr))}.delivery .field:last-child{grid-column:1/-1}.payment,.meta,.fields{grid-template-columns:1fr}.field>span{white-space:normal}}
+@container (max-width:500px){.stats{gap:12px}.tabs{gap:4px}.tabs button{padding:8px}.toolbar{align-items:stretch}}
+
+.editor input[type=number]{text-align:right;font-variant-numeric:tabular-nums}.editor .lines td:nth-child(3) input{text-align:center}
+
+.workspace button[aria-expanded]{border:0;background:transparent;min-width:44px;padding:8px}
+.workspace button[aria-expanded]:hover,.workspace button[aria-expanded]:focus-visible{background:#edf2ee}
+.table .actions{width:64px;min-width:64px}
+.table th{position:sticky;top:0;z-index:1}
+.table{max-height:65vh}
+.clickable{cursor:pointer}.clickable:hover{background:#f5f7f5}
+.results button{border:0;border-bottom:1px solid #e1e6e2;border-radius:0}
+.editor .footer{position:sticky;bottom:0;background:white;padding-bottom:8px;z-index:2}
+
+.workspace button.quiet{border:0;background:transparent}
+.receivingForm{display:flex;flex-direction:column;gap:10px}
+.filters{margin:8px 0}.filters summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.table td:first-child input[type=checkbox]{min-width:20px;width:20px}
+.table td:not(.number):not(.quantity):not(.actions){max-width:360px;overflow-wrap:anywhere}
+
+.filterRow{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-bottom:8px;min-width:0}.filterRow>.search{flex:1 1 220px;min-width:120px;max-width:320px}.filterRow>select{flex:0 1 160px;min-width:100px;width:160px;text-overflow:ellipsis}.filterRow>button{flex:none}.filterPopover{position:relative;flex:none}.filterPopover>summary{list-style:none;cursor:pointer;white-space:nowrap;min-height:44px;display:flex;align-items:center;padding:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis}.filterPopover>summary::-webkit-details-marker{display:none}.filterBody{position:absolute;right:0;top:100%;z-index:20;background:white;box-shadow:0 4px 18px #0002;border:1px solid #d9e1db;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;width:250px;max-height:60vh;overflow:auto}.filterBody select{width:100%}.muted{color:#6b776f}.documentCell,.partyCell{white-space:nowrap}.table .documentCell{width:210px}.table .partyCell{width:220px}.ellipsis{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.table td:has(.ellipsis){min-width:180px;max-width:330px}.checkbox{display:flex;align-items:center;gap:8px;white-space:nowrap}.editor .checkbox input[type=checkbox]{width:20px;height:20px;min-height:20px}.editor .field>span{white-space:normal}.editor details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center}.attention,.unpaid{color:#9a671b}.error{color:#a23830}.lineSummary summary{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;min-height:44px;line-height:44px}
+@container (max-width:760px){.filterRow{gap:4px}.filterRow>.search{min-width:100px;max-width:none}.filterRow>select{width:112px;min-width:84px}.filterRow>button{padding-inline:4px}.filterPopover>summary{padding-inline:4px;max-width:132px}}
+@container (max-width:540px){.filterRow{overflow-x:auto;padding-bottom:4px}.filterRow>.search{flex:none;width:150px}.filterRow>select{flex:none}.filterPopover .filterBody{position:fixed;top:25%;right:16px;width:250px}}
+.productSummary summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-height:44px;line-height:44px;max-width:400px}.productSummary p{white-space:normal;overflow-wrap:anywhere;max-width:400px}.table td:has(.productSummary){max-width:400px}
+.narrowFilters{display:none}@container (max-width:760px){.filterRow>.secondaryFilter{display:none}.narrowFilters{display:flex;flex-direction:column;gap:8px}}
+.orderMeta{grid-template-columns:160px minmax(0,1fr) 140px}.heading h1{margin-right:auto}.heading>.toolbar{margin-bottom:0}@container inventory-editor (max-width:479px){.orderMeta{grid-template-columns:1fr}}
+
+.partyControls{display:flex;gap:8px;min-width:0}.partyControls select{flex:3;min-width:0;text-overflow:ellipsis}.partyControls input{flex:2;min-width:0}.field>label{color:#63736b}
+
+/* Keep overflow in the item table and controls inside the editor width. */
+.editor form,.editor form>*,.editor .table,.editor .footer{min-width:0;max-width:100%}
+.editor .field input,.editor .field select{min-width:0;min-inline-size:0;box-sizing:border-box}
+.editor .results button{white-space:normal;overflow-wrap:anywhere;min-width:0}
+.editor .footer>strong{flex:1 1 120px;min-width:0;overflow-wrap:anywhere}
+.editor .footer>button{flex:0 0 auto;max-width:100%}
+.itemSummary{width:220px;max-width:220px}.itemSummary summary{display:block!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:44px;line-height:44px;cursor:pointer}
+.itemSummary p{margin:4px 0;white-space:normal;overflow-wrap:anywhere}
+@media (max-width:639px) and (pointer:coarse),(max-height:500px) and (pointer:coarse){
+ .workspace input,.workspace select,.workspace textarea{font-size:16px}
+}
+
+/* Read-only detail tables fit the panel; only editable item grids retain horizontal scroll. */
+.editor .compactTable table{min-width:0;table-layout:fixed}
+.editor .compactTable th,.editor .compactTable td{white-space:normal;overflow-wrap:anywhere;padding-inline:6px}
+.editor .compactTable th:first-child{width:42%}
+.editor .compactTable .number{white-space:nowrap}
+.editor .compactTable td input{min-width:0;padding-inline:4px;box-sizing:border-box}
+.editor .compactTable .actions{width:56px;min-width:56px}
+.editor .compactTable .quantity{width:48px}

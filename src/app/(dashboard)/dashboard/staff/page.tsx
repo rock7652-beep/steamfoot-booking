@@ -16,6 +16,7 @@ import type { UserRole } from "@prisma/client";
 import { spaPrisma } from "@/lib/spa-db";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { canManageStaffRole } from "@/lib/staff-role-policy";
 import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function StaffPage({
@@ -29,7 +30,8 @@ export default async function StaffPage({
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
   const activeStoreId = await getActiveStoreForRead(user);
-  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") return <CourseStaffPage />;
+  const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
+  if (industryModule === "course") return <CourseStaffPage />;
   const adminMissingStore = user.role === "ADMIN"
     && !activeStoreId;
   const [canManagePermission, staffList, plan] = await Promise.all([
@@ -38,11 +40,7 @@ export default async function StaffPage({
     getCurrentStorePlan(),
   ]);
   const canManage = canManagePermission && !adminMissingStore;
-  const isCourseStore = Boolean(activeStoreId && (await getStoreIndustryModule(activeStoreId)) === "course");
-  const isSpaStore = Boolean(
-    activeStoreId &&
-    (await getStoreIndustryModule(activeStoreId)) === "spa",
-  );
+  const isSpaStore = industryModule === "spa";
   const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
   const spaCompensationReady = isSpaStore ? await isSpaCompensationSchemaReady() : false;
   let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
@@ -95,11 +93,7 @@ export default async function StaffPage({
       userId: staff.user.id,
       displayName: staff.displayName,
       legalName: staff.user.name,
-      roleLabel: staff.isOwner
-        ? "店長"
-        : isSpaStore
-          ? "芳療師"
-          : ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
+      roleLabel: ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
       email: staff.user.email ?? "尚未設定",
       phone: staff.user.phone,
       colorCode: staff.colorCode,
@@ -110,13 +104,8 @@ export default async function StaffPage({
       emergencyContact: null,
       weeklyAvailability: persistedAvailability,
       scheduleExceptions: persistedExceptions,
-      canEdit: canManage && !staff.isOwner,
-      canResetPassword:
-        canManage
-        && !staff.isOwner
-        && staff.user.id !== user.id
-        && staff.user.role !== "ADMIN"
-        && !(user.role === "OWNER" && staff.user.role === "OWNER"),
+      canEdit: canManage && staff.user.id !== user.id && canManageStaffRole(user.role, staff.user.role),
+      canResetPassword: canManage && staff.user.id !== user.id && staff.user.role !== "ADMIN" && canManageStaffRole(user.role, staff.user.role),
       compensationMode: compensation?.mode === "PERCENTAGE" || compensation?.mode === "FIXED" ? compensation.mode : null,
       compensationValue: compensation ? Number(compensation.value) : null,
     };
@@ -124,7 +113,7 @@ export default async function StaffPage({
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
-    const roleValue = (formData.get("role") as string) || "PARTNER";
+    const roleValue = (formData.get("role") as string) || "STAFF";
     const result = await createStaff({
       name: formData.get("name") as string,
       displayName: formData.get("displayName") as string,
@@ -135,7 +124,7 @@ export default async function StaffPage({
       monthlySpaceFee: formData.get("monthlySpaceFee")
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
-      role: roleValue as "OWNER" | "PARTNER",
+      role: roleValue as "OWNER" | "MANAGER" | "STAFF" | "PARTNER",
       spaCompensation: isSpaStore && formData.get("compensationValue") !== null
         ? {
             mode: String(formData.get("compensationMode")) as "PERCENTAGE" | "FIXED",
@@ -164,7 +153,7 @@ export default async function StaffPage({
       <PageShell>
         <PageHeader
           title="人員管理"
-          subtitle={isCourseStore ? "管理教練與人員帳號；上課時間請至課表排程安排" : "管理人員、專業項目、接客時段與休假例外"}
+          subtitle={isSpaStore ? "管理人員、專業項目、接客時段與休假例外" : "管理人員帳號、角色與權限"}
         />
         {adminMissingStore ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -183,11 +172,12 @@ export default async function StaffPage({
               </div>
             ) : null}
             <StaffWorkspace
-              courseBasicOnly={isCourseStore}
-              showSteamfootRent={Boolean(activeStoreId && !isSpaStore && !isCourseStore)}
+              accountListOnly={!isSpaStore}
+              showSteamfootRent={industryModule === "steamfoot"}
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
+              canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
               showSpaCompensation={isSpaStore && spaCompensationReady}
               createAction={handleCreateStaff}
             />

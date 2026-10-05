@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import {
   monthlyStoreSummary,
   monthlyRevenueByCategory,
@@ -79,6 +80,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     );
   }
 
+  if(!await canReadInventoryFinance(reportsStoreId,user)) return <div className="p-4 text-sm">完整財務資料需有查看進貨成本的權限。一般商品收款請使用進銷存的收款單。</div>;
   if (reportsStoreId) {
     const industryModule = await getStoreIndustryModule(reportsStoreId);
     if (industryModule === "spa") return <SpaAnalysisPage storeId={reportsStoreId} params={params} user={user} isViewMode={isViewMode} />;

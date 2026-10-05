@@ -10,6 +10,8 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
   checkPermission,
+  ALL_PERMISSIONS,
+  getDefaultPermissionsForRole,
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
 } from "@/lib/permissions";
@@ -24,7 +26,6 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
   const user = await getCurrentUser();
   if (
     !user ||
-    user.role !== "OWNER" ||
     !(await checkPermission(user.role, user.staffId, "staff.view"))
   )
     notFound();
@@ -72,6 +73,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
         maxStaff={limits.maxStaff}
         templates={templates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,subjectName:t.musicSubject?.name}))}
         canManage={canManage}
+        canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
+        rolePresets={Object.fromEntries((["OWNER", "MANAGER", "STAFF"] as const).map(role => [role, getDefaultPermissionsForRole(role).filter(code => COURSE_PERMISSIONS.includes(code))]))}
         permissionGroups={Object.values(PERMISSION_GROUPS)
           .map((g) => ({
             label: g.label,
@@ -86,6 +89,8 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
           .filter((g) => g.codes.length)}
         staff={staff.filter(s=>teachers?s.user.role==="CUSTOMER":s.user.role!=="CUSTOMER").map((s) => ({
           id: s.id,
+          canEdit: canManage && (user.role !== "MANAGER" || ["STAFF", "PARTNER"].includes(s.user.role)),
+          role: s.user.role,
           linkedStaffId:teachers?personLinks.find(l=>l.instructorStaffId===s.id)?.managerStaffId??"":personLinks.find(l=>l.managerStaffId===s.id)?.instructorStaffId??"",
           linkedStaffName:teachers?staff.find(other=>other.id===personLinks.find(l=>l.instructorStaffId===s.id)?.managerStaffId)?.displayName??"":staff.find(other=>other.id===personLinks.find(l=>l.managerStaffId===s.id)?.instructorStaffId)?.displayName??"",
           financeTeacherIds:financeRows.find(f=>f.staffId===s.id)?.teacherIds??null,
@@ -108,8 +113,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
           active: s.status === "ACTIVE",
           coachLoginReady: !!s.memberLink && !s.memberLink.revokedAt && s.memberLink.user.status === "ACTIVE" && s.status === "ACTIVE" && s.courseCoachEnabled,
           memberEnabled: s.memberLink?.courseMemberEnabled ?? true,
-          permissions: s.permissions
-            .map((p) => p.permission)
+          permissions: (s.user.role === "OWNER" ? [...ALL_PERMISSIONS] : s.permissions.map((p) => p.permission))
             .filter((permission) => COURSE_PERMISSIONS.some((code) => code === permission)),
           customerId:
             customers.find(
