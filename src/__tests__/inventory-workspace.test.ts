@@ -60,3 +60,26 @@ it("keeps supplier payment selection out of customer receipts",()=>{
  expect(host.textContent).not.toContain("廠商付款");
  expect(host.textContent).not.toContain("陳怡君");
 });
+const choose=(label:string,value:string)=>act(()=>{const select=host.querySelector(`select[aria-label="${label}"]`) as HTMLSelectElement;select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
+const sale=(id:string,date:string):InventoryData['orders'][number]=>({id,kind:'SALE',date,partyId:'c1',partyName:'陳怡君',partyPhone:'0912345678',lines:[],freight:0,delivery:'自取',channel:'',shippingNote:'',internalNote:'',total:200,paid:0,revision:1});
+it('excludes hidden selected orders from the batch payment preview',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,orders:[sale('sale-old','2026-09-01'),sale('sale-new','2026-10-05')]},key:'batch-filter'})));
+ choose('批次收付款對象','c1');
+ for(const box of host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))act(()=>box.click());
+ click('批次收款（2）');click('關閉');
+ fill(host.querySelector('input[aria-label="單據開始日期"]') as HTMLInputElement,'2026-10-01');
+ click('批次收款（1）');
+ expect(host.querySelector('input[aria-label="SALE-OLD 收付款金額"]')).toBeNull();
+ expect(host.querySelector('input[aria-label="SALE-NEW 收付款金額"]')).not.toBeNull();
+});
+it('filters receipts by date method and actor without changing customer debt',()=>{
+ const payments:InventoryData['payments']=[{id:'cash-001',kind:'SALE',partyId:'c1',partyName:'陳怡君',partyPhone:'0912345678',date:'2026-09-01',method:'現金',actorName:'員工甲',total:50,allocations:[]},{id:'bank-002',kind:'SALE',partyId:'c1',partyName:'陳怡君',partyPhone:'0912345678',date:'2026-10-05',method:'轉帳',actorName:'員工乙',total:100,allocations:[]}];
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,orders:[sale('sale-new','2026-10-05')],payments},key:'receipt-filters'})));
+ click('收款單');choose('收款方式篩選','轉帳');choose('收款人篩選','員工乙');
+ fill(host.querySelector('input[aria-label="收款開始日期"]') as HTMLInputElement,'2026-10-01');click('查看');
+ expect(host.textContent).toContain('BANK-002');expect(host.textContent).not.toContain('CASH-001');expect(host.textContent).toContain('符合條件共 1 筆');expect(host.textContent).toContain('$200');
+});
+it('hides the priced purchase entry for a receiving manager without cost permission',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canManage:true,canReceive:true},key:'receive-manager'})));
+ click('進貨單');expect(host.textContent).not.toContain('＋ 新增進貨');expect(host.textContent).toContain('＋ 登錄收貨');
+});
