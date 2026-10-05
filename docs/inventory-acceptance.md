@@ -110,3 +110,5 @@ Excel 下載驗收遭遇瀏覽器 native credential state 無法安全恢復；�
 限制：雲端瀏覽器 rewriteDocumentation、reset、createBrowserTab 仍被 native credential state 阻擋。1366px／寬螢幕／1024×768／768×1024、列印對話框、實際秒數與最新UI流程未做瀏覽器驗收。列印反映當前頁面已載入快照；真實多人異動情境尚需驗證。先前列出的退貨／作廢、附件、單據Excel、服務端分頁及跨財務成本權限缺口仍保留，不宣稱已達上線條件。
 
 本輪最終檢查：7檔70項通過；變更 TS／TSX ESLint 與 git diff --check 通過；完整 npm run build（Next16.2.2／TypeScript／170個靜態頁）exit0。單獨 tsc 曾因預設2GB heap耗盡；改以4GB完整建置完成驗證。保留原有 Prisma tracing／metadataBase 警告。Supabase security advisors 回傳既有 RLS無policy的INFO及 public extension WARN，未新增對外授權或policy。
+
+最後資料庫核對發現 InventoryReceiving 沒有啟用RLS（anon／authenticated 原已無直接SELECT權限）。已新增20261005044500_inventory_receiving_rls遷移，啟用RLS並明確撤銷兩角色的直接表權限；隔離Preview驗證RLS=true、直接SELECT=false、Prisma使用的postgres可bypass RLS並成功讀取。保持既有server授權模式，不新增public Data API policy。遷移僅套用隔離專案，正式站未更動。最後列印提示位置修正的15項介面測試及雲端完整建置亦通過。
