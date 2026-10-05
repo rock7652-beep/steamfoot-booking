@@ -11,7 +11,7 @@ export async function saveCourseDisplayOrder(input:unknown) {
     const d=z.object({kind:z.enum(["subject","plan","room","staff"]),ids:z.array(z.string().min(1).max(180)).max(5000),revision:z.number().int().min(0)}).parse(input);
     if(new Set(d.ids).size!==d.ids.length)throw new AppError("VALIDATION","排序項目不可重複");
     const {storeId,user}=await courseManager(d.kind==="staff"?"staff.manage":d.kind==="plan"?"plans.edit":"booking.update");
-    if(d.kind==="staff"&&user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可管理人員");
+    if(d.kind==="staff"&&!["OWNER","MANAGER","ADMIN"].includes(user.role))throw new AppError("FORBIDDEN","僅店長可管理人員");
     const revision=await courseTransaction(storeId,async tx=>{
       const rows=d.kind==="subject"?await tx.musicSubject.findMany({where:{storeId},select:{id:true}}):d.kind==="plan"?await tx.coursePointPlan.findMany({where:{storeId},select:{id:true}}):d.kind==="room"?await tx.courseRoom.findMany({where:{storeId},select:{id:true}}):await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Staff" WHERE "storeId"=${storeId}`;
       const known=new Set(rows.map(r=>r.id));

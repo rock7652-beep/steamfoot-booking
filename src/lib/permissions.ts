@@ -13,21 +13,26 @@ import { SPA_DEMO_OWNER_STAFF_ID } from "@/lib/spa-demo-store";
 /** 所有「店員級」角色（不含 ADMIN / CUSTOMER） */
 export const STAFF_ROLES: UserRole[] = [
   "OWNER",
+  "MANAGER",
+  "STAFF",
   "PARTNER",
 ];
 
 /** 角色中文標籤 */
 export const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "總部",
-  OWNER: "店長",
-  PARTNER: "合作店長",
+  OWNER: "老闆",
+  MANAGER: "店長",
+  STAFF: "門市人員",
+  PARTNER: "門市人員（舊帳號）",
   CUSTOMER: "顧客",
 };
 
 /** 可指派給員工的角色（建立/編輯員工時選擇） */
 export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
   "OWNER",
-  "PARTNER",
+  "MANAGER",
+  "STAFF",
 ];
 
 /** 判斷是否為 Admin */
@@ -237,8 +242,12 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
 // 各角色預設權限
 // ============================================================
 
-/** 店長 預設權限（接近完整營運權限） */
-export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
+/** Owner 的權限不能以個別勾選縮減；店舖範圍與模組開通仍由各入口把關。 */
+export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [...ALL_PERMISSIONS];
+
+/** Manager 具店務管理權，不預設成本、進貨付款或價格管理。 */
+export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
+  "inventory.read", "inventory.write", "inventory.receive", "staff.manage",
   "customer.read",
   "customer.create",
   "customer.update",
@@ -268,8 +277,6 @@ export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [
   "cashDrawer.close",
   "cashDrawer.entry",
   "staff.view",
-  // staff.manage 刻意「不」放入 OWNER 預設：只有 ADMIN（role 自動最高）
-  // 能管理店長帳號。未來若要開給特定分店管理者，由 ADMIN 在編輯頁手動授權。
   "duty.read",
   "duty.manage",
   "talent.read",
@@ -305,11 +312,21 @@ export const DEFAULT_PARTNER_PERMISSIONS: PermissionCode[] = [
   "trial.create",
 ];
 
+/** 新門市角色的日常預設；既有 PARTNER 不重寫授權。 */
+export const DEFAULT_STAFF_PERMISSIONS: PermissionCode[] = [
+  ...DEFAULT_PARTNER_PERMISSIONS,
+  "inventory.read", "inventory.write", "inventory.receive",
+];
+
 /** 根據角色取得預設權限列表 */
 export function getDefaultPermissionsForRole(role: UserRole): PermissionCode[] {
   switch (role) {
     case "OWNER":
       return DEFAULT_OWNER_PERMISSIONS;
+    case "MANAGER":
+      return DEFAULT_MANAGER_PERMISSIONS;
+    case "STAFF":
+      return DEFAULT_STAFF_PERMISSIONS;
     case "PARTNER":
       return DEFAULT_PARTNER_PERMISSIONS;
     default:
@@ -373,6 +390,9 @@ export async function checkPermission(
 ): Promise<boolean> {
   // Admin 永遠放行
   if (role === "ADMIN") return true;
+
+  // Owner 在已授權門市內全權；不得取代入口的 store scope / feature gate。
+  if (role === "OWNER") return Boolean(staffId);
 
   // Customer 不在此系統中
   if (role === "CUSTOMER") return false;
@@ -556,7 +576,7 @@ export const getUserPermissions = cache(
     role: UserRole,
     staffId: string | null,
   ): Promise<PermissionCode[]> => {
-    if (role === "ADMIN") return [...ALL_PERMISSIONS];
+    if (role === "ADMIN" || (role === "OWNER" && staffId)) return [...ALL_PERMISSIONS];
     if (!isNonOwnerStaff(role) || !staffId) return [];
     const perms = await getStaffPermissions(staffId);
     return Array.from(perms);

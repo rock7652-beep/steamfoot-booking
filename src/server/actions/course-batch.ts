@@ -5,6 +5,8 @@ import { courseManager, courseTransaction } from "@/server/services/course-acces
 import { assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
 import { getStoreLimitsByStoreId, requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { canManageStaffRole } from "@/lib/staff-role-policy";
+import type { UserRole } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { revalidatePath } from "next/cache";
 import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation";
@@ -13,7 +15,7 @@ export async function batchCourseStatus(input: unknown) {
     const d=z.object({kind:z.enum(["room","plan","staff","subject"]),ids:z.array(z.string().min(1).max(180)).min(1).max(200),active:z.boolean()}).parse(input);
     const ids=[...new Set(d.ids)];
     const {storeId,user}=await courseManager(d.kind==="staff"?"staff.manage":d.kind==="plan"?"plans.edit":"booking.update");
-    if(d.kind==="staff" && user.role!=="OWNER") throw new AppError("FORBIDDEN","僅店長可管理人員");
+    if(d.kind==="staff" && !["OWNER", "MANAGER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN","僅店長可管理人員");
     if(d.kind==="staff") await requireStoreFeature(storeId,FEATURES.STAFF_MANAGEMENT);
     const limits=d.kind==="staff" ? await getStoreLimitsByStoreId(storeId):null;
     await courseTransaction(storeId,async tx=>{
@@ -21,6 +23,12 @@ export async function batchCourseStatus(input: unknown) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${storeId}`}, 0))`;
         const rows=await tx.$queryRaw<Array<{id:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店人員，未變更任何資料");
+        const accounts=await tx.$queryRaw<Array<{id:string;role:UserRole}>>`SELECT s.id,u.role::text AS role FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.id=ANY(${ids}::text[])`;
+        if(accounts.some(a=>a.role!=="CUSTOMER" && !canManageStaffRole(user.role,a.role))) throw new AppError("FORBIDDEN","店長只能管理門市人員");
+        if(!d.active && accounts.some(a=>a.role==="OWNER")) {
+          const [owners]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.status::text='ACTIVE' AND u.status::text='ACTIVE' AND u.role::text='OWNER' AND NOT(s.id=ANY(${ids}::text[]))`;
+          if(Number(owners?.count??0)===0)throw new AppError("FORBIDDEN","本店至少須保留一位啟用中的老闆");
+        }
         if(!d.active && ids.includes(user.staffId ?? "")) throw new AppError("FORBIDDEN","不能停用自己，請取消勾選本人");
         if(!d.active) {
           const unfinished=await tx.courseSession.groupBy({by:["coachId"],where:{storeId,coachId:{in:ids},cancelledAt:null,endsAt:{gt:new Date()}},_count:{_all:true}});
@@ -61,7 +69,7 @@ export async function deleteCourseItems(input: unknown) {
   try {
     const d=z.object({kind:z.enum(["room","plan","staff","template"]),ids:z.array(z.string().min(1).max(180)).min(1).max(200)}).parse(input);
     const {storeId,user}=await courseManager(d.kind==="staff"?"staff.manage":d.kind==="plan"?"plans.edit":"booking.update");
-    if(user.role!=="OWNER") throw new AppError("FORBIDDEN","僅店長可刪除項目");
+    if(!["OWNER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN","僅老闆可刪除項目");
     const {deleteUnusedCourseItems}=await import("@/server/services/course-delete");
     const count=await courseTransaction(storeId,tx=>deleteUnusedCourseItems(tx,{storeId,userId:user.id,staffId:user.staffId??undefined},d.kind,[...new Set(d.ids)]));
     if(d.kind==="staff"){revalidateStaff();revalidateStaffPermissions();}
@@ -87,7 +95,7 @@ export async function courseStatusImpact(input:unknown){
   try {
     const d=z.object({kind:z.enum(["room","plan","staff","subject"]),ids:z.array(z.string().min(1).max(180)).min(1).max(200)}).parse(input);
     const {storeId,user}=await courseManager(d.kind==="staff"?"staff.manage":d.kind==="plan"?"plans.edit":"booking.update");
-    if(d.kind==="staff"&&user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可管理人員");
+    if(d.kind==="staff"&&!["OWNER", "MANAGER", "ADMIN"].includes(user.role))throw new AppError("FORBIDDEN","僅店長可管理人員");
     const count=await courseTransaction(storeId,async tx=>d.kind==="plan"?0:tx.courseSession.count({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()},...(d.kind==="room"?{roomId:{in:d.ids}}:d.kind==="staff"?{coachId:{in:d.ids}}:{template:{musicSubjectId:{in:d.ids}}})}}));
     return {success:true as const,count};
   }catch(e){const result=handleCourseActionError(e);return {success:false as const,error:result.error??"操作失敗，請重試"};}

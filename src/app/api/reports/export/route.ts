@@ -325,8 +325,10 @@ function formatCoachRole(role: string | null): string {
   if (!role) return "";
   const map: Record<string, string> = {
     ADMIN: "總部",
-    OWNER: "店長",
-    PARTNER: "合作店長",
+    OWNER: "老闆",
+    MANAGER: "店長",
+    STAFF: "門市人員",
+    PARTNER: "門市人員（舊帳號）",
   };
   return map[role] ?? role;
 }

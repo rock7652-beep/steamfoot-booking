@@ -9,7 +9,7 @@ import { AppError } from "@/lib/errors";
 import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
-import { getUserPermissions, ROLE_LABELS, checkPermission } from "@/lib/permissions";
+import { getUserPermissions, ROLE_LABELS, checkPermission, isStaffRole } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
 import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
 import { OperationScope } from "@/components/operations/operation-scope";
@@ -58,8 +58,8 @@ export default async function DashboardLayout({
 
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isAdmin = user.role === "ADMIN";
-  // isOwnerLevel: ADMIN + 店長 + 合作店長 — 用於 sidebar ownerOnly 功能項顯示
-  const isOwnerLevel = isAdmin || user.role === "OWNER" || user.role === "PARTNER";
+  // Legacy sidebar ownerOnly means backend identity; individual permissions still control each item.
+  const isOwnerLevel = isStaffRole(user.role);
 
   // Source of truth: Store.plan (PricingPlan)
   const [permissions, storeOptions, activeStoreId] =

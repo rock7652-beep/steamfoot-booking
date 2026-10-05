@@ -157,10 +157,10 @@ export async function createStoreAction(
         } else await createDefaultPermissions(ownerUser.staff.id, ownerRole);
       }
 
-      // 3. Initial STAFF（mapping: MANAGER→OWNER, STAFF→PARTNER）
+      // 3. Initial STAFF：保留真實後台角色，不把店長升為老闆。
       const staffAccounts: AccountSummary[] = [];
       for (const staffInput of input.initialStaff ?? []) {
-        const dbRole: UserRole = staffInput.role === "MANAGER" ? "OWNER" : "PARTNER";
+        const dbRole: UserRole = staffInput.role;
         const staffPwHash = hashSync(`${input.slug}-staff-temp`, 10); // 臨時密碼
         const staffUser = await db.user.create({
           data: {

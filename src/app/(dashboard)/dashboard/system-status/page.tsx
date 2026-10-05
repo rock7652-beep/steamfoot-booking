@@ -283,7 +283,7 @@ function friendlyMessage(msg: string): string {
 
 export default async function SystemStatusPage() {
   const user = await requireStaffSession().catch(() => null);
-  if (!user || (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER")) notFound();
+  if (!user || (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER")) notFound();
 
   // ADMIN 全站視角時為 null（顯示全站合計）；
   // ADMIN 指定店 + OWNER/PARTNER 一律以自己分店為準，不可洩漏他店資料。

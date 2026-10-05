@@ -94,12 +94,14 @@ export function StaffWorkspace({
   people: initialPeople,
   today,
   canManage,
+  canAssignRoles = false,
   showSpaCompensation,
   createAction,
 }: {
   people: readonly StaffWorkspacePerson[];
   today: string;
   canManage: boolean;
+  canAssignRoles?: boolean;
   courseBasicOnly?: boolean;
   showSteamfootRent?: boolean;
   showSpaCompensation: boolean;
@@ -678,6 +680,7 @@ export function StaffWorkspace({
       ) : null}
       {editor?.type === "create" ? (
         <CreatePersonDrawer
+          canAssignRoles={canAssignRoles}
           createAction={createAction}
           showSpaCompensation={showSpaCompensation}
           onClose={() => setEditor(null)}
@@ -1578,10 +1581,12 @@ function PersonDrawer({
 }
 
 function CreatePersonDrawer({
+  canAssignRoles,
   createAction,
   showSpaCompensation,
   onClose,
 }: {
+  canAssignRoles: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
   showSpaCompensation: boolean;
   onClose: () => void;
@@ -1616,9 +1621,9 @@ function CreatePersonDrawer({
       <form action={createAction} className="space-y-6">
         <section className="space-y-4">
           <Field label="人員類型">
-            <select name="role" defaultValue="PARTNER" className={inputClass}>
-              <option value="PARTNER">服務人員（芳療師／教練）</option>
-              <option value="OWNER">店長</option>
+            <select name="role" defaultValue="STAFF" className={inputClass}>
+              <option value="STAFF">Staff／門市人員</option>
+              {canAssignRoles && <><option value="MANAGER">Manager／店長</option><option value="OWNER">Owner／老闆</option></>}
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">

@@ -45,7 +45,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
-  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
+  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER") {
     notFound();
   }
 

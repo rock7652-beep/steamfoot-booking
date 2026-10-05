@@ -96,6 +96,8 @@ export function getManagerReadFilter(
   // 非員工或沒有 staffId → 空結果（安全預設）
   if (!isNonOwnerStaff(role) || !staffId) return { ...filter, [filterField]: "__IMPOSSIBLE__" };
 
+  if (role === "OWNER" && storeId) return filter;
+
   const mode = getVisibilityMode();
 
   if (mode === "STORE_SHARED") {
@@ -121,6 +123,8 @@ export function getManagerCustomerFilter(
   if (isOwner(role)) return filter;
   if (!isNonOwnerStaff(role) || !staffId) return { ...filter, customer: { assignedStaffId: "__IMPOSSIBLE__" } };
 
+  if (role === "OWNER" && storeId) return filter;
+
   const mode = getVisibilityMode();
   if (mode === "STORE_SHARED") return filter;
 
@@ -141,6 +145,8 @@ export function getManagerCustomerWhere(
 
   if (isOwner(role)) return filter;
   if (!isNonOwnerStaff(role) || !staffId) return { ...filter, assignedStaffId: "__IMPOSSIBLE__" };
+
+  if (role === "OWNER" && storeId) return filter;
 
   const mode = getVisibilityMode();
   if (mode === "STORE_SHARED") return filter;

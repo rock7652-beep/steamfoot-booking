@@ -16,6 +16,7 @@ import type { UserRole } from "@prisma/client";
 import { spaPrisma } from "@/lib/spa-db";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { canManageStaffRole } from "@/lib/staff-role-policy";
 import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function StaffPage({
@@ -95,11 +96,7 @@ export default async function StaffPage({
       userId: staff.user.id,
       displayName: staff.displayName,
       legalName: staff.user.name,
-      roleLabel: staff.isOwner
-        ? "店長"
-        : isSpaStore
-          ? "芳療師"
-          : ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
+      roleLabel: ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
       email: staff.user.email ?? "尚未設定",
       phone: staff.user.phone,
       colorCode: staff.colorCode,
@@ -110,13 +107,8 @@ export default async function StaffPage({
       emergencyContact: null,
       weeklyAvailability: persistedAvailability,
       scheduleExceptions: persistedExceptions,
-      canEdit: canManage && !staff.isOwner,
-      canResetPassword:
-        canManage
-        && !staff.isOwner
-        && staff.user.id !== user.id
-        && staff.user.role !== "ADMIN"
-        && !(user.role === "OWNER" && staff.user.role === "OWNER"),
+      canEdit: canManage && staff.user.id !== user.id && canManageStaffRole(user.role, staff.user.role),
+      canResetPassword: canManage && staff.user.id !== user.id && staff.user.role !== "ADMIN" && canManageStaffRole(user.role, staff.user.role),
       compensationMode: compensation?.mode === "PERCENTAGE" || compensation?.mode === "FIXED" ? compensation.mode : null,
       compensationValue: compensation ? Number(compensation.value) : null,
     };
@@ -124,7 +116,7 @@ export default async function StaffPage({
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
-    const roleValue = (formData.get("role") as string) || "PARTNER";
+    const roleValue = (formData.get("role") as string) || "STAFF";
     const result = await createStaff({
       name: formData.get("name") as string,
       displayName: formData.get("displayName") as string,
@@ -135,7 +127,7 @@ export default async function StaffPage({
       monthlySpaceFee: formData.get("monthlySpaceFee")
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
-      role: roleValue as "OWNER" | "PARTNER",
+      role: roleValue as "OWNER" | "MANAGER" | "STAFF" | "PARTNER",
       spaCompensation: isSpaStore && formData.get("compensationValue") !== null
         ? {
             mode: String(formData.get("compensationMode")) as "PERCENTAGE" | "FIXED",
@@ -188,6 +180,7 @@ export default async function StaffPage({
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
+              canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
               showSpaCompensation={isSpaStore && spaCompensationReady}
               createAction={handleCreateStaff}
             />

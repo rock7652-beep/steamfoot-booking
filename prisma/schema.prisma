@@ -14,8 +14,10 @@ datasource db {
 
 enum UserRole {
   ADMIN // 總部（跨店管理）
-  OWNER // 店長（主要經營者）
-  PARTNER // 合作店長
+  OWNER // 老闆（授權店內全權）
+  MANAGER // 店長
+  STAFF // 門市人員
+  PARTNER // 舊門市帳號，相容保留
   CUSTOMER
 }
 

@@ -181,7 +181,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
 
     // ── SPA 服務人員專用入口 ──
     if (subPath === "/staff/login") {
-      if (isLoggedIn && role === "PARTNER" && sessionStoreId) {
+      if (isLoggedIn && ["PARTNER", "STAFF"].includes(role ?? "") && sessionStoreId) {
         return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/my-bookings`, req.url));
       }
       return storeRewrite(req, "/staff-login", storeSlug, domainStoreId);
@@ -190,7 +190,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       if (!isLoggedIn) {
         return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/login`, req.url));
       }
-      if (role !== "PARTNER" || !sessionStoreId) {
+      if (!["PARTNER", "STAFF"].includes(role ?? "") || !sessionStoreId) {
         return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/login`, req.url));
       }
       return storeRewrite(req, "/staff-schedule", storeSlug, domainStoreId);

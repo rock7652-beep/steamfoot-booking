@@ -8,7 +8,8 @@ import { prisma } from "@/lib/db";
 import { courseManager, courseManagerRead } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { canMusicFinance, requireMusicFinance, isMusicFinanceStore, readMusicFinanceScope } from "@/server/services/music-finance-access";
-import { ALL_PERMISSIONS } from "@/lib/permissions";
+import { canManageStaffRole, canAssignStaffRole, assertStoreRetainsOwner } from "@/lib/staff-role-policy";
+import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { compensationRule, type CompensationRule } from "@/lib/course-compensation";
 import {
@@ -30,7 +31,7 @@ const teachingFee = z.object({
 export async function readCourseStaffTeaching(staffId: string) {
   try {
     const { user, storeId } = await courseManagerRead("staff.view");
-    if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
+    if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN", "無人員管理權限");
     id.parse(staffId);
     const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
     const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
@@ -54,8 +55,8 @@ const colors = [
 export async function saveCourseStaff(input: unknown) {
   try {
     const { user, storeId } = await courseManager("staff.manage");
-    if (user.role !== "OWNER")
-      throw new AppError("FORBIDDEN", "僅店長可管理人員");
+    if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role))
+      throw new AppError("FORBIDDEN", "無人員管理權限");
     await requireStoreFeature(storeId, FEATURES.STAFF_MANAGEMENT);
     const d = z
       .object({
@@ -67,6 +68,7 @@ export async function saveCourseStaff(input: unknown) {
         emergencyContactName: z.string().trim().max(80).default(""),
         emergencyContactPhone: z.string().trim().max(30).default(""),
         kind: z.enum(["manager", "coach"]),
+        backendRole: z.enum(["OWNER", "MANAGER", "STAFF"]).optional(),
         coachEnabled: z.boolean().optional(),
         qualificationIds: z.array(id).max(500).optional(),
         qualificationsConfirmed: z.boolean().optional(),
@@ -87,6 +89,7 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
+    if (d.backendRole && (d.id || !canAssignStaffRole(user.role, d.backendRole))) throw new AppError("FORBIDDEN", "請使用角色設定調整既有帳號；店長只能建立門市人員");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動教練才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
@@ -118,6 +121,9 @@ export async function saveCourseStaff(input: unknown) {
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
         if (!d.id && existing) return;
+        if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(user.role, existing.user.role))
+          throw new AppError("FORBIDDEN", "店長只能管理門市人員");
+        if (existing && !d.active) await assertStoreRetainsOwner(tx, storeId, existing.id);
         if ((d.teachingFees || d.defaultClassFee !== undefined) && existing && d.teachingVersion !== existing.updatedAt.toISOString())
           throw new AppError("CONFLICT", "人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (
@@ -248,7 +254,7 @@ export async function saveCourseStaff(input: unknown) {
               name: d.name,
               email: (d.kind === "manager" ? d.email : d.contactEmail) || null,
               passwordHash: d.kind === "manager" ? passwordHash : null,
-              role: d.kind === "manager" ? "OWNER" : "CUSTOMER",
+              role: d.kind === "manager" ? d.backendRole ?? "STAFF" : "CUSTOMER",
               status: d.kind === "manager" ? "ACTIVE" : "SUSPENDED",
               staff: {
                 create: {
@@ -318,15 +324,19 @@ export async function saveCourseStaff(input: unknown) {
         }
         if (d.kind === "manager") {
           const actorStaff=await tx.staff.findFirst({where:{id:user.staffId??"",storeId,userId:user.id},include:{permissions:{where:{granted:true}}}});
-          if(!actorStaff)throw new AppError("FORBIDDEN","找不到本店授權人員");
-          if(existing?.isOwner && !actorStaff.isOwner)throw new AppError("FORBIDDEN","不能修改店主帳號");
+          if(!actorStaff && user.role !== "ADMIN")throw new AppError("FORBIDDEN","找不到本店授權人員");
+          if(existing?.user.role === "OWNER" && user.role !== "OWNER" && user.role !== "ADMIN")throw new AppError("FORBIDDEN","不能修改店主帳號");
           const priorPermissions=existing?await tx.staffPermission.findMany({where:{staffId},select:{permission:true,granted:true}}):[];
-          const granted = d.permissions ?? priorPermissions.filter(p=>p.granted).map(p=>p.permission);
-          if(!actorStaff.isOwner && granted.some(code=>!actorStaff.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
+          const requested = d.permissions ?? (existing ? priorPermissions.filter(p=>p.granted).map(p=>p.permission) : getDefaultPermissionsForRole(d.backendRole ?? "STAFF"));
+          const granted = existing?.user.role === "OWNER" || (!existing && d.backendRole === "OWNER") ? [...ALL_PERMISSIONS] : [...new Set([
+            ...(existing ? priorPermissions.filter(p=>p.granted && !COURSE_PERMISSIONS.includes(p.permission as typeof COURSE_PERMISSIONS[number])).map(p=>p.permission) : getDefaultPermissionsForRole(d.backendRole ?? "STAFF").filter(p=>!COURSE_PERMISSIONS.includes(p))),
+            ...requested,
+          ])];
+          if(user.role === "MANAGER" && ALL_PERMISSIONS.some(code=>priorPermissions.some(p=>p.granted&&p.permission===code)!==granted.includes(code) && !actorStaff?.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
           if(musicFinanceStore) {
             const existingScope=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
             if(d.financeTeacherIds===undefined)d.financeTeacherIds=existingScope[0]?.teacherIds??null;
-            if(existing?.isOwner && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
+            if(existing?.user.role === "OWNER" && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
             const teacherIds=d.financeTeacherIds===null?null:[...new Set(d.financeTeacherIds)];
             if(teacherIds!==null && granted.includes("teacher.settlement.confirm"))throw new AppError("VALIDATION","確認全店月結需要全店教師範圍；請改選全店或關閉該權限");
             if(actorFinanceScope!==null && (teacherIds===null || teacherIds.some(id=>!actorFinanceScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");
