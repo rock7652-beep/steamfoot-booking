@@ -65,6 +65,28 @@ beforeEach(() => {
 });
 const input = (override: any = {}) => orderSchema.parse({ requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", partyId: "customer-1", lines: [{ productId: "a", quantity: 2, unitPrice: 200, discountMode: "PERCENT", discount: 10, gift: false }], paid: 0, method: "未付款", ...override });
 describe("inventory transaction acceptance", () => {
+    it("settles two customer orders once with per-order receipt balances", async () => {
+        const a = await saveInventoryOrder(ctx, input());
+        const b = await saveInventoryOrder(ctx, input({ delivery: "寄送", channel: "超商", freight: 60 }));
+        const payment = { requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", method: "轉帳", allocations: [{ orderId: a, amount: 360 }, { orderId: b, amount: 420 }] };
+        expect((await savePayment(payment)).success).toBe(true);
+        expect((await savePayment(payment)).success).toBe(true);
+        expect(payments).toHaveLength(1);
+        expect(payments[0].allocations.map((a: any) => a.remainingAfter)).toEqual([0, 0]);
+        expect(orders.map(o => o.paid)).toEqual([360, 420]);
+        expect(cash.map(c => [c.category, c.amount])).toEqual([["零售-商品銷售", 720], ["運費收入", 60]]);
+        expect(products[0].stock).toBe(6);
+    });
+    it("rolls back the entire batch when a later allocation overpays", async () => {
+        const a = await saveInventoryOrder(ctx, input());
+        const b = await saveInventoryOrder(ctx, input());
+        const payment = { requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", method: "現金", allocations: [{ orderId: a, amount: 360 }, { orderId: b, amount: 361 }] };
+        expect((await savePayment(payment)).success).toBe(false);
+        expect(orders.map(o => o.paid)).toEqual([0, 0]);
+        expect(payments).toHaveLength(0);
+        expect(cash).toHaveLength(0);
+    });
+
     it("settles a partial sale through the receipt action without duplicate cash", async () => {
         await saveInventoryOrder(ctx, input({ paid: 100, method: "現金", delivery: "寄送", channel: "超商", freight: 60 }));
         const receipt = { requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", method: "現金", allocations: [{ orderId: orders[0].id, amount: 320 }] };
