@@ -49,5 +49,5 @@
 .editor .compactTable th:first-child{width:42%}
 .editor .compactTable .number{white-space:nowrap}
 .editor .compactTable td input{min-width:0;padding-inline:4px;box-sizing:border-box}
-.editor .compactTable .actions{width:44px;min-width:44px}
+.editor .compactTable .actions{width:56px;min-width:56px}
 .editor .compactTable .quantity{width:48px}
