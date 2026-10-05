@@ -1,22 +1,35 @@
 import { z } from "zod";
 export const moneySchema = z.number().int().min(0).max(100000000);
 export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v), "日期不正確");
+export const priceCategories = {GENERAL:"一般", CONTRACT:"特約", STUDENT:"學員", FACULTY:"師資", WHOLESALE:"批發"} as const;
+export const priceCategorySchema = z.enum(["GENERAL","CONTRACT","STUDENT","FACULTY","WHOLESALE"]);
+export type PriceCategory = z.infer<typeof priceCategorySchema>;
+const ratio = z.number().min(0).max(100);
+export const priceRatiosSchema = z.object({CONTRACT:ratio.optional(),STUDENT:ratio.optional(),FACULTY:ratio.optional(),WHOLESALE:ratio.optional()});
+export const productDetailsSchema = z.object({brand:z.string().trim().max(100).default(""),specification:z.string().trim().max(200).default(""),unit:z.string().trim().min(1).max(30).default("件"),code:z.string().trim().max(100).default(""),barcode:z.string().trim().max(100).default(""),minimumStock:z.number().int().min(0).max(1000000).default(0),note:z.string().max(2000).default(""),priceRatios:priceRatiosSchema.default({})});
+export type ProductDetails = z.infer<typeof productDetailsSchema>;
+export function productDetails(raw:unknown):ProductDetails {const result=productDetailsSchema.safeParse(raw);return result.success?result.data:productDetailsSchema.parse({});}
+export function categoryPrice(product:{price:number;priceRatios?:ProductDetails["priceRatios"]},category:PriceCategory) {return Math.round(product.price*(category==="GENERAL"?100:product.priceRatios?.[category]??100)/100);}
+export function productSearch(product:{name:string;brand?:string;specification?:string;code?:string;barcode?:string},query:string) {return [product.name,product.brand,product.specification,product.code,product.barcode].join(" ").toLowerCase().includes(query.toLowerCase());}
 const id = z.string().min(1).max(160);
 export const lineSchema = z.object({ productId: id, quantity: z.number().int().min(1).max(100000), unitPrice: moneySchema, discountMode: z.enum(["NONE", "AMOUNT", "PERCENT"]), discount: z.number().min(0).max(100000000), gift: z.boolean() });
-export const orderSchema = z.object({ requestId: z.string().uuid(), id: id.optional(), revision: z.number().int().positive().optional(), kind: z.enum(["SALE", "PURCHASE"]), date: dateSchema, partyId: id, lines: z.array(lineSchema).min(1).max(200), paid: moneySchema, method: z.enum(["現金", "轉帳", "其他", "未付款"]), delivery: z.enum(["自取", "寄送"]).default("自取"), channel: z.enum(["", "超商", "蝦皮", "貨運", "其他"]).default(""), freight: moneySchema.default(0), shippingNote: z.string().max(2000).default(""), internalNote: z.string().max(2000).default("") });
+export const orderSchema = z.object({ requestId: z.string().uuid(), id: id.optional(), revision: z.number().int().positive().optional(), kind: z.enum(["SALE", "PURCHASE"]), priceCategory:priceCategorySchema.default("GENERAL"), date: dateSchema, partyId: id, lines: z.array(lineSchema).min(1).max(200), paid: moneySchema, method: z.enum(["現金", "轉帳", "其他", "未付款"]), delivery: z.enum(["自取", "寄送"]).default("自取"), channel: z.enum(["", "超商", "蝦皮", "貨運", "其他"]).default(""), freight: moneySchema.default(0), shippingNote: z.string().max(2000).default(""), internalNote: z.string().max(2000).default("") });
 export const paymentSchema = z.object({ requestId: z.string().uuid(), kind: z.enum(["SALE", "PURCHASE"]), date: dateSchema, method: z.enum(["現金", "轉帳", "其他"]), allocations: z.array(z.object({ orderId: id, amount: moneySchema.refine(n => n > 0) })).min(1).max(200) });
 export const countSchema = z.object({ requestId: z.string().uuid(), date: dateSchema, reason: z.string().trim().min(1).max(1000), lines: z.array(z.object({ productId: id, revision: z.number().int().positive(), actual: z.number().int().min(0).max(1000000) })).min(1).max(1000) });
-export const productSchema = z.object({ id: id.optional(), revision: z.number().int().positive().optional(), name: z.string().trim().min(1).max(200), price: moneySchema, stock: z.number().int().min(0).max(1000000).default(0), averageCost: z.number().min(0).max(100000000).default(0), active: z.boolean().default(true) });
+export const productSchema = z.object({ id: id.optional(), revision: z.number().int().positive().optional(), name: z.string().trim().min(1).max(200), details:productDetailsSchema.default(productDetailsSchema.parse({})), price: moneySchema, stock: z.number().int().min(0).max(1000000).default(0), averageCost: z.number().min(0).max(100000000).default(0), active: z.boolean().default(true) });
 export const supplierSchema = z.object({ id: id.optional(), name: z.string().trim().min(1).max(200), contact: z.string().trim().min(1).max(200), phone: z.string().trim().min(1).max(50), address: z.string().trim().max(1000).default(""), active: z.boolean().default(true) });
 export type OrderInput = z.infer<typeof orderSchema>;
 export type LineInput = z.infer<typeof lineSchema>;
 export type InventoryLine = LineInput & {
     name: string;
+    brand?:string;
+    specification?:string;
+    unit?:string;
     total: number;
     cost?: number;
     pendingCostShares?: Record<string,number>;
 };
-export type InventoryProductView = {
+export type InventoryProductView = Partial<ProductDetails> & {
     id: string;
     name: string;
     stock: number;
@@ -27,6 +40,7 @@ export type InventoryProductView = {
     costPending?: boolean;
 };
 export type InventoryOrderView = {
+    priceCategory?:PriceCategory;
     actorName?: string;
     id: string;
     kind: string;
@@ -70,6 +84,8 @@ export type InventoryData = {
     receivings?: ReceivingView[];
     canReceive?: boolean;
     canPurchasePay?: boolean;
+    canPriceManage?:boolean;
+    canPriceOverride?:boolean;
     canCost: boolean;
     canWrite: boolean;
     canManage: boolean;

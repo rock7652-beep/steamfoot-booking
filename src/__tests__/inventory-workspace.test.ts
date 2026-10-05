@@ -83,3 +83,23 @@ it('hides the priced purchase entry for a receiving manager without cost permiss
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canManage:true,canReceive:true},key:'receive-manager'})));
  click('進貨單');expect(host.textContent).not.toContain('＋ 新增進貨');expect(host.textContent).toContain('＋ 登錄收貨');
 });
+
+it('starts a new sale at general price and switches configured category for all items',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,products:[{...initial.products[0],priceRatios:{STUDENT:80,FACULTY:70}}]},key:'prices'})));
+ click('＋ 新增銷貨');expect((host.querySelector('[aria-label="身份價格"]') as HTMLSelectElement).value).toBe('GENERAL');
+ fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');choose('身份價格','STUDENT');
+ expect((host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement).value).toBe('160');expect((host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement).readOnly).toBe(true);
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(true);click('關閉');confirm.mockRestore();click('＋ 新增銷貨');expect((host.querySelector('[aria-label="身份價格"]') as HTMLSelectElement).value).toBe('GENERAL');
+});
+it('keeps manual pricing when category change is cancelled',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canPriceOverride:true},key:'manual-price'})));click('＋ 新增銷貨');
+ fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');fill(host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement,'150');
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);choose('身份價格','FACULTY');expect(confirm).toHaveBeenCalled();expect((host.querySelector('[aria-label="身份價格"]') as HTMLSelectElement).value).toBe('GENERAL');expect((host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement).value).toBe('150');confirm.mockRestore();
+});
+it('lets a product manager edit basic metadata without exposing costs',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,canManage:true},key:'basic-product'})));click('商品與庫存');click('編輯商品');
+ expect(host.querySelector('input[name="brand"]')).not.toBeNull();expect(host.querySelector('input[name="specification"]')).not.toBeNull();expect(host.querySelector('input[name="cost"]')).toBeNull();expect(host.textContent).not.toContain('平均成本');expect(host.querySelector('input[name="stock"]')).toBeNull();expect((host.querySelector('[aria-label="師資售價比例"]') as HTMLInputElement).readOnly).toBe(true);
+});
+it('filters product names by brand and keeps long metadata reachable',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,products:[{...initial.products[0],brand:'品牌甲',specification:'非常完整的規格名稱'}]},key:'brand'})));click('商品與庫存');fill(host.querySelector('[aria-label="搜尋商品"]') as HTMLInputElement,'品牌甲');expect(host.textContent).toContain('保暖襪');choose('商品品牌篩選','品牌甲');expect(host.querySelector('details summary')?.textContent).toContain('非常完整的規格名稱');
+});

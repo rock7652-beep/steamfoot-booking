@@ -3190,6 +3190,7 @@ model InventoryProduct {
   stock Int @default(0)
   averageCost Decimal @default(0) @db.Decimal(18, 6)
   pendingCosts Json @default("{}")
+  details Json @default("{}")
   price Int
   active Boolean @default(true)
   revision Int @default(1)
@@ -3206,6 +3207,7 @@ model InventoryOrder {
   partyId String
   partyName String
   partyPhone String
+  priceCategory String @default("GENERAL")
   lines Json // authoritative snapshots; costs never sent to unprivileged clients
   freight Int @default(0)
   delivery String @default("自取")

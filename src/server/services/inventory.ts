@@ -7,7 +7,7 @@ import { requirePermission, checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 import { recordOperationAudit } from "@/server/services/operation-audit";
 import { hasDataExportFeature } from "@/lib/data-export-gate";
-import { publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryData, type ReceivingLine, type ReceivingView } from "@/lib/inventory";
+import { categoryPrice, productDetails, publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryData, type InventoryOrderView, type ReceivingLine, type ReceivingView } from "@/lib/inventory";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 export type InventoryContext = Awaited<ReturnType<typeof inventoryContext>>;
@@ -141,14 +141,15 @@ export async function inventoryData(ctx: InventoryContext): Promise<InventoryDat
     const actorIds=[...new Set([...orders,...payments].map(r=>r.actorId))];
     const actors=actorIds.length?await prisma.user.findMany({where:{id:{in:actorIds}},select:{id:true,name:true}}):[];
     const actorNames=new Map(actors.map(a=>[a.id,a.name]));
+    const [canPriceManage,canPriceOverride]=await Promise.all([checkPermission(ctx.user.role,ctx.user.staffId,"inventory.price.manage"),checkPermission(ctx.user.role,ctx.user.staffId,"inventory.price.override")]);
     const canPurchasePay = ctx.canCost && await checkPermission(ctx.user.role,ctx.user.staffId,"inventory.purchase.pay");
     const canReceive = await checkPermission(ctx.user.role,ctx.user.staffId,"inventory.receive");
     const receivingRows = canReceive || canManage ? await prisma.inventoryReceiving.findMany({where:{storeId:ctx.storeId},orderBy:{createdAt:"desc"}}) : [];
     const receivings = receivingRows.map(r=>({...r,date:r.date.toISOString().slice(0,10),lines:(r.lines as unknown as ReceivingLine[]).map(l=>({...l,unitCost:ctx.canCost?l.unitCost:null})),history:r.history as unknown as ReceivingView["history"]}));
-    return { receivings, canReceive, canPurchasePay, store: {id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null}, canCost: ctx.canCost, canWrite, canManage, canExport, canCreateCustomer,
-        products: products.map(p => ({ id: p.id, name: p.name, stock: p.stock, price: p.price, active: p.active, revision: p.revision, ...(ctx.canCost ? { averageCost: Number(p.averageCost),costPending:Object.keys((p.pendingCosts||{}) as Record<string,number>).length>0 } : {}) })),
+    return { receivings, canReceive, canPurchasePay, canPriceManage,canPriceOverride, store: {id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null}, canCost: ctx.canCost, canWrite, canManage, canExport, canCreateCustomer,
+        products: products.map(p => ({ ...productDetails(p.details), id: p.id, name: p.name, stock: p.stock, price: p.price, active: p.active, revision: p.revision, ...(ctx.canCost ? { averageCost: Number(p.averageCost),costPending:Object.keys((p.pendingCosts||{}) as Record<string,number>).length>0 } : {}) })),
         suppliers: suppliers.map(s => ({ id: s.id, name: s.name, contact: s.contact, phone: s.phone, address: s.address, active: s.active })),
-        orders: orders.map(o => ({ actorName:actorNames.get(o.actorId)||"", id: o.id, kind: o.kind, date: o.date.toISOString().slice(0, 10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone, lines: publicLines(o.lines as unknown as InventoryLine[], ctx.canCost), freight: o.freight, delivery: o.delivery, channel: o.channel, shippingNote: o.shippingNote, internalNote: o.internalNote, total: o.total, paid: o.paid, revision: o.revision })),
+        orders: orders.map(o => ({ actorName:actorNames.get(o.actorId)||"", id: o.id, priceCategory:(o.priceCategory || "GENERAL") as InventoryOrderView["priceCategory"], kind: o.kind, date: o.date.toISOString().slice(0, 10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone, lines: publicLines(o.lines as unknown as InventoryLine[], ctx.canCost), freight: o.freight, delivery: o.delivery, channel: o.channel, shippingNote: o.shippingNote, internalNote: o.internalNote, total: o.total, paid: o.paid, revision: o.revision })),
         payments: payments.map(p => ({ actorName:actorNames.get(p.actorId)||"", id: p.id, kind: p.kind, partyId: p.partyId, partyName: p.partyName, partyPhone: p.partyPhone, date: p.date.toISOString().slice(0, 10), method: p.method, total: p.total, allocations: p.allocations as unknown as InventoryData["payments"][number]["allocations"] })),
         counts: counts.map(c => ({ id: c.id, date: c.date.toISOString().slice(0, 10), reason: c.reason, actorName: c.actorName, createdAt: c.createdAt.toISOString(), lines: c.lines as unknown as InventoryData["counts"][number]["lines"] })), customers };
 }
@@ -157,6 +158,7 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         ensureCost(ctx);
         if (input.paid > 0) await requirePermission("inventory.purchase.pay");
     }
+    const canOverride = input.kind === "SALE" && await checkPermission(ctx.user.role,ctx.user.staffId,"inventory.price.override");
     return inventoryTransaction(ctx, async (tx) => {
         const replay = await tx.inventoryCommand.findUnique({ where: { storeId_requestId: { storeId: ctx.storeId, requestId: input.requestId } } });
         if (replay) {
@@ -175,7 +177,7 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         if (!party)
             throw new AppError("NOT_FOUND", "請重新選擇顧客或廠商");
         const original = existing?.lines as unknown as InventoryLine[] | undefined;
-        const beforeAudit = existing ? {date:existing.date.toISOString().slice(0,10),total:existing.total,paid:existing.paid,freight:existing.freight,lines:publicLines(original||[],false)} as unknown as Prisma.InputJsonValue : undefined;
+        const beforeAudit = existing ? {priceCategory:existing.priceCategory||"GENERAL",date:existing.date.toISOString().slice(0,10),total:existing.total,paid:existing.paid,freight:existing.freight,lines:publicLines(original||[],false)} as unknown as Prisma.InputJsonValue : undefined;
         const originalQuantities = new Map((original || []).map(l => [l.productId, l.quantity]));
         const lines: InventoryLine[] = [];
         let total = 0;
@@ -183,13 +185,16 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
             const p = await tx.inventoryProduct.findFirst({ where: { id: l.productId, storeId: ctx.storeId, ...(originalQuantities.has(l.productId) ? {} : { active: true }) } });
             if (!p)
                 throw new AppError("NOT_FOUND", "商品不存在或已停用");
+            const oldLine = original?.find(x => x.productId === p.id);
+            const samePricing = existing && (existing.priceCategory || "GENERAL") === input.priceCategory && oldLine && l.unitPrice===oldLine.unitPrice && l.discountMode===oldLine.discountMode && l.discount===oldLine.discount && l.gift===oldLine.gift;
+            if(input.kind==="SALE" && !canOverride && !samePricing && (l.unitPrice!==categoryPrice({price:p.price,priceRatios:productDetails(p.details).priceRatios},input.priceCategory)||l.discountMode!=="NONE"||l.discount!==0||l.gift))
+                throw new AppError("FORBIDDEN","沒有調整單價與優惠的權限；請使用設定的身份價格");
             const amount = lineTotal(l, input.kind);
             if (amount > 100000000)
                 throw new AppError("VALIDATION", "單筆金額過大");
             const available = p.stock + (originalQuantities.get(p.id) || 0);
             if (input.kind === "SALE" && l.quantity > available)
                 throw new AppError("BUSINESS_RULE", `${p.name} 庫存不足`);
-            const oldLine = original?.find(x => x.productId === p.id);
             const oldQuantity = oldLine?.quantity || 0;
             const oldCost = new Prisma.Decimal(oldLine?.cost || 0);
             const average = new Prisma.Decimal(p.averageCost);
@@ -200,7 +205,7 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
                 (originalShares[key] || 0) * (oldQuantity ? Math.min(oldQuantity,l.quantity)/oldQuantity : 0) +
                 (pending[key] || 0) * (p.stock ? Math.max(0,l.quantity-oldQuantity)/p.stock : 0)
             ]).filter(([,value])=>Number(value)>0)) as Record<string,number>;
-            lines.push({ ...(Object.keys(shares).length ? {pendingCostShares:shares} : {}), ...l, gift: input.kind === "SALE" && (l.gift || amount === 0), name: p.name, total: amount, cost: Number(cost.toFixed(6)) });
+            lines.push({ ...(Object.keys(shares).length ? {pendingCostShares:shares} : {}), ...l, gift: input.kind === "SALE" && (l.gift || amount === 0), name: oldLine?.name || p.name, brand:oldLine?.brand ?? productDetails(p.details).brand,specification:oldLine?.specification ?? productDetails(p.details).specification,unit:oldLine?.unit ?? productDetails(p.details).unit, total: amount, cost: Number(cost.toFixed(6)) });
             total += amount;
             if (input.kind === "PURCHASE")
                 await tx.inventoryProduct.update({ where: { id: p.id }, data: { stock: { increment: l.quantity }, averageCost: average.mul(p.stock).add(amount).div(p.stock + l.quantity), revision: { increment: 1 } } });
@@ -225,12 +230,22 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
             throw new AppError("VALIDATION", "未付款金額應為 0");
         if (existing && (input.paid !== existing.paid || total < existing.paid || freight < Math.max(0, existing.paid - (existing.total - existing.freight)) || total - freight < Math.min(existing.paid, existing.total - existing.freight)))
             throw new AppError("BUSINESS_RULE", "已收款不可在編輯中更改或轉移，請使用收款單");
-        const orderData = { storeId: ctx.storeId, kind: input.kind, date: new Date(input.date), partyId: party.id, partyName: party.name, partyPhone: party.phone, lines: lines as unknown as Prisma.InputJsonValue, freight, delivery: input.delivery, channel: freight || input.delivery === "寄送" ? input.channel : "", shippingNote: input.delivery === "寄送" ? input.shippingNote : "", internalNote: input.internalNote, total, requestId: input.requestId, requestHash: hashInput(input), actorId: ctx.user.id };
+        const orderData = { priceCategory:input.kind==="SALE"?input.priceCategory:"GENERAL", storeId: ctx.storeId, kind: input.kind, date: new Date(input.date), partyId: party.id, partyName: party.name, partyPhone: party.phone, lines: lines as unknown as Prisma.InputJsonValue, freight, delivery: input.delivery, channel: freight || input.delivery === "寄送" ? input.channel : "", shippingNote: input.delivery === "寄送" ? input.shippingNote : "", internalNote: input.internalNote, total, requestId: input.requestId, requestHash: hashInput(input), actorId: ctx.user.id };
         const order = existing ? await tx.inventoryOrder.update({ where: { id: existing.id }, data: { ...orderData, revision: { increment: 1 } } }) : await tx.inventoryOrder.create({ data: orderData });
         if (!existing && input.paid > 0)
             await createInventoryPayment(ctx, tx, { requestId: input.requestId, requestHash: hashInput(input), kind: input.kind, date: order.date, method: input.method, allocations: [{ orderId: order.id, amount: input.paid }] });
         await tx.inventoryCommand.create({ data: { storeId: ctx.storeId, requestId: input.requestId, requestHash: hashInput(input), orderId: order.id } });
-        await inventoryAudit(ctx, tx, "InventoryOrder", order.id, existing ? "編輯銷貨單" : input.kind === "SALE" ? "建立銷貨單" : "建立進貨單", input.kind === "SALE" ? {revision:order.revision,date:input.date,paid:input.paid,total,freight,lines:publicLines(lines,false)} as unknown as Prisma.InputJsonValue : {revision:order.revision,date:input.date,quantities:lines.map(l=>({productId:l.productId,quantity:l.quantity}))}, beforeAudit);
+        await inventoryAudit(ctx, tx, "InventoryOrder", order.id, existing ? "編輯銷貨單" : input.kind === "SALE" ? "建立銷貨單" : "建立進貨單", input.kind === "SALE" ? {priceCategory:input.priceCategory,revision:order.revision,date:input.date,paid:input.paid,total,freight,lines:publicLines(lines,false)} as unknown as Prisma.InputJsonValue : {revision:order.revision,date:input.date,quantities:lines.map(l=>({productId:l.productId,quantity:l.quantity}))}, beforeAudit);
         return order.id;
     }, !input.id && input.paid > 0);
+}
+
+/** Direct print links read only the requested authorized document, never the complete workspace. */
+export async function inventoryDocumentData(ctx:InventoryContext,kind:string,id:string):Promise<Pick<InventoryData,"store"|"orders"|"payments">> {
+ const [store,order,payment]=await Promise.all([
+  prisma.store.findUniqueOrThrow({where:{id:ctx.storeId},select:{id:true,name:true,shopConfig:{select:{address:true}}}}),
+  kind==="sale"?prisma.inventoryOrder.findFirst({where:{id,storeId:ctx.storeId,kind:"SALE"}}):null,
+  kind==="receipt"?prisma.inventoryPayment.findFirst({where:{id,storeId:ctx.storeId,kind:"SALE"}}):null,
+ ]);
+ return {store:{id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null},orders:order?[{id:order.id,priceCategory:order.priceCategory as InventoryOrderView["priceCategory"],kind:order.kind,date:order.date.toISOString().slice(0,10),partyId:order.partyId,partyName:order.partyName,partyPhone:order.partyPhone,lines:publicLines(order.lines as unknown as InventoryLine[],false),freight:order.freight,delivery:order.delivery,channel:order.channel,shippingNote:order.shippingNote,internalNote:"",total:order.total,paid:order.paid,revision:order.revision}]:[],payments:payment?[{id:payment.id,kind:payment.kind,date:payment.date.toISOString().slice(0,10),partyId:payment.partyId,partyName:payment.partyName,partyPhone:payment.partyPhone,method:payment.method,total:payment.total,allocations:payment.allocations as unknown as InventoryData["payments"][number]["allocations"]}]:[]};
 }

@@ -140,3 +140,17 @@
 3. Next.js middleware 跑在 Edge Runtime，無法使用 Prisma（本專案 DB 查詢依賴）
 4. 加 middleware 會造成雙重查詢（middleware 查一次 + 頁面查一次）
 5. 現有架構是「layout 擋身份 + 頁面擋權限」二層防護，已足夠
+
+### PR #1205 進銷存身份價格（2026-10-05，Preview）
+
+| 權限 | 範圍 |
+| --- | --- |
+| inventory.manage | 商品基本資料與一般售價、進貨、盤點；不單憑此權限顯示成本 |
+| inventory.cost.read | 平均成本、最近進貨成本／金額、毛利；後端遮罩成本 |
+| inventory.price.manage | 額外允許設定商品身份售價比例（操作商品仍需 inventory.manage） |
+| inventory.price.override | 額外允許銷貨改單價、折扣與贈品（建立／編輯仍需 inventory.write） |
+| inventory.write | 銷貨與顧客收款，可選已設定身份價格；新單預設一般 |
+| inventory.receive | 不知廠商／成本時可登錄品項與數量入庫 |
+| inventory.purchase.pay | 廠商付款，仍需成本權限及現金帳入帳授權 |
+
+新身份價格權限不自動授予既有員工。身份選擇是每筆銷貨的人工判斷，不儲存為顧客預設；教練／老師統一師資。

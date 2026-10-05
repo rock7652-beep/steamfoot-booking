@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- In-memory transaction adapter for acceptance scenarios. */
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { Prisma } from "@prisma/client";
-const mocks = vi.hoisted(() => ({ db: {} as Record<string, any>, permission: vi.fn(), feature: vi.fn(), audit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ db: {} as Record<string, any>, permission: vi.fn(), check:vi.fn<(role:string,staffId:string|null,code:string)=>Promise<boolean>>(async()=>true), feature: vi.fn(), audit: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: mocks.db }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission, checkPermission: vi.fn(async () => true) }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission, checkPermission: mocks.check }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: vi.fn(async () => "store-1"), resolveWriteStoreId: vi.fn(async () => "store-1") }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: mocks.feature }));
 vi.mock("@/lib/data-export-gate", () => ({ hasDataExportFeature: vi.fn(async () => true) }));
 vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: mocks.audit }));
-import { saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
+import { inventoryDocumentData, saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
 import { receiveInventory, completeReceiving } from "./inventory-receiving";
-import { saveStockCount, savePayment } from "@/server/actions/inventory";
+import { saveProduct, saveStockCount, savePayment } from "@/server/actions/inventory";
 import { inventoryReport, orderSchema, publicLines, lineTotal } from "@/lib/inventory";
 const ctx: any = { storeId: "store-1", canCost: true, user: { id: "user-1", name: "店長", role: "ADMIN", staffId: "staff-1" } };
 describe("inventory preview isolation", () => {
@@ -35,6 +35,7 @@ function apply(row: any, data: any) { for (const [k, v] of Object.entries(data))
     row[k] = v && typeof v === 'object' && 'increment' in v ? row[k] + (v as any).increment : v; return row; }
 beforeEach(() => {
     sequence = 0;
+    mocks.check.mockResolvedValue(true);
     products = [{ id: "a", storeId: ctx.storeId, name: "商品 A", stock: 10, averageCost: new Prisma.Decimal(100), price: 200, revision: 1, active: true }];
     orders = [];
     commands = [];
@@ -185,4 +186,55 @@ describe("receiving corrections and permission boundaries",()=>{
   expect((await savePayment({requestId:crypto.randomUUID(),kind:"PURCHASE",date:"2026-10-05",method:"現金",allocations:[{orderId:id,amount:200}]})).success).toBe(false);
   expect(payments).toHaveLength(0);expect(cash).toHaveLength(0);expect(orders[0].paid).toBe(0);
  });
+});
+
+describe("identity pricing authorization and snapshots",()=>{
+ it("defaults every new order to general pricing",()=>{expect(input().priceCategory).toBe("GENERAL");});
+ it("allows configured faculty price without override permission and rounds unit price before quantity",async()=>{
+  mocks.check.mockResolvedValue(false);products[0].price=199;products[0].details={priceRatios:{FACULTY:80}};
+  const id=await saveInventoryOrder(ctx,input({priceCategory:"FACULTY",lines:[{productId:"a",quantity:3,unitPrice:159,discountMode:"NONE",discount:0,gift:false}]}));
+  expect(orders.find(o=>o.id===id).total).toBe(477);expect(orders[0].priceCategory).toBe("FACULTY");
+ });
+ it("rejects a forged identity price or additional discount without stock movement",async()=>{
+  mocks.check.mockResolvedValue(false);products[0].details={priceRatios:{STUDENT:80}};
+  await expect(saveInventoryOrder(ctx,input({priceCategory:"STUDENT",lines:[{productId:"a",quantity:1,unitPrice:1,discountMode:"NONE",discount:0,gift:false}]}))).rejects.toThrow("單價與優惠");
+  await expect(saveInventoryOrder(ctx,input({priceCategory:"STUDENT",lines:[{productId:"a",quantity:1,unitPrice:160,discountMode:"PERCENT",discount:10,gift:false}]}))).rejects.toThrow("單價與優惠");expect(products[0].stock).toBe(10);expect(orders).toHaveLength(0);
+ });
+ it("falls back to the general price when the selected ratio is unset",async()=>{
+  mocks.check.mockResolvedValue(false);
+  await saveInventoryOrder(ctx,input({priceCategory:"CONTRACT",lines:[{productId:"a",quantity:1,unitPrice:200,discountMode:"NONE",discount:0,gift:false}]}));expect(orders[0].total).toBe(200);
+ });
+ it("keeps old order pricing and product labels after product changes",async()=>{
+  products[0].details={brand:"原品牌",priceRatios:{STUDENT:80}};
+  const id=await saveInventoryOrder(ctx,input({priceCategory:"STUDENT",lines:[{productId:"a",quantity:1,unitPrice:160,discountMode:"NONE",discount:0,gift:false}]}));
+  products[0].price=400;products[0].name="新名稱";products[0].details={brand:"新品牌",priceRatios:{STUDENT:50}};mocks.check.mockResolvedValue(false);
+  await saveInventoryOrder(ctx,input({id,revision:1,priceCategory:"STUDENT",lines:[{productId:"a",quantity:2,unitPrice:160,discountMode:"NONE",discount:0,gift:false}]}));
+  expect(orders[0].total).toBe(320);expect(orders[0].lines[0].name).toBe("商品 A");expect(orders[0].lines[0].brand).toBe("原品牌");
+ });
+});
+
+describe("product metadata permissions",()=>{
+ it("edits metadata without cost permission and preserves stock valuation",async()=>{
+  mocks.check.mockResolvedValue(false);
+  const result=await saveProduct({id:"a",revision:1,name:"商品新名稱",price:200,details:{brand:"品牌乙",unit:"盒",minimumStock:5}});
+  expect(result.success).toBe(true);expect(products[0].details.brand).toBe("品牌乙");expect(products[0].stock).toBe(10);expect(Number(products[0].averageCost)).toBe(100);
+ });
+ it("requires separate permission to change identity ratios",async()=>{
+  mocks.check.mockImplementation(async(_role:string,_staffId:string|null,code:string)=>code!=="inventory.price.manage");
+  const result=await saveProduct({id:"a",revision:1,name:"商品 A",price:200,details:{priceRatios:{FACULTY:70}}});
+  expect(result.success).toBe(false);expect(products[0].revision).toBe(1);
+ });
+});
+
+describe("direct print document isolation",()=>{
+ it("reads one sale in the current store and strips cost and internal notes",async()=>{
+  mocks.db.store={findUniqueOrThrow:vi.fn(async()=>({id:ctx.storeId,name:"門市",shopConfig:null}))};
+  const id=await saveInventoryOrder(ctx,input({internalNote:"內部秘密"}));
+  const result=await inventoryDocumentData(ctx,"sale",id);expect(result.orders).toHaveLength(1);expect(result.orders[0].lines[0]).not.toHaveProperty("cost");expect(result.orders[0].internalNote).toBe("");
+  const other=await inventoryDocumentData({...ctx,storeId:"other"},"sale",id);expect(other.orders).toEqual([]);
+ });
+});
+
+it("rejects supplier payment when cost access is missing even if payment permission is granted",async()=>{
+ mocks.check.mockResolvedValue(false);const result=await savePayment({requestId:crypto.randomUUID(),kind:"PURCHASE",date:"2026-10-05",method:"現金",allocations:[{orderId:"unknown",amount:1}]});expect(result.success).toBe(false);expect(result.error).toContain("成本");expect(payments).toHaveLength(0);
 });

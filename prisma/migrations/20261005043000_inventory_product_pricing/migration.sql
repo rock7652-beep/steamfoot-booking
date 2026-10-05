@@ -1,0 +1,2 @@
+ALTER TABLE "InventoryProduct" ADD COLUMN "details" JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE "InventoryOrder" ADD COLUMN "priceCategory" TEXT NOT NULL DEFAULT 'GENERAL';

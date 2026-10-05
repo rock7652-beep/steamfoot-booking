@@ -1,7 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { checkPermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
-import { countSchema, orderSchema, paymentSchema, productSchema, supplierSchema, uniqueIds } from "@/lib/inventory";
+import { productDetails, countSchema, orderSchema, paymentSchema, productSchema, supplierSchema, uniqueIds } from "@/lib/inventory";
 import { inventoryContext, inventoryData, inventoryTransaction, inventoryAudit, ensureCost, hashInput, assertReplay, createInventoryPayment, saveInventoryOrder } from "@/server/services/inventory";
 import type { ActionResult } from "@/types";
 async function action<T>(work: () => Promise<T>): Promise<ActionResult<T>> { try {
@@ -24,13 +25,16 @@ catch (e) {
 export async function saveProduct(raw: unknown) {
     return action(async () => {
         const c = await inventoryContext("inventory.manage"), v = productSchema.parse(raw);
-        ensureCost(c);
+        if(v.stock>0 || v.averageCost>0)ensureCost(c);
+        const mayConfigurePrices=await checkPermission(c.user.role,c.user.staffId,"inventory.price.manage");
         return inventoryTransaction(c, async (tx) => {
             const old = v.id ? await tx.inventoryProduct.findFirst({ where: { id: v.id, storeId: c.storeId } }) : null;
             if (v.id && (!old || old.revision !== v.revision))
                 throw new AppError("CONFLICT", "商品已更新，請重新開啟");
-            const p = old ? await tx.inventoryProduct.update({ where: { id: old.id }, data: { name: v.name, price: v.price, active: v.active, revision: { increment: 1 } } }) : await tx.inventoryProduct.create({ data: { storeId: c.storeId, name: v.name, price: v.price, stock: v.stock, averageCost: v.averageCost, active: v.active } });
-            await inventoryAudit(c, tx, "InventoryProduct", p.id, old ? "編輯商品" : "新增商品", { name: p.name, stock: p.stock, price:p.price,active:p.active });
+            const previousDetails=productDetails(old?.details);
+            if(JSON.stringify(previousDetails.priceRatios)!==JSON.stringify(v.details.priceRatios)&&!mayConfigurePrices)throw new AppError("FORBIDDEN","沒有設定商品身份價格的權限");
+            const p = old ? await tx.inventoryProduct.update({ where: { id: old.id }, data: { name: v.name, details:v.details, price: v.price, active: v.active, revision: { increment: 1 } } }) : await tx.inventoryProduct.create({ data: { storeId: c.storeId, name: v.name, details:v.details, price: v.price, stock: v.stock, averageCost: v.averageCost, active: v.active } });
+            await inventoryAudit(c, tx, "InventoryProduct", p.id, old ? "編輯商品" : "新增商品", { name: p.name, stock: p.stock, price:p.price,active:p.active,details:v.details },old?{name:old.name,price:old.price,active:old.active,details:previousDetails}:undefined);
             return p.id;
         });
     });

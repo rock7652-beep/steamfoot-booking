@@ -1,0 +1,6 @@
+import {it,expect} from "vitest";
+import {inventoryPrintHtml} from "./inventory-print";
+import type {InventoryData} from "./inventory";
+const data:Pick<InventoryData,"store"|"orders"|"payments">={store:{id:"s",name:"測試店",phone:null,address:null},orders:[{id:"o",kind:"SALE",date:"2026-10-05",priceCategory:"FACULTY",partyId:"c",partyName:"<script>alert(1)</script>",partyPhone:"09",lines:[{productId:"p",name:"商品",brand:"品牌",specification:"規格",quantity:1,unitPrice:160,discountMode:"NONE",discount:0,gift:false,total:160,cost:123}],freight:0,delivery:"自取",channel:"",shippingNote:"<img src=x onerror=alert(1)>",internalNote:"內部秘密",total:160,paid:0,revision:1}],payments:[]};
+it("prints loaded snapshots without remote assets and escapes customer content",()=>{const html=inventoryPrintHtml(data,"sale","o")!;expect(html).toContain("師資");expect(html).toContain("品牌・商品・規格");expect(html).toContain("&lt;script&gt;");expect(html).not.toContain("<script>");expect(html).not.toContain("<img");expect(html).not.toContain("內部秘密");expect(html).not.toContain("123");expect(html).not.toContain('href=');});
+it("never prints a purchase or an unknown id",()=>{expect(inventoryPrintHtml(data,"purchase","o")).toBeNull();expect(inventoryPrintHtml(data,"sale","missing")).toBeNull();});
