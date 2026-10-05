@@ -3,16 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { CashbookEntryFields } from "./cashbook-entry-fields";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
+import { saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
+import { readQuickCashbook, type QuickCashbookData } from "@/lib/quick-cashbook-client-transport";
 
-type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
+type Data = QuickCashbookData;
 type Entry = Data["entries"][number];
 const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:opacity-50";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
 
 export function QuickCashbook({ storeId, triggerClassName, instantSearch = false }: { storeId: string; triggerClassName?: string; instantSearch?: boolean }) {
+  return <QuickCashbookPanel key={storeId} storeId={storeId} triggerClassName={triggerClassName} instantSearch={instantSearch} />;
+}
+
+function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { storeId: string; triggerClassName?: string; instantSearch: boolean }) {
+  const reader = usePanelReader("quick-cashbook", readQuickCashbook, storeId);
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,21 +27,23 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
   const [editing, setEditing] = useState<Entry | "new" | null>(null);
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
+  const currentPage = useRef(1);
   const locked = useRef(false);
   const dialog = useRef<HTMLElement>(null);
   const closeRef = useRef<() => void>(() => undefined);
   async function refresh(page = 1) {
     const version = ++request.current;
-    setLoading(true); setError("");
-    try { const result = await fetchQuickCashbook(storeId, page); if (version === request.current) setData(result); }
+    currentPage.current = page;
+    setLoading(true); setError(""); setData(null);
+    try { const result = await reader.read(storeId, page); if (version === request.current) setData(result); }
     catch { if (version === request.current) setError("收支紀錄暫時無法讀取，請重試。"); }
     finally { if (version === request.current) setLoading(false); }
   }
-  useEffect(() => () => { request.current++; }, []);
+  useEffect(() => () => { request.current++; reader.clear(); }, [reader]);
   function close() {
     if (locked.current) return;
     if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
-    request.current++; setOpen(false); setEditing(null);
+    request.current++; reader.clear(); setOpen(false); setEditing(null);
   }
   closeRef.current = close;
   useEffect(() => {
@@ -59,7 +68,7 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
     try {
       const result = await saveQuickCashbook(storeId, editing && editing !== "new" ? editing.id : null, form);
       if (!result.success) { toast.error(result.error ?? "儲存失敗"); return; }
-      setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
+      reader.clear(); setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
     } catch { toast.error("儲存失敗，請重試，表單內容已保留"); }
     finally { locked.current = false; setBusy(false); }
   }
@@ -69,14 +78,14 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
     try {
       const result = await deleteQuickCashbook(storeId, entry.id);
       if (!result.success) { toast.error(result.error ?? "刪除失敗"); return; }
-      toast.success("已刪除收支紀錄"); await refresh();
+      reader.clear(); toast.success("已刪除收支紀錄"); await refresh();
     } catch { toast.error("刪除失敗，請重試"); }
     finally { locked.current = false; setBusy(false); }
   }
   const entry = editing && editing !== "new" ? editing : null;
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
-    <button type="button" className={`${button} ${triggerClassName ?? ""}`} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
+    <button type="button" className={`${button} ${triggerClassName ?? ""}`} onPointerEnter={() => reader.prefetch(storeId, 1)} onFocus={() => reader.prefetch(storeId, 1)} onTouchStart={() => reader.prefetch(storeId, 1)} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
     {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end bg-earth-950/35 sm:items-center sm:justify-center sm:p-5">
       <button type="button" aria-label="關閉現金收支" onClick={close} className="absolute inset-0 cursor-default" />
       <section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="quick-cashbook-title" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl outline-none sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-3xl sm:rounded-2xl">
@@ -88,7 +97,7 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
         <button type="button" className={button} disabled={busy} onClick={close} aria-label="關閉現金收支">關閉</button>
       </header>
       <div className="flex-1 overflow-y-auto bg-earth-50/40 p-5">
-        {error && <div role="alert" className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">{error} <button type="button" onClick={() => void refresh()} className={button}>重試</button></div>}
+        {error && <div role="alert" className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">{error} <button type="button" disabled={loading} onClick={() => { reader.invalidate(storeId, currentPage.current); void refresh(currentPage.current); }} className={button}>重試</button></div>}
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
           {data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}

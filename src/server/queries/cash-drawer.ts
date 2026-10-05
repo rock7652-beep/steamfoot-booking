@@ -196,6 +196,40 @@ export async function listClosedBusinessDates(
   return sessions.map((s) => s.businessDate.toISOString().slice(0, 10));
 }
 
+/** 小視窗只需要現金餘額，不載入完整抽屜明細、非現金總覽或上日補關統計。
+ * 不快取：沿用完整抽屜的營業日、混合付款、退款與現金帳計算規則。 */
+export async function getCashDrawerBalanceSummary(storeId: string, businessDate: Date) {
+  const session = await prisma.cashDrawerSession.findFirst({
+    where: { storeId, businessDate: { lte: businessDate } },
+    orderBy: { businessDate: "desc" },
+    select: {
+      id: true, storeId: true, businessDate: true, status: true,
+      openingActualCash: true, closingActualCash: true,
+    },
+  });
+  if (!session) return { balance: null, balanceLabel: "現金抽屜尚未啟用" };
+  if (session.businessDate.getTime() !== businessDate.getTime()) {
+    return { balance: null, balanceLabel: session.status === "OPEN" ? "上次抽屜尚未關帳" : "今日尚未開店點錢" };
+  }
+  if (session.status !== "OPEN") {
+    return { balance: session.closingActualCash == null ? null : Number(session.closingActualCash), balanceLabel: "關店實點現金" };
+  }
+  const [income, expense, manual, cashbook] = await Promise.all([
+    computeCashIncomeForSession(session),
+    computeCashExpenseForSession(session),
+    computeManualEntryTotals(session.id),
+    computeCashbookCashMovementsForSession(session),
+  ]);
+  const balance = computeExpectedClosingCash({
+    openingActualCash: session.openingActualCash,
+    cashIncomeTotal: income,
+    cashExpenseTotal: expense,
+    ...manual,
+    ...cashbook,
+  });
+  return { balance: Number(balance), balanceLabel: "預估抽屜現金" };
+}
+
 /** DB query + state 推導，給 page 用。OPEN 的今日 session 會額外計算 liveTotals。
  *  若無今日 session、但 latestSession 仍 OPEN（上日忘記閉店），也會算 liveTotals
  *  給 WARNING_LAST_OPEN 卡片的「補關」表單顯示系統預估結餘。 */

@@ -13,9 +13,10 @@
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
-| 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要，active cleanup |
+| 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要；每次開啟及切顧客重新建立讀取狀態，舊錯誤／晚到回應隔離；視窗內重試 |
 | 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
-| 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0，active cleanup |
+| 預約管理現金收支 | quick-cashbook | 獨立 GET /api/cashbook/quick，共用既有後端授權及餘額服務，避免讀取 Server Action 的頁面回應；TTL 0，門市及頁碼納入讀取鍵；pointer／focus／touch intent 在途去重；換頁隱藏舊金額，失敗原頁重試；關閉與寫入成功清除資源，晚到回應隔離 |
+| 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
 | SPA 預約服務／人員 | spa-providers | TTL 0，選項 key 與 active cleanup 防止舊回應 |
@@ -82,3 +83,43 @@
 - 登入後桌機 1363×936：QA來源驗收LINE 的 1598 元單次與全額折抵課程交易（實付 0、10 堂）顯示正確；鍵盤 Enter 開啟、關閉重開正常。桌機視窗 (321.5,24,720,888)，頁寬 1363。
 - 相同共用元件在營運工作台：1024×768 視窗 (152,24,720,720)、768×1024 視窗 (24,62,720,900)、1440×900 視窗 (360,24,720,852)、390×844 視窗 (0,0,390,844)，頁寬皆等於視窗寬。平板橫轉直保留 QA1204 未儲存備註，之後取消恢復未填寫；手機 Escape 關閉後保留原查詢。全部只讀取與取消，未提交收款、退款、作廢或備註。
 - 錯誤重試與 touch intent 的請求去重為自動化行為測試，沒有在瀏覽器故意阻斷網路；模擬尺寸不等於真機觸控，超寬螢幕／Safari／LINE 依既有指示保留未驗。尚未合併正式站。
+
+## 課程方案與顧客經營接續（2026-10-05）
+
+- 以 #1204 main bf896dd9 為起點，運動／音樂沿用 CourseMemberWorkspace 與 course-card reader；意圖預讀只去重在途請求，TTL 0，完整權威資料取得後才開啟修改。錯誤可在原視窗重試；晚到回應與舊錯誤不得覆蓋目前方案／顧客。
+- 快速換顧客曾觀察 URL 與視窗不同步；唯一觸發來源未證實。改由目前 client panel identity 同步 customerId，保留篩選／hash，並先通過離開 guard；自動化涵蓋晚到 route、關閉後舊 route。
+- 音樂劉語彤・08 吉他4堂卡（剩4／預約0／可用4）、運動林宥辰共卡（16／8／8、9筆）及李承恩個人卡（18／2／16、4筆）開啟與重開正確。桌機1363×936、iPad1024×768／768×1024及手機390×844，切換尺寸維持目前顧客與 URL，無整頁水平溢出。
+- Growth 實際候選入口 /hq/dashboard/growth/candidates：隔離 steamfoot-preview/staging-store 暫設 QA1005、QA1124 為 PARTNER。先姓名摘要再完整0／115點，關閉換人不帶入舊資料。跨店權限試驗會由 RSC 移除候選列，不計為原地重試通過；storeId 已即刻還原。
+- 補齊 HTTP 503 原地重試：獨立 qa/panel-1206-network-rwd-20261005，d66424ac，Vercel dpl_2UtqZvBDubJiEvSHM7JC57kypWg6 READY；僅指定 preview 支線、ADMIN、候選頁 action 可注入故障，不更改產品 reader／component，此 QA 支線不合併。正常115點顧客關閉後，故障開啟0點顧客只顯示目前姓名及錯誤；持續故障重試仍留原顧客，恢復後同視窗 loading→0點成功，候選 URL 不變、僅1個 dialog。
+- Growth 390×844、360×800、768×1024、1024×768、1440×900，document.clientWidth=scrollWidth；手機全寬、平板／桌機520寬。360手機內容938／捲動區634，鍵盤可到下方轉介紹控制，固定頁尾可見。尺寸切換不清除顧客。驗收截圖 qa1206-mobile-retry-rwd-20261005.jpg。
+- 清理 SQL 再查：QA1005、QA1124 talentStage=CUSTOMER、storeId=staging-store、stageNote=null；沒有修改正式資料、點數、交易或預約。
+- 本輪觸控改善：沿用共用 TalentPipelineSection、ManualPointsForm、ReferralSection，調整階段／手動加分／新增轉介紹／轉介紹狀態控制至少44×44；Growth 關閉44×44及完整顧客入口至少44高。這些共用區塊目前實際掛在成長抽屜；完整顧客頁只提供前往顧客經營入口，不列為相同區塊驗收。沒有複製另一套元件，不改清單字級、讀取或交易規則。
+- 觸控 preview 55a9a8ee／產品07333863：手機390與360、iPad橫直及1440桌機無整頁水平溢出，關閉44×44、調整階段60×44、加分81.36×44、新增轉介紹83.58×44、完整顧客入口98.70×44。原地503→重新載入→0點成功，未带入另一位115點。QA1124顯示115點與10筆近期紀錄，尺寸切換保留目前顧客。截圖 qa1206-touch-controls-20261005.jpg，故障已解除、測試顧客已還原。
+- 產品07333863 CI 37257462429：Targeted、Typecheck、Changed ESLint全部通過，本機4組21項通過。完整測試6526通過／71失敗／81略過，73條正規化FAIL與 #1204 baseline完全相同、added=[]、removed=[]。最終紀錄提交只更新本文件，不更動已驗產品程式。
+- head 595103e7 的 CI 37255536284：Targeted 66組593項、Typecheck及Changed ESLint通過；完整6526通過／71失敗／81略過，73條正規化 FAIL 與 #1204 baseline job111570390770完全相同，added=[]、removed=[]，不宣稱全绿。booking-form-live-slots 僅固定測試 Date，沒有改營業規則。
+- 模擬尺寸不等於實機觸控；Safari／LINE、手機鍵盤及超寬尺寸仍未完整驗收。PR #1206 已於2026-10-05合併，production 2ae3fdab部署成功；正式站運動唯一顧客無持有方案，且全店潛力名單0人、無音樂門市，對應完整業務驗收仍缺資料。
+
+## 現金收支讀取接續（2026-10-05）
+
+- 以正式main 2ae3fdab建立乾淨支線；預約管理QuickCashbook是直接client讀取的剩餘缺口，接入既有usePanelReader，不新增快取核心。金額維持TTL 0；一般現金編輯與課程交易沿用props直接呈現，不額外加讀取。
+- 門市變更卸載舊panel；關閉／卸載隔離晚到回應。intent與開啟只共用在途請求；重開重新查權威金額。換頁清除舊值，錯誤在原頁重試；成功儲存／刪除清除各頁後重讀。後端權限、金額計算與寫入規則未修改。
+- 活躍支線#1205進銷存與#1207批次簽到均不帶入；本輪不更動其功能。
+- 本機3組30項通過，涵蓋pointer／focus／touch去重、重開取新值、原頁重試、舊值不可操作、關閉重開及跨門市晚到隔離、成功寫入後更新。Preview與桌機／iPad瀏覽器驗收尚待部署，不宣稱上線或完整驗收。
+
+## 現金收支查詢效能接續（2026-10-05）
+
+- 使用者提供正式站桌機截圖：新增「test／NT$1／OTHER」成功，重開兩次及整頁重新整理後仍一致；首次讀取仍有等待。新增與重開一致性列為通過，編輯、刪除及實際耗時尚未由本次截圖證實。
+- 小視窗改用 getCashDrawerBalanceSummary：只查最新有效營業日 session；當日 OPEN 沿用既有 cash-drawer services 與 Decimal 公式取得權威現金餘額；CLOSED 讀實點現金；未開店／上日未關帳只回原有提示。不查非現金總覽、完整明細或上日補關統計。
+- 通過現金帳授權、門市及功能檢查後，清單、筆數、關帳日期、唯讀上下文、寫入權限與抽屜權限分支並行。抽屜資料仍須先通過其讀取權限與功能檢查；TTL 0、共用 panel reader、寫入規則及 UI 外觀維持原樣。
+- Vercel 每次成功讀取記錄 authorizationMs／dataMs／totalMs，僅含耗時，不記錄帳號、門市、顧客、金額或備註；可用來區分後端等待與瀏覽器端等待。後端耗時不等於使用者看到資料的端到端耗時。
+- 本機7組137項測試通過，包含新舊餘額相等、混合付款、退款、現金帳異動、關帳零餘額／null、重讀新餘額、並行查詢與門市隔離。截圖不能量測改善幅度；新支線須另做 Preview 與實際速度驗收，不宣稱速度已通過或全站完成。
+
+
+## 現金收支獨立傳輸接續（2026-10-05）
+
+- 使用者操作後，上一版預覽在 13:02:38–13:02:44（Asia/Taipei）取得 4 筆讀取紀錄（可能含 intent prefetch）：授權 51/84/314/745ms、資料 51/103/112/180ms、後端合計 102/187/426/925ms。同一 POST 還出現課表與標籤讀取；沒有 client trace，不能直接相加或當作端到端速度。
+- 新版透過 GET /api/cashbook/quick 返回純 JSON，保留 fetchQuickCashbook 共用授權、門市與功能檢查、員工範圍、現金餘額公式；不重複在 route 增加第二次 requirePermission。回應 private/no-store，client fetch no-store；storeId 與 page 回應不符即拒絕，不啟用操作。
+- 新增 quick-cashbook.authorization 分段耗時：permission.session、permission.grant（非 ADMIN）、activeStore、cashbookFeature；沿用共用 OperationTiming，僅固定名稱與耗時，不記個資或金額。不延長金融資料快取，不省略授權。
+- 原有 panel reader 的 pointer/focus/touch、在途去重、TTL 0、失敗重試、關閉/換店晚到隔離、成功寫入後失效保留。僅修改讀取傳輸，儲存/刪除仍走既有 server actions；本輪不聲稱消除寫入後必要的頁面更新。
+- 本機8組155項測試通過；前版遠端全量71失敗與 #1208 清單相同、沒有新增失敗，Workers Build 在 main 亦失敗但尚無詳細根因。新 head CI 與預覽另行核對，不能沿用前版結果當作新 head 通過。
+- 未修改視窗外框、字級與欄位尺寸；受影響入口為預約管理 QuickCashbook（HQ/門市）。登入瀏覽器觀察受 credentials protection 阻擋，不繞過；新傳輸的桌機/iPad真實操作、首次/重開/儲存後更新耗時與 RSC 重讀是否消除仍待新版實測。不合併正式站。

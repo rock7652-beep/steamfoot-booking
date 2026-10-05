@@ -1,8 +1,9 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { RosterToolbar, RosterNotes, RosterMoreMenu, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import styles from "./day-detail-panel.module.css";
+import { ModalPanel } from "@/components/admin/modal-panel";
 
 import { BookingActionFeedback } from "./booking-action-feedback";
 
@@ -79,6 +80,9 @@ interface DayDetailPanelProps {
   toolbar?: ReactNode;
   date: string | null;
   bookings: DayBooking[];
+  /** Unfiltered day totals stay stable while selecting/searching. */
+  allBookings?: DayBooking[];
+  batchResult?: string;
   slots: SlotAvailability[];
   /** Slots availability has been resolved for this date (cache hit or fetch
    *  finished). Used to gate the "該日不營業" hint — without it we'd flash
@@ -118,6 +122,8 @@ export function DayDetailPanel({
   toolbar,
   date,
   bookings,
+  allBookings = bookings,
+  batchResult,
   slots,
   slotsKnown = true,
   slotsLoading = false,
@@ -139,6 +145,8 @@ export function DayDetailPanel({
   readOnly = false,
 }: DayDetailPanelProps) {
   const [batchMode, setBatchMode] = useState(false);
+  const [confirmBatch, setConfirmBatch] = useState(false);
+  const confirmationId = useId();
   if (!date) {
     return (
       <div className="flex flex-col gap-4">
@@ -163,10 +171,11 @@ export function DayDetailPanel({
     );
   }
 
-  const dateObj = new Date(date + "T00:00:00+08:00");
-  const monthDay = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+  const [, month, day] = date.split("-").map(Number);
+  const monthDay = `${month}/${day}`;
 
-  const stats = computeStats(bookings);
+  const stats = computeStats(allBookings);
+  const selectedBookings = bookings.filter(b => selectedIds?.has(b.id) && ACTIONABLE_STATUSES.has(b.bookingStatus));
 
   const actionableCount = bookings.filter((b) =>
     ACTIONABLE_STATUSES.has(b.bookingStatus),
@@ -177,81 +186,71 @@ export function DayDetailPanel({
     !!selectedIds &&
     !!onCompleteBatch &&
     !!onClearSelection;
-  const selectedCount = selectedIds?.size ?? 0;
+  const selectedCount = selectedBookings.length;
+  const selectedPeople = selectedBookings.reduce((sum, b) => sum + b.people, 0);
   const allSelected =
     actionableCount > 0 && selectedCount === actionableCount;
 
   return (
     <div className="@container flex h-full flex-col">
-      <div className="shrink-0 px-4 py-3">
+      <div className="relative z-40 shrink-0 px-4 py-3">
         <RosterToolbar label="當日預約工具列">
-          <span className="inline-flex min-h-11 items-center rounded-lg border border-primary-500 bg-primary-50 px-3 text-sm text-primary-800">預約 {stats.total}</span>
+          <span className="inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-lg border border-primary-500 bg-primary-50 px-3 text-sm text-primary-800">
+            <span>預約 {stats.total} 筆・共 {stats.people} 人</span>
+            {stats.makeup > 0 && <span>其中補課 {stats.makeup} 人</span>}
+          </span>
+          {stats.checkedIn > 0 && <KpiChip label="到店" value={stats.checkedIn} />}
+          {stats.completed > 0 && <KpiChip label="完成人數" value={stats.completed} />}
+          {stats.noShow > 0 && <KpiChip label="未到人數" value={stats.noShow} tone="danger" />}
           {toolbar}
-          {selectionEnabled && <button type="button" aria-pressed={batchMode} disabled={batchActing} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={() => { setBatchMode(!batchMode); onClearSelection?.(); }}>{batchMode ? "結束批次" : "批次完成"}</button>}
-          <details className="relative text-sm text-earth-600">
-            <summary className="min-h-11 cursor-pointer rounded-lg border border-earth-200 px-3 py-3">當日統計</summary>
-            <div className="absolute left-0 top-full z-30 mt-1 flex w-72 flex-wrap gap-2 rounded-lg border border-earth-200 bg-white p-3 shadow-lg">
-              <KpiChip label="到店" value={stats.checkedIn} />
-              <KpiChip label="完成人數" value={stats.completed} />
-              <KpiChip label="未到人數" value={stats.noShow} tone={stats.noShow > 0 ? "danger" : "default"} />
-              <KpiChip label="人數" value={stats.people} />
-              <KpiChip label="補課" value={stats.makeup} tone={stats.makeup > 0 ? "warning" : "default"} />
-            </div>
-          </details>
-          {filteredFrom != null && <span role="status" className="text-sm text-primary-700">篩選中 {stats.total}/{filteredFrom}</span>}
+          {selectionEnabled && <button type="button" aria-pressed={batchMode} disabled={batchActing} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={() => { setBatchMode(!batchMode); onClearSelection?.(); }}>{batchMode ? "取消批次" : "批次完成"}</button>}
+          {filteredFrom != null && <span role="status" className="text-sm text-primary-700">符合 {bookings.length} 筆</span>}
           {readOnly && <span className="text-sm text-amber-700">查看模式</span>}
         </RosterToolbar>
       </div>
 
+      {selectionEnabled && batchMode && (
+        <div className="shrink-0 border-y border-primary-100 bg-primary-50/70 px-4 py-2">
+          <RosterToolbar label="批次完成工具列">
+            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 px-1 text-sm font-medium text-primary-800">
+              <input type="checkbox" aria-label="全選目前清單可完成的預約" checked={allSelected}
+                ref={node => { if (node) node.indeterminate = selectedCount > 0 && !allSelected; }}
+                disabled={batchActing || actionableCount === 0 || !onSelectAllActionable}
+                onChange={() => allSelected ? onClearSelection?.() : onSelectAllActionable?.()}
+                className="h-4 w-4 rounded border-earth-300 text-primary-600" />
+              全選
+            </label>
+            <span role="status" className="text-sm text-primary-800">已選 {selectedCount} 筆・共 {selectedPeople} 人</span>
+            <button type="button" onClick={() => setConfirmBatch(true)} disabled={batchActing || selectedCount === 0}
+              className="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white disabled:opacity-50">
+              {batchActing ? "處理中…" : `完成所選（${selectedCount} 筆）`}
+            </button>
+            <button type="button" onClick={onClearSelection} disabled={batchActing || selectedCount === 0}
+              className="min-h-11 rounded-lg border border-earth-300 bg-white px-3 text-sm text-earth-700 disabled:opacity-50">清除選取</button>
+          </RosterToolbar>
+          {batchResult && <p role="status" className="mt-1 text-sm text-earth-700">{batchResult}</p>}
+        </div>
+      )}
+      <ModalPanel open={confirmBatch} onClose={() => setConfirmBatch(false)} labelledById={confirmationId}>
+        <div className="p-4">
+          <h2 id={confirmationId} className="font-semibold text-earth-900">確認完成服務</h2>
+          <p className="mt-3 text-sm text-earth-700">{monthDay}・已選 {selectedCount} 筆預約，共 {selectedPeople} 人。</p>
+          <p className="mt-2 text-sm text-earth-600">請確認顧客已到店並完成服務。依原有方案規則扣堂，收款狀態不變；可由個別預約還原。</p>
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={() => setConfirmBatch(false)}>返回</button>
+            <button type="button" disabled={batchActing || selectedCount === 0} className="min-h-11 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white disabled:opacity-50"
+              onClick={() => { setConfirmBatch(false); onCompleteBatch?.(); }}>確認完成</button>
+          </div>
+        </div>
+      </ModalPanel>
       <div className="min-h-0 flex-1 px-4 pb-3">
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
         <div className="min-h-0 flex-1 overflow-y-auto">
-        <div aria-hidden="true" data-batch={batchMode && selectionEnabled} className={`sticky top-0 z-30 ${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
-          {batchMode && selectionEnabled && <span />}
+        <div aria-hidden="true" className={`sticky top-0 z-30 ${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           <span />
-          <div className={styles.rowBody}><span>時間／人數</span><span className={styles.identityHeader}><span>顧客</span><span>電話</span></span><span>直屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
+          <div className={styles.rowBody}><span>時間／人數</span><span className={styles.identityHeader}><span>顧客</span><span>電話</span></span><span>所屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
           <span />
         </div>
-
-        {/* Selection bar — only when at least one row picked */}
-        {selectionEnabled && selectedCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-primary-100 bg-primary-50/70 px-4 py-2">
-            <span className="text-sm font-medium text-primary-800">
-              已選 {selectedCount} 筆
-              {actionableCount > selectedCount && (
-                <span className="ml-1 text-sm font-normal text-primary-600">
-                  / 可選 {actionableCount}
-                </span>
-              )}
-            </span>
-            <button
-              type="button"
-              onClick={onCompleteBatch}
-              disabled={batchActing}
-              className="inline-flex min-h-11 items-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
-            >
-              {batchActing ? "處理中..." : "批次完成服務"}
-            </button>
-            {!allSelected && onSelectAllActionable && (
-              <button
-                type="button"
-                onClick={onSelectAllActionable}
-                disabled={batchActing}
-                className="inline-flex min-h-11 items-center rounded-md border border-primary-300 bg-white px-2.5 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-              >
-                全選可操作
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClearSelection}
-              disabled={batchActing}
-              className="ml-auto inline-flex min-h-11 items-center rounded-md border border-earth-300 bg-white px-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
-            >
-              清除選取
-            </button>
-          </div>
-        )}
 
         {bookings.length === 0 ? (
           <div className="p-4">
@@ -367,7 +366,7 @@ function TimelineItem({
             ? "border-l-blue-500"
             : "border-l-earth-300";
 
-  // 直屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
+  // 所屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
   const assignedStaffName =
     booking.customer?.assignedStaff?.displayName ?? "未指派";
 
@@ -420,7 +419,7 @@ function TimelineItem({
           accidentally end up in a batch. Wrapped in a label for hit-area; the
           input owns selection state, no need to stopPropagation onto body
           since body click is its own button. */}
-      {onToggleSelect && <div className="flex w-6 shrink-0 items-center justify-center">
+      {onToggleSelect && <label className="flex min-h-11 w-11 shrink-0 items-center justify-center">
         {actionable && onToggleSelect ? (
           <input
             type="checkbox"
@@ -431,9 +430,9 @@ function TimelineItem({
             className="h-4 w-4 cursor-pointer rounded border-earth-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed"
           />
         ) : null}
-      </div>}
+      </label>}
 
-      <div className="relative z-20 flex w-11 shrink-0 flex-col justify-center">
+      {!onToggleSelect && <div className="relative z-20 flex w-11 shrink-0 flex-col justify-center">
         {!(actionable && onCompleteSingle) && !(booking.bookingStatus === "COMPLETED" && onRevertSingle) && <span aria-label={meta.label} className="inline-flex min-h-11 min-w-11 items-center justify-center"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 ${booking.bookingStatus === "COMPLETED" ? "border-primary-700 bg-primary-700 text-white" : "border-earth-400 text-earth-500"}`}>{booking.bookingStatus === "COMPLETED" ? "✓" : booking.bookingStatus === "NO_SHOW" || booking.bookingStatus === "CANCELED" ? "−" : ""}</span></span>}
         {actionable && onCompleteSingle ? (
           <button
@@ -459,7 +458,7 @@ function TimelineItem({
             <span aria-hidden="true" className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary-700 bg-primary-700 text-white">{isActing ? "…" : "✓"}</span><span className="sr-only">{isActing ? "儲存中…" : "還原"}</span>
           </button>
         ) : null}
-      </div>
+      </div>}
       {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
       <div className={`${styles.rowBody} relative isolate min-w-0 flex-1 text-left`}>
         <div className={styles.timeCell}>
@@ -516,13 +515,12 @@ function TimelineItem({
                   : "shrink-0 text-sm font-medium text-earth-600"
               }
             >
-              {sessions.isLow
-                ? `剩 ${planBadge.sessions} 堂｜提醒儲值`
-                : `剩 ${planBadge.sessions} 堂`}
+              {`剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
             <span title={`已扣堂｜方案：${deductedPlanLabel}`} className="block w-full min-w-0 break-words text-sm font-medium text-emerald-700">
-              已扣堂｜方案：{deductedPlanLabel}
+              <span className="block">已扣堂</span>
+              <span className="block font-normal">{deductedPlanLabel}</span>
             </span>
           ) : planBadge.kind === "not_deducted" ? (
             <span className="shrink-0 text-sm text-earth-500">未扣堂</span>
@@ -687,13 +685,13 @@ function computeStats(bookings: DayBooking[]) {
   };
   for (const b of bookings) {
     stats.people += b.people;
-    if (b.isCheckedIn) stats.checkedIn++;
+    if (b.isCheckedIn) stats.checkedIn += b.attendedPeople ?? b.people;
     if (b.bookingStatus === "COMPLETED") {
       stats.completed += b.attendedPeople ?? b.people;
       stats.noShow += Math.max(0, b.people - (b.attendedPeople ?? b.people));
     }
     if (b.bookingStatus === "NO_SHOW") stats.noShow += b.people;
-    if (b.isMakeup) stats.makeup++;
+    if (b.isMakeup) stats.makeup += b.people;
   }
   return stats;
 }
