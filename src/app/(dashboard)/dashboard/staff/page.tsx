@@ -30,7 +30,8 @@ export default async function StaffPage({
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
   const activeStoreId = await getActiveStoreForRead(user);
-  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") return <CourseStaffPage />;
+  const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
+  if (industryModule === "course") return <CourseStaffPage />;
   const adminMissingStore = user.role === "ADMIN"
     && !activeStoreId;
   const [canManagePermission, staffList, plan] = await Promise.all([
@@ -39,11 +40,7 @@ export default async function StaffPage({
     getCurrentStorePlan(),
   ]);
   const canManage = canManagePermission && !adminMissingStore;
-  const isCourseStore = Boolean(activeStoreId && (await getStoreIndustryModule(activeStoreId)) === "course");
-  const isSpaStore = Boolean(
-    activeStoreId &&
-    (await getStoreIndustryModule(activeStoreId)) === "spa",
-  );
+  const isSpaStore = industryModule === "spa";
   const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
   const spaCompensationReady = isSpaStore ? await isSpaCompensationSchemaReady() : false;
   let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
@@ -156,7 +153,7 @@ export default async function StaffPage({
       <PageShell>
         <PageHeader
           title="人員管理"
-          subtitle={isCourseStore ? "管理教練與人員帳號；上課時間請至課表排程安排" : "管理人員、專業項目、接客時段與休假例外"}
+          subtitle={isSpaStore ? "管理人員、專業項目、接客時段與休假例外" : "管理人員帳號、角色與權限"}
         />
         {adminMissingStore ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -175,8 +172,8 @@ export default async function StaffPage({
               </div>
             ) : null}
             <StaffWorkspace
-              courseBasicOnly={isCourseStore}
-              showSteamfootRent={Boolean(activeStoreId && !isSpaStore && !isCourseStore)}
+              accountListOnly={!isSpaStore}
+              showSteamfootRent={industryModule === "steamfoot"}
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}

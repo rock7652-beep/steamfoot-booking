@@ -8,9 +8,10 @@ import { useRouter } from "next/navigation";
 interface StaffStatusToggleProps {
   staffId: string;
   currentStatus: string;
+  quiet?: boolean;
 }
 
-export function StaffStatusToggle({ staffId, currentStatus }: StaffStatusToggleProps) {
+export function StaffStatusToggle({ staffId, currentStatus, quiet = false }: StaffStatusToggleProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const isActive = currentStatus === "ACTIVE";
@@ -39,7 +40,7 @@ export function StaffStatusToggle({ staffId, currentStatus }: StaffStatusToggleP
       type="button"
       onClick={handleToggle}
       disabled={isPending}
-      className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+      className={quiet ? "min-h-11 w-full px-3 text-left text-sm disabled:opacity-50" : `rounded px-2 py-1 text-xs font-medium transition-colors ${
         isPending
           ? "bg-earth-100 text-earth-400 cursor-wait"
           : isActive

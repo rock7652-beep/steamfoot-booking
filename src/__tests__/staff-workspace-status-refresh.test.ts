@@ -48,4 +48,45 @@ describe("staff workspace authoritative refresh", () => {
     expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "啟用")).toBe(true);
     await act(async () => root.unmount());
   });
+  it("keeps the account list and editing free of SPA scheduling controls", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => root.render(createElement(StaffWorkspace, {
+      accountListOnly: true, people: [{ ...person, status: "ACTIVE" }],
+      today: "2026-10-05", canManage: true, showSpaCompensation: false,
+      createAction: vi.fn(),
+    })));
+    expect(host.querySelector('section[aria-label="人員清單"] table')).not.toBeNull();
+    expect(host.querySelector('section[aria-label="人員總覽"]')).toBeNull();
+    expect(host.textContent).not.toContain("近期例外");
+    const more = host.querySelector('button[aria-label="QA 門市操作"]') as HTMLButtonElement;
+    expect(more.textContent).toBe("⋯");
+    expect(more.className).not.toContain("border");
+    await act(async () => more.click());
+    const edit = Array.from(document.body.querySelectorAll("button")).find(b => b.textContent === "編輯");
+    await act(async () => edit!.click());
+    expect(document.body.textContent).toContain("編輯人員");
+    expect(document.body.querySelector('input[name="displayName"]')).not.toBeNull();
+    expect(document.body.textContent).not.toContain("可服務項目");
+    expect(document.body.textContent).not.toContain("固定班表");
+    await act(async () => root.unmount());
+  });
+
+  it("refreshes account-list status from server props without remounting", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const render = (status: string) => root.render(createElement(StaffWorkspace, {
+      accountListOnly: true, people: [{ ...person, status }],
+      today: "2026-10-05", canManage: true, showSpaCompensation: false,
+      createAction: vi.fn(),
+    }));
+    await act(async () => render("ACTIVE"));
+    expect(host.querySelector("tbody")?.textContent).toContain("啟用");
+    await act(async () => render("INACTIVE"));
+    expect(host.querySelector("tbody tr td:nth-child(5)")?.textContent).toBe("停用");
+    await act(async () => root.unmount());
+  });
+
 });

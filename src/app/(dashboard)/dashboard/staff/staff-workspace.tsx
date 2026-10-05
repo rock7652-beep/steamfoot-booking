@@ -8,6 +8,7 @@ import { useMemo, useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import { ResetPasswordButton } from "./reset-password-button";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import type { SpaProviderSpecialty } from "@/lib/spa-scheduling";
 import {
@@ -89,7 +90,7 @@ const inputClass =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200";
 
 export function StaffWorkspace({
-  courseBasicOnly = false,
+  accountListOnly = false,
   showSteamfootRent = false,
   people: initialPeople,
   today,
@@ -102,7 +103,7 @@ export function StaffWorkspace({
   today: string;
   canManage: boolean;
   canAssignRoles?: boolean;
-  courseBasicOnly?: boolean;
+  accountListOnly?: boolean;
   showSteamfootRent?: boolean;
   showSpaCompensation: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
@@ -117,7 +118,7 @@ export function StaffWorkspace({
     setSourcePeople(initialPeople);
     setPeople(initialPeople.map(clonePerson));
   }
-  const people = courseBasicOnly ? initialPeople : localPeople;
+  const people = accountListOnly ? initialPeople : localPeople;
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -129,7 +130,7 @@ export function StaffWorkspace({
       (roleFilter === "all" || p.roleLabel === roleFilter) &&
       (statusFilter === "all" || p.status === statusFilter),
   );
-  if (courseBasicOnly) filteredPeople.sort((a, b) => Number(b.status === "ACTIVE") - Number(a.status === "ACTIVE"));
+  if (accountListOnly) filteredPeople.sort((a, b) => Number(b.status === "ACTIVE") - Number(a.status === "ACTIVE"));
   const [editor, setEditor] = useState<Editor>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -311,26 +312,26 @@ export function StaffWorkspace({
 
       <section
         className={
-          courseBasicOnly
+          accountListOnly
             ? "flex justify-end"
             : "rounded-xl border border-primary-200 bg-primary-50/60 px-4 py-3"
         }
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className={courseBasicOnly ? "hidden" : undefined}>
+          <div className={accountListOnly ? "hidden" : undefined}>
             <h2 className="text-sm font-semibold text-earth-900">
-              {courseBasicOnly
-                ? "教練與人員帳號"
+              {accountListOnly
+                ? "人員帳號"
                 : "人員建好一次，平常只處理例外"}
             </h2>
             <p className="mt-1 text-xs text-earth-600">
-              {courseBasicOnly
-                ? "管理基本資料與登入權限；教練的課程安排統一在課表排程操作。"
+              {accountListOnly
+                ? "管理基本資料、角色與登入權限。"
                 : "設定專業項目與每週固定班表後，請假、臨時加班才需要再次調整。"}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!courseBasicOnly && servicePeople.length > 0 ? (
+            {!accountListOnly && servicePeople.length > 0 ? (
               <button
                 type="button"
                 onClick={() => setEditor({ type: "exception" })}
@@ -352,7 +353,7 @@ export function StaffWorkspace({
         </div>
       </section>
 
-      {courseBasicOnly ? (
+      {accountListOnly ? (
         <section
           className="space-y-3 [&_button]:min-h-11"
           aria-label="人員清單"
@@ -399,7 +400,7 @@ export function StaffWorkspace({
           </div>
           <p className="text-sm text-earth-500">
             共 {filteredPeople.length} 位／全部 {people.length} 位 ·
-            停用後不再提供新排課選用，歷史紀錄保留。
+            停用後無法登入後台，歷史紀錄保留。
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
             <table className="admin-list-table w-full min-w-[660px] text-left text-sm">
@@ -416,7 +417,7 @@ export function StaffWorkspace({
               </thead>
               <tbody className="divide-y divide-earth-100">
                 {filteredPeople.map((person) => (
-                  <tr key={person.id} className={courseBasicOnly && person.status !== "ACTIVE" ? "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100" : "hover:bg-primary-50/40"}>
+                  <tr key={person.id} className={accountListOnly && person.status !== "ACTIVE" ? "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100" : "hover:bg-primary-50/40"}>
                     <th
                       scope="row"
                       className="px-4 py-3 font-medium text-primary-900"
@@ -430,21 +431,24 @@ export function StaffWorkspace({
                       <StatusBadge status={person.status} />
                     </td>
                     <td className="px-4 py-2">
-                      <div className="flex items-center gap-3 whitespace-nowrap">
+                      <div className="flex justify-center whitespace-nowrap">
+                        <ExclusiveMenu quiet triggerText="⋯" label={`${person.displayName}操作`}>
                         <button
-                          className="min-h-11 rounded-lg border border-earth-200 px-3"
+                          className="min-h-11 w-full px-3 text-left text-sm"
                           onClick={() =>
                             setEditor({ type: "details", personId: person.id })
                           }
                         >
-                          編輯
+                          {person.canEdit ? "編輯" : "查看"}
                         </button>
                         {person.canEdit && (
                           <StaffStatusToggle
                             staffId={person.id}
                             currentStatus={person.status}
+                            quiet
                           />
                         )}
+                        </ExclusiveMenu>
                       </div>
                     </td>
                   </tr>
@@ -496,7 +500,7 @@ export function StaffWorkspace({
                 </button>
                 <StatusBadge status={person.status} />
               </div>
-              {!courseBasicOnly && (
+              {!accountListOnly && (
                 <div className="mt-4 space-y-3 border-t border-earth-100 pt-3">
                   <QuickSetting
                     label="專業項目"
@@ -543,7 +547,7 @@ export function StaffWorkspace({
               )}
               <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-xs">
                 <span className="text-earth-400">
-                  {courseBasicOnly
+                  {accountListOnly
                     ? person.phone || "尚未設定電話"
                     : `直屬顧客 ${person.customerCount} 位`}
                 </span>
@@ -565,7 +569,7 @@ export function StaffWorkspace({
         </section>
       )}
 
-      {!courseBasicOnly && (
+      {!accountListOnly && (
         <section className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-earth-200 px-4 py-3">
             <div>
@@ -630,7 +634,7 @@ export function StaffWorkspace({
 
       {editor?.type === "details" && selected ? (
         <PersonDrawer
-          courseBasicOnly={courseBasicOnly}
+          accountListOnly={accountListOnly}
           person={selected}
           showSteamfootRent={showSteamfootRent}
           showSpaCompensation={showSpaCompensation}
@@ -1374,7 +1378,7 @@ function ExceptionDrawer({
 }
 
 function PersonDrawer({
-  courseBasicOnly = false,
+  accountListOnly = false,
   showSteamfootRent = false,
   person,
   showSpaCompensation,
@@ -1383,7 +1387,7 @@ function PersonDrawer({
   onSchedule,
   onCompensation,
 }: {
-  courseBasicOnly?: boolean;
+  accountListOnly?: boolean;
   showSteamfootRent?: boolean;
   person: StaffWorkspacePerson;
   showSpaCompensation: boolean;
@@ -1401,7 +1405,7 @@ function PersonDrawer({
     if (dirty && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
     onClose();
   }
-  if (courseBasicOnly && person.canEdit)
+  if (accountListOnly && person.canEdit)
     return (
       <Drawer title="編輯人員" onClose={closeEditor}>
         <form
@@ -1442,7 +1446,7 @@ function PersonDrawer({
             />
           </label>
           <label className="block text-sm">
-            排課顏色
+            識別色
             <input
               type="color"
               name="colorCode"
@@ -1532,7 +1536,7 @@ function PersonDrawer({
         />
       </InfoSection>
       <div className="mt-6 grid grid-cols-2 gap-2 border-t border-earth-100 pt-4">
-        {!courseBasicOnly && person.canEdit ? (
+        {!accountListOnly && person.canEdit ? (
           <button
             type="button"
             onClick={onSpecialties}
@@ -1541,7 +1545,7 @@ function PersonDrawer({
             設定專業項目
           </button>
         ) : null}
-        {!courseBasicOnly &&
+        {!accountListOnly &&
         person.canEdit &&
         person.specialtyKeys.length > 0 ? (
           <button
