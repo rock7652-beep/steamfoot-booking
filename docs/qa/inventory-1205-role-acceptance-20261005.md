@@ -81,3 +81,16 @@
 - 交易內授權修正回歸7檔116項通過。此數量是本輪相關測試，不代表整份套件重跑。
 - Staff直接API匯出導航被瀏覽器ERR_BLOCKED_BY_CLIENT攔截，未取得伺服器403，不計為真人匯出拒絕通過。
 - 待驗：Manager調整Staff後舊表單即時撤權、真實多人PostgreSQL並行、實機Safari／iPad；Manager完整交易與最新首頁Staff快捷入口尚未真人重驗。正式角色盤點、migration與回復目標仍為上線前工作。PR維持Draft，不合併正式站。
+
+## 20:17 後：雙真人會話撤權及並行交易（2a450ab7）
+
+- 穩定Preview域名登入QA Manager，唯一部署域名登入QA Staff，兩個獨立會話，實際頁尾20:03。第一次安全登入結果為Admin，未計為Staff；切換後才開始真人驗收。
+- Staff最新首頁不顯示人員管理／分析／報表快捷入口，確認2a450ab7首頁修正有效。
+- Staff先開一般價保暖襪200未付款銷貨草稿；Manager在正常人員管理介面取消inventory.write。DB確認撤权，Staff不重新登入、從舊表單送出；表單關閉並移除新增銷貨入口。DB單據7／付款8／command9／現金帳23／保暖襪12均不變，測試備註對應單0張。未觀察到拒絕文字，不宣稱有特定錯誤提示。
+- Manager正常介面恢復原inventory.write；DB確認原22項有效權限，成本／進貨付款仍false。撤權與恢復各一筆調權稽核，actor為QA Manager；Staff重新整理後新增銷貨可用。
+- Manager建立GRSRFS0D（cmuv8i3200031jt04grsrfs0d）QA未付款200，保暖襪庫存12→11。雙方同時開200尾款表單並用Promise.allSettled批次點擊完成收款；Staff成功42QVNZSO轉帳200，Manager收到「收付款不可超過尚欠金額，日期不可早於單據」。資料庫唯一一張收款及一筆cashbook 200，paid200尚欠0，庫存仍11。這是兩個真實登入對已部署應用的競爭送出，非記憶體fixture；未證明兩個PostgreSQL交易精確重疊／所有鎖順序或壓力情況。
+- Manager建立B2218C8B（3b31f8ba-ff74-40ad-b0fb-faa3b2218c8b）QA1205-CONCURRENT-20261005，訂購3初收1，庫存11→12。雙方打開revision1，各填本次實收1並批次點擊確認入庫；Manager成功、Staff收到「收貨單已更新或已完成，請重新開啟」。DBrevision2、received2、history只有兩個成功事件（初收1＋續收1），庫存13，不會變14。
+- 本輪相關5檔93項通過，包括歷史已結清單／收款／經手人快照與改商品／身份比例隔離、撤權、重送及匯出守門；沒有重跑整份套件。真人任意修改商品後歷史單核對尚未另作；不以這輪單元測試冒稱完成。
+- 正式站僅做去識別唯讀盤點：5位ACTIVE OWNER、1位ADMIN；6位ACTIVE Staff資料中5位關聯OWNER、1位關聯CUSTOMER。正式enum尚無MANAGER／STAFF，InventoryOrder／InventoryProduct／InventoryReceiving尚未建立。沒有正式角色、權限或schema異動。
+- 回復執行表已更新候選、五份migration校驗值及盤點結果；工具專案metadata不提供backup還原點，不能據此確認備份成功或7天保留。正式備份與相容回復部署ID未驗證。
+- 首發範圍不含附件、正式退貨／作廢、單據Excel、服務端分頁，依使用者同意列後續版本。實機Safari／iPad、直接Staff匯出API拒絕、完整PostgreSQL壓力／等鎖撤權及正式角色逐人配對仍待，PR保持Draft、不合併正式。
