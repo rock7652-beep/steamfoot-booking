@@ -46,7 +46,7 @@
 
 - 正式專案ACTIVE_HEALTHY不代表備份已驗證。工具metadata未提供最後成功備份、保留天數、還原點或PITR，不宣稱已有7天可恢復備份。發佈前取得備份狀態及可用還原點，記錄時間與相容schema；未执行正式還原。
 - 正式enum為ADMIN／OWNER／PARTNER／CUSTOMER，尚無MANAGER／STAFF；InventoryOrder／InventoryProduct／InventoryReceiving均不存在。正式5位ACTIVE OWNER、1位ACTIVE ADMIN；6位ACTIVE Staff中5位關聯OWNER、1位關聯CUSTOMER。該CUSTOMER關聯可能供業務服務使用，不自動升為後台Staff。
-- 逐人配對表必填店別、現有role、使用者確認的目標role、例外授權、確認人；現在尚無確認目標，正式資料不變。Owner保持全開，不為方便批次改角色。
+- 逐人配對表必填店別、現有role、使用者確認的目標role、例外授權、確認人；使用者已確認首發保留現有5位ACTIVE OWNER，權限全開；不降為Manager／Staff，不改現有授權列。其他身份不自動轉換；正式資料不變。
 - 實際雙人收款GRSRFS0D只一張42QVNZSO及cashbook；雙人續收B2218C8B revision只1→2，庫存只+1。兩個獨立已登入會話的競爭請求不等同完整PostgreSQL鎖時序／壓力演練。
 
 ### 待正式比對的migration SHA-256
@@ -60,3 +60,13 @@
 | 20261005081000_store_staff_roles | 94b00de3285d3950516a2d1dcf19b9d9070b6efa7317dc936dab254eb0db4986 |
 
 僅記錄本支線檔案校驗值，未對正式套用；Prisma migration名稱非實際依賴順序，workspace須在receiving／pricing之前核對建立，禁止依排序盲目migrate deploy。
+
+## 本輪正式版本與備份查核
+
+- 使用者確認現有5位Owner首發保持Owner；不以顯示名稱含「店長」推定降級。Manager／Staff供後續明確指派，保留各自預設及個別調權。
+- Vercel唯讀查詢：現行production READY SHA `0611abfb26f537f3a946ca565ec510ea29cd1b71`，deployment `dpl_8srBXWRGdwmxZkUrHo7SQRMgruHq`。平台標記isRollbackCandidate，但這只代表部署可選，不能證明新角色／新schema相容。
+- 核對該main的`src/lib/permissions.ts`：STAFF_ROLES與ASSIGNABLE_STAFF_ROLES只有OWNER／PARTNER，isStaffRole不認MANAGER／STAFF，getUserPermissions對新角色返回空陣列。舊Owner仍逐筆查StaffPermission，與本次Owner全開行為不同。因此此舊正式部署僅列發佈前基準，不能當成新角色啟用後的相容回復版本。
+- 第一輪正式發佈時需記錄支援新角色與Inventory的production deployment ID，通過三角色冒煙驗收後建立相容基準。若首次發佈本身故障，先保留schema／業務資料，部署相容修正；不能假稱現在已存在驗證完成的production回復版本。
+- 已實際開啟正式專案Database→Backups→Scheduled backups。頁面導向登入；依使用者選擇經GitHub→Google驗證，目前停在Google密碼金鑰確認。尚未看到備份列表、成功時間或可用還原點，不記錄為備份驗證完成。
+- 接續只讀取備份狀態／時間／保留範圍與PITR；不點Restore、不升級方案、不更動設定、不匯出正式資料。登入完成後繼續本項。
+- 本輪僅文件更新與唯讀核對，未合併PR、未部署正式、未套migration、未更動正式角色或還原資料。
