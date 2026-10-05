@@ -95,6 +95,7 @@ export function TransactionDrawer({
   const [loadedData, setData] = useState<TransactionDetailDTO | null>(null);
   const data = loadedData?.id === transactionId ? loadedData : null;
   const [loading, setLoading] = useState(false);
+  const [retryRevision, setRetryRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("main");
 
@@ -128,7 +129,7 @@ export function TransactionDrawer({
 
       let res: Awaited<ReturnType<typeof fetchTransactionDetailDTO>>;
       try { res = await readTransaction.read(transactionId); }
-      catch { if (!cancelled) { setError("載入失敗，請重新開啟"); setLoading(false); } return; }
+      catch { if (!cancelled) { setError("載入失敗，請重試"); setLoading(false); } return; }
       if (cancelled || requestVersion.current !== version) return;
       if (res.success) {
         setData(res.data);
@@ -154,7 +155,13 @@ export function TransactionDrawer({
       // eslint-disable-next-line react-hooks/exhaustive-deps
       requestVersion.current++;
     };
-  }, [open, transactionId, readTransaction]);
+  }, [open, transactionId, readTransaction, retryRevision]);
+
+  const retryRead = () => {
+    if (!transactionId || loading) return;
+    readTransaction.invalidate(transactionId);
+    setRetryRevision((value) => value + 1);
+  };
 
   const refresh = () => {
     if (!transactionId) return;
@@ -334,11 +341,12 @@ export function TransactionDrawer({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">
-          {loading && <div className="text-sm text-earth-500">載入中…</div>}
+          {loading && <div role="status" className="text-sm text-earth-500">載入中…</div>}
 
           {error && (
-            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div role="alert" className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
+              {!data && <button type="button" onClick={retryRead} disabled={loading} className="ml-2 min-h-11 rounded border border-red-200 px-3 font-medium disabled:opacity-50">重新載入</button>}
             </div>
           )}
 

@@ -33,6 +33,13 @@ if (
   console.info("[operation-audit-preview-preflight] isolated_database=true");
 }
 
+// Transaction-panel verification must stop before any database access if isolation is missing.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/transaction-panel-intent-retry-20261005") {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Transaction panel Preview requires the isolated preview database.");
+  console.info("[transaction-panel-preview-preflight] isolated_database=true");
+}
+
 // Creation-sheet and drag-order verification must use the isolated preview database.
 if (process.env.VERCEL_ENV === "preview" && ["fix/steam-booking-create-sheets", "fix/shared-label-sort-motion", "fix/label-sync-sequence", "fix/booking-header-density", "fix/shared-panel-loading", "fix/customer-drawer-list-sync-20261005", "fix/panel-acceptance-collection-summary", "fix/booking-form-filter-rwd", "fix/cash-payment-form-rwd", "fix/customer-plan-form-rwd", "fix/settings-form-rwd", "fix/rwd-entry-review"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
