@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import { courseManager, courseManagerRead } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { canMusicFinance, requireMusicFinance, isMusicFinanceStore, readMusicFinanceScope } from "@/server/services/music-finance-access";
-import { canManageStaffRole, canAssignStaffRole, assertStoreRetainsOwner } from "@/lib/staff-role-policy";
+import { canManageStaffRole, canAssignStaffRole, assertStoreRetainsOwner, readStaffManagerGrants } from "@/lib/staff-role-policy";
 import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { compensationRule, type CompensationRule } from "@/lib/course-compensation";
@@ -69,6 +69,7 @@ export async function saveCourseStaff(input: unknown) {
         emergencyContactPhone: z.string().trim().max(30).default(""),
         kind: z.enum(["manager", "coach"]),
         backendRole: z.enum(["OWNER", "MANAGER", "STAFF"]).optional(),
+        applyRolePreset: z.boolean().optional(),
         coachEnabled: z.boolean().optional(),
         qualificationIds: z.array(id).max(500).optional(),
         qualificationsConfirmed: z.boolean().optional(),
@@ -89,7 +90,7 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
-    if (d.backendRole && (d.id || !canAssignStaffRole(user.role, d.backendRole))) throw new AppError("FORBIDDEN", "請使用角色設定調整既有帳號；店長只能建立門市人員");
+    if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(user.role, d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動教練才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
@@ -124,6 +125,15 @@ export async function saveCourseStaff(input: unknown) {
         if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(user.role, existing.user.role))
           throw new AppError("FORBIDDEN", "店長只能管理門市人員");
         if (existing && !d.active) await assertStoreRetainsOwner(tx, storeId, existing.id);
+        if (existing && d.backendRole && d.backendRole !== existing.user.role) {
+          if (existing.user.role === "ADMIN") throw new AppError("FORBIDDEN", "系統管理者不能在店內改為其他角色");
+          await readStaffManagerGrants(tx, user, storeId);
+          if (existing.userId === user.id || !canManageStaffRole(user.role, existing.user.role)) throw new AppError("FORBIDDEN", "不能調整自己或更高層級帳號");
+          if (d.backendRole !== "OWNER") await assertStoreRetainsOwner(tx, storeId, existing.id);
+          await tx.user.update({ where: { id: existing.userId }, data: { role: d.backendRole } });
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffRole',${staffId},'UPDATE',${JSON.stringify({role:existing.user.role})}::jsonb,${JSON.stringify({role:d.backendRole,storeId})}::jsonb,now())`;
+        }
+        if (d.applyRolePreset && user.role !== "OWNER" && user.role !== "ADMIN") throw new AppError("FORBIDDEN", "請由老闆套用角色預設");
         if ((d.teachingFees || d.defaultClassFee !== undefined) && existing && d.teachingVersion !== existing.updatedAt.toISOString())
           throw new AppError("CONFLICT", "人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (
@@ -328,15 +338,16 @@ export async function saveCourseStaff(input: unknown) {
           if(existing?.user.role === "OWNER" && user.role !== "OWNER" && user.role !== "ADMIN")throw new AppError("FORBIDDEN","不能修改店主帳號");
           const priorPermissions=existing?await tx.staffPermission.findMany({where:{staffId},select:{permission:true,granted:true}}):[];
           const requested = d.permissions ?? (existing ? priorPermissions.filter(p=>p.granted).map(p=>p.permission) : getDefaultPermissionsForRole(d.backendRole ?? "STAFF"));
-          const granted = existing?.user.role === "OWNER" || (!existing && d.backendRole === "OWNER") ? [...ALL_PERMISSIONS] : [...new Set([
-            ...(existing ? priorPermissions.filter(p=>p.granted && !COURSE_PERMISSIONS.includes(p.permission as typeof COURSE_PERMISSIONS[number])).map(p=>p.permission) : getDefaultPermissionsForRole(d.backendRole ?? "STAFF").filter(p=>!COURSE_PERMISSIONS.includes(p))),
+          const resultingRole = d.backendRole ?? existing?.user.role ?? "STAFF";
+          const granted = resultingRole === "OWNER" || resultingRole === "ADMIN" ? [...ALL_PERMISSIONS] : [...new Set([
+            ...(existing && !d.applyRolePreset ? priorPermissions.filter(p=>p.granted && !COURSE_PERMISSIONS.includes(p.permission as typeof COURSE_PERMISSIONS[number])).map(p=>p.permission) : getDefaultPermissionsForRole(resultingRole).filter(p=>!COURSE_PERMISSIONS.includes(p))),
             ...requested,
           ])];
           if(user.role === "MANAGER" && ALL_PERMISSIONS.some(code=>priorPermissions.some(p=>p.granted&&p.permission===code)!==granted.includes(code) && !actorStaff?.permissions.some(p=>p.permission===code)))throw new AppError("FORBIDDEN","不能授予自己未持有的權限");
           if(musicFinanceStore) {
             const existingScope=await tx.$queryRaw<Array<{teacherIds:string[]|null}>>`SELECT "teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
             if(d.financeTeacherIds===undefined)d.financeTeacherIds=existingScope[0]?.teacherIds??null;
-            if(existing?.user.role === "OWNER" && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
+            if(resultingRole === "OWNER" && d.financeTeacherIds!==null)throw new AppError("FORBIDDEN","店主保留全店範圍");
             const teacherIds=d.financeTeacherIds===null?null:[...new Set(d.financeTeacherIds)];
             if(teacherIds!==null && granted.includes("teacher.settlement.confirm"))throw new AppError("VALIDATION","確認全店月結需要全店教師範圍；請改選全店或關閉該權限");
             if(actorFinanceScope!==null && (teacherIds===null || teacherIds.some(id=>!actorFinanceScope.includes(id))))throw new AppError("FORBIDDEN","不能擴大自己或他人的教師財務範圍");

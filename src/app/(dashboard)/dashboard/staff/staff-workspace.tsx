@@ -2,8 +2,7 @@
 import { createPortal } from "react-dom";
 
 import styles from "@/components/admin/management-layout.module.css";
-import { useRouter } from "next/navigation";
-import { updateStaff } from "@/server/actions/staff";
+import { StaffAccountEditor, emptyStaffAccountPolicy, type StaffAccountPolicy } from "./staff-account-editor";
 import { useMemo, useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
@@ -32,6 +31,8 @@ type ScheduleException = {
 export type StaffWorkspacePerson = {
   id: string;
   userId: string;
+  role?: string;
+  permissions?: string[];
   displayName: string;
   legalName: string;
   roleLabel: string;
@@ -90,6 +91,7 @@ const inputClass =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200";
 
 export function StaffWorkspace({
+  accountPolicy = emptyStaffAccountPolicy,
   accountListOnly = false,
   showSteamfootRent = false,
   people: initialPeople,
@@ -99,6 +101,7 @@ export function StaffWorkspace({
   showSpaCompensation,
   createAction,
 }: {
+  accountPolicy?: StaffAccountPolicy;
   people: readonly StaffWorkspacePerson[];
   today: string;
   canManage: boolean;
@@ -632,7 +635,7 @@ export function StaffWorkspace({
         </section>
       )}
 
-      {editor?.type === "details" && selected ? (
+      {editor?.type === "details" && selected ? (accountListOnly ? <StaffAccountEditor key={selected.id} person={selected} policy={accountPolicy} onClose={() => setEditor(null)} /> :
         <PersonDrawer
           accountListOnly={accountListOnly}
           person={selected}
@@ -1396,100 +1399,6 @@ function PersonDrawer({
   onSchedule: () => void;
   onCompensation: () => void;
 }) {
-  const router = useRouter();
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [dirty, setDirty] = useState(false);
-  function closeEditor() {
-    if (saving) return;
-    if (dirty && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
-    onClose();
-  }
-  if (accountListOnly && person.canEdit)
-    return (
-      <Drawer title="編輯人員" onClose={closeEditor}>
-        <form
-          onChange={() => setDirty(true)}
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (saving) return;
-            const form = new FormData(event.currentTarget);
-            setSaving(true);
-            setSaveError("");
-            try {
-              const result = await updateStaff(person.id, {
-                displayName: String(form.get("displayName")),
-                colorCode: String(form.get("colorCode")),
-              });
-              if (!result.success) {
-                setSaveError(result.error || "儲存失敗");
-                return;
-              }
-              router.refresh();
-              onClose();
-            } catch {
-              setSaveError("儲存失敗，請重試，輸入內容已保留。");
-            } finally {
-              setSaving(false);
-            }
-          }}
-          className="space-y-4"
-        >
-          <label className="block text-sm">
-            顯示名稱
-            <input
-              required
-              maxLength={100}
-              name="displayName"
-              defaultValue={person.displayName}
-              className="mt-1 min-h-11 w-full rounded-lg border p-3"
-            />
-          </label>
-          <label className="block text-sm">
-            識別色
-            <input
-              type="color"
-              name="colorCode"
-              defaultValue={person.colorCode}
-              className="mt-1 block h-11 w-20"
-            />
-          </label>
-          <p className="text-sm text-earth-600">
-            {person.roleLabel} · {person.email}
-          </p>
-          {saveError && (
-            <p role="alert" className="text-sm text-red-700">
-              {saveError}
-            </p>
-          )}
-          <div className="sticky bottom-0 border-t bg-white py-3">
-            <button
-              disabled={saving}
-              className="min-h-11 w-full rounded-lg bg-primary-600 px-4 text-white"
-            >
-              {saving ? "儲存中…" : "儲存"}
-            </button>
-          </div>
-        </form>
-        {person.canResetPassword && (
-          <details className="mt-4 border-t pt-3">
-            <summary className="cursor-pointer text-sm">帳號管理</summary>
-            <div className="space-y-3 py-3">
-              <Link
-                href={`/dashboard/staff/${person.id}/edit`}
-                className="block min-h-11 text-sm text-primary-700"
-              >
-                進階角色與權限設定
-              </Link>
-              <ResetPasswordButton
-                userId={person.userId}
-                displayName={person.displayName}
-              />
-            </div>
-          </details>
-        )}
-      </Drawer>
-    );
   return (
     <Drawer title="人員基本資料" onClose={onClose}>
       <div className="flex items-center gap-3 border-b border-earth-100 pb-4">

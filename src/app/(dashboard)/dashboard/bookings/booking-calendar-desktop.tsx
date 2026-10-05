@@ -108,7 +108,7 @@ export function BookingCalendarDesktop({
 
   const byDate = new Map(monthData.map((d) => [d.date, d]));
 
-  const totalCells = 42;
+  const totalCells = Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7;
   const cells: Array<{ key: string; dayNum: number; inMonth: boolean; isoDate: string | null }> = [];
 
   for (let i = 0; i < firstDayOfMonth; i++) {
@@ -230,8 +230,8 @@ export function BookingCalendarDesktop({
                   : "text-earth-700";
 
           const allBookings = data?.bookings ?? [];
-          const visibleBookings = allBookings.slice(0, 3);
-          const remainingBookings = allBookings.slice(3);
+          const visibleBookings = allBookings.slice(0, 5);
+          const remainingBookings = allBookings.slice(5);
           const bookingCount = data?.totalBookingCount ?? 0;
           const scheduleLabel = schedule ? SCHEDULE_LABEL[schedule.status] : null;
 
@@ -239,6 +239,7 @@ export function BookingCalendarDesktop({
             if (cell.isoDate) onDaySelect(cell.isoDate);
           };
           const handleKey = (e: React.KeyboardEvent) => {
+            if (e.target !== e.currentTarget) return;
             if (!cell.isoDate) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -256,12 +257,12 @@ export function BookingCalendarDesktop({
               aria-label={cell.isoDate ? `${cell.isoDate} 的預約` : undefined}
               onClick={handleDaySelect}
               onKeyDown={handleKey}
-              className={`relative flex min-h-[96px] flex-col text-left transition-colors ${borderCls} ${bgCls} ${
+              className={`relative flex min-h-[72px] flex-col text-left transition-colors ${borderCls} ${bgCls} ${
                 isDimmed ? "opacity-40" : ""
               } ${cell.isoDate ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-inset" : "cursor-default"}`}
             >
-              <div className="flex flex-1 flex-col gap-1 px-1.5 py-1.5">
-                <div className="flex items-start justify-between gap-1">
+              <div className="flex flex-1 flex-col gap-0.5 px-1 py-1">
+                <div className="flex items-center justify-between gap-1">
                   <span
                     className={`inline-flex h-6 min-w-6 items-center justify-center text-sm font-semibold tabular-nums ${
                       isToday && cell.inMonth
@@ -384,7 +385,7 @@ const BookingStrip = memo(function BookingStrip({
           : undefined
       }
       disabled={!clickable}
-      className={`${styles.calendarBooking} flex h-[18px] w-full items-center gap-1 truncate rounded-[3px] px-1.5 text-left text-[11px] font-medium ${style.bg} ${
+      className={`${styles.calendarBooking} flex w-full items-center gap-1 truncate rounded-[3px] px-1 text-left text-sm font-medium ${style.bg} ${
         dimmed ? "opacity-50" : ""
       } ${clickable ? "cursor-pointer hover:brightness-95" : "cursor-default"}`}
       title={`${booking.slotTime} ${booking.customerName} · ${style.label} · ${booking.staffName ?? "未指派"}`}
@@ -442,14 +443,15 @@ function MoreBookingsPopover({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className={`${styles.calendarBooking} text-[10px] font-semibold text-primary-600 hover:text-primary-700`}
+        aria-expanded={open}
+        className={`${styles.calendarMore} w-full text-left text-sm font-semibold text-primary-600 hover:text-primary-700`}
         title="展開全部預約"
       >
-        +{remaining.length} 更多
+        {open ? "收合" : `＋${remaining.length} 筆`}
       </button>
       {open && (
         <div
-          className="absolute left-0 top-full z-20 mt-1 min-w-[200px] max-h-[280px] overflow-y-auto rounded-md border border-earth-200 bg-white p-2 shadow-[0_8px_24px_rgba(20,24,31,0.12)]"
+          className="mt-1 max-h-[280px] overflow-y-auto rounded-md border border-earth-200 bg-white p-1"
           onClick={(e) => e.stopPropagation()}
         >
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-earth-400">

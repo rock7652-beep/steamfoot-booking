@@ -3,7 +3,7 @@ import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
-import { checkPermission, ROLE_LABELS } from "@/lib/permissions";
+import { checkPermission, ROLE_LABELS, ALL_PERMISSIONS, PERMISSION_GROUPS, PERMISSION_LABELS, getDefaultPermissionsForRole, getStaffPermissions } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
@@ -40,6 +40,7 @@ export default async function StaffPage({
     getCurrentStorePlan(),
   ]);
   const canManage = canManagePermission && !adminMissingStore;
+  const actorPermissions = user.role === "MANAGER" && user.staffId ? await getStaffPermissions(user.staffId, activeStoreId!) : new Set(ALL_PERMISSIONS);
   const isSpaStore = industryModule === "spa";
   const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
   const spaCompensationReady = isSpaStore ? await isSpaCompensationSchemaReady() : false;
@@ -91,11 +92,13 @@ export default async function StaffPage({
     return {
       id: staff.id,
       userId: staff.user.id,
+      role: staff.user.role,
+      permissions: staff.user.role === "OWNER" || staff.user.role === "ADMIN" ? [...ALL_PERMISSIONS] : staff.permissions.map(p => p.permission),
       displayName: staff.displayName,
       legalName: staff.user.name,
       roleLabel: ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
       email: staff.user.email ?? "尚未設定",
-      phone: staff.user.phone,
+      phone: staff.phone || staff.user.phone,
       colorCode: staff.colorCode,
       status: staff.status,
       customerCount: staff._count.assignedCustomers,
@@ -172,6 +175,12 @@ export default async function StaffPage({
               </div>
             ) : null}
             <StaffWorkspace
+              accountPolicy={{
+                canAssignRoles: user.role === "OWNER" || user.role === "ADMIN",
+                editablePermissions: Array.from(actorPermissions),
+                rolePresets: Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as const).map(role => [role, getDefaultPermissionsForRole(role)])),
+                permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: g.label, codes: g.codes.map(code => ({ code, label: PERMISSION_LABELS[code] })) })),
+              }}
               accountListOnly={!isSpaStore}
               showSteamfootRent={industryModule === "steamfoot"}
               people={people}

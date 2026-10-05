@@ -12,7 +12,7 @@ import { PrismaClient } from "@prisma/client";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
 // Inventory preview must never migrate the live database.
-if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/inventory-workspace-20261005") {
+if (process.env.VERCEL_ENV === "preview" && ["feat/inventory-workspace-20261005", "fix/staff-account-editor-20261005"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
     throw new Error("Inventory preview requires the isolated database for both connections.");
 }

@@ -3,7 +3,7 @@ import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({music:vi.fn(),scope:vi.fn(),manager:vi.fn(),feature:vi.fn(),limits:vi.fn(),staff:vi.fn(),count:vi.fn(),update:vi.fn(),user:vi.fn(),permission:vi.fn(),raw:vi.fn(),linkFind:vi.fn(),linkCreate:vi.fn(),linkDelete:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:m.feature,getStoreLimitsByStoreId:m.limits}));
-vi.mock("@/lib/db",()=>({prisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,$executeRaw:m.raw,staff:{findFirst:m.staff,count:m.count,update:m.update},user:{update:m.user},staffMemberLink:{updateMany:vi.fn()},courseStaffPersonLink:{findFirst:m.linkFind,create:m.linkCreate,delete:m.linkDelete},staffPermission:{upsert:m.permission,findMany:async()=>[]}})}}));
+vi.mock("@/lib/db",()=>({prisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,$executeRaw:m.raw,staff:{findFirst:m.staff,count:m.count,update:m.update},user:{update:m.user,findUnique:async()=>({role:"OWNER",status:"ACTIVE"})},staffMemberLink:{updateMany:vi.fn()},courseStaffPersonLink:{findFirst:m.linkFind,create:m.linkCreate,delete:m.linkDelete},staffPermission:{upsert:m.permission,findMany:async()=>[]}})}}));
 vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermissions:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn(),unstable_cache:(fn:unknown)=>fn}));
 import {saveCourseStaff} from "@/server/actions/course-staff";
@@ -117,3 +117,14 @@ it("preserves an existing person link instead of silently replacing it",async()=
   expect(await saveCourseStaff({...input,id:"coach2",kind:"coach",name:"Coach",defaultClassFee:0,teachingVersion:"2026-09-29T00:00:00.000Z"})).toMatchObject({success:false});
   expect(m.update).not.toHaveBeenCalled();
  });
+
+it("promotes an existing account in place while saving selected permissions", async()=>{
+ expect(await saveCourseStaff({...input,backendRole:"MANAGER",permissions:["staff.manage","customer.read"]})).toMatchObject({success:true});
+ expect(m.user).toHaveBeenCalledWith({where:{id:"u2"},data:{role:"MANAGER"}});
+ expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission:"staff.manage"}},update:{granted:true}}));
+});
+it("Manager cannot promote a Staff account",async()=>{
+ m.manager.mockResolvedValue({user:{id:"actor",role:"MANAGER",staffId:"manager1"},storeId:"s"});
+ expect(await saveCourseStaff({...input,backendRole:"MANAGER"})).toMatchObject({success:false});
+ expect(m.user).not.toHaveBeenCalled();expect(m.permission).not.toHaveBeenCalled();
+});

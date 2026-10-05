@@ -764,10 +764,10 @@ function BookingsManagerContent({
         width={1200}
         labelledById="day-detail-sheet-title"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-earth-200 px-4 py-3">
           <h2
             id="day-detail-sheet-title"
-            className="text-base font-semibold text-earth-900"
+            className="min-w-0 text-base font-semibold text-earth-900"
           >
             {selectedDate
               ? `${Number(selectedDate.slice(5, 7))}/${Number(
@@ -775,7 +775,7 @@ function BookingsManagerContent({
                 )}（${formatWeekdayZh(selectedDate)}） 當日預約`
               : "當日預約"}
           </h2>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
             {!readOnly && <CustomerLabelsSettingsLink />}
             {!readOnly && canManageHours && selectedDate && (
               <DaySlotManager
