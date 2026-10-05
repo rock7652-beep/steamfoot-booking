@@ -142,3 +142,14 @@ it('locks the existing sale customer and preserves its selection',()=>{
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,orders:[sale('sale-native','2026-10-05')]},key:'locked-party'})));click('編輯銷貨單');
  const picker=host.querySelector<HTMLSelectElement>('[aria-label="選擇顧客"]')!;expect(picker.disabled).toBe(true);expect(picker.value).toBe('c1');expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();
 });
+
+it('previews configured category prices in search and item summary and keeps extra discounts empty',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,products:[{...initial.products[0],priceRatios:{STUDENT:85,FACULTY:80}}]},key:'visible-prices'})));click('＋ 新增銷貨');
+ fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');choose('身份價格','STUDENT');click('保暖襪・庫存 20・學員 85%・$170　＋ 加入');
+ expect(host.querySelector('.lines tbody')?.textContent||host.querySelector('form table tbody')?.textContent).toContain('學員 85%・$170');expect((host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement).value).toBe('170');expect((host.querySelector('[aria-label="保暖襪 折扣"]') as HTMLInputElement).value).toBe('0');
+ choose('身份價格','FACULTY');expect(host.textContent).toContain('師資 80%・$160');expect((host.querySelector('[name="paid"]') as HTMLInputElement).value).toBe('160');
+});
+it('explains missing identity prices in both search results and selected items',()=>{
+ click('＋ 新增銷貨');fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');choose('身份價格','STUDENT');click('保暖襪・庫存 20・學員未設定・使用一般售價 $200　＋ 加入');
+ expect(host.querySelector('form table tbody')?.textContent).toContain('學員未設定・使用一般售價 $200');expect((host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement).value).toBe('200');
+});
