@@ -31,7 +31,7 @@ export function ReferralSection({ customerId, referrals, canManage, onAddClick }
           <button
             type="button"
             onClick={onAddClick}
-            className="rounded bg-primary-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-primary-700"
+            className="min-h-11 min-w-11 shrink-0 rounded bg-primary-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-primary-700"
           >
             + 新增轉介紹
           </button>
@@ -100,7 +100,7 @@ function ReferralRow({ referral, canManage }: { referral: ReferralItem; canManag
                 type="button"
                 disabled={isPending}
                 onClick={() => handleStatusChange(next)}
-                className={`rounded px-2 py-1 text-[10px] font-medium transition-colors disabled:opacity-50 ${nextConfig.bg} ${nextConfig.color} hover:opacity-80`}
+                className={`min-h-11 min-w-11 rounded px-2 py-1 text-[10px] font-medium transition-colors disabled:opacity-50 ${nextConfig.bg} ${nextConfig.color} hover:opacity-80`}
               >
                 {next === "CANCELLED" ? "取消" : nextConfig.label}
               </button>

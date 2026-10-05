@@ -57,7 +57,7 @@ export function ManualPointsForm({ customerId, bonusRules }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition"
+        className="min-h-11 min-w-11 shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition"
       >
         + 手動加分
       </button>

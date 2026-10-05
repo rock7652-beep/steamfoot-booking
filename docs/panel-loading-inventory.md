@@ -85,15 +85,13 @@
 
 ## 課程方案與顧客經營接續（2026-10-05）
 
-- 補充驗收：隔離 course-start-0918-a 的林宥辰共卡（剩餘16／預約8／可用8，9筆紀錄）與李承恩個人卡（18／2／16，4筆）切換及重開正確；1024×768、768×1024、390×844 無整頁溢出。
-- 快速切換時曾觀察顧客 URL 與視窗不同步。一般頁再次操作未重現；Next 16 action refresh 可能重放請求開始時的 route state，不能據此斷定唯一原因。改由目前 client panel identity 同步 customerId，保留當前篩選及 hash，並先通過離開 guard 才切顧客；回歸測試涵蓋晚到舊網址與關閉後舊網址。
-- Growth 實際入口 /hq/dashboard/growth/candidates：預覽資料庫 steamfoot-preview 的 staging-store 暫將 QA1005、QA1124 兩位既有測試顧客設為 PARTNER；摘要立即顯示，完整資料各為0／115點，關閉切換時只顯示目前姓名及載入狀態。桌機1363×936，drawer寬520，無整頁水平溢出。
-- 權限失敗實驗：暫將 QA1005 測試顧客移至另一預覽門市，後端拒絕跨店資料；action 引發清單更新移除該列及抽屜，因此此操作未能驗證原地重試，不計為瀏覽器重試通過。已即刻恢復門市，驗收結束須恢復兩位人才階段。重試成功與晚到隔離仍有自動化測試；沒有變更正式資料或提交金流。
-
-- 以 #1204 正式 main bf896dd9 為起點，運動／音樂沿用同一 CourseMemberWorkspace 與 course-card reader。方案瀏覽列補意圖預讀；完整卡片讀取失敗可重新載入；摘要不授權修改，關閉或切換後的晚到結果不得更新目前方案，重新開啟仍取最新額度。
-- 顧客經營詳情沿用 growth-customer reader；開啟／切換顧客時隔離上一筆內容與錯誤，失敗可視窗內重試。不更改業務 action、RWD 外框、schema 或 migration。
-- PR #1206 產品提交 d9dfbeb0，Vercel dpl_7vZzqX9osoUWyqezF2NVXQBpGFWt READY，建置確認 isolated_database=true、recovery_skipped_outside_production。沒有提交資料寫入或合併正式站。
-- 本機 7 組 41 項測試、TypeScript noEmit、修改檔 ESLint、diff --check 通過。CI 37251632027 的 targeted、Typecheck 與 Changed ESLint 通過；全量 6525 通過／71 失敗／81 略過，73 條正規化 FAIL 與 #1204 相同，沒有新增失敗，不宣稱全綠。
-- 登入後陸比音樂：劉語彤・08「驗收用・吉他課 4 堂」摘要先顯示剩餘 4／占用 0／可用 4、2027-09-30 期限；完整讀取後顯示 1 筆額度紀錄。返回列表再開同一方案可見新的讀取狀態，未沿用已完成的 detail。只讀取，未購買或修改共卡。
-- 裝置預覽 1024×768 視窗 (72,24,880,720)、768×1024 (24,152,720,720)、390×844 (0,0,390,844)，各頁 scrollWidth 等於 clientWidth。切換尺寸保留同一顧客與方案；期限及方案摘要沒有水平溢出。這是模擬尺寸，並非實機觸控／Safari／LINE 驗收。
-- 顧客經營 growth-customer 抽屜只掛在既有潛力候選入口；Steamfoot Staging / 測試店的 /hq/dashboard/growth/candidates 目前 0 位，不能完成登入後開啟、切換及重試的端到端驗收。一般顧客詳情與關懷列表入口使用其他元件，不拿其結果代替本輪抽屜驗收。錯誤重試、切換／晚到與重開隔離已有自動化測試，未故意阻斷瀏覽器網路。PR 保持 draft，候選抽屜及運動教室實站資料仍待補驗。
+- 以 #1204 main bf896dd9 為起點，運動／音樂沿用 CourseMemberWorkspace 與 course-card reader；意圖預讀只去重在途請求，TTL 0，完整權威資料取得後才開啟修改。錯誤可在原視窗重試；晚到回應與舊錯誤不得覆蓋目前方案／顧客。
+- 快速換顧客曾觀察 URL 與視窗不同步；唯一觸發來源未證實。改由目前 client panel identity 同步 customerId，保留篩選／hash，並先通過離開 guard；自動化涵蓋晚到 route、關閉後舊 route。
+- 音樂劉語彤・08 吉他4堂卡（剩4／預約0／可用4）、運動林宥辰共卡（16／8／8、9筆）及李承恩個人卡（18／2／16、4筆）開啟與重開正確。桌機1363×936、iPad1024×768／768×1024及手機390×844，切換尺寸維持目前顧客與 URL，無整頁水平溢出。
+- Growth 實際候選入口 /hq/dashboard/growth/candidates：隔離 steamfoot-preview/staging-store 暫設 QA1005、QA1124 為 PARTNER。先姓名摘要再完整0／115點，關閉換人不帶入舊資料。跨店權限試驗會由 RSC 移除候選列，不計為原地重試通過；storeId 已即刻還原。
+- 補齊 HTTP 503 原地重試：獨立 qa/panel-1206-network-rwd-20261005，d66424ac，Vercel dpl_2UtqZvBDubJiEvSHM7JC57kypWg6 READY；僅指定 preview 支線、ADMIN、候選頁 action 可注入故障，不更改產品 reader／component，此 QA 支線不合併。正常115點顧客關閉後，故障開啟0點顧客只顯示目前姓名及錯誤；持續故障重試仍留原顧客，恢復後同視窗 loading→0點成功，候選 URL 不變、僅1個 dialog。
+- Growth 390×844、360×800、768×1024、1024×768、1440×900，document.clientWidth=scrollWidth；手機全寬、平板／桌機520寬。360手機內容938／捲動區634，鍵盤可到下方轉介紹控制，固定頁尾可見。尺寸切換不清除顧客。驗收截圖 qa1206-mobile-retry-rwd-20261005.jpg。
+- 清理 SQL 再查：QA1005、QA1124 talentStage=CUSTOMER、storeId=staging-store、stageNote=null；沒有修改正式資料、點數、交易或預約。
+- 本輪觸控改善：沿用共用 TalentPipelineSection、ManualPointsForm、ReferralSection，調整階段／手動加分／新增轉介紹／轉介紹狀態控制至少44×44；Growth 關閉44×44及完整顧客入口至少44高。共用區塊同時影響顧客詳情頁，不改清單字級、讀取或交易規則。新增尺寸仍待本輪 preview 量測。
+- head 595103e7 的 CI 37255536284：Targeted 66組593項、Typecheck及Changed ESLint通過；完整6526通過／71失敗／81略過，73條正規化 FAIL 與 #1204 baseline job111570390770完全相同，added=[]、removed=[]，不宣稱全绿。booking-form-live-slots 僅固定測試 Date，沒有改營業規則。
+- 模擬尺寸不等於實機觸控；Safari／LINE、手機鍵盤及超寬尺寸仍未完整驗收。PR #1206 保留 draft，尚未合併正式站。

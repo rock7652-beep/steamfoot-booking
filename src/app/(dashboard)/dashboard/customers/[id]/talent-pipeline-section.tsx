@@ -84,7 +84,7 @@ export function TalentPipelineSection({
           <button
             type="button"
             onClick={() => setShowDialog(true)}
-            className="text-[11px] text-primary-600 hover:text-primary-700"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[11px] text-primary-600 hover:text-primary-700"
           >
             調整階段
           </button>
