@@ -39,10 +39,16 @@
 .identityCell .identityLayout > a { justify-self: start; padding-inline: 0; }
 .statusCell { align-content: center; }
 @media (max-width: 639px) {
-  .rowBody { grid-template-columns: 60px minmax(0, 1fr); }
-  .timeCell { grid-row: 1 / 4; }
-  .identityCell, .statusCell, .noteCell { grid-column: 2; }
+  .rosterRow { position: relative; align-items: start; gap: 0.25rem; padding: 0.25rem 0.5rem; }
+  .rosterRow > :first-child, .rosterRow > :last-child { align-self: start; }
+  .rowBody { grid-template-columns: 52px minmax(0, 1fr); gap: 0 0.25rem; }
+  .timeCell { grid-column: 1; grid-row: 1; padding-top: 0.75rem; }
+  .identityCell, .identityCell .identityLayout { display: contents; }
+  .identityCell .identityLayout > div:first-child { grid-column: 2; grid-row: 1; }
+  .statusCell, .noteCell { grid-column: 1 / -1; }
   .noteCell { grid-row: auto; }
-  .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr); }
-  .identityCell .identityLayout > a { justify-self: start; }
+  .identityCell .identityLayout > a { grid-column: 1 / -1; justify-self: start; }
+  .statusCell { gap: 0.125rem 0.5rem; }
+  .planCell { flex-basis: auto; width: auto; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
+  .planCell > span { width: auto; }
 }
