@@ -57,25 +57,31 @@ export function InventoryWorkspace({ initial }: {
     const run = async (work: () => Promise<{
         success: boolean;
         error?: string;
-    }>) => { if (busy.current)
+    }>) => { let saved = false; if (busy.current)
         return; busy.current = true; setPending(true); setError(""); try {
         const result = await work();
         if (!result.success) {
             setError(result.error || "儲存失敗");
             return;
         }
+        saved = true;
         dirty.current = false;
-        setPanel(null);
-        setSelected([]);
-        setNotice("已儲存 ✓");
         const latest = await loadInventory();
         if (latest.success && latest.data)
             setData(latest.data as InventoryData);
         else
             setError("已儲存，但清單更新失敗；請重新整理");
+        setPanel(null);
+        setSelected([]);
+        setNotice("已儲存 ✓");
     }
     catch {
-        setError("連線失敗，請重試；重試不會重複入帳");
+        if (saved) {
+            setPanel(null);
+            setSelected([]);
+            setNotice("已儲存 ✓");
+            setError("已儲存，但清單更新失敗；請重新整理");
+        } else setError("連線失敗，請重試；重試不會重複入帳");
     }
     finally {
         busy.current = false;

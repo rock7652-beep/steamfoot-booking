@@ -65,6 +65,16 @@ beforeEach(() => {
 });
 const input = (override: any = {}) => orderSchema.parse({ requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", partyId: "customer-1", lines: [{ productId: "a", quantity: 2, unitPrice: 200, discountMode: "PERCENT", discount: 10, gift: false }], paid: 0, method: "未付款", ...override });
 describe("inventory transaction acceptance", () => {
+    it("checks cash access before acquiring the only database connection", async () => {
+        const transaction = mocks.db.$transaction;
+        let inTransaction = false;
+        mocks.db.$transaction = async (work: any) => { inTransaction = true; try { return await transaction(work); } finally { inTransaction = false; } };
+        mocks.permission.mockImplementation(async () => { expect(inTransaction).toBe(false); return ctx.user; });
+        mocks.feature.mockImplementation(async () => { expect(inTransaction).toBe(false); return true; });
+        await saveInventoryOrder(ctx, input({ paid: 100, method: "現金" }));
+        expect(orders[0].paid).toBe(100);
+        expect(cash[0].amount).toBe(100);
+    });
     it("posts an unpaid discounted sale without cash entries", async () => { await saveInventoryOrder(ctx, input()); expect(products[0].stock).toBe(8); expect(orders[0]).toMatchObject({ total: 360, paid: 0 }); expect(orders[0].lines[0].cost).toBe(200); expect(cash).toHaveLength(0); });
     it("preserves creation replay even after editing", async () => { const v = input(); const id = await saveInventoryOrder(ctx, v); await saveInventoryOrder(ctx, input({ id, revision: 1, lines: [{ ...v.lines[0], quantity: 3 }] })); expect(await saveInventoryOrder(ctx, v)).toBe(id); expect(orders).toHaveLength(1); expect(products[0].stock).toBe(7); });
     it("rejects altered payload using the same request key", async () => { const v = input(); await saveInventoryOrder(ctx, v); await expect(saveInventoryOrder(ctx, { ...v, freight: 20 })).rejects.toThrow(); expect(products[0].stock).toBe(8); });

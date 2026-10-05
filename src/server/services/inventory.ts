@@ -48,7 +48,14 @@ export async function inventoryExportEnabled(storeId: string) {
         return false;
     return hasDataExportFeature(storeId);
 }
-export async function inventoryTransaction<T>(ctx: InventoryContext, work: (tx: Prisma.TransactionClient) => Promise<T>) {
+export async function inventoryTransaction<T>(ctx: InventoryContext, work: (tx: Prisma.TransactionClient) => Promise<T>, postsCash = false) {
+    // Session and feature checks use the shared connection. Resolve them before
+    // acquiring a transaction, including deployments with connection_limit=1.
+    if (postsCash) {
+        await requirePermission("cashbook.create");
+        if (!await hasStoreFeature(ctx.storeId, FEATURES.CASHBOOK))
+            throw new AppError("FORBIDDEN", "請先開通現金收支以連動收付款");
+    }
     return prisma.$transaction(async (tx) => {
         // Store row lock serializes stock, receipt, count and replay checks. No client balances trusted.
         await tx.$queryRaw `SELECT "id" FROM "Store" WHERE "id"=${ctx.storeId} FOR UPDATE`;
@@ -70,9 +77,6 @@ export async function writeInventoryCash(ctx: InventoryContext, tx: Prisma.Trans
     freight: number;
     partyId: string;
 }) {
-    await requirePermission("cashbook.create");
-    if (!await hasStoreFeature(ctx.storeId, FEATURES.CASHBOOK))
-        throw new AppError("FORBIDDEN", "請先開通現金收支以連動收付款");
     if (input.method === "現金") {
         const closed = await tx.cashDrawerSession.findFirst({ where: { storeId: ctx.storeId, businessDate: input.date, status: "CLOSED" }, select: { id: true } });
         if (closed)
@@ -212,5 +216,5 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         await tx.inventoryCommand.create({ data: { storeId: ctx.storeId, requestId: input.requestId, requestHash: hashInput(input), orderId: order.id } });
         await inventoryAudit(ctx, tx, "InventoryOrder", order.id, existing ? "編輯銷貨單" : input.kind === "SALE" ? "建立銷貨單" : "建立進貨單", input.kind === "SALE" ? {revision:order.revision,date:input.date,paid:input.paid,total,freight,lines:publicLines(lines,false)} as unknown as Prisma.InputJsonValue : {revision:order.revision,date:input.date,quantities:lines.map(l=>({productId:l.productId,quantity:l.quantity}))}, beforeAudit);
         return order.id;
-    });
+    }, !input.id && input.paid > 0);
 }

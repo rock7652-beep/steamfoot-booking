@@ -62,7 +62,7 @@ export async function savePayment(raw: unknown) {
             }
             const p = await createInventoryPayment(c, tx, { ...v, date: new Date(v.date), requestHash: hashInput(v) });
             return p.id;
-        });
+        }, true);
     });
 }
 export async function saveStockCount(raw: unknown) {
