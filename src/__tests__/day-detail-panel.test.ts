@@ -106,7 +106,8 @@ describe("DayDetailPanel summary", () => {
       }),
     );
 
-    expect(textFromHtml(html)).toContain("已扣堂｜方案：$299會員限定(250點)");
+    expect(textFromHtml(html)).toContain("已扣堂");
+    expect(textFromHtml(html)).toContain("$299會員限定(250點)");
   });
 
   it("accepts cached rows created before deducted plan names existed", () => {

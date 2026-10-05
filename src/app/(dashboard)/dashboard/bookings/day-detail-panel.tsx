@@ -248,7 +248,7 @@ export function DayDetailPanel({
         <div className="min-h-0 flex-1 overflow-y-auto">
         <div aria-hidden="true" className={`sticky top-0 z-30 ${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           <span />
-          <div className={styles.rowBody}><span>時間／人數</span><span className={styles.identityHeader}><span>顧客</span><span>電話</span></span><span>直屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
+          <div className={styles.rowBody}><span>時間／人數</span><span className={styles.identityHeader}><span>顧客</span><span>電話</span></span><span>所屬店長</span><span>方案／堂數</span><span>標籤／備註</span></div>
           <span />
         </div>
 
@@ -366,7 +366,7 @@ function TimelineItem({
             ? "border-l-blue-500"
             : "border-l-earth-300";
 
-  // 直屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
+  // 所屬店長 = customer.assignedStaff（不再 fallback 到 revenue/service staff）
   const assignedStaffName =
     booking.customer?.assignedStaff?.displayName ?? "未指派";
 
@@ -515,13 +515,12 @@ function TimelineItem({
                   : "shrink-0 text-sm font-medium text-earth-600"
               }
             >
-              {sessions.isLow
-                ? `剩 ${planBadge.sessions} 堂｜提醒儲值`
-                : `剩 ${planBadge.sessions} 堂`}
+              {`剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
             <span title={`已扣堂｜方案：${deductedPlanLabel}`} className="block w-full min-w-0 break-words text-sm font-medium text-emerald-700">
-              已扣堂｜方案：{deductedPlanLabel}
+              <span className="block">已扣堂</span>
+              <span className="block font-normal">{deductedPlanLabel}</span>
             </span>
           ) : planBadge.kind === "not_deducted" ? (
             <span className="shrink-0 text-sm text-earth-500">未扣堂</span>

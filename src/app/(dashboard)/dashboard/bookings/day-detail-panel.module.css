@@ -17,7 +17,7 @@
   .rowBody { grid-template-columns: 70px minmax(0, 1.7fr) 104px minmax(0, 1.2fr) minmax(0, 1.5fr); }
   .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
   .identityCell { grid-column: 2; }
-  .staffCell { display: block; grid-column: 3; grid-row: 1; overflow-wrap: anywhere; }
+  .staffCell { display: block; grid-column: 3; grid-row: 1; overflow-wrap: anywhere; padding-inline-end: 0.5rem; }
   .inlineStaff { display: none; }
   .statusCell { grid-column: 4; grid-row: 1; }
   .noteCell { grid-column: 5; grid-row: 1; }
