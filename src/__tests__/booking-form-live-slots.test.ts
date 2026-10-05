@@ -9,8 +9,8 @@ vi.mock("@/components/steamfoot-booking-calendar",()=>({SteamfootBookingCalendar
 import {DashboardBookingForm} from "@/app/(dashboard)/dashboard/bookings/new/booking-form";
 let host:HTMLDivElement,root:Root;
 const slot=(bookedCount:number)=>({startTime:"10:00",endTime:"10:30",capacity:2,bookedCount,available:2-bookedCount,isEnabled:true});
-beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");root=createRoot(host);});
-afterEach(async()=>{await act(async()=>root.unmount());});
+beforeEach(()=>{vi.resetAllMocks();vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-04T00:00:00+08:00"));Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");root=createRoot(host);});
+afterEach(async()=>{await act(async()=>root.unmount());vi.useRealTimers();});
 it("uses the fresh initial snapshot once, then reflects capacity changes when returning to that date",async()=>{
  const props={days:["2026-10-05","2026-10-06"],defaultDate:"2026-10-05",todayStr:"2026-10-04",initialSlots:[slot(2)]};
  await act(async()=>root.render(React.createElement(DashboardBookingForm,props)));
