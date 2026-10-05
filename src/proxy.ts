@@ -50,6 +50,10 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Acceptance-only branch: fail the real read transport without changing its component/action.
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "qa/panel-1206-network-rwd-20261005" && req.auth?.user?.role === "ADMIN" && pathname === "/hq/dashboard/growth/candidates" && req.method === "POST" && req.headers.has("next-action") && req.cookies.get("panel1206_failure")?.value === "1") {
+    return new NextResponse("Temporary read failure for panel acceptance", { status:503, headers:{"Cache-Control":"no-store", "X-Panel-Acceptance-Failure":"1206"} });
+  }
   // Preview pages expose GET-only projections; reject every Server Action/form/API write.
   if (blocksFrontendPreviewWrite(req.method, pathname, req.headers.get("referer"))) {
     return NextResponse.json({ error: "預覽中不會儲存" }, { status: 403 });
