@@ -27,12 +27,12 @@ Excel 同時檢查 report.export 及 DATA_EXPORT 功能。關閉時隱藏按鈕�
 - ExcelJS 重新讀入輸出，驗證是實際 xlsx、一般人員沒有成本欄，以及以等號開頭的商品名稱仍為文字。
 - JSDOM 互動測試：姓名／電話搜尋、權限隱藏、切換保留搜尋、數量欄保持同一 DOM 與輸入焦點，其他欄位不被重設。
 - 隔離 Supabase steamfoot-preview 已套用資料表 migration。負庫存、超額已付及錯誤門市外鍵測試全部回滾；六張資料表已啟用 RLS，anon／authenticated 無直接讀寫授權。
-- 新增程式 ESLint 檢查。全專案 TypeScript 檢查無進銷存程式錯誤，但仍有既有現金抽屜及 Messenger API 額外 export 造成的 Next.js 產生型別錯誤。6 個測試檔案共 40 項通過。完整 Next.js build 的編譯階段通過，但既有 cash-drawer/page.tsx 的額外 courseHome PageProps 不符合 Next.js page export 規格，建置型別檢查未通過；本分支不宣稱完整 build 成功。
+- 新增程式 ESLint 檢查通過，6 個測試檔案共 43 項通過。修正容器查詢 CSS 語法後，本機 Next.js 16.2.2 Turbopack 完整建置通過（包含 TypeScript 與 170 個靜態頁產生）。先前 webpack 建置／產生型別檢查曾出現既有現金抽屜及 Messenger 額外 export 錯誤；不以先前結果取代本次實際建置結果。
 
 ## 待完成的現場驗收
 
-Vercel 連接器讀取專案環境設定回傳 403，尚未完成此分支的隔離資料庫環境覆寫。分支 build 已加入防護，缺少隔離 DATABASE_URL／DIRECT_URL 時會停止，不會套用正式資料庫。
+Vercel Preview 已完成完整建置，網址可開啟登入頁。連接器讀取專案環境設定仍回傳 403，尚未獨立確認 DATABASE_URL／DIRECT_URL 覆寫。雲端自訂建置指令未執行 ci-migrate，因此補上 inventoryContext 執行時防護：此測試分支必須同時使用隔離資料庫的兩條連線，否則讀取、匯出及交易操作一律拒絕。未進行正式資料庫異動。
 
-須先完成 Preview 環境設定，再驗收登入後的真實端到端交易、桌機／iPad／手機橫向對齊、跨頁列印及多人同時操作。JSDOM 互動及模擬交易測試不能替代這些驗收。尚未宣告可上正式站。
+須先確認 Preview 隔離連線與登入測試門市，再驗收登入後的真實端到端交易、桌機／iPad／手機橫向對齊、跨頁列印及多人同時操作。JSDOM 互動及模擬交易測試不能替代這些驗收。尚未宣告可上正式站。
 
 目前清單載入整間店的進銷存資料。大量历史訂單的分頁及載入效能、顧客合併後欠款移轉，也需在正式上線前補驗。

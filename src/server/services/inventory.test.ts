@@ -9,10 +9,25 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: mocks.feature }));
 vi.mock("@/lib/data-export-gate", () => ({ hasDataExportFeature: vi.fn(async () => true) }));
 vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: mocks.audit }));
-import { saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled } from "./inventory";
+import { saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
 import { saveStockCount } from "@/server/actions/inventory";
 import { inventoryReport, orderSchema, publicLines, lineTotal } from "@/lib/inventory";
 const ctx: any = { storeId: "store-1", canCost: true, user: { id: "user-1", name: "店長", role: "ADMIN", staffId: "staff-1" } };
+describe("inventory preview isolation", () => {
+    const env = { VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/inventory-workspace-20261005" };
+    const isolated = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
+    it("rejects missing and non-isolated connections before inventory operations", () => {
+        expect(() => assertInventoryPreviewIsolation(env)).toThrow("隔離資料庫");
+        expect(() => assertInventoryPreviewIsolation({ ...env, DATABASE_URL: isolated, DIRECT_URL: "postgresql://postgres:fixture@db.other.supabase.co/postgres" })).toThrow("隔離資料庫");
+    });
+    it("accepts only the isolated project for both connections", () => {
+        expect(() => assertInventoryPreviewIsolation({ ...env, DATABASE_URL: isolated, DIRECT_URL: isolated })).not.toThrow();
+    });
+    it("does not change production or other branches", () => {
+        expect(() => assertInventoryPreviewIsolation({ ...env, VERCEL_ENV: "production" })).not.toThrow();
+        expect(() => assertInventoryPreviewIsolation({ ...env, VERCEL_GIT_COMMIT_REF: "main" })).not.toThrow();
+    });
+});
 let products: any[], orders: any[], commands: any[], payments: any[], cash: any[], counts: any[], sequence: number;
 const matches = (row: any, where: any) => Object.entries(where).every(([k, v]) => typeof v === 'object' && v !== null ? true : row[k] === v);
 function apply(row: any, data: any) { for (const [k, v] of Object.entries(data))

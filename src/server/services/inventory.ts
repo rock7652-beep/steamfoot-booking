@@ -11,7 +11,23 @@ import { publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryDa
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 export type InventoryContext = Awaited<ReturnType<typeof inventoryContext>>;
+export function assertInventoryPreviewIsolation(env: Record<string, string | undefined> = process.env) {
+    if (env.VERCEL_ENV !== "preview" || env.VERCEL_GIT_COMMIT_REF !== "feat/inventory-workspace-20261005") return;
+    const isolated = (value: string | undefined) => {
+        try {
+            const url = new URL(value || "");
+            const ref = "ttworfzgwejdeolegkxl";
+            return ["postgres:", "postgresql:"].includes(url.protocol) && (
+                url.hostname === `db.${ref}.supabase.co` ||
+                (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === `postgres.${ref}`)
+            );
+        } catch { return false; }
+    };
+    if (![env.DATABASE_URL, env.DIRECT_URL].every(isolated))
+        throw new AppError("FORBIDDEN", "測試版尚未設定隔離資料庫，進銷存操作已暫停");
+}
 export async function inventoryContext(permission: "inventory.read" | "inventory.write" | "inventory.manage" = "inventory.read") {
+    assertInventoryPreviewIsolation();
     const user = await requirePermission(permission);
     const storeId = permission === "inventory.read" ? await getActiveStoreForRead(user) : await resolveWriteStoreId(user);
     if (!storeId)
