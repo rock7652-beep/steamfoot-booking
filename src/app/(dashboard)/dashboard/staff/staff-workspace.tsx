@@ -110,6 +110,13 @@ export function StaffWorkspace({
   const [localPeople, setPeople] = useState(() =>
     initialPeople.map(clonePerson),
   );
+  const [sourcePeople, setSourcePeople] = useState(initialPeople);
+  // Route refresh preserves client state. Adopt the new authoritative snapshot
+  // without remounting the workspace or discarding the open editor's draft.
+  if (sourcePeople !== initialPeople) {
+    setSourcePeople(initialPeople);
+    setPeople(initialPeople.map(clonePerson));
+  }
   const people = courseBasicOnly ? initialPeople : localPeople;
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -2057,4 +2064,3 @@ function clonePerson(person: StaffWorkspacePerson): StaffWorkspacePerson {
     scheduleExceptions: person.scheduleExceptions.map((item) => ({ ...item })),
   };
 }
-
