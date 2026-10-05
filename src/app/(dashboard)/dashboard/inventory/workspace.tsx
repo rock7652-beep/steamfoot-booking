@@ -1,5 +1,5 @@
 "use client";
-import { Children, useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { OperationHistoryButton } from "@/components/operation-history-button";
@@ -44,6 +44,23 @@ const Field = ({ label, children }: {
     label: string;
     children: ReactNode;
 }) => <label className={styles.field}><span>{label}</span>{children}</label>;
+function PartyPicker({label,parties,value,query,onQuery,onSelect,locked}:{label:string;parties:{id:string;name:string;phone:string}[];value:string;query:string;onQuery:(value:string)=>void;onSelect:(id:string)=>void;locked:boolean}) {
+    const id=useId(),[open,setOpen]=useState(false);
+    const selected=parties.find(p=>p.id===value);
+    const normalized=query.trim().toLowerCase().replace(/[\s\-()（）]/g,"");
+    const matches=parties.filter(p=>[p.name,p.phone].some(v=>v.toLowerCase().replace(/[\s\-()（）]/g,"").includes(normalized)));
+    return <div className={styles.field} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null))setOpen(false);}}>
+      <label htmlFor={id}>{label}・必選</label>
+      {value?<div className={styles.toolbar}><span>{selected?`${selected.name}・${selected.phone}`:"已選擇對象"}</span>{!locked&&<button type="button" onClick={()=>{onSelect("");setOpen(true);}}>更換</button>}</div>:<>
+        <input id={id} type="search" aria-label="即時搜尋姓名或電話" aria-controls={`${id}-results`} placeholder="點選或搜尋姓名／電話" value={query} autoComplete="off" onFocus={()=>setOpen(true)} onChange={e=>{onQuery(e.target.value);setOpen(true);}} onKeyDown={e=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();setOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();setOpen(true);requestAnimationFrame(()=>document.getElementById(`${id}-results`)?.querySelector<HTMLButtonElement>("button")?.focus());}if(e.key==="Enter"){e.preventDefault();if(matches.length===1){onSelect(matches[0].id);setOpen(false);}else setOpen(true);}}}/>
+        {open&&<div id={`${id}-results`} className={`${styles.results} ${styles.partyResults}`} aria-label={`${label}選項`}>
+          {matches.slice(0,50).map(p=><button type="button" key={p.id} onClick={()=>{onSelect(p.id);setOpen(false);}}>{p.name}・{p.phone}</button>)}
+          {!matches.length&&<p role="status" className={styles.sub}>{parties.length?`找不到符合的${label}，請更換姓名或電話搜尋`:`目前門市沒有可選${label}`}</p>}
+          {matches.length>50&&<p className={styles.sub}>顯示前 50 位，請輸入姓名或電話縮小範圍</p>}
+        </div>}
+      </>}
+    </div>;
+}
 export function InventoryWorkspace({ initial }: {
     initial: InventoryData;
 }) {
@@ -211,7 +228,7 @@ function Editor({ panel, data, pending, requestId, onDirty, run, onData }: {
             if (panel.type === "count")
                 void run(() => saveStockCount({ requestId, date: text('date'), reason: text('reason'), lines: data.products.filter(p => counts[p.id] !== undefined && counts[p.id] !== '').map(p => ({ productId: p.id, revision: p.revision, actual: Number(counts[p.id]) })) }));
         }}>
-    {(panel.type === "order" || panel.type === "payment" || panel.type === "count") && <div className={`${styles.meta} ${panel.type==="order"&&kind==="SALE"?styles.orderMeta:""}`}><Field label="日期"><input type="date" name="date" defaultValue={order?.date || toLocalDateStr()} required/></Field>{panel.type === "order" && <Field label={kind === "SALE" ? '顧客・必選' : '廠商・必選'}>{partyId ? <div className={styles.toolbar}><span>{(kind === "SALE" ? data.customers : data.suppliers).find(c => c.id === partyId)?.name}・{(kind === "SALE" ? data.customers : data.suppliers).find(c => c.id === partyId)?.phone}</span>{!order && <button type="button" onClick={() => setPartyId("")}>更換</button>}</div> : <><input type="search" aria-label="即時搜尋姓名或電話" placeholder="搜尋姓名或電話" value={partyQuery} onChange={e => setPartyQuery(e.target.value)}/>{partyQuery && <div className={styles.results}>{(kind === "SALE" ? data.customers : data.suppliers.filter(s => s.active)).filter(c => [c.name, c.phone].join(' ').includes(partyQuery)).map(c => <button type="button" key={c.id} onClick={() => { setPartyId(c.id); onDirty(); }}>{c.name}・{c.phone}</button>)}</div>}</>}</Field>}{panel.type==="order"&&kind==="SALE"&&<Field label="身份價格"><select aria-label="身份價格" value={priceCategory} onChange={e=>changeCategory(e.target.value as PriceCategory)}>{Object.entries(priceCategories).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field>}</div>}
+    {(panel.type === "order" || panel.type === "payment" || panel.type === "count") && <div className={`${styles.meta} ${panel.type==="order"&&kind==="SALE"?styles.orderMeta:""}`}><Field label="日期"><input type="date" name="date" defaultValue={order?.date || toLocalDateStr()} required/></Field>{panel.type === "order" && <PartyPicker label={kind === "SALE" ? "顧客" : "廠商"} parties={kind === "SALE" ? data.customers : data.suppliers.filter(s => s.active)} value={partyId} query={partyQuery} onQuery={setPartyQuery} locked={!!order} onSelect={id => { setPartyId(id); setPartyQuery(""); onDirty(); }}/>}{panel.type==="order"&&kind==="SALE"&&<Field label="身份價格"><select aria-label="身份價格" value={priceCategory} onChange={e=>changeCategory(e.target.value as PriceCategory)}>{Object.entries(priceCategories).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field>}</div>}
     {panel.type === "order" && <>{kind === "SALE" && data.canCreateCustomer && !order && <><button type="button" onClick={() => setNewCustomer(!newCustomer)}>＋ 新增顧客</button>{newCustomer && <div className={styles.fields}><Field label="姓名"><input name="newName"/></Field><Field label="電話"><input name="newPhone" type="tel"/></Field><button type="button" disabled={creating} onClick={async (e) => { if (creating)
             return; setCreating(true); try {
             const form = e.currentTarget.form!, res = await createCustomer({ name: (form.elements.namedItem('newName') as HTMLInputElement).value, phone: (form.elements.namedItem('newPhone') as HTMLInputElement).value });

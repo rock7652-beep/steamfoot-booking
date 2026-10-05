@@ -112,3 +112,11 @@ Excel 下載驗收遭遇瀏覽器 native credential state 無法安全恢復；�
 本輪最終檢查：7檔70項通過；變更 TS／TSX ESLint 與 git diff --check 通過；完整 npm run build（Next16.2.2／TypeScript／170個靜態頁）exit0。單獨 tsc 曾因預設2GB heap耗盡；改以4GB完整建置完成驗證。保留原有 Prisma tracing／metadataBase 警告。Supabase security advisors 回傳既有 RLS無policy的INFO及 public extension WARN，未新增對外授權或policy。
 
 最後資料庫核對發現 InventoryReceiving 沒有啟用RLS（anon／authenticated 原已無直接SELECT權限）。已新增20261005044500_inventory_receiving_rls遷移，啟用RLS並明確撤銷兩角色的直接表權限；隔離Preview驗證RLS=true、直接SELECT=false、Prisma使用的postgres可bypass RLS並成功讀取。保持既有server授權模式，不新增public Data API policy。遷移僅套用隔離專案，正式站未更動。最後列印提示位置修正的15項介面測試及雲端完整建置亦通過。
+
+
+## 2026-10-05 顧客選擇修正
+- 顧客／廠商欄位點選即展開前 50 筆可選對象；姓名與電話可忽略空白、電話分隔符搜尋。
+- 顧客選項使用獨立按鈕，不放在包住搜尋輸入的 label 內；選取後保留身分價格，銷貨單仍以一般價格開啟。
+- 支援 Enter 選取唯一結果、方向下鍵進入選項、Escape 收起；找不到或本店沒有對象時顯示提示。
+- 使用者已確認列印功能沒有問題，列印列為使用者驗收通過。
+- 自動測試驗證選取同名不同電話後送出的 partyId、重新選擇、搜尋無結果及鍵盤選取；真實桌機／iPad 尚受雲端瀏覽器 runtime 阻擋，不宣稱完整介面驗收。

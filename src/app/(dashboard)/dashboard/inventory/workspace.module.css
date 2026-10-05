@@ -28,3 +28,5 @@
 .productSummary summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-height:44px;line-height:44px;max-width:400px}.productSummary p{white-space:normal;overflow-wrap:anywhere;max-width:400px}.table td:has(.productSummary){max-width:400px}
 .narrowFilters{display:none}@container (max-width:760px){.filterRow>.secondaryFilter{display:none}.narrowFilters{display:flex;flex-direction:column;gap:8px}}
 .orderMeta{grid-template-columns:160px minmax(0,1fr) 140px}.heading h1{margin-right:auto}.heading>.toolbar{margin-bottom:0}@container inventory-editor (max-width:479px){.orderMeta{grid-template-columns:1fr}}
+
+.partyResults{max-height:240px;overflow-y:auto;overscroll-behavior:contain}.field>label{color:#63736b}

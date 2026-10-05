@@ -16,7 +16,7 @@ vi.mock("@/components/admin/exclusive-menu", () => ({ ExclusiveMenu: ({ children
 import { InventoryWorkspace } from "@/app/(dashboard)/dashboard/inventory/workspace";
 let root: Root, host: HTMLDivElement;
 const initial: InventoryData = { store: { id: 'qa', name: '示範門市', phone: null, address: null }, canCost: false, canWrite: true, canManage: false, canExport: false, canCreateCustomer: false, products: [{ id: 'a', name: '保暖襪', stock: 20, price: 200, revision: 1, active: true }], suppliers: [], orders: [], payments: [], counts: [], customers: [{ id: 'c1', name: '陳怡君', phone: '0912345678' }, { id: 'c2', name: '陳怡君', phone: '0922333444' }, { id: 'c3', name: '林雅婷', phone: '0933555666' }] };
-beforeEach(() => { host = document.createElement('div'); document.body.append(host); root = createRoot(host); mocks.save.mockResolvedValue({ success: true }); mocks.load.mockResolvedValue({ success: true, data: initial }); act(() => root.render(createElement(InventoryWorkspace, { initial }))); });
+beforeEach(() => { mocks.save.mockClear(); host = document.createElement('div'); document.body.append(host); root = createRoot(host); mocks.save.mockResolvedValue({ success: true }); mocks.load.mockResolvedValue({ success: true, data: initial }); act(() => root.render(createElement(InventoryWorkspace, { initial }))); });
 afterEach(() => { act(() => root.unmount()); host.remove(); });
 const click = (text: string) => { const b = [...host.querySelectorAll('button')].find(b => b.textContent === text); expect(b, text).toBeTruthy(); act(() => b!.click()); };
 const fill = (input: HTMLInputElement, value: string) => act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -102,4 +102,30 @@ it('lets a product manager edit basic metadata without exposing costs',()=>{
 });
 it('filters product names by brand and keeps long metadata reachable',()=>{
  act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,products:[{...initial.products[0],brand:'品牌甲',specification:'非常完整的規格名稱'}]},key:'brand'})));click('商品與庫存');fill(host.querySelector('[aria-label="搜尋商品"]') as HTMLInputElement,'品牌甲');expect(host.textContent).toContain('保暖襪');choose('商品品牌篩選','品牌甲');expect(host.querySelector('details summary')?.textContent).toContain('非常完整的規格名稱');
+});
+
+it('opens customer choices on focus and saves the selected duplicate-name customer',async()=>{
+ click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
+ act(()=>input.focus());expect(host.querySelector('[aria-label="顧客選項"]')).not.toBeNull();
+ expect(host.textContent).toContain('0912345678');expect(host.textContent).toContain('0922333444');
+ fill(input,' 0922-333-444 ');expect(host.textContent).not.toContain('0912345678');click('陳怡君・0922333444');
+ expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();
+ fill(host.querySelector<HTMLInputElement>('[aria-label="即時篩選商品"]')!,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');
+ const form=host.querySelector('form')!;await act(async()=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({partyId:'c2',priceCategory:'GENERAL'}));
+});
+it('shows a search miss and allows changing the customer without changing identity price',()=>{
+ click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
+ fill(input,'不存在');expect(host.textContent).toContain('找不到符合的顧客');
+ fill(input,'陳怡君');click('陳怡君・0912345678');choose('身份價格','STUDENT');click('更換');
+ click('林雅婷・0933555666');expect((host.querySelector('[aria-label="身份價格"]') as HTMLSelectElement).value).toBe('STUDENT');
+});
+it('selects a single customer with Enter without submitting the order',()=>{
+ click('＋ 新增銷貨');const input=host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!;
+ fill(input,'0933');act(()=>input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})));
+ expect(host.textContent).toContain('林雅婷・0933555666');expect(host.querySelector('[aria-label="即時搜尋姓名或電話"]')).toBeNull();expect(mocks.save).not.toHaveBeenCalled();
+});
+it('explains an empty store customer list',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,customers:[]},key:'empty-customers'})));click('＋ 新增銷貨');
+ act(()=>host.querySelector<HTMLInputElement>('[aria-label="即時搜尋姓名或電話"]')!.focus());expect(host.textContent).toContain('目前門市沒有可選顧客');
 });
