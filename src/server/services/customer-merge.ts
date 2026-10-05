@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import type { AuthSource, LineLinkStatus, Prisma } from "@prisma/client";
 import { lockCourseStore } from "./course-store-lock";
 import { moveCourseCustomerRelations } from "./course-customer-merge";
+import { lockInventoryCustomerMerge, moveInventoryCustomerRelations } from "./inventory-customer-merge";
 
 // 第三方身份欄位 — 這些欄位在 placeholder → real 合併時必須搬家。
 // 修正欄位時請同步更新 repair script (scripts/repair-line-merge-orphans.ts)。
@@ -350,6 +351,8 @@ export async function mergePlaceholderCustomerIntoRealCustomer(
 // healthProfileId 僅是 Customer 上的字串欄位（非外鍵），由 identity-merge 區段處理。
 
 export type CustomerMergeMovedCounts = {
+  inventoryOrders?: number;
+  inventoryPayments?: number;
   courseMembers?: number;
   sharedMemberships?: number;
   courseBookings?: number;
@@ -517,7 +520,7 @@ export async function mergeCustomerIntoCustomer(
       await tx.$queryRaw`SELECT id FROM "Customer" WHERE "storeId"=${input.courseStoreId}
         AND id IN (${sourceCustomerId},${targetCustomerId}) ORDER BY id FOR UPDATE`;
     }
-    const [source, target] = await Promise.all([
+    let [source, target] = await Promise.all([
       tx.customer.findUnique({ where: { id: sourceCustomerId } }),
       tx.customer.findUnique({ where: { id: targetCustomerId } }),
     ]);
@@ -530,6 +533,15 @@ export async function mergeCustomerIntoCustomer(
     }
     if (source.storeId !== target.storeId) {
       throw new Error("mergeCustomer: 不允許跨店合併（來源與目標 storeId 不同）");
+    }
+    const inventoryAvailable = await lockInventoryCustomerMerge(tx, source.storeId);
+    if (inventoryAvailable) {
+      [source, target] = await Promise.all([
+        tx.customer.findUnique({ where: { id: sourceCustomerId } }),
+        tx.customer.findUnique({ where: { id: targetCustomerId } }),
+      ]);
+      if (!source || !target || source.storeId !== target.storeId)
+        throw new Error("顧客資料已異動，請重新開啟合併");
     }
     if (input.courseStoreId && source.storeId !== input.courseStoreId) throw new Error("顧客不屬於目前課程店家");
     if (input.courseStoreId) {
@@ -727,6 +739,7 @@ export async function mergeCustomerIntoCustomer(
     ]);
 
     const movedCounts: CustomerMergeMovedCounts = {
+      ...(inventoryAvailable ? await moveInventoryCustomerRelations(tx, source.storeId, source.id, target.id) : {}),
       ...courseCounts,
       bookings: bookingsResult.count,
       transactions: transactionsResult.count,
