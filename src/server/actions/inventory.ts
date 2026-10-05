@@ -1,6 +1,5 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { checkPermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { productDetails, countSchema, orderSchema, paymentSchema, productSchema, supplierSchema, uniqueIds } from "@/lib/inventory";
 import { inventoryContext, inventoryData, inventoryTransaction, inventoryAudit, ensureCost, hashInput, assertReplay, createInventoryPayment, saveInventoryOrder } from "@/server/services/inventory";
@@ -26,8 +25,10 @@ export async function saveProduct(raw: unknown) {
     return action(async () => {
         const c = await inventoryContext("inventory.manage"), v = productSchema.parse(raw);
         if(v.stock>0 || v.averageCost>0)ensureCost(c);
-        const mayConfigurePrices=await checkPermission(c.user.role,c.user.staffId,"inventory.price.manage");
-        return inventoryTransaction(c, async (tx) => {
+        return inventoryTransaction(c, async (tx, access) => {
+            if ((v.stock > 0 || v.averageCost > 0) && !access("inventory.cost.read"))
+                throw new AppError("FORBIDDEN", "沒有查看成本的權限");
+            const mayConfigurePrices = access("inventory.price.manage");
             const old = v.id ? await tx.inventoryProduct.findFirst({ where: { id: v.id, storeId: c.storeId } }) : null;
             if (v.id && (!old || old.revision !== v.revision))
                 throw new AppError("CONFLICT", "商品已更新，請重新開啟");

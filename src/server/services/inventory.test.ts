@@ -13,7 +13,7 @@ import { inventoryData, inventoryDocumentData, saveInventoryOrder, createInvento
 import { receiveInventory, completeReceiving } from "./inventory-receiving";
 import { saveProduct, saveStockCount, savePayment, saveOrder } from "@/server/actions/inventory";
 import { inventoryReport, orderSchema, publicLines, lineTotal } from "@/lib/inventory";
-const ctx: any = { storeId: "store-1", canCost: true, user: { id: "user-1", name: "店長", role: "ADMIN", staffId: "staff-1" } };
+const ctx: any = { storeId: "store-1", canCost: true, user: { id: "user-1", name: "店長", role: "MANAGER", staffId: "staff-1" } };
 describe("inventory preview isolation", () => {
     const env = { VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/inventory-workspace-20261005" };
     const isolated = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
@@ -48,6 +48,13 @@ beforeEach(() => {
     mocks.feature.mockResolvedValue(true);
     mocks.audit.mockResolvedValue({});
     mocks.db.$queryRaw = vi.fn(async () => [{ id: ctx.storeId }]);
+    mocks.db.user = { findUnique: vi.fn(async () => ({ role: ctx.user.role, status: "ACTIVE" })) };
+    mocks.db.staff = { findFirst: vi.fn(async () => {
+        const permissions = ["inventory.read", "inventory.write", "inventory.manage", "inventory.receive", "inventory.purchase.pay", "cashbook.create"];
+        for (const permission of ["inventory.cost.read", "inventory.price.manage", "inventory.price.override"])
+            if (await mocks.check(ctx.user.role, ctx.user.staffId, permission)) permissions.push(permission);
+        return { permissions: permissions.map(permission => ({ permission })) };
+    }) };
     mocks.db.storeFeatureEntitlement = { findUnique: vi.fn(async () => ({ status: 'ENABLED', startsAt: null, expiresAt: null })) };
     mocks.db.inventoryStockCount = { findUnique: async ({ where }: any) => counts.find(c => matches(c, where.storeId_requestId)), create: async ({ data }: any) => { const c = { id: `count-${++sequence}`, ...data }; counts.push(c); return c; } };
     mocks.db.inventoryProduct = { findFirst: async ({ where }: any) => products.find(p => matches(p, where)), findFirstOrThrow: async ({ where }: any) => { const p = products.find(p => matches(p, where)); if (!p)
@@ -68,6 +75,57 @@ beforeEach(() => {
     } };
 });
 const input = (override: any = {}) => orderSchema.parse({ requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", partyId: "customer-1", lines: [{ productId: "a", quantity: 2, unitPrice: 200, discountMode: "PERCENT", discount: 10, gift: false }], paid: 0, method: "未付款", ...override });
+describe("authorization after waiting for the store lock", () => {
+    it("rejects a queued sale revoked while waiting, before stock or commands change", async () => {
+        mocks.db.$queryRaw.mockImplementation(async () => {
+            mocks.db.staff.findFirst.mockResolvedValue({ permissions: [] });
+            return [{ id: ctx.storeId }];
+        });
+        await expect(saveInventoryOrder(ctx, input())).rejects.toThrow("操作權限已撤銷");
+        expect(products[0].stock).toBe(10);
+        expect(orders).toHaveLength(0); expect(commands).toHaveLength(0); expect(cash).toHaveLength(0);
+    });
+    it.each([null, { role: "MANAGER", status: "SUSPENDED" }, { role: "STAFF", status: "ACTIVE" }])("rejects a removed, suspended or changed account after the lock", async account => {
+        mocks.db.$queryRaw.mockImplementation(async () => {
+            mocks.db.user.findUnique.mockResolvedValue(account);
+            return [{ id: ctx.storeId }];
+        });
+        await expect(saveInventoryOrder(ctx, input())).rejects.toThrow("帳號權限已變更");
+        expect(products[0].stock).toBe(10); expect(orders).toHaveLength(0);
+    });
+    it("rechecks price override after the lock instead of using the earlier grant", async () => {
+        mocks.db.$queryRaw.mockImplementation(async () => {
+            mocks.check.mockImplementation(async (_role, _staffId, code) => code !== "inventory.price.override");
+            return [{ id: ctx.storeId }];
+        });
+        await expect(saveInventoryOrder(ctx, input())).rejects.toThrow("單價與優惠");
+        expect(products[0].stock).toBe(10); expect(orders).toHaveLength(0);
+    });
+    it("purchase payment uses no shared permission connection inside the transaction", async () => {
+        const id = await saveInventoryOrder(ctx, input({ kind: "PURCHASE", partyId: "vendor-1" }));
+        let inTransaction = false;
+        const transaction = mocks.db.$transaction;
+        mocks.db.$transaction = async (work: any) => {
+            inTransaction = true;
+            try { return await transaction(work); } finally { inTransaction = false; }
+        };
+        mocks.permission.mockImplementation(async () => {
+            expect(inTransaction).toBe(false);
+            return ctx.user;
+        });
+        const result = await savePayment({ requestId: crypto.randomUUID(), kind: "PURCHASE", date: "2026-10-05", method: "現金", allocations: [{ orderId: id, amount: 100 }] });
+        expect(result.success).toBe(true); expect(payments).toHaveLength(1); expect(cash).toHaveLength(1);
+    });
+    it("rejects purchase payment if cashbook permission is removed while waiting", async () => {
+        const id = await saveInventoryOrder(ctx, input({ kind: "PURCHASE", partyId: "vendor-1" }));
+        mocks.db.$queryRaw.mockImplementation(async () => {
+            mocks.db.staff.findFirst.mockResolvedValue({ permissions: ["inventory.purchase.pay", "inventory.cost.read"].map(permission => ({ permission })) });
+            return [{ id: ctx.storeId }];
+        });
+        expect((await savePayment({ requestId: crypto.randomUUID(), kind: "PURCHASE", date: "2026-10-05", method: "現金", allocations: [{ orderId: id, amount: 100 }] })).success).toBe(false);
+        expect(orders[0].paid).toBe(0); expect(payments).toHaveLength(0); expect(cash).toHaveLength(0);
+    });
+});
 it("rejects an already-open sales form and receipt when write permission is revoked", async () => {
     const draft = input();
     const id = await saveInventoryOrder(ctx, draft);

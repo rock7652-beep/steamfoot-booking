@@ -48,7 +48,8 @@ export async function receiveInventory(raw:unknown) {
 export async function completeReceiving(raw:unknown) {
  const input=receivingCostSchema.parse(raw),ctx=await inventoryContext("inventory.manage");
  ensureCost(ctx);uniqueIds(input.lines.map(l=>l.productId));
- return inventoryTransaction(ctx,async tx=>{
+ return inventoryTransaction(ctx,async (tx,access)=>{
+  if(!access("inventory.cost.read"))throw new AppError("FORBIDDEN","沒有查看成本的權限");
   const replay=await tx.inventoryCommand.findUnique({where:{storeId_requestId:{storeId:ctx.storeId,requestId:input.requestId}}});
   if(replay){assertReplay(replay.requestHash,input);return replay.orderId;}
   const receipt=await tx.inventoryReceiving.findFirst({where:{id:input.id,storeId:ctx.storeId}});

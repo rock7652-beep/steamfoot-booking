@@ -37,7 +37,7 @@ export async function inventoryContext(permission: "inventory.read" | "inventory
     if (!grant || grant.status !== "ENABLED" || (grant.startsAt && grant.startsAt > new Date()) || (grant.expiresAt && grant.expiresAt < new Date()))
         throw new AppError("FORBIDDEN", "進銷存尚未開通");
     const canCost = await checkPermission(user.role, user.staffId, "inventory.cost.read");
-    return { user, storeId, canCost };
+    return { user, storeId, canCost, permission };
 }
 export const hashInput = (input: unknown) => createHash("sha256").update(JSON.stringify(input)).digest("hex");
 export function ensureCost(ctx: InventoryContext) { if (!ctx.canCost)
@@ -48,7 +48,21 @@ export async function inventoryExportEnabled(storeId: string) {
         return false;
     return hasDataExportFeature(storeId);
 }
-export async function inventoryTransaction<T>(ctx: InventoryContext, work: (tx: Prisma.TransactionClient) => Promise<T>, postsCash = false) {
+/** Read current grants through the transaction connection, after the Store lock. */
+export async function inventoryTransactionAccess(tx: Prisma.TransactionClient, ctx: InventoryContext) {
+    const account = await tx.user.findUnique({ where: { id: ctx.user.id }, select: { role: true, status: true } });
+    if (!account || account.status !== "ACTIVE" || account.role !== ctx.user.role)
+        throw new AppError("FORBIDDEN", "帳號權限已變更，請重新登入");
+    if (account.role === "ADMIN") return () => true;
+    const staff = await tx.staff.findFirst({ where: { id: ctx.user.staffId ?? "", userId: ctx.user.id, storeId: ctx.storeId, status: "ACTIVE" },
+        select: { permissions: { where: { granted: true }, select: { permission: true } } } });
+    if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
+    if (account.role === "OWNER") return () => true;
+    const grants = new Set(staff.permissions.map(p => p.permission));
+    return (permission: string) => grants.has(permission);
+}
+type InventoryAccess = Awaited<ReturnType<typeof inventoryTransactionAccess>>;
+export async function inventoryTransaction<T>(ctx: InventoryContext, work: (tx: Prisma.TransactionClient, access: InventoryAccess) => Promise<T>, postsCash = false) {
     // Session and feature checks use the shared connection. Resolve them before
     // acquiring a transaction, including deployments with connection_limit=1.
     if (postsCash) {
@@ -59,7 +73,10 @@ export async function inventoryTransaction<T>(ctx: InventoryContext, work: (tx: 
     return prisma.$transaction(async (tx) => {
         // Store row lock serializes stock, receipt, count and replay checks. No client balances trusted.
         await tx.$queryRaw `SELECT "id" FROM "Store" WHERE "id"=${ctx.storeId} FOR UPDATE`;
-        return work(tx);
+        const access = await inventoryTransactionAccess(tx, ctx);
+        if (!access(ctx.permission ?? "inventory.write") || (postsCash && !access("cashbook.create")))
+            throw new AppError("FORBIDDEN", "操作權限已撤銷，請重新整理");
+        return work(tx, access);
     }, { timeout: 20000 });
 }
 export async function inventoryAudit(ctx: InventoryContext, tx: Prisma.TransactionClient, targetType: string, targetId: string, summary: string, after?: Prisma.InputJsonValue, before?: Prisma.InputJsonValue) {
@@ -103,7 +120,12 @@ export async function createInventoryPayment(ctx: InventoryContext, tx: Prisma.T
         amount: number;
     }[];
 }) {
-    if (input.kind === "PURCHASE") { ensureCost(ctx); await requirePermission("inventory.purchase.pay"); }
+    if (input.kind === "PURCHASE") {
+        ensureCost(ctx);
+        const access = await inventoryTransactionAccess(tx, ctx);
+        if (!access("inventory.cost.read") || !access("inventory.purchase.pay"))
+            throw new AppError("FORBIDDEN", "沒有進貨付款或成本權限");
+    }
     uniqueIds(input.allocations.map(a => a.orderId));
     let partyId = "", partyName = "", partyPhone = "", freight = 0, total = 0;
     const snapshots = [];
@@ -158,8 +180,10 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         ensureCost(ctx);
         if (input.paid > 0) await requirePermission("inventory.purchase.pay");
     }
-    const canOverride = input.kind === "SALE" && await checkPermission(ctx.user.role,ctx.user.staffId,"inventory.price.override");
-    return inventoryTransaction(ctx, async (tx) => {
+    return inventoryTransaction(ctx, async (tx, access) => {
+        if (input.kind === "PURCHASE" && !access("inventory.cost.read"))
+            throw new AppError("FORBIDDEN", "沒有查看成本的權限");
+        const canOverride = input.kind === "SALE" && access("inventory.price.override");
         const replay = await tx.inventoryCommand.findUnique({ where: { storeId_requestId: { storeId: ctx.storeId, requestId: input.requestId } } });
         if (replay) {
             assertReplay(replay.requestHash, input);
