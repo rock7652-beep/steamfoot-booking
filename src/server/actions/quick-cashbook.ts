@@ -47,7 +47,7 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
   } else if (view?.state === "WARNING_LAST_OPEN") balanceLabel = "上次抽屜尚未關帳";
   else if (view?.state === "EMPTY") balanceLabel = "現金抽屜尚未啟用";
   return { today, page: currentPage, total, canWrite, closedDates, canDrawer, balance, balanceLabel,
-    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
+    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: !e.id.startsWith("inventory:") && canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
   };
 }
 

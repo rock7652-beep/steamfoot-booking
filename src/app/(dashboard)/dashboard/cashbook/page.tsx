@@ -382,6 +382,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       ) : (
                         <div className="flex items-center gap-3">
                           <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
+                          {e.id.startsWith("inventory:") ? <span className="text-sm text-earth-500">進銷存連動</span> : <>
                           {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
@@ -389,6 +390,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                             編輯
                           </Link>}
                           {canManageCashbook && <CashbookEntryDeleteButton entryId={e.id} />}
+                          </>}
                         </div>
                       )}
                     </td>

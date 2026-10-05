@@ -236,7 +236,7 @@ describe("direct print document isolation",()=>{
 });
 
 it("rejects supplier payment when cost access is missing even if payment permission is granted",async()=>{
- mocks.check.mockResolvedValue(false);const result=await savePayment({requestId:crypto.randomUUID(),kind:"PURCHASE",date:"2026-10-05",method:"現金",allocations:[{orderId:"unknown",amount:1}]});expect(result.success).toBe(false);expect(result.error).toContain("成本");expect(payments).toHaveLength(0);
+ mocks.check.mockResolvedValue(false);const result=await savePayment({requestId:crypto.randomUUID(),kind:"PURCHASE",date:"2026-10-05",method:"現金",allocations:[{orderId:"unknown",amount:1}]});expect(result.success).toBe(false);if(result.success)throw new Error("supplier payment unexpectedly succeeded");expect(result.error).toContain("成本");expect(payments).toHaveLength(0);
 });
 
 it("settles the 1120 wholesale scenario once without changing stock again",async()=>{

@@ -1,7 +1,7 @@
 vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:async()=>true,inventoryCashbookReadFilter:async()=>({})}));
 import { beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
+const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), entries: vi.fn(), count: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission, requireWritablePermission: m.permission, checkPermission: async () => true }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.active, resolveWriteStoreId: m.write }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
@@ -9,9 +9,9 @@ vi.mock("@/lib/manager-visibility", () => ({ getManagerReadFilter: () => ({ staf
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: async () => null }));
 vi.mock("@/lib/date-utils", () => ({ toLocalDateStr: () => "2026-09-11" }));
 vi.mock("@/server/queries/cash-drawer", () => ({ getCashDrawerView: async () => ({ state: "EMPTY" }), listClosedBusinessDates: async () => [] }));
-vi.mock("@/lib/db", () => ({ prisma: { cashbookEntry: { findFirst: m.find }, customer: { findMany: m.customers } } }));
+vi.mock("@/lib/db", () => ({ prisma: { cashbookEntry: { findFirst: m.find, findMany: m.entries, count: m.count }, customer: { findMany: m.customers } } }));
 vi.mock("@/server/actions/cashbook", () => ({ createCashbookEntry: m.create, updateCashbookEntry: m.update, deleteCashbookEntry: m.remove }));
-import { saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
+import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
 beforeEach(() => {
   vi.resetAllMocks(); m.permission.mockResolvedValue(m.user); m.active.mockResolvedValue("store"); m.write.mockResolvedValue("store"); m.feature.mockResolvedValue(true);
   m.find.mockResolvedValue({ id: "e", staffId: "s", entryDate: new Date("2026-09-11T00:00:00Z") });
@@ -73,4 +73,19 @@ it("renders the quick cashbook as a centered responsive dialog", () => {
   expect(source).toContain('sm:items-center sm:justify-center');
   expect(source).toContain('role="dialog" aria-modal="true"');
   expect(source).not.toContain("<RightSheet");
+});
+
+it("keeps inventory-linked income and expense read-only while ordinary entries remain editable", async () => {
+  m.entries.mockResolvedValue([
+    { id: "inventory:receipt:goods", type: "INCOME", staffId: "s", amount: 1120 },
+    { id: "inventory:purchase:goods", type: "EXPENSE", staffId: "s", amount: 400 },
+    { id: "ordinary", type: "EXPENSE", staffId: "s", amount: 20 },
+  ]);
+  m.count.mockResolvedValue(3);
+  const result = await fetchQuickCashbook("store");
+  expect(result.entries.map(entry => ({ id: entry.id, canEdit: entry.canEdit }))).toEqual([
+    { id: "inventory:receipt:goods", canEdit: false },
+    { id: "inventory:purchase:goods", canEdit: false },
+    { id: "ordinary", canEdit: true },
+  ]);
 });
