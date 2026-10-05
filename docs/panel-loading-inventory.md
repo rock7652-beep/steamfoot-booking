@@ -87,4 +87,8 @@
 
 - 以 #1204 正式 main bf896dd9 為起點，運動／音樂沿用同一 CourseMemberWorkspace 與 course-card reader。方案瀏覽列補意圖預讀；完整卡片讀取失敗可重新載入；摘要不授權修改，關閉或切換後的晚到結果不得更新目前方案，重新開啟仍取最新額度。
 - 顧客經營詳情沿用 growth-customer reader；開啟／切換顧客時隔離上一筆內容與錯誤，失敗可視窗內重試。不更改業務 action、RWD 外框、schema 或 migration。
-- 本輪預覽須通過雙連線隔離 guard。自動化行為驗證與 Preview 結果分開記錄；尚未完成本輪登入後 Preview，尚未合併正式站。
+- PR #1206 產品提交 d9dfbeb0，Vercel dpl_7vZzqX9osoUWyqezF2NVXQBpGFWt READY，建置確認 isolated_database=true、recovery_skipped_outside_production。沒有提交資料寫入或合併正式站。
+- 本機 7 組 41 項測試、TypeScript noEmit、修改檔 ESLint、diff --check 通過。CI 37251632027 的 targeted、Typecheck 與 Changed ESLint 通過；全量 6525 通過／71 失敗／81 略過，73 條正規化 FAIL 與 #1204 相同，沒有新增失敗，不宣稱全綠。
+- 登入後陸比音樂：劉語彤・08「驗收用・吉他課 4 堂」摘要先顯示剩餘 4／占用 0／可用 4、2027-09-30 期限；完整讀取後顯示 1 筆額度紀錄。返回列表再開同一方案可見新的讀取狀態，未沿用已完成的 detail。只讀取，未購買或修改共卡。
+- 裝置預覽 1024×768 視窗 (72,24,880,720)、768×1024 (24,152,720,720)、390×844 (0,0,390,844)，各頁 scrollWidth 等於 clientWidth。切換尺寸保留同一顧客與方案；期限及方案摘要沒有水平溢出。這是模擬尺寸，並非實機觸控／Safari／LINE 驗收。
+- 顧客經營 growth-customer 抽屜只掛在既有潛力候選入口；Steamfoot Staging / 測試店的 /hq/dashboard/growth/candidates 目前 0 位，不能完成登入後開啟、切換及重試的端到端驗收。一般顧客詳情與關懷列表入口使用其他元件，不拿其結果代替本輪抽屜驗收。錯誤重試、切換／晚到與重開隔離已有自動化測試，未故意阻斷瀏覽器網路。PR 保持 draft，候選抽屜及運動教室實站資料仍待補驗。
