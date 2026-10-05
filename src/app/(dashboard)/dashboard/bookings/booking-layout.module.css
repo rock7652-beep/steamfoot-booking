@@ -107,18 +107,30 @@
   container: booking-calendar / inline-size;
 }
 
+.calendarBooking {
+  height: 28px;
+  min-height: 28px;
+  line-height: 20px;
+}
+
+.calendarMore {
+  min-height: 44px;
+}
+
+/* Secondary calendar rows stay compact; the full date cell and More control
+   remain the larger touch entrances to the complete roster. */
 @container booking-calendar (max-width: 48rem) {
   .calendarBooking {
-    height: auto;
-    min-height: 44px;
+    height: 32px;
+    min-height: 32px;
     min-width: 44px;
   }
 }
 
 @media (pointer: coarse) {
   .calendarBooking {
-    height: auto;
-    min-height: 44px;
+    height: 32px;
+    min-height: 32px;
     min-width: 44px;
   }
 }
