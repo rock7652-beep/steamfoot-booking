@@ -120,3 +120,12 @@ describe("staff session revocation through the real auth callbacks", () => {
    mocks.findUnique.mockResolvedValue(state({ role: "CUSTOMER" }));
    expect(await config.callbacks.jwt({ token: token(current) })).toBeNull();
  });
+
+it.each(["OWNER", "MANAGER", "STAFF"])("revokes %s's open session after account or staff deactivation", async role => {
+  const current = state({ role });
+  const old = token(current);
+  mocks.findUnique.mockResolvedValue(state({ role, status: "SUSPENDED" }));
+  expect(await config.callbacks.jwt({ token: old })).toBeNull();
+  mocks.findUnique.mockResolvedValue(state({ role, staff: { id: "test-staff", storeId: "store-a", status: "INACTIVE" } }));
+  expect(await config.callbacks.jwt({ token: old })).toBeNull();
+});

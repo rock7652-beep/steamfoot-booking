@@ -11,7 +11,7 @@ vi.mock("@/lib/data-export-gate", () => ({ hasDataExportFeature: vi.fn(async () 
 vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: mocks.audit }));
 import { inventoryData, inventoryDocumentData, saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
 import { receiveInventory, completeReceiving } from "./inventory-receiving";
-import { saveProduct, saveStockCount, savePayment } from "@/server/actions/inventory";
+import { saveProduct, saveStockCount, savePayment, saveOrder } from "@/server/actions/inventory";
 import { inventoryReport, orderSchema, publicLines, lineTotal } from "@/lib/inventory";
 const ctx: any = { storeId: "store-1", canCost: true, user: { id: "user-1", name: "店長", role: "ADMIN", staffId: "staff-1" } };
 describe("inventory preview isolation", () => {
@@ -68,6 +68,23 @@ beforeEach(() => {
     } };
 });
 const input = (override: any = {}) => orderSchema.parse({ requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", partyId: "customer-1", lines: [{ productId: "a", quantity: 2, unitPrice: 200, discountMode: "PERCENT", discount: 10, gift: false }], paid: 0, method: "未付款", ...override });
+it("rejects an already-open sales form and receipt when write permission is revoked", async () => {
+    const draft = input();
+    const id = await saveInventoryOrder(ctx, draft);
+    const receipt = { requestId: crypto.randomUUID(), kind: "SALE", date: "2026-10-05", method: "現金", allocations: [{ orderId: id, amount: 360 }] };
+    mocks.permission.mockRejectedValue(new Error("權限已撤銷"));
+    expect((await saveOrder(input())).success).toBe(false);
+    expect((await savePayment(receipt)).success).toBe(false);
+    expect(orders).toHaveLength(1); expect(orders[0].paid).toBe(0);
+    expect(products[0].stock).toBe(8); expect(payments).toHaveLength(0); expect(cash).toHaveLength(0);
+});
+it("product edits preserve a settled order, receipt and original operator snapshots", async () => {
+    const id = await saveInventoryOrder(ctx, input({ paid: 360, method: "現金" }));
+    const before = JSON.stringify({ orders, payments, cash });
+    expect((await saveProduct({ id: "a", revision: products[0].revision, name: "更新商品", price: 500, details: { brand: "新品牌", priceRatios: { STUDENT: 70 } } })).success).toBe(true);
+    expect(products[0].price).toBe(500); expect(orders[0].id).toBe(id);
+    expect(JSON.stringify({ orders, payments, cash })).toBe(before);
+});
 describe("inventory transaction acceptance", () => {
     it("settles two customer orders once with per-order receipt balances", async () => {
         const a = await saveInventoryOrder(ctx, input());

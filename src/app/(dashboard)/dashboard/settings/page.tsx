@@ -95,6 +95,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     "trial.manage",
   );
   const isSpaStore = industry === "spa";
+  const canStaffView = await checkPermission(user.role, user.staffId, "staff.view");
 
   const [
     plan,
@@ -119,7 +120,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
       lineOfficialUrl: null as string | null,
       referralShareTemplate: null as string | null,
     })),
-    listStaff(activeStoreId).catch(() => []),
+    canStaffView ? listStaff(activeStoreId).catch(() => []) : Promise.resolve([]),
     listReminderRules(activeStoreId).catch(() => []),
     getCachedBusinessHours(activeStoreId).catch(() => []),
     prisma.store.findUnique({
@@ -203,7 +204,8 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
           label: "人員與服務",
           content: (
             <>
-              {canDuty && user.role === "OWNER" ? <SettingsListRow title="人員與排班" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/spa-staff" action="管理" /> : null}
+              {canStaffView ? <SettingsListRow title="人員與權限" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/staff" action="管理" /> : null}
+              {canDuty && ["OWNER", "MANAGER", "ADMIN"].includes(user.role) ? <SettingsListRow title="服務與排班" summary="服務項目・固定時段・休假例外" href="/dashboard/spa-staff" action="管理" /> : null}
               <SettingsListRow title="值班聯動" summary={dutyOn ? "開啟・未值班時段不開放" : "關閉"} href="/dashboard/settings/duty" action="設定" />
             </>
           ),
@@ -246,7 +248,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
           id: "staff",
           label: "人員與權限",
           content: (
-            <SettingsListRow title="人員狀態" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/staff" action="管理" />
+            canStaffView ? <SettingsListRow title="人員與權限" summary={`啟用 ${activeStaffCount} / ${staffCount} 人`} href="/dashboard/staff" action="管理" /> : null
           ),
         },
         {
