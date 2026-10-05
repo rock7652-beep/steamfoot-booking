@@ -157,7 +157,7 @@ function GrowthCustomerDrawerContent({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
             aria-label="關閉"
           >
             ✕
@@ -196,7 +196,7 @@ function GrowthCustomerDrawerContent({
             </span>
             <Link
               href={`/dashboard/customers/${data.customer.id}`}
-              className="inline-flex h-8 items-center text-xs font-medium text-primary-600 hover:text-primary-700"
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center text-xs font-medium text-primary-600 hover:text-primary-700"
             >
               開啟完整顧客頁 →
             </Link>
