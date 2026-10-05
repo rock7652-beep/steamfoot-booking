@@ -1,0 +1,1 @@
+@media print {body:has(#inventory-document) * {visibility:hidden} body:has(#inventory-document) #inventory-document, body:has(#inventory-document) #inventory-document * {visibility:visible}}

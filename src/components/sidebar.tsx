@@ -70,6 +70,8 @@ export interface NavGroup {
 // ============================================================
 
 export const STORE_ADMIN_NAV: NavItem[] = [
+  { href: "/dashboard/inventory", label: "進銷存", permission: "inventory.read", requiredFeature: FEATURES.INVENTORY,
+    icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10" /></svg> },
   {
     href: "/dashboard",
     label: "首頁",
@@ -787,6 +789,7 @@ export default function DashboardShell({
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: FEATURES.BASIC_REPORTS },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/inventory")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,
       ] }, { id: "course-setup", label: "店務設定", defaultOpen: true, icon: <></>, items: [

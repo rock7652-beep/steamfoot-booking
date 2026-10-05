@@ -1,0 +1,26 @@
+// @vitest-environment jsdom
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, it, expect, vi } from "vitest";
+import type { InventoryData } from "@/lib/inventory";
+const mocks = vi.hoisted(() => ({ save: vi.fn(), load: vi.fn() }));
+vi.mock("@/server/actions/inventory", () => ({ loadInventory: mocks.load, saveOrder: mocks.save, savePayment: mocks.save, saveProduct: mocks.save, saveSupplier: mocks.save, saveStockCount: mocks.save }));
+vi.mock("@/server/actions/customer", () => ({ createCustomer: vi.fn() }));
+vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
+vi.mock("@/components/admin/modal-panel", () => ({ ModalPanel: ({ children }: {
+        children: React.ReactNode;
+    }) => createElement('section', null, children) }));
+vi.mock("@/components/admin/exclusive-menu", () => ({ ExclusiveMenu: ({ children }: {
+        children: React.ReactNode;
+    }) => createElement('div', null, children) }));
+import { InventoryWorkspace } from "@/app/(dashboard)/dashboard/inventory/workspace";
+let root: Root, host: HTMLDivElement;
+const initial: InventoryData = { store: { id: 'qa', name: '示範門市', phone: null, address: null }, canCost: false, canWrite: true, canManage: false, canExport: false, canCreateCustomer: false, products: [{ id: 'a', name: '保暖襪', stock: 20, price: 200, revision: 1, active: true }], suppliers: [], orders: [], payments: [], counts: [], customers: [{ id: 'c1', name: '陳怡君', phone: '0912345678' }, { id: 'c2', name: '陳怡君', phone: '0922333444' }, { id: 'c3', name: '林雅婷', phone: '0933555666' }] };
+beforeEach(() => { host = document.createElement('div'); document.body.append(host); root = createRoot(host); mocks.save.mockResolvedValue({ success: true }); mocks.load.mockResolvedValue({ success: true, data: initial }); act(() => root.render(createElement(InventoryWorkspace, { initial }))); });
+afterEach(() => { act(() => root.unmount()); host.remove(); });
+const click = (text: string) => { const b = [...host.querySelectorAll('button')].find(b => b.textContent === text); expect(b, text).toBeTruthy(); act(() => b!.click()); };
+const fill = (input: HTMLInputElement, value: string) => act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); });
+it('filters receipt customers by either name or phone immediately', () => { click('收款單'); const input = host.querySelector('input[aria-label="顧客姓名或電話"]') as HTMLInputElement; fill(input, '陳怡君'); expect(host.textContent).toContain('0912345678'); expect(host.textContent).toContain('0922333444'); expect(host.textContent).not.toContain('林雅婷'); fill(input, '0922'); expect(host.textContent).not.toContain('0912345678'); expect(host.textContent).toContain('0922333444'); });
+it('keeps cost reports and exports hidden without permissions', () => { expect(host.textContent).not.toContain('銷貨報表'); expect(host.textContent).not.toContain('進貨單'); click('商品與庫存'); expect(host.textContent).not.toContain('平均成本'); expect(host.querySelector('a[href="/api/inventory/export"]')).toBeNull(); });
+it('keeps the same focused quantity input and date while editing rows', () => { click('＋ 新增銷貨'); const query = host.querySelector('input[aria-label="即時篩選商品"]') as HTMLInputElement; fill(query, '保暖'); click('保暖襪・庫存 20・$200　＋ 加入'); const date = host.querySelector('input[name="date"]') as HTMLInputElement; fill(date, '2026-10-02'); const qty = host.querySelector('input[aria-label="保暖襪 數量"]') as HTMLInputElement; qty.focus(); fill(qty, '2'); expect(host.querySelector('input[aria-label="保暖襪 數量"]')).toBe(qty); expect(document.activeElement).toBe(qty); expect(date.value).toBe('2026-10-02'); expect((host.querySelector('input[name="paid"]') as HTMLInputElement).value).toBe('400'); });
+it('preserves tab search when switching away and back', () => { click('收款單'); const query = host.querySelector('input[aria-label="顧客姓名或電話"]') as HTMLInputElement; fill(query, '0922'); click('商品與庫存'); click('收款單'); expect((host.querySelector('input[aria-label="顧客姓名或電話"]') as HTMLInputElement).value).toBe('0922'); });

@@ -40,6 +40,7 @@ export const FEATURES = {
   MEMBER_PORTAL: "member_portal",
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
+  INVENTORY: "inventory",
   CUSTOMER_LABELS: "customer_labels",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
@@ -74,7 +75,7 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full single-store trial, shared by every industry (multi-store is excluded).
-  EXPERIENCE: Object.values(FEATURES).filter(isSingleStoreFeature),
+  EXPERIENCE: Object.values(FEATURES).filter(f=>f !== FEATURES.INVENTORY && isSingleStoreFeature(f)),
   BASIC: [
     "device_preview",
     "member_portal",
