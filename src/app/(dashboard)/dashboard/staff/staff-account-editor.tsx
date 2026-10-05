@@ -34,11 +34,17 @@ export function StaffAccountEditor({ person, policy, onClose }: {
   const [role, setRole] = useState(person.role ?? "STAFF");
   const [permissions, setPermissions] = useState<string[]>(person.permissions ?? []);
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState(policy.permissionGroups[0]?.label ?? "");
   const [status, setStatus] = useState(person.status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const allCodes = policy.permissionGroups.flatMap(g => g.codes.map(c => c.code));
   const fullAccess = role === "OWNER" || role === "ADMIN";
+  const searchTerm = search.trim().toLowerCase();
+  const visibleGroups = policy.permissionGroups
+    .filter(group => searchTerm || group.label === category)
+    .map(group => ({ ...group, codes: group.codes.filter(c => !searchTerm || `${group.label} ${c.label} ${c.code}`.toLowerCase().includes(searchTerm)) }))
+    .filter(group => group.codes.length);
   const dirty = status !== person.status || email !== (person.email === "尚未設定" ? "" : person.email) || name !== person.displayName || phone !== (person.phone ?? "") || color !== person.colorCode || role !== (person.role ?? "STAFF") || [...permissions].sort().join() !== [...(person.permissions ?? [])].sort().join();
   useEffect(() => {
     if (!dirty) return;
@@ -90,18 +96,29 @@ export function StaffAccountEditor({ person, policy, onClose }: {
             <label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e => setColor(e.target.value)}/></label>
             <label className="block text-sm">狀態<select name="status" className={field} value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option></select></label>
           </div>
-          <div hidden={tab !== "permissions"} className="space-y-3">
-            <label className="block text-sm">後台登入信箱<input name="email" type="email" className={field} value={email} onChange={e => setEmail(e.target.value)}/></label>
-            <StaffRoleControl role={role} canAssignRoles={policy.canAssignRoles} presets={policy.rolePresets} onRole={setRole} onPreset={setPermissions}/>
+          <div hidden={tab !== "permissions"} className="space-y-2">
+            <div className={styles.staffAccountFields}>
+              <label className="block text-sm">後台登入信箱<input name="email" type="email" className={field} value={email} onChange={e => setEmail(e.target.value)}/></label>
+              <StaffRoleControl compact role={role} canAssignRoles={policy.canAssignRoles} presets={policy.rolePresets} onRole={setRole} onPreset={setPermissions}/>
+            </div>
+            <p className="text-sm text-earth-600">{fullAccess ? "此角色權限全開放。" : "切換角色保留權限；套用預設後可逐項調整。"}</p>
             {!fullAccess && <section className="space-y-2">
               <h3 className="font-semibold text-primary-800">店內管理權限 · {allCodes.filter(c => permissions.includes(c)).length}／{allCodes.length}</h3>
-              <input aria-label="搜尋權限" placeholder="搜尋權限名稱" className={field} value={search} onChange={e => setSearch(e.target.value)}/>
-              {policy.permissionGroups.map(group => ({ ...group, codes: group.codes.filter(c => `${c.label} ${c.code}`.toLowerCase().includes(search.trim().toLowerCase())) })).filter(g => g.codes.length).map(group => <details key={group.label} open={search ? true : undefined} className="rounded-xl border border-earth-200 px-3">
-                <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-primary-800">{group.label} · {group.codes.filter(c => permissions.includes(c.code)).length}／{group.codes.length}</summary>
-                <div className="grid grid-cols-1 gap-1 border-t border-earth-100 py-2 min-[520px]:grid-cols-2">
+              <div className={styles.staffPermissionFilters}>
+                <select aria-label="權限分類" className={field} value={category} onChange={e => { setCategory(e.target.value); setSearch(""); }}>
+                  {policy.permissionGroups.map(group => <option key={group.label} value={group.label}>{group.label} · {group.codes.filter(c => permissions.includes(c.code)).length}／{group.codes.length}</option>)}
+                </select>
+                <input aria-label="搜尋權限" placeholder="搜尋全部權限" className={field} value={search} onChange={e => setSearch(e.target.value)}/>
+              </div>
+              <div className="space-y-2" aria-label="權限項目">
+              {visibleGroups.map(group => <section key={group.label} aria-label={group.label}>
+                {searchTerm && <h4 className="text-sm font-medium text-primary-800">{group.label}</h4>}
+                <div className={styles.staffPermissionItems}>
                   {group.codes.map(({ code, label }) => <label key={code} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={permissions.includes(code)} disabled={!policy.editablePermissions.includes(code)} onChange={e => changePermission(code, e.target.checked)}/>{label}</label>)}
                 </div>
-              </details>)}
+              </section>)}
+              {!visibleGroups.length && <p className="py-3 text-sm text-earth-500">沒有符合條件的權限</p>}
+              </div>
             </section>}
           </div>
         </fieldset>
