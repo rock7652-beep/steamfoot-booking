@@ -14,7 +14,7 @@
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
 | 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要，active cleanup |
-| 交易詳情／更正／退款 | transaction-detail | TTL 0，讀取錯誤可重新開啟；刷新世代保護及修改後失效 |
+| 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
 | 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0，active cleanup |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
@@ -71,3 +71,14 @@
 - 本修正行為測試、共用 cache／摘要、交易載入及 SPA 顧客測試共 27 項通過；修改檔 ESLint、TypeScript noEmit 與 diff --check 通過。Vercel projectEnvVars list 回覆 403，但部署沿用既有 Preview 連線；建置日誌確認 isolated_database=true，Preview dpl_3riQFDSLPsAdGQeHHXgsakPTLHCU 已成功建置。新增支線隔離 guard，缺少隔離設定時 build 必須停止。
 - 登入後桌機 1363×936：隔離 staging-store 的 QA1124 顧客，備註由空值改為 QA1203 清單同步驗收，視窗與清單同步更新；搜尋 QA1124 保留。1024×768 視窗 (152,24,720,720)、768×1024 視窗 (24,62,720,900)，頁寬分别1024／768，沒有整頁水平溢出。裝置預覽切換尺寸會重建入口，重新開啟顧客後未儲存備註草稿仍保留；不將此列為不重建的原生旋轉驗收。直向儲存空備註還原後，視窗與清單均恢復無備註，沒有變動方案堂數、收款或正式資料。
 - 本修正未合併正式站；已完成本次備註同步的登入後 Preview，方案指派與歸屬的寫入端到端未另提交，實機仍待驗收。既有 SPA 驗收不代替這次清單同步修正的 Preview 驗收。
+
+## RWD 完成後接續（2026-10-05，Asia/Taipei）
+
+- 起點 main `a1564a7a` 已包含 #1203 顧客清單同步與先前共用 panel reader；不重新建置，不修改 RWD 外框或業務 server action。
+- 交易紀錄及蒸足營運工作台的共用交易詳情入口補上 pointer enter、focus、touch intent，與已開啟視窗共用在途讀取；TTL 維持 0，已完成的預讀不作為退款／額度的快取來源。
+- 初次讀取失敗可直接「重新載入」，讀取中顯示 status，錯誤使用 alert；切交易或關閉後，舊讀取與重試不得更新目前視窗。
+- 自動化驗證：6 組 32 項通過，包含三種 intent、去重、重新開啟讀最新、預讀失敗再開、視窗內重試、切換交易晚到保護、共用視窗與顧客同步。變更檔 ESLint、TypeScript noEmit 通過；本機型別檢查提高 Node heap 後成功。CI 37246354097 的三個 required jobs 成功；完整 Vitest 6514 通過／71 失敗／81 略過，73 條正規化 FAIL 與 #1203 CI 37217736801 完全相同，沒有新增失敗，不宣稱全綠。
+- 本輪產品提交 `8a7dae6f` 的 Vercel Preview `dpl_FcJArXtzFHhTWU9r1vjvSMEepQUc` READY；build 日誌確認 isolated_database=true、未執行正式 migration。Staging Admin 選取 Steamfoot Staging / 測試店，2026-06-01～2026-10-05 共 25 筆歷史交易。
+- 登入後桌機 1363×936：QA來源驗收LINE 的 1598 元單次與全額折抵課程交易（實付 0、10 堂）顯示正確；鍵盤 Enter 開啟、關閉重開正常。桌機視窗 (321.5,24,720,888)，頁寬 1363。
+- 相同共用元件在營運工作台：1024×768 視窗 (152,24,720,720)、768×1024 視窗 (24,62,720,900)、1440×900 視窗 (360,24,720,852)、390×844 視窗 (0,0,390,844)，頁寬皆等於視窗寬。平板橫轉直保留 QA1204 未儲存備註，之後取消恢復未填寫；手機 Escape 關閉後保留原查詢。全部只讀取與取消，未提交收款、退款、作廢或備註。
+- 錯誤重試與 touch intent 的請求去重為自動化行為測試，沒有在瀏覽器故意阻斷網路；模擬尺寸不等於真機觸控，超寬螢幕／Safari／LINE 依既有指示保留未驗。尚未合併正式站。
