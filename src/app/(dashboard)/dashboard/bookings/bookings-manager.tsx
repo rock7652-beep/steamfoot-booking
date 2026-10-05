@@ -806,7 +806,7 @@ function BookingsManagerContent({
               )}
               <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
                 onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); setBatchResult(""); }}
-                className="min-h-11 w-full basis-48 grow shrink-0 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]" />
+                className="min-h-11 w-full basis-full grow shrink-0 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:basis-48 sm:max-w-[14rem]" />
               <details className="relative text-sm">
                 <summary className="min-h-11 cursor-pointer rounded-lg border border-earth-200 px-3 py-3">篩選{filters.status || filters.staffName || filters.servicePlanId || labelFilter ? "・已套用" : ""}</summary>
                 <div className="absolute left-0 top-full z-40 mt-1 flex w-64 flex-col gap-2 rounded-lg border border-earth-200 bg-white p-3 shadow-lg sm:left-auto sm:right-0">
