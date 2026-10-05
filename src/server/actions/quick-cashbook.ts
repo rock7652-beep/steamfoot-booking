@@ -8,43 +8,55 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { AppError, handleActionError } from "@/lib/errors";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { getCashDrawerView, listClosedBusinessDates } from "@/server/queries/cash-drawer";
+import { getCashDrawerBalanceSummary, listClosedBusinessDates } from "@/server/queries/cash-drawer";
 import { createCashbookEntry, updateCashbookEntry, deleteCashbookEntry } from "./cashbook";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { OperationTiming } from "@/lib/operation-timing";
 
-async function context(storeId: string, write = false) {
-  const user = write ? await requireWritablePermission("cashbook.create") : await requirePermission("cashbook.read");
-  const active = await getActiveStoreForRead(user);
+async function context(storeId: string, write = false, timing?: OperationTiming) {
+  const user = write ? await requireWritablePermission("cashbook.create") : await requirePermission("cashbook.read", timing);
+  const active = timing ? await timing.measure("activeStore", () => getActiveStoreForRead(user)) : await getActiveStoreForRead(user);
   if (!storeId || active !== storeId) throw new AppError("FORBIDDEN", "店別已變更，請重新開啟現金收支");
   if (write && await resolveWriteStoreId(user) !== storeId) throw new AppError("FORBIDDEN", "目前店別不可記帳");
-  if (!(await hasStoreFeature(storeId, FEATURES.CASHBOOK))) throw new AppError("FORBIDDEN", "尚未開通現金收支");
+  const allowed = timing ? await timing.measure("cashbookFeature", () => hasStoreFeature(storeId, FEATURES.CASHBOOK)) : await hasStoreFeature(storeId, FEATURES.CASHBOOK);
+  if (!allowed) throw new AppError("FORBIDDEN", "尚未開通現金收支");
   return user;
 }
 
 export async function fetchQuickCashbook(storeId: string, page = 1) {
-  const user = await context(storeId);
+  const startedAt = performance.now();
+  const timing = process.env.VERCEL ? new OperationTiming("quick-cashbook.authorization") : undefined;
+  const user = await context(storeId, false, timing);
+  timing?.finish();
+  const authorizedAt = performance.now();
   const today = toLocalDateStr();
   const date = new Date(today + "T00:00:00Z");
   const scope = getManagerReadFilter(user.role, user.staffId, "staffId", storeId);
   const where = { ...scope, storeId, entryDate: date };
-  const viewContext = await resolveStoreViewContextFromCookie(user);
-  const canWrite = !viewContext?.isViewMode && await checkPermission(user.role, user.staffId, "cashbook.create");
-  const canDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
   const currentPage = Number.isInteger(page) && page > 0 ? page : 1;
-  const [entries, total, view, closedDates] = await Promise.all([
+  // 已通過現金帳權限、門市與功能檢查；獨立讀取不再等待其他 UI 權限。
+  const [entries, total, drawer, closedDates, viewContext, writePermission] = await Promise.all([
     prisma.cashbookEntry.findMany({ where, orderBy: { createdAt: "desc" }, skip: (currentPage - 1) * 20, take: 20, include: { customer: { select: { id: true, name: true } } } }),
     prisma.cashbookEntry.count({ where }),
-    canDrawer ? getCashDrawerView(storeId, date) : null,
+    (async () => {
+      const canDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
+      const summary = canDrawer ? await getCashDrawerBalanceSummary(storeId, date) : { balance: null, balanceLabel: "今日尚未開店點錢" };
+      return { canDrawer, ...summary };
+    })(),
     listClosedBusinessDates(storeId, today, today),
+    resolveStoreViewContextFromCookie(user),
+    checkPermission(user.role, user.staffId, "cashbook.create"),
   ]);
-  let balance: number | null = null;
-  let balanceLabel = "今日尚未開店點錢";
-  if (view?.state === "OPENED_TODAY") {
-    const amount = view.liveTotals?.expectedClosingCash ?? view.session.closingActualCash;
-    balance = amount == null ? null : Number(amount);
-    balanceLabel = view.liveTotals ? "預估抽屜現金" : "關店實點現金";
-  } else if (view?.state === "WARNING_LAST_OPEN") balanceLabel = "上次抽屜尚未關帳";
-  else if (view?.state === "EMPTY") balanceLabel = "現金抽屜尚未啟用";
+  const canWrite = !viewContext?.isViewMode && writePermission;
+  const { canDrawer, balance, balanceLabel } = drawer;
+  if (process.env.VERCEL) {
+    const finishedAt = performance.now();
+    console.info("[quick-cashbook-read]", JSON.stringify({
+      authorizationMs: Math.round(authorizedAt - startedAt),
+      dataMs: Math.round(finishedAt - authorizedAt),
+      totalMs: Math.round(finishedAt - startedAt),
+    }));
+  }
   return { today, page: currentPage, total, canWrite, closedDates, canDrawer, balance, balanceLabel,
     entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
   };

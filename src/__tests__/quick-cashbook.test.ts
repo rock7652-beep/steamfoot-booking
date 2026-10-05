@@ -1,18 +1,18 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission, requireWritablePermission: m.permission, checkPermission: async () => true }));
+const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), check: vi.fn(), view: vi.fn(), entries: vi.fn(), count: vi.fn(), summary: vi.fn(), closed: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission, requireWritablePermission: m.permission, checkPermission: m.check }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.active, resolveWriteStoreId: m.write }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
 vi.mock("@/lib/manager-visibility", () => ({ getManagerReadFilter: () => ({ staffId: "s" }) }));
-vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: async () => null }));
+vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
 vi.mock("@/lib/date-utils", () => ({ toLocalDateStr: () => "2026-09-11" }));
-vi.mock("@/server/queries/cash-drawer", () => ({ getCashDrawerView: async () => ({ state: "EMPTY" }), listClosedBusinessDates: async () => [] }));
-vi.mock("@/lib/db", () => ({ prisma: { cashbookEntry: { findFirst: m.find }, customer: { findMany: m.customers } } }));
+vi.mock("@/server/queries/cash-drawer", () => ({ getCashDrawerBalanceSummary: m.summary, listClosedBusinessDates: m.closed }));
+vi.mock("@/lib/db", () => ({ prisma: { cashbookEntry: { findFirst: m.find, findMany: m.entries, count: m.count }, customer: { findMany: m.customers } } }));
 vi.mock("@/server/actions/cashbook", () => ({ createCashbookEntry: m.create, updateCashbookEntry: m.update, deleteCashbookEntry: m.remove }));
-import { saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
+import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
 beforeEach(() => {
-  vi.resetAllMocks(); m.permission.mockResolvedValue(m.user); m.active.mockResolvedValue("store"); m.write.mockResolvedValue("store"); m.feature.mockResolvedValue(true);
+  vi.resetAllMocks(); m.check.mockResolvedValue(true); m.view.mockResolvedValue(null); m.entries.mockResolvedValue([]); m.count.mockResolvedValue(0); m.closed.mockResolvedValue([]); m.summary.mockResolvedValue({ balance: null, balanceLabel: "現金抽屜尚未啟用" }); m.permission.mockResolvedValue(m.user); m.active.mockResolvedValue("store"); m.write.mockResolvedValue("store"); m.feature.mockResolvedValue(true);
   m.find.mockResolvedValue({ id: "e", staffId: "s", entryDate: new Date("2026-09-11T00:00:00Z") });
   m.create.mockResolvedValue({ success: true }); m.update.mockResolvedValue({ success: true }); m.remove.mockResolvedValue({ success: true });
 });
@@ -72,4 +72,48 @@ it("renders the quick cashbook as a centered responsive dialog", () => {
   expect(source).toContain('sm:items-center sm:justify-center');
   expect(source).toContain('role="dialog" aria-modal="true"');
   expect(source).not.toContain("<RightSheet");
+});
+
+
+it("starts authorized list queries while view metadata is still pending", async () => {
+  let finish!: (value: null) => void;
+  m.view.mockReturnValue(new Promise<null>(resolve => { finish = resolve; }));
+  const read = fetchQuickCashbook("store", 2);
+  await vi.waitFor(() => expect(m.entries).toHaveBeenCalledTimes(1));
+  expect(m.count).toHaveBeenCalledTimes(1);
+  expect(m.closed).toHaveBeenCalledTimes(1);
+  expect(m.entries).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store", entryDate: new Date("2026-09-11T00:00:00Z"), staffId: "s" }, skip: 20, take: 20 }));
+  finish(null);
+  expect((await read).page).toBe(2);
+});
+it("does not query drawer balances without drawer permission", async () => {
+  m.check.mockImplementation(async (_role, _staff, permission) => permission !== "cashDrawer.read");
+  expect((await fetchQuickCashbook("store")).canDrawer).toBe(false);
+  expect(m.summary).not.toHaveBeenCalled();
+});
+it("does not query cash data for a different active store", async () => {
+  await expect(fetchQuickCashbook("other")).rejects.toThrow("店別已變更");
+  expect(m.entries).not.toHaveBeenCalled();
+  expect(m.summary).not.toHaveBeenCalled();
+});
+it("keeps view mode read-only even with create permission", async () => {
+  m.view.mockResolvedValue({ isViewMode: true });
+  m.entries.mockResolvedValue([{ id: "e", staffId: "s", type: "INCOME", amount: 1, paymentMethod: "OTHER", customer: null }]);
+  const result = await fetchQuickCashbook("store");
+  expect(result.canWrite).toBe(false);
+  expect(result.entries[0].canEdit).toBe(false);
+});
+
+
+it("read permission denial does not start financial queries", async () => {
+  m.permission.mockRejectedValue(new Error("denied"));
+  await expect(fetchQuickCashbook("store")).rejects.toThrow("denied");
+  expect(m.entries).not.toHaveBeenCalled();
+  expect(m.summary).not.toHaveBeenCalled();
+});
+it("disabled cashbook feature does not start financial queries", async () => {
+  m.feature.mockResolvedValue(false);
+  await expect(fetchQuickCashbook("store")).rejects.toThrow("尚未開通");
+  expect(m.entries).not.toHaveBeenCalled();
+  expect(m.summary).not.toHaveBeenCalled();
 });
