@@ -1,5 +1,6 @@
 "use client";
 import { useCardDetail } from "./use-card-detail";
+import { useCustomerPanelUrl } from "./use-customer-panel-url";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
@@ -20,7 +21,7 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { Fragment, useState, useTransition, type FormEvent } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -109,8 +110,6 @@ export function CourseMemberWorkspace({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const pathname=usePathname();
-  function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");window.history.replaceState(null,"",`${pathname}?${next}`);}
   const [purchaseFilter, setPurchaseFilter] = useState("all");
   const [sharedFilter, setSharedFilter] = useState("all");
   const [templateFilter, setTemplateFilter] = useState(params.get("subjectId") ?? params.get("templateId") ?? "all");
@@ -142,7 +141,7 @@ export function CourseMemberWorkspace({
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
   function canLeave() { return !pending && !formPending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
-  function close() { if (canLeave()) { setPanel(null); setDirty(false); if(view==="customers")keepCustomerInUrl(); } }
+  function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
   const [cardId, setCardId] = useState("");
@@ -179,6 +178,7 @@ export function CourseMemberWorkspace({
   const [formPending,setFormPending]=useState(false);
   function finishDraftForm(){setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
+  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
@@ -319,9 +319,9 @@ export function CourseMemberWorkspace({
       {view === "customers" ? <CourseCustomerList music={music} customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
-        onView={id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); open("person"); }}
+        onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
-        onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
+        onAssign={canAssign ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
         <table className={`${music ? "block sm:table" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
