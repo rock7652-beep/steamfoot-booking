@@ -9,7 +9,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: mocks.feature }));
 vi.mock("@/lib/data-export-gate", () => ({ hasDataExportFeature: vi.fn(async () => true) }));
 vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: mocks.audit }));
-import { inventoryDocumentData, saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
+import { inventoryData, inventoryDocumentData, saveInventoryOrder, createInventoryPayment, inventoryTransaction, inventoryContext, inventoryExportEnabled, assertInventoryPreviewIsolation } from "./inventory";
 import { receiveInventory, completeReceiving } from "./inventory-receiving";
 import { saveProduct, saveStockCount, savePayment } from "@/server/actions/inventory";
 import { inventoryReport, orderSchema, publicLines, lineTotal } from "@/lib/inventory";
@@ -237,4 +237,23 @@ describe("direct print document isolation",()=>{
 
 it("rejects supplier payment when cost access is missing even if payment permission is granted",async()=>{
  mocks.check.mockResolvedValue(false);const result=await savePayment({requestId:crypto.randomUUID(),kind:"PURCHASE",date:"2026-10-05",method:"現金",allocations:[{orderId:"unknown",amount:1}]});expect(result.success).toBe(false);expect(result.error).toContain("成本");expect(payments).toHaveLength(0);
+});
+
+it("settles the 1120 wholesale scenario once without changing stock again",async()=>{
+ products[0].stock=20;products[0].details={priceRatios:{WHOLESALE:70}};mocks.check.mockResolvedValue(false);
+ const id=await saveInventoryOrder({...ctx,canCost:false},input({priceCategory:"WHOLESALE",lines:[{productId:"a",quantity:8,unitPrice:140,discountMode:"NONE",discount:0,gift:false}],delivery:"寄送",channel:"蝦皮"}));
+ expect(orders[0]).toMatchObject({total:1120,paid:0});expect(products[0].stock).toBe(12);
+ const receipt={requestId:crypto.randomUUID(),kind:"SALE",date:"2026-10-05",method:"現金",allocations:[{orderId:id,amount:1120}]};
+ expect((await savePayment(receipt)).success).toBe(true);expect((await savePayment(receipt)).success).toBe(true);
+ expect(orders[0].paid).toBe(1120);expect(payments).toHaveLength(1);expect(payments[0].allocations[0].remainingAfter).toBe(0);expect(cash).toHaveLength(1);expect(cash[0]).toMatchObject({amount:1120,type:"INCOME",paymentMethod:"CASH",category:"零售-商品銷售"});expect(products[0].stock).toBe(12);
+ expect((await savePayment({...receipt,requestId:crypto.randomUUID()})).success).toBe(false);expect((await savePayment({...receipt,method:"轉帳"})).success).toBe(false);expect(cash).toHaveLength(1);
+});
+it("strips product and sale costs and suppresses supplier financial data for receiving staff",async()=>{
+ await saveInventoryOrder(ctx,input());await saveInventoryOrder(ctx,input({kind:"PURCHASE",partyId:"vendor-1",lines:[{productId:"a",quantity:1,unitPrice:100,discountMode:"NONE",discount:0,gift:false}]}));
+ mocks.check.mockImplementation(async(_role:string,_staffId:string|null,code:string)=>["inventory.read","inventory.receive","inventory.write"].includes(code));
+ mocks.db.store={findUniqueOrThrow:vi.fn(async()=>({id:ctx.storeId,name:"測試店",shopConfig:null}))};
+ mocks.db.inventoryProduct.findMany=vi.fn(async()=>products);mocks.db.inventorySupplier.findMany=vi.fn(async()=>[]);mocks.db.inventoryPayment.findMany=vi.fn(async()=>[]);mocks.db.inventoryStockCount.findMany=vi.fn(async()=>[]);mocks.db.customer.findMany=vi.fn(async()=>[]);mocks.db.user={findMany:vi.fn(async()=>[])};
+ mocks.db.inventoryReceiving.findMany=vi.fn(async()=>[{id:"receiving",date:new Date("2026-10-05"),lines:[{productId:"a",unitCost:100}],history:[]}]);
+ const data=await inventoryData({...ctx,canCost:false});
+ expect(data.products[0]).not.toHaveProperty("averageCost");expect(data.products[0]).not.toHaveProperty("costPending");expect(data.orders).toHaveLength(1);expect(data.orders[0].kind).toBe("SALE");expect(data.orders[0].lines[0]).not.toHaveProperty("cost");expect(data.receivings?.[0].lines[0].unitCost).toBeNull();expect(data.canPurchasePay).toBe(false);expect(data.canReceive).toBe(true);
 });

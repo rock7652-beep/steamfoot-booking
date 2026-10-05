@@ -30,3 +30,15 @@
 .orderMeta{grid-template-columns:160px minmax(0,1fr) 140px}.heading h1{margin-right:auto}.heading>.toolbar{margin-bottom:0}@container inventory-editor (max-width:479px){.orderMeta{grid-template-columns:1fr}}
 
 .partyControls{display:flex;gap:8px;min-width:0}.partyControls select{flex:3;min-width:0;text-overflow:ellipsis}.partyControls input{flex:2;min-width:0}.field>label{color:#63736b}
+
+/* Keep overflow in the item table and controls inside the editor width. */
+.editor form,.editor form>*,.editor .table,.editor .footer{min-width:0;max-width:100%}
+.editor .field input,.editor .field select{min-width:0;min-inline-size:0;box-sizing:border-box}
+.editor .results button{white-space:normal;overflow-wrap:anywhere;min-width:0}
+.editor .footer>strong{flex:1 1 120px;min-width:0;overflow-wrap:anywhere}
+.editor .footer>button{flex:0 0 auto;max-width:100%}
+.itemSummary{width:220px;max-width:220px}.itemSummary summary{display:block!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:44px;line-height:44px;cursor:pointer}
+.itemSummary p{margin:4px 0;white-space:normal;overflow-wrap:anywhere}
+@media (max-width:639px) and (pointer:coarse),(max-height:500px) and (pointer:coarse){
+ .workspace input,.workspace select,.workspace textarea{font-size:16px}
+}

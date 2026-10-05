@@ -153,3 +153,13 @@ it('explains missing identity prices in both search results and selected items',
  click('＋ 新增銷貨');fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');choose('身份價格','STUDENT');click('保暖襪・庫存 20・學員未設定・使用一般售價 $200　＋ 加入');
  expect(host.querySelector('form table tbody')?.textContent).toContain('學員未設定・使用一般售價 $200');expect((host.querySelector('[aria-label="保暖襪 單價"]') as HTMLInputElement).value).toBe('200');
 });
+
+it('keeps full product metadata expandable without filling the item summary',()=>{
+ act(()=>root.render(createElement(InventoryWorkspace,{initial:{...initial,products:[{...initial.products[0],brand:'品牌甲',specification:'成人中筒完整規格',unit:'雙'}]},key:'item-summary'})));click('＋ 新增銷貨');fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');
+ const details=host.querySelector('form tbody td details') as HTMLDetailsElement;expect(details.querySelector('summary')?.textContent).toBe('保暖襪');expect(details.querySelector('p')?.textContent).toBe('品牌甲・保暖襪・成人中筒完整規格・雙');act(()=>{details.open=true;});expect(details.open).toBe(true);
+ expect(host.textContent).toContain('應收金額 $200');expect(host.textContent).toContain('收款方式');
+});
+it('normalizes a leading zero quantity on blur without changing the calculated amount',()=>{
+ click('＋ 新增銷貨');fill(host.querySelector('[aria-label="即時篩選商品"]') as HTMLInputElement,'保暖');click('保暖襪・庫存 20・$200　＋ 加入');const qty=host.querySelector<HTMLInputElement>('[aria-label="保暖襪 數量"]')!;
+ act(()=>qty.focus());fill(qty,'08');act(()=>qty.blur());expect(qty.value).toBe('8');expect((host.querySelector('[name="paid"]') as HTMLInputElement).value).toBe('1600');
+});
