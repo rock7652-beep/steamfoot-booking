@@ -14,7 +14,7 @@
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
 | 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要，active cleanup |
-| 交易詳情／更正／退款 | transaction-detail | TTL 0，讀取錯誤可重新開啟；刷新世代保護及修改後失效 |
+| 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
 | 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0，active cleanup |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
@@ -71,3 +71,10 @@
 - 本修正行為測試、共用 cache／摘要、交易載入及 SPA 顧客測試共 27 項通過；修改檔 ESLint、TypeScript noEmit 與 diff --check 通過。Vercel projectEnvVars list 回覆 403，但部署沿用既有 Preview 連線；建置日誌確認 isolated_database=true，Preview dpl_3riQFDSLPsAdGQeHHXgsakPTLHCU 已成功建置。新增支線隔離 guard，缺少隔離設定時 build 必須停止。
 - 登入後桌機 1363×936：隔離 staging-store 的 QA1124 顧客，備註由空值改為 QA1203 清單同步驗收，視窗與清單同步更新；搜尋 QA1124 保留。1024×768 視窗 (152,24,720,720)、768×1024 視窗 (24,62,720,900)，頁寬分别1024／768，沒有整頁水平溢出。裝置預覽切換尺寸會重建入口，重新開啟顧客後未儲存備註草稿仍保留；不將此列為不重建的原生旋轉驗收。直向儲存空備註還原後，視窗與清單均恢復無備註，沒有變動方案堂數、收款或正式資料。
 - 本修正未合併正式站；已完成本次備註同步的登入後 Preview，方案指派與歸屬的寫入端到端未另提交，實機仍待驗收。既有 SPA 驗收不代替這次清單同步修正的 Preview 驗收。
+
+## RWD 完成後接續（2026-10-05，Asia/Taipei）
+
+- 起點 main `a1564a7a` 已包含 #1203 顧客清單同步與先前共用 panel reader；不重新建置，不修改 RWD 外框或業務 server action。
+- 剩餘交易詳情入口补上 pointer enter、focus、touch intent，與已開啟視窗共用在途讀取；TTL 維持 0，已完成的預讀不作為退款／額度的快取來源。
+- 初次讀取失敗可直接「重新載入」，讀取中顯示 status，錯誤使用 alert；切交易或關閉後，舊讀取與重試不得更新目前視窗。
+- 自動化驗證：4 組 22 項通過，包含三種 intent、去重、重新開啟讀最新、預讀失敗再開、視窗內重試與切換交易晚到保護。變更檔 ESLint 通過。Preview／桌機與 iPad 尚待本輪驗收，不能沿用舊版交易驗收作為本次證據；未提交任何業務資料或合併正式站。
