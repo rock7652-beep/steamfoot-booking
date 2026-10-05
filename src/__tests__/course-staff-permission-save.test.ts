@@ -90,6 +90,28 @@ it("links only the opposite work role in the same store, without granting permis
  expect(m.linkCreate).not.toHaveBeenCalled();
 });
 
+it("rejects an instructor already linked to another person",async()=>{
+ m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]} : where.id==="coach2"?{id:"coach2",userId:"coach-user",user:{role:"CUSTOMER"}}:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
+ m.linkFind.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"occupied",managerStaffId:"another-manager",instructorStaffId:"coach2"});
+ const result=await saveCourseStaff({...input,linkedStaffId:"coach2"});
+ expect(result).toMatchObject({success:false,error:expect.stringContaining("已連結其他身分")});
+ expect(m.linkCreate).not.toHaveBeenCalled(); expect(m.linkDelete).not.toHaveBeenCalled();
+});
+
+it("rejects self links and a counterpart outside the current store",async()=>{
+ expect(await saveCourseStaff({...input,linkedStaffId:"manager2"})).toMatchObject({success:false});
+ m.staff.mockImplementation(async({where})=>where.id==="foreign-coach"?null:{id:"manager2",userId:"u2",status:"ACTIVE",user:{role:"STAFF"}});
+ expect(await saveCourseStaff({...input,linkedStaffId:"foreign-coach"})).toMatchObject({success:false});
+ expect(m.staff).toHaveBeenCalledWith(expect.objectContaining({where:{id:"foreign-coach",storeId:"s"}}));
+ expect(m.linkCreate).not.toHaveBeenCalled();
+});
+
+it("preserves an existing person link instead of silently replacing it",async()=>{
+ m.linkFind.mockResolvedValue({id:"prior",managerStaffId:"manager2",instructorStaffId:"original-coach"});
+ expect(await saveCourseStaff({...input,linkedStaffId:"different-coach"})).toMatchObject({success:false,error:expect.stringContaining("先解除舊連結")});
+ expect(m.linkCreate).not.toHaveBeenCalled(); expect(m.linkDelete).not.toHaveBeenCalled();
+});
+
  it("rejects a stale default coach fee without overwriting the newer value",async()=>{
   m.staff.mockImplementation(async({where})=>where.id==="manager1"?{id:"manager1",isOwner:true,permissions:[]}:{id:"coach2",userId:"coach-user",updatedAt:new Date("2026-09-30T00:00:00.000Z"),user:{role:"CUSTOMER"}});
   expect(await saveCourseStaff({...input,id:"coach2",kind:"coach",name:"Coach",defaultClassFee:0,teachingVersion:"2026-09-29T00:00:00.000Z"})).toMatchObject({success:false});
