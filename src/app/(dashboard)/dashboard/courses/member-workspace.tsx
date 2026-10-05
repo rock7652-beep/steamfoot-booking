@@ -1,5 +1,5 @@
 "use client";
-import { usePanelReader } from "@/components/operations/panel-read-cache";
+import { useCardDetail } from "./use-card-detail";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
 import { CustomerDetailFields, CustomerPhoneLink } from "@/components/customer-detail-fields";
@@ -17,10 +17,9 @@ import {CourseOptionSelect} from "@/components/admin/course-option-select";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
-import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useEffect, useState, useTransition, type FormEvent } from "react";
+import { Fragment, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -138,8 +137,7 @@ export function CourseMemberWorkspace({
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
-  const readCard = usePanelReader("course-card", browseCourseCards);
-  const [cardLoading,setCardLoading]=useState(false);
+  const [cardOpening,setCardOpening]=useState(0);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
@@ -148,27 +146,20 @@ export function CourseMemberWorkspace({
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
   const [cardId, setCardId] = useState("");
+  const cardDetail = useCardDetail(panel === "card", cardId, cardOpening);
+  const cardLoading = cardDetail.loading;
+  const cardError = cardDetail.error;
   const [revenueStaffId,setRevenueStaffId]=useState("");
   const [planId, setPlanId] = useState(plans.find((p) => p.isActive)?.id ?? "");
   const [assignmentSummary,setAssignmentSummary]=useState<AssignmentSummary>({paid:null,valid:false});
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const card = loadedCard?.id===cardId ? loadedCard : cards.find((c) => c.id === cardId);
+  const card = cardDetail.data ?? (loadedCard?.id===cardId ? loadedCard : cards.find((c) => c.id === cardId));
   function selectCard(value:CourseCardView) {
     if (!open("card")) return;
-    setCardId(value.id);setLoadedCard(value);setCardLoading(true);
+    setCardId(value.id);setLoadedCard(value);setCardOpening(n=>n+1);
   }
-  useEffect(()=>{
-    if(panel!=="card" || !cardId)return;
-    let active=true;
-    readCard.read({cardId}).then(r=>{
-      if(!active)return;
-      if(r.success && r.rows[0])setLoadedCard(r.rows[0]);
-      else setError(r.success ? "找不到方案，請重新整理" : r.error);
-    }).catch(()=>{if(active)setError("讀取方案失敗，請重新開啟");}).finally(()=>{if(active)setCardLoading(false);});
-    return ()=>{active=false;};
-  },[panel,cardId,readCard]);
   function open(value: typeof panel) {
     if (!canLeave()) return false;
     setDirty(false);
@@ -566,9 +557,10 @@ export function CourseMemberWorkspace({
             {panel === "card" && card && (
               <>
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
+                {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} />
-                {canReadBookings && !cardLoading && !error && card.held > 0 && <CourseCardReservations cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
-                {canAssign && card.allowShared && !cardLoading && !error && (
+                {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
+                {canAssign && card.allowShared && !cardLoading && !cardError && !error && (
                   <form
                     id="course-member-form"
                 onChange={()=>setDirty(true)}
@@ -590,7 +582,7 @@ export function CourseMemberWorkspace({
 
                   </form>
                 )}
-                {canAssign && !card.allowShared && !cardLoading && !error && <p className="mt-4 rounded-lg bg-earth-50 p-3 text-sm text-earth-600">此方案設定為不允許共卡，既有持有人資料仍會保留。</p>}
+                {canAssign && !card.allowShared && !cardLoading && !cardError && !error && <p className="mt-4 rounded-lg bg-earth-50 p-3 text-sm text-earth-600">此方案設定為不允許共卡，既有持有人資料仍會保留。</p>}
                 <CourseCardEntries card={card} />
               </>
             )}
@@ -602,7 +594,7 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : "w-full"} !bg-primary-700 !text-white`}
-                disabled={pending || formPending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
+                disabled={pending || formPending || (panel === "card" && (cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button></div>

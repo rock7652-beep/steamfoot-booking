@@ -47,6 +47,16 @@ interface Props {
 export function GrowthCustomerDrawer({
   open,
   customerId,
+  ...props
+}: Props) {
+  return open && customerId
+    ? <GrowthCustomerDrawerContent key={customerId} {...props} open customerId={customerId} />
+    : null;
+}
+
+function GrowthCustomerDrawerContent({
+  open,
+  customerId,
   summary,
   isOwner,
   onClose,
@@ -54,6 +64,7 @@ export function GrowthCustomerDrawer({
   const readGrowth = usePanelReader("growth-customer", fetchGrowthCustomerDrawer);
   const [data, setData] = useState<GrowthCustomerDrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
 
   // Same pattern as booking-detail-drawer: track which customer the data
   // belongs to so a stale payload can't briefly replace skeleton on a new
@@ -77,7 +88,15 @@ export function GrowthCustomerDrawer({
     return () => {
       canceled = true;
     };
-  }, [open, customerId, readGrowth]);
+  }, [open, customerId, revision, readGrowth]);
+
+  function retry() {
+    if (!customerId || loading) return;
+    readGrowth.invalidate(customerId);
+    setData(null);
+    setError(null);
+    setRevision(value => value + 1);
+  }
 
   // Header rendering uses summary first, then full data when ready —
   // gives an instant header band on click instead of all-skeleton.
@@ -148,9 +167,10 @@ export function GrowthCustomerDrawer({
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {error ? (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
+            <div role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p>{error}</p>
+              <button type="button" className="mt-2 min-h-11 rounded-lg border border-earth-200 px-3 text-primary-700" onClick={retry}>重新載入</button>
+            </div>
           ) : loading || !data ? (
             <SkeletonBody />
           ) : (

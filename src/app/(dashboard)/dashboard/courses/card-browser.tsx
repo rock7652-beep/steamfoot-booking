@@ -1,5 +1,6 @@
 "use client";
 import { CourseCardReservations } from "./card-reservations";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useEffect, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -9,6 +10,7 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
   canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;revision?:number;
 }) {
+  const detailReader = usePanelReader("course-card", browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;error?:string}|null>(null);
   const key=JSON.stringify([customerId,state,revision,retry]);
@@ -35,7 +37,7 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
           const inactive=c.closed||c.expired;
           const status=c.closed?"已停用":c.expired?"已到期":c.remaining>0&&c.available===0&&c.held>=c.remaining?"額度已全數預約":c.remaining===0?"額度已用完":null;
           return <div key={c.id} className="px-3 py-2 text-sm">
-            <button type="button" onClick={()=>onSelect(c)} className="grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-left">
+            <button type="button" onPointerEnter={()=>detailReader.prefetch({cardId:c.id})} onFocus={()=>detailReader.prefetch({cardId:c.id})} onTouchStart={()=>detailReader.prefetch({cardId:c.id})} onClick={()=>onSelect(c)} className="grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-left">
               <span className="min-w-0 break-words font-medium">{c.name}</span><span className="whitespace-nowrap font-semibold">{inactive?status:c.unit==="SESSION"?`還可預約 ${c.available} 堂`:`可用 ${c.available} 點`}</span>
               <span className="min-w-0 break-words text-xs text-earth-500">{c.members.length>1?`共同餘額 · 共卡人：${c.members.map(m=>m.name).join("、")}`:`持有人：${c.members[0]?.name??"未設定"}`}</span><span className="text-xs text-earth-500">{c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : `${toLocalDateStr(new Date(c.expiresAt))} 到期`}</span>
             </button>

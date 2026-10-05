@@ -13,9 +13,9 @@
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |
 | SPA 顧客帳務／概況重試 | spa-customer-account、spa-customer-profile-retry | TTL 0，active cleanup |
-| 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要，active cleanup |
+| 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要；每次開啟及切顧客重新建立讀取狀態，舊錯誤／晚到回應隔離；視窗內重試 |
 | 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
-| 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0，active cleanup |
+| 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
 | SPA 預約服務／人員 | spa-providers | TTL 0，選項 key 與 active cleanup 防止舊回應 |
@@ -82,3 +82,9 @@
 - 登入後桌機 1363×936：QA來源驗收LINE 的 1598 元單次與全額折抵課程交易（實付 0、10 堂）顯示正確；鍵盤 Enter 開啟、關閉重開正常。桌機視窗 (321.5,24,720,888)，頁寬 1363。
 - 相同共用元件在營運工作台：1024×768 視窗 (152,24,720,720)、768×1024 視窗 (24,62,720,900)、1440×900 視窗 (360,24,720,852)、390×844 視窗 (0,0,390,844)，頁寬皆等於視窗寬。平板橫轉直保留 QA1204 未儲存備註，之後取消恢復未填寫；手機 Escape 關閉後保留原查詢。全部只讀取與取消，未提交收款、退款、作廢或備註。
 - 錯誤重試與 touch intent 的請求去重為自動化行為測試，沒有在瀏覽器故意阻斷網路；模擬尺寸不等於真機觸控，超寬螢幕／Safari／LINE 依既有指示保留未驗。尚未合併正式站。
+
+## 課程方案與顧客經營接續（2026-10-05）
+
+- 以 #1204 正式 main bf896dd9 為起點，運動／音樂沿用同一 CourseMemberWorkspace 與 course-card reader。方案瀏覽列補意圖預讀；完整卡片讀取失敗可重新載入；摘要不授權修改，關閉或切換後的晚到結果不得更新目前方案，重新開啟仍取最新額度。
+- 顧客經營詳情沿用 growth-customer reader；開啟／切換顧客時隔離上一筆內容與錯誤，失敗可視窗內重試。不更改業務 action、RWD 外框、schema 或 migration。
+- 本輪預覽須通過雙連線隔離 guard。自動化行為驗證與 Preview 結果分開記錄；尚未完成本輪登入後 Preview，尚未合併正式站。
