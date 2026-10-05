@@ -28,7 +28,7 @@ if (
 }
 
 // Transaction-panel verification must stop before any database access if isolation is missing.
-if (process.env.VERCEL_ENV === "preview" && ["fix/transaction-panel-intent-retry-20261005", "fix/course-growth-panel-retry-20261005", "fix/quick-cashbook-panel-reader-20261005"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
+if (process.env.VERCEL_ENV === "preview" && ["fix/transaction-panel-intent-retry-20261005", "fix/course-growth-panel-retry-20261005", "fix/quick-cashbook-panel-reader-20261005", "fix/quick-cashbook-read-latency-20261005"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
     throw new Error("Transaction panel Preview requires the isolated preview database.");
   console.info("[transaction-panel-preview-preflight] isolated_database=true");

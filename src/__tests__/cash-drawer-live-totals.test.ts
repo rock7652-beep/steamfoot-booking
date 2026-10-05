@@ -46,7 +46,7 @@ const {
 
 vi.mock("@/lib/db", () => ({ prisma: dbMock }));
 
-import { computeLiveTotalsForOpenSession } from "@/server/queries/cash-drawer";
+import { computeLiveTotalsForOpenSession, getCashDrawerBalanceSummary, getCashDrawerView } from "@/server/queries/cash-drawer";
 
 const D = (n: number) => new Prisma.Decimal(n);
 
@@ -356,5 +356,67 @@ describe("computeLiveTotalsForOpenSession — 現金帳（PR-3）", () => {
     expect(arg.where.storeId).toBe("store-zhubei");
     expect(arg.where.entryDate.gte).toEqual(new Date(Date.UTC(2026, 4, 15)));
     expect(arg.where.entryDate.lt).toEqual(new Date(Date.UTC(2026, 4, 16)));
+  });
+});
+
+
+describe("getCashDrawerBalanceSummary", () => {
+  const date = new Date("2026-05-15T00:00:00Z");
+  const sessions = dbMock.cashDrawerSession as { findFirst: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
+
+  it.each([
+    [null, "現金抽屜尚未啟用"],
+    [makeOpenSession({ businessDate: new Date("2026-05-14T00:00:00Z") }), "上次抽屜尚未關帳"],
+    [makeOpenSession({ businessDate: new Date("2026-05-14T00:00:00Z"), status: "CLOSED" }), "今日尚未開店點錢"],
+  ])("未開店只讀 session，不重算不顯示上日餘額 (%s)", async (session, label) => {
+    sessions.findFirst.mockResolvedValue(session);
+    expect(await getCashDrawerBalanceSummary("store-zhubei", date)).toEqual({ balance: null, balanceLabel: label });
+    expect(mockTxAggregate).not.toHaveBeenCalled();
+    expect(mockEntryFindMany).not.toHaveBeenCalled();
+    expect(mockCashbookGroupBy).not.toHaveBeenCalled();
+    expect(sessions.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storeId: "store-zhubei", businessDate: { lte: date } },
+      orderBy: { businessDate: "desc" },
+    }));
+  });
+
+  it.each([D(0), D(2345), null])("今日關帳用實點現金，完全不讀即時統計 (%s)", async (closingActualCash) => {
+    sessions.findFirst.mockResolvedValue(makeOpenSession({ status: "CLOSED", closingActualCash }));
+    expect(await getCashDrawerBalanceSummary("store-zhubei", date)).toEqual({ balance: closingActualCash == null ? null : Number(closingActualCash), balanceLabel: "關店實點現金" });
+    expect(mockTxAggregate).not.toHaveBeenCalled();
+    expect(mockEntryFindMany).not.toHaveBeenCalled();
+    expect(mockCashbookGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("與完整抽屜的現金餘額相同，省去非現金／收入總覽／明細查詢", async () => {
+    const session = makeOpenSession();
+    sessions.findFirst.mockResolvedValue(session);
+    sessions.findUnique.mockResolvedValue(session);
+    mockTxAggregate.mockImplementation(async ({ where }) => ({ _sum: { amount: D(where.transactionType === "REFUND" ? -300 : where.paymentMethod.in.includes("CASH") ? 800 : 9999) } }));
+    mockPaymentSplitAggregate.mockImplementation(async ({ where }) => ({ _sum: { amount: D(where.paymentMethod.in.includes("CASH") ? 200 : 8888) } }));
+    mockEntryFindMany.mockResolvedValue([
+      { type: "CASH_WITHDRAWAL", direction: "OUT", amount: D(400) },
+      { type: "CASH_DEPOSIT", direction: "IN", amount: D(100) },
+      { type: "CASH_ADJUSTMENT", direction: "OUT", amount: D(50) },
+    ]);
+    mockCashbookGroupBy.mockImplementation(async ({ by }) => by[0] === "type"
+      ? [{ type: "INCOME", _sum: { amount: D(600) } }, { type: "EXPENSE", _sum: { amount: D(70) } }, { type: "WITHDRAW", _sum: { amount: D(80) } }]
+      : [{ paymentMethod: "CASH", _sum: { amount: D(600) } }, { paymentMethod: "OTHER", _sum: { amount: D(7777) } }]);
+    const full = await getCashDrawerView("store-zhubei", date);
+    expect(full.state).toBe("OPENED_TODAY");
+    const expected = full.state === "OPENED_TODAY" ? Number(full.liveTotals!.expectedClosingCash) : NaN;
+    vi.clearAllMocks();
+    const result = await getCashDrawerBalanceSummary("store-zhubei", date);
+    expect(result).toEqual({ balance: expected, balanceLabel: "預估抽屜現金" });
+    expect(result.balance).toBe(5800);
+    expect(sessions.findFirst).toHaveBeenCalledTimes(1);
+    expect(sessions.findUnique).not.toHaveBeenCalled();
+    expect(mockTxAggregate).toHaveBeenCalledTimes(2);
+    expect(mockPaymentSplitAggregate).toHaveBeenCalledTimes(1);
+    expect(mockEntryFindMany).toHaveBeenCalledTimes(1);
+    expect(mockCashbookGroupBy).toHaveBeenCalledTimes(1);
+    // 下一次讀取重新查詢：不沿用上次 balance。
+    mockCashbookGroupBy.mockResolvedValue([{ type: "INCOME", _sum: { amount: D(700) } }]);
+    expect((await getCashDrawerBalanceSummary("store-zhubei", date)).balance).toBe(6050);
   });
 });
