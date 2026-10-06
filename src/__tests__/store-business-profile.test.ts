@@ -46,17 +46,17 @@ it("defaults music stores to the daily high-density board", () => {
   expect(workspace).toContain('businessProfile === "MUSIC"');
   expect(workspace).toContain('? "day"');
   expect(board).toContain('const musicDense = businessProfile === "MUSIC"');
-  expect(board).toContain('64 + resourceCount * musicResourceWidth');
-  expect(board).toContain('dense={musicDense}');
+  expect(board).toContain('64 + resourceCount * 200');
+  expect(board).toContain('dense={timelineDense}');
   expect(board).toContain('resourceView={resourceView}');
   expect(board).not.toContain('max-h-[calc(100vh-260px)]');
   expect(board).toContain('sticky top-14');
   expect(board).toContain('找空位');
   expect(board).toContain('可排');
   expect(board).toContain('老師未排班');
-  expect(board).toContain('snapDayScroll');
+  expect(board).toContain('setDayScrollLeft(event.currentTarget.scrollLeft)');
   expect(board).toContain('const showCapacityState = !musicDense || !copy.privateClass');
-  expect(board).toContain('musicAttendanceColor');
+  expect(board).toContain('courseAttendanceState(session.displayBookings ?? session.bookings');
   expect(board).toContain('copy.privateClass && !musicDense');
 });
 

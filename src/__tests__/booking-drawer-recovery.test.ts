@@ -21,6 +21,7 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/attendance-modal", () => ({ Attend
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-single-modal", () => ({ CollectSingleModal: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/adjust-checkout-modal", () => ({ AdjustCheckoutModal: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/reschedule-modal", () => ({ RescheduleModal: () => null }));
+vi.mock("@/server/actions/operation-audit", () => ({ loadOperationHistory: vi.fn(async () => ({ success: true, data: [] })) }));
 import { BookingDetailDrawer } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

@@ -9,7 +9,7 @@ describe("course UI final fixes", () => {
     const toolbar = read("src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx");
     const picker = read("src/components/admin/course-customer-picker.tsx");
 
-    expect(table).toContain('"h-8 min-w-14 whitespace-nowrap text-xs"');
+    expect(table).toContain('min-h-11 min-w-14 shrink-0 whitespace-nowrap');
     expect(toolbar).toContain('placeholder="搜尋姓名 / 電話 / LINE 名稱"');
     expect(picker).toContain('placeholder="搜尋姓名／電話／LINE 名稱"');
     const search = read("src/server/actions/course-browse.ts");
@@ -21,7 +21,7 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain("方案商品");
     expect(workspace).toContain("顧客持有方案");
     expect(workspace).toContain('planArea === "cards"');
-    expect(workspace).toContain("單位價格");
+    expect(workspace).toContain("每堂");
   });
 
   it("shows textual session states in addition to color", () => {
@@ -39,7 +39,7 @@ describe("course UI final fixes", () => {
     const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
 
     expect(workspace).toContain("堂既有課程；可查看與處理，但不可新增排課。");
-    expect(roster).toContain("未收款 {unpaidTrialCount} 人");
+    expect(roster).toContain("未收款 {unpaidTrialCount}");
   });
 
   it("keeps customer creation in flow and checks schedule conflicts on submit", () => {
@@ -48,7 +48,7 @@ describe("course UI final fixes", () => {
 
     expect(roster).toContain("＋ 直接建立新顧客");
     expect(workspace).not.toContain("預覽日期與衝突");
-    expect(workspace).toContain("按下確認後會自動檢查教練、教室、營業時間與撞期");
+    expect(workspace).toContain("如有撞期，整批不會建立。");
   });
 
   it("disables member booking until a learner and eligible plan are selected", () => {
@@ -62,8 +62,10 @@ describe("course UI final fixes", () => {
     expect(roster).not.toContain("改用體驗預約");
   });
 
-  it("shows per-record operation history in both fitness and music rosters", () => {
+  it("shows per-record operation history in the shared fitness and music action menu", () => {
     const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
-    expect(roster.match(/OperationHistoryButton targetType="CourseBooking"/g)).toHaveLength(2);
+    expect(roster.match(/OperationHistoryButton targetType="CourseBooking"/g)).toHaveLength(1);
+    expect(roster).toContain("targetId={actionBooking.id}");
+    expect(roster).toContain("{canEdit && <OperationHistoryButton");
   });
 });

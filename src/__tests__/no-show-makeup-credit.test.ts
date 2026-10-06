@@ -63,6 +63,7 @@ const h = vi.hoisted(() => {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
     booking: { findUnique: h.outerBookingFindUnique },
     $transaction: h.txRun,
   },

@@ -63,6 +63,7 @@ const mockAcquireBookingSlotLocks = vi.fn<(...args: unknown[]) => Promise<void>>
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
     customer: { findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a) },
     makeupCredit: { count: (...a: unknown[]) => mockMakeupCount(...a) },
     booking: {
@@ -215,6 +216,7 @@ function setupBusinessHours() {
   mockAllocateSessionsFefo.mockResolvedValue({ allocations: [], primaryWalletId: null });
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
+      auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
       $queryRaw: (...a: unknown[]) => mockTxQueryRaw(...a),
       booking: {
         aggregate: mockBookingAggregate,

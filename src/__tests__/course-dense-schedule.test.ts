@@ -29,20 +29,20 @@ it("keeps the monthly calendar and adds week/day schedule views", () => {
 it("dense day board supports room/coach perspectives and action filters", () => {
   expect(board).toContain("教室視角");
   expect(board).toContain("教練視角");
-  expect(board).toContain("今日課程");
+  expect(board).toContain("今日安排");
   expect(board).toContain("體驗");
   expect(board).toContain("快滿");
   expect(board).toContain("滿班");
   expect(board).toContain("待報到");
-  expect(board).toContain('musicDense ? "預約學員" : "預約"');
+  expect(board).toContain('assignedFiltered || sessions.some(s=>s.displayBookings)');
   expect(board).toContain("{booked}");
-  expect(board).toContain('repeat(${resourceCount}, minmax(180px, 1fr))');
+  expect(board).toContain('repeat(${resourceCount}, minmax(200px, 1fr))');
 });
 
 it("adaptive cards prioritize private members while group cards show capacity", () => {
   expect(board).toContain('template?.classType === "PRIVATE"');
   expect(board).toContain("privateClass && customer ? customer : session.previewFaded");
-  expect(board).toContain('`${session.bookings.length} / ${session.capacity} 人`');
+  expect(board).toContain('`${session.bookings.filter(booking => booking.status !== "CANCELLED").length} / ${session.capacity} 人`');
   expect(board).toContain("customerName");
   expect(board).toContain("bookingKind");
   expect(page).toContain("customerName: true");
@@ -59,23 +59,23 @@ it("course operations use the shared centered dialog", () => {
 it("schedule layout keeps controls compact and sends month clicks into the day workspace", () => {
   expect(workspace).toContain("安排與查看店內課程");
   expect(workspace).toContain('id="course-schedule-date"');
-  expect(workspace).toContain('className="sr-only" htmlFor="course-coach-filter"');
-  expect(workspace).toContain('changeScheduleMode("day")');
-  expect(page).toContain('max-w-[1600px]');
+  expect(workspace).toContain('htmlFor="course-coach-filter"');
+  expect(workspace).toContain('open("day")');
+  expect(page).toContain('w-full');
   expect(page).toContain('{view !== "schedule" && (');
 });
 
 it("day timetable balances width by active resource count", () => {
   expect(board).toContain('resourceCount === 1');
   expect(board).toContain('musicDense');
-  expect(board).toContain(': resourceCount === 2');
+  expect(board).toContain('const timetableMinWidth = 64 + resourceCount * 200');
   expect(board).not.toContain('? "64%"');
   expect(board).not.toContain('? "80%"');
-  expect(board).toContain(': "100%"');
+  expect(board).toContain('const timetableWidth = "100%"');
   expect(board).toContain("width: timetableWidth");
   expect(board).toContain("minWidth: timetableMinWidth");
-  expect(board).toContain('musicResourceWidth');
-  expect(board).toContain('minmax(180px, 1fr)');
+  expect(board).toContain('overflow-x-auto');
+  expect(board).toContain('minmax(200px, 1fr)');
   expect(board).not.toContain('aria-label="課表欄位視角"');
 });
 
@@ -83,6 +83,6 @@ it("day timetable balances width by active resource count", () => {
 
 
 it("collected trial payments show a clear paid badge in the fee column", () => {
-  expect(roster).toContain("✓ 已收 NT$ {paid.amount}");
-  expect(roster).toContain("bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-800");
+  expect(roster).toContain("已收 ${paid.amount}");
+  expect(roster).toContain("aria-label={`更正 ${booking.customerName} 收款`}");
 });

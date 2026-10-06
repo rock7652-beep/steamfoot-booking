@@ -9,6 +9,9 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   // Reviewed 2026-09-12: industry-gated home returns before legacy queries;
   // permission and tenant behavior covered by spa-home-boundary.test.ts.
   "src/app/(dashboard)/dashboard/page.tsx",
+  // Reviewed 2026-10-06: authenticated read-only preview dispatches by the
+  // authorized store module; frontend-preview.test.ts covers scope and write blocking.
+  "src/app/frontend-preview/page.tsx",
   // Reviewed 2026-09-12: pure URL normalization, restricted to the exact
   // Preview branch + test endpoint. Production negatives covered by
   // spa-preview-pool.test.ts through the shared buildDatabaseUrl entry point.

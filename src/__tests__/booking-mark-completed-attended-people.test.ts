@@ -37,6 +37,7 @@ const mockReservedSessions = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
     booking: {
       findUnique: (...a: unknown[]) => mockBookingFindUnique(...a),
     },
@@ -138,6 +139,7 @@ beforeEach(() => {
   mockReservedSessions.mockResolvedValue([]);
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
     return cb({
+      auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
       booking: { update: mockTxBookingUpdate, updateMany: mockTxBookingUpdateMany, findUnique: vi.fn() },
       transaction: { create: mockDeductionCreate, findMany: vi.fn(async () => []) },
       walletSession: { findMany: mockReservedSessions },
