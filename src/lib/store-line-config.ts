@@ -29,13 +29,14 @@ export function readStoreLineConfigs(): StoreLineConfig[] {
   }
   // Sharing is opt-in, and every entry must identify the same physical OA,
   // credentials and login namespace. A duplicate destination alone is unsafe.
-  const accountFields = ["identityMode", "providerId", "loginChannelId", "messagingProviderId", "messagingChannelId", "basicId", "destination", "accessTokenEnv", "channelSecretEnv"] as const;
+  const accountFields = ["providerId", "loginChannelId", "messagingProviderId", "messagingChannelId", "basicId", "destination", "accessTokenEnv", "channelSecretEnv"] as const;
   for (const e of entries) {
     for (const other of entries) {
       if (e === other) continue;
       const sameGroup = Boolean(e.sharedAccountKey && e.sharedAccountKey === other.sharedAccountKey);
       const duplicate = e.destination === other.destination || e.liffId === other.liffId || e.messagingChannelId === other.messagingChannelId;
-      if ((sameGroup || duplicate) && (!sameGroup || accountFields.some(key => e[key] !== other[key]))) {
+      const sameIdentityMode = (e.identityMode ?? "PROVIDER") === (other.identityMode ?? "PROVIDER");
+      if ((sameGroup || duplicate) && (!sameGroup || !sameIdentityMode || accountFields.some(key => e[key] !== other[key]))) {
         throw new Error("共用 LINE 帳號設定不一致；未使用中央備援");
       }
     }

@@ -58,6 +58,13 @@ it("allows a shared LIFF only in the same explicit account group", () => {
   vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([shared, { ...shared, storeId: "course-b", slug: "course-b" }]));
   expect(readStoreLineConfigs()).toHaveLength(2);
 });
+it("treats omitted and explicit PROVIDER modes as the same shared identity namespace", () => {
+  const shared = { ...config, sharedAccountKey: "ufun" };
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([shared, { ...shared, storeId: "course-b", slug: "course-b", identityMode: "PROVIDER" }]));
+  const entries = readStoreLineConfigs();
+  expect(entries).toHaveLength(2);
+  expect(storeLineIdentityProvider(entries[0])).toBe(storeLineIdentityProvider(entries[1]));
+});
 it.each([
   { sharedAccountKey: "other" },
   { channelSecretEnv: "OTHER_SECRET" },
