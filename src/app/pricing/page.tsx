@@ -14,7 +14,7 @@ export const metadata = {
 const TRIAL_URL = "/apply";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
-  "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
+  "工單管理": "work-orders", "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
@@ -27,10 +27,11 @@ const groups = [
     { label: "資料匯出", values: ["可選配", "可選配", "內含"] },
     { label: "現金抽屜", values: ["可選配", "內含", "內含"] },
   ] },
-  { title: "經營功能", note: "顧客標籤各版本皆內含。", choices: [{ plan: "基本版", count: "", suffix: "", detail: "其餘經營功能依需求加購。" }, { plan: "專業版", count: "4 選 1", detail: "顧客經營與分析內含；健康追蹤／月結管理／課程候補／進銷存，", suffix: "，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "全部內含。" }], rows: [
+  { title: "經營功能", note: "顧客標籤各版本皆內含；進銷存、工單各項皆須額外加購。", choices: [{ plan: "基本版", count: "", suffix: "", detail: "其餘經營功能依需求加購。" }, { plan: "專業版", count: "3 選 1", detail: "顧客經營與分析內含；健康追蹤／月結管理／課程候補，", suffix: "，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "以下經營功能內含；進銷存與工單各項額外加購。" }], rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
     { label: "顧客標籤", values: ["內含", "內含", "內含"] },
-    { label: "進銷存管理", values: ["加購", "可選配", "內含"] },
+    { label: "進銷存管理", values: ["加購", "加購", "加購"] },
+    { label: "工單管理", values: ["加購", "加購", "加購"] },
     { label: "健康追蹤", values: ["加購", "可選配", "內含"] },
     { label: "月結管理", values: ["加購", "可選配", "內含"] },
     { label: "分析", values: ["加購", "內含", "內含"] },
@@ -75,7 +76,7 @@ function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
     <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">可選配：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">加購：</strong>額外付費。</p>
-    <p className="mt-2 text-sm leading-6 text-[#4C6259]">超出選配名額才需加購。例如：專業版選配進銷存，方案月費不增加。</p>
+    <p className="mt-2 text-sm leading-6 text-[#4C6259]">選配名額內不另收費，超出名額才需加購。進銷存與工單不列入免費選配，各付費方案皆額外加購，每項原價 NT$800／月。</p>
     <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
     <div className="mt-4 rounded-xl border border-[#153B31]/15 bg-white px-4 py-3 text-base leading-7">
       <p className="font-semibold">三個方案都內含日常店務</p>

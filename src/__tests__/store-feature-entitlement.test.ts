@@ -330,3 +330,39 @@ describe("full single-store trial across industries", () => {
     await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).rejects.toThrow();
   });
 });
+
+describe("inventory and work order paid add-ons", () => {
+  it.each(["BASIC", "GROWTH", "ALLIANCE"] as const)("requires independent grants in %s", async plan => {
+    mockStore(plan);
+    const {hasStoreFeature,getStoreFeaturePresentation,requireStoreFeature}=await import("@/lib/feature-gate");
+    for (const feature of [FEATURES.INVENTORY,FEATURES.WORK_ORDERS]) {
+      mockEntitlementFindUnique.mockResolvedValue(null);
+      expect(await hasStoreFeature("store-a",feature)).toBe(false);
+      expect(await getStoreFeaturePresentation("store-a",feature)).toBe("HIDDEN");
+      await expect(requireStoreFeature("store-a",feature)).rejects.toThrow();
+      mockEntitlementFindUnique.mockImplementation(async ({where}: {where:{uq_store_feature_entitlement:{featureKey:string}}}) =>
+        where.uq_store_feature_entitlement.featureKey === feature ? {status:"ENABLED",startsAt:null,expiresAt:null} : null);
+      expect(await hasStoreFeature("store-a",feature)).toBe(true);
+      expect(await getStoreFeaturePresentation("store-a",feature)).toBe("ENABLED");
+      const other = feature===FEATURES.INVENTORY?FEATURES.WORK_ORDERS:FEATURES.INVENTORY;
+      expect(await hasStoreFeature("store-a",other)).toBe(false);
+      for (const status of ["DISABLED","LOCKED","HIDDEN"] as const) {
+        mockEntitlement(status);
+        expect(await hasStoreFeature("store-a",feature)).toBe(false);
+      }
+      mockEntitlement("ENABLED",{startsAt:new Date("2099-01-01")});
+      expect(await hasStoreFeature("store-a",feature)).toBe(false);
+      mockEntitlement("ENABLED",{expiresAt:new Date("2000-01-01")});
+      expect(await hasStoreFeature("store-a",feature)).toBe(false);
+    }
+  });
+  it("keeps the latest full trial access and HQ overrides", async () => {
+    mockStore("EXPERIENCE");
+    const {hasStoreFeature}=await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(true);
+    mockEntitlement("DISABLED");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(false);
+    mockEntitlement("ENABLED");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(true);
+  });
+});

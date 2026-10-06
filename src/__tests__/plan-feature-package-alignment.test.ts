@@ -62,14 +62,14 @@ describe("plan feature package alignment", () => {
 
   it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
     for (const feature of MANAGEABLE_STORE_FEATURES.filter(
-      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.WORK_ORDERS])).has(feature.key),
+      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.INVENTORY, FEATURES.WORK_ORDERS])).has(feature.key),
     )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
-    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.WORK_ORDERS]) {
+    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.INVENTORY, FEATURES.WORK_ORDERS]) {
       expect(hasFeature("ALLIANCE", feature)).toBe(false);
     }
   });
@@ -90,8 +90,19 @@ describe("plan feature package alignment", () => {
         expect(resolveEffectiveEntitlement(true, { status, startsAt: null, expiresAt: null }).enabled).toBe(false);
       }
     }
-    expect(hasFeature(plan, FEATURES.INVENTORY)).toBe(plan === "ALLIANCE");
+    expect(hasFeature(plan, FEATURES.INVENTORY)).toBe(false);
     expect(resolveEffectiveEntitlement(hasFeature(plan, FEATURES.INVENTORY), { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
+  });
+
+  it.each(["BASIC", "GROWTH", "ALLIANCE"] as const)("keeps inventory and work orders as independent add-ons in %s", plan => {
+    for (const feature of [FEATURES.INVENTORY, FEATURES.WORK_ORDERS]) {
+      expect(hasFeature(plan, feature)).toBe(false);
+      expect(resolveEffectiveEntitlement(false, null).enabled).toBe(false);
+      expect(resolveEffectiveEntitlement(false, {status:"ENABLED", startsAt:null, expiresAt:null}).enabled).toBe(true);
+      for (const status of ["DISABLED", "LOCKED", "HIDDEN"] as const) {
+        expect(resolveEffectiveEntitlement(false, {status, startsAt:null, expiresAt:null}).enabled).toBe(false);
+      }
+    }
   });
 
   it("uses 展店版 as the ALLIANCE display label", () => {
