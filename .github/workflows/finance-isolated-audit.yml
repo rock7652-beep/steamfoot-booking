@@ -1,0 +1,66 @@
+name: Finance isolated PostgreSQL acceptance
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/server/services/cash-day.ts'
+      - 'src/server/services/cash-drawer.ts'
+      - 'src/server/services/financial-transaction.ts'
+      - 'src/server/services/inventory.ts'
+      - 'src/server/actions/cashbook.ts'
+      - 'src/server/reconciliation/finance-checks.ts'
+      - 'src/__tests__/finance.pg.integration.test.ts'
+      - '.github/workflows/finance-isolated-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  finance-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-test-only
+          POSTGRES_DB: steamfoot_finance_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d steamfoot_finance_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_finance_test
+      DIRECT_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_finance_test
+      BOOKING_INTEGRATION_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_finance_test
+      DIGITAL_BUTLER_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create complete schema in disposable PostgreSQL
+        run: npx prisma db push --skip-generate
+      - name: Exercise actual finance actions and multi-connection locks
+        run: >-
+          npx vitest run --config vitest.pg.config.ts src/__tests__/finance.pg.integration.test.ts
+          --reporter=default --reporter=json --outputFile=finance-pg-results.json
+      - name: Require every financial scenario without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("finance-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 7 || r.numPassedTests !== 7 || r.numPendingTests !== 0)
+              throw new Error("All seven real PostgreSQL finance scenarios must pass without skips");
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: finance-pg-results
+          path: finance-pg-results.json
+          retention-days: 7
