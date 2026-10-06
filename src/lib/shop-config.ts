@@ -9,7 +9,7 @@ import { courseMonthlyBookingWhere } from "@/lib/course-usage";
 import { getTrialRetention, type TrialRetention } from "@/lib/trial-retention";
 import { prisma } from "@/lib/db";
 import { addTaiwanDuration, toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
-import { isSingleStoreTrial, trialDateState } from "@/lib/single-store-trial";
+import { isSingleStoreTrial, isPendingSingleStoreTrial, singleStoreTrialSummary } from "@/lib/single-store-trial";
 import { getPlanLimits, PLAN_LIMITS } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 
@@ -280,6 +280,8 @@ export function clampTrialTotal(
 // ============================================================
 
 export interface TrialStatus {
+  pendingActivation?: boolean;
+  expiresOn?: string | null;
   retention?: TrialRetention | null;
   isFree: boolean;
   course?: boolean;
@@ -322,13 +324,10 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
   const industry = trialStore.plan === "EXPERIENCE" ? await (await import("@/lib/industry-module-server")).getStoreIndustryModule(storeId) : "steamfoot";
   const course = industry === "course";
   const staff = course ? { current: await prisma.staff.count({ where: { storeId, status: "ACTIVE" } }), limit: getPlanLimits(trialStore).maxStaff ?? Infinity } : undefined;
-  if (isSingleStoreTrial(trialStore)) {
+  const summary = singleStoreTrialSummary(trialStore);
+  if (summary) {
     const limits = getPlanLimits(trialStore);
-    const { started, expired } = trialDateState(trialStore);
-    const start = trialStore.planEffectiveAt!, end = trialStore.planExpiresAt!;
-    const trialDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
-    const todayDate = new Date(toLocalDateStr() + "T00:00:00Z");
-    const daysRemaining = expired ? 0 : Math.max(0, Math.round((end.getTime() - todayDate.getTime()) / 86400000) + 1);
+    const { started, expired, pending, trialDays, daysRemaining, expiresOn } = summary;
     const [customers, bookings] = await Promise.all([
       prisma.customer.count({ where: { storeId } }),
       course ? (await import("@/lib/course-db")).coursePrisma.courseBooking.count({ where: courseMonthlyBookingWhere(storeId) })
@@ -337,13 +336,15 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
     ]);
     const customerLimit = limits.maxCustomers ?? Infinity, bookingLimit = limits.maxMonthlyBookings ?? Infinity;
     const pct = Math.max(Math.round((1 - daysRemaining / trialDays) * 100), customers / customerLimit * 100, bookings / bookingLimit * 100);
+    const setupAllowed = isPendingSingleStoreTrial(trialStore);
     return { isFree: true, course, staff, daysRemaining, trialDays, trialExpired: expired,
+      pendingActivation: pending, expiresOn,
       retention: course ? getTrialRetention(trialStore) : null,
       customers: { current: customers, limit: customerLimit, pct: customers / customerLimit * 100 },
       bookings: { current: bookings, limit: bookingLimit, pct: bookings / bookingLimit * 100 },
-      overallPct: pct, stage: expired || !started || pct >= 100 ? "blocked" : pct >= 80 ? "warning" : pct >= 60 ? "light" : "normal",
-      canCreateBooking: started && !expired && bookings < bookingLimit,
-      canCreateCustomer: started && !expired && customers < customerLimit,
+      overallPct: pct, stage: expired || (!started && !setupAllowed) || pct >= 100 ? "blocked" : pct >= 80 ? "warning" : pct >= 60 ? "light" : "normal",
+      canCreateBooking: (started || setupAllowed) && !expired && bookings < bookingLimit,
+      canCreateCustomer: (started || setupAllowed) && !expired && customers < customerLimit,
     };
   }
   const plan = await getStorePlan(storeId);
@@ -421,7 +422,7 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
 
 export async function checkCustomerLimit(storeId: string): Promise<{ allowed: boolean; current: number; limit: number }> {
   const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
-  if (isSingleStoreTrial(trialStore)) {
+  if (isSingleStoreTrial(trialStore) || isPendingSingleStoreTrial(trialStore)) {
     const status = await getTrialStatus(storeId);
     return { allowed: status.canCreateCustomer, current: status.customers.current, limit: status.customers.limit };
   }
@@ -445,7 +446,7 @@ export async function checkCustomerLimit(storeId: string): Promise<{ allowed: bo
 
 export async function checkBookingLimit(storeId: string): Promise<{ allowed: boolean; current: number; limit: number }> {
   const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
-  if (isSingleStoreTrial(trialStore)) {
+  if (isSingleStoreTrial(trialStore) || isPendingSingleStoreTrial(trialStore)) {
     const status = await getTrialStatus(storeId);
     return { allowed: status.canCreateBooking, current: status.bookings.current, limit: status.bookings.limit };
   }

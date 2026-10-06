@@ -10,6 +10,28 @@ export type TrialStore = {
   planEffectiveAt?: Date | null;
   planExpiresAt?: Date | null;
 };
+/** Provisioning is not activation. Never derive a trial clock from creation time. */
+export function isPendingSingleStoreTrial(store: TrialStore): boolean {
+  return store.plan === "EXPERIENCE" && store.planStatus === "TRIAL"
+    && !store.planEffectiveAt && !store.planExpiresAt;
+}
+
+export function singleStoreTrialSummary(store: TrialStore, today = toLocalDateStr()) {
+  if (isPendingSingleStoreTrial(store)) return {
+    pending: true, expired: false, started: false, trialDays: SINGLE_STORE_TRIAL_DAYS,
+    daysRemaining: SINGLE_STORE_TRIAL_DAYS, expiresOn: null,
+    label: `待啟用・${SINGLE_STORE_TRIAL_DAYS} 天試用`,
+  };
+  if (!isSingleStoreTrial(store)) return null;
+  const start = toLocalDateStr(store.planEffectiveAt!), end = toLocalDateStr(store.planExpiresAt!);
+  const diff = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000);
+  const { started, expired } = trialDateState(store, today);
+  const trialDays = diff(end, start) + 1;
+  const daysRemaining = expired ? 0 : Math.min(trialDays, Math.max(0, diff(end, today) + 1));
+  return { pending: !started && !expired, expired, started, trialDays, daysRemaining, expiresOn: end,
+    label: expired ? "已到期" : !started ? "待啟用" : `剩餘 ${daysRemaining} 天`,
+  };
+}
 /** Only explicitly opened, dated EXPERIENCE subscriptions receive the new package. */
 export function isSingleStoreTrial(store: TrialStore): boolean {
   return store.plan === "EXPERIENCE" && Boolean(store.planEffectiveAt && store.planExpiresAt)
