@@ -12,6 +12,7 @@ import {
   getStoreFeatureCategory,
   getStoreFeatureLabel,
   resolveStoreFeatureDisplayState,
+  isRetiredStoreFeature,
 } from "@/lib/store-feature-catalog";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -81,7 +82,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   );
   const knownFeatureKeys = new Set(MANAGEABLE_STORE_FEATURES.map((feature) => feature.key));
   const unknownEntitlements = store.featureEntitlements.filter(
-    (entitlement) => !knownFeatureKeys.has(entitlement.featureKey as FeatureKey),
+    (entitlement) => !knownFeatureKeys.has(entitlement.featureKey as FeatureKey) && !isRetiredStoreFeature(entitlement.featureKey),
   );
 
   return (

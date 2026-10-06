@@ -17,7 +17,7 @@ import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : []) {
+function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
@@ -25,11 +25,32 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
     storeOptions: [{id: "a", name: "店 A", isDefault: true}], activeStoreId: selected,
     effectiveFeatures: Object.fromEntries(Object.values(FEATURES).map(key => [key, true])),
+    featureStates: hiddenInventory ? { [FEATURES.INVENTORY]: "HIDDEN" } : {},
     logoutButton: null,
   }, createElement("p", {}, "page")));
 }
 
 describe("actual HQ shell rendering", () => {
+  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("uses the same two open sections for %s (music=%s)", (module, music) => {
+    const html = render(module, "a", "/s/store-a/admin/dashboard", music);
+    expect(html).toContain("日常工作"); expect(html).toContain("店務管理");
+    expect(html).not.toContain("店務設定");
+    expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("進銷存"));
+    expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
+    expect(html.indexOf("方案管理")).toBeLessThan(html.indexOf("人員管理"));
+    expect(html).not.toContain("數位管家名單</span>");
+    expect(html).toContain('aria-label="預覽工具"');
+  });
+  it("shows an HQ hidden entry without turning it into a granted link", () => {
+    const html = render("steamfoot", "a", "/hq/dashboard", false, true, [], true);
+    expect(html).toContain("進銷存"); expect(html).toContain("已隱藏");
+    expect(html).not.toContain('href="/hq/dashboard/inventory"');
+    expect(html).toContain('href="/hq/dashboard/staff"');
+  });
+  it("keeps the same hidden inventory entry hidden for a store user", () => {
+    const html = render("steamfoot", "a", "/s/store-a/admin/dashboard", false, true, [...ALL_PERMISSIONS], true);
+    expect(html).not.toContain("進銷存");
+  });
   it.each(["steamfoot", "spa", "course"] as const)("requires staff.view for the common %s staff link", module => {
     const path = "/s/store-a/admin/dashboard";
     expect(render(module, "a", path, false, false)).not.toContain('href="/s/store-a/admin/dashboard/staff"');
@@ -54,7 +75,7 @@ describe("actual HQ shell rendering", () => {
     const html = render(module, "a");
     expect(html).toContain('aria-label="店舖功能導覽"');
     expect(html).toContain('aria-label="返回 HQ 總部"');
-    expect(html).toContain('href="/hq/dashboard/frontend-preview"');
+    expect(html).toContain('aria-label="預覽工具"');
     expect(html).toContain(module === "course" ? 'href="/hq/dashboard/courses?view=settings"' : 'href="/hq/dashboard/settings"');
     expect(html).toContain("店舖後台");
     expect(html).not.toContain("體驗申請");
