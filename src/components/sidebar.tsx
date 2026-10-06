@@ -622,7 +622,6 @@ interface StoreOption {
   id: string;
   name: string;
   isDefault: boolean;
-  isArchived?: boolean;
 }
 
 interface StoreViewOption {
@@ -749,8 +748,7 @@ export default function DashboardShell({
   const activeStoreName = (() => {
     if (isAdmin && storeOptions) {
       if (activeStoreId === null || activeStoreId === undefined) return "全部分店";
-      const current = storeOptions.find((s) => s.id === activeStoreId);
-      return current ? current.name + (current.isArchived ? "（已封存）" : "") : null;
+      return storeOptions.find((s) => s.id === activeStoreId)?.name ?? null;
     }
     return storeName ?? null;
   })();
@@ -834,6 +832,7 @@ export default function DashboardShell({
         .filter(
           (item) =>
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
+            !previewItems.some(preview => preview.href === item.href) &&
             !(isIframePreview && item.href === "/dashboard/device-preview"),
         )
         .map((item) => ({ item, ...accessFor(item) }));
@@ -1083,7 +1082,7 @@ export default function DashboardShell({
     </nav>
   );
 
-  const guideEnabled = operationGuidePreview && !isHqRoute && permissions.length > 0;
+  const guideEnabled = operationGuidePreview && !isHqPlatformView && permissions.length > 0;
 
   // The studio itself owns the screen. Iframe pages use devicePreview=1 and
   // deliberately retain this shell for real dashboard navigation.
@@ -1092,7 +1091,7 @@ export default function DashboardShell({
   }
 
   return (
-    <OperationGuideShell enabled={guideEnabled} contextPath={industryModule === "course" ? `${pathname}?${routeQuery}` : undefined} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
+    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
@@ -1202,7 +1201,7 @@ export default function DashboardShell({
               </svg>
             </button>
             <OperationGuideTrigger />
-            {!isHqPlatformView && <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />}
+            <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={isHqPlatformView ? undefined : activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />
             {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
