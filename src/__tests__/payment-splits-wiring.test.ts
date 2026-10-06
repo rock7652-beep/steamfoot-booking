@@ -15,7 +15,7 @@ describe("mixed payment wiring", () => {
       const source = read(path);
       expect(source).toContain("normalizePaymentSplits");
       expect(source).toContain("paymentSplitCreateData(paymentSplits)");
-      expect(source).toContain("transaction.create({");
+      expect(source).toMatch(/createFinancialTransaction\(tx(?:Client)?, \{/);
     }
   });
 
