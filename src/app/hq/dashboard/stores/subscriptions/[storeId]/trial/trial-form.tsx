@@ -88,7 +88,7 @@ export function TrialForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>
-          <p className="mt-1 text-sm">完整單店試用（含店長共 3 位）</p>
+          <p className="mt-1 text-sm">完整功能試用（含店長共 3 位）</p>
         </div>
 
         <div>
