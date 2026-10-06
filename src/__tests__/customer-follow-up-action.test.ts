@@ -15,12 +15,15 @@ vi.mock("@/lib/permissions", () => ({
 }));
 
 vi.mock("@/lib/manager-visibility", () => ({
+  getManagerCustomerWhere: () => ({ storeId: "store-a" }),
   assertStoreAccess: (...args: unknown[]) => mockAssertStoreAccess(...args),
 }));
 
 vi.mock("@/lib/feature-gate", () => ({
   requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
 }));
+
+vi.mock("@/lib/store", () => ({ resolveWriteStoreId: () => Promise.resolve("store-a") }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
@@ -29,7 +32,7 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     customer: {
-      findUnique: (...args: unknown[]) => mockCustomerFindUnique(...args),
+      findFirst: (...args: unknown[]) => mockCustomerFindUnique(...args),
     },
     customerFollowUp: {
       create: (...args: unknown[]) => mockFollowUpCreate(...args),
@@ -72,6 +75,7 @@ describe("createCustomerFollowUpAction", () => {
         createdByUserId: "user-owner",
         result: "NO_ANSWER",
         note: "下午再打一次",
+        careReason: null, careYear: null, nextFollowUpDate: null,
       },
       select: { id: true },
     });
@@ -137,5 +141,24 @@ describe("createCustomerFollowUpAction", () => {
 
     expect(result.success).toBe(false);
     expect(mockFollowUpCreate).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("reason-scoped tracking validation", () => {
+  it("requires a future follow-up date for non-birthday care", async () => {
+    const res = await createCustomerFollowUpAction({ customerId: "customer-a", result: "CONTACTED", careReason: "inactive" });
+    expect(res.success).toBe(false);
+    expect(mockFollowUpCreate).not.toHaveBeenCalled();
+  });
+  it("rejects impossible dates rather than silently rolling into another month", async () => {
+    const res = await createCustomerFollowUpAction({ customerId: "customer-a", result: "CONTACTED", careReason: "low", nextFollowUpDate: "2099-02-31" });
+    expect(res.success).toBe(false);
+    expect(mockFollowUpCreate).not.toHaveBeenCalled();
+  });
+  it("persists a reason and scheduled date separately from the user's note", async () => {
+    const res = await createCustomerFollowUpAction({ customerId: "customer-a", result: "CONTACTED", careReason: "expiring", nextFollowUpDate: "2099-10-13", note: "下次再關心" });
+    expect(res.success).toBe(true);
+    expect(mockFollowUpCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ careReason: "expiring", careYear: null, nextFollowUpDate: new Date("2099-10-13T00:00:00Z"), note: "下次再關心" }) }));
   });
 });

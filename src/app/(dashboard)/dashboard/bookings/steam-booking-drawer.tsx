@@ -13,7 +13,7 @@ import { BookingCreateForm, BookingCreateSubmit, useBookingFormValidation } from
 const button="inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium";
 type Data=Extract<Awaited<ReturnType<typeof loadSteamBookingForm>>,{success:true}>["data"];
 
-export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,triggerClassName}:{date:string;makeup?:boolean;triggerLabel:string;onCreated?:()=>void;triggerClassName?:string}) {
+export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,triggerClassName,defaultCustomerId,defaultCustomerLabel}:{date:string;makeup?:boolean;triggerLabel:string;onCreated?:()=>void;triggerClassName?:string;defaultCustomerId?:string;defaultCustomerLabel?:string}) {
   const formReader=usePanelReader("steam-booking-form",loadSteamBookingForm);
   const titleId=useId();
   const [open,setOpen]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState("");
@@ -41,7 +41,7 @@ export function SteamBookingDrawer({date,makeup=false,triggerLabel,onCreated,tri
         <header className="flex shrink-0 items-center justify-between border-b border-earth-100 px-5 py-4"><h2 id={titleId} className="font-semibold text-primary-900">{makeup?"新增補課":"新增預約"}</h2><button type="button" aria-label="關閉新增預約" className="min-h-11 min-w-11 text-earth-500" onClick={close}>✕</button></header>
         <div className="min-h-0 flex-1 overflow-y-auto p-5" onChangeCapture={()=>{dirty.current=true;}}>
           {loading?<p role="status">載入預約表單中…</p>:error?<div role="alert"><p className="text-red-700">{error}</p><button type="button" className={`${button} mt-3 border-earth-200`} onClick={()=>void show()}>重新載入</button></div>:data&&<BookingCreateForm action={submit} preserveOnFailure>
-            <div className={styles.columns}><section className="min-w-0 space-y-3"><h3 className="font-medium">日期、時段與人數</h3><DashboardBookingForm {...data}/></section><div className="min-w-0"><CustomerAndPlanFields defaultMode={makeup?"makeup":undefined}/></div></div>
+            <div className={styles.columns}><section className="min-w-0 space-y-3"><h3 className="font-medium">日期、時段與人數</h3><DashboardBookingForm {...data}/></section><div className="min-w-0"><CustomerAndPlanFields defaultMode={makeup?"makeup":undefined} defaultCustomerId={defaultCustomerId} defaultCustomerLabel={defaultCustomerLabel}/></div></div>
             <label className="block text-sm">備註<textarea name="notes" rows={2} className="mt-1 w-full rounded-lg border border-earth-200 p-3"/></label>
             {data.isAdmin&&<label className="flex items-center gap-2 text-sm"><input type="checkbox" name="skipDutyCheck"/>略過值班檢查</label>}
             <CreateFooter close={close}/>
@@ -55,4 +55,3 @@ function CreateFooter({close}:{close:()=>void}) {
   const {submitting}=useBookingFormValidation();
   return <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-3"><button type="button" disabled={submitting} className={`${button} border-earth-200 bg-white disabled:opacity-50`} onClick={close}>取消</button><BookingCreateSubmit/></div>;
 }
-

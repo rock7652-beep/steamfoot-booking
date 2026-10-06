@@ -28,6 +28,8 @@ import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { courseCustomerStaffScope } from "@/server/queries/course-home";
 import { CourseCare } from "./_components/course-care";
+import { SpaCare } from "./_components/spa-care";
+import { CareWorkspaceServer } from "./_components/care-workspace-server";
 
 /**
  * /dashboard/growth — 顧客經營 MVP（PR-2B）
@@ -123,7 +125,10 @@ export default async function CustomerCarePage({
   }
 
   const workspaceMonth = requestedMonth ?? toLocalMonthStr();
-  if (viewedStoreId && await getStoreIndustryModule(viewedStoreId) === "course") {
+  const industryModule = viewedStoreId ? await getStoreIndustryModule(viewedStoreId) : "steamfoot";
+  const [canFollowUp, canBook] = await Promise.all([checkPermission(user.role, user.staffId, "customer.update"), checkPermission(user.role, user.staffId, "booking.create")]);
+  if (viewedStoreId && industryModule === "spa") return <SpaCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
+  if (viewedStoreId && industryModule === "course") {
     const [canFollowUp, canBook] = await Promise.all([
       checkPermission(user.role, user.staffId, "customer.update"),
       checkPermission(user.role, user.staffId, "booking.create"),
@@ -181,7 +186,7 @@ export default async function CustomerCarePage({
     viewedStoreId ? getMonthlyUnconvertedCustomers(viewedStoreId, workspaceMonth) : [],
     viewedStoreId ? getBirthdayCustomersForMonth(viewedStoreId, workspaceMonth) : [],
   ]);
-  const { trialFollowUps, inactiveCustomers, lowSessionCustomers, expiringPlanCustomers, summary } =
+  const { trialFollowUps, inactiveCustomers, lowSessionCustomers, expiringPlanCustomers } =
     overview;
 
   // ---- 各區轉成統一顯示模型 ----
@@ -244,7 +249,7 @@ export default async function CustomerCarePage({
     customerId: r.customerId,
     name: r.customerName,
     phoneMasked: maskPhone(r.customerPhone),
-    reason: "本月完成體驗，未於體驗完成當天開卡",
+    reason: "本月完成體驗・尚未購買正式方案",
     meta: `體驗完成 ${dateOnly(r.trialCompletedAt)}`,
     staffName: r.assignedStaffName,
     lastFollowUpText: r.lastFollowUp
@@ -283,48 +288,14 @@ export default async function CustomerCarePage({
         }
       />
 
-      <CareSection
-        title="本月生日"
-        description="今天送上生日祝福。"
-        emptyText="本月沒有生日顧客。"
-        items={birthdayItems}
-        totalCount={birthdayItems.length}
-      />
-      <div id="trial-unconverted" /><CareSection
-        title="本月體驗未開卡"
-        description="今天最值得追蹤。"
-        emptyText="本月沒有體驗未開卡顧客。"
-        items={monthlyUnconvertedItems}
-        totalCount={monthlyUnconvertedItems.length}
-      />
-      <div id="inactive" /><CareSection
-        title="好久不見"
-        description="超過 30 天未到店，適合主動關心。"
-        emptyText="目前沒有久未到店的顧客。"
-        items={inactiveItems}
-        totalCount={summary.inactiveCustomers}
-      />
-      <CareSection
-        title="建議安排回店"
-        description="適合安排下一次服務。"
-        emptyText="目前沒有需要安排回店的顧客。"
-        items={lowItems}
-        totalCount={summary.lowSessionCustomers}
-      />
-      <div id="expiring" /><CareSection
-        title="建議續約"
-        description="提前安排續約。"
-        emptyText="目前沒有需要提前續約的顧客。"
-        items={expiringItems}
-        totalCount={summary.expiringPlanCustomers}
-      />
-      <CareSection
-        title="其他待追蹤體驗客"
-        description="依既有體驗收款與方案狀態判斷，與本月未開卡口徑不同。"
-        emptyText="目前沒有其他需要追蹤的體驗客。"
-        items={trialItems}
-        totalCount={summary.trialFollowUps}
-      />
+      {viewedStoreId && <CareWorkspaceServer storeId={viewedStoreId} module="steamfoot" month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} sections={[
+        { reason: "birthday", title: "本月生日", description: "送上生日祝福。", emptyText: "本月沒有待祝福顧客。", items: birthdayItems },
+        { reason: "trial", title: "本月體驗未開卡", description: "尚未購買正式方案。", emptyText: "本月沒有待關懷體驗顧客。", items: monthlyUnconvertedItems },
+        { reason: "inactive", title: "好久不見", description: "超過 30 天未到店。", emptyText: "目前沒有需要回店關懷的顧客。", items: inactiveItems },
+        { reason: "low", title: "額度快用完", description: "確認剩餘堂數。", emptyText: "目前沒有低額度提醒。", items: lowItems },
+        { reason: "expiring", title: "方案快到期", description: "提早安排使用或續約。", emptyText: "目前沒有到期提醒。", items: expiringItems },
+        { reason: "trial", title: "其他體驗未開卡", description: "體驗已收款但尚未購買正式方案。", emptyText: "目前沒有其他待關懷體驗顧客。", items: trialItems.filter(item => !monthlyUnconvertedItems.some(current => current.customerId === item.customerId)) },
+      ]}/>}
     </PageShell>
   );
 }

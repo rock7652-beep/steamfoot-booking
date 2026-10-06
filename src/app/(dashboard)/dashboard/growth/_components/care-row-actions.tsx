@@ -1,174 +1,71 @@
 "use client";
-
-/**
- * CareRowActions — 顧客經營每筆提醒的操作列（client）
- *
- * 顧客經營每筆提醒的操作列。
- *
- * 導向 / 純前端：
- *   1. 查看顧客   → /dashboard/customers?customerId=  開顧客 drawer（既有 deep link）
- *   2. 建立預約   → /dashboard/bookings/new           開建立預約頁
- *                  （目前建立預約頁尚未支援 customerId 預填,故不帶 query；
- *                    待後續小 PR 支援後再帶,本 PR 不擴大）
- *   3. 複製關心話術 → navigator.clipboard 純前端複製建議話術
- *
- * 寫入：
- *   4. 追蹤 → 新增 CustomerFollowUp 簡易追蹤紀錄
- */
-
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { DashboardLink as Link } from "@/components/dashboard-link";
-import { CUSTOMER_FOLLOW_UP_RESULT_OPTIONS } from "@/lib/customer-follow-up";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { createCustomerFollowUpAction } from "@/server/actions/customer-follow-up";
+import { CUSTOMER_FOLLOW_UP_RESULT_OPTIONS } from "@/lib/customer-follow-up";
+import { CARE_REASON_LABELS } from "@/lib/customer-care-lifecycle";
+import { addTaiwanDuration, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import type { CustomerFollowUpResult } from "@prisma/client";
+import type { CareItem } from "./care-section";
+import { useCareWorkspace } from "./care-workspace";
+import { CareBookingButton } from "./care-booking-button";
 
-interface Props {
-  customerId: string;
-  /** 建議關心話術（依區塊不同,由 server 端帶入） */
-  script: string;
-  readOnly?: boolean;
-  courseMode?: boolean;
-  canFollowUp?: boolean;
-  canBook?: boolean;
-}
-
-const ACTION_CLASS =
-  "rounded-md border border-earth-200 bg-white px-2 py-1 text-[11px] font-medium text-earth-700 transition hover:bg-earth-50";
-
-export function CareRowActions({ customerId, script, readOnly = false, courseMode = false, canFollowUp = true, canBook = true }: Props) {
+const button = "inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-medium disabled:opacity-50";
+export function CareRowActions({ item }: { item: CareItem }) {
   const router = useRouter();
-  const [copied, setCopied] = useState(false);
+  const context = useCareWorkspace();
+  const titleId = useId();
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [result, setResult] = useState<CustomerFollowUpResult>("CONTACTED");
   const [note, setNote] = useState("");
+  const today = context?.today ?? toLocalDateStr();
+  const initialNextDate = addTaiwanDuration(today, 7, "DAY");
+  const [nextDate, setNextDate] = useState(initialNextDate);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  async function copyScript() {
-    try {
-      await navigator.clipboard.writeText(script);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setError("無法複製，請檢查瀏覽器剪貼簿權限後重試。");
-    }
+  const [pending, start] = useTransition();
+  const lock = useRef(false);
+  const birthday = item.careReason === "birthday";
+  const related = context?.items.filter(row => row.customerId === item.customerId) ?? [item];
+  function close() {
+    if (pending || lock.current) return;
+    if ((note || result !== "CONTACTED" || nextDate !== initialNextDate) && !window.confirm("尚有未儲存的關懷紀錄，要捨棄嗎？")) return;
+    setOpen(false); setNote(""); setResult("CONTACTED"); setNextDate(initialNextDate); setError(null);
   }
-
-  function saveFollowUp() {
-    setError(null);
-    startTransition(async () => {
-      const res = await createCustomerFollowUpAction({
-        customerId,
-        result,
-        note,
-      });
-      if (!res.success) {
-        setError(res.error);
-        return;
-      }
-      setOpen(false);
-      setResult("CONTACTED");
-      setNote("");
-      router.refresh();
+  function save() {
+    if (lock.current) return;
+    lock.current = true; setError(null);
+    start(async () => {
+      try {
+        const res = await createCustomerFollowUpAction({ customerId: item.customerId, result, note,
+          careReason: item.careReason, careYear: item.careYear, nextFollowUpDate: birthday || !item.careReason ? null : nextDate });
+        if (!res.success) { setError(res.error); return; }
+        if (item.careReason) context?.onSaved(item.customerId, { id: res.data.followUpId, reason: item.careReason, year: birthday ? item.careYear ?? null : null,
+          result, note: note || null, date: formatTWTime(new Date()), createdAt: new Date().toISOString(), by: "我", nextDate: birthday ? null : nextDate });
+        setOpen(false); setNote(""); setResult("CONTACTED");
+        router.refresh();
+      } catch { setError("儲存失敗，請重試；輸入的內容已保留。"); }
+      finally { lock.current = false; }
     });
   }
-
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-end gap-1.5">
-        <Link
-          href={courseMode ? `/dashboard/courses?view=customers&customerId=${customerId}` : `/dashboard/customers?customerId=${customerId}`}
-          className="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white transition hover:bg-primary-700"
-        >
-          查看顧客
-        </Link>
-        {!readOnly && canBook ? (
-          <Link href={courseMode ? "/dashboard/courses" : "/dashboard/bookings/new"} className={ACTION_CLASS}>
-            {courseMode ? "選擇課次預約" : "建立預約"}
-          </Link>
-        ) : null}
-        <button type="button" onClick={copyScript} className={ACTION_CLASS}>
-          {copied ? "已複製" : "複製話術"}
-        </button>
-        {!readOnly && canFollowUp ? (
-          <button type="button" onClick={() => setOpen(true)} className={ACTION_CLASS}>
-            追蹤
-          </button>
-        ) : null}
+  return <>
+    <div className="flex flex-wrap items-center justify-end gap-1">
+      {!item.readOnly && item.canFollowUp !== false && <button type="button" onClick={() => setOpen(true)} className={`${button} bg-primary-600 text-white hover:bg-primary-700`}>{birthday ? "祝福紀錄" : "關懷"}</button>}
+      {!item.readOnly && item.canBook !== false && <CareBookingButton item={item}/>}
+      {(item.readOnly || (item.canFollowUp === false && item.canBook === false)) && <span className="text-sm text-earth-500">僅供查看</span>}
+    </div>
+    <ModalPanel open={open} onClose={close} labelledById={titleId} pending={pending} width={560}>
+      <div className="space-y-4 p-5">
+        <header className="flex items-center justify-between gap-3"><h2 id={titleId} className="font-semibold text-primary-900">{item.name} · {item.careReason ? CARE_REASON_LABELS[item.careReason] : "關懷紀錄"}</h2><button type="button" className={button} onClick={close} disabled={pending}>關閉</button></header>
+        <div className="space-y-2 text-sm">{related.map(row => <div key={`${row.careReason}:${row.reason}`} className="rounded-lg bg-earth-50 px-3 py-2"><p className="font-medium">{row.reason}</p>{row.lastFollowUpText && !row.activity && <p className="mt-1 text-earth-600">{row.lastFollowUpText}</p>}{row.activity && <p className="mt-1 text-earth-600">{row.activity.date} · {row.activity.by} · {row.activity.note || "已記錄聯絡結果"}{row.activity.nextDate ? ` · ${row.activity.nextDate} 再追蹤` : ""}</p>}</div>)}{item.nextBooking && <p className="text-primary-800">下次預約：{item.nextBooking}</p>}</div>
+        {item.script && <details className="rounded-lg border border-earth-200 px-3"><summary className="min-h-11 cursor-pointer py-3 text-sm">參考話術</summary><p className="whitespace-pre-wrap text-sm">{item.script}</p><button type="button" className={`${button} my-2 border border-earth-200`} onClick={async () => { try { await navigator.clipboard.writeText(item.script); setCopied(true); } catch { setError("無法複製，請手動選取話術。"); } }}>{copied ? "已複製" : "複製話術"}</button></details>}
+        <label className="block text-sm">{birthday ? "祝福結果" : "聯絡結果"}<select className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-3" value={result} disabled={pending} onChange={e => setResult(e.target.value as CustomerFollowUpResult)}>{CUSTOMER_FOLLOW_UP_RESULT_OPTIONS.filter(o => !birthday || o.value !== "BOOKED").map(o => <option key={o.value} value={o.value}>{birthday && o.value === "CONTACTED" ? "已祝福" : o.label}</option>)}</select></label>
+        {!birthday && item.careReason && <label className="block text-sm">下次追蹤日期<input type="date" required min={addTaiwanDuration(today, 1, "DAY")} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-3" value={nextDate} disabled={pending} onChange={e => setNextDate(e.target.value)}/></label>}
+        <label className="block text-sm">備註<textarea className="mt-1 w-full rounded-lg border border-earth-200 p-3" rows={3} maxLength={500} value={note} onChange={e => setNote(e.target.value)} disabled={pending} placeholder="選填"/></label>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <footer className="flex justify-end gap-2"><button type="button" className={`${button} border border-earth-200`} disabled={pending} onClick={close}>取消</button><button type="button" className={`${button} bg-primary-600 text-white`} onClick={save} disabled={pending || (birthday && item.careYear !== Number(today.slice(0, 4)))}>{pending ? "儲存中…" : birthday && result === "CONTACTED" ? "記錄已祝福" : "儲存"}</button></footer>
       </div>
-
-      {error && !open ? <p role="alert" className="text-xs text-red-600">{error}</p> : null}
-
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
-          <div className="w-full max-w-sm rounded-lg border border-earth-200 bg-white p-4 shadow-xl">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-sm font-semibold text-earth-900">新增追蹤紀錄</h3>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded px-1.5 py-0.5 text-xs text-earth-500 hover:bg-earth-100 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isPending}
-              >
-                關閉
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="text-xs font-medium text-earth-700">追蹤結果</span>
-                <select
-                  value={result}
-                  onChange={(e) => setResult(e.target.value as CustomerFollowUpResult)}
-                  className="mt-1 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 outline-none focus:border-primary-400"
-                  disabled={isPending}
-                >
-                  {CUSTOMER_FOLLOW_UP_RESULT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="text-xs font-medium text-earth-700">備註</span>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={3}
-                  maxLength={500}
-                  className="mt-1 w-full resize-none rounded-md border border-earth-200 px-3 py-2 text-sm text-earth-900 outline-none focus:border-primary-400"
-                  placeholder="選填"
-                  disabled={isPending}
-                />
-              </label>
-
-              {error ? <p className="text-xs text-red-600">{error}</p> : null}
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className={ACTION_CLASS}
-                disabled={isPending}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={saveFollowUp}
-                className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isPending}
-              >
-                {isPending ? "儲存中" : "儲存"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </>
-  );
+    </ModalPanel>
+  </>;
 }

@@ -1,3 +1,4 @@
+import { CareSection, type CareItem } from "@/app/(dashboard)/dashboard/growth/_components/care-section";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,6 +72,9 @@ vi.mock("@/lib/store-view-context-server", () => ({
   storeIdForViewContext: (storeId: string | null) => storeId,
   userForViewContext: (user: unknown) => user,
 }));
+
+vi.mock("@/app/(dashboard)/dashboard/growth/_components/care-workspace-server", () => ({ CareWorkspaceServer: ({ sections }: { sections: Array<{title:string;description:string;emptyText:string;items: CareItem[]}> }) => React.createElement("div", null, sections.map(s => React.createElement(CareSection, { ...s, key: s.title, totalCount: s.items.length }))) }));
+vi.mock("@/app/(dashboard)/dashboard/growth/_components/care-row-actions", () => ({ CareRowActions: () => React.createElement("div", null, "查看顧客 建立預約 複製話術 追蹤") }));
 
 vi.mock("@/server/actions/customer-follow-up", () => ({
   createCustomerFollowUpAction: vi.fn(),
@@ -278,8 +282,8 @@ describe("CustomerCarePage feature gate", () => {
       "本月生日",
       "本月體驗未開卡",
       "好久不見",
-      "建議安排回店",
-      "建議續約",
+      "額度快用完",
+      "方案快到期",
     ];
     for (let index = 1; index < orderedTitles.length; index += 1) {
       expect(html.indexOf(orderedTitles[index])).toBeGreaterThan(

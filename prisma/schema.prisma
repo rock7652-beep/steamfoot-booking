@@ -1464,6 +1464,9 @@ model CustomerFollowUp {
   createdByUserId String
   result          CustomerFollowUpResult
   note            String?
+  careReason      String? // null: legacy general contact, never dismiss a specific reminder
+  careYear        Int? // annual birthday acknowledgement
+  nextFollowUpDate DateTime? @db.Date
   createdAt       DateTime               @default(now())
 
   customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -1472,6 +1475,7 @@ model CustomerFollowUp {
 
   @@index([customerId, createdAt])
   @@index([storeId, createdAt])
+  @@index([storeId, customerId, careReason, createdAt])
   @@index([createdByUserId])
 }
 

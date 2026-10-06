@@ -9,10 +9,17 @@ import { requireWritablePermission } from "@/lib/permissions";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import type { ActionResult } from "@/types";
+import { CARE_REASONS } from "@/lib/customer-care-lifecycle";
+import { dayRange, toLocalDateStr } from "@/lib/date-utils";
+import { resolveWriteStoreId } from "@/lib/store";
+import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 
 const createCustomerFollowUpSchema = z.object({
   customerId: z.string().min(1, "缺少顧客"),
   result: z.enum(["CONTACTED", "NO_ANSWER", "BOOKED", "OTHER"]),
+  careReason: z.enum(CARE_REASONS).optional(),
+  careYear: z.number().int().optional(),
+  nextFollowUpDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   note: z
     .string()
     .max(500, "備註最多 500 字")
@@ -31,8 +38,9 @@ export async function createCustomerFollowUpAction(
     const user = await requireWritablePermission("customer.update");
     const data = createCustomerFollowUpSchema.parse(input);
 
-    const customer = await prisma.customer.findUnique({
-      where: { id: data.customerId },
+    const writeStoreId = await resolveWriteStoreId(user);
+    const customer = await prisma.customer.findFirst({
+      where: { id: data.customerId, ...getManagerCustomerWhere(user.role, user.staffId, writeStoreId) },
       select: {
         id: true,
         storeId: true,
@@ -47,6 +55,16 @@ export async function createCustomerFollowUpAction(
     }
     await requireStoreFeature(customer.storeId, FEATURES.CUSTOMER_CARE);
 
+    const today = toLocalDateStr();
+    const year = Number(today.slice(0, 4));
+    if (data.careReason === "birthday" && data.careYear !== year)
+      throw new AppError("VALIDATION", "只能記錄今年的生日祝福");
+    if (data.careReason && data.careReason !== "birthday" && !data.nextFollowUpDate)
+      throw new AppError("VALIDATION", "請選擇下次追蹤日期");
+    if (data.nextFollowUpDate && (data.nextFollowUpDate <= today || !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(data.nextFollowUpDate)
+      || toLocalDateStr(dayRange(data.nextFollowUpDate).start) !== data.nextFollowUpDate))
+      throw new AppError("VALIDATION", "下次追蹤日期須為今天之後的有效日期");
+
     const followUp = await prisma.customerFollowUp.create({
       data: {
         customerId: customer.id,
@@ -54,6 +72,9 @@ export async function createCustomerFollowUpAction(
         createdByUserId: user.id,
         result: data.result,
         note: data.note,
+        careReason: data.careReason ?? null,
+        careYear: data.careReason === "birthday" ? year : null,
+        nextFollowUpDate: data.careReason === "birthday" || !data.nextFollowUpDate ? null : new Date(`${data.nextFollowUpDate}T00:00:00.000Z`),
       },
       select: { id: true },
     });
