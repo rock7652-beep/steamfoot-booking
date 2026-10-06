@@ -29,8 +29,10 @@ export function CareWorkspace({ sections, history, today, selected }: { sections
     <div className="space-y-3">
       {visible.map(section => {
         const items = section.items.filter(item => item.state === (tab === "handled" ? "handled" : "pending"));
+        if (tab === "handled" && items.length === 0) return null;
         return <CareSection key={section.title} {...section} items={items} totalCount={items.length}/>;
       })}
+      {tab === "handled" && !visible.some(section => section.items.some(item => item.state === "handled")) && history.length === 0 && <p className="py-3 text-sm text-earth-500">目前沒有已處理或已安排的關懷。</p>}
       {tab === "handled" && history.length > 0 && <CareSection title="已解除提醒" description="保留之前的關懷紀錄。" emptyText="" items={history} totalCount={history.length}/>}
     </div>
   </CareContext.Provider>;
