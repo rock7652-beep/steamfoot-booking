@@ -46,7 +46,7 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
-  { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "完整單店試用內含；一般方案需另行開通。依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
+  { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "完整功能試用內含；一般方案需另行開通。依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
   { key: FEATURES.DEVICE_PREVIEW, label: "裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
   { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "三個付費方案皆內含，不占選配名額。全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
   {
