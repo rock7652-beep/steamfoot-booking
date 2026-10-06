@@ -5,7 +5,6 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
-import { isSingleStoreFeature } from "@/lib/single-store-trial";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -85,8 +84,8 @@ export async function hasStoreFeature(
   if (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") return false;
   if (entitlement?.status === "ENABLED") return true;
   const store = await getStoreForPlanByStoreId(storeId);
-  if (store.plan === "EXPERIENCE") return isSingleStoreFeature(feature);
-  // Full single-store trials include preview; ordinary plans still require an active grant.
+  if (store.plan === "EXPERIENCE") return true;
+  // Full trials include preview; ordinary plans still require an active grant.
   if (feature === FEATURES.FRONTEND_PREVIEW) return false;
   const baseAllowed = hasFeature(store.plan, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;
