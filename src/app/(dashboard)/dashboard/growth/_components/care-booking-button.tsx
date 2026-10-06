@@ -52,7 +52,7 @@ export function CareBookingButton({ item }: { item: CareItem }) {
           if (lock.current) return { error: "建立中…" }; lock.current = true; setSpaPending(true);
           try { const res = await createSpaQuickBooking({ customerId: item.customerId, bookingDate: String(form.get("bookingDate") ?? ""), serviceStaffId: String(form.get("serviceStaffId") ?? ""), slotTime: String(form.get("slotTime") ?? ""), treatmentIds: form.getAll("treatmentIds").map(String), notes: String(form.get("notes") ?? ""), requestKey: requestKey.current }); if (!res.success) return { error: res.error }; done(); }
           finally { lock.current = false; setSpaPending(false); }
-        }}><SpaBookingFields days={options.days} defaultDate={options.days[0] ?? toLocalDateStr()} treatments={options.treatments}/><BookingCreateSubmit/></BookingCreateForm>}
+        }}><input type="hidden" name="customerId" value={item.customerId}/><SpaBookingFields days={options.days} defaultDate={options.days[0] ?? toLocalDateStr()} treatments={options.treatments}/><BookingCreateSubmit/></BookingCreateForm>}
       </div>
     </ModalPanel>
   </>;
