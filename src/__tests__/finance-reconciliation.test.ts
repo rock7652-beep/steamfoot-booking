@@ -31,6 +31,14 @@ it("identifies wrong order paid balance and orphan ledger entries", async () => 
   expect(result.status).toBe("mismatch");
   expect(result.debugPayload.issues).toEqual(expect.arrayContaining([expect.objectContaining({ orderId: "o" })]));
 });
+it("matches an immutable source collection minus a linked work-order refund and detects a missing refund ledger",async()=>{
+  const requestId="ad7e6f88-5c5b-4b85-a642-6339d91f7c69";
+  db.orders.mockResolvedValue([{id:"o",kind:"SALE",partyId:"c",total:100,paid:100,workOrder:{item:"吉他",cancelled:true,status:"CANCELLED",settlements:[{requestId,date:"2026-10-06",kind:"CANCEL",reason:"不修",method:"轉帳",refund:400,previousTotal:1000,total:100,returned:[]}]}}]);
+  const original={id:"inventory:p:goods",entryDate:date,type:"INCOME",paymentMethod:"OTHER",amount:500};
+  db.entries.mockResolvedValue([original,{id:`inventory:${requestId}:refund`,entryDate:date,type:"EXPENSE",category:"工單退款",customerId:"c",paymentMethod:"OTHER",amount:400}]);
+  expect((await checkInventoryAccounts("store"))[0].status).toBe("pass");
+  db.entries.mockResolvedValue([original]);expect((await checkInventoryAccounts("store"))[0].status).toBe("mismatch");
+});
 it("exposes supplements as differences without rewriting closed snapshots", async () => {
   db.query.mockResolvedValue([{ id: "d", date: "2026-10-06", saved: 1000, current: 1100, sourceIds: ["manual:entry"] }]);
   const result = await checkClosedCashDrawers("store", date, date);

@@ -30,7 +30,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: vi.fn() }));
 import { prisma as appDb } from "@/lib/db";
 import { saveOrder } from "@/server/actions/inventory";
-import { saveWorkOrderAction,collectWorkOrderAction,changeWorkOrderStatusAction,loadWorkOrders } from "@/server/actions/work-orders";
+import { saveWorkOrderAction,collectWorkOrderAction,changeWorkOrderStatusAction,loadWorkOrders,settleWorkOrderAction } from "@/server/actions/work-orders";
 
 import { computeCashbookCashMovementsForSession } from "@/server/services/cash-drawer";
 import { checkInventoryAccounts } from "@/server/reconciliation/finance-checks";
@@ -71,6 +71,79 @@ pg("work-order production paths — canonical inventory receipts", () => {
   function job(extra={}) {return {requestId:randomUUID(),date:"2099-01-05",partyId:customerId,labor:800,details:{item:"吉他調整"},lines:[{productId,quantity:2,unitPrice:200,discountMode:"NONE",discount:0,gift:false}],...extra};}
   function pay(orderId:string,amount=1200,method="現金"){return {requestId:randomUUID(),orderId,amount,method,date:"2099-01-05"};}
   async function order(extra={}){const r=await saveWorkOrderAction(job(extra));expect(r.success).toBe(true);if(!r.success||!r.data)throw Error(JSON.stringify(r));return r.data;}
+  function settle(id:string,revision:number,extra={}){return {requestId:randomUUID(),id,revision,date:"2099-01-05",kind:"CANCEL",reason:"顧客選擇不維修",labor:100,refund:0,method:"現金",materials:[{productId,returned:2,charge:0}],...extra};}
+  it("unpaid cancellation returns only explicitly unused materials, retains inspection debt and permits collection",async()=>{
+    const id=await order();expect((await settleWorkOrderAction(settle(id,1))).success).toBe(true);
+    const row=await db.inventoryOrder.findUniqueOrThrow({where:{id}});expect(row.total).toBe(100);expect(row.paid).toBe(0);expect(await stock()).toBe(10);expect(await db.cashbookEntry.count({where:{storeId}})).toBe(0);
+    expect((await collectWorkOrderAction(pay(id,100))).success).toBe(true);expect(await stock()).toBe(10);await assertAccounts();
+    expect((await saveWorkOrderAction(job({id,revision:3}))).success).toBe(false);
+    expect((await changeWorkOrderStatusAction({requestId:randomUUID(),id,revision:3,status:"PROCESSING"})).success).toBe(false);
+    expect((await changeWorkOrderStatusAction({requestId:randomUUID(),id,revision:3,status:"COLLECTED"})).success).toBe(true);
+  });
+  it("500 collected, 100 inspection and 400 cash refund preserve the source receipt and reconcile",async()=>{
+    const id=await order();expect((await collectWorkOrderAction(pay(id,500))).success).toBe(true);
+    expect((await settleWorkOrderAction(settle(id,2,{refund:400}))).success).toBe(true);
+    const row=await db.inventoryOrder.findUniqueOrThrow({where:{id}});expect(row.total).toBe(100);expect(row.paid).toBe(100);expect(await stock()).toBe(10);
+    const receipt=await db.inventoryPayment.findFirstOrThrow({where:{storeId}});expect(receipt.total).toBe(500);
+    const refund=await db.cashbookEntry.findFirstOrThrow({where:{storeId,category:"工單退款"}});expect(Number(refund.amount)).toBe(400);expect(refund.paymentMethod).toBe("CASH");
+    const movements=await cash();expect(movements.cashbookCashIncome.toNumber()).toBe(500);expect(movements.cashbookCashOut.toNumber()).toBe(400);await assertAccounts();
+  });
+  it("20 identical cancellation refunds return stock and post one compensating ledger only",async()=>{
+    const id=await order();await collectWorkOrderAction(pay(id));const input=settle(id,2,{refund:1100});
+    const results=await Promise.all(Array.from({length:20},()=>settleWorkOrderAction(input)));expect(results.every(r=>r.success)).toBe(true);
+    expect(await stock()).toBe(10);expect(await db.cashbookEntry.count({where:{storeId,category:"工單退款"}})).toBe(1);
+    const row=await db.inventoryOrder.findUniqueOrThrow({where:{id}});expect(row.paid).toBe(100);expect(row.revision).toBe(3);await assertAccounts();
+  });
+  it("used materials can be uncharged without restoring stock, and separate later partial refunds remain bounded",async()=>{
+    const id=await order();await collectWorkOrderAction(pay(id,1200,"轉帳"));
+    expect((await settleWorkOrderAction(settle(id,2,{kind:"REFUND",labor:800,refund:400,method:"轉帳",materials:[{productId,returned:0,charge:0}]}))).success).toBe(true);
+    expect(await stock()).toBe(8);expect((await cash()).cashbookCashOut.toNumber()).toBe(0);
+    expect((await settleWorkOrderAction(settle(id,3,{kind:"REFUND",labor:100,refund:700,method:"轉帳",materials:[{productId,returned:0,charge:0}]}))).success).toBe(true);
+    expect((await db.inventoryOrder.findUniqueOrThrow({where:{id}})).paid).toBe(100);expect(await stock()).toBe(8);await assertAccounts();
+    const row=await db.inventoryOrder.findUniqueOrThrow({where:{id}});
+    expect((await saveWorkOrderAction(job({id,revision:row.revision,labor:100,details:{item:"更新處理紀錄",settlements:[]},lines:[{...job().lines[0],discountMode:"AMOUNT",discount:400}]}))).success).toBe(true);
+    await assertAccounts();
+  });
+  it("independent simultaneous refunds cannot reuse stale balances or return the same stock twice",async()=>{
+    const id=await order();await collectWorkOrderAction(pay(id));
+    const results=await Promise.all([settleWorkOrderAction(settle(id,2,{refund:1100})),settleWorkOrderAction(settle(id,2,{refund:1100}))]);expect(results.filter(r=>r.success)).toHaveLength(1);expect(await stock()).toBe(10);await assertAccounts();
+  });
+  it("closed-day cash refund rolls back charges and stock while bank refund remains available",async()=>{
+    const id=await order();await collectWorkOrderAction(pay(id));await db.cashDrawerSession.update({where:{id:sessionId},data:{status:"CLOSED",closedAt:new Date(),closedByUserId:boundary.actor.id}});
+    expect((await settleWorkOrderAction(settle(id,2,{refund:1100}))).success).toBe(false);expect(await stock()).toBe(8);
+    const row=await db.inventoryOrder.findUniqueOrThrow({where:{id}});expect(row.total).toBe(1200);expect(row.paid).toBe(1200);expect(row.revision).toBe(2);
+    expect((await settleWorkOrderAction(settle(id,2,{refund:1100,method:"轉帳"}))).success).toBe(true);await assertAccounts();
+  });
+  it("over-refund, foreign order and disabled feature reject atomically",async()=>{
+    const id=await order();await collectWorkOrderAction(pay(id,500));
+    expect((await settleWorkOrderAction(settle(id,2,{refund:501}))).success).toBe(false);
+    const foreign=await db.store.create({data:{name:randomUUID(),slug:randomUUID(),plan:"ALLIANCE"}});
+    const alien=await db.inventoryOrder.create({data:{storeId:foreign.id,kind:"SALE",date:day,partyId:customerId,partyName:"外店顧客",partyPhone:"",lines:[],total:500,paid:500,workOrder:{item:"外店工單"},requestId:randomUUID(),requestHash:"foreign-fixture",actorId:boundary.actor.id}});
+    expect((await settleWorkOrderAction(settle(alien.id,1,{refund:400}))).success).toBe(false);
+    await db.storeFeatureEntitlement.updateMany({where:{storeId,featureKey:"work_orders"},data:{status:"HIDDEN"}});
+    expect((await settleWorkOrderAction(settle(id,2,{refund:400}))).success).toBe(false);expect(await stock()).toBe(8);expect(await db.cashbookEntry.count({where:{storeId,category:"工單退款"}})).toBe(0);await assertAccounts();
+  });
+  it("revoked actor permissions reject refunds before changing money or materials",async()=>{
+    const id=await order();await collectWorkOrderAction(pay(id));
+    await db.user.update({where:{id:boundary.actor.id},data:{role:"STAFF"}});
+    expect((await settleWorkOrderAction(settle(id,2,{refund:1100}))).success).toBe(false);
+    expect(await stock()).toBe(8);expect(await db.cashbookEntry.count({where:{storeId,category:"工單退款"}})).toBe(0);await assertAccounts();
+  });
+  it("partial stock return restores proportional historical cost and unresolved cost shares only",async()=>{
+    await db.inventoryProduct.update({where:{id:productId},data:{pendingCosts:{qa:100}}});
+    const id=await order();
+    expect((await settleWorkOrderAction(settle(id,1,{labor:0,materials:[{productId,returned:1,charge:200}]}))).success).toBe(true);
+    const product=await db.inventoryProduct.findUniqueOrThrow({where:{id:productId}});
+    expect(product.stock).toBe(9);expect(Number(product.averageCost)).toBe(100);expect(product.pendingCosts).toEqual({qa:90});
+    const row=await db.inventoryOrder.findUniqueOrThrow({where:{id}});const lines=row.lines as unknown as Array<{productId:string;cost:number;pendingCostShares:unknown}>;
+    expect(lines.find(l=>l.productId===productId)?.cost).toBe(100);expect(lines.find(l=>l.productId===productId)?.pendingCostShares).toEqual({qa:10});await assertAccounts();
+  });
+  it("unpaid gift cancellation returns one gift with no invented refund or revenue",async()=>{
+    const id=await order({labor:0,lines:[{...job().lines[0],quantity:1,gift:true}]});expect(await stock()).toBe(9);
+    const input=settle(id,1,{labor:0,materials:[{productId,returned:1,charge:0}]});
+    expect((await settleWorkOrderAction(input)).success).toBe(true);expect((await settleWorkOrderAction(input)).success).toBe(true);
+    expect(await stock()).toBe(10);expect(await db.cashbookEntry.count({where:{storeId}})).toBe(0);await assertAccounts();
+  });
   it("concurrent opening replay creates one unpaid work order and deducts stock once",async()=>{
     const input=job();const results=await Promise.all([saveWorkOrderAction(input),saveWorkOrderAction(input)]);
     expect(results.every(r=>r.success)).toBe(true);expect(results[0]).toEqual(results[1]);expect(await stock()).toBe(8);
