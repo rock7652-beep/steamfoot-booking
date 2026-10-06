@@ -388,7 +388,7 @@ export default async function DashboardHomePage() {
     cashDrawerView ? (
       <section key="cash-drawer" className="rounded-xl border border-earth-200 bg-white px-4 py-2">
         <h2 className="text-sm font-semibold text-primary-900">開店狀態</h2>
-        <CashDrawerHomeStatus key={`${dashboardStoreId}:${cashDrawerView.state}`} storeId={dashboardStoreId!} initialStatus={cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status === "OPEN" ? "營業中" : "已結帳" : cashDrawerView.state === "WARNING_LAST_OPEN" ? "前次尚未結帳" : "未開店"}/>
+        <CashDrawerHomeStatus key={`${dashboardStoreId}:${cashDrawerView.state}:${cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status : ""}`} storeId={dashboardStoreId!} initialStatus={cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status === "OPEN" ? "營業中" : "已結帳" : cashDrawerView.state === "WARNING_LAST_OPEN" ? "前次尚未結帳" : "未開店"}/>
       </section>
     ) : null,
     canViewCustomers ? (
