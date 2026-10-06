@@ -90,3 +90,55 @@ describe("staff workspace authoritative refresh", () => {
   });
 
 });
+
+it("keeps role and permission edits in the same panel and submits once", async () => {
+  const { StaffAccountEditor } = await import("@/app/(dashboard)/dashboard/staff/staff-account-editor");
+  const { updateStaff } = await import("@/server/actions/staff");
+  vi.mocked(updateStaff).mockResolvedValue({ success: false, error: "權限已變更" });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  await act(async () => root.render(createElement(StaffAccountEditor, { person: { ...person, role: "STAFF", permissions: ["inventory.read"] }, policy: {
+    canAssignRoles: true, editablePermissions: ["inventory.read", "inventory.cost.read"],
+    rolePresets: { MANAGER: ["inventory.read", "inventory.cost.read"] },
+    permissionGroups: [{ label: "進銷存", codes: [{code:"inventory.read",label:"查看庫存"},{code:"inventory.cost.read",label:"查看成本"}] }],
+  }, onClose: vi.fn() })));
+  const tab = Array.from(document.body.querySelectorAll("button")).find(b=>b.textContent==="後台帳號／權限")!;
+  await act(async()=>tab.click());
+  expect(document.body.querySelector('a[href*="/edit"]')).toBeNull();
+  const role = document.body.querySelector('select[name="backendRole"]') as HTMLSelectElement;
+  await act(async()=>{role.value="MANAGER";role.dispatchEvent(new Event("change",{bubbles:true}));});
+  expect(document.body.textContent).toContain("未儲存");
+  // Role changes preserve grants until the explicit preset control is clicked.
+  expect((document.body.querySelectorAll('input[type="checkbox"]')[1] as HTMLInputElement).checked).toBe(false);
+  await act(async()=>Array.from(document.body.querySelectorAll("button")).find(b=>b.textContent==="套用角色預設權限")!.click());
+  expect((document.body.querySelectorAll('input[type="checkbox"]')[1] as HTMLInputElement).checked).toBe(true);
+  await act(async()=>Array.from(document.body.querySelectorAll("button")).find(b=>b.textContent==="基本資料")!.click());
+  await act(async()=>tab.click()); expect(role.value).toBe("MANAGER");
+  await act(async()=>document.body.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  expect(updateStaff).toHaveBeenCalledWith("qa",expect.objectContaining({role:"MANAGER",permissions:{"inventory.read":true,"inventory.cost.read":true}}));
+  expect(document.body.querySelector('[role="alert"]')?.textContent).toBe("權限已變更");
+  expect(role.value).toBe("MANAGER");
+  await act(async()=>root.unmount());vi.restoreAllMocks();
+});
+
+it("retains permission drafts across category changes and searches all categories", async () => {
+  const { StaffAccountEditor } = await import("@/app/(dashboard)/dashboard/staff/staff-account-editor");
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  await act(async () => root.render(createElement(StaffAccountEditor, { person: { ...person, role: "STAFF", permissions: [] }, policy: {
+    canAssignRoles: false, editablePermissions: ["inventory.read", "customer.view"], rolePresets: {},
+    permissionGroups: [{ label: "進銷存", codes: [{ code: "inventory.read", label: "查看庫存" }] }, { label: "顧客", codes: [{ code: "customer.view", label: "查看顧客" }] }],
+  }, onClose: vi.fn() })));
+  await act(async () => Array.from(document.body.querySelectorAll("button")).find(b => b.textContent === "後台帳號／權限")!.click());
+  await act(async () => (document.body.querySelector('input[type="checkbox"]') as HTMLInputElement).click());
+  const category = document.body.querySelector('select[aria-label="權限分類"]') as HTMLSelectElement;
+  await act(async () => { category.value = "顧客"; category.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(document.body.textContent).toContain("查看顧客");
+  expect(document.body.textContent).not.toContain("查看庫存");
+  await act(async () => { category.value = "進銷存"; category.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect((document.body.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
+  const search = document.body.querySelector('input[aria-label="搜尋權限"]') as HTMLInputElement;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "查看顧客"); search.dispatchEvent(new Event("input", { bubbles: true })); });
+  expect(document.body.textContent).toContain("查看顧客");
+  expect(document.body.textContent).toContain("未儲存");
+  await act(async () => root.unmount());
+});

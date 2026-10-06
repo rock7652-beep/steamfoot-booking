@@ -123,6 +123,10 @@ const updateStaffSchema = z.object({
   spaceFeeEnabled: z.boolean().optional(),
   role: z.enum(["OWNER", "MANAGER", "STAFF", "PARTNER"]).optional(),
   applyRolePreset: z.boolean().optional(),
+  phone: z.string().trim().max(30).optional(),
+  permissions: z.record(z.enum(ALL_PERMISSIONS), z.boolean()).optional(),
+  email: z.string().trim().email().optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
 const resetStaffPasswordSchema = z.object({
@@ -264,7 +268,9 @@ export async function updateStaff(
       user: { role: staff.user.role },
     });
 
-    const { role: newRole, applyRolePreset, ...staffData } = data;
+    const activationLimits = data.status === "ACTIVE" ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(writeStoreId) : null;
+    const { role: newRole, applyRolePreset, permissions, email, ...staffData } = data;
+    if (permissions && applyRolePreset) throw new AppError("VALIDATION", "請選擇角色預設或自訂權限");
     if (newRole && newRole !== staff.user.role && !canAssignStaffRole(sessionUser.role, newRole)) {
       throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     }
@@ -272,13 +278,38 @@ export async function updateStaff(
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
       const storedPermissions = (await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission).sort();
-      await readStaffManagerGrants(tx, sessionUser, writeStoreId);
+      const actorGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       if (current.userId === sessionUser.id || !canManageStaffRole(sessionUser.role, current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
-      if (newRole && newRole !== "OWNER") await assertStoreRetainsOwner(tx, writeStoreId, staffId);
+      if (data.status === "INACTIVE" || (newRole && newRole !== "OWNER")) await assertStoreRetainsOwner(tx, writeStoreId, staffId);
+      if (data.status === "ACTIVE" && current.status !== "ACTIVE" && activationLimits?.maxStaff !== null) {
+        const activeCount = await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } });
+        if (activationLimits && activeCount >= activationLimits.maxStaff!) throw new AppError("FORBIDDEN", `本店最多 ${activationLimits.maxStaff} 位可啟用人員`);
+      }
+      if (data.status === "INACTIVE" && current.user.role === "ADMIN" && await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { not: current.userId } } }) === 0) throw new AppError("FORBIDDEN", "至少須保留一位系統管理者");
+      const resultingRole = newRole ?? current.user.role;
+      const resultingPermissions = new Set(storedPermissions);
+      if (permissions) {
+        if (resultingRole === "OWNER" || resultingRole === "ADMIN") throw new AppError("FORBIDDEN", "老闆權限全開放");
+        for (const [permission, granted] of Object.entries(permissions)) {
+          if (actorGrants && resultingPermissions.has(permission) !== granted && !actorGrants.has(permission)) throw new AppError("FORBIDDEN", "只能調整自己已獲授權的功能");
+          if (granted) resultingPermissions.add(permission); else resultingPermissions.delete(permission);
+        }
+      }
       await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: staffData });
       if (newRole && newRole !== current.user.role) {
         if (current.user.role === "ADMIN" && await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", id: { not: current.userId } } }) === 0) throw new AppError("FORBIDDEN", "至少須保留一位系統管理者");
         await tx.user.update({ where: { id: current.userId }, data: { role: newRole } });
+      }
+      if (data.status !== undefined && data.status !== current.status) await tx.user.update({ where: { id: current.userId }, data: { status: data.status === "ACTIVE" ? "ACTIVE" : "SUSPENDED" } });
+      if (email !== undefined) await tx.user.update({ where: { id: current.userId }, data: { email: normalizeEmail(email) } });
+      if (permissions) {
+        for (const [permission, granted] of Object.entries(permissions)) {
+          if (storedPermissions.includes(permission) === granted) continue;
+          await tx.staffPermission.upsert({
+          where: { staffId_permission: { staffId, permission } },
+          create: { staffId, permission, granted }, update: { granted },
+          });
+        }
       }
       if (applyRolePreset) {
         if (sessionUser.role === "MANAGER") throw new AppError("FORBIDDEN", "請由老闆套用角色預設");
@@ -292,11 +323,11 @@ export async function updateStaff(
       await recordOperationAudit({
         actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
         module: "SYSTEM", targetType: "Staff", targetId: staffId, action: "UPDATE", summary: "調整人員角色與資料",
-        before: { role: current.user.role, permissions: current.user.role === "OWNER" ? [...ALL_PERMISSIONS] : storedPermissions },
-        after: { role: newRole ?? current.user.role, applyRolePreset: Boolean(applyRolePreset),
-          permissions: (newRole ?? current.user.role) === "OWNER" ? [...ALL_PERMISSIONS] : applyRolePreset ? getDefaultPermissionsForRole(newRole ?? current.user.role) : storedPermissions },
+        before: { status: current.status, role: current.user.role, permissions: current.user.role === "OWNER" ? [...ALL_PERMISSIONS] : storedPermissions },
+        after: { status: data.status ?? current.status, role: newRole ?? current.user.role, applyRolePreset: Boolean(applyRolePreset),
+          permissions: (newRole ?? current.user.role) === "OWNER" ? [...ALL_PERMISSIONS] : applyRolePreset ? getDefaultPermissionsForRole(newRole ?? current.user.role) : Array.from(resultingPermissions).sort() },
       }, tx);
-    });
+    }, { maxWait: 5_000, timeout: 15_000 });
     revalidateStaffPermissions();
     revalidateStaff();
     return { success: true, data: undefined };

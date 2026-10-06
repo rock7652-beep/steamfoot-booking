@@ -19,6 +19,7 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { Fragment, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
+import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { RightSheet } from "@/components/admin/right-sheet";
 
 import { readCourseStaffTeaching, saveCourseStaff } from "@/server/actions/course-staff";
@@ -51,8 +52,9 @@ type Person = {
   permissions: string[];
   customerId: string;
 };
-function identity(p: Pick<Person,"kind"|"coachEnabled"|"memberEnabled"|"customerId">,music=false) {
-  return p.kind === "manager" ? (p.coachEnabled ? (music?"店長兼老師":"店長兼教練"):"店長") : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? (music?"老師兼顧客":"教練兼顧客"):(music?"老師":"教練");
+function identity(p: Pick<Person,"kind"|"coachEnabled"|"memberEnabled"|"customerId"|"role">,music=false) {
+  const accountRole = p.role === "OWNER" ? "老闆" : p.role === "STAFF" ? "門市人員" : "店長";
+  return p.kind === "manager" ? (p.coachEnabled ? `${accountRole}兼${music?"老師":"教練"}` : accountRole) : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? (music?"老師兼顧客":"教練兼顧客"):(music?"老師":"教練");
 }
 const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth-200 bg-white px-3 py-2 text-base text-earth-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
 const button =
@@ -138,6 +140,8 @@ export function CourseStaffWorkspace({
   const [feesReady,setFeesReady]=useState(false);
   const [feesError,setFeesError]=useState("");
   const [reloadFees,setReloadFees]=useState(0);
+  const [backendRole, setBackendRole] = useState("STAFF");
+  const [applyRolePreset, setApplyRolePreset] = useState(false);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [permissionSearch, setPermissionSearch] = useState("");
   const [pending, start] = useTransition();
@@ -178,7 +182,7 @@ export function CourseStaffWorkspace({
       (s) =>
         (!hideTestData||!isCourseTestData(s.name)) && `${s.name} ${s.phone} ${s.email} ${s.contactEmail ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
         (filter === "all" || s.active === (filter === "active")) &&
-        (role === "all" || (role === "coach" ? s.coachEnabled : role === "both" ? s.kind === "manager" && s.coachEnabled : s.kind === role)),
+        (role === "all" || (role === "coach" ? s.coachEnabled : role === "both" ? s.kind === "manager" && s.coachEnabled : ["OWNER", "MANAGER", "STAFF"].includes(role) ? s.role === role : s.kind === role)),
     )
     .sort((a, b) => Number(b.active) - Number(a.active)||order.compare(a,b));
   const allowedPermissionCodes = permissionGroups.flatMap((group) => group.codes.map((item) => item.code));
@@ -204,6 +208,7 @@ export function CourseStaffWorkspace({
     setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? accountKind!=="manager");setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage || p?.canEdit === false);
     const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
+    setBackendRole(p?.role ?? "STAFF"); setApplyRolePreset(false);
     setPermissions((p?.permissions ?? rolePresets.STAFF ?? []).filter((permission) => allowed.has(permission)));
     setFinanceTeacherIds(p?.financeTeacherIds??financeScope);
     setPermissionSearch("");
@@ -233,7 +238,7 @@ export function CourseStaffWorkspace({
           onChange={(e)=>{setSelected([]);setRole(e.target.value);}}
         >
           <option value="all">全部角色</option>
-          <option value="manager">店長</option>
+          <option value="OWNER">老闆</option><option value="MANAGER">店長</option><option value="STAFF">門市人員</option>
           <option value="coach">{music?"老師":"教練"}</option>{staff.some(s=>s.kind==="manager"&&s.coachEnabled)&&<option value="both">舊資料兼任（待拆分）</option>}
         </select>
         <select
@@ -356,6 +361,7 @@ export function CourseStaffWorkspace({
                 const deactivating=person?.active && d.get("active")==="no";
                 if(person?.linkedStaffId && !linkedStaffId && !window.confirm("確定解除同一人連結？兩個身分及過往紀錄都會保留。"))return;
                 if(deactivating && !window.confirm(`確認停用？立即撤銷所有工作存取，${person.assignments.length} 堂未結束課次保留待交接；會員與歷史不變。`)) return;
+                if(person && kind === "manager" && backendRole !== (person.role ?? "STAFF") && !window.confirm(`確認將 ${person.name} 的後台角色改為 ${backendRole}？將依目前選定的權限儲存。`))return;
                 start(async () => {
                   try {
                     const r = await saveCourseStaff({
@@ -397,7 +403,8 @@ export function CourseStaffWorkspace({
                           ? d.get("memberEnabled") === "yes"
                           : person?.memberEnabled ?? true,
                       financeTeacherIds:music&&kind==="manager"?financeTeacherIds:undefined,
-                      backendRole: !person && kind === "manager" ? d.get("backendRole") || "STAFF" : undefined,
+                      backendRole: kind === "manager" && (!person || backendRole !== (person.role ?? "STAFF")) ? backendRole : undefined,
+                      applyRolePreset: kind === "manager" && applyRolePreset,
                       permissions:
                         kind === "manager" ? permissions : undefined,
                       requestKey: key,
@@ -587,9 +594,9 @@ export function CourseStaffWorkspace({
                 <div data-staff-tab="assignments" hidden={tab!=="assignments"}>{person?.assignments.length ? <CourseStaffAssignments items={person.assignments} label={person.active?"已排課程":"待交接課次"} fitness/> : <p className="text-sm text-earth-500">目前沒有已排課程。</p>}</div>
               </>}
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
-                {!person && kind === "manager" && <label className="block text-sm">後台角色<select name="backendRole" className={field} defaultValue="STAFF" onChange={e=>{setPermissions(rolePresets[e.target.value] ?? []);setDirty(true);}}><option value="STAFF">Staff／門市人員</option>{canAssignRoles && <><option value="MANAGER">Manager／店長</option><option value="OWNER">Owner／老闆</option></>}</select></label>}
-                {person && <a className="inline-flex min-h-11 items-center text-sm text-primary-700 underline" href={`/dashboard/staff/${person.id}/edit`}>後台角色與細項權限</a>}
-                {person?.role === "OWNER" && <p className="text-sm">Owner／老闆：授權店內全權。</p>}
+                {kind === "manager" && <StaffRoleControl role={backendRole} canAssignRoles={canAssignRoles} presets={rolePresets}
+                  onRole={value => { setBackendRole(value); setDirty(true); }}
+                  onPreset={value => { setPermissions(value); setApplyRolePreset(true); setDirty(true); }}/>}
                 {music&&<fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="rounded bg-earth-50 p-2 text-sm text-earth-700">目前可查看：{financeTeacherIds===null?"全店教師":financeTeacherIds.length?teacherChoices.filter(t=>financeTeacherIds.includes(t.id)).map(t=>t.name).join("、"):"尚未選擇教師"}。實際能查看或操作哪些資料，仍以下方拆帳／月結權限為準。</p>{financeTeacherIds!==null&&permissions.includes("teacher.settlement.confirm")&&<p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-900">「確認全店月結」需要全店教師範圍；目前指定教師範圍只可查看授權教師，請改選全店或關閉該權限。</p>}</fieldset>}
 
               {kind === "manager" && (

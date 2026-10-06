@@ -14,6 +14,7 @@ export async function listStaff(activeStoreId?: string | null) {
   return prisma.staff.findMany({
     where: { storeId },
     include: {
+      permissions: { where: { granted: true }, select: { permission: true } },
       user: { select: { id: true, name: true, email: true, phone: true, status: true, role: true } },
       _count: {
         select: { assignedCustomers: true },

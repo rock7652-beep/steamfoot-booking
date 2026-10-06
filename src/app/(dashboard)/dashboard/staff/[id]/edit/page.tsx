@@ -1,3 +1,5 @@
+import { StaffAccountRoute } from "../../staff-account-route";
+import { COURSE_PERMISSIONS, COURSE_PERMISSION_LABELS } from "@/lib/course-permissions";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff, updateStaffPermissionsAction } from "@/server/actions/staff";
@@ -40,7 +42,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
 
-  const isSteamfoot = await getStoreIndustryModule(staff.storeId) === "steamfoot";
+  const industry = await getStoreIndustryModule(staff.storeId);
+  const isSteamfoot = industry === "steamfoot";
 
   // 取得該店長的現有權限
   const storedPerms = await getStaffPermissions(id, activeStoreId!);
@@ -57,6 +60,22 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   );
 
   const actorPerms = user.role === "MANAGER" && user.staffId ? await getStaffPermissions(user.staffId, activeStoreId) : new Set<PermissionCode>(ALL_PERMISSIONS);
+
+  if (industry !== "spa") {
+    const visibleCodes = industry === "course" ? COURSE_PERMISSIONS : ALL_PERMISSIONS.filter(code => !code.startsWith("teacher."));
+    return <StaffAccountRoute person={{
+      id: staff.id, userId: staff.userId, displayName: staff.displayName, legalName: staff.user.name,
+      role: staff.user.role, permissions: Array.from(currentPerms), roleLabel: ROLE_LABELS[staff.user.role],
+      email: staff.user.email ?? "尚未設定", phone: staff.phone, colorCode: staff.colorCode, status: staff.status,
+      canEdit: canManageStaff, canResetPassword: canManageStaff, customerCount: staff._count.assignedCustomers,
+      specialties: "", specialtyKeys: [], emergencyContact: null, weeklyAvailability: [], scheduleExceptions: [], compensationMode: null, compensationValue: null,
+    }} policy={{
+      canAssignRoles: user.role === "OWNER" || user.role === "ADMIN",
+      editablePermissions: Array.from(actorPerms),
+      rolePresets: Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as const).map(role => [role, getDefaultPermissionsForRole(role)])),
+      permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: g.label, codes: g.codes.filter(c => visibleCodes.includes(c)).map(code => ({ code, label: industry === "course" ? COURSE_PERMISSION_LABELS[code] ?? PERMISSION_LABELS[code] : PERMISSION_LABELS[code] })) })).filter(g => g.codes.length),
+    }}/>;
+  }
 
   async function handleUpdate(formData: FormData) {
     "use server";

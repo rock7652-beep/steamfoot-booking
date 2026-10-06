@@ -58,3 +58,30 @@ describe("three-role account management", () => {
     expect((await activateStaff("target")).success).toBe(false); expect(m.update).not.toHaveBeenCalled();
   });
 });
+
+it("saves Staff promotion and chosen permissions in the same transaction", async () => {
+  m.session.mockResolvedValue(actor("OWNER")); m.actor.mockResolvedValue({ role: "OWNER", status: "ACTIVE" });
+  expect((await updateStaff("target", { role: "MANAGER", displayName: "升任店長", permissions: { "inventory.read": true, "inventory.cost.read": true } })).success).toBe(true);
+  expect(m.tx).toHaveBeenCalledTimes(1);
+  expect(m.userUpdate).toHaveBeenCalledWith({ where: { id: "u-target" }, data: { role: "MANAGER" } });
+  expect(m.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: { granted: true } }));
+});
+it("rejects an unauthorized combined grant before changing basic data", async () => {
+  expect((await updateStaff("target", { displayName: "不可先儲存", permissions: { "inventory.cost.read": true } })).success).toBe(false);
+  expect(m.update).not.toHaveBeenCalled(); expect(m.upsert).not.toHaveBeenCalled();
+});
+it("combined editor cannot reduce the last Owner or override Owner permissions", async () => {
+  m.session.mockResolvedValue(actor("ADMIN")); m.actor.mockResolvedValue({ role: "ADMIN", status: "ACTIVE" });
+  m.target.mockResolvedValue(target("OWNER")); m.findFirst.mockResolvedValue({ id: "target" }); m.count.mockResolvedValue(0);
+  expect((await updateStaff("target", { role: "MANAGER" })).success).toBe(false);
+  expect((await updateStaff("target", { permissions: { "inventory.read": false } })).success).toBe(false);
+  expect(m.update).not.toHaveBeenCalled(); expect(m.userUpdate).not.toHaveBeenCalled();
+});
+
+it("combined editor status changes revoke backend login and enforce activation capacity", async () => {
+  expect((await updateStaff("target", { status: "INACTIVE", displayName: "門市" })).success).toBe(true);
+  expect(m.userUpdate).toHaveBeenCalledWith({ where: { id: "u-target" }, data: { status: "SUSPENDED" } });
+  m.target.mockResolvedValue({ ...target(), status: "INACTIVE" }); m.count.mockResolvedValue(10); m.update.mockClear();
+  expect((await updateStaff("target", { status: "ACTIVE" })).success).toBe(false);
+  expect(m.update).not.toHaveBeenCalled();
+});
