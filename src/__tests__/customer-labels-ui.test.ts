@@ -32,14 +32,14 @@ it('shares the controlled picker and loads assignments even when a customer row 
   expect(change).toHaveBeenCalledWith('b');
  } finally {vi.useRealTimers();}
 });
-it('shows two labels and remaining count, and portals the dialog outside a clipped row',async()=>{await render();expect(host.textContent).toContain('＋1');expect(host.textContent).not.toContain('＋標籤');expect(host.textContent).not.toContain('重點');await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')).toBeTruthy();expect(host.querySelector('[role="dialog"]')).toBeNull();});
+it('shows two labels and remaining count, and portals the dialog outside a clipped row',async()=>{await render();expect(host.textContent).toContain('＋1');expect(host.textContent).toContain('＋標籤');expect(host.textContent).not.toContain('重點');await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')).toBeTruthy();expect(host.querySelector('[role="dialog"]')).toBeNull();});
 it('updates immediately, retains the dialog, and rolls back failed saves',async()=>{await render();await click('查看或修改顧客標籤');let finish!:(v:{success:boolean,error:string})=>void;m.save.mockReturnValue(new Promise(resolve=>finish=resolve));const button=[...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].find(b=>b.textContent?.includes('重點'))!;await act(async()=>button.click());expect(host.textContent).not.toContain('＋1');expect(document.querySelector('[role="dialog"]')).toBeTruthy();await act(async()=>finish({success:false,error:'失敗'}));expect(host.textContent).toContain('＋1');expect(m.error).toHaveBeenCalledWith('失敗');expect(m.save).toHaveBeenCalledWith({customerId:'customer',labelId:'c',selected:false});});
 it('hides disabled tags without deleting and exposes no writable buttons to readonly users',async()=>{await render({...data,enabled:false});expect(host.textContent).toBe('');expect(m.save).not.toHaveBeenCalled();await render(data,true);await click('查看或修改顧客標籤');expect([...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].every(b=>b.disabled)).toBe(true);});
 
 it("keeps the menu open while scrolling its labels, but closes when the surrounding list scrolls",async()=>{await render();await click("查看或修改顧客標籤");const dialog=document.querySelector<HTMLElement>('[role="dialog"]')!;expect(dialog.className).toContain("z-[200]");expect(dialog.querySelector("input")?.autofocus).toBe(false);await act(async()=>dialog.querySelector("span")!.dispatchEvent(new Event("scroll")));expect(document.querySelector('[role="dialog"]')).toBeTruthy();await act(async()=>host.dispatchEvent(new Event("scroll")));expect(document.querySelector('[role="dialog"]')).toBeNull();});
 it('uses quiet dot labels without an add button and opens all labels on touch',async()=>{
  await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:data,children:jsx(CustomerLabels,{customerId:'customer',variant:'dots'})})));
- expect(host.textContent).not.toContain('＋標籤');expect(host.textContent).toContain('＋1');
+ expect(host.textContent).toContain('＋標籤');expect(host.textContent).toContain('＋1');
  expect(host.querySelector('.bg-orange-500')).toBeTruthy();
  await click('查看或修改顧客標籤');expect(document.querySelector('[role="dialog"]')?.textContent).toContain('重點');
 });
@@ -85,7 +85,7 @@ it('retains cached labels when remounting a roster and refreshes in place after 
   let finish!:(value:LabelSnapshot)=>void;m.load.mockReturnValue(new Promise(resolve=>finish=resolve));
   await act(async()=>{vi.advanceTimersByTime(60_001);window.dispatchEvent(new Event('focus'));});
   expect(m.load).toHaveBeenCalledTimes(1);expect(host.textContent).toContain('初次');
-  await act(async()=>finish({...data,assignments:{customer:['b']}}));expect(host.textContent).toBe('常客');
+  await act(async()=>finish({...data,assignments:{customer:['b']}}));expect(host.textContent).toBe('常客＋標籤');
  } finally {vi.useRealTimers();}
 });
 it('batches new rows and preserves previously loaded customers while fetching another',async()=>{
@@ -154,3 +154,14 @@ it.each([1,9999999999999])('accepts newer requests and rejects stale snapshots r
 });
 
 it('accepts newly navigated server data after previous client reads',async()=>{const prior={...data,fetchedAt:1000,clientRevision:nextCustomerLabelRevision(),assignments:{customer:['a']}};const navigated={...data,fetchedAt:2000,assignments:{customer:['b']}};await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:prior,children:jsx(CustomerLabelsSeed,{initial:navigated,children:jsx(CustomerLabels,{customerId:'customer'})})})));expect(host.textContent).toContain('常客');expect(host.textContent).not.toContain('初次');});
+
+it('retains the add control for an editable empty customer even when hideEmpty is requested',async()=>{
+ const empty={...data,assignments:{customer:[]}};
+ await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:empty,children:jsx(CustomerLabels,{customerId:'customer',hideEmpty:true})})));
+ expect(host.textContent).toContain('＋標籤');
+ await click('查看或修改顧客標籤');
+ const tag=[...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')].find(b=>b.textContent?.includes('初次'))!;
+ await act(async()=>tag.click());
+ expect(m.save).toHaveBeenCalledWith({customerId:'customer',labelId:'a',selected:true});
+ expect(host.textContent).toContain('初次');
+});
