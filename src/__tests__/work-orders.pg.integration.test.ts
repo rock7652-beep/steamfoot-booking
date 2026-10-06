@@ -108,6 +108,29 @@ pg("work-order production paths — canonical inventory receipts", () => {
     expect(await stock()).toBe(8);expect((await cash()).cashbookCashIncome.toNumber()).toBe(1200);await assertAccounts();
   });
   it("independent concurrent receipts cannot overcollect",async()=>{const id=await order();const r=await Promise.all([collectWorkOrderAction(pay(id,800)),collectWorkOrderAction(pay(id,800))]);expect(r.filter(r=>r.success)).toHaveLength(1);expect((await db.inventoryOrder.findUniqueOrThrow({where:{id}})).paid).toBe(800);await assertAccounts();});
+  it("partial cash and final transfer reconcile without a second stock deduction",async()=>{
+    const id=await order();
+    expect((await collectWorkOrderAction(pay(id,400))).success).toBe(true);
+    expect((await db.inventoryOrder.findUniqueOrThrow({where:{id}})).paid).toBe(400);
+    expect((await collectWorkOrderAction(pay(id,800,"轉帳"))).success).toBe(true);
+    const saved=await db.inventoryOrder.findUniqueOrThrow({where:{id}});
+    expect(saved.total-saved.paid).toBe(0);expect(await stock()).toBe(8);
+    expect((await cash()).cashbookCashIncome.toNumber()).toBe(400);
+    const entries=await db.cashbookEntry.findMany({where:{storeId}});
+    expect(entries).toHaveLength(2);expect(entries.every(e=>e.category==="工單收入")).toBe(true);
+    expect(entries.reduce((sum,e)=>sum+Number(e.amount),0)).toBe(1200);await assertAccounts();
+  });
+  it("material edits apply only their stock difference and reject reducing below money collected atomically",async()=>{
+    const id=await order();
+    expect((await saveWorkOrderAction(job({id,revision:1,lines:[{...job().lines[0],quantity:1}]}))).success).toBe(true);
+    expect(await stock()).toBe(9);
+    expect((await collectWorkOrderAction(pay(id,1000,"轉帳"))).success).toBe(true);
+    const before=await db.inventoryOrder.findUniqueOrThrow({where:{id}});
+    expect((await saveWorkOrderAction(job({id,revision:before.revision,labor:0,lines:[]}))).success).toBe(false);
+    const after=await db.inventoryOrder.findUniqueOrThrow({where:{id}});
+    expect(after.total).toBe(1000);expect(after.paid).toBe(1000);expect(after.revision).toBe(before.revision);
+    expect(await stock()).toBe(9);await assertAccounts();
+  });
   it("status changes are version guarded and do not imply payment or alter stock",async()=>{
     const id=await order();const input={requestId:randomUUID(),id,revision:1,status:"COLLECTED"};const r=await changeWorkOrderStatusAction(input);expect(r.success).toBe(true);expect(await changeWorkOrderStatusAction(input)).toEqual(r);
     const saved=await db.inventoryOrder.findUniqueOrThrow({where:{id}});expect(saved.paid).toBe(0);expect(await stock()).toBe(8);
