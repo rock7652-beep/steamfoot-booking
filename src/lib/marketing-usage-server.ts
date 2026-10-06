@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { verifiedMarketingUsageSnapshot, type MarketingUsageSnapshot } from "@/lib/marketing-usage-snapshot";
 
-export const MARKETING_USAGE_TAG = "marketing-usage-v2";
+export const MARKETING_USAGE_TAG = "marketing-usage-v3";
 
 // One read-only statement produces a consistent snapshot across all modules.
 export async function calculateMarketingUsage(now = new Date()): Promise<MarketingUsageSnapshot> {
@@ -14,7 +14,13 @@ export async function calculateMarketingUsage(now = new Date()): Promise<Marketi
   const rows = await prisma.$queryRaw<{ stores: bigint; customers: bigint; completed_people: bigint }[]>`
     WITH eligible AS (
       SELECT id FROM "Store"
-      WHERE NOT "isDemo" AND "operatingStatus" = 'ACTIVE' AND plan <> 'EXPERIENCE'
+      WHERE NOT "isDemo" AND (
+        ("operatingStatus" = 'ACTIVE' AND plan <> 'EXPERIENCE') OR (
+          "operatingStatus" IN ('ACTIVE','TRIAL') AND plan = 'EXPERIENCE'
+          AND "planStatus" = 'TRIAL' AND "planEffectiveAt" IS NOT NULL
+          AND "planEffectiveAt" <= ${timestampCutoff}
+          AND "planExpiresAt" >= ${cutoff}::date
+        ))
     ), served AS (
       SELECT b."storeId", b."customerId", COALESCE(b."attendedPeople", b.people)::bigint AS people
       FROM "Booking" b JOIN eligible s ON s.id = b."storeId"
