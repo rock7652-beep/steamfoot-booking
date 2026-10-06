@@ -30,8 +30,8 @@ const groups = [
   { title: "經營功能", note: "顧客標籤各版本皆內含；進銷存、工單各項皆須額外加購。", choices: [{ plan: "基本版", count: "", suffix: "", detail: "其餘經營功能依需求加購。" }, { plan: "專業版", count: "3 選 1", detail: "顧客經營與分析內含；健康追蹤／月結管理／課程候補，", suffix: "，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "以下經營功能內含；進銷存與工單各項額外加購。" }], rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
     { label: "顧客標籤", values: ["內含", "內含", "內含"] },
-    { label: "進銷存管理", values: ["加購", "加購", "加購"] },
-    { label: "工單管理", values: ["加購", "加購", "加購"] },
+    { label: "進銷存管理", values: ["另購", "另購", "另購"] },
+    { label: "工單管理", values: ["另購", "另購", "另購"] },
     { label: "健康追蹤", values: ["加購", "可選配", "內含"] },
     { label: "月結管理", values: ["加購", "可選配", "內含"] },
     { label: "分析", values: ["加購", "內含", "內含"] },
@@ -75,7 +75,7 @@ function OnlinePayment() {
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
-    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">可選配：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">加購：</strong>額外付費。</p>
+    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">可選配：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">加購／另購：</strong>額外付費。</p>
     <p className="mt-2 text-sm leading-6 text-[#4C6259]">選配名額內不另收費，超出名額才需加購。進銷存與工單不列入免費選配，各付費方案皆額外加購，每項原價 NT$800／月。</p>
     <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
     <div className="mt-4 rounded-xl border border-[#153B31]/15 bg-white px-4 py-3 text-base leading-7">
@@ -91,8 +91,8 @@ function FeatureComparison() {
       {groups.map(group => <tbody key={group.title}>
         <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span><ul className="mt-2 space-y-1 text-sm font-normal leading-6 text-[#4C6259]">{group.choices.map(choice => <li key={choice.plan}><span className="font-semibold">{choice.plan}：</span>{choice.detail}{choice.count && <strong className="text-[#153B31]">{choice.count}</strong>}{choice.suffix}</li>)}</ul></th></tr>
         {group.rows.map(row => <tr key={row.label}>
-          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
-          {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
+          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={row.label === "進銷存管理" || row.label === "工單管理" ? "#addons" : "/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
+          {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" || value === "另購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
         </tr>)}
       </tbody>)}
       <tbody>

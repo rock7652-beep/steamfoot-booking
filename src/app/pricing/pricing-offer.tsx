@@ -83,13 +83,25 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
       <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>
     </div>}
     <div className="mt-3 grid gap-3 md:grid-cols-2">
-      {[{ name: "工具功能", features: "資料匯出／現金抽屜", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", features: "顧客經營／健康追蹤／月結管理／課程候補／分析／進銷存管理／工單管理", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className={"grid grid-rows-subgrid gap-y-0 rounded-xl border border-[#153B31]/15 bg-white p-4 " + (offer.active ? "row-span-6" : "row-span-5")}>
+      {[{ name: "工具功能", features: "資料匯出／現金抽屜", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", features: "顧客經營／健康追蹤／月結管理／課程候補／分析／進銷存管理／工單管理", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className="flex min-w-0 flex-col rounded-xl border border-[#153B31]/15 bg-white p-4">
         <h3 className="text-lg font-semibold">{item.name}</h3>
         <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.features}・各項分別選購</p>
         {offer.active && <p className="mt-1 text-sm text-[#64756D] line-through">原價每項 NT${money(item.original)}／月</p>}
         <p className="mt-2 text-base">{offer.active ? "年繳優惠月費" : "年繳計價月費"} <span className="text-3xl font-semibold">NT${money(item.monthly)}</span>／月</p>
         <p className="mt-2 text-base font-semibold">每項年繳 NT${money(item.monthly * 12)}・一次繳清</p>
         <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active && <span className="mb-1 block text-lg">每項年繳省 NT${money((item.original - item.monthly) * 12)}</span>}{offer.months === 14 ? "12 個月＋贈送 2 個月，使用 14 個月" : "使用 12 個月"}</p>
+        {item.original === 800 && <div className="mt-4 border-t border-[#153B31]/15 pt-3">
+          <p className="text-sm leading-6 text-[#4C6259]">進銷存與工單可分別開通，各付費版本皆可加購；不列入免費選配，展店版亦不內含。</p>
+          <div className="mt-3 grid gap-3 xl:grid-cols-2">
+            {[{ id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" }, { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "接件、進度、材料工費、收款與取件集中管理，支援工單列印，快速掌握進度與欠款。" }].map(addon => <section key={addon.id} className="min-w-0 rounded-lg bg-[#F8F5EE] p-3">
+              <h4 className="text-base font-semibold leading-6">{addon.name}</h4>
+              <p className="mt-1 text-sm leading-6 text-[#4C6259]">{addon.description}</p>
+              <p className="mt-2 text-sm font-semibold">每項原價 NT$800／月</p>
+              <a href={"/pricing/features#" + addon.id} className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2">查看{addon.id === "inventory" ? "進銷存" : "工單"}功能說明 →</a>
+            </section>)}
+          </div>
+          <p className="mt-2 text-sm leading-6 text-[#4C6259]">工單可獨立使用；加入商品材料與扣庫存，需搭配已開通的進銷存及相應人員權限。</p>
+        </div>}
       </article>)}
     </div>
     <p className="mt-3 text-sm leading-6 text-[#4C6259]">加購採年繳，與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
