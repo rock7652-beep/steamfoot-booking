@@ -12,7 +12,7 @@ const GuideContext = createContext<{ open: () => void; register: (status?: strin
 export function OperationGuideTrigger() {
   const guide = useContext(GuideContext);
   if (!guide) return null;
-  return <button type="button" onClick={guide.open} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-gold-300 bg-white px-3 text-sm font-semibold text-primary-800">？操作指南</button>;
+  return <button type="button" onClick={guide.open} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm font-semibold text-primary-800 hover:bg-earth-100 focus-visible:outline-2 focus-visible:outline-primary-500">？操作指南</button>;
 }
 
 /** Register context only; the header remains the sole help entry. */
