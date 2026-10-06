@@ -29,7 +29,7 @@ export async function getCourseExpiryCandidates(storeId:string,now=new Date()) {
 
 export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:string) {
   const summary={total:0,sent:0,skipped:0,failed:0};
-  const settings=await prisma.messageTemplate.findMany({where:{id:{startsWith:"course-expiry-reminder-enabled:"},body:"enabled",...(onlyStoreId?{storeId:onlyStoreId}:{}),store:{industryModule:"COURSE"}},include:{store:{select:{id:true,slug:true}}}});
+  const settings=await prisma.messageTemplate.findMany({where:{id:{startsWith:"course-expiry-reminder-enabled:"},body:"enabled",...(onlyStoreId?{storeId:onlyStoreId}:{}),store:{industryModule:"COURSE"}},include:{store:{select:{id:true,slug:true,name:true}}}});
   for(const setting of settings) {
     const store=setting.store;
     if(!store || setting.id!==courseExpirySettingId(store.id) || !(await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))) continue;
@@ -51,7 +51,7 @@ export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:strin
             const current=await tx.$queryRaw<Array<{remaining:number;held:number}>>`SELECT c.remaining,COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held FROM "CoursePointCard" c WHERE c.id=${candidate.card.id} AND c."storeId"=${store.id} AND c."planId"=${candidate.card.planId} AND c."closedAt" IS NULL AND c."expiresAt"=${candidate.card.expiresAt} AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;
             if(!current[0] || current[0].remaining<=current[0].held) return "SKIPPED";
             const url=courseMemberNotificationUrl(store.slug,"plans");
-            const messages=buildPlanExpiryLineMessages({customerName:person.name,planName:candidate.card.nameSnapshot,remainingSessions:current[0].remaining-current[0].held,expiryDate:new Date(candidate.date+"T00:00:00Z"),daysUntilExpiry:candidate.days,storeSlug:store.slug,course:{unit:candidate.card.unit==="SESSION"?"SESSION":"POINT",remaining:current[0].remaining,held:current[0].held,url:url.toString(),bookingUrl:courseMemberNotificationUrl(store.slug,"schedule",undefined,"book").toString(),purchaseUrl:courseMemberNotificationUrl(store.slug,"shop",undefined,"book").toString()}});
+            const messages=buildPlanExpiryLineMessages({customerName:person.name,planName:candidate.card.nameSnapshot,remainingSessions:current[0].remaining-current[0].held,expiryDate:new Date(candidate.date+"T00:00:00Z"),daysUntilExpiry:candidate.days,storeSlug:store.slug,course:{storeName:store.name,unit:candidate.card.unit==="SESSION"?"SESSION":"POINT",remaining:current[0].remaining,held:current[0].held,url:url.toString(),bookingUrl:courseMemberNotificationUrl(store.slug,"schedule",undefined,"book").toString(),purchaseUrl:courseMemberNotificationUrl(store.slug,"shop",undefined,"book").toString()}});
             await tx.messageLog.upsert({where:{id},create:{id,templateId:setting.id,storeId:store.id,customerId:person.id,courseCardId:candidate.card.id,channel:"LINE",status:"PENDING",renderedBody:messages[0].altText},update:{status:"PENDING",errorMessage:null}});
             return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages,retryKey:key,now});
           },{timeout:25000});

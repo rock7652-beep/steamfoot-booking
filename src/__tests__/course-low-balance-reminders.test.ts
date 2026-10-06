@@ -77,3 +77,7 @@ it("uses a separate used-up phase and keeps held reservations out of consumption
  expect(finished).toContain("購買／續購方案");
  expect(finished).not.toContain("立即預約");
 });
+
+it("includes the store name when consulting through a shared official account",()=>{
+ expect(JSON.stringify(courseLowBalanceMessages("最後一堂","a",false,false,"IDO新莊館"))).toContain("我想詢問 IDO新莊館 的課程方案");
+});
