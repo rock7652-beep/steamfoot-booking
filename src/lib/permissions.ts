@@ -55,6 +55,7 @@ export function isNonOwnerStaff(role: UserRole | string): boolean {
 // ============================================================
 
 export const ALL_PERMISSIONS = [
+  "work_order.read", "work_order.write",
   "inventory.read", "inventory.write", "inventory.manage", "inventory.cost.read", "inventory.receive", "inventory.purchase.pay", "inventory.price.manage", "inventory.price.override",
   // 顧客
   "customer.read",
@@ -121,6 +122,7 @@ export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
 
 // 權限分類（UI 用）
 export const PERMISSION_GROUPS: Record<string, { label: string; codes: PermissionCode[] }> = {
+  work_order: {label:"工單",codes:["work_order.read","work_order.write"]},
   inventory: {label:"進銷存",codes:["inventory.read","inventory.write","inventory.manage","inventory.cost.read","inventory.receive","inventory.purchase.pay","inventory.price.manage","inventory.price.override"]},
   customer: {
     label: "顧客管理",
@@ -183,6 +185,8 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
 
 // 權限代碼 → 中文說明
 export const PERMISSION_LABELS: Record<PermissionCode, string> = {
+  "work_order.read":"查看工單",
+  "work_order.write":"編輯工單、更新進度與收款",
   "inventory.read":"查看進銷存",
   "inventory.write":"銷貨編輯與收款",
   "inventory.manage":"管理商品、進貨與盤點",

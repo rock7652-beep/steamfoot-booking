@@ -7,7 +7,7 @@ import type { CourseSettingsSectionInput } from "@/lib/course-settings-sections"
 
 type Field = { key: string; label: string; type?: "text" | "url" | "number"; max?: number };
 const fields: Record<CourseSettingsSectionInput["section"], Field[]> = {
-  store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "address", label: "店家地址", max: 300 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
+  store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "address", label: "店家地址", max: 300 }, { key: "shopPhone", label: "店家電話", max: 50 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialId", label: "官方 LINE ID", max: 100 }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
   booking: [{ key: "bookingLeadMinutes", label: "預約截止時間", type: "number" }, { key: "cancellationLeadMinutes", label: "自行取消截止時間", type: "number" }],
   payment: [{ key: "bankName", label: "銀行名稱", max: 100 }, { key: "bankCode", label: "銀行代號", max: 20 }, { key: "bankAccountNumber", label: "銀行帳號", max: 50 }],
 };

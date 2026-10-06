@@ -73,6 +73,11 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
+  if (feature === FEATURES.WORK_ORDERS) {
+    const grant = await getActiveStoreFeatureEntitlement(storeId, feature);
+    if (grant) return grant.status === "ENABLED";
+    return (await getStoreForPlanByStoreId(storeId)).plan === "EXPERIENCE";
+  }
   if (feature === FEATURES.INVENTORY) {
     const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
     return inventoryFeatureAllowed(store.plan, grant);
@@ -138,6 +143,12 @@ export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boole
 /** Shares the same entitlement dates and effective authorization as server actions. */
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
+  if(feature===FEATURES.WORK_ORDERS){
+    const grant=await getActiveStoreFeatureEntitlement(storeId,feature);
+    if(!grant)return await hasStoreFeature(storeId,feature)?"ENABLED":"HIDDEN";
+    if(grant.status==="HIDDEN")return "HIDDEN";
+    return grant.status==="ENABLED"?"ENABLED":"LOCKED";
+  }
   if (feature === FEATURES.INVENTORY) return await hasStoreFeature(storeId,feature) ? "ENABLED" : "HIDDEN";
   if (isSpaDemoStoreId(storeId)) return "ENABLED";
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);

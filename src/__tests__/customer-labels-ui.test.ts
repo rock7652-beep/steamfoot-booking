@@ -165,3 +165,9 @@ it('retains the add control for an editable empty customer even when hideEmpty i
  expect(m.save).toHaveBeenCalledWith({customerId:'customer',labelId:'a',selected:true});
  expect(host.textContent).toContain('初次');
 });
+
+it('shows every selected badge in a work-order customer summary',async()=>{
+ await act(async()=>root.render(jsx(CustomerLabelsProvider,{initial:data,children:jsx(CustomerLabels,{customerId:'customer',variant:'badge',displayOnly:true,readOnly:true,maxVisible:99})})));
+ expect(host.textContent).toContain('初次');expect(host.textContent).toContain('常客');expect(host.textContent).toContain('重點');expect(host.textContent).not.toContain('＋1');
+ expect(host.querySelector('.text-sm')).not.toBeNull();expect(host.querySelector('button')).toBeNull();
+});

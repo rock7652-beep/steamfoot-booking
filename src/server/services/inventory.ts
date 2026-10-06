@@ -11,10 +11,11 @@ import { hasDataExportFeature } from "@/lib/data-export-gate";
 import { categoryPrice, productDetails, publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryData, type InventoryOrderView, type ReceivingLine, type ReceivingView } from "@/lib/inventory";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { LABOR_PRODUCT_ID, workOrderDetails, formatWorkOrderNumber, type WorkOrderDetails } from "@/lib/work-orders";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 export type InventoryContext = Awaited<ReturnType<typeof inventoryContext>>;
 export function assertInventoryPreviewIsolation(env: Record<string, string | undefined> = process.env) {
-    if (env.VERCEL_ENV !== "preview" || env.VERCEL_GIT_COMMIT_REF !== "feat/inventory-workspace-20261005") return;
+    if (env.VERCEL_ENV !== "preview" || !["feat/inventory-workspace-20261005","feat/work-orders-20261006"].includes(env.VERCEL_GIT_COMMIT_REF || "")) return;
     const isolated = (value: string | undefined) => {
         try {
             const url = new URL(value || "");
@@ -28,19 +29,20 @@ export function assertInventoryPreviewIsolation(env: Record<string, string | und
     if (![env.DATABASE_URL, env.DIRECT_URL].every(isolated))
         throw new AppError("FORBIDDEN", "測試版尚未設定隔離資料庫，進銷存操作已暫停");
 }
-export async function inventoryContext(permission: "inventory.read" | "inventory.write" | "inventory.manage" | "inventory.receive" | "inventory.purchase.pay" = "inventory.read") {
+export async function inventoryContext(permission: "inventory.read" | "inventory.write" | "inventory.manage" | "inventory.receive" | "inventory.purchase.pay" | "work_order.read" | "work_order.write" = "inventory.read") {
     assertInventoryPreviewIsolation();
     const user = await requirePermission(permission);
-    const storeId = permission === "inventory.read" ? await getActiveStoreForRead(user) : await resolveWriteStoreId(user);
+    const storeId = permission.endsWith(".read") ? await getActiveStoreForRead(user) : await resolveWriteStoreId(user);
     if (!storeId)
         throw new AppError("VALIDATION", "請先選擇門市");
     // Authoritative reads: do not use the sidebar's entitlement cache for transactions.
+    const isWorkOrder = permission.startsWith("work_order.");
     const [store, grant] = await Promise.all([
         prisma.store.findUnique({ where: { id: storeId }, select: { plan: true } }),
-        prisma.storeFeatureEntitlement.findUnique({ where: { uq_store_feature_entitlement: { storeId, featureKey: "inventory" } } }),
+        prisma.storeFeatureEntitlement.findUnique({ where: { uq_store_feature_entitlement: { storeId, featureKey: isWorkOrder ? "work_orders" : "inventory" } } }),
     ]);
-    if (!store || !inventoryFeatureAllowed(store.plan, grant))
-        throw new AppError("FORBIDDEN", "進銷存尚未開通");
+    if (!store || (isWorkOrder ? !(grant?.status === "ENABLED" && (!grant.startsAt || grant.startsAt <= new Date()) && (!grant.expiresAt || grant.expiresAt >= new Date())) : !inventoryFeatureAllowed(store.plan, grant)))
+        throw new AppError("FORBIDDEN", isWorkOrder ? "工單尚未開通" : "進銷存尚未開通");
     const canCost = await checkPermission(user.role, user.staffId, "inventory.cost.read");
     return { user, storeId, canCost, permission };
 }
@@ -79,6 +81,10 @@ export async function inventoryTransaction<T>(ctx: InventoryContext, work: (tx: 
         // Store row lock serializes stock, receipt, count and replay checks. No client balances trusted.
         await tx.$queryRaw `SELECT "id" FROM "Store" WHERE "id"=${ctx.storeId} FOR UPDATE`;
         const access = await inventoryTransactionAccess(tx, ctx);
+        if (ctx.permission?.startsWith("work_order.")) {
+            const grant = await tx.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId:ctx.storeId,featureKey:"work_orders"}}});
+            if (!(grant?.status === "ENABLED" && (!grant.startsAt || grant.startsAt <= new Date()) && (!grant.expiresAt || grant.expiresAt >= new Date()))) throw new AppError("FORBIDDEN", "工單已停用");
+        }
         if (!access(ctx.permission ?? "inventory.write") || (postsCash && !access("cashbook.create")))
             throw new AppError("FORBIDDEN", "操作權限已撤銷，請重新整理");
         return work(tx, access);
@@ -97,17 +103,18 @@ export async function writeInventoryCash(ctx: InventoryContext, tx: Prisma.Trans
     method: string;
     total: number;
     freight: number;
+    workOrderAmount?: number;
     partyId: string;
 }) {
     if (input.method === "現金") {
         await lockCashDay(tx, ctx.storeId, input.date);
     }
-    const common = { storeId: ctx.storeId, entryDate: input.date, paymentMethod: input.method === "現金" ? "CASH" as const : "OTHER" as const, createdByUserId: ctx.user.id, staffId: ctx.user.staffId, customerId: input.kind === "SALE" ? input.partyId : null, note: `進銷存 ${input.paymentId}・${input.method}` };
+    const common = { storeId: ctx.storeId, entryDate: input.date, paymentMethod: input.method === "現金" ? "CASH" as const : "OTHER" as const, createdByUserId: ctx.user.id, staffId: ctx.user.staffId, customerId: input.kind === "SALE" ? input.partyId : null, note: `${input.workOrderAmount ? "工單／銷貨" : "進銷存"} ${input.paymentId}・${input.method}` };
     if (input.kind === "PURCHASE")
         await tx.cashbookEntry.create({ data: { id: `inventory:${input.paymentId}:purchase`, ...common, type: "EXPENSE", category: "進銷存進貨", amount: input.total } });
     else {
         if (input.total - input.freight > 0)
-            await tx.cashbookEntry.create({ data: { id: `inventory:${input.paymentId}:goods`, ...common, type: "INCOME", category: "零售-商品銷售", amount: input.total - input.freight } });
+            await tx.cashbookEntry.create({ data: { id: `inventory:${input.paymentId}:goods`, ...common, type: "INCOME", category: "零售-商品銷售", amount: input.total - input.freight, ...(input.workOrderAmount === input.total - input.freight ? {category:"工單收入"} : {}) } });
         if (input.freight > 0)
             await tx.cashbookEntry.create({ data: { id: `inventory:${input.paymentId}:freight`, ...common, type: "INCOME", category: "運費收入", amount: input.freight } });
     }
@@ -130,7 +137,7 @@ export async function createInventoryPayment(ctx: InventoryContext, tx: Prisma.T
             throw new AppError("FORBIDDEN", "沒有進貨付款或成本權限");
     }
     uniqueIds(input.allocations.map(a => a.orderId));
-    let partyId = "", partyName = "", partyPhone = "", freight = 0, total = 0;
+    let partyId = "", partyName = "", partyPhone = "", freight = 0, total = 0, workOrderAmount = 0;
     const snapshots = [];
     for (const a of input.allocations) {
         const o = await tx.inventoryOrder.findFirst({ where: { storeId: ctx.storeId, id: a.orderId, kind: input.kind } });
@@ -141,14 +148,22 @@ export async function createInventoryPayment(ctx: InventoryContext, tx: Prisma.T
         partyId = o.partyId;
         partyName = o.partyName;
         partyPhone = o.partyPhone;
+        if (ctx.permission === "work_order.write" && !workOrderDetails(o.workOrder)) throw new AppError("NOT_FOUND","找不到工單");
+        if (ctx.permission !== "work_order.write" && workOrderDetails(o.workOrder)) {
+            const access=await inventoryTransactionAccess(tx,ctx);
+            if (!access("work_order.write")) throw new AppError("FORBIDDEN","沒有工單收款權限");
+            const grant=await tx.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId:ctx.storeId,featureKey:"work_orders"}}});
+            if (!(grant?.status==="ENABLED" && (!grant.startsAt||grant.startsAt<=new Date()) && (!grant.expiresAt||grant.expiresAt>=new Date()))) throw new AppError("FORBIDDEN","工單已停用");
+        }
         const goods = o.total - o.freight;
         freight += Math.max(0, o.paid + a.amount - goods) - Math.max(0, o.paid - goods);
         total += a.amount;
+        if(workOrderDetails(o.workOrder))workOrderAmount += a.amount;
         snapshots.push({ ...a, remainingAfter: o.total - o.paid - a.amount });
         await tx.inventoryOrder.update({ where: { id: o.id }, data: { paid: { increment: a.amount }, revision: { increment: 1 } } });
     }
     const p = await tx.inventoryPayment.create({ data: { storeId: ctx.storeId, requestId: input.requestId, requestHash: input.requestHash, kind: input.kind, date: input.date, method: input.method, partyId, partyName, partyPhone, total, allocations: snapshots, actorId: ctx.user.id } });
-    await writeInventoryCash(ctx, tx, { ...input, paymentId: p.id, partyId, total, freight });
+    await writeInventoryCash(ctx, tx, { ...input, paymentId: p.id, partyId, total, freight, workOrderAmount });
     await inventoryAudit(ctx, tx, "InventoryPayment", p.id, input.kind === "SALE" ? "建立收款單" : "登錄廠商付款", input.kind === "SALE" ? {total,method:input.method,allocations:snapshots} : undefined);
     return p;
 }
@@ -174,11 +189,13 @@ export async function inventoryData(ctx: InventoryContext): Promise<InventoryDat
     return { receivings, canReceive, canPurchasePay, canPriceManage,canPriceOverride, store: {id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null}, canCost: ctx.canCost, canWrite, canManage, canExport, canCreateCustomer,
         products: products.map(p => ({ ...productDetails(p.details), id: p.id, name: p.name, stock: p.stock, price: p.price, active: p.active, revision: p.revision, ...(ctx.canCost ? { averageCost: Number(p.averageCost),costPending:Object.keys((p.pendingCosts||{}) as Record<string,number>).length>0 } : {}) })),
         suppliers: suppliers.map(s => ({ id: s.id, name: s.name, contact: s.contact, phone: s.phone, address: s.address, active: s.active })),
-        orders: orders.map(o => ({ actorName:actorNames.get(o.actorId)||"", id: o.id, priceCategory:(o.priceCategory || "GENERAL") as InventoryOrderView["priceCategory"], kind: o.kind, date: o.date.toISOString().slice(0, 10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone, lines: publicLines(o.lines as unknown as InventoryLine[], ctx.canCost), freight: o.freight, delivery: o.delivery, channel: o.channel, shippingNote: o.shippingNote, internalNote: o.internalNote, total: o.total, paid: o.paid, revision: o.revision })),
+        orders: orders.map(o => ({ workOrder:workOrderDetails(o.workOrder), actorName:actorNames.get(o.actorId)||"", id: o.id, workOrderNumber:o.workOrderNumber, priceCategory:(o.priceCategory || "GENERAL") as InventoryOrderView["priceCategory"], kind: o.kind, date: o.date.toISOString().slice(0, 10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone, lines: publicLines(o.lines as unknown as InventoryLine[], ctx.canCost), freight: o.freight, delivery: o.delivery, channel: o.channel, shippingNote: o.shippingNote, internalNote: o.internalNote, total: o.total, paid: o.paid, revision: o.revision })),
         payments: payments.map(p => ({ actorName:actorNames.get(p.actorId)||"", id: p.id, kind: p.kind, partyId: p.partyId, partyName: p.partyName, partyPhone: p.partyPhone, date: p.date.toISOString().slice(0, 10), method: p.method, total: p.total, allocations: p.allocations as unknown as InventoryData["payments"][number]["allocations"] })),
         counts: counts.map(c => ({ id: c.id, date: c.date.toISOString().slice(0, 10), reason: c.reason, actorName: c.actorName, createdAt: c.createdAt.toISOString(), lines: c.lines as unknown as InventoryData["counts"][number]["lines"] })), customers };
 }
-export async function saveInventoryOrder(ctx: InventoryContext, input: import("@/lib/inventory").OrderInput) {
+export async function saveInventoryOrder(ctx: InventoryContext, input: import("@/lib/inventory").OrderInput & { workOrder?: WorkOrderDetails }) {
+    const isWorkOrder = ctx.permission === "work_order.write";
+    if (!!input.workOrder !== isWorkOrder) throw new AppError("FORBIDDEN", "工單須從工單入口操作");
     if (input.kind === "PURCHASE") {
         ensureCost(ctx);
         if (input.paid > 0) await requirePermission("inventory.purchase.pay");
@@ -198,6 +215,7 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         const existing = input.id ? await tx.inventoryOrder.findFirst({ where: { id: input.id, storeId: ctx.storeId, kind: "SALE" } }) : null;
         if (input.id && (!existing || input.kind !== "SALE"))
             throw new AppError("NOT_FOUND", "找不到銷貨單");
+        if (existing && !!workOrderDetails(existing.workOrder) !== isWorkOrder) throw new AppError("FORBIDDEN", "請從原單據入口編輯");
         if (existing && (existing.revision !== input.revision || existing.partyId !== input.partyId))
             throw new AppError("CONFLICT", "單據已更新或顧客已變更，請重新開啟");
         const party = input.kind === "SALE" ? await tx.customer.findFirst({ where: { id: input.partyId, storeId: ctx.storeId, mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } } }) : await tx.inventorySupplier.findFirst({ where: { id: input.partyId, storeId: ctx.storeId, active: true } });
@@ -205,10 +223,25 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
             throw new AppError("NOT_FOUND", "請重新選擇顧客或廠商");
         const original = existing?.lines as unknown as InventoryLine[] | undefined;
         const beforeAudit = existing ? {priceCategory:existing.priceCategory||"GENERAL",date:existing.date.toISOString().slice(0,10),total:existing.total,paid:existing.paid,freight:existing.freight,lines:publicLines(original||[],false)} as unknown as Prisma.InputJsonValue : undefined;
-        const originalQuantities = new Map((original || []).map(l => [l.productId, l.quantity]));
+        if (isWorkOrder && (original || []).some(l=>l.productId!==LABOR_PRODUCT_ID)) {
+            const store = await tx.store.findUnique({where:{id:ctx.storeId},select:{plan:true}});
+            const grant = await tx.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId:ctx.storeId,featureKey:"inventory"}}});
+            if (!store || !inventoryFeatureAllowed(store.plan,grant) || !access("inventory.write")) throw new AppError("FORBIDDEN","商品異動須開通進銷存並具銷貨權限");
+        }
+        const originalQuantities = new Map((original || []).filter(l=>l.productId!==LABOR_PRODUCT_ID).map(l => [l.productId, l.quantity]));
         const lines: InventoryLine[] = [];
         let total = 0;
         for (const l of input.lines) {
+            if (l.productId === LABOR_PRODUCT_ID) {
+                if (!isWorkOrder || l.quantity !== 1 || l.gift || l.discount !== 0 || l.discountMode !== "NONE" || !Number.isInteger(l.unitPrice) || l.unitPrice < 0 || l.unitPrice > 2147483647) throw new AppError("VALIDATION", "工費不正確");
+                lines.push({...l,name:"工費",unit:"式",total:l.unitPrice,cost:0});
+                total += l.unitPrice;
+                continue;
+            }
+            if (isWorkOrder) {
+                const [store,grant] = await Promise.all([tx.store.findUnique({where:{id:ctx.storeId},select:{plan:true}}),tx.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId:ctx.storeId,featureKey:"inventory"}}})]);
+                if (!store || !inventoryFeatureAllowed(store.plan,grant) || !access("inventory.write")) throw new AppError("FORBIDDEN","加入商品須開通進銷存並具銷貨權限");
+            }
             const p = await tx.inventoryProduct.findFirst({ where: { id: l.productId, storeId: ctx.storeId, ...(originalQuantities.has(l.productId) ? {} : { active: true }) } });
             if (!p)
                 throw new AppError("NOT_FOUND", "商品不存在或已停用");
@@ -251,13 +284,20 @@ export async function saveInventoryOrder(ctx: InventoryContext, input: import("@
         }
         const freight = input.kind === "SALE" && input.delivery === "寄送" ? input.freight : 0;
         total += freight;
-        if (total > 100000000 || input.paid > total)
+        if (total > (isWorkOrder ? 2147483647 : 100000000) || input.paid > total)
             throw new AppError("VALIDATION", "收付款金額不可超過應收／應付金額");
         if (input.method === "未付款" && input.paid !== 0 && !existing)
             throw new AppError("VALIDATION", "未付款金額應為 0");
         if (existing && (input.paid !== existing.paid || total < existing.paid || freight < Math.max(0, existing.paid - (existing.total - existing.freight)) || total - freight < Math.min(existing.paid, existing.total - existing.freight)))
             throw new AppError("BUSINESS_RULE", "已收款不可在編輯中更改或轉移，請使用收款單");
-        const orderData = { priceCategory:input.kind==="SALE"?input.priceCategory:"GENERAL", storeId: ctx.storeId, kind: input.kind, date: new Date(input.date), partyId: party.id, partyName: party.name, partyPhone: party.phone, lines: lines as unknown as Prisma.InputJsonValue, freight, delivery: input.delivery, channel: freight || input.delivery === "寄送" ? input.channel : "", shippingNote: input.delivery === "寄送" ? input.shippingNote : "", internalNote: input.internalNote, total, requestId: input.requestId, requestHash: hashInput(input), actorId: ctx.user.id };
+        // The existing Store row lock serializes allocation, replay and stock.
+        // A failed transaction rolls back both its number and its material changes.
+        const prefix = input.date.replaceAll("-", "").slice(2);
+        const workOrderSequence = isWorkOrder && !existing
+            ? ((await tx.inventoryOrder.aggregate({where:{storeId:ctx.storeId,workOrderNumber:{startsWith:prefix}},_max:{workOrderSequence:true}}))._max.workOrderSequence ?? 0) + 1
+            : existing?.workOrderSequence;
+        const workOrderNumber = isWorkOrder && !existing ? formatWorkOrderNumber(input.date,workOrderSequence!) : existing?.workOrderNumber;
+        const orderData = { ...(input.workOrder ? {workOrder:input.workOrder, workOrderNumber, workOrderSequence} : {}), priceCategory:input.kind==="SALE"?input.priceCategory:"GENERAL", storeId: ctx.storeId, kind: input.kind, date: new Date(input.date), partyId: party.id, partyName: party.name, partyPhone: party.phone, lines: lines as unknown as Prisma.InputJsonValue, freight, delivery: input.delivery, channel: freight || input.delivery === "寄送" ? input.channel : "", shippingNote: input.delivery === "寄送" ? input.shippingNote : "", internalNote: input.internalNote, total, requestId: input.requestId, requestHash: hashInput(input), actorId: ctx.user.id };
         const order = existing ? await tx.inventoryOrder.update({ where: { id: existing.id }, data: { ...orderData, revision: { increment: 1 } } }) : await tx.inventoryOrder.create({ data: orderData });
         if (!existing && input.paid > 0)
             await createInventoryPayment(ctx, tx, { requestId: input.requestId, requestHash: hashInput(input), kind: input.kind, date: order.date, method: input.method, allocations: [{ orderId: order.id, amount: input.paid }] });
@@ -274,5 +314,5 @@ export async function inventoryDocumentData(ctx:InventoryContext,kind:string,id:
   kind==="sale"?prisma.inventoryOrder.findFirst({where:{id,storeId:ctx.storeId,kind:"SALE"}}):null,
   kind==="receipt"?prisma.inventoryPayment.findFirst({where:{id,storeId:ctx.storeId,kind:"SALE"}}):null,
  ]);
- return {store:{id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null},orders:order?[{id:order.id,priceCategory:order.priceCategory as InventoryOrderView["priceCategory"],kind:order.kind,date:order.date.toISOString().slice(0,10),partyId:order.partyId,partyName:order.partyName,partyPhone:order.partyPhone,lines:publicLines(order.lines as unknown as InventoryLine[],false),freight:order.freight,delivery:order.delivery,channel:order.channel,shippingNote:order.shippingNote,internalNote:"",total:order.total,paid:order.paid,revision:order.revision}]:[],payments:payment?[{id:payment.id,kind:payment.kind,date:payment.date.toISOString().slice(0,10),partyId:payment.partyId,partyName:payment.partyName,partyPhone:payment.partyPhone,method:payment.method,total:payment.total,allocations:payment.allocations as unknown as InventoryData["payments"][number]["allocations"]}]:[]};
+ return {store:{id:store.id,name:store.name,phone:null,address:store.shopConfig?.address||null},orders:order?[{id:order.id,workOrderNumber:order.workOrderNumber,priceCategory:order.priceCategory as InventoryOrderView["priceCategory"],kind:order.kind,date:order.date.toISOString().slice(0,10),partyId:order.partyId,partyName:order.partyName,partyPhone:order.partyPhone,lines:publicLines(order.lines as unknown as InventoryLine[],false),freight:order.freight,delivery:order.delivery,channel:order.channel,shippingNote:order.shippingNote,internalNote:"",total:order.total,paid:order.paid,revision:order.revision}]:[],payments:payment?[{id:payment.id,kind:payment.kind,date:payment.date.toISOString().slice(0,10),partyId:payment.partyId,partyName:payment.partyName,partyPhone:payment.partyPhone,method:payment.method,total:payment.total,allocations:payment.allocations as unknown as InventoryData["payments"][number]["allocations"]}]:[]};
 }

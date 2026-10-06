@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { CheckResult } from "./engine";
+import { workOrderDetails } from "@/lib/work-orders";
 
 /** Read source receipts and posted ledger in one snapshot, including historical
  * inventory records after HQ disables the feature. Never modify accounting. */
@@ -48,12 +49,23 @@ export async function checkInventoryAccounts(storeId: string): Promise<CheckResu
         issues.push({ paymentId: payment.id, reason: "實收金額、分配、入帳日期或付款方式不一致" });
       }
     }
-    for (const order of orders) if ((paid.get(order.id) ?? 0) !== order.paid || order.paid > order.total || order.paid < 0)
-      issues.push({ orderId: order.id, reason: "累計收款與單據已付／欠款不一致" });
+    for (const order of orders) {
+      const settlements=workOrderDetails(order.workOrder)?.settlements??[];
+      for(const refund of settlements.filter(s=>s.refund>0)){
+        const id=`inventory:${refund.requestId}:refund`;
+        if(expectedIds.has(id))issues.push({orderId:order.id,reason:"退款來源重複"});
+        expectedIds.add(id);
+        const entry=entries.find(e=>e.id===id);
+        if(!entry||!new Prisma.Decimal(entry.amount).eq(refund.refund)||entry.type!=="EXPENSE"||entry.category!=="工單退款"||entry.paymentMethod!==(refund.method==="現金"?"CASH":"OTHER")||entry.entryDate.toISOString().slice(0,10)!==refund.date||entry.customerId!==order.partyId)issues.push({orderId:order.id,reason:"工單退款與收支帳不一致"});
+      }
+      const refunded=settlements.reduce((sum,s)=>sum+s.refund,0);
+      if ((paid.get(order.id) ?? 0)-refunded !== order.paid || order.paid > order.total || order.paid < 0)
+        issues.push({ orderId: order.id, reason: "累計收款減退款與單據淨已付／欠款不一致" });
+    }
     for (const entry of entries) if (!expectedIds.has(entry.id)) issues.push({ reason: `找不到來源收付款：${entry.id}` });
     return [{ checkCode: "inventory_receipt_ledger", checkName: "銷貨／進貨收付款與收支帳",
       status: issues.length ? "mismatch" : "pass", sources: { "收付款筆數": payments.length, "單據筆數": orders.length, "差異筆數": issues.length },
-      expected: "每筆實收＝分配金額＝入帳；單據已付＝累計收款", debugPayload: { storeId, issues, zeroDataMeansUntested: payments.length === 0 },
+      expected: "每筆實收＝分配金額＝入帳；單據淨已付＝累計收款－退款", debugPayload: { storeId, issues, zeroDataMeansUntested: payments.length === 0 },
     }];
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 15000 });
 }

@@ -22,6 +22,26 @@ vi.mock("@/lib/course-db", () => ({ coursePrisma: {
 
 import { getIndustryRevenueMix, getIndustrySixMonthRevenueMixTrend } from "@/server/queries/industry-revenue-mix";
 
+it("recognizes work-order collections once in their collection month, not unpaid order totals", async () => {
+  mocks.industry.mockResolvedValue("music");
+  expect((await getIndustryRevenueMix("store", "2026-09-01", "2026-09-30")).netRevenue).toBe(0);
+  mocks.cashbook.mockResolvedValue([
+    { id: "inventory:partial:goods", entryDate: new Date("2026-09-30T00:00:00Z"), type: "INCOME", category: "工單收入", amount: 100 },
+    { id: "inventory:remaining:goods", entryDate: new Date("2026-10-01T00:00:00Z"), type: "INCOME", category: "工單收入", amount: 256 },
+  ]);
+  expect(await getIndustryRevenueMix("store", "2026-09-01", "2026-09-30")).toMatchObject({ otherRevenue: 100, netRevenue: 100, manualIncome: 0 });
+  expect(await getIndustryRevenueMix("store", "2026-10-01", "2026-10-31")).toMatchObject({ otherRevenue: 256, netRevenue: 256, manualIncome: 0 });
+});
+it("reduces collected work-order revenue by refund month without treating refunds as operating expenses",async()=>{
+  mocks.industry.mockResolvedValue("music");
+  mocks.cashbook.mockResolvedValue([
+    {id:"inventory:p:goods",entryDate:new Date("2026-09-30T00:00:00Z"),type:"INCOME",category:"工單收入",amount:500},
+    {id:"inventory:r:refund",entryDate:new Date("2026-10-01T00:00:00Z"),type:"EXPENSE",category:"工單退款",amount:400},
+  ]);
+  expect(await getIndustryRevenueMix("store","2026-09-01","2026-09-30")).toMatchObject({netRevenue:500,refunds:0});
+  expect(await getIndustryRevenueMix("store","2026-10-01","2026-10-31")).toMatchObject({netRevenue:-400,refunds:400,expense:0,manualIncome:0});
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   for (const fn of [mocks.cashbook, mocks.receipts, mocks.sales, mocks.spaRefunds, mocks.voids,

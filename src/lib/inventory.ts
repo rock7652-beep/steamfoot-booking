@@ -40,6 +40,8 @@ export type InventoryProductView = Partial<ProductDetails> & {
     costPending?: boolean;
 };
 export type InventoryOrderView = {
+    workOrderNumber?:string|null;
+    workOrder?: import("./work-orders").WorkOrderDetails | null;
     priceCategory?:PriceCategory;
     actorName?: string;
     id: string;

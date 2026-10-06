@@ -15,6 +15,7 @@ interface Props {
     bankCode: string | null;
     bankAccountNumber: string | null;
     lineOfficialUrl: string | null;
+    lineOfficialId?: string | null;
   };
 }
 
@@ -26,6 +27,7 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
   const [bankName, setBankName] = useState(initial.bankName ?? "");
   const [bankCode, setBankCode] = useState(initial.bankCode ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(initial.bankAccountNumber ?? "");
+  const [lineOfficialId, setLineOfficialId] = useState(initial.lineOfficialId ?? "");
   const [lineOfficialUrl, setLineOfficialUrl] = useState(initial.lineOfficialUrl ?? "");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -43,6 +45,7 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
         bankCode: bankCode || null,
         bankAccountNumber: bankAccountNumber || null,
         lineOfficialUrl: lineOfficialUrl || null,
+        lineOfficialId: lineOfficialId || null,
       });
       if (result.success) {
         toast.success("付款資訊已更新，顧客現在可以看到轉帳資訊");
@@ -121,6 +124,10 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
               <p className="mt-1 text-xs text-earth-400">顧客將此帳號複製到網銀轉帳</p>
             </div>
 
+            <div>
+              <label className={labelCls}>官方 LINE ID</label>
+              <input aria-label="官方 LINE ID" value={lineOfficialId} onChange={e => setLineOfficialId(e.target.value)} maxLength={100} pattern="@[A-Za-z0-9._-]+" placeholder="@店家ID" className={inputCls} />
+            </div>
             <div>
               <label className={labelCls}>LINE@ 連結</label>
               <input

@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getShopConfig } from "@/lib/shop-config";
+import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -25,7 +26,7 @@ export default async function PaymentSettingsPage() {
     );
   }
 
-  const shopConfig = await getShopConfig(storeId);
+  const [shopConfig, contact] = await Promise.all([getShopConfig(storeId), prisma.shopConfig.findUnique({ where: { storeId }, select: { lineOfficialId: true } })]);
 
   return (
     <PageShell>
@@ -50,6 +51,7 @@ export default async function PaymentSettingsPage() {
           bankCode: shopConfig.bankCode,
           bankAccountNumber: shopConfig.bankAccountNumber,
           lineOfficialUrl: shopConfig.lineOfficialUrl,
+          lineOfficialId: contact?.lineOfficialId ?? null,
         }}
       />
     </PageShell>

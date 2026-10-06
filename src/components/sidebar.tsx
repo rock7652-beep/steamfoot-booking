@@ -75,6 +75,7 @@ export interface NavGroup {
 // ============================================================
 
 export const STORE_ADMIN_NAV: NavItem[] = [
+  { href: "/dashboard/work-orders", label: "工單", permission: "work_order.read", requiredFeature: FEATURES.WORK_ORDERS, icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M8 4h8v3H8zM6 5H4v16h16V5h-2M8 12h8M8 16h5" /></svg> },
   { href: "/dashboard/inventory", label: "進銷存", permission: "inventory.read", requiredFeature: FEATURES.INVENTORY,
     icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10" /></svg> },
   {
@@ -795,6 +796,7 @@ export default function DashboardShell({
       { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
       { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
+      entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
       { ...entry("/dashboard/revenue"), requiredFeature: course ? undefined : FEATURES.TRANSACTION_MANAGEMENT },
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },

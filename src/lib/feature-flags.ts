@@ -41,6 +41,7 @@ export const FEATURES = {
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
   INVENTORY: "inventory",
+  WORK_ORDERS: "work_orders",
   CUSTOMER_LABELS: "customer_labels",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析

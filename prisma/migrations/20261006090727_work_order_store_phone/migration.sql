@@ -1,0 +1,1 @@
+ALTER TABLE "ShopConfig" ADD COLUMN IF NOT EXISTS "shopPhone" TEXT;

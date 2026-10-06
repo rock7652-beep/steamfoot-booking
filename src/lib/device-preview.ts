@@ -27,6 +27,7 @@ export const DEVICE_PREVIEW_PAGES = [
     label: "顧客經營",
     path: "/dashboard/growth",
   },
+  { id: "work-orders", label: "工單", path: "/dashboard/work-orders" },
   {
     id: "revenue",
     label: "營運",
@@ -49,6 +50,7 @@ export const COURSE_DEVICE_PREVIEW_PAGES = [
   { id: "staff", label: "人員管理", path: "/dashboard/staff" },
   { id: "plans", label: "方案管理", path: "/dashboard/courses?view=plans" },
   { id: "growth", label: "顧客經營", path: "/dashboard/growth" },
+  { id: "work-orders", label: "工單", path: "/dashboard/work-orders" },
   { id: "revenue", label: "營運", path: "/dashboard/revenue" },
   { id: "cashbook", label: "現金帳", path: "/dashboard/cashbook" },
   { id: "analytics", label: "分析", path: "/dashboard/courses?view=analytics" },

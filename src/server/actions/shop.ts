@@ -98,6 +98,7 @@ const updateShopBankInfoSchema = z.object({
   bankName: z.string().max(100).nullable().optional(),
   bankCode: z.string().max(20).nullable().optional(),
   bankAccountNumber: z.string().max(50).nullable().optional(),
+  lineOfficialId: z.string().trim().max(100).regex(/^$|^@[A-Za-z0-9._-]+$/, "請填寫 @ 開頭的官方 LINE ID").nullable().optional(),
   lineOfficialUrl: z.string().max(500).nullable().optional(),
 });
 
@@ -114,6 +115,7 @@ export async function updateShopBankInfo(
       bankCode: data.bankCode?.trim() || null,
       bankAccountNumber: data.bankAccountNumber?.trim() || null,
       lineOfficialUrl: data.lineOfficialUrl?.trim() || null,
+      ...(data.lineOfficialId !== undefined ? { lineOfficialId: data.lineOfficialId?.trim() || null } : {}),
     };
 
     await prisma.shopConfig.upsert({
