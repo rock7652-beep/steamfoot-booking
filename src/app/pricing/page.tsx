@@ -14,7 +14,7 @@ export const metadata = {
 const TRIAL_URL = "/apply";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
-  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
+  "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
@@ -22,18 +22,19 @@ const limits = [
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
 ] as const;
 const groups = [
-  { title: "工具功能", note: "基本版：以下 3 選 1。專業版：現金抽屜已含，提醒／匯出再選 1 項。展店版：全部內含。", rows: [
-    { label: "LINE 自動提醒", values: ["可選", "可選", "內含"] },
-    { label: "資料匯出", values: ["可選", "可選", "內含"] },
-    { label: "現金抽屜", values: ["可選", "內含", "內含"] },
+  { title: "工具功能", note: "LINE 提醒各版本皆內含。", choices: [{ plan: "基本版", count: "2 選 1", detail: "資料匯出／現金抽屜，", suffix: "，不另收費。" }, { plan: "專業版", count: "", suffix: "", detail: "現金抽屜內含；資料匯出可選配，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "全部內含。" }], rows: [
+    { label: "LINE 自動提醒", values: ["內含", "內含", "內含"] },
+    { label: "資料匯出", values: ["可選配", "可選配", "內含"] },
+    { label: "現金抽屜", values: ["可選配", "內含", "內含"] },
   ] },
-  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營與分析已含，標籤／健康／月結／候補再選 1 項。展店版：全部內含。", rows: [
+  { title: "經營功能", note: "顧客標籤各版本皆內含。", choices: [{ plan: "基本版", count: "", suffix: "", detail: "其餘經營功能依需求加購。" }, { plan: "專業版", count: "4 選 1", detail: "顧客經營與分析內含；健康追蹤／月結管理／課程候補／進銷存，", suffix: "，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "全部內含。" }], rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
-    { label: "顧客標籤", values: ["加購", "可選", "內含"] },
-    { label: "健康追蹤", values: ["加購", "可選", "內含"] },
-    { label: "月結管理", values: ["加購", "可選", "內含"] },
+    { label: "顧客標籤", values: ["內含", "內含", "內含"] },
+    { label: "進銷存管理", values: ["加購", "可選配", "內含"] },
+    { label: "健康追蹤", values: ["加購", "可選配", "內含"] },
+    { label: "月結管理", values: ["加購", "可選配", "內含"] },
     { label: "分析", values: ["加購", "內含", "內含"] },
-    { label: "課程候補", values: ["加購", "可選", "內含"] },
+    { label: "課程候補", values: ["加購", "可選配", "內含"] },
   ] },
 ] as const;
 
@@ -73,7 +74,9 @@ function OnlinePayment() {
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
-    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]">內含：直接使用。可選：使用內含名額，不另收費。加購：另付月費。展店版欄位指總部本身，旗下分店須各自購買基本版或專業版，功能不隨總部方案自動升級。</p>
+    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">可選配：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">加購：</strong>額外付費。</p>
+    <p className="mt-2 text-sm leading-6 text-[#4C6259]">超出選配名額才需加購。例如：專業版選配進銷存，方案月費不增加。</p>
+    <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
     <div className="mt-4 rounded-xl border border-[#153B31]/15 bg-white px-4 py-3 text-base leading-7">
       <p className="font-semibold">三個方案都內含日常店務</p>
       <p className="text-[#4C6259]">預約管理、顧客資料、方案堂數、基本收款與 LINE 顧客入口。</p>
@@ -85,7 +88,7 @@ function FeatureComparison() {
         <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-3 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-3 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
       </thead>
       {groups.map(group => <tbody key={group.title}>
-        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span></th></tr>
+        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span><ul className="mt-2 space-y-1 text-sm font-normal leading-6 text-[#4C6259]">{group.choices.map(choice => <li key={choice.plan}><span className="font-semibold">{choice.plan}：</span>{choice.detail}{choice.count && <strong className="text-[#153B31]">{choice.count}</strong>}{choice.suffix}</li>)}</ul></th></tr>
         {group.rows.map(row => <tr key={row.label}>
           <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
           {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}

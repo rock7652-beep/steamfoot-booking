@@ -20,8 +20,8 @@ describe("pricing and growth plan copy", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
     expect(source).not.toContain('aria-label="分析功能方案比較"');
     expect(source).toContain('{ label: "分析", values: ["加購", "內含", "內含"] }');
-    expect(source).toContain("標籤／健康／月結／候補再選 1 項");
-    expect(source).toContain("提醒／匯出再選 1 項");
+    expect(source).toContain("健康追蹤／月結管理／課程候補／進銷存");
+    expect(source).toContain("資料匯出可選配");
     expect(source).not.toContain("分析另購");
     expect(source).not.toContain("獨立加購・展店版內含");
     expect(source).not.toContain("另購 NT$800／月");
@@ -38,7 +38,7 @@ describe("pricing and growth plan copy", () => {
 
     expect(source).toContain("<MarketingFooter />");
     const renderedSources = source + readSource("src/components/marketing-footer.tsx");
-    expect(renderedSources.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
+    expect(renderedSources.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(3);
     expect(renderedSources).toContain("官方 LINE：@329rmywc");
     expect(renderedSources).not.toContain("lin.ee/placeholder");
   });
