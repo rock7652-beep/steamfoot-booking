@@ -25,7 +25,7 @@
  *
  * 刻意不在此 query 範圍（避免擴大 PR-2A）：
  *   - 「沒有下一筆未來預約」維度（候選 A 之後再加）
- *   - 電話遮罩 → UI 端（與 getTrialFollowUpList 一致，本 query 回完整 phone）
+ *   - 電話格式化 → UI 端（本 query 回完整 phone）
  *   - 跨區去重 / 顯示優先序 / 文字格式化 → PR-2B
  */
 
@@ -53,7 +53,7 @@ type SessionLike = {
 interface CareCustomerBase {
   customerId: string;
   customerName: string;
-  /** 完整 phone；遮罩由 UI 端處理（與 getTrialFollowUpList 一致，不在 read model 遮罩） */
+  /** 完整 phone；供具備 customer.read 權限的關懷名單顯示 */
   phone: string | null;
   assignedStaffId: string | null;
   assignedStaffName: string | null;

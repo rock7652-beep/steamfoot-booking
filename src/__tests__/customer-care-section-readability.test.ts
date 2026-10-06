@@ -3,12 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/components/desktop", () => ({
-  DataTable: ({ rows }: { rows: Array<{ name: string; phoneMasked: string }> }) =>
+  DataTable: ({ rows }: { rows: Array<{ name: string; phoneLabel: string }> }) =>
     React.createElement(
       "div",
       null,
       rows.map((row) =>
-        React.createElement("div", { key: row.name }, `${row.name} ${row.phoneMasked}`),
+        React.createElement("div", { key: row.name }, `${row.name} ${row.phoneLabel}`),
       ),
     ),
 }));
@@ -25,7 +25,7 @@ function item(index: number): CareItem {
   return {
     customerId: `customer-${index}`,
     name: `顧客 ${index}`,
-    phoneMasked: `09xx-xxx-000${index}`,
+    phoneLabel: `091234000${index}`,
     reason: "提醒原因",
     meta: null,
     staffName: null,

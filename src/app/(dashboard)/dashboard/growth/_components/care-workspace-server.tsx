@@ -24,7 +24,7 @@ export async function CareWorkspaceServer({ storeId, module, month, staffScope =
   const history: CareItem[] = [];
   for (const c of customers) for (const [key, activity] of latest) {
     if (key !== `${c.id}:${activity.reason}` || signalKeys.has(key) || (selected && selected !== activity.reason)) continue;
-    history.push({ customerId: c.id, name: c.name, phoneMasked: c.phone ? `末四碼 ${c.phone.slice(-4)}` : "未提供電話", staffLabel, staffName: assignedNames.get(c.id) ?? null,
+    history.push({ customerId: c.id, name: c.name, phoneLabel: c.phone || "未提供電話", staffLabel, staffName: assignedNames.get(c.id) ?? null,
       reason: `${CARE_REASON_LABELS[activity.reason]}・提醒條件已解除`, meta: null, lastFollowUpText: null, script: "", activity, state: "handled", label: "已解除", careReason: activity.reason, careYear: year,
       readOnly, canFollowUp, canBook, module, courseMode: module === "course", nextBooking: nextBookings.get(c.id) ?? null });
   }
