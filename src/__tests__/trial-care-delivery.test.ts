@@ -1,3 +1,4 @@
+vi.mock("@/server/services/course-trial-care",()=>({runCourseTrialCare:vi.fn(async()=>({sent:0,skipped:0,failed:0}))}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   settings: vi.fn(), setting: vi.fn(), bookings: vi.fn(), booking: vi.fn(), customer: vi.fn(),

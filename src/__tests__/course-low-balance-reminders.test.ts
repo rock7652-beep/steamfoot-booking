@@ -61,3 +61,23 @@ it("links directly to the course plan and authenticated preference pages",()=>{
  expect(message).toContain("https://example.test/s/shop/book?view=plans");
  expect(message).toContain("https://example.test/s/shop/book/reminders");
 });
+
+it("uses a separate used-up phase and keeps held reservations out of consumption",async()=>{
+ const heldOnly = JSON.stringify(courseLowBalanceMessages("可用 0 堂但尚未使用","test",false,true));
+ expect(heldOnly).not.toContain("本期方案已完成");
+ expect(heldOnly).not.toContain("立即預約");
+ await runCourseLowBalanceReminders(now,"s");
+ const lowKey=m.push.mock.calls[0][3];
+ m.cards.mockResolvedValue([{...card,remaining:0,bookings:[]}]);
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join("").includes("CourseBalanceReminderPreference")?[{stoppedAt:null}]:[{remaining:0,held:0,unit:"POINT",nameSnapshot:"點數方案"}]);
+ await runCourseLowBalanceReminders(now,"s");
+ expect(m.push.mock.calls[1][3]).not.toBe(lowKey);
+ const finished=JSON.stringify(m.push.mock.calls[1][2]);
+ expect(finished).toContain("本期方案已完成");
+ expect(finished).toContain("購買／續購方案");
+ expect(finished).not.toContain("立即預約");
+});
+
+it("includes the store name when consulting through a shared official account",()=>{
+ expect(JSON.stringify(courseLowBalanceMessages("最後一堂","a",false,false,"IDO新莊館"))).toContain("我想詢問 IDO新莊館 的課程方案");
+});

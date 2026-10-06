@@ -1,4 +1,5 @@
 "use client";
+import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
 import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
 import { findCoursePortalGuides } from "@/lib/course-portal-guides";
@@ -194,7 +195,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop"; initialCoach?: boolean }) {
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
   const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
@@ -209,7 +210,11 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.initialRole);
+  const [notification,setNotification]=useState<{bookingId:string;action:"confirm"|"reschedule"|"cancel"}|null>(()=>{
+    const bookingId=params.get("bookingId"),action=params.get("action");
+    return bookingId && /^[a-zA-Z0-9:_-]{1,100}$/.test(bookingId) && (action==="confirm"||action==="reschedule"||action==="cancel") ? {bookingId,action} : null;
+  });
+  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.memberEnabled && (notification || p.initialView) ? "member" : p.initialRole);
   const role = resolveCoursePortalRole(preferredRole, p.memberEnabled, p.hasWork);
   const [page, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
@@ -292,7 +297,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     participantCount = companionMode ? headcount : learners.length,
     waitlistMode = !!session && session.occupied + Math.max(1, participantCount) > session.capacity && session.waitlistAllowed,
     waitlistAlready = !!session?.waitlistPosition,
-    modal = !!(session || attendance || cancelId || buy || companionEditor);
+    modal = !!(notification || session || attendance || cancelId || buy || companionEditor);
   const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
   const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
   const todayWork = work.filter(s => courseDate(s.startsAt) === today);
@@ -1032,6 +1037,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                           <span className="cp-badge" data-status={b.status}>
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
+                          {b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
+                          {b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
                           {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
                               disabled={pending}
@@ -1511,6 +1518,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           )}
         </Sheet>
       )}
+      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
       {cancelId && (
         <Sheet
           title="取消預約"

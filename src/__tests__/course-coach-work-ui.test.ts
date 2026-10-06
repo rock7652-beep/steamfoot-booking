@@ -17,6 +17,11 @@ vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: m
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: m.purchase }));
 vi.mock("@/server/actions/course-companions", () => ({addCourseCompanion: vi.fn(), loadCourseCompanionUsage: m.loadUsage, saveCourseCompanionUsage: m.usage}));
 vi.mock("@/server/actions/course-waitlist", () => ({joinMemberCourseWaitlist: vi.fn(), cancelMemberCourseWaitlistAction: vi.fn()}));
+vi.mock("@/server/actions/course-booking-notification", () => ({
+  loadCourseBookingNotification: vi.fn(),
+  confirmMemberCourseTrial: vi.fn(),
+  rescheduleMemberCourseBooking: vi.fn(),
+}));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, cardId: "card-a", companionIndex: null, reserverName: null, canAddCompanion: false, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });

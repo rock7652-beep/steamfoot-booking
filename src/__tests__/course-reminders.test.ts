@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/server/services/course-expiry-reminders",()=>({runCourseExpiryReminders:vi.fn(async()=>({total:0,sent:0,skipped:0,failed:0}))}));
 const m = vi.hoisted(() => ({ rules:vi.fn(),store:vi.fn(),bookings:vi.fn(),customers:vi.fn(),feature:vi.fn(),plan:vi.fn(),limit:vi.fn(),blocked:vi.fn(),recipient:vi.fn(),route:vi.fn(),push:vi.fn(),central:vi.fn(),raw:vi.fn(),existing:vi.fn(),upsert:vi.fn(),update:vi.fn(),count:vi.fn(),currentRule:vi.fn(),manager:vi.fn(),requireFeature:vi.fn(),template:vi.fn(),ruleUpsert:vi.fn() }));
-vi.mock("@/lib/db",()=>({prisma:{store:{findFirst:m.store},customer:{findMany:m.customers},reminderRule:{findMany:m.rules,findFirst:m.currentRule},$transaction:async(fn: (tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,messageLog:{findUnique:m.existing,upsert:m.upsert,update:m.update,count:m.count},reminderRule:{findFirst:m.currentRule,upsert:m.ruleUpsert},messageTemplate:{upsert:m.template}})}}));
+vi.mock("@/lib/db",()=>({prisma:{shopConfig:{findUnique:vi.fn(async()=>({address:"測試地址",mapUrl:"https://maps.google.com/test"}))},store:{findFirst:m.store},customer:{findMany:m.customers},reminderRule:{findMany:m.rules,findFirst:m.currentRule},$transaction:async(fn: (tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,messageLog:{findUnique:m.existing,upsert:m.upsert,update:m.update,count:m.count},reminderRule:{findFirst:m.currentRule,upsert:m.ruleUpsert},messageTemplate:{upsert:m.template}})}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBooking:{findMany:m.bookings}}}));
 vi.mock("@/lib/base-url",()=>({deriveBaseUrl:()=>"https://example.test"}));
 vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:m.feature,requireStoreFeature:m.requireFeature}));
@@ -85,4 +85,12 @@ it("approved preview reminder targets one attendee, labels test and skips expiry
  expect(m.push).toHaveBeenCalledTimes(1);expect(JSON.stringify(m.push.mock.calls[0][2])).toContain("測試提醒");expect(runCourseExpiryReminders).not.toHaveBeenCalled();expect(m.central).not.toHaveBeenCalled();
  m.existing.mockResolvedValue({status:"SENT"});await withPreviewLineAcceptance(grant,()=>runCourseReminders(now,storeId));expect(m.push).toHaveBeenCalledTimes(1);
  }finally{vi.unstubAllEnvs();}
+});
+
+it("trial reminders offer confirmation and store-owned action URLs without Steamfoot paths",async()=>{
+  m.bookings.mockResolvedValue([{id:"trial",bookingKind:"TRIAL",customerId:"B",session:{startsAt:new Date("2026-09-18T10:00:00+08:00"),endsAt:new Date("2026-09-18T11:00:00+08:00"),nameSnapshot:"體驗"}}]);
+  await runCourseReminders(now);
+  const message=JSON.stringify(m.push.mock.calls[0][2]);
+  expect(message).toContain("確認會到");expect(message).toContain("需要改期");expect(message).toContain("取消預約");
+  expect(message).toContain("bookingId=trial");expect(message).toContain("action=reschedule");expect(message).not.toContain("/trial-booking/manage");
 });

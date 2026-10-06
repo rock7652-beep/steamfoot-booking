@@ -8,7 +8,7 @@ export function deriveCourseBaseUrl(): string {
   if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error("課程試用網址必須是固定 HTTPS origin");
   return url.origin;
 }
-export function courseMemberNotificationUrl(slug: string, view: "bookings" | "plans", date?: string, legacyPath: "home" | "book" = "home"): URL {
+export function courseMemberNotificationUrl(slug: string, view: "bookings" | "plans" | "shop" | "schedule", date?: string, legacyPath: "home" | "book" = "home"): URL {
   const config = getConfiguredStoreLine(slug);
   const url = config ? new URL("https://liff.line.me/" + config.liffId) : new URL("/s/" + encodeURIComponent(slug) + (legacyPath === "book" ? "/book" : ""), deriveCourseBaseUrl());
   url.searchParams.set(config ? "courseView" : "view", view);
@@ -17,4 +17,13 @@ export function courseMemberNotificationUrl(slug: string, view: "bookings" | "pl
     if (!config) url.searchParams.set("month", date.slice(0, 7));
   }
   return url;
+}
+
+/** All actions remain store-scoped LIFF entries; query parameters never authorize a write. */
+export function courseBookingActionUrl(slug: string, date: string, bookingId: string, action: "confirm" | "reschedule" | "cancel"): string {
+  const url = courseMemberNotificationUrl(slug, "bookings", date, "book");
+  const configured = getConfiguredStoreLine(slug);
+  url.searchParams.set(configured ? "courseBookingId" : "bookingId", bookingId);
+  url.searchParams.set(configured ? "courseAction" : "action", action);
+  return url.toString();
 }
