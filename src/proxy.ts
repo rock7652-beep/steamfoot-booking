@@ -50,6 +50,10 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Internal destination only; public requests must pass the scoped route guards.
+  if (pathname === "/cash-drawer-panel" || pathname.startsWith("/cash-drawer-panel/")) {
+    return new NextResponse(null, { status: 404 });
+  }
   // Preview pages expose GET-only projections; reject every Server Action/form/API write.
   if (blocksFrontendPreviewWrite(req.method, pathname, req.headers.get("referer"))) {
     return NextResponse.json({ error: "預覽中不會儲存" }, { status: 403 });
@@ -521,7 +525,9 @@ function storeRewrite(
   slug: string,
   domainStoreId: string | undefined
 ): NextResponse {
-  const url = new URL(internalPath, req.url);
+  const panelPath = internalPath === "/dashboard/cash-drawer" && req.nextUrl.searchParams.get("cashDrawerPanel") === "1"
+    ? "/cash-drawer-panel" : internalPath;
+  const url = new URL(panelPath, req.url);
   url.search = req.nextUrl.search;
 
   // Forward x-store-slug + x-next-pathname 給 internal request，
@@ -568,7 +574,9 @@ function hqRewrite(
   internalPath: string,
   domainStoreId: string | undefined
 ): NextResponse {
-  const url = new URL(internalPath, req.url);
+  const panelPath = internalPath === "/dashboard/cash-drawer" && req.nextUrl.searchParams.get("cashDrawerPanel") === "1"
+    ? "/cash-drawer-panel" : internalPath;
+  const url = new URL(panelPath, req.url);
   url.search = req.nextUrl.search;
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-next-pathname", req.nextUrl.pathname);

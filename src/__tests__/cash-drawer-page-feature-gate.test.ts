@@ -11,6 +11,9 @@ const mockHasStoreFeature = vi.fn();
 const mockGetCashDrawerView = vi.fn();
 const mockListClosedBusinessDates = vi.fn();
 const mockListStaffSelectOptions = vi.fn();
+const mockIndustryModule = vi.fn();
+const mockStaffMembership = vi.fn();
+vi.mock("@/lib/db", () => ({ prisma: { staff: { findFirst: (...args: unknown[]) => mockStaffMembership(...args) } } }));
 const mockRedirect = vi.fn((href: string) => {
   throw new Error(`redirect:${href}`);
 });
@@ -21,7 +24,7 @@ vi.mock("next/navigation", () => ({
   redirect: (href: string) => mockRedirect(href),
 }));
 
-vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "steamfoot" }));
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: () => mockIndustryModule() }));
 
 vi.mock("@/lib/session", () => ({
   getCurrentUser: () => mockGetCurrentUser(),
@@ -102,6 +105,8 @@ const OWNER = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetCurrentUser.mockResolvedValue(OWNER);
+  mockIndustryModule.mockResolvedValue("steamfoot");
+  mockStaffMembership.mockResolvedValue(null);
   mockCheckPermission.mockResolvedValue(true);
   mockGetActiveStoreForRead.mockResolvedValue("store-1");
   mockHasStoreFeature.mockResolvedValue(true);
@@ -128,6 +133,16 @@ describe("CashDrawerPage feature gate", () => {
 
 
 describe("cash drawer embedded store boundary", () => {
+  it("does not load assignment metadata for ordinary store staff", async () => {
+    await CashDrawerPage({ searchParams: Promise.resolve({ cashDrawerPanel: "1", panelStoreId: "store-1" }) });
+    expect(mockListStaffSelectOptions).not.toHaveBeenCalled();
+  });
+  it("retains course staff membership checks without the dashboard layout", async () => {
+    mockIndustryModule.mockResolvedValue("course");
+    const html = renderToStaticMarkup(await CashDrawerPage({ searchParams: Promise.resolve({ cashDrawerPanel: "1", panelStoreId: "store-1" }) }));
+    expect(html).toContain("目前人員無法存取此店");
+    expect(mockGetCashDrawerView).not.toHaveBeenCalled();
+  });
   it("does not query amounts after the active store changes", async () => {
     const html = renderToStaticMarkup(await CashDrawerPage({searchParams: Promise.resolve({cashDrawerPanel: "1", panelStoreId: "another-store"})}));
     expect(html).toContain("店家已切換");

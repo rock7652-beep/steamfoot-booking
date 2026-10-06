@@ -10,6 +10,7 @@
  */
 
 import { CashDrawerPanelBridge } from "@/components/cash-drawer-shortcut";
+import { prisma } from "@/lib/db";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { CourseTodaySummary } from "../courses/today-summary";
 import { redirect } from "next/navigation";
@@ -50,8 +51,9 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   }
   await searchParams; // 觸發 dynamic rendering，錯誤 toast 由 <FormErrorToast /> 自己讀 URL
 
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const [activeStoreId, storeViewContext] = await Promise.all([
+    getActiveStoreForRead(user), resolveStoreViewContextFromCookie(user),
+  ]);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const storeId = storeIdForViewContext(activeStoreId, storeViewContext);
   if (panel && (!storeId || params.panelStoreId !== storeId)) return panelError("店家已切換，請關閉視窗後重新開啟。");
@@ -68,6 +70,14 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
 
   if(panel && !await canReadInventoryFinance(storeId,user)) return panelError("完整結帳需有查看進貨成本的權限。");
   if(!panel && !await canReadInventoryFinance(storeId,user)) return <PageShell><PageHeader title="現金抽屜" /><p>完整結帳需有查看進貨成本的權限。</p></PageShell>;
+  const industryModule = await getStoreIndustryModule(storeId);
+  // The lightweight panel omits DashboardLayout, so retain its course staff
+  // membership boundary here before reading any financial amounts.
+  if (panel && industryModule === "course" && user.role !== "ADMIN"
+    && !(user.role === "OWNER" && !!user.storeId && activeStoreId !== user.storeId)
+    && !await prisma.staff.findFirst({ where: { id: user.staffId ?? "", storeId: activeStoreId!, userId: user.id, status: "ACTIVE" } })) {
+    return panelError("目前人員無法存取此店，請聯絡店長。");
+  }
   const todayStr = toLocalDateStr();
   const [y, m, d] = todayStr.split("-").map(Number);
   const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
@@ -98,7 +108,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
       ? Promise.resolve(false)
       : checkPermission(user.role, user.staffId, "cashbook.create"),
     listClosedBusinessDates(storeId, fromDate.toISOString().slice(0, 10), todayStr),
-    listStaffSelectOptions(),
+    !isViewMode && user.role === "ADMIN" ? listStaffSelectOptions() : Promise.resolve([]),
   ]);
   const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
   const canReopen = canInit && canClose;
@@ -129,7 +139,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
       {courseHome && <h2 className="mb-3 text-sm font-semibold text-earth-600">現金與收支</h2>}
       <CashDrawerWorkspace
         compactSetup={panel || courseHome}
-        instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"}
+        instantSearch={industryModule === "steamfoot"}
         view={view}
         todayStr={todayStr}
         storeId={storeId}

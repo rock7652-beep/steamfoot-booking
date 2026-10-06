@@ -130,3 +130,11 @@
 - 嵌入路由攜帶預期門市，server 核對目前授權門市後才讀金額；仍檢查 cashDrawer.read、功能開通、成本查看及各寫入權限。切門市 keyed unmount；表單成功只更新嵌入文件，保留外層草稿。
 - host 通訊僅送狀態／dirty／busy，檢查同 origin、frame source 與 storeId；送出中不關閉，未儲存須確認。iframe 內嵌確認視窗的 Escape 由既有視窗處理。關閉後不快取 workspace。
 - 使用 native modal 保留跨 frame 焦點限制。初次讀取逾時可原視窗重試；桌機／iPad 登入觀察仍受 credentials protection 限制，不宣稱真機或完整金融操作驗收。
+
+
+### 現金抽屜彈窗讀取優化（2026-10-06）
+
+- HQ／門市原有 cash-drawer URL 在 cashDrawerPanel=1 時，通過既有 proxy 登入／角色守衛後 rewrite 至獨立文件；不重跑 DashboardLayout 的全功能、方案、側欄、顧客標籤與訂閱查詢。
+- 工作台仍共用原 CashDrawerPage／CashDrawerWorkspace，保留 read、功能、成本權限、門市核對、course 人員歸屬、view-mode 與原寫入授權。內部目的地直接請求回 404；一般完整頁不變。
+- 店家解析與檢視情境並行；非 ADMIN／view-mode 不讀無用途的人員指派清單。現金金額仍每次權威讀取，沒有預載金額或 stale 快取。
+- 回歸測試涵蓋實際 proxy rewrite／門市 headers、未登入與角色限制、直接內部 URL、course 人員歸屬及草稿保留；真實網路耗時、桌機／iPad 操作仍待 Preview 實測，未宣稱毫秒級改善。
