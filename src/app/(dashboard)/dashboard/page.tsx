@@ -8,7 +8,7 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import {
   bookingDateToday,
-  formatTWTime,
+  toLocalDateStr,
   toLocalMonthStr,
 } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
@@ -92,7 +92,7 @@ export default async function DashboardHomePage() {
   const subscriptionWriteBlocked = await isStoreSubscriptionWriteBlocked(activeStoreId);
   const isReadOnly = subscriptionWriteBlocked || (isViewMode && !storeViewContext?.canWrite);
 
-  const todayLabel = formatTWTime(new Date(), { dateOnly: true });
+  const todayLabel = toLocalDateStr();
   const storeFilter = getStoreFilter(dashboardUser, dashboardStoreId);
   const todayBooking = bookingDateToday();
 
@@ -409,6 +409,7 @@ export default async function DashboardHomePage() {
       </div>
       {rows.length === 0 ? (
         <EmptyRow
+          dense
           title="今天還沒有預約"
           hint={
             isReadOnly
