@@ -37,7 +37,6 @@ describe("plan feature package alignment", () => {
   });
   it("keeps 基本版 tool and management modules as per-store add-ons", () => {
     expectUnavailable("BASIC", [
-      FEATURES.LINE_REMINDER,
       FEATURES.CASH_DRAWER,
       FEATURES.DATA_EXPORT,
       FEATURES.CUSTOMER_CARE,
@@ -53,7 +52,6 @@ describe("plan feature package alignment", () => {
     expect(hasFeature("GROWTH", FEATURES.CUSTOMER_CARE)).toBe(true);
 
     expectUnavailable("GROWTH", [
-      FEATURES.LINE_REMINDER,
       FEATURES.DATA_EXPORT,
       FEATURES.ADVANCED_REPORTS,
       FEATURES.AI_HEALTH_SUMMARY,
@@ -64,14 +62,14 @@ describe("plan feature package alignment", () => {
 
   it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
     for (const feature of MANAGEABLE_STORE_FEATURES.filter(
-      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.CUSTOMER_LABELS])).has(feature.key),
+      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW])).has(feature.key),
     )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
-    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.CUSTOMER_LABELS]) {
+    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW]) {
       expect(hasFeature("ALLIANCE", feature)).toBe(false);
     }
   });
@@ -83,6 +81,17 @@ describe("plan feature package alignment", () => {
     expect(resolveEffectiveEntitlement(included, { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
     expect(resolveEffectiveEntitlement(included, { status: "DISABLED", startsAt: null, expiresAt: null }).enabled).toBe(false);
     expect(resolveEffectiveEntitlement(included, { status: "ENABLED", startsAt: null, expiresAt: new Date("2000-01-01") }).enabled).toBe(included);
+  });
+
+  it.each(["BASIC", "GROWTH", "ALLIANCE"] as const)("includes reminders and labels and preserves HQ overrides for %s", plan => {
+    for (const feature of [FEATURES.LINE_REMINDER, FEATURES.CUSTOMER_LABELS]) {
+      expect(hasFeature(plan, feature)).toBe(true);
+      for (const status of ["DISABLED", "LOCKED", "HIDDEN"] as const) {
+        expect(resolveEffectiveEntitlement(true, { status, startsAt: null, expiresAt: null }).enabled).toBe(false);
+      }
+    }
+    expect(hasFeature(plan, FEATURES.INVENTORY)).toBe(plan === "ALLIANCE");
+    expect(resolveEffectiveEntitlement(hasFeature(plan, FEATURES.INVENTORY), { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
   });
 
   it("uses 展店版 as the ALLIANCE display label", () => {
