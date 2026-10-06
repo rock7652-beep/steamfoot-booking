@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'src/server/services/course-booking.ts'
+      - 'src/server/actions/course-booking-notification.ts'
+      - 'src/__tests__/course-booking-notification.pg.test.ts'
       - 'src/__tests__/course-student-makeup.pg.test.ts'
       - 'supabase/migrations/20260928101128_course_student_makeup_link.sql'
       - '.github/workflows/music-makeup-audit.yml'
@@ -44,9 +46,20 @@ jobs:
             const r = JSON.parse(readFileSync("music-makeup-pg-results.json", "utf8"));
             if (!r.success || r.numTotalTests !== 4 || r.numPassedTests !== 4 || r.numPendingTests !== 0) throw new Error("All four makeup database scenarios must pass without skips");
           '
+      - name: Exercise notification rescheduling and rollback against PostgreSQL
+        run: npx vitest run src/__tests__/course-booking-notification.pg.test.ts --reporter=default --reporter=json --outputFile=course-notification-pg-results.json
+      - name: Require all four notification database tests without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-notification-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 4 || r.numPassedTests !== 4 || r.numPendingTests !== 0) throw new Error("All four notification database scenarios must pass without skips");
+          '
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: music-makeup-pg-results
-          path: music-makeup-pg-results.json
+          path: |
+            music-makeup-pg-results.json
+            course-notification-pg-results.json
           retention-days: 7
