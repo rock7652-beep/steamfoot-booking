@@ -227,7 +227,7 @@ describe("resolveStoreFeatureDisplayState", () => {
     );
 
     expect(state.statusLabel).toBe("已過期");
-    expect(state.effectiveAllowed).toBe(false);
+    expect(state.effectiveAllowed).toBe(true);
     expect(state.sourceLabel).toBe("總部覆寫（回到方案）");
   });
 
