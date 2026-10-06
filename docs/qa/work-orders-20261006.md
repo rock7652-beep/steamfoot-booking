@@ -36,3 +36,10 @@
 - 二十筆長名稱材料列印fixture：兩聯各20列及最後品項完整，無整頁水平溢出；此fixture只驗排版，不驗庫存金流。長名稱換行後可能超過一張A4，實體分頁及QR仍待試印。fixture驗收後移除。
 
 - LINE ID設定入口以桌機1363與裝置預覽768×1024、1024×768驗收；扣除捲軸後clientWidth=scrollWidth為753／1009，輸入44px。列印頁已驗桌機；iPad原生列印對話框與PDF分頁未驗。
+
+## 技師閱讀優先的列印修正
+
+- 最新版不沿用上一輪極高密度：施工項目使用獨立外框與17px標題、16px內文及1.65行高，每個非空換行逐項編號，原內容不自動改寫；材料另列標題。恢復材料列5px間距與區塊留白，交件確認仍在每聯右側加大，官方LINE仍為ID。
+- 列印區不設定固定內容高度或裁切長文。長內容／多材料可能跨頁，實際印表機分頁仍待店家試印。
+
+- 最終應用版本78be476b7c07e78cea493a461a1dbe756d780eea的ESLint、Typecheck、Targeted tests、Full Vitest baseline、工單與金流PostgreSQL及Vercel均通過，Cloudflare依指示跳過。桌機1363寬雙聯均顯示三項施工內容、decimal編號、16px內文及26.4px行距，clientWidth=scrollWidth。列印示範內容與暫時LINE ID驗收後已還原。實體A5裁切／原生PDF分頁與iPad列印頁本輪未驗。
