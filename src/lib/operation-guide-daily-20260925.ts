@@ -68,7 +68,7 @@ export const dailyOperationGuides20260925: OperationGuide[] = [
     answer: "HQ 功能頁會顯示實際授權及試用計時；LINE 入口、提醒規則和發送仍需另行設定與驗收。",
     path: "請 HQ 核對店舖詳情與功能設定", keywords: "體驗版 試用授權 實際授權 三十天 30 天 尚未開始 LINE 未設定 全功能",
     steps: ["請 HQ 核對門市的實際授權、試用起迄及「尚未開始／已開始／已到期」狀態。", "課程體驗店尚未設定試用起迄時，可顯示功能已授權但 30 天試用尚未起算。", "LINE 相關功能另核對導流入口、綁定、提醒規則及實際發送結果；不要只憑授權標籤判斷成功。"],
-    important: "完整單店試用不包含多店功能；試用期間的單店授權覆寫不生效，並不等於店長有全部管理權限。",
+    important: "完整功能試用包含母子店與展店功能，預設可串接一家分店；人員仍依各自角色權限操作。",
     details: ["本題說明 HQ 顯示與檢查方式，不提供重新起算試用或略過訂閱限制的方法。"],
     success: "能區分已開通功能、試用日期與仍待設定／驗收的 LINE 流程。",
     modules: ["course"], permission: "", feature: null, kind: "explanation", verification: "source-reviewed",
