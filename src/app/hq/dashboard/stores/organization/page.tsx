@@ -1,3 +1,4 @@
+import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
@@ -31,7 +32,7 @@ export default async function StoreOrganizationPage() {
       </div>
 
       {result.success ? (
-        <StoreOrganizationManager stores={stores} />
+        <StoreOrganizationManager stores={stores} userId={user.id} canManage={await checkPermission(user.role, user.staffId, "staff.manage")} />
       ) : (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {result.error}

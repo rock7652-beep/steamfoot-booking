@@ -1,3 +1,9 @@
+// HQ ordering preview requires the same isolated test database as archive verification.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-organization-order") {
+  if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
+    throw new Error("HQ organization Preview requires the isolated database for both connections.");
+}
+
 // Archive preview must use the isolated database; never migrate production here.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/hq-store-archive") {
   if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))

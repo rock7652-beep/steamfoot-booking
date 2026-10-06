@@ -20,6 +20,8 @@ export interface StoreOrganizationRow {
   isDemo: boolean;
   operatingStatus: string;
   createdAt: Date;
+  archivedAt?: Date | null;
+  catalogSortOrder?: number;
 }
 
 export async function listStoreOrganizationAction(): Promise<
@@ -38,8 +40,10 @@ export async function listStoreOrganizationAction(): Promise<
       isDemo: true,
       operatingStatus: true,
       createdAt: true,
+      archivedAt: true,
+      catalogSortOrder: true,
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
 
   return { success: true, data: stores };
@@ -86,9 +90,10 @@ export async function updateStoreParentAction(input: {
 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(72819401)`;
-      const rows = await tx.store.findMany({ select: { id: true, name: true, parentStoreId: true, plan: true, maxStoresOverride: true } });
+      const rows = await tx.store.findMany({ select: { id: true, name: true, parentStoreId: true, archivedAt: true, plan: true, maxStoresOverride: true } });
       const current = rows.find(row => row.id === storeId);
       if (!current) throw new AppError("NOT_FOUND", "店舖不存在");
+      if (current.archivedAt || (parentStoreId && rows.find(row => row.id === parentStoreId)?.archivedAt)) throw new AppError("BUSINESS_RULE", "請先恢復封存店舖，再重新安排組織");
       const proposed = rows.map(row => row.id === storeId ? { ...row, parentStoreId } : row);
       try {
         organizationDescendants(proposed, storeId);
@@ -163,4 +168,25 @@ export async function updateOrganizationCapacityAction(input: {
     revalidatePath("/dashboard/settings/plan");
     return { success: true, data: { purchasedBranches: input.purchasedBranches } };
   } catch (e) { return handleActionError(e); }
+}
+
+
+/** Reorders the complete active sibling group without changing its hierarchy. */
+export async function reorderStoreCatalogAction(input: { parentStoreId: string | null; orderedIds: string[]; expectedIds: string[] }): Promise<ActionResult<void>> {
+  try {
+    const admin = await requireAdminSession();
+    await requirePermission("staff.manage");
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(72819401)`;
+      const siblings = await tx.store.findMany({ where: { parentStoreId: input.parentStoreId, archivedAt: null }, select: { id: true }, orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }] });
+      const ids = siblings.map(s => s.id);
+      if (JSON.stringify(ids) !== JSON.stringify(input.expectedIds) || input.orderedIds.length !== ids.length || new Set(input.orderedIds).size !== ids.length || input.orderedIds.some(id => !ids.includes(id))) {
+        throw new AppError("VALIDATION", "店舖清單已更新，請重新整理後再排序");
+      }
+      for (const [catalogSortOrder, id] of input.orderedIds.entries()) await tx.store.update({ where: { id }, data: { catalogSortOrder } });
+      await tx.auditLog.create({ data: { actorUserId: admin.id, targetType: "Store", targetId: input.parentStoreId ?? "HQ", action: "UPDATE_CATALOG_ORDER", summary: "更新店舖顯示順序", beforeJson: { ids }, afterJson: { ids: input.orderedIds } } });
+    });
+    revalidatePath("/hq/dashboard", "layout");
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error); }
 }
