@@ -13,6 +13,16 @@ export function hqStoreSwitchDestination(search: string): string {
 /** Nested entries must beat their parent (subscriptions before stores). */
 export function isNavigationItemActive(href: string, pathname: string, search: string, hrefs: string[]): boolean {
   const [path, query] = href.split("?");
+  // Consolidated store entries own these retained deep links. HQ platform
+  // entries still win when those links are explicitly present in its catalog.
+  if (path === "/dashboard/growth" || path === "/dashboard/digital-butler/leads") {
+    if ((pathname === "/dashboard/growth" || pathname.startsWith("/dashboard/growth/")) || (pathname === "/dashboard/digital-butler/leads" || pathname.startsWith("/dashboard/digital-butler/leads/"))) {
+      return path === "/dashboard/digital-butler/leads" || !hrefs.includes("/dashboard/digital-butler/leads");
+    }
+  }
+  if (path === "/dashboard/revenue" && !hrefs.includes(pathname)) {
+    if (["/dashboard/cashbook", "/dashboard/reconciliation", "/dashboard/transactions", "/dashboard/store-revenue", "/dashboard/coach-revenue"].some(route => pathname === route || pathname.startsWith(`${route}/`))) return true;
+  }
   if (path === "/dashboard") return pathname === path || pathname === "/dashboard/brand-overview";
   if (path === "/dashboard/courses") {
     return pathname === path &&

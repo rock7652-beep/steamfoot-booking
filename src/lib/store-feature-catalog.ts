@@ -18,6 +18,11 @@ export type StoreFeatureCatalogItem = {
   description: string;
 };
 
+/** Retired entitlement codes are retained as data, never mapped to an active grant. */
+export function isRetiredStoreFeature(feature: string): boolean {
+  return feature === FEATURES.ADVANCED_REPORTS;
+}
+
 export const STORE_FEATURE_CATEGORIES = [
   "顧客經營",
   "營運",

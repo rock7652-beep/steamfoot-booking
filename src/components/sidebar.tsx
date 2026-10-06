@@ -2,6 +2,8 @@
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
+import { PreviewToolsMenu } from "./preview-tools-menu";
+import { resolveNavigationAccess } from "@/lib/navigation-access";
 import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
@@ -46,6 +48,7 @@ interface NavItem {
   ownerOnly?: boolean;
   permission?: string;
   requiredFeature?: FeatureKey;
+  alternativeFeatures?: FeatureKey[];
   upgradeTo?: PricingPlan;
   /** Visual emphasis for key features (e.g. 人才管道) */
   highlighted?: boolean;
@@ -57,6 +60,7 @@ export interface NavGroup {
   icon: React.ReactNode;
   items: NavItem[];
   defaultOpen?: boolean;
+  alwaysOpen?: boolean;
 }
 
 // ============================================================
@@ -771,64 +775,58 @@ export default function DashboardShell({
   const navStateKey = isHqPlatformView ? "hq-nav-groups-v1" : `store-nav-groups-v1:${industryModuleId}`;
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
-  const spaNavigation = useMemo<NavItem[]>(() => {
-    const items: NavItem[] = [...STORE_ADMIN_NAV.map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
-      {href:"/dashboard/spa-staff",label:"服務與排班",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
-      {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
-    ];
-    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/staff","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
-    return items.sort((a,b)=>(order.includes(a.href) ? order.indexOf(a.href) : order.length) - (order.includes(b.href) ? order.indexOf(b.href) : order.length));
-  },[]);
-
+  const previewItems = STORE_ADMIN_NAV.filter(item => ["/dashboard/frontend-preview", "/dashboard/device-preview"].includes(item.href));
   const navGroupsToRender: NavGroup[] = useMemo(() => {
-    if (isHqPlatformView) return NAV_GROUPS;
-    if (industryModuleId === "course") {
-      return [{ id: "course-daily", label: "日常工作", defaultOpen: true, icon: <></>, items: [
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard")!, href: "/dashboard", label: "首頁", permission: "booking.read" },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: FEATURES.BASIC_REPORTS },
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/inventory")!,
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,
-      ] }, { id: "course-setup", label: "店務設定", defaultOpen: true, icon: <></>, items: [
-{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=catalog", label: "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
-{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
-        {...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,href:"/dashboard/teachers",label:musicEnabled?"教師管理":"教練管理"},
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/frontend-preview")!,
-        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/device-preview")!,
-      ] }];
-    }
-    if (isStoreAdminRoute || isHqStoreView) {
-      return [
-        {
-          id: "core",
-          label: "",
-          defaultOpen: true,
-          icon: <></>,
-          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
-        },
-      ];
-    }
-    // Legacy fallback（未透過 proxy 的直連 /dashboard/*）
-    if (isAdmin) return NAV_GROUPS;
-    return [
-      {
-        id: "core",
-        label: "",
-        defaultOpen: true,
-        icon: <></>,
-        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
-      },
+    if (isHqPlatformView || (isAdmin && !isStoreAdminRoute && !isHqStoreView)) return NAV_GROUPS;
+    const entry = (href: string) => STORE_ADMIN_NAV.find(item => item.href === href)!;
+    const course = industryModuleId === "course";
+    const spa = industryModule === "spa";
+    const growth = { ...entry("/dashboard/growth"), alternativeFeatures: [FEATURES.CUSTOMER_CARE, FEATURES.DIGITAL_BUTLER] };
+    // When only the digital butler is enabled, its list remains directly reachable.
+    const growthEntry = effectiveFeatures[FEATURES.CUSTOMER_CARE] === false && effectiveFeatures[FEATURES.DIGITAL_BUTLER] === true
+      ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
+    const daily: NavItem[] = [
+      { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
+      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
+      { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
+      growthEntry,
+      entry("/dashboard/inventory"),
+      { ...entry("/dashboard/revenue"), requiredFeature: course ? undefined : FEATURES.TRANSACTION_MANAGEMENT },
+      { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation,musicEnabled]);
+    const management: NavItem[] = [
+      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: course ? undefined : FEATURES.PLAN_MANAGEMENT },
+      entry("/dashboard/staff"),
+    ];
+    if (course) management.push(
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
+      { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
+    );
+    if (spa) management.push(
+      { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
+    );
+    management.push({ ...entry("/dashboard/settings"), href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings" });
+    return [
+      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
+      { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
+    ];
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures]);
 
+  const featureAccess = (item: NavItem) => {
+    const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);
+    const enabled = !features.length || features.some(feature => (featureStates[feature] === "ENABLED" || !featureStates[feature]) && (effectiveFeatures[feature] ?? hasFeature(pricingPlan, feature)));
+    const state = !features.length ? undefined : enabled ? "ENABLED" as const : features.every(feature => featureStates[feature] === "HIDDEN") ? "HIDDEN" as const : "LOCKED" as const;
+    return { enabled, state };
+  };
+  const accessFor = (item: NavItem) => resolveNavigationAccess({
+    hq: isHqPlatformView || isHqStoreView, owner: isOwner,
+    ownerOnly: item.ownerOnly, permission: item.permission, permissions,
+    ...featureAccess(item),
+  });
   // Determine which groups have visible items and which group contains the active item
-  const { visibleGroups, activeGroupId } = useMemo(() => {
+  const { visibleGroups, activeGroupId } = (() => {
     const groups = navGroupsToRender.map((group) => {
       const categorizedItems = group.items
         .filter(
@@ -836,20 +834,7 @@ export default function DashboardShell({
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
             !(isIframePreview && item.href === "/dashboard/device-preview"),
         )
-        .map((item) => {
-        if (item.requiredFeature && featureStates[item.requiredFeature] === "HIDDEN") return { item, visible: false, locked: false };
-        if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
-        // isOwner also represents Manager/Staff backend identities. Navigation
-        // must use the effective grants, just like the destination page.
-        if (item.permission && !isHqPlatformView && !permissions.includes(item.permission))
-          return { item, visible: false, locked: false };
-        if (
-          item.requiredFeature &&
-          !(effectiveFeatures[item.requiredFeature] ?? hasFeature(pricingPlan, item.requiredFeature))
-        )
-          return { item, visible: true, locked: true };
-        return { item, visible: true, locked: false };
-      });
+        .map((item) => ({ item, ...accessFor(item) }));
 
       const visibleItems = categorizedItems.filter((c) => c.visible);
 
@@ -864,7 +849,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, routeQuery, isOwner, isHqPlatformView, permissions, pricingPlan, effectiveFeatures, featureStates, navGroupsToRender, isIframePreview]);
+  })();
 
   // Core stays open; other groups honor defaults, saved choices and the active page.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -932,9 +917,10 @@ export default function DashboardShell({
     });
   }
 
-  const renderNavItem = (c: { item: NavItem; locked: boolean }, options: { indented: boolean }) => {
-    const { item, locked } = c;
+  const renderNavItem = (c: { item: NavItem; locked: boolean; status?: string }, options: { indented: boolean }) => {
+    const { item, locked, status } = c;
 
+    if (status) return <li key={item.href}><span aria-disabled="true" className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-earth-500"><span className="shrink-0">{item.icon}</span><span>{item.label}</span><span className="ml-auto shrink-0 text-xs">{status}</span></span></li>;
     if (locked) {
       return (
         <li key={item.href}>
@@ -981,9 +967,10 @@ export default function DashboardShell({
     );
   };
 
-  const renderNavItemCollapsed = (c: { item: NavItem; locked: boolean }) => {
-    const { item, locked } = c;
+  const renderNavItemCollapsed = (c: { item: NavItem; locked: boolean; status?: string }) => {
+    const { item, locked, status } = c;
 
+    if (status) return <li key={item.href}><span aria-disabled="true" aria-label={`${item.label}・${status}`} title={`${item.label}・${status}`} className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-earth-400">{item.icon}</span></li>;
     if (locked) {
       return (
         <li key={item.href}>
@@ -1026,11 +1013,12 @@ export default function DashboardShell({
       {readingPage && <NavigationNotice />}
       <div className="space-y-1">
         {visibleGroups.map(({ group, categorizedItems }) => {
-          const isCore = group.id === "core";
+          const isCore = group.id === "core" || !!group.alwaysOpen;
           const isOpen = isCore || openGroups.has(group.id);
 
           return (
             <div key={group.id}>
+              {group.alwaysOpen && (isCollapsed ? <div className="mx-3 my-2 border-t border-earth-200" role="separator" aria-label={group.label} /> : <p className="mx-3 mb-1 mt-2 border-t border-earth-100 pt-2 text-sm font-medium text-earth-500">{group.label}</p>)}
               {/* Core group: no header; other groups: collapsible header */}
               {!isCore && (
                 <>
@@ -1212,6 +1200,7 @@ export default function DashboardShell({
               </svg>
             </button>
             <OperationGuideTrigger />
+            {!isHqPlatformView && <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />}
             {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
