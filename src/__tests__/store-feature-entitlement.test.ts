@@ -315,7 +315,7 @@ describe("full single-store trial across industries", () => {
   it("includes preview, LIFF and all single-store features for legacy undated trial stores", async () => {
     mockStore("EXPERIENCE");
     const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
-    const excluded = new Set<FeatureKey>([FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS, FEATURES.COACH_REVENUE, FEATURES.SPONSOR_TREE, FEATURES.INVENTORY]);
+    const excluded = new Set<FeatureKey>([FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS, FEATURES.COACH_REVENUE, FEATURES.SPONSOR_TREE]);
     for (const feature of Object.values(FEATURES)) {
       expect(await hasStoreFeature("store-1", feature), feature).toBe(!excluded.has(feature));
     }
