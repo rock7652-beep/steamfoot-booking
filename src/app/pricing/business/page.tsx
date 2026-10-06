@@ -61,7 +61,7 @@ export default async function BusinessPage() {
         <MarketingUsageStatistics snapshot={usage} />
         <BookingOverview />
         <BookingTypes />
-        <section aria-labelledby="inventory-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8"><div className="rounded-2xl border border-[#153B31]/15 bg-white p-5 sm:p-7"><p className="text-sm font-medium text-[#74603C]">店務管理</p><h2 id="inventory-title" className="mt-2 text-2xl font-semibold">進銷存管理</h2><p className="mt-3 text-base leading-7 text-[#4C6259]">商品、進貨、銷貨與庫存集中管理，銷售收款串接現金收支，減少重複登記。</p><p className="mt-3 text-sm leading-6 text-[#4C6259]">基本版可加購・專業版可選配・展店版內含</p><Link href="/pricing/features#inventory" className="mt-2 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">了解進銷存功能 →</Link></div></section>
+        <section aria-labelledby="inventory-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8"><div className="rounded-2xl border border-[#153B31]/15 bg-white p-5 sm:p-7"><p className="text-sm font-medium text-[#74603C]">店務管理</p><h2 id="inventory-title" className="mt-2 text-2xl font-semibold">進銷存管理</h2><p className="mt-3 text-base leading-7 text-[#4C6259]">商品、進貨、銷貨與庫存集中管理，銷售收款串接現金收支，減少重複登記。</p><p className="mt-3 text-sm leading-6 text-[#4C6259]">各付費方案皆額外加購，每項原價 NT$800／月；不列入免費選配或展店版內含。</p><Link href="/pricing/features#inventory" className="mt-2 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">了解進銷存功能 →</Link></div></section>
 
         <section id="brands" aria-labelledby="cases-title" className="scroll-mt-24 border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-6xl">

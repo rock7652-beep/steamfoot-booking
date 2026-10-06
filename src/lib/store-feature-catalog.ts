@@ -46,7 +46,7 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
-  { key: FEATURES.WORK_ORDERS, label: "工單管理", module: "營運", description: "獨立管理維修、施工與服務案件。預設未付款，處理進度與付款分開；共用商品庫存與收款紀錄，支援顧客／店家雙聯列印。展店版內含；HQ 可獨立開通、關閉或隱藏，不依進銷存開關。" },
+  { key: FEATURES.WORK_ORDERS, label: "工單管理", module: "營運", description: "獨立管理維修、施工與服務案件。預設未付款，處理進度與付款分開；共用商品庫存與收款紀錄，支援顧客／店家雙聯列印。各付費方案皆額外加購 NT$800／月；HQ 可獨立開通、關閉或隱藏，不依進銷存開關。" },
   { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "完整單店試用內含；一般方案需另行開通。依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
   { key: FEATURES.DEVICE_PREVIEW, label: "裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
   { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "三個付費方案皆內含，不占選配名額。全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
@@ -100,7 +100,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     module: "營運",
     description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
   },
-  { key: FEATURES.INVENTORY, label: "進銷存管理", module: "營運", description: "商品、進貨、銷貨與庫存管理。基本版加購 NT$800／月；專業版使用 1 個經營功能選配名額，超出可加購；展店版內含。隱藏或鎖定保留資料。" },
+  { key: FEATURES.INVENTORY, label: "進銷存管理", module: "營運", description: "商品、進貨、銷貨與庫存管理。各付費方案皆額外加購 NT$800／月，不列入免費選配或展店版內含。隱藏或鎖定保留資料。" },
   {
     key: FEATURES.DATA_EXPORT,
     label: "資料匯出",

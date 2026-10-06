@@ -126,8 +126,6 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "talent_upgrade_progress",
   ],
   ALLIANCE: [
-    "work_orders",
-    "inventory",
     "device_preview",
     "customer_labels",
     "basic_reports", // 分析：專業版與展店版內含；基本版加購

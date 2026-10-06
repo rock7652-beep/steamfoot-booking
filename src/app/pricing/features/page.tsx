@@ -22,7 +22,7 @@ const features = [
     after: "商品、進貨、銷貨與庫存集中管理，銷售收款串接現金收支，減少重複登記。",
     manual: ["翻進貨單", "核對商品庫存", "另登記銷售收款"],
     takeaway: "商品與帳務接在一起，庫存更容易掌握。",
-    detail: "基本版可加購；專業版可使用 1 個經營功能選配名額，超出可加購；展店版內含。歸入原價 NT$800／月的經營功能，優惠與期限沿用同組規則。關閉或停用保留商品、庫存與單據資料。" },
+    detail: "各付費方案皆額外加購，不列入免費選配或展店版內含。歸入原價 NT$800／月的經營功能，優惠與期限沿用同組規則。關閉或停用保留商品、庫存與單據資料。" },
   {
     id: "reminders", name: "LINE 自動提醒", icon: "bell", fee: 0,
     title: "明天的顧客，你還在一個個傳訊息嗎？",
@@ -93,7 +93,7 @@ const features = [
     after: "滿班先候補，有空位依順位自動遞補，並透過 LINE 通知學員。",
     manual: ["記下想候補的學員", "有人取消，再逐一聯絡", "確認名額，再補進預約"],
     takeaway: "有空位，讓系統接手補位。",
-    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與健康、月結、進銷存共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
+    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與健康、月結共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
   },
   {
     id: "analysis", name: "分析", icon: "bar-chart", fee: 800,
@@ -234,16 +234,16 @@ export default async function FeaturesPage() {
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
         <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
-          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
+          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}{fee === 800 && <a href="#work-orders" className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">工單管理<span aria-hidden="true">↓</span></a>}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
         </nav>
 
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
       </section>
       <section id="work-orders" aria-labelledby="work-orders-title" className="mt-10 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
-        <p className="text-base font-semibold">工單管理・展店版內含</p>
+        <p className="text-base font-semibold">工單管理・額外加購</p>
         <h2 id="work-orders-title" className="mt-3 text-2xl font-semibold">接件、處理、收款與取件，一張工單看清楚。</h2>
         <p className="mt-3 text-base leading-7 text-[#4C6259]">適合樂器維修、保養、施工與服務案件。記錄顧客需求、種類／型號與處理內容，搭配商品材料、工費、進度及付款狀態，並列印顧客與店家雙聯工單。</p>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">共用商品庫存與收款紀錄，減少重複登記；支援取消、不維修及退款。展店版內含，不占選配名額；各門市保留獨立開關。基本版與專業版請洽詢開通，旗下分店依各自購買方案授權。</p>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">共用商品庫存與收款紀錄，減少重複登記；支援取消、不維修及退款。各付費方案皆額外加購，原價 NT$800／月，不列入免費選配或展店版內含；優惠與期限沿用經營型模組規則。各門市保留獨立開關，旗下分店依各自加購授權。</p>
       </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
