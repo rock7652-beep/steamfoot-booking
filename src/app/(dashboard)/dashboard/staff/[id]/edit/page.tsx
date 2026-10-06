@@ -66,7 +66,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
     return <StaffAccountRoute person={{
       id: staff.id, userId: staff.userId, displayName: staff.displayName, legalName: staff.user.name,
       role: staff.user.role, permissions: Array.from(currentPerms), roleLabel: ROLE_LABELS[staff.user.role],
-      email: staff.user.email ?? "尚未設定", phone: staff.phone, colorCode: staff.colorCode, status: staff.status,
+      email: staff.user.email ?? "尚未設定", phone: staff.phone ?? staff.user.phone, colorCode: staff.colorCode, status: staff.status,
       canEdit: canManageStaff, canResetPassword: canManageStaff, customerCount: staff._count.assignedCustomers,
       specialties: "", specialtyKeys: [], emergencyContact: null, weeklyAvailability: [], scheduleExceptions: [], compensationMode: null, compensationValue: null,
     }} policy={{
