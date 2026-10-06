@@ -25,3 +25,14 @@
 
 ## 實體列印限制
 已驗證雙聯畫面、A4橫向5mm邊距CSS及聯絡區，未驗證實體印表機與QR掃描。長內容可能跨頁，仍需店家試印。
+
+## 雙聯列印密度調整 — 18:20 Preview
+
+- 應用版本96932f0d0c72971ce472d03609cfea0d92c378d7：ESLint、Typecheck、Targeted tests、Full Vitest baseline、工單及金流PostgreSQL與Vercel均通過；Cloudflare依指示跳過。
+- 維持14px內容字級，合併抬頭、日期／單號及種類／進度，縮短列距與區塊間距；空白備註不佔區塊。普通品項列實測25.89px，雙聯高547.39px。
+- 每聯交件確認靠右，17px標示及36px高簽名區。
+- 新增可空lineOfficialId，音樂／運動店家資料與共用付款設定可維護@ID；僅列印顯示ID，QR沿用連結。短網址token不推算為ID。省略欄位的舊設定呼叫保留現值。
+- 隔離Preview實際儲存@qa_workorder成功，原連結及銀行欄位保留，雙聯均顯示ID不顯示網址；驗收後還原原本null。新增欄位migration只在隔離Preview套用。
+- 二十筆長名稱材料列印fixture：兩聯各20列及最後品項完整，無整頁水平溢出；此fixture只驗排版，不驗庫存金流。長名稱換行後可能超過一張A4，實體分頁及QR仍待試印。fixture驗收後移除。
+
+- LINE ID設定入口以桌機1363與裝置預覽768×1024、1024×768驗收；扣除捲軸後clientWidth=scrollWidth為753／1009，輸入44px。列印頁已驗桌機；iPad原生列印對話框與PDF分頁未驗。
