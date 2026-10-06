@@ -1,4 +1,4 @@
-import { isCourseCareKind, COURSE_CARE_LABELS } from "@/server/queries/course-home";
+import { isCourseCareKind } from "@/server/queries/course-home";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { formatTWTime } from "@/lib/date-utils";
@@ -13,22 +13,30 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
   const mode = { courseMode: true, readOnly, canFollowUp, canBook };
   const phone = (value: string | null) => value ? `末四碼 ${value.slice(-4)}` : "未提供電話";
   const rows = (kind: "low" | "inactive" | "expiring"): CareItem[] => overview[kind].map(customer => {
-    const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0);
+    const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0).sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
+    const details = cards.map(card => `${card.name}：剩餘 ${card.remaining}／已預約 ${card.held}／可用 ${card.available} ${card.unit}，${formatTWTime(card.expiresAt, { dateOnly: true })} 到期`);
     return {
       ...mode, customerId: customer.id, name: customer.name, phoneMasked: phone(customer.phone), staffName: customer.assignedStaff?.displayName ?? null,
       lastFollowUpText: customer.followUps[0] ? `最後追蹤：${customer.followUps[0].createdBy.name}・${formatTWTime(customer.followUps[0].createdAt)}` : null,
       reason: kind === "inactive" ? "超過 30 天未出席，仍有有效方案" : kind === "low" ? "已達方案設定的低可用額度門檻" : "方案將於 14 天內到期",
-      meta: cards.map(card => `${card.name}：剩餘 ${card.remaining}／已預約 ${card.held}／可用 ${card.available} ${card.unit}，${formatTWTime(card.expiresAt, { dateOnly: true })} 到期`).join("；"),
+      meta: details[0] ?? null, planDetails: details.slice(1),
       script: kind === "inactive" ? "您好，最近還好嗎？需要我們協助安排下一次課程嗎？" : "您好，想提醒您確認方案可用額度與期限，需要協助安排課程可以與我們聯絡。預約占用尚未正式使用額度。",
     };
   });
   const birthdayItems: CareItem[] = birthdays.map(customer => ({ ...mode, customerId: customer.customerId, name: customer.customerName, phoneMasked: phone(customer.customerPhone), staffName: customer.assignedStaffName, lastFollowUpText: customer.lastFollowUp ? `最後追蹤：${customer.lastFollowUp.createdByName}・${formatTWTime(customer.lastFollowUp.createdAt)}` : null, reason: `${customer.birthday.getUTCMonth() + 1} 月 ${customer.birthday.getUTCDate()} 日生日`, meta: null, script: "生日快樂！祝您新的一歲平安順心，也期待很快在課堂上見到您。" }));
   const counts = { birthday: birthdayItems.length, inactive: overview.inactive.length, low: overview.low.length, expiring: overview.expiring.length, trial: overview.trial.length };
   return <PageShell compact>
-    <PageHeader compact title="顧客經營" subtitle="生日、回課與方案關懷；追蹤紀錄不會自動發送 LINE。" actions={<Link className="inline-flex min-h-11 items-center text-sm" href="/dashboard/courses?view=customers">顧客管理</Link>}/>
-    <p data-settings-return className="mb-2 text-sm">{selected ? COURSE_CARE_LABELS[selected] : "全部關懷分類"} · <Link href="/dashboard">返回首頁</Link> · <Link href="/dashboard/growth">全部分類</Link> · <Link href="/dashboard/courses?view=settings&section=notifications">返回設定</Link></p>
-    <form data-settings-panel-filter className="mb-1 flex flex-wrap items-end gap-3">{selected && <input type="hidden" name="segment" value={selected}/>}<label className="text-sm">生日月份<input className="ml-2 min-h-11 rounded border border-earth-200 p-2" aria-label="生日月份" type="month" name="month" defaultValue={month}/></label><button className="min-h-11 rounded border border-earth-200 px-3">套用月份</button></form>
-    <nav aria-label="關懷分類" className="mb-1 flex flex-wrap gap-2">{([['birthday','本月生日'],['inactive','好久不見'],['low','建議回課'],['expiring','建議續約'],['trial','體驗未購買']] as const).map(([kind,label]) => <Link key={kind} aria-current={selected === kind ? "page" : undefined} className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm aria-[current=page]:bg-primary-50" href={`/dashboard/growth?segment=${kind}&month=${month}`}>{label} · {counts[kind]}</Link>)}<Link href={`/dashboard/growth?month=${month}`} className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">全部</Link></nav>
+    <PageHeader compact title="顧客經營" subtitle="今天要關心誰，一頁看懂。" actions={<Link className="inline-flex min-h-11 items-center text-sm" href="/dashboard/courses?view=customers">顧客管理</Link>}/>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <nav aria-label="關懷分類" className="flex flex-wrap gap-1">
+        <Link aria-current={!selected ? "page" : undefined} href={`/dashboard/growth?month=${month}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900">全部</Link>
+        {([['birthday','本月生日'],['inactive','好久不見'],['low','額度快用完'],['expiring','方案快到期'],['trial','體驗未購買方案']] as const).map(([kind,label]) => <Link key={kind} aria-current={selected === kind ? "page" : undefined} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900" href={`/dashboard/growth?segment=${kind}&month=${month}`}>{label} <span className="tabular-nums">{counts[kind]}</span></Link>)}
+      </nav>
+      <details className="min-w-0">
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">生日月份 · {month}</summary>
+        <form data-settings-panel-filter className="flex flex-wrap items-center gap-2 pb-2">{selected && <input type="hidden" name="segment" value={selected}/>}<input className="min-h-11 max-w-full rounded border border-earth-200 p-2 text-sm" aria-label="生日月份" type="month" name="month" defaultValue={month}/><button className="min-h-11 rounded border border-earth-200 px-3 text-sm">套用</button></form>
+      </details>
+    </div>
     <CareWorkspaceServer storeId={storeId} module="course" month={month} staffScope={staffScope} readOnly={readOnly} canFollowUp={canFollowUp} canBook={canBook} selected={selected} sections={[
       { reason: "birthday", title: "本月生日", description: "本月生日祝福。", emptyText: "本月沒有待祝福顧客。", items: birthdayItems },
       { reason: "inactive", title: "好久不見", description: "超過 30 天未出席。", emptyText: "目前沒有需要回課關懷的顧客。", items: rows("inactive") },
