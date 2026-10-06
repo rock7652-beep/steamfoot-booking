@@ -60,8 +60,8 @@ jobs:
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("work-orders-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 10 || r.numPassedTests !== 10 || r.numPendingTests !== 0)
-              throw new Error("All ten real PostgreSQL work-order scenarios must pass without skips");
+            if (!r.success || r.numTotalTests !== 12 || r.numPassedTests !== 12 || r.numPendingTests !== 0)
+              throw new Error("All twelve real PostgreSQL work-order scenarios must pass without skips");
           '
       - uses: actions/upload-artifact@v4
         if: always()
