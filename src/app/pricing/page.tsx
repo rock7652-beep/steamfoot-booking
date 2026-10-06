@@ -14,7 +14,7 @@ export const metadata = {
 const TRIAL_URL = "/apply";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
-  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
+  "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
@@ -22,18 +22,19 @@ const limits = [
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
 ] as const;
 const groups = [
-  { title: "工具功能", note: "基本版：以下 3 選 1。專業版：現金抽屜已含，提醒／匯出再選 1 項。展店版：全部內含。", rows: [
-    { label: "LINE 自動提醒", values: ["可選", "可選", "內含"] },
-    { label: "資料匯出", values: ["可選", "可選", "內含"] },
-    { label: "現金抽屜", values: ["可選", "內含", "內含"] },
+  { title: "工具功能", note: "LINE 提醒皆內含。基本版：匯出／現金抽屜 2 選 1。專業版：現金抽屜已含，資料匯出可選配。展店版：全部內含。", rows: [
+    { label: "LINE 自動提醒", values: ["內含", "內含", "內含"] },
+    { label: "資料匯出", values: ["可選配", "可選配", "內含"] },
+    { label: "現金抽屜", values: ["可選配", "內含", "內含"] },
   ] },
-  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營與分析已含，標籤／健康／月結／候補再選 1 項。展店版：全部內含。", rows: [
+  { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營與分析已含，健康／月結／候補／進銷存再選 1 項。展店版：全部內含。", rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
-    { label: "顧客標籤", values: ["加購", "可選", "內含"] },
-    { label: "健康追蹤", values: ["加購", "可選", "內含"] },
-    { label: "月結管理", values: ["加購", "可選", "內含"] },
+    { label: "顧客標籤", values: ["內含", "內含", "內含"] },
+    { label: "進銷存管理", values: ["加購", "可選配", "內含"] },
+    { label: "健康追蹤", values: ["加購", "可選配", "內含"] },
+    { label: "月結管理", values: ["加購", "可選配", "內含"] },
     { label: "分析", values: ["加購", "內含", "內含"] },
-    { label: "課程候補", values: ["加購", "可選", "內含"] },
+    { label: "課程候補", values: ["加購", "可選配", "內含"] },
   ] },
 ] as const;
 
@@ -73,7 +74,7 @@ function OnlinePayment() {
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
-    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]">內含：直接使用。可選：使用內含名額，不另收費。加購：另付月費。展店版欄位指總部本身，旗下分店須各自購買基本版或專業版，功能不隨總部方案自動升級。</p>
+    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]">內含：直接使用。可選配：使用內含名額，不另收費。加購：另付月費。展店版欄位指總部本身，旗下分店須各自購買基本版或專業版，功能不隨總部方案自動升級。</p>
     <div className="mt-4 rounded-xl border border-[#153B31]/15 bg-white px-4 py-3 text-base leading-7">
       <p className="font-semibold">三個方案都內含日常店務</p>
       <p className="text-[#4C6259]">預約管理、顧客資料、方案堂數、基本收款與 LINE 顧客入口。</p>
