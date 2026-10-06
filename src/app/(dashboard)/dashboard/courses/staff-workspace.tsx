@@ -223,14 +223,17 @@ export function CourseStaffWorkspace({
   }
   return (
     <div className={styles.workspace}>
-      <div className="flex flex-wrap gap-2">
-        <input
-          className={`${field} max-w-xs`}
-          aria-label="搜尋人員"
-          placeholder="搜尋姓名／電話／信箱"
-          value={search}
-          onChange={(e) => {setSelected([]);setSearch(e.target.value);setStaffPage(0);}}
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="min-w-48 flex-1 sm:max-w-xs">
+          <span className="sr-only">搜尋人員</span>
+          <input
+            className={field}
+            aria-label="搜尋人員"
+            placeholder="搜尋姓名／電話／信箱"
+            value={search}
+            onChange={(e) => {setSelected([]);setSearch(e.target.value);setStaffPage(0);}}
+          />
+        </label>
         <select
           className={button}
           aria-label="人員角色"
