@@ -921,7 +921,7 @@ export default function DashboardShell({
   const renderNavItem = (c: { item: NavItem; locked: boolean; status?: string }, options: { indented: boolean }) => {
     const { item, locked, status } = c;
 
-    if (status) return <li key={item.href}><span aria-disabled="true" className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-earth-500"><span className="shrink-0">{item.icon}</span><span>{item.label}</span><span className="ml-auto shrink-0 text-xs">{status}</span></span></li>;
+    if (status) return <li key={item.href}><span aria-disabled="true" className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-earth-700 opacity-50"><span className="shrink-0">{item.icon}</span><span>{item.label}</span></span></li>;
     if (locked) {
       return (
         <li key={item.href}>
@@ -971,7 +971,7 @@ export default function DashboardShell({
   const renderNavItemCollapsed = (c: { item: NavItem; locked: boolean; status?: string }) => {
     const { item, locked, status } = c;
 
-    if (status) return <li key={item.href}><span aria-disabled="true" aria-label={`${item.label}・${status}`} title={`${item.label}・${status}`} className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-earth-400">{item.icon}</span></li>;
+    if (status) return <li key={item.href}><span aria-disabled="true" aria-label={item.label} title={item.label} className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-earth-700 opacity-50">{item.icon}</span></li>;
     if (locked) {
       return (
         <li key={item.href}>

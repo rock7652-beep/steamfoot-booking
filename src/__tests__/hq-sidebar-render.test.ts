@@ -56,9 +56,12 @@ describe("actual HQ shell rendering", () => {
     expect(html).not.toContain("數位管家名單</span>");
     expect(html).toContain('aria-label="預覽工具"');
   });
-  it("shows an HQ hidden entry without turning it into a granted link", () => {
-    const html = render("steamfoot", "a", "/hq/dashboard", false, true, [], true);
-    expect(html).toContain("進銷存"); expect(html).toContain("已隱藏");
+  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("dims a hidden HQ entry without extra status text for %s (music=%s)", (module, music) => {
+    const html = render(module, "a", "/hq/dashboard", music, true, [], true);
+    expect(html).toContain("進銷存");
+    expect(html).not.toContain("已隱藏");
+    expect(html).not.toContain("未開通");
+    expect(html).toMatch(/aria-disabled="true"[^>]*opacity-50/);
     expect(html).not.toContain('href="/hq/dashboard/inventory"');
     expect(html).toContain('href="/hq/dashboard/staff"');
   });
