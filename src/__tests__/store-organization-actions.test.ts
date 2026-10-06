@@ -8,7 +8,7 @@ vi.mock("@/lib/session", () => ({ requireAdminSession: mocks.admin }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store-organization", () => ({ assertValidStoreParentAssignment: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-import { listStoreOrganizationAction, updateOrganizationCapacityAction, updateStoreParentAction } from "@/server/actions/store-organization";
+import { reorderStoreCatalogAction, listStoreOrganizationAction, updateOrganizationCapacityAction, updateStoreParentAction } from "@/server/actions/store-organization";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.admin.mockResolvedValue({ id: "admin" });
@@ -56,6 +56,22 @@ describe("organization subscription actions", () => {
     expect((await updateOrganizationCapacityAction({ storeId: "hq", purchasedBranches: 31 })).success).toBe(false);
     mocks.permission.mockRejectedValueOnce(new Error("Forbidden"));
     expect((await updateStoreParentAction({ storeId: "branch", parentStoreId: "hq" })).success).toBe(false);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("catalog ordering", () => {
+  it("persists sibling order without changing parents", async () => {
+    expect((await reorderStoreCatalogAction({ parentStoreId: null, expectedIds: ["hq", "branch"], orderedIds: ["branch", "hq"] })).success).toBe(true);
+    expect(mocks.update).toHaveBeenCalledWith({ where: { id: "branch" }, data: { catalogSortOrder: 0 } });
+    expect(mocks.update).toHaveBeenCalledWith({ where: { id: "hq" }, data: { catalogSortOrder: 1 } });
+  });
+  it.each([[["hq", "hq"]], [["hq", "other"]], [["hq"]]])("rejects incomplete or foreign sibling lists", async (orderedIds) => {
+    expect((await reorderStoreCatalogAction({ parentStoreId: null, expectedIds: ["hq", "branch"], orderedIds })).success).toBe(false);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("rejects stale order", async () => {
+    expect((await reorderStoreCatalogAction({ parentStoreId: null, expectedIds: ["branch", "hq"], orderedIds: ["hq", "branch"] })).success).toBe(false);
     expect(mocks.update).not.toHaveBeenCalled();
   });
 });

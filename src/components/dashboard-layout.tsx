@@ -71,6 +71,10 @@ export default async function DashboardLayout({
         throw error;
       }),
     ]);
+  if (isAdmin && activeStoreId && !storeOptions.some(store => store.id === activeStoreId)) {
+    const archived = await prisma.store.findUnique({ where: { id: activeStoreId }, select: { id: true, slug: true, name: true, isDefault: true, archivedAt: true } });
+    if (archived?.archivedAt) storeOptions.push({ id: archived.id, slug: archived.slug, name: archived.name, isDefault: archived.isDefault, isArchived: true });
+  }
   const industryModule = !hqPlatform && activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
   // the remaining course-specific areas are being delivered.

@@ -10,6 +10,7 @@ interface StoreOption {
   id: string;
   name: string;
   isDefault: boolean;
+  isArchived?: boolean;
 }
 
 interface StoreSwitcherProps {
@@ -36,7 +37,7 @@ export default function StoreSwitcher({
   const [menuHeight, setMenuHeight] = useState(320);
   const [search, setSearch] = useState("");
   const visibleStores = stores.filter((store) =>
-    store.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+    !store.isArchived && store.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
   );
 
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function StoreSwitcher({
   const currentLabel =
     activeStoreId === null
       ? "全部分店"
-      : (stores.find((s) => s.id === activeStoreId)?.name ?? "未知分店");
+      : (stores.find((s) => s.id === activeStoreId)?.name ?? "未知分店") + (stores.find(s => s.id === activeStoreId)?.isArchived ? "（已封存）" : "");
 
   function handleSelect(value: string) {
     setOpen(false);
@@ -208,7 +209,8 @@ export default function StoreSwitcher({
               全部分店
             </button>
             <div className="border-t border-earth-100" />
-            {visibleStores.map((store) => (
+            {stores.find(store => store.id === activeStoreId)?.isArchived && <a href={`/hq/dashboard/stores/${activeStoreId}`} className="block min-h-11 px-3 py-3 text-sm text-amber-700">查看已封存店舖</a>}
+              {visibleStores.map((store) => (
               <button
                 key={store.id}
                 type="button"
@@ -336,7 +338,8 @@ export default function StoreSwitcher({
             全部分店
           </button>
           <div className="border-t border-earth-100" />
-          {visibleStores.map((store) => (
+          {stores.find(store => store.id === activeStoreId)?.isArchived && <a href={`/hq/dashboard/stores/${activeStoreId}`} className="block min-h-11 px-3 py-3 text-sm text-amber-700">查看已封存店舖</a>}
+              {visibleStores.map((store) => (
             <button
               key={store.id}
               type="button"

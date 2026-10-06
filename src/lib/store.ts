@@ -10,7 +10,7 @@ type SessionLike = { role: string; storeId?: string | null };
 export const ALL_STORES_ID = "__all__";
 
 export type StoreAccessMode = "read" | "write" | "switch";
-export type AccessibleStore = { id: string; slug: string; name: string; isDefault: boolean };
+export type AccessibleStore = { id: string; slug: string; name: string; isDefault: boolean; isArchived?: boolean };
 export type AuthorizedConcreteStore = { id: string; slug: string; name: string };
 
 const MAX_STORE_TREE_DEPTH = 20;
@@ -52,7 +52,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
     return prisma.store.findMany({
       where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
   }
   if (!user.storeId) throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
@@ -84,7 +84,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
       operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, slug: true, name: true, isDefault: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
   return stores.map(({ id, slug, name, isDefault }) => ({ id, slug, name, isDefault }));
 }
@@ -278,7 +278,7 @@ export async function getAllActiveStoreIds(): Promise<string[]> {
   const stores = await prisma.store.findMany({
     where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
     select: { id: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
   return stores.map((s) => s.id);
 }

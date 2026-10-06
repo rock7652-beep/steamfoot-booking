@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ admin: vi.fn(), permission: vi.fn(), find: vi.fn(), update: vi.fn(), audit: vi.fn(), many: vi.fn() }));
+const mocks = vi.hoisted(() => ({ admin: vi.fn(), permission: vi.fn(), find: vi.fn(), update: vi.fn(), audit: vi.fn(), many: vi.fn(), count: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireAdminSession: mocks.admin }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -8,12 +8,12 @@ vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: vi.fn() }));
 vi.mock("@/lib/errors", () => ({ AppError: Error, handleActionError: (e: Error) => ({ success: false, error: e.message }) }));
 vi.mock("@/lib/db", () => ({ prisma: {
   store: { findMany: mocks.many },
-  $transaction: (fn: (tx: unknown) => unknown) => fn({ store: { findUnique: mocks.find, update: mocks.update }, auditLog: { create: mocks.audit } }),
+  $transaction: (fn: (tx: unknown) => unknown) => fn({ $executeRaw: vi.fn(), store: { findUnique: mocks.find, count: mocks.count, update: mocks.update }, auditLog: { create: mocks.audit } }),
 } }));
 import { setStoreArchivedAction } from "@/server/actions/store-archive";
 import { getAccessibleStores, getStoreOptions } from "@/lib/store";
 describe("HQ catalog archive", () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.admin.mockResolvedValue({ id: "admin" }); mocks.permission.mockResolvedValue(undefined); mocks.find.mockResolvedValue({ archivedAt: null, isDefault: false }); });
+  beforeEach(() => { vi.clearAllMocks(); mocks.count.mockResolvedValue(0); mocks.admin.mockResolvedValue({ id: "admin" }); mocks.permission.mockResolvedValue(undefined); mocks.find.mockResolvedValue({ archivedAt: null, isDefault: false }); });
   it("rejects non-admin before any database mutation", async () => {
     mocks.admin.mockRejectedValue(new Error("unauthorized"));
     expect((await setStoreArchivedAction("qa", true)).success).toBe(false);
@@ -28,6 +28,11 @@ describe("HQ catalog archive", () => {
     expect((await setStoreArchivedAction("qa", true)).success).toBe(true);
     expect(mocks.update).toHaveBeenCalledWith({ where: { id: "qa" }, data: { archivedAt: expect.any(Date) } });
     expect(mocks.audit.mock.calls[0][0].data.action).toBe("ARCHIVE");
+  });
+  it("rejects archiving a parent with visible children", async () => {
+    mocks.count.mockResolvedValue(1);
+    expect((await setStoreArchivedAction("parent", true)).success).toBe(false);
+    expect(mocks.update).not.toHaveBeenCalled();
   });
   it("restores without modifying operational fields", async () => {
     mocks.find.mockResolvedValue({ archivedAt: new Date(), isDefault: false });

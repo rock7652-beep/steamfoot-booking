@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ALLIANCE_BRANCH_PRICING_COPY, branchCapacity, branchConnectionMonthlyFee, managementMonthlyFee } from "@/lib/alliance-subscription";
-import { updateOrganizationCapacityAction, updateStoreParentAction, type StoreOrganizationRow } from "@/server/actions/store-organization";
+import { reorderStoreCatalogAction, updateOrganizationCapacityAction, updateStoreParentAction, type StoreOrganizationRow } from "@/server/actions/store-organization";
+
+import { setStoreArchivedAction } from "@/server/actions/store-archive";
 
 interface Props {
+  userId: string;
+  canManage: boolean;
   stores: StoreOrganizationRow[];
 }
 
@@ -22,9 +26,16 @@ interface PreviewLine {
   childCount?: number;
 }
 
-export function StoreOrganizationManager({ stores }: Props) {
+export function StoreOrganizationManager({ stores: sourceStores, userId, canManage }: Props) {
+  const [stores, setStores] = useState(sourceStores);
+  const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [collapsed, setCollapsed] = useState<string[]>([]);
+  const [restored, setRestored] = useState(false);
+  useEffect(() => { setStores(sourceStores); }, [sourceStores]);
+  const storageKey = `hq-organization:${userId}`;
   const router = useRouter();
-  const [selectedStoreId, setSelectedStoreId] = useState(stores[0]?.id ?? "");
+  const [selectedStoreId, setSelectedStoreId] = useState(stores.find(store => !store.archivedAt)?.id ?? "");
   const [parentStoreId, setParentStoreId] = useState<string>(
     stores[0]?.parentStoreId ?? "__none__",
   );
@@ -33,17 +44,59 @@ export function StoreOrganizationManager({ stores }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    try { const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null"); if (saved) { setSearch(saved.search ?? ""); setCollapsed(saved.collapsed ?? []); setSelectedStoreId(saved.selectedStoreId ?? ""); window.scrollTo(0, saved.scroll ?? 0); } } catch {}
+    setRestored(true);
+  }, [storageKey]);
+  useEffect(() => {
+    if (!restored) return;
+    const save = () => { try { sessionStorage.setItem(storageKey, JSON.stringify({ search, collapsed, selectedStoreId, scroll: window.scrollY })); } catch {} };
+    save(); window.addEventListener("scroll", save, { passive: true }); return () => window.removeEventListener("scroll", save);
+  }, [restored, storageKey, search, collapsed, selectedStoreId]);
+
   const storeById = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
   const selectedStore = storeById.get(selectedStoreId) ?? null;
 
-  const tree = useMemo(() => buildTree(stores), [stores]);
+  const tree = useMemo(() => {
+    const visible = stores.filter(store => showArchived || !store.archivedAt);
+    const full = buildTree(visible);
+    const filter = (nodes: TreeNode[]): TreeNode[] => nodes.flatMap(node => {
+      const children = filter(node.children);
+      return !search.trim() || node.store.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) || children.length ? [{ ...node, children }] : [];
+    });
+    return filter(full);
+  }, [stores, showArchived, search]);
+  function toggleCollapsed(id: string) { setCollapsed(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); }
+  function moveStore(id: string, targetId: string) {
+    if (!canManage || search.trim() || isPending) return;
+    const store = storeById.get(id), target = storeById.get(targetId);
+    if (!store || !target || store.archivedAt || target.archivedAt || store.parentStoreId !== target.parentStoreId || id === targetId) return;
+    const siblings = stores.filter(item => !item.archivedAt && item.parentStoreId === store.parentStoreId);
+    const expectedIds = siblings.map(item => item.id), orderedIds = [...expectedIds];
+    orderedIds.splice(orderedIds.indexOf(id), 1); orderedIds.splice(expectedIds.indexOf(targetId), 0, id);
+    const before = stores;
+    setStores(current => [...current].map(item => orderedIds.includes(item.id) ? { ...item, catalogSortOrder: orderedIds.indexOf(item.id) } : item).sort((a,b) => (a.catalogSortOrder ?? 0) - (b.catalogSortOrder ?? 0) || +new Date(a.createdAt) - +new Date(b.createdAt) || a.id.localeCompare(b.id)));
+    setMessage("正在儲存排序…");
+    startTransition(async () => {
+      try { const result = await reorderStoreCatalogAction({ parentStoreId: store.parentStoreId, expectedIds, orderedIds }); if (!result.success) { setStores(before); setMessage(result.error); } else { setMessage("排序已儲存"); router.refresh(); } }
+      catch { setStores(before); setMessage("排序儲存失敗，已還原原順序"); }
+    });
+  }
+  function moveBy(id: string, direction: number) {
+    const store = storeById.get(id); if (!store) return;
+    const siblings = stores.filter(item => !item.archivedAt && item.parentStoreId === store.parentStoreId);
+    const target = siblings[siblings.findIndex(item => item.id === id) + direction]; if (target) moveStore(id, target.id);
+  }
+  function archiveStore(store: StoreOrganizationRow) {
+    startTransition(async () => { const result = await setStoreArchivedAction(store.id, !store.archivedAt); if (result.success) { setStores(current => current.map(item => item.id === store.id ? { ...item, archivedAt: store.archivedAt ? null : new Date() } : item)); setMessage(store.archivedAt ? "店舖已恢復" : "店舖已封存"); router.refresh(); } else setMessage(result.error); });
+  }
   const childrenByParent = useMemo(() => buildChildrenByParent(stores), [stores]);
   const descendantIds = useMemo(
     () => collectDescendantIds(childrenByParent, selectedStoreId),
     [childrenByParent, selectedStoreId],
   );
   const options = stores.filter(
-    (store) => store.id !== selectedStoreId && !descendantIds.has(store.id),
+    (store) => store.id !== selectedStoreId && !store.archivedAt && !descendantIds.has(store.id),
   );
   const currentLocation = getLocationLabel(storeById, selectedStore?.parentStoreId ?? null);
   const nextLocation = getLocationLabel(storeById, parentStoreId === "__none__" ? null : parentStoreId);
@@ -55,7 +108,8 @@ export function StoreOrganizationManager({ stores }: Props) {
         .map((id) => storeById.get(id))
         .filter((store): store is StoreOrganizationRow => Boolean(store))
     : [];
-  const overview = getBrandOverview(stores);
+  const activeStores = stores.filter(store => !store.archivedAt);
+  const overview = getBrandOverview(activeStores);
   const beforePreview = useMemo(
     () => flattenTreeWithHq(buildTree(stores), selectedStoreId),
     [stores, selectedStoreId],
@@ -87,7 +141,7 @@ export function StoreOrganizationManager({ stores }: Props) {
 
   function startReorganize(storeId = selectedStoreId) {
     const store = storeById.get(storeId);
-    if (!store) return;
+    if (!store || !canManage || store.archivedAt) return;
     setSelectedStoreId(store.id);
     setParentStoreId(store.parentStoreId ?? "__none__");
     setMode("edit");
@@ -137,13 +191,21 @@ export function StoreOrganizationManager({ stores }: Props) {
       <section className="rounded-lg border border-earth-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-earth-800">品牌概況</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-4">
-          <OverviewMetric label="目前共有" value={`${stores.length} 家店`} emphasis />
+          <OverviewMetric label="目前共有" value={`${activeStores.length} 家店`} emphasis />
           <OverviewMetric label="正式營運" value={`${overview.active} 家`} />
           <OverviewMetric label="試營運" value={`${overview.trial} 家`} />
           <OverviewMetric label="暫停／停用" value={`${overview.pausedOrInactive} 家`} />
         </div>
       </section>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <input aria-label="搜尋店舖" placeholder="搜尋店舖名稱" value={search} onChange={event => setSearch(event.target.value)} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" />
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={event => setShowArchived(event.target.checked)} />顯示已封存</label>
+        <button type="button" className="min-h-11 px-3 text-sm" onClick={() => setCollapsed([])}>全部展開</button>
+        <button type="button" className="min-h-11 px-3 text-sm" onClick={() => setCollapsed(stores.map(store => store.id))}>全部收合</button>
+        {search.trim() && <span className="text-sm text-earth-500">搜尋中暫停排序</span>}
+      </div>
+      {message && <p role="status" className="text-sm">{message}</p>}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section className="rounded-lg border border-earth-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -160,7 +222,7 @@ export function StoreOrganizationManager({ stores }: Props) {
           <div className="mt-3 space-y-1">
             {tree.length === 0 ? (
               <p className="rounded-md bg-white px-3 py-2 text-sm text-earth-500">
-                目前沒有下層店。未來建立新分店時，可以指定 HQ 或某間店為上層位置。
+                目前沒有符合條件的店舖。可以清除搜尋或勾選顯示已封存。
               </p>
             ) : null}
           {tree.map((node) => (
@@ -175,9 +237,10 @@ export function StoreOrganizationManager({ stores }: Props) {
                 setOpenMenuStoreId((current) => (current === storeId ? null : storeId))
               }
               onView={(storeId) => {
-                onStoreChange(storeId);
+                router.push(`/hq/dashboard/stores/${storeId}`);
                 setOpenMenuStoreId(null);
               }}
+              collapsed={search.trim() ? [] : collapsed} onCollapse={toggleCollapsed} onMove={moveStore} onMoveBy={moveBy} canReorder={canManage && !search.trim() && !isPending} canManage={canManage}
               onReorganize={startReorganize}
             />
           ))}
@@ -201,8 +264,10 @@ export function StoreOrganizationManager({ stores }: Props) {
               </div>
             </div>
 
-            {selectedStore?.plan === "ALLIANCE" && <OrganizationCapacityEditor key={`${selectedStore.id}:${selectedStore.maxStoresOverride}`} store={selectedStore} count={descendantIds.size} />}
+            {canManage && selectedStore?.plan === "ALLIANCE" && <OrganizationCapacityEditor key={`${selectedStore.id}:${selectedStore.maxStoresOverride}`} store={selectedStore} count={descendantIds.size} />}
 
+            {selectedStore?.archivedAt && <p className="text-sm text-amber-700">已封存</p>}
+            {canManage && selectedStore && <button type="button" disabled={isPending} onClick={() => archiveStore(selectedStore)} className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm">{selectedStore.archivedAt ? "恢復店舖" : "封存店舖"}</button>}
             <InfoBlock label="目前位置" value={formatCurrentLocation(currentLocation)} />
             <InfoBlock label="下層店" value={`${selectedChildCount} 家`} />
 
@@ -236,8 +301,7 @@ export function StoreOrganizationManager({ stores }: Props) {
 
             <button
               type="button"
-              onClick={() => startReorganize()}
-              disabled={!selectedStore}
+              disabled={!canManage || !selectedStore || !!selectedStore.archivedAt} onClick={() => startReorganize()}
               className="w-full rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               重新安排組織
@@ -398,8 +462,14 @@ function TreeBranch({
   onSelect,
   onToggleMenu,
   onView,
-  onReorganize,
+  onReorganize, collapsed, onCollapse, onMove, onMoveBy, canReorder, canManage,
 }: {
+  collapsed: string[];
+  onCollapse: (id: string) => void;
+  onMove: (id: string, target: string) => void;
+  onMoveBy: (id: string, direction: number) => void;
+  canReorder: boolean;
+  canManage: boolean;
   node: TreeNode;
   level: number;
   selectedStoreId: string;
@@ -415,27 +485,35 @@ function TreeBranch({
   return (
     <div>
       <div
-        className={`relative flex items-center gap-2 rounded-md px-3 py-2 text-sm shadow-sm ${
+        className={`relative flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-sm shadow-sm ${
           isSelected ? "bg-primary-50 ring-1 ring-primary-200" : "bg-white"
         }`}
-        style={{ marginLeft: `${level * 24}px` }}
+        data-store-id={node.store.id}
+        style={{ marginLeft: `${Math.min(level, 4) * 12}px` }}
       >
+        {childCount > 0 && <button type="button" aria-label={`${node.store.name} ${collapsed.includes(node.store.id) ? "展開" : "收合"}`} aria-expanded={!collapsed.includes(node.store.id)} onClick={() => onCollapse(node.store.id)} className="min-h-11 min-w-11">{collapsed.includes(node.store.id) ? "+" : "−"}</button>}
+        {canReorder && !node.store.archivedAt && <div className="flex shrink-0 items-center">
+          <button type="button" aria-label={`拖拉排序 ${node.store.name}`} className="min-h-11 min-w-11 cursor-grab touch-none" onPointerDown={event => event.currentTarget.setPointerCapture(event.pointerId)} onPointerUp={event => { const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-store-id]")?.dataset.storeId; if (target) onMove(node.store.id, target); }}>⠿</button>
+          <button type="button" aria-label={`${node.store.name} 上移`} className="min-h-11 px-2" onClick={() => onMoveBy(node.store.id, -1)}>↑</button>
+          <button type="button" aria-label={`${node.store.name} 下移`} className="min-h-11 px-2" onClick={() => onMoveBy(node.store.id, 1)}>↓</button>
+        </div>}
         <button
           type="button"
           onClick={() => onSelect(node.store.id)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-h-11 min-w-24 flex-1 items-center gap-2 text-left"
         >
           <span className="shrink-0 font-mono text-earth-300">{level === 0 ? "└──" : "├──"}</span>
           <span className="truncate font-medium text-earth-900">{node.store.name}</span>
         </button>
-        <span className="ml-auto rounded-full bg-earth-50 px-2 py-0.5 text-xs font-medium text-earth-500">
+        {childCount > 0 && <span className="ml-auto rounded-full bg-earth-50 px-2 py-0.5 text-xs font-medium text-earth-500">
           下層店：{childCount}
-        </span>
+        </span>}
+        {node.store.archivedAt && <span className="text-sm text-amber-700">已封存</span>}
         {node.store.isDemo ? <span className="text-xs text-amber-600">Demo</span> : null}
         <button
           type="button"
           onClick={() => onToggleMenu(node.store.id)}
-          className="rounded-md px-2 py-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+          className="min-h-11 min-w-11 rounded-md px-2 py-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
           aria-label={`${node.store.name} 更多操作`}
         >
           ⋯
@@ -451,7 +529,7 @@ function TreeBranch({
             </button>
             <button
               type="button"
-              onClick={() => onReorganize(node.store.id)}
+              disabled={!canManage || !!node.store.archivedAt} onClick={() => onReorganize(node.store.id)}
               className="block w-full px-3 py-2 text-left text-earth-700 hover:bg-earth-50"
             >
               重新安排組織
@@ -459,7 +537,7 @@ function TreeBranch({
           </div>
         ) : null}
       </div>
-      {node.children.length > 0 ? (
+      {node.children.length > 0 && !collapsed.includes(node.store.id) ? (
         <div className="mt-2 space-y-2">
           {node.children.map((child) => (
             <TreeBranch
@@ -471,6 +549,7 @@ function TreeBranch({
               onSelect={onSelect}
               onToggleMenu={onToggleMenu}
               onView={onView}
+              collapsed={collapsed} onCollapse={onCollapse} onMove={onMove} onMoveBy={onMoveBy} canReorder={canReorder} canManage={canManage}
               onReorganize={onReorganize}
             />
           ))}
