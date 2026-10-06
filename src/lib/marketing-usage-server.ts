@@ -18,7 +18,7 @@ export async function calculateMarketingUsage(now = new Date()): Promise<Marketi
         ("operatingStatus" = 'ACTIVE' AND plan <> 'EXPERIENCE') OR (
           "operatingStatus" IN ('ACTIVE','TRIAL') AND plan = 'EXPERIENCE'
           AND "planStatus" = 'TRIAL' AND "planEffectiveAt" IS NOT NULL
-          AND "planEffectiveAt" <= ${timestampCutoff}
+          AND "planEffectiveAt" <= ${cutoff}::date
           AND "planExpiresAt" >= ${cutoff}::date
         ))
     ), served AS (
