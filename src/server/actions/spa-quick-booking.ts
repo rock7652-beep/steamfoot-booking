@@ -110,9 +110,9 @@ export async function createSpaQuickBooking(
       }),
     })));
     const booking = await spaPrisma.$transaction(async (tx) => {
-      // Serialize writes for one SPA store/date, then recheck provider and
+      // Share the SPA schedule lock, then recheck provider and
       // room capacity inside the same transaction to prevent double booking.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
       const endTime = addMinutes(data.slotTime, composition.occupiedMinutes);
       const overlaps = await tx.spaBooking.findMany({
         where: {
@@ -139,7 +139,7 @@ export async function createSpaQuickBooking(
       if (occupiedResourceCount >= SPA_DEMO_RESOURCE_CAPACITY[composition.resourceType]) {
         throw new AppError("CONFLICT", `${spaResourceLabel(composition.resourceType)}在所選時間已滿`);
       }
-      return tx.spaBooking.create({
+      const created = await tx.spaBooking.create({
         data: {
           storeId,
           customerId,
@@ -153,9 +153,12 @@ export async function createSpaQuickBooking(
           totalPriceSnapshot: composition.totalPrice,
           requestKey: data.requestKey,
           notes: data.notes || null,
-          items: { create: treatments.map((treatment, sortOrder) => ({ storeId, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
         },
       });
+      await tx.spaBookingItem.createMany({
+        data: treatments.map((treatment, sortOrder) => ({ storeId, bookingId: created.id, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })),
+      });
+      return created;
     });
     revalidatePath("/dashboard/spa-schedule");
     return {

@@ -9,6 +9,7 @@ import { requireSpaStore } from "@/lib/industry-module-server";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreContext } from "@/lib/store-context";
 import { getSpaScheduleForDay } from "@/server/queries/spa-schedule";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 
@@ -22,6 +23,9 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   if (!storeId) redirect("/dashboard");
   await requireSpaStore(storeId).catch(() => redirect("/dashboard/bookings"));
   const isViewMode = (await resolveStoreViewContextFromCookie(user))?.isViewMode ?? false;
+  // Match SPA customer management: HQ selection permits reads only.
+  const writeContext = isViewMode ? null : await getStoreContext();
+  const canWrite = !isViewMode && writeContext?.storeId === storeId;
 
   const { date: requestedDate, customerId, new: openNew } = await searchParams;
   const date = requestedDate && validSpaDate(requestedDate) ? requestedDate : toLocalDateStr();
@@ -31,10 +35,10 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     prisma.customer.findMany({ where: { storeId }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" } }),
     spaPrisma.spaTreatment.findMany({ where: { storeId, isActive: true }, include: { serviceLocations: true }, orderBy: { sortOrder: "asc" } }),
     spaPrisma.spaServiceLocation.findMany({ where: { storeId, isActive: true }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "booking.create"),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "booking.update"),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "transaction.create"),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "customer.create"),
+    canWrite ? checkPermission(user.role, user.staffId, "booking.create") : Promise.resolve(false),
+    canWrite ? checkPermission(user.role, user.staffId, "booking.update") : Promise.resolve(false),
+    canWrite ? checkPermission(user.role, user.staffId, "transaction.create") : Promise.resolve(false),
+    canWrite ? checkPermission(user.role, user.staffId, "customer.create") : Promise.resolve(false),
   ]);
   return <PageShell className="max-w-none px-4 py-6">
     <SpaScheduleWorkspace key={`${date}:${customerId??""}:${openNew??""}`} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}

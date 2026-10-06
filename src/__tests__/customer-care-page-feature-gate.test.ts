@@ -1,3 +1,4 @@
+import { CareSection, type CareItem } from "@/app/(dashboard)/dashboard/growth/_components/care-section";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,7 +56,7 @@ vi.mock("@/server/queries/customer-birthday", () => ({
 vi.mock("@/server/queries/customer-kpi-segments", () => ({
   CUSTOMER_KPI_SEGMENTS: {
     "monthly-unconverted": {
-      title: "本月體驗未開卡",
+      title: "本月體驗未購買方案",
       description: "本月完成體驗但未於當天開卡的顧客。",
     },
     "monthly-new": { title: "本月新客", description: "首次完成服務發生在本月的顧客。" },
@@ -71,6 +72,9 @@ vi.mock("@/lib/store-view-context-server", () => ({
   storeIdForViewContext: (storeId: string | null) => storeId,
   userForViewContext: (user: unknown) => user,
 }));
+
+vi.mock("@/app/(dashboard)/dashboard/growth/_components/care-workspace-server", () => ({ CareWorkspaceServer: ({ sections }: { sections: Array<{title:string;description:string;emptyText:string;items: CareItem[]}> }) => React.createElement("div", null, sections.map(s => React.createElement(CareSection, { ...s, key: s.title, totalCount: s.items.length }))) }));
+vi.mock("@/app/(dashboard)/dashboard/growth/_components/care-row-actions", () => ({ CareRowActions: () => React.createElement("div", null, "查看顧客 建立預約 複製話術 追蹤") }));
 
 vi.mock("@/server/actions/customer-follow-up", () => ({
   createCustomerFollowUpAction: vi.fn(),
@@ -201,7 +205,7 @@ describe("CustomerCarePage feature gate", () => {
       "2026-07",
       "monthly-unconverted",
     );
-    expect(html).toContain("本月體驗未開卡");
+    expect(html).toContain("本月體驗未購買方案");
     expect(html).toContain("測試顧客 B");
     expect(html).toContain("09xx-xxx-0002");
     expect(html).toContain("本月完成體驗但未於當天開卡的顧客");
@@ -276,10 +280,10 @@ describe("CustomerCarePage feature gate", () => {
     expect(html).not.toContain("本月未回流");
     const orderedTitles = [
       "本月生日",
-      "本月體驗未開卡",
+      "本月體驗未購買方案",
       "好久不見",
-      "建議安排回店",
-      "建議續約",
+      "額度快用完",
+      "方案快到期",
     ];
     for (let index = 1; index < orderedTitles.length; index += 1) {
       expect(html.indexOf(orderedTitles[index])).toBeGreaterThan(

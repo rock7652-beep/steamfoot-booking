@@ -23,6 +23,14 @@ if (process.env.VERCEL_ENV === "preview" && ["feat/inventory-workspace-20261005"
     throw new Error("Inventory preview requires the isolated database for both connections.");
 }
 
+// Care lifecycle has additive schema fields: preview may only migrate the isolated database.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/customer-care-lifecycle-20261006") {
+  if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
+    throw new Error("Customer care Preview requires isolated database overrides before migration.");
+  // Apply only this additive migration; do not deploy unrelated pending migrations.
+  execFileSync("npx", ["prisma", "db", "execute", "--file", "prisma/migrations/20261006070000_customer_care_lifecycle/migration.sql", "--schema", "prisma"], { stdio: "inherit" });
+}
+
 // Unified operation-audit preview must never read from or write to production.
 // Fail the deployment before Prisma migrations/build queries when the branch
 // override is missing or points at any non-isolated database.
