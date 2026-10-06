@@ -75,7 +75,7 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full single-store trial, shared by every industry (multi-store is excluded).
-  EXPERIENCE: Object.values(FEATURES).filter(f=>f !== FEATURES.INVENTORY && isSingleStoreFeature(f)),
+  EXPERIENCE: Object.values(FEATURES).filter(isSingleStoreFeature),
   BASIC: [
     "line_reminder",
     "device_preview",
