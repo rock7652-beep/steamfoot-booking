@@ -2170,6 +2170,9 @@ model AuditLog {
   id          String   @id @default(cuid())
   actorUserId String
   actorNameSnapshot String?
+  actorRoleSnapshot String?
+  source String @default("MANUAL")
+  loginRecordId String?
   storeId     String?
   module      String?
   targetType  String // e.g. "Customer", "Booking", "Transaction"
@@ -2184,6 +2187,7 @@ model AuditLog {
 
   @@index([targetType, targetId])
   @@index([storeId, module, createdAt])
+  @@index([loginRecordId])
   @@index([actorUserId])
   @@index([createdAt])
 }
@@ -3306,4 +3310,20 @@ model InventoryReceiving {
   updatedAt DateTime @updatedAt
   @@unique([storeId, requestId])
   @@index([storeId, date])
+}
+
+// Authentication evidence only; never stores credentials, tokens, raw IP or raw headers.
+model StaffLoginRecord {
+  id String @id @default(cuid())
+  actorUserId String?
+  actorNameSnapshot String?
+  actorRoleSnapshot String?
+  storeId String?
+  outcome String
+  reason String?
+  device String
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime?
+  @@index([storeId, createdAt])
+  @@index([actorUserId, createdAt])
 }

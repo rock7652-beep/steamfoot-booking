@@ -1,5 +1,7 @@
 import "server-only";
+import { redactAuditValue } from "@/lib/audit-redact";
 
+import type { Session } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
@@ -16,6 +18,8 @@ type AuditClient = Pick<Prisma.TransactionClient, "auditLog">;
 export type OperationAuditInput = {
   actorUserId: string;
   actorNameSnapshot?: string | null;
+  actorRoleSnapshot?: string | null;
+  loginRecordId?: string | null;
   storeId: string;
   module: OperationModule;
   targetType: string;
@@ -34,18 +38,31 @@ export async function recordOperationAudit(
   const auditModule = input.module === "COURSE"
     ? await resolveCourseOperationModule(input.storeId)
     : input.module;
+  let session: Session | null = null;
+  // An interactive transaction may hold the only connection. Never perform
+  // a second auth/database lookup while using its client.
+  if (client === prisma) {
+    const { auth } = await import("@/lib/auth");
+    try { session = await auth(); } catch {
+      // Scheduled jobs have no request session; leave the login unlinked.
+    }
+  }
+  const verifiedActor = session?.user?.id === input.actorUserId ? session.user : null;
   return client.auditLog.create({
     data: {
+      source: input.action.startsWith("AUTO_") ? "SYSTEM" : "MANUAL",
       actorUserId: input.actorUserId,
-      actorNameSnapshot: input.actorNameSnapshot?.trim() || null,
+      actorRoleSnapshot: verifiedActor?.role ?? input.actorRoleSnapshot ?? null,
+      loginRecordId: verifiedActor?.loginRecordId ?? null,
+      actorNameSnapshot: verifiedActor?.name ?? input.actorNameSnapshot?.trim() ?? null,
       storeId: input.storeId,
       module: auditModule,
       targetType: input.targetType,
       targetId: input.targetId,
       action: input.action,
       summary: input.summary,
-      ...(input.before === undefined ? {} : { beforeJson: input.before }),
-      ...(input.after === undefined ? {} : { afterJson: input.after }),
+      ...(input.before === undefined ? {} : { beforeJson: redactAuditValue(input.before) as Prisma.InputJsonValue }),
+      ...(input.after === undefined ? {} : { afterJson: redactAuditValue(input.after) as Prisma.InputJsonValue }),
     },
     select: { id: true },
   });
@@ -88,7 +105,7 @@ export async function getOperationHistory(input: {
     take: limit,
     select: {
       id: true, action: true, summary: true, module: true, createdAt: true,
-      actorNameSnapshot: true, beforeJson: true, afterJson: true,
+      source: true, actorNameSnapshot: true, actorRoleSnapshot: true, loginRecordId: true, beforeJson: true, afterJson: true,
       actor: { select: { id: true, name: true, role: true } },
     },
   });
@@ -98,6 +115,7 @@ export type OperationAuditCenterFilters = {
   storeId?: string | null;
   storeIds?: string[];
   actorUserId?: string;
+  loginRecordId?: string;
   module?: OperationModule;
   modules?: OperationModule[];
   keyword?: string;
@@ -143,6 +161,7 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
         ? { storeId: { in: input.storeIds } }
         : {}),
     ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
+    ...(input.loginRecordId ? { loginRecordId: input.loginRecordId } : {}),
     ...moduleWhere(input),
     ...(keyword
       ? {
@@ -166,7 +185,7 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
       select: {
         id: true, action: true, summary: true, module: true, targetType: true,
         targetId: true, createdAt: true, actorUserId: true,
-        actorNameSnapshot: true, beforeJson: true, afterJson: true, storeId: true,
+        source: true, actorNameSnapshot: true, actorRoleSnapshot: true, loginRecordId: true, beforeJson: true, afterJson: true, storeId: true,
         actor: { select: { name: true, role: true } },
       },
     }),

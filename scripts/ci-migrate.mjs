@@ -36,7 +36,7 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 // override is missing or points at any non-isolated database.
 if (
   process.env.VERCEL_ENV === "preview" &&
-  process.env.VERCEL_GIT_COMMIT_REF === "feat/unified-operation-audit-center"
+  (process.env.VERCEL_GIT_COMMIT_REF === "feat/unified-operation-audit-center" || process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-login-operation-audit")
 ) {
   if (
     !isIsolatedCourseConnection(process.env.DATABASE_URL) ||

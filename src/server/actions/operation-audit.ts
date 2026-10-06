@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { requireSession } from "@/lib/session";
+import { redactAuditValue } from "@/lib/audit-redact";
+import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { AppError, handleActionError } from "@/lib/errors";
@@ -30,7 +31,7 @@ export async function loadOperationHistory(
   input: z.infer<typeof inputSchema>,
 ): Promise<ActionResult<OperationHistoryItem[]>> {
   try {
-    const user = await requireSession();
+    const user = await requirePermission("audit.read");
     if (user.role === "CUSTOMER") throw new AppError("FORBIDDEN", "無權查看操作紀錄");
     const storeId = await resolveWriteStoreId(user);
     assertStoreAccess(user, storeId);
@@ -38,7 +39,7 @@ export async function loadOperationHistory(
     const history = await getOperationHistory({ storeId, ...data });
     return {
       success: true,
-      data: history.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
+      data: history.map((item) => ({ ...item, beforeJson: redactAuditValue(item.beforeJson), afterJson: redactAuditValue(item.afterJson), createdAt: item.createdAt.toISOString() })),
     };
   } catch (error) {
     return handleActionError(error);

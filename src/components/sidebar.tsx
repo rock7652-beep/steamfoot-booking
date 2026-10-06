@@ -355,7 +355,7 @@ const ORIGINAL_NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/operation-audits",
-        label: "操作紀錄",
+        label: "稽核紀錄",
         permission: "audit.read",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -802,6 +802,7 @@ export default function DashboardShell({
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
     const management: NavItem[] = [
+      hqItem("/dashboard/operation-audits"),
       { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: course ? undefined : FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];

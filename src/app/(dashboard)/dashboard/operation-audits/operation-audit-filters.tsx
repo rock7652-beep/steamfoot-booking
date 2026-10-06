@@ -21,7 +21,9 @@ export function OperationAuditFilters({
   defaults,
   hasExplicitFilters,
   showModuleFilter,
+  loginRecordId,
 }: {
+  loginRecordId?: string;
   actors: ActorOption[];
   cacheKey: string;
   defaults: FilterValues;
@@ -42,13 +44,14 @@ export function OperationAuditFilters({
       if (values[name]) query.set(name, values[name]);
     });
 
+    if (loginRecordId) query.set("login", loginRecordId);
     localStorage.setItem(cacheKey, JSON.stringify(values));
     const search = query.toString();
     router.replace(`/dashboard/operation-audits${search ? `?${search}` : ""}`);
   };
 
   useEffect(() => {
-    if (restored.current || hasExplicitFilters) return;
+    if (restored.current || hasExplicitFilters || loginRecordId) return;
     restored.current = true;
     try {
       const cached = JSON.parse(localStorage.getItem(cacheKey) ?? "null") as Partial<FilterValues> | null;
@@ -63,7 +66,7 @@ export function OperationAuditFilters({
     } catch {
       localStorage.removeItem(cacheKey);
     }
-  }, [cacheKey, hasExplicitFilters, router, showModuleFilter]);
+  }, [cacheKey, hasExplicitFilters, router, showModuleFilter, loginRecordId]);
 
   useEffect(() => () => {
     if (keywordTimer.current) clearTimeout(keywordTimer.current);
@@ -71,7 +74,7 @@ export function OperationAuditFilters({
 
   return (
     <form
-      className={`grid gap-2 rounded-xl border border-earth-200 bg-white p-3 md:items-end ${showModuleFilter ? "md:grid-cols-[150px_150px_minmax(150px,1fr)_130px_minmax(220px,1.4fr)]" : "md:grid-cols-[150px_150px_minmax(180px,1fr)_minmax(280px,1.6fr)]"}`}
+      className={`grid gap-2 rounded-xl border border-earth-200 bg-white p-3 md:items-end ${showModuleFilter ? "md:grid-cols-2 xl:grid-cols-[150px_150px_minmax(150px,1fr)_130px_minmax(220px,1.4fr)]" : "md:grid-cols-2 xl:grid-cols-4"}`}
       method="get"
       onSubmit={(event) => {
         event.preventDefault();
@@ -94,21 +97,21 @@ export function OperationAuditFilters({
         applyFilters(form);
       }}
     >
-      <label className="text-xs text-earth-600">開始日期
-        <input className="mt-1 h-9 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-900" type="date" name="dateFrom" defaultValue={defaults.dateFrom} />
+      <label className="text-sm text-earth-600">開始日期
+        <input className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" type="date" name="dateFrom" defaultValue={defaults.dateFrom} />
       </label>
-      <label className="text-xs text-earth-600">結束日期
-        <input className="mt-1 h-9 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-900" type="date" name="dateTo" defaultValue={defaults.dateTo} />
+      <label className="text-sm text-earth-600">結束日期
+        <input className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" type="date" name="dateTo" defaultValue={defaults.dateTo} />
       </label>
-      <label className="text-xs text-earth-600">操作人
-        <select className="mt-1 h-9 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="actor" defaultValue={defaults.actor}>
+      <label className="text-sm text-earth-600">操作人
+        <select className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" name="actor" defaultValue={defaults.actor}>
           <option value="">全部操作人</option>
           {actors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}
         </select>
       </label>
       {showModuleFilter ? (
-        <label className="text-xs text-earth-600">模組
-          <select className="mt-1 h-9 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="module" defaultValue={defaults.module}>
+        <label className="text-sm text-earth-600">模組
+          <select className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" name="module" defaultValue={defaults.module}>
             <option value="">全部模組</option>
             <option value="STEAM">蒸足</option>
             <option value="SPA">SPA</option>
@@ -120,11 +123,11 @@ export function OperationAuditFilters({
           </select>
         </label>
       ) : null}
-      <label className="text-xs text-earth-600">關鍵字
+      <label className="text-sm text-earth-600">關鍵字
         <div className="mt-1 flex gap-1.5">
-          <input className="h-9 min-w-0 flex-1 rounded-lg border border-earth-200 px-2 text-sm text-earth-900" name="q" defaultValue={defaults.q} placeholder="操作或資料類型" maxLength={80} />
+          <input className="h-11 min-w-0 flex-1 rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" name="q" defaultValue={defaults.q} placeholder="操作或資料類型" maxLength={80} />
           <button
-            className="h-9 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-2 text-sm text-earth-600"
+            className="h-11 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-2 text-sm text-earth-600"
             type="button"
             onClick={() => {
               localStorage.removeItem(cacheKey);

@@ -15,12 +15,13 @@ describe("unified operation audit center contract", () => {
     expect(migration).toContain("ON CONFLICT");
   });
 
-  it("restricts the center to HQ while keeping filters and pagination on the server", () => {
+  it("scopes staff to their own store while keeping filters and pagination on the server", () => {
     const page = read("src/app/(dashboard)/dashboard/operation-audits/page.tsx");
     const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
     const service = read("src/server/services/operation-audit.ts");
-    expect(page).toContain('if (user.role !== "ADMIN") redirect("/dashboard")');
+    expect(page).toContain('if (!isStaffRole(user.role)) redirect("/dashboard")');
+    expect(page).toContain('user.role === "ADMIN" ? storeIdForViewContext(activeStoreId, viewContext) : user.storeId');
     expect(page).toContain('checkPermission(user.role, user.staffId, "audit.read")');
     expect(layout).toContain("operation-audits\\/?$");
     expect(page).toContain("storeIdForViewContext");

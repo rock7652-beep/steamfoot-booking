@@ -1,13 +1,15 @@
+import { redactAuditValue } from "@/lib/audit-redact";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
-import { checkPermission, ROLE_LABELS } from "@/lib/permissions";
+import { checkPermission, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { listOperationAudits, type OperationModule } from "@/server/services/operation-audit";
+import { LoginAuditView } from "./login-audit-view";
 import { OperationAuditFilters } from "./operation-audit-filters";
 
 const MODULE_LABELS: Record<OperationModule, string> = {
@@ -70,7 +72,7 @@ function dateDaysAgo(days: number) {
 }
 
 function jsonText(value: unknown) {
-  return value == null ? "—" : JSON.stringify(value, null, 2);
+  return value == null ? "—" : JSON.stringify(redactAuditValue(value), null, 2);
 }
 
 export default async function OperationAuditsPage({
@@ -83,11 +85,14 @@ export default async function OperationAuditsPage({
     module?: string;
     q?: string;
     page?: string;
+    tab?: string;
+    outcome?: string;
+    login?: string;
   }>;
 }) {
   const user = await getCurrentUser();
   if (!user) notFound();
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!isStaffRole(user.role)) redirect("/dashboard");
   if (!(await checkPermission(user.role, user.staffId, "audit.read"))) notFound();
 
   const params = await searchParams;
@@ -99,14 +104,18 @@ export default async function OperationAuditsPage({
   const moduleFilter = Object.hasOwn(MODULE_LABELS, params.module ?? "")
     ? params.module as OperationModule
     : undefined;
-  const page = Math.max(Number(params.page ?? 1) || 1, 1);
+  const requestedPage = Number(params.page ?? 1);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 10000) : 1;
 
   const activeStoreId = await getActiveStoreForRead(user);
   const viewContext = await resolveStoreViewContextFromCookie(user);
-  const storeId = storeIdForViewContext(activeStoreId, viewContext);
+  const storeId = user.role === "ADMIN" ? storeIdForViewContext(activeStoreId, viewContext) : user.storeId;
+  if (user.role !== "ADMIN" && !storeId) notFound();
+  if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} />;
   const result = await listOperationAudits({
     storeId,
     actorUserId: params.actor || undefined,
+    loginRecordId: params.login || undefined,
     module: moduleFilter,
     keyword: params.q,
     dateFrom: from,
@@ -130,19 +139,26 @@ export default async function OperationAuditsPage({
     if (params.actor) query.set("actor", params.actor);
     if (moduleFilter) query.set("module", moduleFilter);
     if (params.q) query.set("q", params.q);
+    if (params.login) query.set("login", params.login);
     query.set("page", String(nextPage));
     return `/dashboard/operation-audits?${query.toString()}`;
   };
 
   return (
     <PageShell>
-      <PageHeader title="操作紀錄" subtitle="查詢各店資料異動；紀錄僅供查閱，不能修改或刪除" />
+      <PageHeader title="稽核紀錄" subtitle="查詢登入與資料異動；紀錄僅供查閱" />
+      <nav className="flex gap-2 text-sm" aria-label="稽核分類">
+        <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}`}>操作紀錄</Link>
+        <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}`}>登入紀錄</Link>
+      </nav>
+      {params.login ? <p className="text-sm text-earth-600">正在查看指定登入的操作 · <Link href="/dashboard/operation-audits">清除</Link></p> : null}
 
       <OperationAuditFilters
         actors={result.actors}
-        cacheKey={`operation-audit-filters:${storeId ?? "all"}`}
+        cacheKey={`operation-audit-filters:${user.id}:${storeId ?? "all"}`}
         defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
         hasExplicitFilters={hasExplicitFilters}
+        loginRecordId={params.login}
         showModuleFilter
       />
 
@@ -164,8 +180,10 @@ export default async function OperationAuditsPage({
                   <span className="truncate text-xs text-earth-500 md:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>
                 <div className="mt-2 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
+                  <div><span className="text-earth-500">來源：</span>{item.source === "SYSTEM" ? "系統自動" : item.source === "MANUAL" ? "人員操作" : "歷史紀錄（未分類）"}</div>
                   <div><span className="text-earth-500">動作：</span>{ACTION_LABELS[item.action] ?? item.action}</div>
-                  <div><span className="text-earth-500">身分：</span>{ROLE_LABELS[item.actor.role] ?? item.actor.role}</div>
+                  <div><span className="text-earth-500">{item.actorRoleSnapshot ? "當時身分：" : "目前身分（歷史未記錄）："}</span>{ROLE_LABELS[(item.actorRoleSnapshot ?? item.actor.role) as keyof typeof ROLE_LABELS] ?? item.actorRoleSnapshot ?? item.actor.role}</div>
+                  <div className="md:col-span-2">{item.loginRecordId ? <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`}>查看當次登入</Link> : "未連結登入（歷史或其他來源）"}</div>
                   <div className="md:col-span-2"><span className="text-earth-500">資料：</span>{item.targetType} · {item.targetId}</div>
                   <div><p className="mb-1 font-medium text-earth-700">異動前</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-2 text-xs">{jsonText(item.beforeJson)}</pre></div>
                   <div><p className="mb-1 font-medium text-earth-700">異動後</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-2 text-xs">{jsonText(item.afterJson)}</pre></div>
