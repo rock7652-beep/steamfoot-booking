@@ -35,7 +35,7 @@ type SessionLike = {
 export interface TrialFollowUpFilters {
   /** 距今天數上限；undefined = 不限 */
   withinDays?: number;
-  /** 指定直屬店長 id；undefined = 全部 */
+  /** 指定所屬店長 id；undefined = 全部 */
   assignedStaffId?: string;
 }
 
@@ -177,7 +177,7 @@ export async function getTrialFollowUpList(
 }
 
 /**
- * 列出當下「已體驗未轉方案」清單中出現過的直屬店長（給 UI 篩選下拉用）。
+ * 列出當下「已體驗未轉方案」清單中出現過的所屬店長（給 UI 篩選下拉用）。
  * 不取全店 staff 清單以免顯示不相關選項。
  */
 export async function getTrialFollowUpStaffOptions(

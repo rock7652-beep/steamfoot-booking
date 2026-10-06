@@ -158,7 +158,7 @@ export function TrialBookingDrawer({
     e.preventDefault();
     if (!settings) return;
     if (!assignedStaffId) {
-      toast.error("請選擇直屬店長");
+      toast.error("請選擇所屬店長");
       return;
     }
     if (!bookingDate || !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate)) {
@@ -295,14 +295,14 @@ export function TrialBookingDrawer({
                 )}
 
                 <div>
-                  <label className={labelCls}>直屬店長</label>
+                  <label className={labelCls}>所屬店長</label>
                   <select className={inputCls} value={assignedStaffId} onChange={(e) => setAssignedStaffId(e.target.value)}>
                     <option value="">請選擇</option>
                     {staff.map((s) => (
                       <option key={s.id} value={s.id}>{s.displayName}</option>
                     ))}
                   </select>
-                  <p className="mt-1 text-[11px] text-earth-400">每位體驗客必有直屬店長；既有顧客若已指派則不會被覆蓋。</p>
+                  <p className="mt-1 text-[11px] text-earth-400">每位體驗客必有所屬店長；既有顧客若已指派則不會被覆蓋。</p>
                 </div>
 
                 {/* PR-3c：人數（1~4）。雙人 / 多人同行直接於此設定，金額會自動 × 人數。 */}

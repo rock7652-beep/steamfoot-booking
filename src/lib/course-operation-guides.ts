@@ -119,7 +119,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["從顧客詳情點「購買方案」（原指派方案），核對學員、上架方案、效期與本次開發人。", "選優惠與已收款方式；轉帳填後四碼。現金且實收大於零時，先等畫面確認今日現金抽屜已開啟。", "抽屜未開時可另開新分頁處理，回來按「重新確認」；若已結帳先依權限處理，不改填別種付款方式繞過。", "核對實收後點「確認結帳」一次，看到「結帳完成，方案已加入」，再查持有方案與原交易。"],
     important: "這個按鈕會同時發卡並登記收款，不是單純增加額度。連線中斷先查原交易，不要直接重按。",
     success: "只新增一張卡、一筆購買與一筆對應收款；顧客、效期、實收與本次開發人快照正確。",
-    details: ["從顧客進入時會帶入其直屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。", "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。"],
+    details: ["從顧客進入時會帶入其所屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。", "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。"],
     permission: "wallet.create", additionalPermissions: ["transaction.create", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-assignment-payment.tsx", "src/server/actions/course-checkout-status.ts", "src/server/services/course-assignment-checkout.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -145,11 +145,11 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C115", category: "analysis", title: "課程分析的上課、收款與回流數字怎麼看？",
     summary: "先選期間與分析對象，再分開看來客人次、去重人數、成交、收款與近六個月營收結構。", answer: "來客人次按完成出席堂次累加；方案與體驗收退款按入帳時間，營業額、收支結餘與出席不能直接當成同一數字。",
-    keywords: "營運分析 報表 匯出 CSV 來客人次 不重複人數 直屬店長 教練 回流 收款 營業額 營收結構 收支結餘 近六個月 近一年", path: "分析 → 營運分析",
-    steps: ["選今日、本月或自訂日期，確認頁首台灣時間範圍，再選店家、直屬店長或教練。", "分開查看來客人次、體驗、新卡、續卡、回流、收款、利潤與授課費；點卡片可看名單或每人出席堂數。", "在店家視角查看固定近六個月的營業額、收支結餘、方案、零售、其他收入與支出；具匯出權限者可下載所選日期與權限範圍的 CSV。"],
+    keywords: "營運分析 報表 匯出 CSV 來客人次 不重複人數 所屬店長 教練 回流 收款 營業額 營收結構 收支結餘 近六個月 近一年", path: "分析 → 營運分析",
+    steps: ["選今日、本月或自訂日期，確認頁首台灣時間範圍，再選店家、所屬店長或教練。", "分開查看來客人次、體驗、新卡、續卡、回流、收款、利潤與授課費；點卡片可看名單或每人出席堂數。", "在店家視角查看固定近六個月的營業額、收支結餘、方案、零售、其他收入與支出；具匯出權限者可下載所選日期與權限範圍的 CSV。"],
     important: "同一人同日上兩堂計 2 人次；「不重複來客人數」才是期間去重。團體同堂有兩位實際出席就計 2 人次。",
     success: "所選期間、比較期間與各區塊口徑一致，匯出檔使用相同日期範圍。",
-    details: ["方案依核帳／退款日，體驗依收款／沖銷日；直屬店長的出席依顧客目前歸屬，成交依購買時快照，未指定列未歸屬。", "查看金額、顧客名單、授課費、收支及匯出各受額外權限控制；沒有權限時不顯示，不代表資料為零。共用財務圖固定近六個月、本月統計至今日，上方日期只影響摘要；原課程趨勢依其頁面期間說明。"],
+    details: ["方案依核帳／退款日，體驗依收款／沖銷日；所屬店長的出席依顧客目前歸屬，成交依購買時快照，未指定列未歸屬。", "查看金額、顧客名單、授課費、收支及匯出各受額外權限控制；沒有權限時不顯示，不代表資料為零。共用財務圖固定近六個月、本月統計至今日，上方日期只影響摘要；原課程趨勢依其頁面期間說明。"],
     permission: "report.read", feature: "basic_reports", sources: ["src/app/(dashboard)/dashboard/courses/analytics-page.tsx", "src/server/queries/course-analytics.ts"], kind: "explanation", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -206,10 +206,10 @@ export const courseOperationGuides: OperationGuide[] = [
     id: "C121", category: "care", title: "首頁顯示「未指派方案」，要怎麼處理？",
     summary: "打開站內待辦名單，核對顧客後再進顧客頁購買方案。", answer: "這是尚無本店課程方案紀錄的站內待辦，不會自動傳 LINE，也不代表顧客欠款。",
     keywords: "未指派方案 顧客方案待辦 沒有方案 站內提醒 不發LINE", path: "首頁 → 顧客方案待辦；設定 → 通知與顧客經營 → 未指派方案提醒",
-    steps: ["打開未指派方案名單，核對姓名、電話末四碼、建檔日與直屬店長。", "進入顧客詳情查既有卡片、待核帳與歷史，避免重複購買。", "確定需要購買時點「購買方案」，依實際收款「確認結帳」；返回名單重新整理。"],
+    steps: ["打開未指派方案名單，核對姓名、電話末四碼、建檔日與所屬店長。", "進入顧客詳情查既有卡片、待核帳與歷史，避免重複購買。", "確定需要購買時點「購買方案」，依實際收款「確認結帳」；返回名單重新整理。"],
     important: "不要把名單當成催款名單或直接群發通知；本功能目前只讀、不自動建立方案或交易。",
     success: "完成有效指派後重新整理，該顧客移出名單；未處理者仍保留。",
-    details: ["已有共卡成員、待核帳、已核帳／退款訂單、到期／用完／結清卡或持卡預約歷史者不列入；純教練帳號也排除。", "名單沿用店別與直屬店長可見範圍，需要顧客與方案查看權限；查詢失敗不顯示假零人。"],
+    details: ["已有共卡成員、待核帳、已核帳／退款訂單、到期／用完／結清卡或持卡預約歷史者不列入；純教練帳號也排除。", "名單沿用店別與所屬店長可見範圍，需要顧客與方案查看權限；查詢失敗不顯示假零人。"],
     permission: "customer.read", additionalPermissions: ["wallet.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/unassigned-plans/page.tsx", "src/server/queries/course-unassigned-plans.ts", "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

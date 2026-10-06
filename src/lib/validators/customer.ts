@@ -113,7 +113,7 @@ export const updateCustomerServiceNoteSchema = z.object({
 });
 
 // 顧客歸屬設定（列表 drawer 用）
-//   - assignedStaffId：直屬店長（必填）
+//   - assignedStaffId：所屬店長（必填）
 //   - referredByCustomerId：推薦人（選填；null = 清除）
 //
 // 注意：ID 欄位用 `.min(1)`（非空字串）而非 `.cuid()`。
@@ -126,7 +126,7 @@ export const updateCustomerAssignmentSchema = z.object({
   referredByCustomerId: z.string().min(1).nullable().optional(),
 });
 
-// 批次指派直屬店長（顧客列表 sticky bar）
+// 批次指派所屬店長（顧客列表 sticky bar）
 //   - 只動 Customer.assignedStaffId，不動 sponsorId / Booking / Transaction / Wallet
 //   - 單次上限 100 筆，UI 透過當頁全選餵入
 // 注意：同上，ID 改用 `.min(1)`（非空字串）；DB lookup 才是真實檢查。

@@ -5,7 +5,7 @@ import { paymentSplitSchema } from "@/lib/payment-splits";
 
 // 體驗 499 PR-2：建立未付款體驗預約。
 // 規則：擇一 — 既有顧客(customerId) 或 快速建檔(newCustomer name+phone)。
-// 直屬店長(assignedStaffId) 必填（每位體驗客一定有直屬店長）。
+// 所屬店長(assignedStaffId) 必填（每位體驗客一定有所屬店長）。
 // expectedAmount 選填，不傳時由 server 帶店家體驗價預設並 clamp。
 
 const phoneSchema = z

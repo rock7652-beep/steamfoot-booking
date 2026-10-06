@@ -12,7 +12,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 /**
  * 顧客列表 toolbar — 桌機版重構
  *
- * 一列完成：搜尋 / 狀態 / 來店 / 推薦 / 直屬店長 / 排序 / 清除。
+ * 一列完成：搜尋 / 狀態 / 來店 / 推薦 / 所屬店長 / 排序 / 清除。
  * 不開 modal、不跳頁；`useRouter.replace()` 更新 URL 後 Next 會自動 refetch server component。
  *
  * 切換任一篩選或排序都會重置 `page=1`，避免頁碼殘留造成空結果。
@@ -239,7 +239,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
               </label>
               {staffOptions.length > 0 ? (
                 <label className="space-y-1 text-sm text-earth-600">
-                  <span>{courseMode ? "所屬店長" : "直屬店長"}</span>
+                  <span>所屬店長</span>
                   <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
                     <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
                     {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
@@ -349,7 +349,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
           onChange={(e) => setParam("staff", e.target.value)}
 
           className={selectClass}
-          aria-label={courseMode ? "所屬店長" : "直屬店長"}
+          aria-label="所屬店長"
         >
           <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
           {staffOptions.map((s) => (

@@ -11,8 +11,8 @@ export async function courseSaleSnapshot(tx:Prisma.TransactionClient,storeId:str
  let name:string|null=null;
  if(revenueStaffId){
   const rows=await tx.$queryRaw<Array<{displayName:string}>>`SELECT s."displayName" FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s.id=${revenueStaffId} AND s."storeId"=${storeId} AND s.status::text='ACTIVE' AND u.status::text='ACTIVE' AND u.role::text='OWNER'`;
-  if(!rows.length)throw new AppError("VALIDATION","請選擇本店啟用的直屬店長／開發人");
+  if(!rows.length)throw new AppError("VALIDATION","請選擇本店啟用的所屬店長／開發人");
   name=rows[0].displayName;
- }else if(allocation.developerAmount>0)throw new AppError("VALIDATION","請先指定本次方案的直屬店長／開發人");
+ }else if(allocation.developerAmount>0)throw new AppError("VALIDATION","請先指定本次方案的所屬店長／開發人");
  return {storeCostSnapshot:allocation.storeAmount,developerProfitSnapshot:allocation.developerAmount,developerNameSnapshot:name,revenueStaffId};
 }

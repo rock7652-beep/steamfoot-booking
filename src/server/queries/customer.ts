@@ -36,7 +36,7 @@ export interface ListCustomersOptions {
   visit?: CustomerListVisit;
   referral?: CustomerListReferral;
   search?: string; // name / phone / email / lineName
-  assignedStaffId?: string; // 篩選直屬店長
+  assignedStaffId?: string; // 篩選所屬店長
   sort?: CustomerListSort;
   page?: number;
   pageSize?: number;

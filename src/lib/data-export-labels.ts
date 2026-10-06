@@ -10,7 +10,7 @@ export const DATA_EXPORT_TYPE_LABELS: Record<DataExportType, string> = {
 
 /** Customer-facing workbook columns. Store is retained for cross-store operations and auditability. */
 export const DATA_EXPORT_HEADERS: Record<DataExportType, readonly string[]> = {
-  customers: ["姓名", "電話", "Email", "所屬店別", "直屬店長／顧問", "首次到訪", "最近消費", "建立時間"],
+  customers: ["姓名", "電話", "Email", "所屬店別", "所屬店長／顧問", "首次到訪", "最近消費", "建立時間"],
   transactions: ["日期", "顧客", "所屬店別", "消費項目", "付款方式", "現金", "匯款", "LINE Pay", "信用卡", "其他", "未付款", "實收金額", "交易狀態"],
   bookings: ["日期", "時段", "顧客", "所屬店別", "服務類型", "預約狀態", "人數", "服務人員"],
   wallets: ["顧客", "所屬店別", "方案名稱", "購買金額", "總堂數", "剩餘堂數", "方案狀態", "開始日", "到期日"],

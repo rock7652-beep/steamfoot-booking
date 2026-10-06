@@ -448,7 +448,7 @@ export async function updateCustomerAssignment(
 }
 
 // ============================================================
-// bulkUpdateCustomerAssignment — 顧客列表批次指派直屬店長
+// bulkUpdateCustomerAssignment — 顧客列表批次指派所屬店長
 //
 // 只更新 Customer.assignedStaffId。不動 sponsorId、Booking、Transaction、Wallet。
 // staff 驗證一次（同店 + ACTIVE）失敗則整批中止。
