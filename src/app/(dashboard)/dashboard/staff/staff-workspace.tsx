@@ -299,7 +299,7 @@ export function StaffWorkspace({
   }
 
   return (
-    <div className={`${styles.workspace} space-y-4`}>
+    <div className={`${styles.workspace} ${accountListOnly ? "space-y-2" : "space-y-4"}`}>
       {notice ? (
         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
           <span>{notice}</span>
@@ -313,7 +313,7 @@ export function StaffWorkspace({
         </div>
       ) : null}
 
-      <section
+      {!accountListOnly && <section
         className={
           accountListOnly
             ? "flex justify-end"
@@ -354,21 +354,24 @@ export function StaffWorkspace({
             ) : null}
           </div>
         </div>
-      </section>
+      </section>}
 
       {accountListOnly ? (
         <section
-          className="space-y-3 [&_button]:min-h-11"
+          className="space-y-2 [&_button]:min-h-11"
           aria-label="人員清單"
         >
-          <div className="flex flex-wrap gap-3">
-            <input
-              aria-label="搜尋人員"
-              placeholder="搜尋姓名、電話或 Email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 text-sm"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="min-w-48 flex-1 sm:max-w-xs">
+              <span className="sr-only">搜尋人員</span>
+              <input
+                aria-label="搜尋人員"
+                placeholder="搜尋姓名、電話或 Email"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm"
+              />
+            </label>
             <select
               aria-label="篩選人員角色"
               value={roleFilter}
@@ -390,7 +393,7 @@ export function StaffWorkspace({
               <option value="ACTIVE">啟用中</option>
               <option value="INACTIVE">已停用</option>
             </select>
-            <button
+            {(search || roleFilter !== "all" || statusFilter !== "all") && <button
               className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm"
               onClick={() => {
                 setSearch("");
@@ -399,11 +402,11 @@ export function StaffWorkspace({
               }}
             >
               清除篩選
-            </button>
+            </button>}
+            {canManage && <button type="button" onClick={() => setEditor({ type: "create" })} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800">＋ 新增人員</button>}
           </div>
           <p className="text-sm text-earth-500">
-            共 {filteredPeople.length} 位／全部 {people.length} 位 ·
-            停用後無法登入後台，歷史紀錄保留。
+            共 {filteredPeople.length} 位／全部 {people.length} 位
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
             <table className="admin-list-table w-full min-w-[660px] text-left text-sm">
@@ -411,7 +414,7 @@ export function StaffWorkspace({
                 <tr>
                   {["姓名", "角色", "電話", "Email", "狀態", "操作"].map(
                     (h) => (
-                      <th scope="col" key={h} className="px-4 py-3 font-medium">
+                      <th scope="col" key={h} className="px-3 py-2 font-medium">
                         {h}
                       </th>
                     ),
@@ -423,17 +426,17 @@ export function StaffWorkspace({
                   <tr key={person.id} className={accountListOnly && person.status !== "ACTIVE" ? "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100" : "hover:bg-primary-50/40"}>
                     <th
                       scope="row"
-                      className="px-4 py-3 font-medium text-primary-900"
+                      className="px-3 py-1 font-medium text-primary-900"
                     >
                       {person.displayName}
                     </th>
-                    <td className="px-4 py-3">{person.roleLabel}</td>
-                    <td className="px-4 py-3">{person.phone || "—"}</td>
-                    <td className="break-all px-4 py-3">{person.email}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="px-3 py-1">{person.roleLabel}</td>
+                    <td className="px-3 py-1">{person.phone || "—"}</td>
+                    <td className="break-all px-3 py-1">{person.email}</td>
+                    <td className="whitespace-nowrap px-3 py-1">
                       <StatusBadge status={person.status} />
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-3 py-1">
                       <div className="flex justify-center whitespace-nowrap">
                         <ExclusiveMenu quiet triggerText="⋯" label={`${person.displayName}操作`}>
                         <button
