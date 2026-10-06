@@ -98,7 +98,7 @@ export default async function StaffPage({
       legalName: staff.user.name,
       roleLabel: ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
       email: staff.user.email ?? "尚未設定",
-      phone: staff.phone,
+      phone: staff.phone ?? staff.user.phone,
       colorCode: staff.colorCode,
       status: staff.status,
       customerCount: staff._count.assignedCustomers,
