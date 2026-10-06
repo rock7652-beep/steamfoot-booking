@@ -33,6 +33,7 @@ import { saveOrder, savePayment } from "@/server/actions/inventory";
 import { createCashbookEntry } from "@/server/actions/cashbook";
 import { closeCashDrawer, computeCashbookCashMovementsForSession } from "@/server/services/cash-drawer";
 import { checkInventoryAccounts, checkClosedCashDrawers } from "@/server/reconciliation/finance-checks";
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
 
 const url = resolveBookingIntegrationTestDatabaseUrl(process.env);
 const pg = url ? describe : describe.skip;
@@ -179,5 +180,32 @@ pg("finance production paths — disposable multi-connection PostgreSQL", () => 
     expect((await savePayment(receipt(orderId, 400, "轉帳"))).success).toBe(true);
     await assertAccounts();
     expect((await checkClosedCashDrawers(storeId, day, day)).status).toBe("pass");
+  });
+
+  it("mixed service payment, pending cash and refund count only actual cash", async () => {
+    const staff = await db.staff.create({ data: { storeId, userId: boundary.actor.id, displayName: "驗收店長" } });
+    const common = { storeId, customerId, revenueStaffId: staff.id, transactionDate: new Date("2099-01-05T04:00:00Z") };
+    await db.$transaction(tx => createFinancialTransaction(tx, { data: { ...common,
+      transactionType: "PACKAGE_PURCHASE", amount: 600, paymentMethod: "TRANSFER", paymentStatus: "CONFIRMED",
+      paymentSplits: { create: [{ paymentMethod: "CASH", amount: 400 }, { paymentMethod: "TRANSFER", amount: 200 }] } } }));
+    await db.$transaction(tx => createFinancialTransaction(tx, { data: { ...common,
+      transactionType: "PACKAGE_PURCHASE", amount: 999, paymentMethod: "CASH", paymentStatus: "PENDING" } }));
+    await db.$transaction(tx => createFinancialTransaction(tx, { data: { ...common,
+      transactionType: "REFUND", amount: -100, paymentMethod: "CASH", paymentStatus: "SUCCESS" } }));
+    const closed = await closeCashDrawer({ sessionId, actorUserId: boundary.actor.id, closingActualCash: 1300 });
+    expect(closed.cashIncomeTotal.toNumber()).toBe(400);
+    expect(closed.cashExpenseTotal.toNumber()).toBe(100);
+    expect(closed.expectedClosingCash?.toNumber()).toBe(1300);
+    expect((await checkClosedCashDrawers(storeId, day, day)).status).toBe("pass");
+  });
+
+  it("authorized historical supplement retains frozen close and exposes discrepancy", async () => {
+    await closeCashDrawer({ sessionId, actorUserId: boundary.actor.id, closingActualCash: 1000 });
+    const input = { requestId: randomUUID(), entryDate: "2099-01-05", type: "INCOME" as const,
+      amount: 100, paymentMethod: "CASH" as const, note: "補紀錄驗收" };
+    expect((await createCashbookEntry(input)).success).toBe(false);
+    expect((await createCashbookEntry({ ...input, confirmClosedCashbookChange: true })).success).toBe(true);
+    expect((await db.cashDrawerSession.findUniqueOrThrow({ where: { id: sessionId } })).expectedClosingCash?.toNumber()).toBe(1000);
+    expect((await checkClosedCashDrawers(storeId, day, day)).status).toBe("mismatch");
   });
 });
