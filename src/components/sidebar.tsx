@@ -623,6 +623,7 @@ interface StoreOption {
   id: string;
   name: string;
   isDefault: boolean;
+  isArchived?: boolean;
 }
 
 interface StoreViewOption {
@@ -751,7 +752,8 @@ export default function DashboardShell({
   const activeStoreName = (() => {
     if (isAdmin && storeOptions) {
       if (activeStoreId === null || activeStoreId === undefined) return "全部分店";
-      return storeOptions.find((s) => s.id === activeStoreId)?.name ?? null;
+      const current = storeOptions.find((s) => s.id === activeStoreId);
+      return current ? current.name + (current.isArchived ? "（已封存）" : "") : null;
     }
     return storeName ?? null;
   })();
