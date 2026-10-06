@@ -21,7 +21,7 @@ describe("marketing usage daily refresh", () => {
     const result = await calculateMarketingUsage(new Date("2026-10-02T17:00:00Z"));
     expect(result).toEqual({ stores: 3, customers: 328, completedPeople: 1631, asOf: "2026-10-02" });
     const bindings = mocks.query.mock.calls[0].slice(1);
-    expect(bindings).toEqual([new Date("2026-10-02T16:00:00Z"), "2026-10-03", "2026-10-03", new Date("2026-10-02T16:00:00Z"), "2026-10-03"]);
+    expect(bindings).toEqual(["2026-10-03", "2026-10-03", "2026-10-03", new Date("2026-10-02T16:00:00Z"), "2026-10-03"]);
     expect(JSON.parse(JSON.stringify(result))).toEqual(result);
   });
   it("does not advance the cutoff before Taiwan midnight", async () => {
