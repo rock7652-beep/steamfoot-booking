@@ -24,6 +24,7 @@ vi.mock("@/server/actions/profile", () => ({
   updateProfileAction: vi.fn(),
 }));
 
+import { CustomerDetailFields } from "@/components/customer-detail-fields";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
@@ -105,6 +106,9 @@ describe("birthday profile UI contract", () => {
       "src/app/(dashboard)/dashboard/customers/[id]/_components/customer-basic-info.tsx",
     );
     expect(detail).toContain("formatBirthday(birthday)");
-    expect(detail).toContain("尚未填寫");
+    expect(detail).toContain("birthday ? formatBirthday(birthday) : null");
+    const empty = renderToStaticMarkup(React.createElement(CustomerDetailFields, { items: [{label: "生日", value: null}] }));
+    expect(empty).toContain("生日");
+    expect(empty).toContain("—");
   });
 });

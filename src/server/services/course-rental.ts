@@ -1,3 +1,4 @@
+import { lockCashDay } from "./cash-day";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -18,8 +19,7 @@ export async function rentalCash(tx:Prisma.TransactionClient,actor:{storeId:stri
   const day=new Date(toLocalDateStr()+"T00:00:00Z");
   // Never silently modify a closed cash drawer snapshot.
   if(payment.paymentMethod==="CASH") {
-    const closed=await tx.$queryRaw<{status:string}[]>`SELECT status::text FROM "CashDrawerSession" WHERE "storeId"=${actor.storeId} AND "businessDate"=${day} FOR UPDATE`;
-    if(closed.some(s=>s.status==="CLOSED"))throw new AppError("BUSINESS_RULE","今日現金帳已關帳，請先由店長處理關帳再收款或更正");
+    await lockCashDay(tx,actor.storeId,day);
   }
   const id=`course-rental${voiding?"-void":""}:${payment.id}`;
   const type=voiding?"EXPENSE":"INCOME";

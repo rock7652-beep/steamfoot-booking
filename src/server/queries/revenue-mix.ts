@@ -53,7 +53,7 @@ function emptyPoint(key: string, monthly: boolean): RevenueMixPoint {
   };
 }
 
-/** 報表同口徑：成功系統交易的建立日、現金帳的記帳日。提款是資金移轉，不列為支出。 */
+/** 報表同口徑：成功系統交易的交易日、現金帳的記帳日。提款是資金移轉，不列為支出。 */
 export async function getRevenueMix(
   storeId: string,
   startDate: string,
@@ -75,9 +75,10 @@ export async function getRevenueMix(
         storeId,
         status: REVENUE_VALID_STATUS,
         transactionType: { in: REVENUE_NET_TYPES as never },
-        createdAt: { gte: start, lte: end },
+        transactionDate: { gte: start, lte: end },
+        voidedAt: null,
       },
-      select: { createdAt: true, transactionType: true, amount: true, paymentStatus: true },
+      select: { transactionDate: true, transactionType: true, amount: true, paymentStatus: true },
     }),
     prisma.cashbookEntry.findMany({
       where: {
@@ -85,7 +86,7 @@ export async function getRevenueMix(
         type: { in: ["INCOME", "EXPENSE"] },
         entryDate: { gte: firstDay, lte: lastDay },
       },
-      select: { entryDate: true, type: true, category: true, amount: true },
+      select: { id: true, entryDate: true, type: true, category: true, amount: true },
     }),
   ]);
 
@@ -100,12 +101,12 @@ export async function getRevenueMix(
   let pendingRevenue = 0;
   let manualIncome = 0;
   for (const tx of transactions) {
-    // createdAt is a timestamp; render its business date in Asia/Taipei.
-    const date = toLocalDateStr(tx.createdAt);
+    // transactionDate is a timestamp; render its business date in Asia/Taipei.
+    const date = toLocalDateStr(tx.transactionDate);
     const point = points.get(monthly ? date.slice(0, 7) : date);
     if (!point) continue;
     const amount = Number(tx.amount);
-    if (tx.transactionType !== "REFUND" && tx.paymentStatus !== "SUCCESS") {
+    if (tx.transactionType !== "REFUND" && !["SUCCESS", "CONFIRMED"].includes(tx.paymentStatus)) {
       if (tx.paymentStatus === "PENDING" && inPeriod(date)) pendingRevenue += amount;
       continue;
     }
@@ -125,7 +126,7 @@ export async function getRevenueMix(
     point[field] += amount;
     if (inPeriod(date)) {
       summary[field] += amount;
-      if (entry.type === "INCOME") manualIncome += amount;
+      if (entry.type === "INCOME" && !entry.id?.startsWith("inventory:") && !entry.id?.startsWith("course-")) manualIncome += amount;
     }
   }
   for (const point of points.values()) {

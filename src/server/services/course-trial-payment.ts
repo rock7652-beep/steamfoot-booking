@@ -1,3 +1,4 @@
+import { lockCashDay } from "./cash-day";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -35,6 +36,7 @@ export async function collectCourseTrialInTransaction(tx:Prisma.TransactionClien
 }
 async function writeCash(tx:Prisma.TransactionClient,actor:Actor,id:string,amount:number,method:string,type:"INCOME"|"EXPENSE",note:string){
   const day=new Date(toLocalDateStr()+"T00:00:00Z");
+  if(method === "CASH") await lockCashDay(tx,actor.storeId,day);
   await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") VALUES (${id},${actor.storeId},${day},${type}::"CashbookEntryType",${method==='CASH'?'CASH':'OTHER'}::"CashbookPaymentMethod",'課程體驗',${amount},${note},${actor.userId},NOW())`;
 }
 

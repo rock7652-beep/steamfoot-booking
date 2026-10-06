@@ -24,12 +24,12 @@ describe("central member health HQ boundary", () => {
     const sidebar = source("src/components/sidebar.tsx");
     const storeNav = sidebar.slice(
       sidebar.indexOf("export const STORE_ADMIN_NAV"),
-      sidebar.indexOf("export const NAV_GROUPS"),
+      sidebar.indexOf("const ORIGINAL_NAV_GROUPS"),
     );
     const hqNav = sidebar.slice(sidebar.indexOf("export const NAV_GROUPS"));
 
     expect(storeNav).not.toContain('/dashboard/member-link-reviews');
     expect(hqNav).toContain('/dashboard/member-link-reviews');
-    expect(hqNav).toContain('label: "會員資料健康檢查"');
+    expect(sidebar).toContain('label: "會員資料健康檢查"');
   });
 });

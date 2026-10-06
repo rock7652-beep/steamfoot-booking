@@ -156,6 +156,7 @@ beforeEach(() => {
       },
       transactionAuditLog: { create: h.transactionAuditCreate },
       $queryRaw: h.txQueryRaw,
+      $executeRaw: vi.fn(async () => 1),
     }),
   );
   h.txWalletFindFirst.mockResolvedValue({
@@ -175,7 +176,7 @@ beforeEach(() => {
     const latest = h.transactionFindUnique.mock.results.at(-1);
     return latest ? await latest.value : null;
   });
-  h.txQueryRaw.mockResolvedValue([{ id: CUSTOMER_ID }]);
+  h.txQueryRaw.mockImplementation(async (sql: TemplateStringsArray) => sql.join("?").includes("CashDrawerSession") ? [] : [{ id: CUSTOMER_ID }]);
   h.txBookingCount.mockResolvedValue(0);
   h.txPointRecordFindMany.mockResolvedValue([]);
   h.txPointRecordDeleteMany.mockResolvedValue({ count: 0 });

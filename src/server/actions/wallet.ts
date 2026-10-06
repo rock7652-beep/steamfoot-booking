@@ -1,5 +1,7 @@
 "use server";
 
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -215,7 +217,7 @@ export async function assignPlanToCustomer(
       });
 
       const isFirstPurchase = !lockedCustomer.convertedAt;
-      const transaction = await tx.transaction.create({
+      const transaction = await createFinancialTransaction(tx, {
         data: {
           customerId: data.customerId,
           revenueStaffId, // 快照：營收歸屬
@@ -362,7 +364,7 @@ export async function adjustRemainingSessions(
       });
 
       // 建立調整交易紀錄（amount = 0，僅記錄）
-      await tx.transaction.create({
+      await createFinancialTransaction(tx, {
         data: {
           customerId: wallet.customerId,
           revenueStaffId,
@@ -449,7 +451,7 @@ export async function voidWalletSession(
         grossAmount: 0,
         netAmount: 0,
       });
-      await tx.transaction.create({
+      await createFinancialTransaction(tx, {
         data: {
           customerId: session.wallet.customerId,
           revenueStaffId,
@@ -591,7 +593,7 @@ export async function backfillUsedSessions(
         netAmount: 0,
       });
 
-      await tx.transaction.create({
+      await createFinancialTransaction(tx, {
         data: {
           customerId: wallet.customerId,
           revenueStaffId,
@@ -795,7 +797,7 @@ export async function migratePaperPlan(
         netAmount: data.originalAmount,
       });
 
-      const transaction = await tx.transaction.create({
+      const transaction = await createFinancialTransaction(tx, {
         data: {
           customerId: customer.id,
           revenueStaffId,
@@ -1017,7 +1019,7 @@ export async function initiateCustomerPlanPurchase(
         netAmount: originalPrice,
       });
 
-      const transaction = await tx.transaction.create({
+      const transaction = await createFinancialTransaction(tx, {
         data: {
           customerId: customer.id,
           revenueStaffId,

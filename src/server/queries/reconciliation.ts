@@ -1,3 +1,4 @@
+import { canReadInventoryFinance, requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { currentStoreId } from "@/lib/store";
@@ -8,6 +9,7 @@ import { currentStoreId } from "@/lib/store";
 export async function getLatestReconciliationRun() {
   const user = await requireStaffSession();
   const storeId = currentStoreId(user);
+  if (!await canReadInventoryFinance(storeId, user)) return null;
 
   const run = await prisma.reconciliationRun.findFirst({
     where: { storeId, status: { not: "running" } },
@@ -29,6 +31,7 @@ export async function getLatestReconciliationRun() {
 export async function listReconciliationRuns(limit = 20) {
   const user = await requireStaffSession();
   const storeId = currentStoreId(user);
+  await requireInventoryFinanceAccess(storeId, user);
 
   return prisma.reconciliationRun.findMany({
     where: { storeId },
@@ -48,6 +51,7 @@ export async function listReconciliationRuns(limit = 20) {
 export async function getReconciliationRunDetail(runId: string) {
   const user = await requireStaffSession();
   const storeId = currentStoreId(user);
+  await requireInventoryFinanceAccess(storeId, user);
 
   const run = await prisma.reconciliationRun.findUnique({
     where: { id: runId, storeId },

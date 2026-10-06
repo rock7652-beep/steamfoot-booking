@@ -1,5 +1,7 @@
 "use server";
 
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
+
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireWritablePermission } from "@/lib/permissions";
@@ -95,7 +97,7 @@ export async function purchasePlanForSingleBooking(
         await tx.customer.update({ where: { id: fresh.customerId }, data: { customerStage: "ACTIVE", selfBookingEnabled: true, ...(!customer.convertedAt && { convertedAt: activationTime }) } });
       }
       const snapshot = await buildTransactionSnapshot(tx, { customerId: fresh.customerId, storeId, revenueStaffId, planId: plan.id, grossAmount, netAmount: data.amount });
-      const transaction = await tx.transaction.create({
+      const transaction = await createFinancialTransaction(tx, {
         data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : activationTime, conversionEffectsApplied: !isPending, conversionSnapshotCaptured: true, preConversionCustomerStage: !isPending ? customer.customerStage : null, preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null, preConversionConvertedAt: !isPending ? customer.convertedAt : null, conversionAppliedConvertedAt: !isPending ? (customer.convertedAt ?? activationTime) : null, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
       });
       return { transactionId: transaction.id, walletId: wallet?.id ?? null };

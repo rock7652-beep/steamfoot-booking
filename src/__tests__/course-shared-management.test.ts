@@ -27,23 +27,24 @@ it("does not force music business rules onto fitness to center the roster", () =
 it("shares weekly grids without hiding sessions lacking an active room", () => {
   const board = read("course-schedule-board");
   expect(board).not.toContain('mode === "week" && businessProfile === "MUSIC"');
-  expect(board).toContain('sessions.every(session => activeRooms.some(room => room.id === session.roomId))');
+  expect(board).toContain('weekSessions.map(session => Number(hhmm(session.endsAt)');
   expect(board).toContain('length: lastHour - firstHour');
 });
 
 it("does not interpret old check-in timestamps as settled attendance", () => {
   const roster = read("roster");
-  expect(roster).toContain('"待簽到結算"');
+  expect(roster).toContain('booking.status === "RESERVED"');
+  expect(roster).toContain('點名狀態篩選');
   expect(roster).not.toContain('if (!musicLayout) return true;');
-  expect(roster).toContain('min-w-[760px]');
+  expect(roster).toContain('aria-label="學員名單捲動區"');
 });
 
 it("shares compact month summaries and search-scoped roster selection", () => {
   const workspace = read("workspace");
   const roster = read("roster");
-  expect(workspace).toContain('h-16 sm:h-20');
+  expect(workspace).toContain('styles.monthDay');
   expect(workspace).not.toContain('h-16 sm:h-24 xl:h-28');
   expect(roster).toContain('const selectableRows = searchedRows.filter');
   expect(roster).toContain('aria-label="全選搜尋結果中可操作的學員"');
-  expect(roster).toContain('setMemberQuery(event.target.value); setSelected([]);');
+  expect(roster).toContain('setMemberQuery(event.target.value); resetFilterSelection();');
 });

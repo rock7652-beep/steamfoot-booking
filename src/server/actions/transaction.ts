@@ -1,5 +1,7 @@
 "use server";
 
+import { createFinancialTransaction, lockExistingTransactionCash } from "@/server/services/financial-transaction";
+
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
@@ -152,7 +154,7 @@ export async function createTransaction(
         netAmount: amountNum,
       });
 
-      return txClient.transaction.create({
+      return createFinancialTransaction(txClient, {
         data: {
           customerId: data.customerId,
           bookingId: data.bookingId ?? null,
@@ -227,7 +229,7 @@ export async function refundTransactionLegacy(
         },
       });
 
-      return txClient.transaction.create({
+      return createFinancialTransaction(txClient, {
         data: {
           customerId: original.customerId,
           bookingId: original.bookingId ?? null,
@@ -288,7 +290,7 @@ export async function createAdjustment(
         netAmount: amountNum,
       });
 
-      return txClient.transaction.create({
+      return createFinancialTransaction(txClient, {
         data: {
           customerId: data.customerId,
           revenueStaffId,
@@ -810,6 +812,12 @@ export async function updateTransactionPaymentMethod(
     }
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Transaction" WHERE id=${original.id} AND "storeId"=${original.storeId} FOR UPDATE`;
+      const fresh = await tx.transaction.findUnique({ where: { id: original.id }, include: { paymentSplits: true } });
+      if (!fresh || fresh.status !== original.status || fresh.paymentMethod !== original.paymentMethod)
+        throw new AppError("CONFLICT", "交易已更新，請重新開啟核對。");
+      if (fresh.paymentSplits?.length) throw new AppError("BUSINESS_RULE", "混合付款需保留各方式金額，不能只修改整筆付款方式。");
+      await lockExistingTransactionCash(tx, fresh, data.paymentMethod);
       await tx.transaction.update({
         where: { id: data.transactionId },
         data: { paymentMethod: data.paymentMethod as PaymentMethod },
@@ -984,6 +992,8 @@ export async function voidTransaction(
           customerPlanWalletId: true,
           paymentStatus: true,
           paymentMethod: true,
+          paymentSplits: { select: { paymentMethod: true, amount: true } },
+          transactionDate: true,
           amount: true,
           note: true,
           createdAt: true,
@@ -1001,6 +1011,7 @@ export async function voidTransaction(
       });
       if (!lockedOriginal) throw new AppError("NOT_FOUND", "交易紀錄不存在");
       const current = lockedOriginal;
+      await lockExistingTransactionCash(tx, current);
 
       if (current.transactionType === "PACKAGE_PURCHASE" && !current.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
@@ -1531,7 +1542,7 @@ export async function refundTransaction(
       });
 
       // ── 3. 建立 inverse REFUND tx（amount 負數，狀態 SUCCESS） ──
-      const created = await tx.transaction.create({
+      const created = await createFinancialTransaction(tx, {
         data: {
           customerId: original.customerId,
           storeId: original.storeId,

@@ -48,6 +48,7 @@ const mockMakeupCount = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
     customer: { findUnique: (...a: unknown[]) => mockCustomerFindUnique(...a) },
     makeupCredit: { count: (...a: unknown[]) => mockMakeupCount(...a) },
     booking: {
@@ -187,6 +188,7 @@ function setupBusinessHours() {
   );
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
+      auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
       booking: {
         aggregate: mockBookingAggregate,
         findFirst: mockBookingFindFirst,
