@@ -2338,6 +2338,7 @@ model ShopConfig {
   bankCode                 String? // 銀行代號，例：「807」
   bankAccountNumber        String? // 帳號，例：「19301800020681」
   shopPhone                String? // 對外聯絡電話，工單等共用
+  lineOfficialId           String? // 對外官方 LINE ID，與連結分開
   lineOfficialUrl          String? // LINE@ 連結，例：「https://lin.ee/UvRnFFK」
   referralShareTemplate    String? // 每店推薦分享模板；僅允許 {storeName} / {url}
   // === PR-trial 新增：體驗課設定（全有 default；不影響既有店家營運）===

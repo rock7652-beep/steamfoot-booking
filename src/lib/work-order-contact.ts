@@ -14,3 +14,15 @@ export function workOrderHours(hours: Hours[]): string[] {
   }
   return [...groups].map(([text,days])=>`${days.join("、")} ${text}`);
 }
+
+/** Short link tokens are not account IDs. Prefer explicitly maintained public ID. */
+export function workOrderLineId(id: string | null | undefined, url: string | null | undefined): string | null {
+  if (id?.trim().match(/^@[A-Za-z0-9._-]+$/)) return id.trim();
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.hostname !== "line.me") return null;
+    const match = decodeURIComponent(parsed.pathname).match(/^\/R\/ti\/p\/(@[A-Za-z0-9._-]+)\/?$/);
+    return match?.[1] ?? null;
+  } catch { return null; }
+}

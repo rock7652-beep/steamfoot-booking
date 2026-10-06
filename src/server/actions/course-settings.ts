@@ -24,6 +24,7 @@ export async function saveCourseSettingsSection(input: unknown) {
       } else if (d.section === "store") {
         await tx.$executeRaw`UPDATE "Store" SET name=${d.name}, "updatedAt"=NOW() WHERE id=${storeId}`;
         await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","shopName",address,"shopPhone","mapUrl","lineOfficialUrl","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.name},${d.address || null},${d.shopPhone || null},${d.mapUrl || null},${d.lineOfficialUrl || null},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "shopName"=EXCLUDED."shopName",address=EXCLUDED.address,"shopPhone"=EXCLUDED."shopPhone","mapUrl"=EXCLUDED."mapUrl","lineOfficialUrl"=EXCLUDED."lineOfficialUrl","updatedAt"=NOW()`;
+        if (d.lineOfficialId !== undefined) await tx.$executeRaw`UPDATE "ShopConfig" SET "lineOfficialId"=${d.lineOfficialId || null} WHERE "storeId"=${storeId}`;
       } else {
         await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","bankName","bankCode","bankAccountNumber","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.bankName || null},${d.bankCode || null},${d.bankAccountNumber || null},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "bankName"=EXCLUDED."bankName","bankCode"=EXCLUDED."bankCode","bankAccountNumber"=EXCLUDED."bankAccountNumber","updatedAt"=NOW()`;
       }
