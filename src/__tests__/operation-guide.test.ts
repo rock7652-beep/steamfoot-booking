@@ -32,6 +32,23 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 
 describe("operation guide preview", () => {
+  it("toggles from the same header entry and preserves the article and page draft", () => {
+    const trigger = [...host.querySelectorAll("button")].find(button => button.textContent === "？操作指南")!;
+    const draft = host.querySelector("textarea")!;
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    click("？操作指南");
+    click("取消預約");
+    click("？操作指南");
+    expect(host.querySelector("dialog")!.open).toBe(false);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(host.querySelector("[data-operation-guide-shell]")?.getAttribute("data-guide-open")).toBe("false");
+    expect(host.querySelector("textarea")).toBe(draft);
+    expect(draft.value).toBe("草稿保留");
+    click("？操作指南");
+    expect(host.querySelector("dialog")!.open).toBe(true);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(host.querySelectorAll("ol li")).toHaveLength(3);
+  });
   it("finds common scenario synonyms and handles unmatched queries", () => {
     expect(searchBookingGuides("改期").map((item) => item.id)).toEqual(["A01"]);
     expect(searchBookingGuides("  退費 ").map((item) => item.id)).toEqual(["A02"]);
