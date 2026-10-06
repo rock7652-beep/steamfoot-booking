@@ -58,11 +58,8 @@ const SCRIPTS = {
   general: "您好～想關心您最近的狀況，需要我們協助安排下一次服務嗎？",
 } as const;
 
-function maskPhone(phone: string | null): string {
-  if (!phone) return "—";
-  const cleaned = phone.replace(/[^\d]/g, "");
-  if (cleaned.length < 4) return "—";
-  return `09xx-xxx-${cleaned.slice(-4)}`;
+function phoneLabel(phone: string | null): string {
+  return phone || "未提供電話";
 }
 
 function dateOnly(d: Date): string {
@@ -147,7 +144,7 @@ export default async function CustomerCarePage({
     const segmentItems: CareItem[] = customers.map((customer) => ({
       customerId: customer.customerId,
       name: customer.customerName,
-      phoneMasked: maskPhone(customer.customerPhone),
+      phoneLabel: phoneLabel(customer.customerPhone),
       reason: config.description,
       meta: `統計日期 ${periodLabel}`,
       staffName: customer.assignedStaffName,
@@ -193,7 +190,7 @@ export default async function CustomerCarePage({
   const trialItems: CareItem[] = trialFollowUps.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
-    phoneMasked: maskPhone(r.customerPhone),
+    phoneLabel: phoneLabel(r.customerPhone),
     reason: "體驗後尚未轉正式方案",
     meta: [
       r.trialPaidAt ? `體驗 ${dateOnly(r.trialPaidAt)}` : null,
@@ -209,7 +206,7 @@ export default async function CustomerCarePage({
   const inactiveItems: CareItem[] = inactiveCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
-    phoneMasked: maskPhone(r.phone),
+    phoneLabel: phoneLabel(r.phone),
     reason: `已 ${r.daysSinceLastVisit} 天未到店,仍有 ${r.validPackageSessions} 堂`,
     meta: `最後到店 ${dateOnly(r.lastVisitAt)}`,
     staffName: r.assignedStaffName,
@@ -220,7 +217,7 @@ export default async function CustomerCarePage({
   const lowItems: CareItem[] = lowSessionCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
-    phoneMasked: maskPhone(r.phone),
+    phoneLabel: phoneLabel(r.phone),
     reason:
       r.validPackageSessions === 1
         ? "剩 1 堂,建議提前關心續約"
@@ -234,7 +231,7 @@ export default async function CustomerCarePage({
   const expiringItems: CareItem[] = expiringPlanCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
-    phoneMasked: maskPhone(r.phone),
+    phoneLabel: phoneLabel(r.phone),
     reason:
       r.daysUntilExpiry === 0
         ? `今天到期,仍有 ${r.remainingSessions} 堂`
@@ -248,7 +245,7 @@ export default async function CustomerCarePage({
   const monthlyUnconvertedItems: CareItem[] = monthlyUnconverted.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
-    phoneMasked: maskPhone(r.customerPhone),
+    phoneLabel: phoneLabel(r.customerPhone),
     reason: "本月完成體驗・尚未購買正式方案",
     meta: `體驗完成 ${dateOnly(r.trialCompletedAt)}`,
     staffName: r.assignedStaffName,
@@ -262,7 +259,7 @@ export default async function CustomerCarePage({
   const birthdayItems: CareItem[] = birthdayCustomers.map((r) => ({
     customerId: r.customerId,
     name: r.customerName,
-    phoneMasked: maskPhone(r.customerPhone),
+    phoneLabel: phoneLabel(r.customerPhone),
     reason: "本月生日，適合送上祝福",
     meta: `生日 ${String(r.birthday.getUTCMonth() + 1).padStart(2, "0")}/${String(r.birthday.getUTCDate()).padStart(2, "0")}`,
     staffName: r.assignedStaffName,
