@@ -110,9 +110,9 @@ export async function createSpaQuickBooking(
       }),
     })));
     const booking = await spaPrisma.$transaction(async (tx) => {
-      // Serialize writes for one SPA store/date, then recheck provider and
+      // Share the SPA schedule lock, then recheck provider and
       // room capacity inside the same transaction to prevent double booking.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
       const endTime = addMinutes(data.slotTime, composition.occupiedMinutes);
       const overlaps = await tx.spaBooking.findMany({
         where: {
