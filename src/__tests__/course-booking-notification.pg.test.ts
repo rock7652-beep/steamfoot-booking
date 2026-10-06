@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { PrismaClient, type Prisma } from "../../generated/course-client";
+import { PrismaClient, type Prisma, type CourseSession } from "../../generated/course-client";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 
 const mocks = vi.hoisted(() => ({ member: vi.fn(), transaction: vi.fn(), limits: vi.fn() }));
@@ -60,7 +60,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     const plan = await db!.coursePointPlan.create({ data: { storeId, name: "驗收方案", points: 4, price: 1000, validDays: 365 } });
     const card = await db!.coursePointCard.create({ data: { storeId, planId: plan.id, nameSnapshot: plan.name, remaining: 4, expiresAt: new Date("2031-01-01"), requestKey: randomUUID() } });
     await db!.courseCardMember.create({ data: { storeId, cardId: card.id, customerId } });
-    const sessions = [];
+    const sessions: CourseSession[] = [];
     for (const day of ["2030-01-11", "2030-01-12"]) sessions.push(await db!.courseSession.create({ data: { storeId, templateId: template.id, roomId: room.id, coachId: "coach", nameSnapshot: template.name, startsAt: new Date(`${day}T10:00:00Z`), endsAt: new Date(`${day}T11:00:00Z`), pointCost: 1, capacity: 1, requestKey: randomUUID(), requestIndex: 0, createdById: userId } }));
     const actor = { storeId, userId, name: "驗收學員", ...(trial ? {} : { customerId }) };
     const original = await transact(tx => reserveCourseInTransaction(tx, actor, { sessionId: sessions[0].id, cardId: trial ? null : card.id, customerId, ...(trial ? { trialPrice: 350 } : {}), requestKey: randomUUID() }, 100));
@@ -108,6 +108,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     const result = await rescheduleMemberCourseBooking({ bookingId: f.original.id, sessionId: f.sessions[1].id });
     expect(result.success).toBe(true);
     if (!result.success) throw new Error(result.error);
+    if (!("bookingId" in result)) throw new Error("Missing rescheduled booking ID");
     expect(await db!.courseTrialPayment.findUnique({ where: { id: receipt.id } })).toEqual({ ...receipt, bookingId: result.bookingId });
     expect(await db!.courseTrialPayment.count({ where: { storeId: f.storeId } })).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { storeId: f.storeId } })).toBe(0);
