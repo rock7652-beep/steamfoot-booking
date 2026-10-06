@@ -112,10 +112,10 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         <details className="md:col-span-2 rounded-xl border border-earth-200 p-3">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary>
           <div className="mt-3">
-          <LineCardPreview title="預約提醒" actions={course ? [{ label: "會員專區／查看課程", variant: "outline" }] : [...(hasMapLink ? [{ label: "開啟 Google Maps 導航" }] : []), { label: "改時段", variant: "outline" }, { label: "取消前往", variant: "cancel" }]}>
+          <LineCardPreview title="預約提醒" actions={course ? [...(hasMapLink ? [{label:"開啟 Google Maps 導航"}] : []), {label:"改時段",variant:"outline"}, {label:"取消前往",variant:"cancel"}] : [...(hasMapLink ? [{ label: "開啟 Google Maps 導航" }] : []), { label: "改時段", variant: "outline" }, { label: "取消前往", variant: "cancel" }]}>
             <p className="font-semibold">王小美 您好</p><p>日期時間　2026-09-17 14:00</p><p>{trimmedBody || defaultBody}</p>
           </LineCardPreview>
-          <p className="mt-2 text-[11px] text-earth-400">{course ? "示意資料。入口回到會員專區，依既有課程規則查看或逐人取消；不使用蒸足改期流程。" : "改期與取消屬於必要功能；導航連結由首次體驗提醒中的分店地圖共用。"}</p></div>
+          <p className="mt-2 text-[11px] text-earth-400">{course ? "體驗課另有「確認會到」。改期與取消依本店截止、名額與方案規則處理，逐位確認。" : "改期與取消屬於必要功能；導航連結由首次體驗提醒中的分店地圖共用。"}</p></div>
         </details>
       </div>
 

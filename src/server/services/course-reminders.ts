@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { addTaiwanDuration,dayRange,formatTWDateTime,monthRange,toLocalDateStr,toLocalMonthStr } from "@/lib/date-utils";
-import { courseMemberNotificationUrl } from "./course-delivery-links";
+import { courseMemberNotificationUrl, courseBookingActionUrl } from "./course-delivery-links";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
@@ -37,6 +37,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
  const rules=await prisma.reminderRule.findMany({where:{triggerType:COURSE_REMINDER_TRIGGER,isEnabled:true,channel:"LINE",...(onlyStoreId?{storeId:onlyStoreId}:{}),store:{industryModule:"COURSE"}},include:{template:true}});
  for(const rule of rules) {
   if(!(await hasStoreFeature(rule.storeId,FEATURES.LINE_REMINDER))) continue;
+  const map=await prisma.shopConfig.findUnique({where:{storeId:rule.storeId},select:{address:true,mapUrl:true}});
   const candidates=await getCourseReminderCandidates(rule.storeId,now),plan=await getStoreForPlanByStoreId(rule.storeId);
   for(const {booking,customer,store,date} of candidates) {
    if(acceptance && (booking.id!==acceptance.bookingId || customer.id!==acceptance.customerId)) continue;
@@ -67,7 +68,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient,customer.id,tx);
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
      if(acceptance && (route.channel!=="STORE" || createHash("sha256").update(route.recipientLineUserId).digest("hex")!==acceptance.recipientHash)) return skip("驗收收件人或通道不匹配");
-     const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,managementOnlyLabel:"會員專區／查看課程"},url.toString(),booking.id);
+     const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,address:map?.address??undefined,mapUrl:map?.mapUrl && /^https:\/\//.test(map.mapUrl) ? map.mapUrl : undefined,courseActions:{...(booking.bookingKind==="TRIAL"?{confirm:courseBookingActionUrl(store.slug,date,booking.id,"confirm")}:{}),reschedule:courseBookingActionUrl(store.slug,date,booking.id,"reschedule"),cancel:courseBookingActionUrl(store.slug,date,booking.id,"cancel")}},url.toString(),booking.id);
      const deliver=()=>route.channel==="STORE"?pushMessage(store.id,route.recipientLineUserId,messages,retryKey(id)):pushSteamButlerMessage(route.recipientLineUserId,messages,retryKey(id));
      const sent=acceptance?await withAcceptanceRetryKey(retryKey(id),deliver):await deliver();
      await tx.messageLog.update({where:{id},data:{status:sent.success?"SENT":"FAILED",lineRoute:route.channel,sentAt:sent.success?now:null,errorMessage:sent.success?null:sent.error}});

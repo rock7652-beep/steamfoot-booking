@@ -1,0 +1,23 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const m=vi.hoisted(()=>Object.fromEntries(["settings","rows","raw","setting","person","pref","booking","purchase","pending","booked","log","count","create","update","message","deliver","feature"].map(k=>[k,vi.fn()])));
+vi.mock("@/lib/db",()=>({prisma:{trialCareSetting:{findMany:m.settings},$queryRaw:m.rows,$transaction:async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,trialCareSetting:{findUnique:m.setting},customer:{findFirst:m.person},trialCarePreference:{upsert:m.pref},trialCareLog:{findUnique:m.log,count:m.count,create:m.create,update:m.update},messageLog:{upsert:m.message}})}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBooking:{findFirst:m.booking,count:m.booked},courseCardMember:{count:m.purchase},coursePurchase:{count:m.pending}}}));
+vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:m.feature}));
+vi.mock("@/server/services/course-card-notification-delivery",()=>({deliverCourseCardNotification:m.deliver}));
+vi.mock("@/server/services/course-delivery-links",()=>({deriveCourseBaseUrl:()=>"https://example.test",courseMemberNotificationUrl:(slug:string,view:string)=>new URL(`/s/${slug}/book?view=${view}`,"https://example.test")}));
+import {defaultCourseTrialCareRules} from "@/lib/trial-care";
+import {runCourseTrialCare,courseTrialCareMessages} from "@/server/services/course-trial-care";
+const activatedAt=new Date("2026-10-01T00:00:00Z"), now=new Date("2026-10-06T02:00:00Z");
+const setting={storeId:"A",enabled:true,activatedAt,updatedAt:activatedAt,rules:defaultCourseTrialCareRules(),store:{name:"館A",slug:"a"}};
+beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("VERCEL_ENV","production");m.settings.mockResolvedValue([setting]);m.rows.mockResolvedValue([{id:"trial",customerId:"c",completedAt:new Date("2026-10-05T01:00:00Z")}]);m.feature.mockResolvedValue(true);m.setting.mockResolvedValue(setting);m.person.mockResolvedValue({id:"c",name:"顧客",lineUserId:"verified",lineLinkStatus:"LINKED"});m.pref.mockResolvedValue({stoppedAt:null});m.booking.mockResolvedValue({id:"trial"});m.purchase.mockResolvedValue(0);m.pending.mockResolvedValue(0);m.booked.mockResolvedValue(0);m.count.mockResolvedValue(0);m.deliver.mockResolvedValue("SENT");});
+it("never reads or sends from preview",async()=>{vi.stubEnv("VERCEL_ENV","preview");expect(await runCourseTrialCare(now)).toEqual({sent:0,skipped:0,failed:0});expect(m.settings).not.toHaveBeenCalled();});
+it("requires a post-activation course completion marker and rechecks its owner",async()=>{
+ expect(await runCourseTrialCare(now)).toMatchObject({sent:1});
+ const sql=m.rows.mock.calls[0][0].join("");expect(sql).toContain("COURSE_TRIAL_CARE_COMPLETED");expect(sql).toContain("b.status='ATTENDED'");expect(m.rows.mock.calls[0]).toContain(activatedAt);
+ expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:{id:"trial",storeId:"A",customerId:"c",bookingKind:"TRIAL",status:"ATTENDED"}}));
+ expect(m.deliver).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:"A",person:expect.objectContaining({id:"c"})}));
+});
+it("does not enroll historical attendance without the marker",async()=>{m.rows.mockResolvedValue([]);await runCourseTrialCare(now);expect(m.deliver).not.toHaveBeenCalled();});
+it("deduplicates stages and honors the customer's opt-out",async()=>{m.log.mockResolvedValue({status:"SENT"});await runCourseTrialCare(now);expect(m.deliver).not.toHaveBeenCalled();m.log.mockResolvedValue(null);m.pref.mockResolvedValue({stoppedAt:now});await runCourseTrialCare(now);expect(m.deliver).not.toHaveBeenCalled();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"SKIPPED",reason:"顧客已停止接收"})}));});
+it("skips return invitations for pending purchases",async()=>{m.rows.mockResolvedValue([{id:"trial",customerId:"c",completedAt:new Date("2026-10-02T01:00:00Z")}]);m.log.mockImplementation(({where})=>where.storeId_customerId_stage.stage===0?{status:"SENT"}:null);m.pending.mockResolvedValue(1);await runCourseTrialCare(now);expect(m.deliver).not.toHaveBeenCalled();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({stage:1,reason:"購買申請待核帳，略過本次邀請"})}));});
+it("keeps both shared-account links scoped to their store",()=>{const card=JSON.stringify(courseTrialCareMessages("test",0,"a"));expect(card).toContain("/s/a/book?view=shop");expect(card).toContain("/s/a/book/reminders");expect(card).not.toContain("postback");});

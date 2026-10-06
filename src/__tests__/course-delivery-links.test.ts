@@ -19,3 +19,8 @@ it.each(["http://trial.example.test", "https://user:pass@trial.example.test", "h
   vi.stubEnv("COURSE_TRIAL_ORIGIN", origin);
   expect(deriveCourseBaseUrl).toThrow();
 });
+
+it("preserves course action intent through nested LIFF state while refusing executable IDs",()=>{
+  expect(courseMemberReturnPath("a","?liff.state="+encodeURIComponent("?courseView=bookings&courseBookingId=booking-1&courseAction=cancel"))).toBe("/s/a/book?view=bookings&bookingId=booking-1&action=cancel");
+  expect(courseMemberReturnPath("a","?courseView=shop&courseAction=delete&courseBookingId=javascript:alert(1)")).toBe("/s/a/book?view=shop");
+});

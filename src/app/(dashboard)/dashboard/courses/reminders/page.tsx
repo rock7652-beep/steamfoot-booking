@@ -1,3 +1,5 @@
+import { TrialCareCard } from "../../reminders/trial-care-card";
+import { defaultCourseTrialCareRules, readTrialCareRules } from "@/lib/trial-care";
 import {coachBindingStatus} from "@/server/services/course-coach-notifications";
 import {CoachNotificationSettings} from "./coach-notification-settings";
 import {COACH_NOTICE_KINDS,coachNoticeSettingId,type CoachNoticeKind} from "@/lib/course-coach-notifications";
@@ -30,6 +32,12 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
   if (!user || !(await checkPermission(user.role, user.staffId, "business_hours.manage"))) notFound();
   const { storeId } = await courseManager("business_hours.manage");
   const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
+  const [care,careStore,careLogs]=await Promise.all([
+    prisma.trialCareSetting.findUnique({where:{storeId}}),
+    prisma.store.findUniqueOrThrow({where:{id:storeId},select:{name:true}}),
+    prisma.trialCareLog.findMany({where:{storeId,module:"COURSE"},orderBy:{createdAt:"desc"},take:50,include:{customer:{select:{name:true}}}}),
+  ]);
+  const map=await prisma.shopConfig.findUnique({where:{storeId},select:{mapUrl:true}});
   const params = await searchParams;
   const active = params.tab === "coach" ? "coach" : params.tab === "logs" ? "logs" : params.tab === "manager" ? "manager" : "customer";
   const enabled = await hasStoreFeature(storeId, FEATURES.LINE_REMINDER);
@@ -53,7 +61,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
       {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
 
-      {active === "coach" ? coachContent : active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} bindingUnavailable={previewBlocked?"隔離測試站不提供 LINE 綁定，請到正式站完成設定。":lineHealth?.status==="NOT_CONFIGURED"?"本店尚未完成 LINE 官方帳號設定。請先聯絡總部管理者完成串接，再回來綁定通知人員。":undefined} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course music={music} /><CourseLowBalanceSettings plans={(await getCoursePlanReminderSettings()).filter(plan=>!music||plan.unit==="SESSION")} music={music}/></>}
+      {active === "coach" ? coachContent : active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} bindingUnavailable={previewBlocked?"隔離測試站不提供 LINE 綁定，請到正式站完成設定。":lineHealth?.status==="NOT_CONFIGURED"?"本店尚未完成 LINE 官方帳號設定。請先聯絡總部管理者完成串接，再回來綁定通知人員。":undefined} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={!!map?.mapUrl} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course music={music} /><CourseLowBalanceSettings plans={(await getCoursePlanReminderSettings()).filter(plan=>!music||plan.unit==="SESSION")} music={music}/><TrialCareCard course storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled??false} initialRules={care?readTrialCareRules(care.rules):defaultCourseTrialCareRules()} logs={careLogs.map(log=>({id:log.id,customerId:log.customerId,customerName:log.customer.name,stage:log.stage,status:log.status,reason:log.reason,createdAt:log.createdAt.toISOString()}))}/></>}
 
     </div>}
   </PageShell>;

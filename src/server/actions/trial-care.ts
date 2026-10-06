@@ -29,6 +29,7 @@ export async function saveTrialCareSettings(input: z.infer<typeof schema>) {
       });
     });
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true as const };
   } catch (e) { return handleActionError(e); }
 }
@@ -46,6 +47,7 @@ export async function stopCustomerTrialCare(customerId: string) {
       update: { stoppedAt: new Date(), lastEventAt: new Date() },
     });
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true as const };
   } catch (e) { return handleActionError(e); }
 }

@@ -34,7 +34,7 @@ export function buildPlanExpiryLineMessages(input: {
   expiryDate: Date;
   daysUntilExpiry: number;
   storeSlug: string;
-  course?: {unit:"POINT"|"SESSION";remaining:number;held:number;url:string};
+  course?: {unit:"POINT"|"SESSION";remaining:number;held:number;url:string;purchaseUrl?:string;bookingUrl?:string};
 }): LineFlexMessage[] {
   const expiry = displayDate(input.expiryDate);
   const bookingUrl = input.course?.url ?? `${deriveBaseUrl()}/s/${input.storeSlug}/liff/member-booking`;
@@ -90,6 +90,8 @@ export function buildPlanExpiryLineMessages(input: {
         spacing: "sm",
         contents: [
           { type: "button", style: "primary", color: COLORS.primary, action: { type: "uri", label: input.course?"查看方案與期限":"立即預約", uri: bookingUrl } },
+          ...(input.course?.bookingUrl ? [{type:"button" as const,style:"primary" as const,color:COLORS.primary,action:{type:"uri" as const,label:"立即預約",uri:input.course.bookingUrl}}] : []),
+          ...(input.course?.purchaseUrl ? [{type:"button" as const,style:"primary" as const,color:COLORS.primary,action:{type:"uri" as const,label:"購買／續購方案",uri:input.course.purchaseUrl}}] : []),
           { type: "button", style: "link", color: COLORS.secondary, action: { type: "message", label: "諮詢店長", text: "我想詢問方案到期安排" } },
         ],
       },
