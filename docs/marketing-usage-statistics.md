@@ -44,3 +44,7 @@ Vercel cron runs at `0 17 * * *` UTC (01:00 Asia/Taipei). The endpoint requires 
 Failed refreshes do not intentionally invalidate successful results. Next cache can serve the previous value; if no cached value is available, the verified fallback and its original date are returned. The frontend only displays the actual snapshot date; it does not pretend old values were updated today. The frontend statistical explanation has been removed at the user's request; methodology remains documented here. No database migration or schema writes are needed. Production scheduling activates after merge/deployment; it does not run on Preview.
 
 Animation plays once per mount when visible, respects reduced motion, and exposes stable final numbers to assistive technology and server-rendered HTML.
+
+## Active trial stores (2026-10-07)
+
+The current aggregate also includes non-demo ACTIVE or TRIAL EXPERIENCE stores with TRIAL status, a non-null planEffectiveAt no later than the Taiwan daily cutoff, and planExpiresAt on or after that day (inclusive). Pending activation, expired trials and inactive stores are excluded. The original fallback above retains its historical values/date; preview does not publish fabricated new totals. Completed-service and served-customer filters remain unchanged. Cache tag advances to marketing-usage-v3 so production recalculates after deployment.
