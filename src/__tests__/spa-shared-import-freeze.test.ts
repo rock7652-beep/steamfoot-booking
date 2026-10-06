@@ -1,11 +1,20 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(__dirname, "../..");
 const sourceRoot = resolve(root, "src");
 
+// Already merged on main in #1232. These adapters dispatch by the authorized
+// industry and enforce store/customer scope; customer-care-booking and lifecycle
+// tests cover the module boundary. Keep the head-only and merge-ref runs valid.
+const REVIEWED_MAIN_CARE_ADAPTERS = [
+  "src/app/(dashboard)/dashboard/growth/_components/care-booking-button.tsx",
+  "src/server/actions/customer-care-booking.ts",
+  "src/server/queries/customer-care-activity.ts",
+];
 const EXISTING_SHARED_SPA_DEPENDENCIES = [
+  ...REVIEWED_MAIN_CARE_ADAPTERS.filter(file => existsSync(resolve(root,file))),
   // Reviewed 2026-09-12: industry-gated home returns before legacy queries;
   // permission and tenant behavior covered by spa-home-boundary.test.ts.
   "src/app/(dashboard)/dashboard/page.tsx",

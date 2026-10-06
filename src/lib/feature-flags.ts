@@ -41,6 +41,7 @@ export const FEATURES = {
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
   INVENTORY: "inventory",
+  WORK_ORDERS: "work_orders",
   CUSTOMER_LABELS: "customer_labels",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
@@ -75,7 +76,7 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full single-store trial, shared by every industry (multi-store is excluded).
-  EXPERIENCE: Object.values(FEATURES).filter(isSingleStoreFeature),
+  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.WORK_ORDERS && isSingleStoreFeature(feature)),
   BASIC: [
     "line_reminder",
     "device_preview",

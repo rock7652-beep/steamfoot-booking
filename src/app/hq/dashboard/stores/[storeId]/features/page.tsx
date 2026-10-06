@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { hasFeature, PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import { FEATURES, hasFeature, PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { isSingleStoreFeature, isSingleStoreTrial } from "@/lib/single-store-trial";
 import type { FeatureKey } from "@/lib/feature-flags";
@@ -142,7 +142,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
 
       <FeatureEntitlementList storeId={store.id} categories={[...STORE_FEATURE_CATEGORIES]} rows={MANAGEABLE_STORE_FEATURES.map(feature => {
                   const entitlement = entitlements.get(feature.key) ?? null;
-                  const trialAllowed = fullSingleStoreAccess && isSingleStoreFeature(feature.key);
+                  const trialAllowed = fullSingleStoreAccess && isSingleStoreFeature(feature.key) && feature.key !== FEATURES.WORK_ORDERS;
                   const baseAllowed = trialAllowed || hasFeature(store.plan, feature.key);
                   const ordinaryState = resolveStoreFeatureDisplayState(
                     store.plan,

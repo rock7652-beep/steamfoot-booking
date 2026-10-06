@@ -61,7 +61,7 @@ async function cashbookEvents(storeId: string, startDate: string, endDate: strin
     const id = entry.id ?? "";
     // Course receipts already post to this ledger. Read their entryDate and
     // amount once, including split payments and their compensating entries.
-    const refund = /^course-(refund|void|trial-void|rental-void):/.test(id);
+    const refund = /^course-(refund|void|trial-void|rental-void):/.test(id)||(/^inventory:.*:refund$/.test(id)&&entry.category==="工單退款");
     const feeReversal = /^course-(fee|profit)-void:/.test(id);
     const linked = id.startsWith("course:") || id.startsWith("course-") || id.startsWith("inventory:");
     const field: RevenueField = refund ? "refunds" : feeReversal ? "expense"

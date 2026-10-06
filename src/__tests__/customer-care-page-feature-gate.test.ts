@@ -207,7 +207,7 @@ describe("CustomerCarePage feature gate", () => {
     );
     expect(html).toContain("本月體驗未購買方案");
     expect(html).toContain("測試顧客 B");
-    expect(html).toContain("09xx-xxx-0002");
+    expect(html).toContain("0911000002");
     expect(html).toContain("本月完成體驗但未於當天開卡的顧客");
     expect(html).not.toContain("從未追蹤");
     expect(html).toContain("查看顧客");

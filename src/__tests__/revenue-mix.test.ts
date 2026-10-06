@@ -84,3 +84,11 @@ it("includes confirmed collections on transactionDate rather than creation date"
   expect((await getRevenueMix("store", "2026-09-02", "2026-09-02")).packageRevenue).toBe(1000);
   expect(mocks.transactions.mock.calls[0][0].where).toMatchObject({ voidedAt: null, transactionDate: expect.any(Object) });
 });
+it("recognizes a linked work-order cash refund as reduced revenue, not an operating expense",async()=>{
+  mocks.transactions.mockResolvedValue([]);
+  mocks.cashbook.mockResolvedValue([
+    {id:"inventory:p:goods",entryDate:new Date("2026-10-06T00:00:00Z"),type:"INCOME",category:"工單收入",amount:500},
+    {id:"inventory:r:refund",entryDate:new Date("2026-10-06T00:00:00Z"),type:"EXPENSE",category:"工單退款",amount:400},
+  ]);
+  expect(await getRevenueMix("store","2026-10-06","2026-10-06")).toMatchObject({otherRevenue:500,refunds:400,netRevenue:100,expense:0,manualIncome:0});
+});

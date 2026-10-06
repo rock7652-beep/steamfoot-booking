@@ -13,7 +13,7 @@ export function courseSettingsSection(value: string | null | undefined): CourseS
 }
 const httpsUrl = z.union([z.string().url().refine(value => value.startsWith("https://"), "請使用 HTTPS 網址"), z.literal("")]);
 export const courseSettingsSectionSchema = z.discriminatedUnion("section", [
-  z.object({ section: z.literal("store"), name: z.string().trim().min(1).max(100), address: z.string().trim().max(300), mapUrl: httpsUrl, lineOfficialUrl: httpsUrl }),
+  z.object({ section: z.literal("store"), name: z.string().trim().min(1).max(100), address: z.string().trim().max(300), shopPhone: z.string().trim().max(50).default(""), mapUrl: httpsUrl, lineOfficialUrl: httpsUrl, lineOfficialId: z.string().trim().max(100).regex(/^$|^@[A-Za-z0-9._-]+$/, "請填寫 @ 開頭的官方 LINE ID").optional() }),
   z.object({ section: z.literal("booking"), bookingLeadMinutes: z.number().int().min(0).max(43200), cancellationLeadMinutes: z.number().int().min(0).max(43200) }),
   z.object({ section: z.literal("payment"), bankName: z.string().trim().max(100), bankCode: z.string().trim().max(20), bankAccountNumber: z.string().trim().max(50) }),
 ]);

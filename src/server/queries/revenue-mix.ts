@@ -120,7 +120,7 @@ export async function getRevenueMix(
     const date = entry.entryDate.toISOString().slice(0, 10);
     const point = points.get(monthly ? date.slice(0, 7) : date);
     if (!point) continue;
-    const field = entry.type === "EXPENSE" ? "expense"
+    const field = /^inventory:.*:refund$/.test(entry.id??"")&&entry.category==="工單退款" ? "refunds" : entry.type === "EXPENSE" ? "expense"
       : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue";
     const amount = Number(entry.amount);
     point[field] += amount;
