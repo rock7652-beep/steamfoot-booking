@@ -26,7 +26,7 @@ describe("plan feature package alignment", () => {
   });
 
   it("includes every single-store feature in the trial plan", () => {
-    const excluded = new Set<FeatureKey>([FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS, FEATURES.COACH_REVENUE, FEATURES.SPONSOR_TREE]);
+    const excluded = new Set<FeatureKey>();
     for (const feature of Object.values(FEATURES)) {
       expect(hasFeature("EXPERIENCE", feature), feature).toBe(!excluded.has(feature));
     }
