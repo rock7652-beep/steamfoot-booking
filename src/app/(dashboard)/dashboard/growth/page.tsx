@@ -290,11 +290,11 @@ export default async function CustomerCarePage({
 
       {viewedStoreId && <CareWorkspaceServer storeId={viewedStoreId} module="steamfoot" month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} sections={[
         { reason: "birthday", title: "本月生日", description: "送上生日祝福。", emptyText: "本月沒有待祝福顧客。", items: birthdayItems },
-        { reason: "trial", title: "本月體驗未開卡", description: "尚未購買正式方案。", emptyText: "本月沒有待關懷體驗顧客。", items: monthlyUnconvertedItems },
+        { reason: "trial", title: "本月體驗未購買方案", description: "尚未購買正式方案。", emptyText: "本月沒有待關懷體驗顧客。", items: monthlyUnconvertedItems },
         { reason: "inactive", title: "好久不見", description: "超過 30 天未到店。", emptyText: "目前沒有需要回店關懷的顧客。", items: inactiveItems },
         { reason: "low", title: "額度快用完", description: "確認剩餘堂數。", emptyText: "目前沒有低額度提醒。", items: lowItems },
         { reason: "expiring", title: "方案快到期", description: "提早安排使用或續約。", emptyText: "目前沒有到期提醒。", items: expiringItems },
-        { reason: "trial", title: "其他體驗未開卡", description: "體驗已收款但尚未購買正式方案。", emptyText: "目前沒有其他待關懷體驗顧客。", items: trialItems.filter(item => !monthlyUnconvertedItems.some(current => current.customerId === item.customerId)) },
+        { reason: "trial", title: "其他體驗未購買方案", description: "體驗已收款但尚未購買正式方案。", emptyText: "目前沒有其他待關懷體驗顧客。", items: trialItems.filter(item => !monthlyUnconvertedItems.some(current => current.customerId === item.customerId)) },
       ]}/>}
     </PageShell>
   );

@@ -10,7 +10,7 @@ import type { IndustryModuleId } from "@/lib/industry-modules";
 export async function getCustomerCareActivity(storeId: string, module: IndustryModuleId, staffScope: string | null, year: number, now = new Date()) {
   const customers = await prisma.customer.findMany({
     where: { storeId, ...(staffScope ? { assignedStaffId: staffScope } : {}), mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } },
-    select: { id: true, name: true, phone: true, assignedStaff: { select: { displayName: true } } },
+    select: { id: true, name: true, phone: true, assignedStaff: { select: { displayName: true, storeId: true } } },
   });
   const ids = customers.map(c => c.id);
   if (!ids.length) return { customers, latest: new Map<string, CareActivity>(), nextBookings: new Map<string, string>() };

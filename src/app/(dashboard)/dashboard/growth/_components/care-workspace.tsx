@@ -22,9 +22,9 @@ export function CareWorkspace({ sections, history, today, selected }: { sections
   const pendingCount = new Set(allItems.filter(i => i.state === "pending").map(i => i.customerId)).size;
   const handledCount = new Set([...allItems.filter(i => i.state === "handled"), ...history].map(i => i.customerId)).size;
   const visible = updated.filter(s => !selected || s.reason === selected);
-  return <CareContext.Provider value={{ today, items: allItems, onSaved: (customerId, activity) => setSaved(previous => ({ ...previous, [`${customerId}:${activity.reason}`]: activity })) }}>
+  return <CareContext.Provider value={{ today, items: [...allItems, ...history], onSaved: (customerId, activity) => setSaved(previous => ({ ...previous, [`${customerId}:${activity.reason}`]: activity })) }}>
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-2" role="tablist" aria-label="關懷處理狀態">
-      {([['pending', '待關懷', pendingCount], ['handled', '已處理／已安排', handledCount]] as const).map(([value, text, count]) => <button key={value} role="tab" aria-selected={tab === value} type="button" onClick={() => setTab(value)} className={`min-h-11 rounded-lg px-3 text-sm font-medium ${tab === value ? "bg-primary-100 text-primary-900" : "text-earth-600 hover:bg-earth-100"}`}>{text} <span className="ml-1 tabular-nums">{count}</span></button>)}
+      {([['pending', '待關懷', pendingCount], ['handled', '已處理／已安排', handledCount]] as const).map(([value, text, count]) => <button key={value} role="tab" aria-selected={tab === value} type="button" onClick={() => setTab(value)} className={`min-h-11 rounded-lg px-3 text-sm font-medium ${tab === value ? "bg-primary-100 text-primary-900" : "text-earth-600 hover:bg-earth-100"}`}>{text} <span className="ml-1 tabular-nums">{count} 位</span></button>)}
     </div>
     <div className="space-y-3">
       {visible.map(section => {

@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db";
+import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 import { isCourseCareKind } from "@/server/queries/course-home";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -8,9 +10,10 @@ import { type CareItem } from "./care-section";
 import { CareWorkspaceServer } from "./care-workspace-server";
 
 export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBook, segment, staffScope = null }: { storeId: string; month: string; readOnly: boolean; canFollowUp: boolean; canBook: boolean; segment?: string; staffScope?: string | null }) {
-  const [overview, birthdays] = await Promise.all([getCourseCustomerCare(storeId, new Date(), staffScope), getBirthdayCustomersForMonth(storeId, month, staffScope)]);
+  const [overview, birthdays, businessEntitlements] = await Promise.all([getCourseCustomerCare(storeId, new Date(), staffScope), getBirthdayCustomersForMonth(storeId, month, staffScope), prisma.storeFeatureEntitlement.findMany({ where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" }, select: { featureKey: true } })]);
+  const staffLabel = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey)) === "MUSIC" ? "所屬人員" : "所屬教練";
   const selected = isCourseCareKind(segment) ? segment : null;
-  const mode = { courseMode: true, readOnly, canFollowUp, canBook };
+  const mode = { staffLabel, courseMode: true, readOnly, canFollowUp, canBook };
   const phone = (value: string | null) => value ? `末四碼 ${value.slice(-4)}` : "未提供電話";
   const rows = (kind: "low" | "inactive" | "expiring"): CareItem[] => overview[kind].map(customer => {
     const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0).sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
@@ -30,7 +33,7 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
     <div className="flex flex-wrap items-center justify-between gap-2">
       <nav aria-label="關懷分類" className="flex flex-wrap gap-1">
         <Link aria-current={!selected ? "page" : undefined} href={`/dashboard/growth?month=${month}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900">全部</Link>
-        {([['birthday','本月生日'],['inactive','好久不見'],['low','額度快用完'],['expiring','方案快到期'],['trial','體驗未購買方案']] as const).map(([kind,label]) => <Link key={kind} aria-current={selected === kind ? "page" : undefined} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900" href={`/dashboard/growth?segment=${kind}&month=${month}`}>{label} <span className="tabular-nums">{counts[kind]}</span></Link>)}
+        {([['birthday','本月生日'],['inactive','好久不見'],['low','額度快用完'],['expiring','方案快到期'],['trial','體驗未購買方案']] as const).map(([kind,label]) => <Link key={kind} aria-current={selected === kind ? "page" : undefined} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm text-earth-600 hover:bg-earth-100 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-900" href={`/dashboard/growth?segment=${kind}&month=${month}`}>{label} <span className="tabular-nums">{counts[kind]} 位</span></Link>)}
       </nav>
       <details className="min-w-0">
         <summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">生日月份 · {month}</summary>
