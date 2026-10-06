@@ -46,6 +46,38 @@ it("rejects ambiguous store or destination mapping", () => {
   vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([config, { ...config, storeId: "course-b", slug: "course-b" }]));
   expect(readStoreLineConfigs).toThrow();
 });
+it("allows an explicit shared OA with separate store identities and LIFF entries", () => {
+  const shared = { ...config, sharedAccountKey: "ufun" };
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([shared, { ...shared, storeId: "course-b", slug: "course-b", liffId: "902-second" }]));
+  expect(readStoreLineConfigs()).toHaveLength(2);
+  expect(getConfiguredStoreLine("course-b")?.storeId).toBe("course-b");
+  expect(resolveStoreLiffContext("course-b").config?.liffId).toBe("902-second");
+});
+it("allows a shared LIFF only in the same explicit account group", () => {
+  const shared = { ...config, sharedAccountKey: "ufun" };
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([shared, { ...shared, storeId: "course-b", slug: "course-b" }]));
+  expect(readStoreLineConfigs()).toHaveLength(2);
+});
+it("treats omitted and explicit PROVIDER modes as the same shared identity namespace", () => {
+  const shared = { ...config, sharedAccountKey: "ufun" };
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([shared, { ...shared, storeId: "course-b", slug: "course-b", identityMode: "PROVIDER" }]));
+  const entries = readStoreLineConfigs();
+  expect(entries).toHaveLength(2);
+  expect(storeLineIdentityProvider(entries[0])).toBe(storeLineIdentityProvider(entries[1]));
+});
+it.each([
+  { sharedAccountKey: "other" },
+  { channelSecretEnv: "OTHER_SECRET" },
+  { accessTokenEnv: "OTHER_TOKEN" },
+  { messagingChannelId: "999" },
+  { providerId: "999", messagingProviderId: "999" },
+  { identityMode: "CENTRAL" },
+  { destination: "U" + "b".repeat(32), liffId: "902-second" },
+])("rejects conflicting shared channel configuration %j", change => {
+  const shared = { ...config, sharedAccountKey: "ufun" };
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([shared, { ...shared, storeId: "course-b", slug: "course-b", ...change }]));
+  expect(readStoreLineConfigs).toThrow();
+});
 it("fails closed on malformed configuration instead of assuming central", () => {
   vi.stubEnv("STORE_LINE_CONFIG_JSON", "{bad");
   expect(() => resolveStoreLiffContext("course-a")).toThrow();

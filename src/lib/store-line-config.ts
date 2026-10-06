@@ -14,6 +14,7 @@ const entrySchema = z.object({
   destination: z.string().regex(/^U[a-f0-9]{32}$/),
   accessTokenEnv: z.string().regex(/^[A-Z][A-Z0-9_]+$/),
   channelSecretEnv: z.string().regex(/^[A-Z][A-Z0-9_]+$/),
+  sharedAccountKey: z.string().regex(/^[a-z0-9-]+$/).optional(),
 }).strict();
 export type StoreLineConfig = z.infer<typeof entrySchema>;
 
@@ -23,8 +24,22 @@ export function readStoreLineConfigs(): StoreLineConfig[] {
   let entries: StoreLineConfig[];
   try { entries = z.array(entrySchema).parse(JSON.parse(raw)); }
   catch { throw new Error("每店 LINE 設定格式不正確；未使用中央備援"); }
-  for (const key of ["storeId", "slug", "destination", "liffId"] as const) {
+  for (const key of ["storeId", "slug"] as const) {
     if (new Set(entries.map(e => e[key])).size !== entries.length) throw new Error("每店 LINE 設定重複；未使用中央備援");
+  }
+  // Sharing is opt-in, and every entry must identify the same physical OA,
+  // credentials and login namespace. A duplicate destination alone is unsafe.
+  const accountFields = ["providerId", "loginChannelId", "messagingProviderId", "messagingChannelId", "basicId", "destination", "accessTokenEnv", "channelSecretEnv"] as const;
+  for (const e of entries) {
+    for (const other of entries) {
+      if (e === other) continue;
+      const sameGroup = Boolean(e.sharedAccountKey && e.sharedAccountKey === other.sharedAccountKey);
+      const duplicate = e.destination === other.destination || e.liffId === other.liffId || e.messagingChannelId === other.messagingChannelId;
+      const sameIdentityMode = (e.identityMode ?? "PROVIDER") === (other.identityMode ?? "PROVIDER");
+      if ((sameGroup || duplicate) && (!sameGroup || !sameIdentityMode || accountFields.some(key => e[key] !== other[key]))) {
+        throw new Error("共用 LINE 帳號設定不一致；未使用中央備援");
+      }
+    }
   }
   for (const e of entries) {
     if (entries.some(other => other !== e && (other.storeId === e.slug || other.slug === e.storeId))) throw new Error("LINE 店家識別重複");

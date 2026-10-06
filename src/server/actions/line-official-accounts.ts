@@ -6,6 +6,7 @@ import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getLineBotInfo } from "@/lib/line";
 import { getLineConfigForStore } from "@/lib/line-config";
+import { getConfiguredStoreLine } from "@/lib/store-line-config";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import type { ActionResult } from "@/types";
@@ -39,6 +40,14 @@ async function inspectStore(
   const result = await getLineBotInfo(store.id);
   if (!result.ok || result.data.basicId !== config.expectedBasicId) {
     return { storeSlug, storeName: store.name, status: "NEEDS_ATTENTION" };
+  }
+
+  // Shared course OAs are registered in server configuration. The legacy DB
+  // destination is unique per store and must never be written for both stores.
+  const explicit = getConfiguredStoreLine(store.id);
+  if (explicit?.sharedAccountKey) {
+    return { storeSlug, storeName: store.name,
+      status: result.data.userId === explicit.destination ? "NORMAL" : "NEEDS_ATTENTION" };
   }
 
   if (result.data.userId !== store.lineDestination) {
