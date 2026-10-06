@@ -62,14 +62,14 @@ describe("plan feature package alignment", () => {
 
   it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
     for (const feature of MANAGEABLE_STORE_FEATURES.filter(
-      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.WORK_ORDERS])).has(feature.key),
+      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW])).has(feature.key),
     )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
-    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.WORK_ORDERS]) {
+    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW]) {
       expect(hasFeature("ALLIANCE", feature)).toBe(false);
     }
   });
@@ -92,6 +92,15 @@ describe("plan feature package alignment", () => {
     }
     expect(hasFeature(plan, FEATURES.INVENTORY)).toBe(plan === "ALLIANCE");
     expect(resolveEffectiveEntitlement(hasFeature(plan, FEATURES.INVENTORY), { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
+  });
+
+  it("includes work orders only in 展店版 and honors HQ overrides", () => {
+    expect(hasFeature("ALLIANCE", FEATURES.WORK_ORDERS)).toBe(true);
+    expectUnavailable("BASIC", [FEATURES.WORK_ORDERS]);
+    expectUnavailable("GROWTH", [FEATURES.WORK_ORDERS]);
+    for (const status of ["DISABLED", "LOCKED", "HIDDEN"] as const) {
+      expect(resolveEffectiveEntitlement(true, {status, startsAt:null, expiresAt:null}).enabled).toBe(false);
+    }
   });
 
   it("uses 展店版 as the ALLIANCE display label", () => {

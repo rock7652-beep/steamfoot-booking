@@ -330,3 +330,30 @@ describe("full single-store trial across industries", () => {
     await expect(requireStoreFeature("store-1", FEATURES.FRONTEND_PREVIEW)).rejects.toThrow();
   });
 });
+
+describe("work order plan entitlement", () => {
+  it("opens 展店版 by default in the server gate and sidebar presentation", async () => {
+    mockStore("ALLIANCE");
+    const {hasStoreFeature,getStoreFeaturePresentation}=await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(true);
+    expect(await getStoreFeaturePresentation("store-a",FEATURES.WORK_ORDERS)).toBe("ENABLED");
+  });
+  it.each(["DISABLED","LOCKED","HIDDEN"] as const)("honors HQ %s override for 展店版", async status => {
+    mockStore("ALLIANCE");mockEntitlement(status);
+    const {hasStoreFeature,getStoreFeaturePresentation}=await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(false);
+    expect(await getStoreFeaturePresentation("store-a",FEATURES.WORK_ORDERS)).toBe(status==="HIDDEN"?"HIDDEN":"LOCKED");
+  });
+  it.each(["BASIC","GROWTH","EXPERIENCE"] as const)("requires a grant in %s", async plan => {
+    mockStore(plan);
+    const {hasStoreFeature}=await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(false);
+    mockEntitlement("ENABLED");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(true);
+  });
+  it("falls back to the included plan after an override expires", async () => {
+    mockStore("ALLIANCE");mockEntitlement("LOCKED",{expiresAt:new Date("2000-01-01")});
+    const {hasStoreFeature}=await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(true);
+  });
+});

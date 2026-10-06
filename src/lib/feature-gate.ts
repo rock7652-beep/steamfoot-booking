@@ -75,8 +75,8 @@ export async function hasStoreFeature(
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
   if (feature === FEATURES.WORK_ORDERS) {
-    const grant = await getActiveStoreFeatureEntitlement(storeId, feature);
-    return grant?.status === "ENABLED";
+    const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
+    return resolveEffectiveEntitlement(hasFeature(store.plan, feature), grant).enabled;
   }
   if (feature === FEATURES.INVENTORY) {
     const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
@@ -144,9 +144,10 @@ export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boole
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
   if(feature===FEATURES.WORK_ORDERS){
-    const grant=await getActiveStoreFeatureEntitlement(storeId,feature);
-    if(!grant || grant.status==="HIDDEN")return "HIDDEN";
-    return grant.status==="ENABLED"?"ENABLED":"LOCKED";
+    const [store,grant]=await Promise.all([getStoreForPlanByStoreId(storeId),getActiveStoreFeatureEntitlement(storeId,feature)]);
+    const resolution=resolveEffectiveEntitlement(hasFeature(store.plan,feature),grant);
+    if(resolution.source==="HIDDEN" || (!grant&&!resolution.enabled))return "HIDDEN";
+    return resolution.enabled?"ENABLED":"LOCKED";
   }
   if (feature === FEATURES.INVENTORY) return await hasStoreFeature(storeId,feature) ? "ENABLED" : "HIDDEN";
   if (isSpaDemoStoreId(storeId)) return "ENABLED";

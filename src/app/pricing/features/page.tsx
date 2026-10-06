@@ -239,6 +239,12 @@ export default async function FeaturesPage() {
 
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
       </section>
+      <section id="work-orders" aria-labelledby="work-orders-title" className="mt-10 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
+        <p className="text-base font-semibold">工單管理・展店版內含</p>
+        <h2 id="work-orders-title" className="mt-3 text-2xl font-semibold">接件、處理、收款與取件，一張工單看清楚。</h2>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">適合樂器維修、保養、施工與服務案件。記錄顧客需求、種類／型號與處理內容，搭配商品材料、工費、進度及付款狀態，並列印顧客與店家雙聯工單。</p>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">共用商品庫存與收款紀錄，減少重複登記；支援取消、不維修及退款。展店版內含，不占選配名額；各門市保留獨立開關。基本版與專業版請洽詢開通，旗下分店依各自購買方案授權。</p>
+      </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
           <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">{String(index + 1).padStart(2, "0")}</span>{feature.name}</p>

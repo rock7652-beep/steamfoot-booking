@@ -126,6 +126,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "talent_upgrade_progress",
   ],
   ALLIANCE: [
+    "work_orders",
     "inventory",
     "device_preview",
     "customer_labels",
