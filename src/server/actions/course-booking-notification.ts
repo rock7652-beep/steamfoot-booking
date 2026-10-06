@@ -31,7 +31,7 @@ export async function loadCourseBookingNotification(bookingId: string) {
       include:{room:{select:{name:true}},_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"},take:100,
     }) : [];
     return {success:true as const,booking:{id:booking.id,name:booking.session.nameSnapshot,customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:new Date(booking.session.startsAt.getTime()-(rule?.cancellationLeadMinutes??0)*60000).toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),room:s.room.name}))};
-  } catch(e) {return handleActionError(e);}
+  } catch(e) {const result=handleActionError(e);return {success:false as const,error:result.success?"讀取失敗":result.error};}
 }
 export async function confirmMemberCourseTrial(bookingId: string) {
   try {
@@ -67,7 +67,7 @@ export async function rescheduleMemberCourseBooking(input: unknown) {
         if((window.opensAt&&new Date()<window.opensAt)||target.startsAt>window.closesAt)throw new AppError("VALIDATION","此時段尚未開放會員預約");
       }
       const next=await reserveCourseInTransaction(tx,old.bookingKind==="TRIAL"?{...actor,customerId:undefined}:actor,{
-        sessionId:target.id,cardId:old.cardId,customerId:old.customerId,trialPrice:old.bookingKind==="TRIAL"?old.trialPrice:undefined,requestKey,notes:old.notes??undefined,
+        sessionId:target.id,cardId:old.cardId,customerId:old.customerId,trialPrice:old.bookingKind==="TRIAL"?old.trialPrice??undefined:undefined,requestKey,notes:old.notes??undefined,
         customerName:old.customerName,companionIndex:old.companionIndex??undefined,reserverCustomerId:old.reserverCustomerId??undefined,reserverName:old.reserverName??undefined,reserverCardId:old.reserverCardId??undefined,groupKey:old.groupKey??undefined,
       },limits.maxMonthlyBookings);
       // A paid trial keeps its original receipts; no refund or new cash entry is created.
