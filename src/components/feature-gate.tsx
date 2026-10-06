@@ -1,7 +1,8 @@
 "use client";
 
 import { useFeaturePresentation } from "@/components/feature-presentation";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { getPaidAddon } from "@/lib/paid-addon";
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import type { PricingPlan } from "@prisma/client";
@@ -99,14 +100,14 @@ interface UpgradePromptProps {
 }
 
 export function UpgradePrompt({ open, onClose, targetPlan, featureLabel, feature }: UpgradePromptProps) {
+  const titleId = useId();
   if (!open) return null;
   const info = PRICING_PLAN_INFO[targetPlan];
   const addon = getPaidAddon(feature);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-earth-900/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative mx-4 max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <ModalPanel open={open} onClose={onClose} labelledById={titleId} width={384}>
+      <div className="relative min-w-0 p-6">
         <button
           onClick={onClose}
           aria-label="關閉提示"
@@ -121,7 +122,7 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel, feature
           <div className={`mx-auto mb-3 inline-flex rounded-lg px-3 py-1 text-xs font-medium ${info.bgColor} ${info.color}`}>
             {addon ? "額外加購" : info.label}
           </div>
-          <h3 className="text-lg font-bold text-earth-900">
+          <h3 id={titleId} className="text-lg font-bold text-earth-900">
             {addon ? addon.title : featureLabel ? `「${featureLabel}」需要${info.label}方案` : `升級至${info.label}`}
           </h3>
           <p className="mt-1 text-sm text-earth-500">
@@ -153,7 +154,7 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel, feature
           </button>
         </div>
       </div>
-    </div>
+    </ModalPanel>
   );
 }
 

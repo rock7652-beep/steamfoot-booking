@@ -4,7 +4,7 @@ export function PlanPackageNotes() {
   return (
     <section className="rounded-xl border border-earth-200 bg-white p-5 text-sm leading-relaxed text-earth-700">
       <p className="mb-3">30 天完整功能試用，包含母子店與展店功能（母店加一家分店），含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。從帳號可正常使用當天開通起算；網頁前台可先使用，LINE／LIFF 完成設定後接上。到期後保留資料、後台改為唯讀；轉正式沿用原帳號與資料，功能及額度依購買方案。</p>
-      <p className="mb-3">試用包含所選模組的單店功能，不含跨店總部管理或代辦金流申請與串接。自動提醒每月最多 50 次，LINE 訊息等外部費用於開通前確認。</p>
+      <p className="mb-3">試用包含所選模組功能與母子店管理（母店加一家分店），不含代辦金流申請與串接。自動提醒每月最多 50 次，LINE 訊息等外部費用於開通前確認。</p>
       <h3 className="font-semibold text-earth-900">限時優惠｜一次繳一年，再送 2 個月</h3>
       <p className="mt-2">付費方案不設每月預約筆數上限，依功能模組與人員額度分級，不按預約筆數自動加收費用。訊息與金流等外部費用另計。</p>
       <p className="mt-2">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
