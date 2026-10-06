@@ -794,6 +794,7 @@ export function CourseScheduleBoard({
         {!musicDense && legend && <div className="ml-auto shrink-0 [&>div]:flex-nowrap [&>div]:gap-x-2">{legend}</div>}
       </Toolbar>
 
+      {quickFilter !== "all" && <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-earth-600"><span>{quickFilter === "pending" ? "目前只顯示待點名；出席與缺席紀錄仍保留。" : "目前顯示篩選結果。"}</span><button type="button" className="min-h-11 rounded px-3 font-medium text-primary-800" onClick={()=>setQuickFilter("all")}>查看全部課程（含已點名）</button></div>}
       {!filtered.length && quickFilter !== "all" ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
           此篩選目前沒有課程

@@ -299,10 +299,10 @@ export function CourseRoster({
   ) {
     if (teacherStatus) { setStatusFilter("all"); setRetainedRows([]); setSelected([]); }
     const updates = optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
-    const quickAttendance = view === "roster" && musicLayout && updates.length === 1 && !teacherStatus;
+    const quickAttendance = view === "roster" && updates.length === 1 && !teacherStatus;
     const bookingId = quickAttendance ? updates[0].bookingId : null;
     if (mutationLock.current || uncertain ||
-        (bookingId ? quickInFlight.current.has(bookingId) : quickInFlight.current.size > 0)) return;
+        (bookingId ? quickInFlight.current.has(bookingId) || !musicLayout && quickInFlight.current.size > 0 : quickInFlight.current.size > 0)) return;
     if (bookingId) {
       quickInFlight.current.add(bookingId);
       setSavingBookingIds([...quickInFlight.current]);
@@ -340,8 +340,7 @@ export function CourseRoster({
         }));
       }
     };
-    if (bookingId) flushSync(applyOptimisticRoster);
-    else applyOptimisticRoster();
+    flushSync(applyOptimisticRoster);
     updates.forEach(item => onAttendanceOptimistic?.(item.bookingId, item.status, Boolean(item.absenceKind)));
     if (teacherStatus) {
       setSession(old => old ? { ...old, teacherAttendance: teacherStatus } : old);
@@ -350,7 +349,7 @@ export function CourseRoster({
 
     const rollback = () => {
       if (updates.length) {
-        if (bookingId && previousRow) {
+        if (bookingId && previousRow && musicLayout) {
           setRoster(rows => rows.map(row => row.id === bookingId ? previousRow : row));
         } else {
           setRoster(previous);

@@ -42,6 +42,7 @@ import {
 } from "@/server/actions/course-portal";
 import type { CoursePortalData } from "./course-portal";
 import { CourseMemberContactForm } from "@/components/course-member-contact-form";
+import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import { CopyButton } from "./shop/[planId]/checkout/copy-button";
 import "./course-portal.css";
@@ -953,7 +954,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                         ? `${p.cards.filter((c) => !c.expired && !c.closed).length} 個有效方案`
                         : "尚無方案",
                     )}
-                    {p.healthEnabled && menu("健康紀錄", "health", "查看身體數據與趨勢")}
+                    {p.healthEnabled && menu("健康追蹤", "health", "查看身體數據與趨勢")}
                     {menu("操作指南", "guide", "預約、取消、方案與共卡")}
                   </section>
                 </>
@@ -1099,7 +1100,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                     : undefined,
                 )}
                 {menu("共卡成員", "shared")}
-                {p.healthEnabled && menu("健康紀錄", "health")}
+                {p.healthEnabled && menu("健康追蹤", "health")}
               </section>
               <h2>帳戶與店家</h2>
               <section className="cp-card">
@@ -1255,8 +1256,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           )}
           {page === "health" && p.healthEnabled && (
             <>
-              {heading("健康紀錄")}
-              <CourseHealthWorkspace member />
+              {heading("健康追蹤")}
+              <>{p.readOnly ? p.previewHealthSummary?.latest ? <HealthAssessmentCard summary={p.previewHealthSummary} /> : <p>尚無量測紀錄。</p> : <CourseHealthWorkspace member />}</>
             </>
           )}
           {page === "store" && (

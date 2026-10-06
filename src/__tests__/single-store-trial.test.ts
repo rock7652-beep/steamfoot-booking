@@ -14,7 +14,7 @@ describe("explicit single-store trial policy", () => {
     expect(() => trialDates("2026-09-13", 1.5)).toThrow();
   });
   it("gives three shared people and enables report use without expanding customer or external message quotas", () => {
-    expect(getPlanLimits({ ...trial, ...overrides, maxStaffOverride: 99 })).toEqual({ maxStaff: 3, maxCustomers: 100, maxMonthlyBookings: 100, maxMonthlyReports: null, maxReminderSends: 50, maxStores: 1 });
+    expect(getPlanLimits({ ...trial, ...overrides, maxStaffOverride: 99 })).toEqual({ maxStaff: 3, maxCustomers: 100, maxMonthlyBookings: 100, maxMonthlyReports: null, maxReminderSends: 50, maxStores: 2 });
     for (const feature of [FEATURES.MEMBER_PORTAL, FEATURES.LINE_REMINDER, FEATURES.DATA_EXPORT, FEATURES.BASIC_REPORTS, FEATURES.CASH_DRAWER]) expect(isSingleStoreFeature(feature)).toBe(true);
     for (const feature of [FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS]) expect(isSingleStoreFeature(feature)).toBe(false);
   });

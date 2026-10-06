@@ -219,7 +219,7 @@ export const COURSE_INDUSTRY_MODULE: IndustryModule = {
   customer: { memberCenterLabel: "會員專區", summaryTitle: "點數摘要", sessionUnit: "點", makeupLabel: "補課券", walletLabel: "我的點數", buyLabel: "購買點數" },
   manager: { dashboardLabel: "營運總覽", bookingLabel: "課程管理", customerLabel: "學員管理", planLabel: "點數方案", staffLabel: "教練管理" },
   booking: { resourceModel: "course_capacity", slotIntervalMinutes: 60, defaultCapacity: 10, openTime: "09:00", closeTime: "21:00", closedWeekdays: [] },
-  features: { packages: true, makeupCredits: true, healthAssessment: false, referralShare: false, storedValue: false },
+  features: { packages: true, makeupCredits: true, healthAssessment: true, referralShare: false, storedValue: false },
   services: [],
   theme: { accent: "#355b46", accentSoft: "#e8efe8", surface: "#faf8f5" },
 };

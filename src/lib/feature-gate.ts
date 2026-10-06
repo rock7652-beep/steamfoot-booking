@@ -5,7 +5,6 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
-import { isSingleStoreFeature } from "@/lib/single-store-trial";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -76,7 +75,8 @@ export async function hasStoreFeature(
   if (!isFeatureKey(feature)) return false;
   if (feature === FEATURES.WORK_ORDERS) {
     const grant = await getActiveStoreFeatureEntitlement(storeId, feature);
-    return grant?.status === "ENABLED";
+    if (grant) return grant.status === "ENABLED";
+    return (await getStoreForPlanByStoreId(storeId)).plan === "EXPERIENCE";
   }
   if (feature === FEATURES.INVENTORY) {
     const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
@@ -89,8 +89,8 @@ export async function hasStoreFeature(
   if (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") return false;
   if (entitlement?.status === "ENABLED") return true;
   const store = await getStoreForPlanByStoreId(storeId);
-  if (store.plan === "EXPERIENCE") return isSingleStoreFeature(feature);
-  // Full single-store trials include preview; ordinary plans still require an active grant.
+  if (store.plan === "EXPERIENCE") return true;
+  // Full trials include preview; ordinary plans still require an active grant.
   if (feature === FEATURES.FRONTEND_PREVIEW) return false;
   const baseAllowed = hasFeature(store.plan, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;
@@ -145,7 +145,8 @@ export async function getStoreFeaturePresentation(storeId: string, feature: Feat
   if (!isFeatureKey(feature)) return "HIDDEN";
   if(feature===FEATURES.WORK_ORDERS){
     const grant=await getActiveStoreFeatureEntitlement(storeId,feature);
-    if(!grant || grant.status==="HIDDEN")return "HIDDEN";
+    if(!grant)return await hasStoreFeature(storeId,feature)?"ENABLED":"HIDDEN";
+    if(grant.status==="HIDDEN")return "HIDDEN";
     return grant.status==="ENABLED"?"ENABLED":"LOCKED";
   }
   if (feature === FEATURES.INVENTORY) return await hasStoreFeature(storeId,feature) ? "ENABLED" : "HIDDEN";

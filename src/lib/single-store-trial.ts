@@ -3,7 +3,7 @@ import { addTaiwanDuration, toLocalDateStr, parseTaipeiDateTime } from "@/lib/da
 
 export const SINGLE_STORE_TRIAL_DAYS = 30;
 export const SINGLE_STORE_TRIAL_STAFF = 3;
-export const SINGLE_STORE_TRIAL_NOTE = "完整單店試用";
+export const SINGLE_STORE_TRIAL_NOTE = "完整功能試用";
 export type TrialStore = {
   plan: string;
   planStatus?: string;

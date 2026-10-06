@@ -54,12 +54,12 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
-  it("dated course trials receive single-store features without multi-store entitlements", async () => {
+  it("dated course trials include expansion features without manual grants", async () => {
     mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "new-course", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
     const { hasStoreFeature } = await import("@/lib/feature-gate");
     expect(await hasStoreFeature("new-course", FEATURES.DIGITAL_BUTLER)).toBe(true);
-    expect(await hasStoreFeature("new-course", "multi_store" as FeatureKey)).toBe(false);
-    expect(await hasStoreFeature("new-course", "headquarter_view" as FeatureKey)).toBe(false);
+    expect(await hasStoreFeature("new-course", "multi_store" as FeatureKey)).toBe(true);
+    expect(await hasStoreFeature("new-course", "headquarter_view" as FeatureKey)).toBe(true);
     expect(mockEntitlementFindUnique).toHaveBeenCalled();
   });
   it("opens every registered feature for the isolated SPA Demo store", async () => {
@@ -315,7 +315,7 @@ describe("full single-store trial across industries", () => {
   it("includes preview, LIFF and all single-store features for legacy undated trial stores", async () => {
     mockStore("EXPERIENCE");
     const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
-    const excluded = new Set<FeatureKey>([FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS, FEATURES.COACH_REVENUE, FEATURES.SPONSOR_TREE, FEATURES.WORK_ORDERS]);
+    const excluded = new Set<FeatureKey>();
     for (const feature of Object.values(FEATURES)) {
       expect(await hasStoreFeature("store-1", feature), feature).toBe(!excluded.has(feature));
     }
