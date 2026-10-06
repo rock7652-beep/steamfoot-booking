@@ -16,14 +16,21 @@ export const metadata: Metadata = {
 };
 
 const features = [
+  { id: "inventory", name: "進銷存管理", icon: "store", fee: 800,
+    title: "商品剩多少？這筆銷售有收款嗎？",
+    before: "進貨、銷貨與庫存分開記錄，賣出商品後還要重新登記收款。",
+    after: "商品、進貨、銷貨與庫存集中管理，銷售收款串接現金收支，減少重複登記。",
+    manual: ["翻進貨單", "核對商品庫存", "另登記銷售收款"],
+    takeaway: "商品與帳務接在一起，庫存更容易掌握。",
+    detail: "基本版可加購；專業版可使用 1 個經營功能選配名額，超出可加購；展店版內含。歸入原價 NT$800／月的經營功能，優惠與期限沿用同組規則。關閉或停用保留商品、庫存與單據資料。" },
   {
-    id: "reminders", name: "LINE 自動提醒", icon: "bell", fee: 500,
+    id: "reminders", name: "LINE 自動提醒", icon: "bell", fee: 0,
     title: "明天的顧客，你還在一個個傳訊息嗎？",
     before: "服務做到晚上，還要翻明天的預約，逐筆提醒，再整理誰回覆會到。",
     after: "依設定發送預約提醒。顧客點選確認會到，店長直接在後台看狀態。",
     manual: ["翻明天的預約名單", "逐筆傳：明天 14:00 記得來喔", "回頭找：這位回覆了嗎？"],
     takeaway: "把逐筆提醒的時間，留給正在店裡的顧客。",
-    detail: "需完成 LINE 串接並啟用提醒規則。顧客可依門市規則改期、取消或導航；確認會到不代表保證到店。",
+    detail: "三個付費方案皆內含，不占選配名額。LINE 訊息等外部費用另計；需完成 LINE 串接並啟用提醒規則。顧客可依門市規則改期、取消或導航；確認會到不代表保證到店。",
   },
   {
     id: "export", name: "資料匯出", icon: "checklist", fee: 500,
@@ -44,13 +51,13 @@ const features = [
     detail: "現金仍需現場清點，異動需正確登記；系統協助對帳，不會自動辨識未登記的支出。",
   },
   {
-    id: "labels", name: "顧客標籤", icon: "checklist", fee: 500,
+    id: "labels", name: "顧客標籤", icon: "checklist", fee: 0,
     title: "想找某一類顧客，還要逐筆翻備註？",
     before: "顧客偏好與分類都寫在備註裡，換人接手時，要重新讀一遍才知道。",
     after: "用店內共用的標籤與固定配色，快速標記顧客，一眼辨識需要的分類。",
     manual: ["逐筆打開顧客資料", "閱讀備註，確認顧客分類", "交班時再口頭說明"],
     takeaway: "備註記細節，標籤讓分類一眼看懂。",
-    detail: "基本版另外加購；專業版可用 1 個經營功能選配名額，與健康、月結、候補共用名額，超出才加購；展店版總部內含。標籤可獨立開通或關閉，關閉保留資料。促銷試用依活動公告期限，試用到期不自動收費。",
+    detail: "三個付費方案皆內含，不占選配名額。標籤可獨立開通或關閉，關閉保留資料。促銷試用依活動公告期限，試用到期不自動收費。",
   },
   {
     id: "care", name: "顧客經營", icon: "return", fee: 800,
@@ -86,7 +93,7 @@ const features = [
     after: "滿班先候補，有空位依順位自動遞補，並透過 LINE 通知學員。",
     manual: ["記下想候補的學員", "有人取消，再逐一聯絡", "確認名額，再補進預約"],
     takeaway: "有空位，讓系統接手補位。",
-    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與標籤、健康、月結共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
+    detail: "適用課程模組。基本版加購；專業版可用 1 個經營功能選配名額選用，與健康、月結、進銷存共用名額；展店版總部內含。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
   },
   {
     id: "analysis", name: "分析", icon: "bar-chart", fee: 800,
@@ -105,6 +112,7 @@ function Rows({ items }: { items: readonly (readonly [string, string])[] }) {
   return <dl className="divide-y divide-[#153B31]/10">{items.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm sm:text-base"><dt className="text-[#4C6259]">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>;
 }
 function Example({ id }: { id: FeatureId }) {
+  if (id === "inventory") return <div className={panel}><p className="font-semibold">商品與庫存｜範例資料</p><Rows items={[["商品", "範例商品 A"], ["庫存", "進貨 20・銷貨 3・剩餘 17"], ["銷售收款", "串接現金收支"]]} /></div>;
   if (id === "labels") return <div className={panel}><p className="font-semibold">範例顧客 A</p><div aria-label="顧客標籤示意" className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 text-sm font-medium text-[#153B31]">晚間時段</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 text-sm font-medium text-[#59441E]">朋友推薦</span></div><Rows items={[["備註", "平日下班後方便安排"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">標籤統一分類，備註保留個別細節。</p></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">課程候補｜範例資料</p><Rows items={[["課程", "週三 19:00 瑜珈"], ["候補順位", "範例學員 A・第 1 組"], ["空位出現", "依順位自動遞補"]]} /><p className="mt-3 rounded-lg bg-[#E9F1EB] p-3 text-sm leading-6">遞補成功後，以 LINE 通知學員查看預約。</p></div>;
   if (id === "reminders") return <div className="space-y-3">
@@ -138,6 +146,7 @@ function Example({ id }: { id: FeatureId }) {
 }
 
 function BeforeExample({ id }: { id: FeatureId }) {
+  if (id === "inventory") return <div className={panel}><p className="font-semibold">商品紀錄分散在不同表格</p><Rows items={[["進貨單", "商品 A・20 件"], ["銷貨便條", "賣出 3 件"], ["現金紀錄", "還要再登記一次"]]} /></div>;
   if (id === "labels") return <div className={panel}><p className="font-semibold">分類散在不同備註裡</p><Rows items={[["顧客 A", "晚上方便，朋友介紹"], ["顧客 B", "下班後可以安排"], ["交班時", "這兩位算同一類嗎？"]]} /></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">候補名單散在聊天裡</p><Rows items={[["學員 A", "有空位再通知我"], ["有人取消", "誰還能來上課？"], ["確認後", "再手動補進名單"]]} /></div>;
   if (id === "analysis") return <ul className="divide-y divide-[#B48A42]/20 rounded-xl border border-[#B48A42]/20 bg-white px-4">
@@ -170,6 +179,7 @@ export default async function FeaturesPage() {
         <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
         <a href="#multi-store" className="inline-flex min-h-11 items-center underline underline-offset-4">多店管理 ↓</a>
         <a href="#labels" className="inline-flex min-h-11 items-center underline underline-offset-4">顧客標籤 ↓</a>
+        <a href="#store-management" className="inline-flex min-h-11 items-center underline underline-offset-4">店務管理 ↓</a>
         <a href="#export" className="inline-flex min-h-11 items-center underline underline-offset-4">資料匯出 ↓</a>
         <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
         <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
@@ -207,23 +217,26 @@ export default async function FeaturesPage() {
         <p className="mt-2 text-base leading-7 text-[#4C6259]">從顧客預約，到店長查資料、確認堂數與收款，接起每天會做的事。</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
+            { icon: "bell", name: "LINE 自動提醒", context: "明天的預約，依規則自動提醒。", benefit: "系統功能內含，LINE 訊息等外部費用另計。" },
+            { icon: "checklist", name: "顧客標籤", context: "顧客分類，一眼看懂。", benefit: "全店共用分類，不占選配名額。" },
             { icon: "calendar", name: "預約管理", context: "今天誰要來？幾點有空？", benefit: "集中查看預約，安排店裡的服務時間。" },
             { icon: "return", name: "顧客資料", context: "這位顧客，上次聊了什麼？", benefit: "查詢聯絡資料、備註與服務紀錄，接續照顧。" },
             { icon: "checklist", name: "方案堂數", context: "還剩幾次？什麼時候到期？", benefit: "查看方案剩餘堂數與期限，服務完成後核對扣堂。" },
             { icon: "store", name: "基本收款", context: "這次服務，收了多少錢？", benefit: "記錄服務收款，留下可查詢的交易紀錄。" },
             { icon: "chat", name: "LINE 顧客入口", context: "顧客想預約，不用等你回訊息。", benefit: "從店家 LINE 預約、依規則取消與查詢堂數。" },
-          ].map(item => <article key={item.name} className="flex items-start gap-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><MarketingIcon kind={item.icon as "calendar" | "return" | "checklist" | "store" | "chat"} /><div><h3 className="text-lg font-semibold">{item.name}</h3><p className="mt-1 text-sm font-medium leading-6">{item.context}</p><p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.benefit}</p></div></article>)}
+          ].map(item => <article key={item.name} className="flex items-start gap-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><MarketingIcon kind={item.icon as "calendar" | "return" | "checklist" | "store" | "chat" | "bell"} /><div><h3 className="text-lg font-semibold">{item.name}</h3><p className="mt-1 text-sm font-medium leading-6">{item.context}</p><p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.benefit}</p></div></article>)}
           <div className="flex flex-col justify-center rounded-xl bg-[#E9F1EB] p-5"><p className="text-lg font-semibold">顧客方便預約，店長清楚掌握。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">預約、資料、堂數與收款，接起每天的工作。</p></div>
         </div>
-        <p className="mt-3 text-sm leading-6 text-[#4C6259]">LINE 顧客入口需完成串接並開通；自動提醒是下方的進階功能。</p>
+        <p className="mt-3 text-sm leading-6 text-[#4C6259]">LINE 顧客入口需完成串接並開通；LINE 自動提醒與顧客標籤皆內含，仍需完成串接與店內設定。</p>
       </section>
+      <section id="store-management" className="mt-8 scroll-mt-24 rounded-xl border border-[#153B31]/15 bg-white p-5"><h2 className="text-2xl font-semibold">店務管理</h2><p className="mt-2 text-base leading-7 text-[#4C6259]">從現金收支到商品、進貨、銷貨與庫存，把店務放在一起。</p><a href="#inventory" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">了解進銷存管理 →</a></section>
       <section id="more" aria-labelledby="more-title" className="mt-10 scroll-mt-24 border-t border-[#153B31]/20 pt-7 sm:mt-12">
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
         <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
           {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
         </nav>
-        <div className="mt-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><a href="#labels" className="inline-flex min-h-11 items-center gap-3 text-lg font-semibold underline underline-offset-4">顧客標籤<span aria-hidden="true">↓</span></a><p className="mt-1 text-sm leading-6 text-[#4C6259]">獨立選配，專業版使用經營功能名額；超出才加購。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]"><AddonRate initialNow={initialNow} original={500} /></p></div>
+
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
       </section>
       <div className="mt-10 space-y-10">
