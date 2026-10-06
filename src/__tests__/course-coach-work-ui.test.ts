@@ -273,7 +273,7 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
     expect(host.textContent).toContain("本人＋家人 · 共 2 位");
-    for (const label of ["立即預約","我的預約","我的方案","健康紀錄","操作指南"]) expect(host.textContent).toContain(label);
+    for (const label of ["立即預約","我的預約","我的方案","健康追蹤","操作指南"]) expect(host.textContent).toContain(label);
     expect(host.querySelector('[aria-label="身分"]')).toBeNull();
     expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
     expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(4);
