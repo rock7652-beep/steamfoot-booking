@@ -52,7 +52,7 @@ import { courseAttendanceState } from "@/lib/course-attendance-visual";
 import { courseSessionStatus } from "@/lib/course-session-status";
 import { scheduleRosterBookings, scheduleAssignedBookings } from "@/lib/course-schedule-counts";
 import { buildCourseOccurrences } from "@/lib/course-scheduling";
-import { scheduleTotals } from "@/lib/music-schedule-audit";
+import { scheduleMonthSummary, scheduleTotals } from "@/lib/music-schedule-audit";
 
 type Room = {
   rentalEnabled?:boolean;rentalHourlyRate?:number;rentalBufferMinutes?:number;
@@ -448,13 +448,8 @@ export function CourseWorkspace({
     bookings: session.bookings.map(booking => pendingAttendance[booking.id] ? { ...booking, status: pendingAttendance[booking.id], absenceKind: pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind } : booking),
     displayBookings: session.displayBookings?.map(booking => pendingAttendance[booking.id] ? { ...booking, status: pendingAttendance[booking.id], absenceKind: pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind } : booking),
   });
-  const monthSessions = filteredScheduleSessions.filter((session) =>
-    !session.previewFaded && toLocalDateStr(new Date(session.startsAt)).startsWith(month),
-  ).map((session) => ({ ...session,
-    previewKind: session.rentalId || /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
-      ? "RENTAL" as const : undefined,
-  }));
-  const monthTotals = scheduleTotals(monthSessions);
+  const monthSummary = scheduleMonthSummary(filteredScheduleSessions.map(withPendingAttendance), month);
+  const monthTotals = monthSummary.totals;
   const scheduleFiltered = coachFilter !== "all" || roomFilter !== "all" || (businessProfile === "MUSIC" ? category !== "all" : classFilter !== "all") || businessProfile !== "MUSIC" && assignedCoachFilter !== "all" || !!scheduleQuery.trim();
   const dailySessions = sessions.filter((session) => !session.rentalCancelled && toLocalDateStr(new Date(session.startsAt)) === selectedDate);
   const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => {
@@ -468,7 +463,7 @@ export function CourseWorkspace({
   });
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
-  for (const session of filteredScheduleSessions) {
+  for (const session of filteredScheduleSessions.map(withPendingAttendance)) {
     const day = toLocalDateStr(new Date(session.startsAt));
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
@@ -902,11 +897,11 @@ export function CourseWorkspace({
             <>
               {businessProfile === "MUSIC" ? (
               <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
-                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜名單 {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
+                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜名單 {monthTotals.people} 人次｜有課 {monthSummary.activeDays} 天{monthSummary.changes > 0 && `｜異動 ${monthSummary.changes} 筆`}
               </p>
               ) : <CourseScheduleToolbar>
                 <span className="font-medium text-earth-800" aria-label="本月課表總計">
-                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜{assignedCoachFilter !== "all" ? "所屬" : "名單"} {monthTotals.people} 人次｜有課 {new Set(monthSessions.map(session => toLocalDateStr(new Date(session.startsAt)))).size} 天
+                {scheduleFiltered ? "篩選結果" : "本月已排課程"} {monthTotals.classes} 堂{monthTotals.rentals > 0 && `・${monthTotals.rentals} 筆租借`}｜{assignedCoachFilter !== "all" ? "所屬" : "名單"} {monthTotals.people} 人次｜有課 {monthSummary.activeDays} 天{monthSummary.changes > 0 && `｜異動 ${monthSummary.changes} 筆`}
                 </span>
                 <div className="ml-auto [&>div]:flex-nowrap">{scheduleLegend}</div>
               </CourseScheduleToolbar>}
@@ -931,7 +926,7 @@ export function CourseWorkspace({
               )}
               {Array.from({ length: days }, (_, i) => {
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
-                  list = (byDate.get(date) ?? []).filter(session => !session.previewFaded),
+                  list = byDate.get(date) ?? [],
                   total = scheduleTotals(list),
                   visibleCount = 2,
                   calendarDay = calendarDays[date],
@@ -966,7 +961,7 @@ export function CourseWorkspace({
                       const type = allTemplates.find(template => template.id === session.templateId)?.classType;
                       const color = courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
-                      const label = `${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
+                      const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
                       return <button type="button" disabled={pending} key={session.id} title={label} aria-label={`開啟 ${label} 上課名單`} onClick={() => {go(date);setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 text-earth-800 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500`}><span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} /><span className="truncate">{label}</span></button>;
                     })}
                     {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
