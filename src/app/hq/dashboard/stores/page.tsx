@@ -4,6 +4,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
 import { listStoresAction } from "@/server/actions/store-onboarding";
 import { STORE_OPERATING_STATUS_LABELS } from "@/lib/store-operating-status";
+import { singleStoreTrialSummary } from "@/lib/single-store-trial";
 
 import { StoreArchiveButton } from "@/components/store-archive-button";
 
@@ -86,6 +87,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
           </thead>
           <tbody className="divide-y divide-earth-100">
             {stores.map((store) => {
+              const trial = singleStoreTrialSummary(store);
               const status = STATUS_LABELS[store.planStatus] ?? { label: store.planStatus, color: "bg-gray-100 text-gray-600" };
               const operatingColor = OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
               return (
@@ -100,8 +102,9 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
-                      {status.label}
+                      {trial?.label ?? status.label}
                     </span>
+                    {trial?.expiresOn && <span className="ml-2 whitespace-nowrap text-sm text-earth-500">至 {trial.expiresOn}</span>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${operatingColor}`}>

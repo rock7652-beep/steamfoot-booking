@@ -437,6 +437,8 @@ export async function listStoresAction(): Promise<
       slug: string;
       plan: string;
       planStatus: string;
+      planEffectiveAt: Date | null;
+      planExpiresAt: Date | null;
       operatingStatus: StoreOperatingStatus;
       isDemo: boolean;
       industryModule: StoreIndustryModule;
@@ -458,6 +460,8 @@ export async function listStoresAction(): Promise<
       slug: true,
       plan: true,
       planStatus: true,
+      planEffectiveAt: true,
+      planExpiresAt: true,
       operatingStatus: true,
       isDemo: true,
       industryModule: true,
@@ -480,6 +484,8 @@ export async function listStoresAction(): Promise<
       slug: s.slug,
       plan: s.plan,
       planStatus: s.planStatus,
+      planEffectiveAt: s.planEffectiveAt,
+      planExpiresAt: s.planExpiresAt,
       operatingStatus: s.operatingStatus,
       isDemo: s.isDemo,
       industryModule: s.industryModule,

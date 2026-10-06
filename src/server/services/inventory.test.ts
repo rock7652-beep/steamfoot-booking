@@ -56,6 +56,7 @@ beforeEach(() => {
         return { permissions: permissions.map(permission => ({ permission })) };
     }) };
     mocks.db.storeFeatureEntitlement = { findUnique: vi.fn(async () => ({ status: 'ENABLED', startsAt: null, expiresAt: null })) };
+    mocks.db.store = { findUnique: vi.fn(async () => ({ plan: "BASIC" })) };
     mocks.db.inventoryStockCount = { findUnique: async ({ where }: any) => counts.find(c => matches(c, where.storeId_requestId)), create: async ({ data }: any) => { const c = { id: `count-${++sequence}`, ...data }; counts.push(c); return c; } };
     mocks.db.inventoryProduct = { findFirst: async ({ where }: any) => products.find(p => matches(p, where)), findFirstOrThrow: async ({ where }: any) => { const p = products.find(p => matches(p, where)); if (!p)
             throw Error('not found'); return p; }, update: async ({ where, data }: any) => apply(products.find(p => p.id === where.id), data) };
@@ -203,6 +204,18 @@ describe("inventory transaction acceptance", () => {
     it("rejects invalid dates and discount bounds", () => { expect(() => input({ date: '2026-02-30' })).toThrow(); expect(() => lineTotal({ ...input().lines[0], discount: 101 })).toThrow(); });
     it("hides and blocks exports when data export is disabled", async () => { mocks.db.storeFeatureEntitlement.findUnique.mockResolvedValue({ status: 'DISABLED' }); expect(await inventoryExportEnabled(ctx.storeId)).toBe(false); });
     it("blocks inventory without an explicit HQ grant", async () => { mocks.db.storeFeatureEntitlement.findUnique.mockResolvedValue(null); await expect(inventoryContext()).rejects.toThrow('尚未開通'); });
+    it("allows a trial with no manual grant while preserving cost restrictions", async () => {
+        mocks.db.store.findUnique.mockResolvedValue({ plan: "EXPERIENCE" });
+        mocks.db.storeFeatureEntitlement.findUnique.mockResolvedValue(null);
+        mocks.check.mockResolvedValue(false);
+        expect(await inventoryContext()).toMatchObject({ storeId: ctx.storeId, canCost: false });
+        expect(mocks.db.store.findUnique).toHaveBeenCalledWith({ where: { id: ctx.storeId }, select: { plan: true } });
+    });
+    it.each(["DISABLED", "LOCKED", "HIDDEN"])("honors a current HQ %s override even for a trial", async status => {
+        mocks.db.store.findUnique.mockResolvedValue({ plan: "EXPERIENCE" });
+        mocks.db.storeFeatureEntitlement.findUnique.mockResolvedValue({ status, startsAt: null, expiresAt: null });
+        await expect(inventoryContext()).rejects.toThrow("尚未開通");
+    });
     it("records actor/date/count difference and replays without duplicate adjustment", async () => { const v = { requestId: crypto.randomUUID(), date: '2026-10-05', reason: '月末盤點', lines: [{ productId: 'a', revision: 1, actual: 8 }] }; expect((await saveStockCount(v)).success).toBe(true); expect((await saveStockCount(v)).success).toBe(true); expect(counts).toHaveLength(1); expect(counts[0]).toMatchObject({ actorName: '店長', actorId: 'user-1', date: new Date(v.date), lines: [{ productId: 'a', name: '商品 A', before: 10, actual: 8, difference: -2 }] }); expect(products[0].stock).toBe(8); expect(Number(products[0].averageCost)).toBe(100); });
     it("rejects a stale count after a sale", async () => { await saveInventoryOrder(ctx, input()); const r = await saveStockCount({ requestId: crypto.randomUUID(), date: '2026-10-05', reason: '月末盤點', lines: [{ productId: 'a', revision: 1, actual: 10 }] }); expect(r.success).toBe(false); expect(products[0].stock).toBe(8); expect(counts).toHaveLength(0); });
 });

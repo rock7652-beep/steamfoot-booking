@@ -6,6 +6,7 @@
  */
 
 import { isSingleStoreFeature } from "@/lib/single-store-trial";
+import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
@@ -73,7 +74,10 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
-  if (feature === FEATURES.INVENTORY) return (await getActiveStoreFeatureEntitlement(storeId, feature))?.status === "ENABLED";
+  if (feature === FEATURES.INVENTORY) {
+    const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
+    return inventoryFeatureAllowed(store.plan, grant);
+  }
   if (isSpaDemoStoreId(storeId)) return true;
 
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);

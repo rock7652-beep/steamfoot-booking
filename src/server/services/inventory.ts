@@ -10,6 +10,7 @@ import { hasDataExportFeature } from "@/lib/data-export-gate";
 import { categoryPrice, productDetails, publicLines, lineTotal, uniqueIds, type InventoryLine, type InventoryData, type InventoryOrderView, type ReceivingLine, type ReceivingView } from "@/lib/inventory";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 export type InventoryContext = Awaited<ReturnType<typeof inventoryContext>>;
 export function assertInventoryPreviewIsolation(env: Record<string, string | undefined> = process.env) {
     if (env.VERCEL_ENV !== "preview" || env.VERCEL_GIT_COMMIT_REF !== "feat/inventory-workspace-20261005") return;
@@ -32,9 +33,12 @@ export async function inventoryContext(permission: "inventory.read" | "inventory
     const storeId = permission === "inventory.read" ? await getActiveStoreForRead(user) : await resolveWriteStoreId(user);
     if (!storeId)
         throw new AppError("VALIDATION", "請先選擇門市");
-    // Inventory is independently granted, including trial/demo stores. Do not inherit a plan grant.
-    const grant = await prisma.storeFeatureEntitlement.findUnique({ where: { uq_store_feature_entitlement: { storeId, featureKey: "inventory" } } });
-    if (!grant || grant.status !== "ENABLED" || (grant.startsAt && grant.startsAt > new Date()) || (grant.expiresAt && grant.expiresAt < new Date()))
+    // Authoritative reads: do not use the sidebar's entitlement cache for transactions.
+    const [store, grant] = await Promise.all([
+        prisma.store.findUnique({ where: { id: storeId }, select: { plan: true } }),
+        prisma.storeFeatureEntitlement.findUnique({ where: { uq_store_feature_entitlement: { storeId, featureKey: "inventory" } } }),
+    ]);
+    if (!store || !inventoryFeatureAllowed(store.plan, grant))
         throw new AppError("FORBIDDEN", "進銷存尚未開通");
     const canCost = await checkPermission(user.role, user.staffId, "inventory.cost.read");
     return { user, storeId, canCost, permission };
