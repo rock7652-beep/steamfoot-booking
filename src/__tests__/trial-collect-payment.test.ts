@@ -276,7 +276,8 @@ describe("collectTrialPayment — double-collect guard (race-safe)", () => {
     await collectTrialPayment(base);
     // 防 race condition：FOR UPDATE 必須先發、findFirst 之後發、create 最後發。
     // 順序錯了 → race condition 還在。模式同 PR #166 collectSinglePayment。
-    expect(h.queryRaw).toHaveBeenCalledTimes(1);
+    expect(h.queryRaw).toHaveBeenCalledTimes(2);
+    expect(h.queryRaw.mock.calls[1][0].join("?")).toContain("CashDrawerSession");
     expect(h.txFindFirstInTx).toHaveBeenCalledTimes(1);
     expect(h.txCreate).toHaveBeenCalledTimes(1);
     const queryRawOrder = h.queryRaw.mock.invocationCallOrder[0];

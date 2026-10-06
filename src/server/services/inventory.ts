@@ -1,3 +1,4 @@
+import { lockCashDay } from "./cash-day";
 import "server-only";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -99,9 +100,7 @@ export async function writeInventoryCash(ctx: InventoryContext, tx: Prisma.Trans
     partyId: string;
 }) {
     if (input.method === "現金") {
-        const closed = await tx.cashDrawerSession.findFirst({ where: { storeId: ctx.storeId, businessDate: input.date, status: "CLOSED" }, select: { id: true } });
-        if (closed)
-            throw new AppError("BUSINESS_RULE", "此日期已結帳，請改用尚未結帳的日期登錄收付款");
+        await lockCashDay(tx, ctx.storeId, input.date);
     }
     const common = { storeId: ctx.storeId, entryDate: input.date, paymentMethod: input.method === "現金" ? "CASH" as const : "OTHER" as const, createdByUserId: ctx.user.id, staffId: ctx.user.staffId, customerId: input.kind === "SALE" ? input.partyId : null, note: `進銷存 ${input.paymentId}・${input.method}` };
     if (input.kind === "PURCHASE")

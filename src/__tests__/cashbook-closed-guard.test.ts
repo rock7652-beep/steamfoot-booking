@@ -59,6 +59,8 @@ const {
       create: (...a: unknown[]) => fns.mockAuditCreate(...a),
     },
   };
+  db.$queryRaw = async () => { const row = await fns.mockSessionFindUnique(); return row ? [row] : []; };
+  db.$executeRaw = vi.fn(async () => 1);
   db.$transaction = (cb: (tx: unknown) => Promise<unknown>) => cb(db);
   return { ...fns, dbMock: db };
 });
@@ -273,4 +275,21 @@ describe("updateCashbookEntry — 閉店日防呆 guard", () => {
     expect(res.success).toBe(true);
     expect(mockCashbookUpdate).toHaveBeenCalledOnce();
   });
+});
+
+it("replays a manual entry once after a lost response, rejecting changed amounts", async () => {
+  const requestId = "12345678-1234-4234-8234-123456789abc";
+  mockCashbookFindUnique.mockResolvedValue(null);
+  mockCashbookCreate.mockImplementation(async ({ data }) => ({ ...data }));
+  const input = { ...baseCreate, paymentMethod: "OTHER" as const, requestId };
+  const first = await createCashbookEntry(input);
+  expect(first.success).toBe(true);
+  const saved = mockCashbookCreate.mock.calls[0][0].data;
+  mockCashbookFindUnique.mockResolvedValue(saved);
+  const retry = await createCashbookEntry(input);
+  expect(retry).toEqual(first);
+  expect(mockCashbookCreate).toHaveBeenCalledOnce();
+  expect(mockAuditCreate).toHaveBeenCalledOnce();
+  expect((await createCashbookEntry({ ...input, amount: 2000 })).success).toBe(false);
+  expect(mockCashbookCreate).toHaveBeenCalledOnce();
 });

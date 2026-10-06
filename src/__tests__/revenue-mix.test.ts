@@ -20,10 +20,10 @@ beforeEach(() => {
 describe("income composition", () => {
   it("reconciles package, retail and other income, refunds, and real expenses across Taipei dates", async () => {
     mocks.transactions.mockResolvedValue([
-      { createdAt: new Date("2026-09-01T17:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 12000 },
-      { createdAt: new Date("2026-09-02T03:00:00Z"), transactionType: "TRIAL_PURCHASE", paymentStatus: "SUCCESS", amount: 500 },
-      { createdAt: new Date("2026-09-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "PENDING", amount: 3000 },
-      { createdAt: new Date("2026-09-03T03:00:00Z"), transactionType: "REFUND", paymentStatus: "SUCCESS", amount: -1000 },
+      { transactionDate: new Date("2026-09-01T17:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 12000 },
+      { transactionDate: new Date("2026-09-02T03:00:00Z"), transactionType: "TRIAL_PURCHASE", paymentStatus: "SUCCESS", amount: 500 },
+      { transactionDate: new Date("2026-09-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "PENDING", amount: 3000 },
+      { transactionDate: new Date("2026-09-03T03:00:00Z"), transactionType: "REFUND", paymentStatus: "SUCCESS", amount: -1000 },
     ]);
     mocks.cashbook.mockResolvedValue([
       { entryDate: new Date("2026-09-02T00:00:00Z"), type: "INCOME", category: "零售-保養品", amount: 300 },
@@ -51,8 +51,8 @@ describe("income composition", () => {
 
   it("shows seven daily points for today while keeping its summary limited to today", async () => {
     mocks.transactions.mockResolvedValue([
-      { createdAt: new Date("2026-09-17T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 2000 },
-      { createdAt: new Date("2026-09-23T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 3000 },
+      { transactionDate: new Date("2026-09-17T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 2000 },
+      { transactionDate: new Date("2026-09-23T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 3000 },
     ]);
     mocks.cashbook.mockResolvedValue([]);
 
@@ -64,9 +64,9 @@ describe("income composition", () => {
 
   it("shows six complete calendar-month buckets with refunded revenue and expenses separately", async () => {
     mocks.transactions.mockResolvedValue([
-      { createdAt: new Date("2026-04-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 500 },
-      { createdAt: new Date("2026-09-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 3000 },
-      { createdAt: new Date("2026-09-03T04:00:00Z"), transactionType: "REFUND", paymentStatus: "SUCCESS", amount: -200 },
+      { transactionDate: new Date("2026-04-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 500 },
+      { transactionDate: new Date("2026-09-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 3000 },
+      { transactionDate: new Date("2026-09-03T04:00:00Z"), transactionType: "REFUND", paymentStatus: "SUCCESS", amount: -200 },
     ]);
     mocks.cashbook.mockResolvedValue([
       { entryDate: new Date("2026-09-03T00:00:00Z"), type: "EXPENSE", category: "材料", amount: 400 },
@@ -76,4 +76,11 @@ describe("income composition", () => {
     expect(points[0].netRevenue).toBe(500);
     expect(points[5]).toMatchObject({ netRevenue: 2800, balance: 2400 });
   });
+});
+
+it("includes confirmed collections on transactionDate rather than creation date", async () => {
+  mocks.transactions.mockResolvedValue([{ createdAt: new Date("2026-08-01T01:00:00Z"), transactionDate: new Date("2026-09-02T01:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "CONFIRMED", amount: 1000 }]);
+  mocks.cashbook.mockResolvedValue([]);
+  expect((await getRevenueMix("store", "2026-09-02", "2026-09-02")).packageRevenue).toBe(1000);
+  expect(mocks.transactions.mock.calls[0][0].where).toMatchObject({ voidedAt: null, transactionDate: expect.any(Object) });
 });

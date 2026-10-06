@@ -76,6 +76,8 @@ const {
       create: (...a: unknown[]) => fns.mockAuditLogCreate(...a),
     },
   };
+  db.$queryRaw = async () => { const row = await fns.mockSessionFindUnique(); return row ? [row] : []; };
+  db.$executeRaw = vi.fn(async () => 1);
   db.$transaction = (cb: (tx: unknown) => Promise<unknown>) => cb(db);
   return { ...fns, dbMock: db };
 });
@@ -118,7 +120,7 @@ function makeSession(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   // Defaults — aggregate returns null（無資料）
   mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: null } });
@@ -345,8 +347,8 @@ describe("closeCashDrawer", () => {
   it("matches the snapshot version so a concurrent course cash refund cannot be omitted", async () => {
     const version=new Date("2026-05-13T01:00:00.000Z");
     mockSessionFindUnique.mockResolvedValue(makeSession({updatedAt:version}));
-    mockSessionUpdate.mockRejectedValueOnce(Object.assign(new Error("snapshot changed"),{code:"P2025"}));
-    await expect(closeCashDrawer({sessionId:"sess-1",closingActualCash:5000,actorUserId:USER_OWNER})).rejects.toMatchObject({code:"P2025"});
+    mockSessionUpdate.mockRejectedValue(Object.assign(new Error("snapshot changed"),{code:"P2025"}));
+    await expect(closeCashDrawer({sessionId:"sess-1",closingActualCash:5000,actorUserId:USER_OWNER})).rejects.toMatchObject({code:"CONFLICT"});
     expect(mockSessionUpdate).toHaveBeenCalledWith(expect.objectContaining({where:{id:"sess-1",status:"OPEN",updatedAt:version}}));
   });
   it("正確計算 expectedClosingCash 並寫入快照", async () => {
@@ -1089,4 +1091,13 @@ describe("非干擾驗證", () => {
     expect(call.where.storeId).toBe(STORE_B);
     expect(call.where.storeId).not.toBe(STORE_A);
   });
+});
+
+it("recomputes automatically when a cash write invalidates the closing version", async () => {
+  mockSessionFindUnique.mockResolvedValue(makeSession({ updatedAt: new Date() }));
+  const stale = Object.assign(new Error("version changed"), { code: "P2025" });
+  mockSessionUpdate.mockRejectedValueOnce(stale).mockResolvedValueOnce({ id: "sess-1" });
+  await closeCashDrawer({ sessionId: "sess-1", closingActualCash: 5000, actorUserId: USER_OWNER });
+  expect(mockSessionUpdate).toHaveBeenCalledTimes(2);
+  expect(mockCashbookGroupBy).toHaveBeenCalledTimes(2);
 });

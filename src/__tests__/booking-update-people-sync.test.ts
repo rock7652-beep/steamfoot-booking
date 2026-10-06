@@ -32,6 +32,7 @@ const mockTransaction = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
     booking: {
       findUnique: (...a: unknown[]) => mockBookingFindUnique(...a),
       aggregate: (...a: unknown[]) => mockBookingAggregate(...a),
@@ -212,6 +213,7 @@ beforeEach(() => {
   // $transaction default：執行 callback，並提供 tx 物件
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
+      auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
       booking: {
         findUnique: mockBookingFindUnique,
         findFirst: mockBookingFindFirst,
@@ -282,6 +284,7 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
     // 模擬 $transaction throw 行為（callback throw 後重 throw 給 caller）
     mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
       return cb({
+      auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
         booking: {
           findUnique: mockBookingFindUnique,
           findFirst: mockBookingFindFirst,

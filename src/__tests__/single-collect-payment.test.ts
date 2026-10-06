@@ -199,7 +199,8 @@ describe("collectSinglePayment — double-collect guard (race-safe)", () => {
     await collectSinglePayment(base);
     // P1 防呆：FOR UPDATE 必須先發、findFirst 之後發、create 最後發。
     // 順序錯了 → race condition 還在。
-    expect(h.queryRaw).toHaveBeenCalledTimes(1);
+    expect(h.queryRaw).toHaveBeenCalledTimes(2);
+    expect(h.queryRaw.mock.calls[1][0].join("?")).toContain("CashDrawerSession");
     expect(h.txFindFirstInTx).toHaveBeenCalledTimes(1);
     expect(h.txCreate).toHaveBeenCalledTimes(1);
     const queryRawOrder = h.queryRaw.mock.invocationCallOrder[0];

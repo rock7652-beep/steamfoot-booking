@@ -101,6 +101,7 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/adjust-checkout-modal", () => ({
 vi.mock("@/app/(dashboard)/dashboard/bookings/line-test-reminder-modal", () => ({ TestReminderModal: () => null }));
 
 import { RescheduleModal } from "@/app/(dashboard)/dashboard/bookings/reschedule-modal";
+vi.mock("@/server/actions/operation-audit", () => ({ loadOperationHistory: vi.fn(async () => ({ success: true, data: [] })) }));
 import { BookingDetailDrawer } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 
 type ElementLike = {

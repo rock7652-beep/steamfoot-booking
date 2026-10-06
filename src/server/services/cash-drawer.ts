@@ -1,3 +1,4 @@
+import { lockCashDay } from "./cash-day";
 /**
  * Cash Drawer 現金抽屜 — 純業務邏輯層
  *
@@ -558,7 +559,9 @@ export async function addCashDrawerEntry(input: AddEntryInput): Promise<CashDraw
   }
   const direction = resolveDirectionForType(input.type, input.direction);
 
-  return prisma.cashDrawerEntry.create({
+  return prisma.$transaction(async (tx) => {
+    await lockCashDay(tx, session.storeId, session.businessDate, { requireOpen: true });
+    return tx.cashDrawerEntry.create({
     data: {
       storeId: session.storeId,
       sessionId: input.sessionId,
@@ -570,6 +573,7 @@ export async function addCashDrawerEntry(input: AddEntryInput): Promise<CashDraw
       note: input.note,
       createdByUserId: input.actorUserId,
     },
+    });
   });
 }
 
@@ -593,6 +597,16 @@ export type CloseInput = {
  * 若期間 status 變了，Prisma 會丟 P2025（rare race condition，由 caller 重試）。
  */
 export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSession> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await closeCashDrawerOnce(input); }
+    catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "P2025") throw error;
+    }
+  }
+  throw new AppError("CONFLICT", "收支正在更新，尚未結帳，請稍後再試。");
+}
+
+async function closeCashDrawerOnce(input: CloseInput): Promise<CashDrawerSession> {
   // ── 1. Read phase（不在 transaction 內）──
   const session = await prisma.cashDrawerSession.findUnique({
     where: { id: input.sessionId },

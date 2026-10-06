@@ -140,7 +140,7 @@ beforeEach(() => {
       customerPlanWallet: { create: mockWalletCreate, update: vi.fn() },
       transaction: { create: mockTransactionCreate },
       customer: { update: mockCustomerUpdate, findUnique: vi.fn().mockResolvedValue(CUSTOMER) },
-      $queryRaw: vi.fn().mockResolvedValue([{ id: CUSTOMER_ID }]),
+      $queryRaw: vi.fn().mockImplementation(async (sql: TemplateStringsArray) => sql.join("?").includes("CashDrawerSession") ? [] : [{ id: CUSTOMER_ID }]),
     }),
   );
 });

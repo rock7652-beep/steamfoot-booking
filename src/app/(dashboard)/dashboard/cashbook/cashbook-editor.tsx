@@ -45,6 +45,7 @@ export function CashbookEditor({
     [error, setError] = useState("");
   const lock = useRef(false),
     router = useRouter();
+  const createRequestId = useRef<string | null>(null);
   const titleId = useId();
   const title = entry ? "編輯記帳" : "新增記帳";
   function close() {
@@ -83,6 +84,7 @@ export function CashbookEditor({
           })
         : await createCashbookEntry({
             ...input,
+            requestId: createRequestId.current ?? (createRequestId.current = crypto.randomUUID()),
             customerId: input.type === "INCOME" ? String(form.get("customerId") || "") || undefined : undefined,
             ...(canAssignStaff
               ? { staffId: String(form.get("staffId") || "") || undefined }
@@ -109,6 +111,7 @@ export function CashbookEditor({
         type="button"
         className="min-h-11 rounded-lg border border-earth-200 px-4 text-sm text-primary-700"
         onClick={() => {
+          createRequestId.current = null;
           setDirty(false);
           setError("");
           setOpen(true);

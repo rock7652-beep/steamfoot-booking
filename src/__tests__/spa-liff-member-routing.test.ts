@@ -5,6 +5,7 @@ const shell = readFileSync("src/app/(liff)/liff/liff-shell.tsx", "utf8");
 const bookings = readFileSync("src/app/(liff)/liff/bookings/bookings-list.tsx", "utf8");
 const wallets = readFileSync("src/app/(liff)/liff/wallets/wallets-list.tsx", "utf8");
 const spaAction = readFileSync("src/server/actions/spa-liff-member.ts", "utf8");
+const spaQuery = readFileSync("src/server/queries/spa-liff-member.ts", "utf8");
 
 describe("SPA LIFF member routing isolation", () => {
   it("uses the SPA projections for the homepage and both details", () => {
@@ -22,8 +23,14 @@ describe("SPA LIFF member routing isolation", () => {
   });
 
   it("reads only SpaBooking and SpaEntitlement for SPA member records", () => {
-    expect(spaAction).toContain("spaPrisma.spaBooking.findMany");
-    expect(spaAction).toContain("spaPrisma.spaEntitlement.findMany");
+    expect(spaAction).toContain("readFetchSpaLiffBookings(context)");
+    expect(spaQuery).toContain("spaPrisma.spaBooking.findMany");
+    expect(spaQuery).toContain("spaPrisma.spaEntitlement.findMany");
+    expect(spaQuery).not.toContain("prisma.booking");
+    expect(spaQuery).not.toContain("customerPlanWallet");
+    expect(spaQuery).not.toContain("prisma.transaction");
+    expect(spaQuery).toContain("storeId: context.storeId");
+    expect(spaQuery).toContain("customerId: context.customerId");
     expect(spaAction).not.toContain("prisma.booking");
     expect(spaAction).not.toContain("customerPlanWallet");
     expect(spaAction).not.toContain("prisma.transaction");

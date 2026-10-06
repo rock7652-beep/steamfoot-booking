@@ -41,6 +41,7 @@ vi.mock("@/lib/error-logger", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
     shopConfig: { findUnique: h.shopConfigFindUnique },
     customer: { findUnique: h.customerFindUnique },
     servicePlan: { findUnique: h.servicePlanFindUnique },
@@ -155,6 +156,7 @@ beforeEach(() => {
   });
   h.txRun.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
+      auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
       $queryRaw: h.txQueryRaw,
       booking: {
         aggregate: h.bookingAggregate,

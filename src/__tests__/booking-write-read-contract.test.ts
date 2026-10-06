@@ -88,6 +88,7 @@ function matchWhere(row: BookingRow, where: Record<string, unknown>): boolean {
 }
 
 const mockPrisma = {
+  auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
   account: { findFirst: vi.fn(async () => null) },
   booking: {
     create: vi.fn(async ({ data }: { data: Partial<BookingRow> }) => {

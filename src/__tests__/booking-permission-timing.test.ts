@@ -11,7 +11,7 @@ import { requireWritablePermission } from "@/lib/permissions";
 import { OperationTiming } from "@/lib/operation-timing";
 beforeEach(() => {
   vi.resetAllMocks();
-  m.session.mockResolvedValue({ role: "OWNER", staffId: "staff-a", storeId: "store-a" });
+  m.session.mockResolvedValue({ role: "STAFF", staffId: "staff-a", storeId: "store-a" });
   m.grant.mockResolvedValue([{ permission: "booking.update" }]);
   m.store.mockResolvedValue({ canWrite: true });
 });

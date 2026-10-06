@@ -1,5 +1,7 @@
 "use server";
 
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
+
 import { OperationTiming } from "@/lib/operation-timing";
 import { after } from "next/server";
 
@@ -1458,7 +1460,7 @@ export async function markCompleted(
           // (multi-wallet FEFO split：可能來自不同 wallet)
           for (const it of items) {
             touchedWalletIds.add(it.walletId);
-            await tx.transaction.create({
+            await createFinancialTransaction(tx, {
               data: {
                 customerId: booking.customerId,
                 bookingId: booking.id,
@@ -1491,7 +1493,7 @@ export async function markCompleted(
               },
             });
             for (let i = 0; i < fallbackWalletPeople; i++) {
-              await tx.transaction.create({
+              await createFinancialTransaction(tx, {
                 data: {
                   customerId: booking.customerId,
                   bookingId: booking.id,
@@ -1731,7 +1733,7 @@ export async function markNoShow(
 
         if (completed > 0) {
           for (const it of items) {
-            await tx.transaction.create({
+            await createFinancialTransaction(tx, {
               data: {
                 customerId: booking.customerId,
                 bookingId: booking.id,
@@ -1761,7 +1763,7 @@ export async function markNoShow(
               },
             });
             for (let i = 0; i < fallbackWalletPeople; i++) {
-              await tx.transaction.create({
+              await createFinancialTransaction(tx, {
                 data: {
                   customerId: booking.customerId,
                   bookingId: booking.id,

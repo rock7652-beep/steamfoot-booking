@@ -3,7 +3,6 @@ import "server-only";
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
-import { coursePrisma } from "@/lib/course-db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { isSpaExternalPayment } from "@/lib/spa-payment-methods";
@@ -56,13 +55,21 @@ async function cashbookEvents(storeId: string, startDate: string, endDate: strin
   const entries = await prisma.cashbookEntry.findMany({
     where: { storeId, type: { in: ["INCOME", "EXPENSE"] },
       entryDate: { gte: new Date(`${startDate}T00:00:00Z`), lte: new Date(`${endDate}T00:00:00Z`) } },
-    select: { entryDate: true, type: true, category: true, amount: true },
+    select: { id: true, entryDate: true, type: true, category: true, amount: true },
   });
-  return entries.map((entry) => ({
-    date: entry.entryDate.toISOString().slice(0, 10),
-    field: entry.type === "EXPENSE" ? "expense" : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue",
-    amount: Number(entry.amount), manual: entry.type === "INCOME",
-  }));
+  return entries.map((entry) => {
+    const id = entry.id ?? "";
+    // Course receipts already post to this ledger. Read their entryDate and
+    // amount once, including split payments and their compensating entries.
+    const refund = /^course-(refund|void|trial-void|rental-void):/.test(id);
+    const feeReversal = /^course-(fee|profit)-void:/.test(id);
+    const linked = id.startsWith("course:") || id.startsWith("course-") || id.startsWith("inventory:");
+    const field: RevenueField = refund ? "refunds" : feeReversal ? "expense"
+      : entry.type === "EXPENSE" ? "expense" : id.startsWith("course-purchase:") ? "packageRevenue"
+      : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue";
+    return { date: entry.entryDate.toISOString().slice(0, 10), field,
+      amount: Number(entry.amount) * (feeReversal ? -1 : 1), manual: !linked && entry.type === "INCOME" };
+  });
 }
 
 async function spaEvents(storeId: string, startDate: string, endDate: string): Promise<Event[]> {
@@ -89,29 +96,12 @@ async function spaEvents(storeId: string, startDate: string, endDate: string): P
   ];
 }
 
-async function courseEvents(storeId: string, startDate: string, endDate: string): Promise<Event[]> {
-  const range = { gte: dayRange(startDate).start, lte: dayRange(endDate).end };
-  const [purchases, refunds, trials] = await Promise.all([
-    coursePrisma.coursePurchase.findMany({ where: { storeId, status: { in: ["CONFIRMED", "REFUNDED"] }, confirmedAt: range }, select: { confirmedAt: true, price: true } }),
-    coursePrisma.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range }, select: { createdAt: true, amount: true } }),
-    coursePrisma.courseTrialPayment.findMany({ where: { storeId, OR: [{ createdAt: range }, { voidedAt: range }] }, select: { createdAt: true, voidedAt: true, amount: true } }),
-  ]);
-  return [
-    ...purchases.filter((p) => p.confirmedAt).map((p): Event => ({ date: toLocalDateStr(p.confirmedAt!), field: "packageRevenue", amount: p.price })),
-    ...refunds.map((r): Event => ({ date: toLocalDateStr(r.createdAt), field: "refunds", amount: Math.abs(r.amount) })),
-    ...trials.flatMap((t): Event[] => [
-      { date: toLocalDateStr(t.createdAt), field: "otherRevenue", amount: t.amount },
-      ...(t.voidedAt ? [{ date: toLocalDateStr(t.voidedAt), field: "refunds" as const, amount: t.amount }] : []),
-    ]),
-  ];
-}
-
 export async function getIndustryRevenueMix(storeId: string, startDate: string, endDate: string): Promise<RevenueMix> {
   await requireInventoryFinanceAccess(storeId);
   const industry = await getStoreIndustryModule(storeId);
   if (industry === "steamfoot") return getRevenueMix(storeId, startDate, endDate);
   const [systemEvents, manualEvents] = await Promise.all([
-    industry === "spa" ? spaEvents(storeId, startDate, endDate) : courseEvents(storeId, startDate, endDate),
+    industry === "spa" ? spaEvents(storeId, startDate, endDate) : Promise.resolve([]),
     cashbookEvents(storeId, startDate, endDate),
   ]);
   return fromEvents([...systemEvents, ...manualEvents], startDate, endDate);

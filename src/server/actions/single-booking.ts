@@ -1,5 +1,7 @@
 "use server";
 
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
+
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireWritablePermission } from "@/lib/permissions";
@@ -152,7 +154,7 @@ export async function collectSinglePayment(
       });
 
       // wallet-free：不帶 customerPlanWalletId，不建 WalletSession，不扣堂。
-      const transaction = await txClient.transaction.create({
+      const transaction = await createFinancialTransaction(txClient, {
         data: {
           customerId: booking.customerId,
           bookingId: booking.id,

@@ -1,3 +1,4 @@
+import { lockCashDay } from "./cash-day";
 import "server-only";
 import {musicCheckoutQuote} from "@/lib/music-course-products";
 import {validateCourseTerm,enrollCourseTerm} from "./course-term";
@@ -8,9 +9,7 @@ import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { calculateCourseCheckout, COURSE_PAYMENT_LABELS, type CourseCheckoutInput } from "@/lib/course-checkout";
 
 export async function lockCourseCashDay(tx:Prisma.TransactionClient,storeId:string,day:Date) {
-  const rows=await tx.$queryRaw<Array<{id:string;status:string}>>`SELECT id,status::text FROM "CashDrawerSession" WHERE "storeId"=${storeId} AND "businessDate"=${day} FOR UPDATE`;
-  if(!rows[0] || rows[0].status!=="OPEN") throw new AppError("BUSINESS_RULE","現金收支需先開啟該日現金抽屜；已結帳請依既有流程處理。");
-  await tx.$executeRaw`UPDATE "CashDrawerSession" SET "updatedAt"=GREATEST(clock_timestamp(),"updatedAt"+interval '1 millisecond') WHERE id=${rows[0].id} AND "storeId"=${storeId}`;
+  await lockCashDay(tx,storeId,day,{requireOpen:true});
 }
 /** Caller checks wallet.create, transaction.create and discount permission, and holds the store lock. */
 export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor:{storeId:string;userId:string;music?:boolean},data:CourseCheckoutInput & {planId:string;customerId:string;expiresDate:string;requestKey:string}) {

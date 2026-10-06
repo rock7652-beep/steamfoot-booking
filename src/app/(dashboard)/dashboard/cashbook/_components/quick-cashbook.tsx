@@ -29,6 +29,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
   const request = useRef(0);
   const currentPage = useRef(1);
   const locked = useRef(false);
+  const createRequestId = useRef<string | null>(null);
   const dialog = useRef<HTMLElement>(null);
   const closeRef = useRef<() => void>(() => undefined);
   async function refresh(page = 1) {
@@ -66,9 +67,10 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
     if (locked.current) return;
     locked.current = true; setBusy(true);
     try {
+      if (editing === "new") form.set("requestId", createRequestId.current ?? (createRequestId.current = crypto.randomUUID()));
       const result = await saveQuickCashbook(storeId, editing && editing !== "new" ? editing.id : null, form);
       if (!result.success) { toast.error(result.error ?? "儲存失敗"); return; }
-      reader.clear(); setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
+      reader.clear(); createRequestId.current = null; setEditing(null); toast.success("已儲存收支紀錄"); await refresh();
     } catch { toast.error("儲存失敗，請重試，表單內容已保留"); }
     finally { locked.current = false; setBusy(false); }
   }
@@ -121,7 +123,7 @@ function QuickCashbookPanel({ storeId, triggerClassName, instantSearch }: { stor
               } : null}
             />
           </form> : <>
-            <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
+            <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { createRequestId.current = null; setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
             <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
             {!data.entries.length && <p className="steamfoot-brand-card rounded-xl border py-8 text-center text-earth-500">今日尚無手動收支紀錄</p>}
             <div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}{e.customer ? ` · ${e.customer.name}` : ""}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => { setEditing(e); }}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>
