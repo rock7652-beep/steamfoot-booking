@@ -389,7 +389,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                         <LineCardPreview title="方案可用額度提醒" subtitle="示意資料，非真實發送" actions={[{ label: "查看我的方案", variant: "primary" }, { label: "立即預約" }, { label: "購買／續購方案" }, {label:"諮詢店長",variant:"link"}, { label: "停止／管理此類提醒", variant: "link" }]}>
                           {courseLowBalanceBody(plan.name, 5, 3, plan.unit)}
                         </LineCardPreview>
-                        <LineCardPreview title="方案即將到期提醒" subtitle={`設定：到期前 ${draft.expiryDays || "尚未填寫"} 天`} actions={[{ label: "查看方案與期限" },{label:"購買／續購方案"},{label:"諮詢店長",variant:"link"}]}>
+                        <LineCardPreview title="方案即將到期提醒" subtitle={`設定：到期前 ${draft.expiryDays || "尚未填寫"} 天`} actions={[{ label: "查看方案與期限" },{label:"立即預約"},{label:"購買／續購方案"},{label:"諮詢店長",variant:"link"}]}>
                           <p>{plan.name}</p>
                           <p>示意：剩餘 5 {unit}／占用 3 {unit}／可用 2 {unit}。</p>
                           <p>通知會帶入該張方案的實際到期日。</p>
