@@ -43,7 +43,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
-      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true, trialAllowPriceEdit: true, trialMinPrice: true, trialMaxPrice: true } }),
+      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, shopPhone: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true, trialAllowPriceEdit: true, trialMinPrice: true, trialMaxPrice: true } }),
       checkPermission(user.role,user.staffId,"plans.edit"),
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
@@ -82,7 +82,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
         storeId={storeId} planLabel={store ? PRICING_PLAN_INFO[store.plan].label : "—"} canPayment={canPayment && !readOnly} canStaff={canStaff} canPlans={canPlans}
         name={store?.name ?? ""}
         bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
-        address={config?.address ?? ""} mapUrl={config?.mapUrl ?? ""} lineOfficialUrl={config?.lineOfficialUrl ?? ""}
+        shopPhone={config?.shopPhone ?? ""} address={config?.address ?? ""} mapUrl={config?.mapUrl ?? ""} lineOfficialUrl={config?.lineOfficialUrl ?? ""}
         bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
         canEdit={canEdit && !readOnly}
