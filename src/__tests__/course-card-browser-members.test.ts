@@ -39,7 +39,8 @@ it("shows shared-card members directly on an active plan row", async () => {
       ],
       entries: [],
     }],
-    hasMore: false,
+    hasMore: true,
+    totals: [{unit:"POINT",count:21,remaining:108,held:22,available:86}],
   });
   const host = document.createElement("div");
   document.body.append(host);
@@ -60,6 +61,8 @@ it("shows shared-card members directly on an active plan row", async () => {
     expect(host.textContent).toContain("剩餘 8 點");
     expect(host.textContent).toContain("已預約 2 點額度");
     expect(host.textContent).toContain("共同餘額");
+    expect(host.textContent).toContain("有效方案合計 · 21 個");
+    expect(host.textContent).toContain("總剩餘 108 點 · 已預約 22 · 可用 86");
     expect(host.textContent).not.toContain("還可預約 6 堂");
   } finally {
     await act(async () => root.unmount());
