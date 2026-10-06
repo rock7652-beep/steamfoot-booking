@@ -45,6 +45,25 @@
 }
 [data-spa-admin="true"] h2 { font-size: 18px; line-height: 1.45; font-weight: 650; }
 [data-spa-admin="true"] h3 { font-size: 16px; line-height: 1.5; font-weight: 600; }
+[data-spa-admin="true"] [data-dashboard-content] > [data-page-shell].spa-home { padding-block: 8px; }
+
+/* Homepage uses the shared dashboard heading scale; schedule/editors keep theirs. */
+[data-spa-admin="true"] .spa-home h1.admin-page-title {
+  color: var(--color-primary-900);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+[data-spa-admin="true"] .spa-home :is(h2, h3) {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+[data-spa-admin="true"] .spa-home h1 + p {
+  margin-top: 0;
+  line-height: 20px;
+}
 [data-spa-admin="true"] h1 + p { margin-top: 6px; font-size: 14px; line-height: 1.6; }
 [data-spa-admin="true"] [data-dashboard-content] :is(.text-\[10px\], .text-\[11px\], .text-\[12px\]) { font-size: 13px; }
 [data-spa-admin="true"] small { font-size: 13px; line-height: 1.5; }

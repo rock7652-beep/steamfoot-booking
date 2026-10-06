@@ -8,14 +8,11 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import {
   bookingDateToday,
-  formatTWTime,
   toLocalDateStr,
   toLocalMonthStr,
 } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
-import { FEATURES } from "@/lib/feature-flags";
-import { hasStoreFeature } from "@/lib/feature-gate";
 import {
   resolveStoreViewContext,
   type StoreViewContext,
@@ -26,7 +23,6 @@ import { getDashboardTodaySummaryForUser } from "@/server/queries/dashboard-summ
 import { getLatestResolvedRequest } from "@/server/queries/upgrade-request";
 import { getLatestReconciliationRun } from "@/server/queries/reconciliation";
 import { getStoreTodosForUser } from "@/server/queries/store-todos";
-import { getCashDrawerView, type CashDrawerView } from "@/server/queries/cash-drawer";
 import {
   getCustomerCareSummary,
   type CustomerCareSummary,
@@ -37,8 +33,6 @@ import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 import { StoreTodoCard } from "./store-todo-card";
-import { CashDrawerHomeStatus } from "@/components/cash-drawer-shortcut";
-import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import {
   CustomerCareSummaryCard,
   type CustomerWorkspaceSummary,
@@ -47,20 +41,12 @@ import {
   PageShell,
   PageHeader,
   KpiStrip,
-  SideCard,
   DataTable,
   EmptyRow,
   type Column,
 } from "@/components/desktop";
 
-/**
- * 店家後台首頁 — Decision Page（桌機版）
- *
- * 對齊 design/04-phase2-plan.md §3①：
- *   PageHeader → KpiStrip → 8+4 grid（今日預約表 | 快速操作 + 本月小結）
- *
- * 不再使用 components/ui/kpi-card / section-card；一律走 desktop primitives 家族。
- */
+/** 店家首頁：今日摘要 → 待處理與顧客關懷 → 今日預約。 */
 
 interface TodayBookingRow {
   id: string;
@@ -102,44 +88,13 @@ export default async function DashboardHomePage() {
   const dashboardUser = dashboardStoreId
     ? { ...user, storeId: dashboardStoreId }
     : user;
-  const isOwner = user.role === "ADMIN" || user.role === "OWNER";
   // #307 唯讀模式：到期店家隱藏 / 停用「新增」入口（後端已擋，這裡避免店長白點）
   const subscriptionWriteBlocked = await isStoreSubscriptionWriteBlocked(activeStoreId);
   const isReadOnly = subscriptionWriteBlocked || (isViewMode && !storeViewContext?.canWrite);
 
-  const todayLabel = formatTWTime(new Date(), { dateOnly: true });
+  const todayLabel = toLocalDateStr();
   const storeFilter = getStoreFilter(dashboardUser, dashboardStoreId);
   const todayBooking = bookingDateToday();
-
-  // 現金抽屜首頁卡（PR-3 UX revision）— 需 cashDrawer.read 權限 + 已選店
-  const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
-
-  let cashDrawerView: CashDrawerView | null = null;
-  if (canViewCashDrawer && dashboardStoreId && await canReadInventoryFinance(dashboardStoreId, user)) {
-    const cashDrawerEnabled = await hasStoreFeature(dashboardStoreId, FEATURES.CASH_DRAWER).catch(
-      (e) => {
-        console.error("[dashboard-home] hasStoreFeature(cash_drawer) failed", {
-          activeStoreId: dashboardStoreId,
-          userId: user.id,
-          error: e instanceof Error ? e.message : String(e),
-        });
-        return false;
-      },
-    );
-    if (cashDrawerEnabled) {
-      const todayStr = toLocalDateStr();
-      const [y, m, d] = todayStr.split("-").map(Number);
-      const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
-      cashDrawerView = await getCashDrawerView(dashboardStoreId, todayBusinessDate).catch((e) => {
-        console.error("[dashboard-home] getCashDrawerView failed", {
-          activeStoreId: dashboardStoreId,
-          userId: user.id,
-          error: e instanceof Error ? e.message : String(e),
-        });
-        return null;
-      });
-    }
-  }
 
   // 各區塊獨立 catch — 任一塊失敗（DB 連線不穩、缺 store / config 等）不影響其他區塊
   // fallback 一律保守值（0、空陣列、null），不偽造任何營運數據
@@ -157,10 +112,7 @@ export default async function DashboardHomePage() {
 
   // 顧客經營摘要 — 需 customer.read；只讀 count（不讀名單）。
   // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
-  const [canViewCustomers, canViewReports] = await Promise.all([
-    checkPermission(user.role, user.staffId, "customer.read"),
-    checkPermission(user.role, user.staffId, "report.read"),
-  ]);
+  const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
   // Central identity health is HQ-only. OWNER can have identity.rebind for
   // store-level workflows, but must not see or trigger this cross-identity scan.
   const pendingMemberLinkReviews = user.role === "ADMIN" && dashboardStoreId
@@ -371,43 +323,15 @@ export default async function DashboardHomePage() {
     },
   ];
 
-  const quickActions: Array<{ href: string; label: string; hint: string }> = [
-    ...(isReadOnly
-      ? []
-      : [{ href: "/dashboard/bookings/new", label: "＋ 新增預約", hint: "快速建立今日或未來預約" }]),
-    { href: "/dashboard/customers", label: "顧客管理", hint: "搜尋、篩選、查看顧客詳情" },
-    ...(isOwner
-      ? [{ href: "/dashboard/revenue", label: "營收", hint: "今日 / 本月指標 + 交易" }]
-      : []),
-    { href: "/dashboard/settings", label: "設定", hint: "店舖 / 店長 / 方案" },
-  ];
-
-  // 首頁頂部「每日工作台」:桌機第一排只放兩張摘要卡,今天待處理獨立放第二排全寬。
-  // 有權限缺席的摘要卡會被濾掉,單張時佔滿整行；待處理固定保留,避免重要內容被第三欄壓窄。
-  const summaryCards = [
-    cashDrawerView ? (
-      <section key="cash-drawer" className="rounded-xl border border-earth-200 bg-white px-4 py-2">
-        <h2 className="text-sm font-semibold text-primary-900">開店狀態</h2>
-        <CashDrawerHomeStatus key={`${dashboardStoreId}:${cashDrawerView.state}:${cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status : ""}`} storeId={dashboardStoreId!} initialStatus={cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status === "OPEN" ? "營業中" : "已結帳" : cashDrawerView.state === "WARNING_LAST_OPEN" ? "前次尚未結帳" : "未開店"}/>
-      </section>
-    ) : null,
-    canViewCustomers ? (
-      <CustomerCareSummaryCard
-        key="customer-care"
-        summary={customerWorkspaceSummary}
-      />
-    ) : null,
-  ].filter(Boolean);
-
   return (
     <PageShell compact>
       <PageHeader
-        title="儀表板"
-        subtitle={`${todayLabel}｜歡迎回來，${user.name ?? "店長"}`}
+        title="首頁"
+        subtitle={`${todayLabel} · 今日工作`}
         actions={
           isReadOnly ? (
             <span
-              className="cursor-not-allowed rounded-md bg-earth-100 px-3 py-1.5 text-xs font-medium text-earth-400"
+              className="inline-flex min-h-11 cursor-not-allowed items-center rounded-lg bg-earth-100 px-3 text-sm font-medium text-earth-400"
               title={isViewMode ? "查看模式下不可新增預約" : "系統已到期，目前為唯讀模式"}
             >
               ＋ 新增預約
@@ -415,7 +339,7 @@ export default async function DashboardHomePage() {
           ) : (
             <Link
               href="/dashboard/bookings/new"
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+              className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-3 text-sm font-medium text-white hover:bg-primary-800"
             >
               ＋ 新增預約
             </Link>
@@ -423,7 +347,9 @@ export default async function DashboardHomePage() {
         }
       />
 
-      <div className="space-y-2">
+      <KpiStrip items={kpis} />
+
+      <div className="@container space-y-2">
         {pendingMemberLinkReviews > 0 ? (
           <Link
             href="/dashboard/member-link-reviews"
@@ -433,18 +359,10 @@ export default async function DashboardHomePage() {
             <strong>{pendingMemberLinkReviews} 筆 →</strong>
           </Link>
         ) : null}
-        {summaryCards.length > 1 ? (
-          <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
-            {summaryCards}
-          </div>
-        ) : (
-          summaryCards
-        )}
-        <StoreTodoCard
-          items={todos.items}
-          defaultVisible={3}
-          readOnly={isViewMode}
-        />
+        <div className={`grid items-start gap-2 ${canViewCustomers ? "@min-[56rem]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`}>
+          <StoreTodoCard items={todos.items} defaultVisible={3} readOnly={isViewMode} />
+          {canViewCustomers && <CustomerCareSummaryCard summary={customerWorkspaceSummary} />}
+        </div>
       </div>
 
       {!isViewMode && resolvedRequest ? (
@@ -467,144 +385,52 @@ export default async function DashboardHomePage() {
         />
       ) : null}
 
-      <KpiStrip items={kpis} />
-
-      <div className="grid grid-cols-12 gap-3">
-        {/* 左：今日預約表 */}
-        <div className="col-span-12 lg:col-span-8">
-          <section className="rounded-xl border border-earth-200 bg-white">
-            <div className="flex items-center justify-between px-3 py-2">
-              <div>
-                <h2 className="text-sm font-semibold text-earth-800">今日預約</h2>
-                <p className="text-[11px] text-earth-400">
-                  共 {summary.todayBookingCount} 筆｜完成 {summary.todayCompletedCount} · 未到 {summary.noShowCount}
-                  {summary.todayUnassignedCount > 0
-                    ? `｜未指派 ${summary.todayUnassignedCount}`
-                    : ""}
-                </p>
-              </div>
-              {isViewMode ? (
-                <span className="text-[11px] text-earth-400">查看模式</span>
-              ) : (
-                <Link
-                  href="/dashboard/bookings"
-                  className="text-[11px] text-primary-600 hover:text-primary-700"
-                >
-                  完整預約管理 →
-                </Link>
-              )}
-            </div>
-            {rows.length === 0 ? (
-              <EmptyRow
-                title="今天還沒有預約"
-                hint={
-                  isReadOnly
-                    ? "系統已到期，目前為唯讀模式，無法新增預約"
-                    : "可手動建立或等顧客自助預約"
-                }
-                cta={
-                  isReadOnly
-                    ? undefined
-                    : { label: "新增預約", href: "/dashboard/bookings/new" }
-                }
-              />
-            ) : (
-              <DataTable
-                columns={columns}
-                rows={rows}
-                rowKey={(b) => b.id}
-                rowHref={isViewMode ? undefined : (b) => `/dashboard/bookings/${b.id}`}
-                className="rounded-none border-0 border-t border-earth-100"
-              />
-            )}
-          </section>
+      <section className="rounded-xl border border-earth-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+        <div>
+          <h2 className="text-sm font-semibold text-earth-800">今日預約</h2>
+          <p className="text-sm text-earth-500">
+            共 {summary.todayBookingCount} 筆｜上週同日 {summary.lastWeekBookingCount} 筆｜完成 {summary.todayCompletedCount} · 未到 {summary.noShowCount}
+            {summary.todayUnassignedCount > 0
+              ? `｜未指派 ${summary.todayUnassignedCount}`
+              : ""}
+          </p>
         </div>
-
-        {/* 右：快速操作 + 本月小結 */}
-        <aside className="col-span-12 space-y-3 lg:col-span-4">
-          <SideCard title="快速操作" subtitle="常用入口">
-            <div className="flex flex-col gap-1.5">
-              {quickActions.map((a) =>
-                isViewMode ? (
-                  <div
-                    key={a.href}
-                    className="flex items-center justify-between rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5"
-                    title="查看模式下不可操作"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-earth-500">{a.label}</p>
-                      <p className="truncate text-[10px] text-earth-400">{a.hint}</p>
-                    </div>
-                    <span className="shrink-0 text-[11px] text-earth-400">查看模式</span>
-                  </div>
-                ) : (
-                  <Link
-                    key={a.href}
-                    href={a.href}
-                    className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-earth-800">{a.label}</p>
-                      <p className="truncate text-[10px] text-earth-400">{a.hint}</p>
-                    </div>
-                    <span className="shrink-0 text-[11px] text-earth-400">→</span>
-                  </Link>
-                )
-              )}
-            </div>
-          </SideCard>
-
-          <SideCard title="本週對照" subtitle="今日 vs 上週同日">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-earth-500">今日預約</span>
-              <span className="tabular-nums text-sm font-semibold text-earth-900">
-                {summary.todayBookingCount}
-                <span className="ml-1 text-[10px] font-normal text-earth-400">
-                  / 上週 {summary.lastWeekBookingCount}
-                </span>
-              </span>
-            </div>
-          </SideCard>
-        </aside>
+        {isViewMode ? (
+          <span className="text-sm text-earth-500">查看模式</span>
+        ) : (
+          <Link
+            href="/dashboard/bookings"
+            className="inline-flex min-h-11 items-center text-sm text-primary-700 hover:text-primary-800"
+          >
+            完整預約管理 →
+          </Link>
+        )}
       </div>
-
-      {/* 下方 summary — placeholder bar，後續擴充更多月份概況 */}
-      <section className="rounded-xl border border-dashed border-earth-200 bg-earth-50/40 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xs font-semibold text-earth-700">本月概況</h3>
-            <p className="text-[11px] text-earth-400">
-              想看完整營收 / 完成服務 / 推薦趨勢，請前往營收與報表
-            </p>
-          </div>
-          <div className="flex gap-1.5">
-            {isViewMode ? (
-              <>
-                <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
-                  營收
-                </span>
-                <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
-                  報表
-                </span>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/dashboard/revenue"
-                  className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-                >
-                  營收 →
-                </Link>
-                {canViewReports && <Link
-                  href="/dashboard/reports"
-                  className="rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-                >
-                  報表 →
-                </Link>}
-              </>
-            )}
-          </div>
-        </div>
+      {rows.length === 0 ? (
+        <EmptyRow
+          dense
+          title="今天還沒有預約"
+          hint={
+            isReadOnly
+              ? isViewMode ? "查看模式下無法新增預約" : "系統已到期，目前為唯讀模式，無法新增預約"
+              : "可手動建立或等顧客自助預約"
+          }
+          cta={
+            isReadOnly
+              ? undefined
+              : { label: "新增預約", href: "/dashboard/bookings/new" }
+          }
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(b) => b.id}
+          rowHref={isViewMode ? undefined : (b) => `/dashboard/bookings/${b.id}`}
+          className="rounded-none border-0 border-t border-earth-100"
+        />
+      )}
       </section>
     </PageShell>
   );

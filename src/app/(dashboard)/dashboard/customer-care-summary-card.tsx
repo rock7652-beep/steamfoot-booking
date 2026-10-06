@@ -36,7 +36,7 @@ export function CustomerCareSummaryCard({
   if (summary === null) {
     return (
       <SideCard title="今日顧客經營" action={CTA}>
-        <p className="text-[11px] text-earth-400">顧客經營提醒暫時無法載入</p>
+        <p className="text-sm text-earth-400">顧客經營提醒暫時無法載入</p>
       </SideCard>
     );
   }
@@ -45,21 +45,22 @@ export function CustomerCareSummaryCard({
   if (summary.totalReminders === 0) {
     return (
       <SideCard title="今日顧客經營" action={CTA}>
-        <p className="text-xs text-earth-700">今天沒有需要特別關心的顧客</p>
+        <p className="text-sm text-earth-700">今天沒有需要特別關心的顧客</p>
       </SideCard>
     );
   }
 
   return (
     <SideCard
+      className="@container"
       title="今日顧客經營"
       subtitle={`今天有 ${summary.totalReminders} 個提醒項目`}
       action={CTA}
     >
-      <ul className="space-y-1">
+      <ul className="grid grid-cols-1 gap-x-5 gap-y-2 @min-[22rem]:grid-cols-2">
         {ROWS.map((r) => (
-          <li key={r.key} className="flex items-baseline justify-between">
-            <span className="text-[11px] text-earth-500">{r.label}</span>
+          <li key={r.key} className="flex items-baseline justify-between gap-2">
+            <span className="text-sm text-earth-500">{r.label}</span>
             <span className="tabular-nums text-sm font-semibold text-earth-900">
               {summary[r.key]}
             </span>
