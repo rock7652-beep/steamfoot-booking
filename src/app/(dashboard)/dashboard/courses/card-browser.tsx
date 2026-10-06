@@ -4,6 +4,7 @@ import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useEffect, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
 export function CourseCardBrowser({ customerId, state, onChange, onSelect, revision=0, canReadBookings=false }: {
@@ -12,18 +13,19 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
 }) {
   const detailReader = usePanelReader("course-card", browseCourseCards);
   const [retry,setRetry]=useState(0);
-  const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;error?:string}|null>(null);
+  const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
   const key=JSON.stringify([customerId,state,revision,retry]);
   useEffect(()=>{
     let active=true;
     const timer=setTimeout(()=>{browseCourseCards({customerId,...state}).then(r=>{
-      if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore} : {key,customerId,rows:[],hasMore:false,error:r.error});
+      if(active)setResult(r.success ? {key,customerId,rows:r.rows,hasMore:r.hasMore,totals:r.totals} : {key,customerId,rows:[],hasMore:false,error:r.error});
     }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},200);
     return ()=>{active=false;clearTimeout(timer);};
   },[customerId,state,key]);
   const ready=result?.key===key;
   const visible=result?.customerId===customerId?result:null;
   return <section className="space-y-3">
+    {customerId && ready && visible?.totals && <div aria-label="有效方案合計" className="space-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm"><p className="font-semibold">有效方案合計 · {visible.totals.reduce((sum,total)=>sum+total.count,0)} 個</p><p>{courseBalanceText(visible.totals)}</p><p className="text-earth-600">共卡為共同餘額；各方案期限與適用課程分開計算。</p></div>}
     <div className="flex flex-wrap items-center gap-2">
       <input aria-label="搜尋持有方案或共卡成員" className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 text-base" placeholder="搜尋方案／共卡成員" value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
       <select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>

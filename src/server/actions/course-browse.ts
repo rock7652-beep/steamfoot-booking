@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { courseManagerRead } from "@/server/services/course-access";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { getCourseCards } from "@/server/queries/course-members";
+import { getCourseBalanceSummary } from "@/server/queries/course-balance-summary";
 import { AppError, handleActionError } from "@/lib/errors";
 
 function failure(error: unknown) {
@@ -48,7 +49,8 @@ export async function browseCourseCards(input: unknown) {
           ...(data.search ? [{OR:[{nameSnapshot:{contains:data.search,mode:"insensitive" as const}},{members:{some:{customerId:{in:matchingIds},storeId}}}]}] : [])],
       }, skip:data.cardId ? 0 : data.page*20, take:data.cardId ? 1 : 21, entries:!!data.cardId,
     });
-    return {success:true as const, rows:cards.slice(0,20),hasMore:cards.length>20};
+    const totals = data.customerId && !data.cardId ? await getCourseBalanceSummary(storeId, data.customerId, musicStore) : undefined;
+    return {success:true as const, rows:cards.slice(0,20),hasMore:cards.length>20,totals};
   } catch(error) { return failure(error); }
 }
 

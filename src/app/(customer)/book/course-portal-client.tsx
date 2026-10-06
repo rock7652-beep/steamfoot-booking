@@ -1,4 +1,5 @@
 "use client";
+import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-summary";
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
 import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
@@ -207,6 +208,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     }),
     sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
   };
+  const balanceTotals = courseBalanceTotals(p.cards);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -949,6 +951,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
               ) : (
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>立即預約</button>
+                  <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><p>{courseBalanceText(balanceTotals)}</p><button onClick={()=>go("plans")}>查看各方案與期限</button></section>
                   <h2>常用功能</h2>
                   <section className="cp-card">
                     {menu("我的預約", "bookings", "待上課與歷史紀錄")}
@@ -1122,6 +1125,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           {page === "plans" && (
             <>
               {heading("我的方案")}
+              <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計 · {balanceTotals.reduce((sum,total)=>sum+total.count,0)} 個</h2><p>{courseBalanceText(balanceTotals)}</p><p>共卡為共同餘額；各方案期限與適用課程分開計算。</p></section>
               <p>可用額度＝剩餘－預約保留；每張方案的期限分開計算。</p>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
               <a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a>
