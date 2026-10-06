@@ -56,7 +56,7 @@ vi.mock("@/server/queries/customer-birthday", () => ({
 vi.mock("@/server/queries/customer-kpi-segments", () => ({
   CUSTOMER_KPI_SEGMENTS: {
     "monthly-unconverted": {
-      title: "本月體驗未開卡",
+      title: "本月體驗未購買方案",
       description: "本月完成體驗但未於當天開卡的顧客。",
     },
     "monthly-new": { title: "本月新客", description: "首次完成服務發生在本月的顧客。" },
@@ -205,7 +205,7 @@ describe("CustomerCarePage feature gate", () => {
       "2026-07",
       "monthly-unconverted",
     );
-    expect(html).toContain("本月體驗未開卡");
+    expect(html).toContain("本月體驗未購買方案");
     expect(html).toContain("測試顧客 B");
     expect(html).toContain("09xx-xxx-0002");
     expect(html).toContain("本月完成體驗但未於當天開卡的顧客");
@@ -280,7 +280,7 @@ describe("CustomerCarePage feature gate", () => {
     expect(html).not.toContain("本月未回流");
     const orderedTitles = [
       "本月生日",
-      "本月體驗未開卡",
+      "本月體驗未購買方案",
       "好久不見",
       "額度快用完",
       "方案快到期",
