@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { LABOR_PRODUCT_ID, workOrderSchema, workOrderPaymentLabel } from "@/lib/work-orders";
+import { LABOR_PRODUCT_ID, workOrderSchema, workOrderPaymentLabel, formatWorkOrderNumber, workOrderNumber, workOrderContent } from "@/lib/work-orders";
 describe("work-order input and payment state",()=>{
  const input={requestId:"ad7e6f88-5c5b-4b85-a642-6339d91f7c69",date:"2026-10-06",partyId:"customer",details:{item:"吉他調整"}};
+ it("formats a date-based daily number and extends after 999",()=>{expect(formatWorkOrderNumber("2026-10-06",1)).toBe("261006001");expect(formatWorkOrderNumber("2026-10-07",1)).toBe("261007001");expect(formatWorkOrderNumber("2026-10-06",1000)).toBe("2610061000");expect(workOrderNumber({id:"internal-id",workOrderNumber:"261006001"})).toBe("261006001");});
+ it("preserves every old problem and treatment in a unified description",()=>{expect(workOrderContent(workOrderSchema.parse({...input,details:{item:"調整",problem:"弦距太高",work:"更換琴弦"}}).details)).toBe("調整\n問題／需求：弦距太高\n處理內容：更換琴弦");});
  it("defaults to a zero labor quote in progress without product lines",()=>{const v=workOrderSchema.parse(input);expect(v.labor).toBe(0);expect(v.lines).toEqual([]);expect(v.details.status).toBe("PROCESSING");});
  it("has no artificial shop labor fee ceiling",()=>{expect(workOrderSchema.parse({...input,labor:100000001}).labor).toBe(100000001);});
  it("rejects fractional, negative and unrepresentable money",()=>{for(const labor of [1.1,-1,Infinity,2147483648])expect(workOrderSchema.safeParse({...input,labor}).success).toBe(false);});

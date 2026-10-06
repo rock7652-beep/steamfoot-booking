@@ -74,8 +74,27 @@ pg("work-order production paths — canonical inventory receipts", () => {
   it("concurrent opening replay creates one unpaid work order and deducts stock once",async()=>{
     const input=job();const results=await Promise.all([saveWorkOrderAction(input),saveWorkOrderAction(input)]);
     expect(results.every(r=>r.success)).toBe(true);expect(results[0]).toEqual(results[1]);expect(await stock()).toBe(8);
-    const orders=await db.inventoryOrder.findMany({where:{storeId}});expect(orders).toHaveLength(1);expect(orders[0].total).toBe(1200);expect(orders[0].paid).toBe(0);
+    const orders=await db.inventoryOrder.findMany({where:{storeId}});expect(orders).toHaveLength(1);expect(orders[0].total).toBe(1200);expect(orders[0].paid).toBe(0);expect(orders[0].workOrderNumber).toBe("990105001");
     expect(await db.cashbookEntry.count({where:{storeId}})).toBe(0);await assertAccounts();
+  });
+  it("daily numbering is concurrent-safe, resets tomorrow, survives editing and is searchable",async()=>{
+    const results=await Promise.all(Array.from({length:3},()=>saveWorkOrderAction(job({lines:[]}))));
+    expect(results.every(r=>r.success)).toBe(true);
+    const rows=await db.inventoryOrder.findMany({where:{storeId},orderBy:{workOrderNumber:"asc"}});
+    expect(rows.map(o=>o.workOrderNumber)).toEqual(["990105001","990105002","990105003"]);
+    const tomorrow=await order({date:"2099-01-06",lines:[]});
+    expect((await db.inventoryOrder.findUniqueOrThrow({where:{id:tomorrow}})).workOrderNumber).toBe("990106001");
+    expect((await saveWorkOrderAction(job({id:rows[0].id,revision:1,date:"2099-01-07",lines:[]}))).success).toBe(true);
+    const found=await loadWorkOrders({query:"990105001"});expect(found.success).toBe(true);if(found.success){expect(found.data.orders).toHaveLength(1);expect(found.data.orders[0].id).toBe(rows[0].id);expect(found.data.orders[0].date).toBe("2099-01-07");}
+    expect((await saveWorkOrderAction(job({lines:[{...job().lines[0],quantity:100}]}))).success).toBe(false);
+    const next=await order({lines:[]});expect((await db.inventoryOrder.findUniqueOrThrow({where:{id:next}})).workOrderNumber).toBe("990105004");
+  });
+  it("material identity prices, discounts and gifts share the canonical totals and stock",async()=>{
+    await db.inventoryProduct.update({where:{id:productId},data:{details:{priceRatios:{STUDENT:80}}}});
+    const id=await order({labor:50,priceCategory:"STUDENT",lines:[{...job().lines[0],unitPrice:160,discountMode:"PERCENT",discount:10}]});
+    const saved=await db.inventoryOrder.findUniqueOrThrow({where:{id}});expect(saved.total).toBe(338);expect(saved.paid).toBe(0);expect(saved.priceCategory).toBe("STUDENT");expect(await stock()).toBe(8);
+    const gift=await order({labor:0,lines:[{...job().lines[0],quantity:1,gift:true}]});expect((await db.inventoryOrder.findUniqueOrThrow({where:{id:gift}})).total).toBe(0);expect(await stock()).toBe(7);
+    expect((await collectWorkOrderAction(pay(id,338,"轉帳"))).success).toBe(true);expect(await stock()).toBe(7);await assertAccounts();
   });
   it("labor-only works with inventory disabled and has no shop fee cap",async()=>{
     await db.storeFeatureEntitlement.updateMany({where:{storeId,featureKey:"inventory"},data:{status:"LOCKED"}});

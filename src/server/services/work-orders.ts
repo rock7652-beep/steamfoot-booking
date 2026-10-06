@@ -5,13 +5,13 @@ import { checkPermission } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
-import { publicLines, type InventoryLine } from "@/lib/inventory";
+import { productDetails, publicLines, type InventoryLine, type PriceCategory } from "@/lib/inventory";
 import { LABOR_PRODUCT_ID, workOrderDetails, workOrderSchema, workOrderPaymentSchema, workOrderStatusSchema, type WorkOrderView } from "@/lib/work-orders";
 import { inventoryContext, inventoryTransaction, inventoryAudit, assertReplay, hashInput, saveInventoryOrder, createInventoryPayment, type InventoryContext } from "./inventory";
 
 export async function workOrderData(ctx: InventoryContext, query = "", page = 1, status = "all", payment = "all") {
   const where: Prisma.InventoryOrderWhereInput = { storeId: ctx.storeId, kind: "SALE", workOrder: { not: Prisma.DbNull },
-    ...(query.trim() ? { OR: [{ partyName: { contains: query.trim(), mode: "insensitive" } }, { partyPhone: { contains: query.trim() } }, { id: { contains: query.trim().toLowerCase() } }] } : {}) };
+    ...(query.trim() ? { OR: [{ partyName: { contains: query.trim(), mode: "insensitive" } }, { partyPhone: { contains: query.trim() } }, { id: { contains: query.trim().toLowerCase() } }, {workOrderNumber:{contains:query.trim()}}] } : {}) };
   if(status!=="all")where.workOrder={path:["status"],equals:status};
   const unpaid:Prisma.InventoryOrderWhereInput={OR:[{paid:{lt:prisma.inventoryOrder.fields.total}},{total:0,workOrder:{path:["status"],not:"COLLECTED"}}]};
   if(payment!=="all")where.AND=payment==="unpaid"?[unpaid]:[{NOT:unpaid}];
@@ -26,10 +26,11 @@ export async function workOrderData(ctx: InventoryContext, query = "", page = 1,
   const canCreateCustomer = canWrite && await checkPermission(ctx.user.role,ctx.user.staffId,"customer.create");
   const canChooseCustomer = await checkPermission(ctx.user.role,ctx.user.staffId,"customer.read");
   const canProducts = inventoryEnabled && await checkPermission(ctx.user.role, ctx.user.staffId, "inventory.write");
-  const products = canProducts ? await prisma.inventoryProduct.findMany({ where: { storeId: ctx.storeId, active: true }, select: { id: true, name: true, price: true, stock: true }, orderBy: { name: "asc" }, take: 1000 }) : [];
-  return { store: { id: store.id, name: store.name, address: store.shopConfig?.address || "" }, canCreateCustomer, canChooseCustomer, canWrite, canCollect: canWrite && canCollect, canProducts, products, count, page,
-    orders: orders.map(o => ({ id: o.id, kind: o.kind, date: o.date.toISOString().slice(0,10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone,
-      lines: publicLines(o.lines as unknown as InventoryLine[], false), priceCategory: "GENERAL" as const, freight: o.freight, delivery: o.delivery, channel: o.channel,
+  const canPriceOverride = canProducts && await checkPermission(ctx.user.role, ctx.user.staffId, "inventory.price.override");
+  const products = canProducts ? await prisma.inventoryProduct.findMany({ where: { storeId: ctx.storeId, active: true }, select: { id: true, name: true, price: true, stock: true, details: true }, orderBy: { name: "asc" }, take: 1000 }) : [];
+  return { store: { id: store.id, name: store.name, address: store.shopConfig?.address || "" }, canCreateCustomer, canChooseCustomer, canWrite, canCollect: canWrite && canCollect, canProducts, canPriceOverride, products:products.map(p=>({id:p.id,name:p.name,stock:p.stock,price:p.price,...productDetails(p.details)})), count, page,
+    orders: orders.map(o => ({ id: o.id, workOrderNumber:o.workOrderNumber, kind: o.kind, date: o.date.toISOString().slice(0,10), partyId: o.partyId, partyName: o.partyName, partyPhone: o.partyPhone,
+      lines: publicLines(o.lines as unknown as InventoryLine[], false), priceCategory: (o.priceCategory||"GENERAL") as PriceCategory, freight: o.freight, delivery: o.delivery, channel: o.channel,
       shippingNote: o.shippingNote, internalNote: "", total: o.total, paid: o.paid, revision: o.revision, workOrder: workOrderDetails(o.workOrder)! })) satisfies WorkOrderView[] };
 }
 export type WorkOrderData = Awaited<ReturnType<typeof workOrderData>>;
@@ -40,7 +41,7 @@ export async function saveWorkOrder(raw: unknown) {
   if (input.id && !existing) throw new AppError("NOT_FOUND","找不到工單");
   if (input.details.status !== (existing ? workOrderDetails(existing.workOrder)?.status : "PROCESSING")) throw new AppError("VALIDATION","請使用進度操作更新狀態");
   if (input.details.status === "COLLECTED") throw new AppError("BUSINESS_RULE","已取件工單不可更改內容；需要修改請先改回處理中");
-  return saveInventoryOrder(ctx, { requestId:input.requestId, id:input.id, revision:input.revision, kind:"SALE", date:input.date, partyId:input.partyId, priceCategory:"GENERAL",
+  return saveInventoryOrder(ctx, { requestId:input.requestId, id:input.id, revision:input.revision, kind:"SALE", date:input.date, partyId:input.partyId, priceCategory:input.priceCategory,
     lines:[...input.lines,{productId:LABOR_PRODUCT_ID,quantity:1,unitPrice:input.labor,discountMode:"NONE",discount:0,gift:false}], paid:existing?.paid || 0,
     method:"未付款", delivery:"自取", channel:"", freight:0, shippingNote:"", internalNote:existing?.internalNote || "", workOrder:input.details });
 }

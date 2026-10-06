@@ -3211,6 +3211,8 @@ model InventoryOrder {
   storeId String
   store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
   workOrder Json? // Canonical work-order metadata; amounts and stock remain this order.
+  workOrderNumber String?
+  workOrderSequence Int?
   kind String // SALE / PURCHASE
   date DateTime @db.Date
   partyId String
@@ -3232,6 +3234,7 @@ model InventoryOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([storeId, requestId])
+  @@unique([storeId, workOrderNumber])
   @@index([storeId, kind, date])
   @@index([storeId, kind, partyId])
 }
