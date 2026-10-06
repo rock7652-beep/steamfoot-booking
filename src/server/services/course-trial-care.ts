@@ -27,13 +27,13 @@ export async function runCourseTrialCare(now=new Date()) {
       if(!(await hasStoreFeature(setting.storeId,FEATURES.LINE_REMINDER)))continue;
       const rules=readTrialCareRules(setting.rules);
       const rows=await prisma.$queryRaw<Array<{id:string;customerId:string;completedAt:Date}>>`
-        SELECT b.id,b."customerId",a."createdAt" AS "completedAt" FROM "AuditLog" a
+        SELECT b.id,b."customerId",GREATEST(a."createdAt",s."endsAt") AS "completedAt" FROM "AuditLog" a
         JOIN "CourseBooking" b ON b.id=a."targetId" AND b."storeId"=a."storeId"
         JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
         WHERE a.module='COURSE' AND a.action='COURSE_TRIAL_CARE_COMPLETED' AND a."storeId"=${setting.storeId}
         AND a."createdAt">=${setting.activatedAt} AND s."startsAt">=${dayRange(toLocalDateStr(setting.activatedAt!)).start}
-        AND s."cancelledAt" IS NULL AND b."bookingKind"='TRIAL' AND b.status='ATTENDED' AND b."customerId" IS NOT NULL
-        ORDER BY a."createdAt", b.id`;
+        AND s."endsAt"<=${now} AND s."cancelledAt" IS NULL AND b."bookingKind"='TRIAL' AND b.status='ATTENDED' AND b."customerId" IS NOT NULL
+        ORDER BY "completedAt", b.id`;
       const seen=new Set<string>();
       for(const row of rows) {
         if(seen.has(row.customerId))continue;seen.add(row.customerId);

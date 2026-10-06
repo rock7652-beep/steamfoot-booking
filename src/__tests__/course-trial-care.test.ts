@@ -13,7 +13,7 @@ beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("VERCEL_ENV","production");m.setti
 it("never reads or sends from preview",async()=>{vi.stubEnv("VERCEL_ENV","preview");expect(await runCourseTrialCare(now)).toEqual({sent:0,skipped:0,failed:0});expect(m.settings).not.toHaveBeenCalled();});
 it("requires a post-activation course completion marker and rechecks its owner",async()=>{
  expect(await runCourseTrialCare(now)).toMatchObject({sent:1});
- const sql=m.rows.mock.calls[0][0].join("");expect(sql).toContain("COURSE_TRIAL_CARE_COMPLETED");expect(sql).toContain("b.status='ATTENDED'");expect(m.rows.mock.calls[0]).toContain(activatedAt);
+ const sql=m.rows.mock.calls[0][0].join("");expect(sql).toContain("COURSE_TRIAL_CARE_COMPLETED");expect(sql).toContain('GREATEST(a."createdAt",s."endsAt")');expect(sql).toContain('s."endsAt"<=');expect(sql).toContain("b.status='ATTENDED'");expect(m.rows.mock.calls[0]).toContain(activatedAt);
  expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:{id:"trial",storeId:"A",customerId:"c",bookingKind:"TRIAL",status:"ATTENDED"}}));
  expect(m.deliver).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:"A",person:expect.objectContaining({id:"c"})}));
 });
