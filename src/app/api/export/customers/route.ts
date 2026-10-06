@@ -88,7 +88,7 @@ export async function GET() {
     "Google 帳號",
     "LINE 名稱",
     "狀態",
-    "直屬店長",
+    "所屬店長",
     "有效方案",
     "剩餘堂數",
     "總預約數",

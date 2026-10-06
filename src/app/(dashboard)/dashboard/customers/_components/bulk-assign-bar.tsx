@@ -6,7 +6,7 @@ import { useState } from "react";
  * BulkAssignBar — 顧客列表底部 sticky 批次操作列
  *
  * 出現條件：selectedCount > 0
- * 動作：選擇一位直屬店長 → 「批次指派」→ window.confirm → 呼叫 onSubmit
+ * 動作：選擇一位所屬店長 → 「批次指派」→ window.confirm → 呼叫 onSubmit
  * 不負責 toast，由 parent 處理 onSubmit 的回傳結果
  */
 
@@ -29,7 +29,7 @@ interface Props {
   staffLabel?: string;
 }
 
-export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel, inlineConfirmation = false, staffLabel = "直屬店長" }: Props) {
+export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel, inlineConfirmation = false, staffLabel = "所屬店長" }: Props) {
   const [staffId, setStaffId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);

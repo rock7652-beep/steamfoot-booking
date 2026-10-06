@@ -106,9 +106,9 @@ export async function collectSinglePayment(
       throw new AppError("VALIDATION", "實收金額不可高於原價");
     }
 
-    // 營收歸屬（規格 #5）：booking.revenueStaffId 優先，再 fallback customer 直屬店長，
+    // 營收歸屬（規格 #5）：booking.revenueStaffId 優先，再 fallback customer 所屬店長，
     // 最後才用操作者本人。任何一條命中就停（不再 throw FORBIDDEN — SINGLE 不像
-    // 體驗客有「必須有直屬店長」的硬規則，店家可能臨櫃單收）。
+    // 體驗客有「必須有所屬店長」的硬規則，店家可能臨櫃單收）。
     const revenueStaffId =
       booking.revenueStaffId ??
       booking.serviceStaffId ??
@@ -117,7 +117,7 @@ export async function collectSinglePayment(
       (() => {
         throw new AppError(
           "FORBIDDEN",
-          "無法判定營收歸屬（顧客未指派直屬店長、操作者亦無 staff 身分）",
+          "無法判定營收歸屬（顧客未指派所屬店長、操作者亦無 staff 身分）",
         );
       })();
 

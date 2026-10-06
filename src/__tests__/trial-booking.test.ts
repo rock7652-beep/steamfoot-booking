@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //    任何 prisma.transaction.* / customerPlanWallet.* 會直接 throw → 測試會 fail）
 //  - 同店電話重複 → 沿用既有 Customer，不建第二筆
 //  - expectedAmount：未傳帶店家預設、allowEdit=false 強制預設、皆 clamp
-//  - 直屬店長：既有顧客「未指派」才補、已指派不覆蓋
+//  - 所屬店長：既有顧客「未指派」才補、已指派不覆蓋
 
 // 用 staging seed 風格的「非 cuid」ID，確保放寬後的 validator 接受真實既有 ID
 const CUID = {
@@ -340,7 +340,7 @@ describe("createTrialBooking — PR-3c people × expectedAmount", () => {
   });
 });
 
-describe("createTrialBooking — 直屬店長 no-overwrite", () => {
+describe("createTrialBooking — 所屬店長 no-overwrite", () => {
   it("sets assignedStaffId only when customer has none", async () => {
     h.custFindFirst.mockResolvedValue({ id: CUID.cust, assignedStaffId: null });
     h.custFindUnique.mockResolvedValue({ assignedStaffId: null });

@@ -17,7 +17,7 @@ export function TransferCustomerForm({ customerId, currentStaffId, staffList }: 
       const newStaffId = formData.get("newStaffId") as string;
       const result = await transferCustomer({ customerId, newStaffId });
       if (result.success) {
-        toast.success("已成功轉讓直屬店長");
+        toast.success("已成功轉讓所屬店長");
         setOpen(false);
         return { error: null };
       }
@@ -33,7 +33,7 @@ export function TransferCustomerForm({ customerId, currentStaffId, staffList }: 
         onClick={() => setOpen(true)}
         className="text-sm text-orange-600 hover:underline"
       >
-        轉讓直屬店長
+        轉讓所屬店長
       </button>
     );
   }

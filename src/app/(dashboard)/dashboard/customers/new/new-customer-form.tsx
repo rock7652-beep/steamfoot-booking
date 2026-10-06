@@ -115,7 +115,7 @@ export function NewCustomerForm({ isSpa, staffOptions, save, returnUrl }: {
               <FormSection title="系統關聯" description="可稍後再指派">
                 <div>
                   <label className={labelCls}>
-                    {isSpa ? "負責人員" : "直屬店長 / 教練"}
+                    {isSpa ? "負責人員" : "所屬店長 / 教練"}
                   </label>
                   <select name="assignedStaffId" value={draft.values.assignedStaffId} onChange={e => draft.set("assignedStaffId", e.target.value)} className={`mt-1 ${inputCls}`}>
                     <option value="">暫不指派</option>

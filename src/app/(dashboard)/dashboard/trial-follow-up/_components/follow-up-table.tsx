@@ -154,7 +154,7 @@ export function FollowUpTable({
     },
     {
       key: "staff",
-      header: "直屬店長",
+      header: "所屬店長",
       priority: "secondary",
       accessor: (row) =>
         row.assignedStaffName ? (
@@ -231,7 +231,7 @@ export function FollowUpTable({
 
         {staffOptions.length > 0 && (
           <div className="flex items-center gap-1.5">
-            <span className="text-earth-500">直屬店長：</span>
+            <span className="text-earth-500">所屬店長：</span>
             <select
               value={selectedStaffId ?? ""}
               onChange={(e) => updateParam("staff", e.target.value || null)}

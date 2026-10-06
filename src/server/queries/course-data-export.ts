@@ -24,7 +24,7 @@ export async function getCourseDataExport(storeId: string, type: DataExportType,
       WHERE b."storeId"=${storeId} AND b."customerId"=ANY(${ids}::text[]) AND b.status='ATTENDED'
       GROUP BY b."customerId"` : [];
     const byCustomer = new Map(visits.map(row => [row.customerId, row]));
-    return [{ name: COURSE_EXPORT_LABELS[type], headers: ["姓名", "電話", "Email", "直屬店長", "首次出席", "最近出席", "建立時間"], rows: rows.map(row => [row.name, row.phone, row.email, row.assignedStaff?.displayName ?? "未指派", stamp(byCustomer.get(row.id)?.first ?? null), stamp(byCustomer.get(row.id)?.last ?? null), stamp(row.createdAt)]) }];
+    return [{ name: COURSE_EXPORT_LABELS[type], headers: ["姓名", "電話", "Email", "所屬店長", "首次出席", "最近出席", "建立時間"], rows: rows.map(row => [row.name, row.phone, row.email, row.assignedStaff?.displayName ?? "未指派", stamp(byCustomer.get(row.id)?.first ?? null), stamp(byCustomer.get(row.id)?.last ?? null), stamp(row.createdAt)]) }];
   }
   if (type === "transactions") {
     const [orders, refunds, trialPayments] = await Promise.all([

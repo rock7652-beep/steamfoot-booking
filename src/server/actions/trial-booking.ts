@@ -70,7 +70,7 @@ export async function loadTrialBookingFormData(): Promise<
 //   - 體驗價來源 + clamp（getTrialSettings / clampTrialPrice）
 //   - 名額/營業日/值班檢查 + 建立 Booking（createBooking，FIRST_TRIAL + 無 wallet）
 //
-// 直屬店長：體驗客必填。決策2：既有顧客若「尚未」有直屬店長 → 補上；
+// 所屬店長：體驗客必填。決策2：既有顧客若「尚未」有所屬店長 → 補上；
 //   若「已有」→ 不覆蓋（避免誤改正式顧客歸屬）。
 // ============================================================
 
@@ -123,13 +123,13 @@ export async function createTrialBooking(
       throw new AppError("BUSINESS_RULE", "體驗單功能已停用，請洽店長於設定開啟");
     }
 
-    // 直屬店長驗證（同店、ACTIVE）
+    // 所屬店長驗證（同店、ACTIVE）
     const staff = await prisma.staff.findFirst({
       where: { id: data.assignedStaffId, status: "ACTIVE", storeId },
       select: { id: true },
     });
     mark("staff validation");
-    if (!staff) throw new AppError("NOT_FOUND", "指定直屬店長不存在或未啟用");
+    if (!staff) throw new AppError("NOT_FOUND", "指定所屬店長不存在或未啟用");
 
     // ── 1. 解析顧客：既有 or 快速建檔（去重，不建第二筆）
     let customerId: string;
@@ -194,7 +194,7 @@ export async function createTrialBooking(
     }
     mark("preserve trial customer name");
 
-    // ── 2. 直屬店長：僅在「尚未指派」時補上，不覆蓋既有歸屬
+    // ── 2. 所屬店長：僅在「尚未指派」時補上，不覆蓋既有歸屬
     const cust = await prisma.customer.findUnique({
       where: { id: customerId },
       select: { assignedStaffId: true },
@@ -367,7 +367,7 @@ export async function collectTrialPayment(
       (() => {
         throw new AppError(
           "FORBIDDEN",
-          "顧客尚未指派直屬店長，無法判定營收歸屬",
+          "顧客尚未指派所屬店長，無法判定營收歸屬",
         );
       })();
 

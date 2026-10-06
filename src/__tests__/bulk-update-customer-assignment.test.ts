@@ -1,5 +1,5 @@
 /**
- * bulkUpdateCustomerAssignment — 批次指派直屬店長
+ * bulkUpdateCustomerAssignment — 批次指派所屬店長
  *
  * 測試覆蓋：
  *  - validator 邊界（空 / 超量 / 非 cuid / 空 staffId）

@@ -16,7 +16,7 @@ import {
  * 顧客列表主表格 — 桌機版重構
  *
  * 對照 design/04-phase2-plan.md §2.4：統一用 `DataTable` primitive。
- * 主欄：顧客 / 系統通知 / 有效堂數 / 直屬店長 / 最近來店 / 備註
+ * 主欄：顧客 / 系統通知 / 有效堂數 / 所屬店長 / 最近來店 / 備註
  * 操作：查看（開 drawer）/ ＋指派（開 drawer + 展開方案區）
  *
  * 其他資訊（歸屬店長、推薦、點數、建立日、Email、LINE ID、身份診斷）統一收進 drawer。
@@ -125,7 +125,7 @@ export function CustomersTable({
   onCreate,
   stickyActions = true,
   hideAssignedStaff = false,
-  assignedStaffLabel = "直屬店長",
+  assignedStaffLabel = "所屬店長",
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));

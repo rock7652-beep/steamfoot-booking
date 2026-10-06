@@ -35,7 +35,7 @@ describe("data export Chinese labels", () => {
   });
 
   it("uses concise operational Excel columns without internal identifiers or sensitive fields", () => {
-    expect(DATA_EXPORT_HEADERS.customers).toEqual(["姓名", "電話", "Email", "所屬店別", "直屬店長／顧問", "首次到訪", "最近消費", "建立時間"]);
+    expect(DATA_EXPORT_HEADERS.customers).toEqual(["姓名", "電話", "Email", "所屬店別", "所屬店長／顧問", "首次到訪", "最近消費", "建立時間"]);
     expect(DATA_EXPORT_HEADERS.transactions).toEqual(expect.arrayContaining(["付款方式", "現金", "匯款", "LINE Pay", "信用卡", "實收金額", "交易狀態"]));
     expect(DATA_EXPORT_HEADERS.transactions).not.toContain("交易單號");
     expect(DATA_EXPORT_HEADERS.bookings).toEqual(expect.arrayContaining(["日期", "時段", "顧客", "服務類型", "預約狀態", "人數", "服務人員"]));

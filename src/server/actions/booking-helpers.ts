@@ -11,7 +11,7 @@
  *
  * 規則：
  *   - 快照來源**只能**是 `customer.assignedStaffId`（operator 透過顧客 drawer
- *     或批次指派 UI 明確設定的直屬店長）。
+ *     或批次指派 UI 明確設定的所屬店長）。
  *   - `customer.assignedStaffId = null` → `revenueStaffId = null`，代表「歸店家」。
  *     **不假裝補一位店長**讓數字看起來漂亮。
  *

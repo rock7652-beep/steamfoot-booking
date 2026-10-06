@@ -1,7 +1,7 @@
 /**
  * Booking.revenueStaffId 快照規則 — PR-1.5a 鎖定測試
  *
- * 背景：prod audit (#125) 確認顧客直屬店長已 100% 覆蓋有 booking 的顧客，
+ * 背景：prod audit (#125) 確認顧客所屬店長已 100% 覆蓋有 booking 的顧客，
  * 但歷史 23 筆 booking 的 revenueStaffId 全為 null（建立時顧客還沒指派）。
  * 未來新 booking 應該以 customer.assignedStaffId 為快照來源。
  *

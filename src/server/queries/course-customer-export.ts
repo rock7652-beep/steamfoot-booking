@@ -25,7 +25,7 @@ export async function getCourseCustomerCsv(storeId: string, access: {cards: bool
     GROUP BY b."customerId"` : [];
   const now = new Date();
   const stages:Record<string,string>={LEAD:"名單",TRIAL:"體驗",ACTIVE:"已購課",INACTIVE:"已停用"};
-  const rows: Array<Array<string|number>> = [["姓名","電話","Email","LINE名稱","狀態","直屬店長","地址","緊急聯絡人","緊急聯絡電話","一般備註","方案（逐卡：剩餘／占用／可用／到期）","可用點數（共卡不可跨人加總）","可用堂數（共卡不可跨人加總）","未取消預約人次","完成出席人次","最近上課","建立日期"]];
+  const rows: Array<Array<string|number>> = [["姓名","電話","Email","LINE名稱","狀態","所屬店長","地址","緊急聯絡人","緊急聯絡電話","一般備註","方案（逐卡：剩餘／占用／可用／到期）","可用點數（共卡不可跨人加總）","可用堂數（共卡不可跨人加總）","未取消預約人次","完成出席人次","最近上課","建立日期"]];
   for (const c of customers) {
     const memberCards = cards.filter(card=>card.members.some(m=>m.customerId===c.id));
     const balances = memberCards.map(card=>{
