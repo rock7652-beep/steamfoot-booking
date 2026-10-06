@@ -23,6 +23,7 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
     operationGuidePreview: true,
+    cashDrawerStoreId: selected && permissions.includes("cashDrawer.read") ? selected : undefined,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
     storeOptions: [{id: "a", name: "店 A", isDefault: true}], activeStoreId: selected,
     effectiveFeatures: Object.fromEntries(Object.values(FEATURES).map(key => [key, true])),
@@ -32,6 +33,12 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
 }
 
 describe("actual HQ shell rendering", () => {
+  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("puts cash first in the %s header (music=%s)", (module, music) => {
+    const html = render(module, "a", "/hq/dashboard", music);
+    expect(html.indexOf("現金抽屜")).toBeGreaterThan(0);
+    expect(html.indexOf("現金抽屜")).toBeLessThan(html.indexOf('aria-label="預覽工具"'));
+    expect(render(module, null)).not.toContain("現金抽屜");
+  });
   it.each(["steamfoot", "spa", "course"] as const)("keeps the store guide available when HQ enters %s", module => {
     const html = render(module, "a", "/hq/dashboard/bookings");
     expect(html).toContain('data-guide-enabled="true"');

@@ -1,3 +1,4 @@
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { isHqPlatformPath } from "@/lib/hq-navigation";
 import { FeaturePresentationProvider } from "@/components/feature-presentation";
 import { CustomerLabelsProvider } from "@/components/customer-labels";
@@ -192,6 +193,7 @@ export default async function DashboardLayout({
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
     <DashboardShell
+      cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
       isOwner={isOwnerLevel}

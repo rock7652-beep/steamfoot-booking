@@ -123,3 +123,10 @@
 - 原有 panel reader 的 pointer/focus/touch、在途去重、TTL 0、失敗重試、關閉/換店晚到隔離、成功寫入後失效保留。僅修改讀取傳輸，儲存/刪除仍走既有 server actions；本輪不聲稱消除寫入後必要的頁面更新。
 - 本機8組155項測試通過；前版遠端全量71失敗與 #1208 清單相同、沒有新增失敗，Workers Build 在 main 亦失敗但尚無詳細根因。新 head CI 與預覽另行核對，不能沿用前版結果當作新 head 通過。
 - 未修改視窗外框、字級與欄位尺寸；受影響入口為預約管理 QuickCashbook（HQ/門市）。登入瀏覽器觀察受 credentials protection 阻擋，不繞過；新傳輸的桌機/iPad真實操作、首次/重開/儲存後更新耗時與 RSC 重讀是否消除仍待新版實測。不合併正式站。
+
+## 2026-10-06 現金抽屜上方入口
+
+- 四模組共用後台的現金抽屜在原頁開啟 modal，沿用既有 cash-drawer server page/workspace、查詢與 actions；不複製金融計算或建立 JSON 金額快取。視窗外框先顯示，完整 workspace 每次開啟重新權威讀取。
+- 嵌入路由攜帶預期門市，server 核對目前授權門市後才讀金額；仍檢查 cashDrawer.read、功能開通、成本查看及各寫入權限。切門市 keyed unmount；表單成功只更新嵌入文件，保留外層草稿。
+- host 通訊僅送狀態／dirty／busy，檢查同 origin、frame source 與 storeId；送出中不關閉，未儲存須確認。iframe 內嵌確認視窗的 Escape 由既有視窗處理。關閉後不快取 workspace。
+- 使用 native modal 保留跨 frame 焦點限制。初次讀取逾時可原視窗重試；桌機／iPad 登入觀察仍受 credentials protection 限制，不宣稱真機或完整金融操作驗收。

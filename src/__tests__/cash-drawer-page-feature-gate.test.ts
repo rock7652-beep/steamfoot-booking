@@ -16,8 +16,12 @@ const mockRedirect = vi.fn((href: string) => {
 });
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({replace: vi.fn()}),
   redirect: (href: string) => mockRedirect(href),
 }));
+
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "steamfoot" }));
 
 vi.mock("@/lib/session", () => ({
   getCurrentUser: () => mockGetCurrentUser(),
@@ -83,7 +87,7 @@ vi.mock("@/components/desktop", () => ({
 }));
 
 vi.mock("@/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace", () => ({
-  CashDrawerWorkspace: () => React.createElement("section", null, "cash drawer workspace"),
+  CashDrawerWorkspace: (props: {returnPath: string; canOpen: boolean; canClose: boolean}) => React.createElement("section", {"data-return-path": props.returnPath, "data-can-open": String(props.canOpen), "data-can-close": String(props.canClose)}, "cash drawer workspace"),
 }));
 
 import CashDrawerPage from "@/app/(dashboard)/dashboard/cash-drawer/page";
@@ -119,5 +123,28 @@ describe("CashDrawerPage feature gate", () => {
     expect(html).toContain("現金抽屜尚未開通");
     expect(html).toContain("請聯絡總部加購或升級方案");
     expect(html).toContain("返回儀表板");
+  });
+});
+
+
+describe("cash drawer embedded store boundary", () => {
+  it("does not query amounts after the active store changes", async () => {
+    const html = renderToStaticMarkup(await CashDrawerPage({searchParams: Promise.resolve({cashDrawerPanel: "1", panelStoreId: "another-store"})}));
+    expect(html).toContain("店家已切換");
+    expect(mockGetCashDrawerView).not.toHaveBeenCalled();
+  });
+  it("keeps successful writes inside the selected store panel and preserves separate grants", async () => {
+    mockCheckPermission.mockImplementation(async (_role, _staff, permission) => permission !== "cashDrawer.close");
+    const html = renderToStaticMarkup(await CashDrawerPage({searchParams: Promise.resolve({cashDrawerPanel: "1", panelStoreId: "store-1", panelPrefix: "/hq"})}));
+    expect(html).toContain('data-return-path="/hq/dashboard/cash-drawer?cashDrawerPanel=1');
+    expect(html).toContain('data-can-open="true"');
+    expect(html).toContain('data-can-close="false"');
+    expect(html).not.toContain("查看收支明細");
+  });
+  it("rejects denied read permission without loading financial data", async () => {
+    mockCheckPermission.mockResolvedValue(false);
+    const html = renderToStaticMarkup(await CashDrawerPage({searchParams: Promise.resolve({cashDrawerPanel: "1", panelStoreId: "store-1"})}));
+    expect(html).toContain("沒有查看現金抽屜的權限");
+    expect(mockGetCashDrawerView).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
 import { PreviewToolsMenu } from "./preview-tools-menu";
 import { resolveNavigationAccess } from "@/lib/navigation-access";
+import { CashDrawerShortcut } from "./cash-drawer-shortcut";
 import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
@@ -630,6 +631,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   operationGuidePreview?: boolean;
   industryModule?: IndustryModuleId;
@@ -663,6 +665,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  cashDrawerStoreId,
   musicEnabled=false,
   operationGuidePreview = false,
   industryModule = "steamfoot",
@@ -1090,6 +1093,8 @@ export default function DashboardShell({
     return <div className="min-h-dvh bg-earth-50">{children}</div>;
   }
 
+  if (pathname === "/dashboard/cash-drawer" && searchParams.get("cashDrawerPanel") === "1") return <div className="min-h-dvh bg-earth-50">{children}</div>;
+
   return (
     <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
@@ -1200,8 +1205,11 @@ export default function DashboardShell({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            <div className="flex shrink-0 items-center gap-1">
+            {!isHqPlatformView && !isIframePreview && cashDrawerStoreId && <CashDrawerShortcut key={cashDrawerStoreId} storeId={cashDrawerStoreId} prefix={dashboardPrefix} />}
             <OperationGuideTrigger />
             <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={isHqPlatformView ? undefined : activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />
+            </div>
             {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
