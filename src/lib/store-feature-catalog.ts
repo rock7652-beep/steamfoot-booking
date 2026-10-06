@@ -43,7 +43,7 @@ export type StoreFeatureDisplayState = {
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "完整單店試用內含；一般方案需另行開通。依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
   { key: FEATURES.DEVICE_PREVIEW, label: "裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
-  { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
+  { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "三個付費方案皆內含，不占選配名額。全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
   {
     // Full single-store trials include Digital Butler; paid plans still
     // require an explicit HQ grant. Conversation activation remains separate.
@@ -62,7 +62,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.LINE_REMINDER,
     label: "LINE 提醒",
     module: "顧客",
-    description: "預約提醒規則與 LINE 訊息發送。",
+    description: "三個付費方案皆內含，不占選配名額。預約提醒規則與 LINE 訊息發送；LINE 訊息等外部費用另計。",
   },
   {
     key: FEATURES.MEMBER_PORTAL,
@@ -94,6 +94,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     module: "營運",
     description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
   },
+  { key: FEATURES.INVENTORY, label: "進銷存管理", module: "營運", description: "商品、進貨、銷貨與庫存管理。基本版加購 NT$800／月；專業版使用 1 個經營功能選配名額，超出可加購；展店版內含。隱藏或鎖定保留資料。" },
   {
     key: FEATURES.DATA_EXPORT,
     label: "資料匯出",
