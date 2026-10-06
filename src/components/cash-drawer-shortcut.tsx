@@ -44,6 +44,7 @@ export function CashDrawerShortcut({ storeId, prefix }: { storeId: string; prefi
   function close() {
     if (busy.current) return;
     if (dirty.current && !window.confirm("尚未儲存，確定要關閉現金抽屜嗎？")) return;
+    dialog.current?.close();
     setOpen(false);
   }
   useEffect(() => {

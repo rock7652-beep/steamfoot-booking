@@ -8,6 +8,7 @@ let host: HTMLDivElement, root: Root;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   act(() => root.render(createElement("div", null,
     createElement("input", { defaultValue: "背景草稿", "aria-label": "備註" }),
