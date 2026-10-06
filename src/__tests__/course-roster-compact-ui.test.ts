@@ -83,7 +83,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   expect(host.textContent).not.toContain("發補課券");
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="標籤與備註")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="編輯本堂備註")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="編輯本次備註")!.click());
   const save=[...host.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -337,7 +337,7 @@ it('groups trial payment with identity and separates full usual and class notes'
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:'density',capacity:10,canCreate:false,canEdit:true})));
   const row=host.querySelector('li')!;
   expect(row.children[0].textContent).toContain('體驗');expect(row.children[0].textContent).toContain('待收 $350');
-  expect(row.textContent).toContain('平時：');expect(row.textContent).toContain('本堂：');
+  expect(row.textContent).toContain('店內備註：');expect(row.textContent).toContain('本次備註：');
   expect(host.textContent).not.toContain('已預約');expect(host.textContent).not.toContain('取消整堂課');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="示範學員 標籤與備註"]')!.click());
   expect(host.querySelector('[role="dialog"]')?.textContent).toContain('長期提醒完整文字，膝蓋不適避免深蹲');

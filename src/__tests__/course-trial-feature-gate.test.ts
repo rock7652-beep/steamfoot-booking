@@ -17,29 +17,29 @@ describe("course trial availability", () => {
     m.store.mockResolvedValue({ plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
     expect(await hasStoreFeature("test-store", FEATURES.FRONTEND_PREVIEW)).toBe(true);
     expect(await getStoreFeaturePresentation("test-store", FEATURES.FRONTEND_PREVIEW)).toBe("ENABLED");
-    expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(false);
+    expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(true);
     for (const status of ["LOCKED", "HIDDEN"]) {
       m.entitlement.mockResolvedValue({ status, startsAt: null, expiresAt: null });
       expect(await hasStoreFeature("test-store", FEATURES.FRONTEND_PREVIEW)).toBe(false);
     }
   });
-  it("opens single-store features while keeping headquarters and multi-store features closed", async () => {
+  it("opens all trial features including headquarters and multi-store", async () => {
     for (const feature of [FEATURES.CASHBOOK, FEATURES.CUSTOMER_CARE]) expect(await hasStoreFeature("test-store", feature)).toBe(true);
-    expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(false);
+    expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(true);
     await expect(requireStoreFeature("test-store", FEATURES.CASHBOOK)).resolves.toBeUndefined();
   });
   it("honors an explicit active HQ grant for multi-store access", async () => {
     m.entitlement.mockResolvedValue({status:"ENABLED",startsAt:null,expiresAt:null});
     expect(await hasStoreFeature("test-store",FEATURES.MULTI_STORE)).toBe(true);
     m.entitlement.mockResolvedValue({status:"ENABLED",startsAt:new Date("2100-01-01"),expiresAt:null});
-    expect(await hasStoreFeature("test-store",FEATURES.MULTI_STORE)).toBe(false);
+    expect(await hasStoreFeature("test-store",FEATURES.MULTI_STORE)).toBe(true);
   });
   it("shares full single-store trial access with Steamfoot and SPA", async () => {
     for (const industry of ["steamfoot", "spa"]) {
       m.industry.mockResolvedValue(industry);
       expect(await hasStoreFeature("test-store", FEATURES.CASHBOOK)).toBe(true);
       expect(await hasStoreFeature("test-store", FEATURES.FRONTEND_PREVIEW)).toBe(true);
-      expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(false);
+      expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(true);
     }
   });
   it("does not unlock paid plans or unrecognized features", async () => {

@@ -2,9 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { FEATURES, hasFeature, PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import { hasFeature, PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
-import { isSingleStoreFeature, isSingleStoreTrial } from "@/lib/single-store-trial";
+import { isSingleStoreTrial } from "@/lib/single-store-trial";
 import type { FeatureKey } from "@/lib/feature-flags";
 import {
   MANAGEABLE_STORE_FEATURES,
@@ -72,7 +72,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   const trialNotStarted = store.plan === "EXPERIENCE" && store.industryModule === "COURSE" &&
     !store.planEffectiveAt && !store.planExpiresAt;
   const availableCount = [...featureAccess.values()].filter(Boolean).length;
-  const singleStoreCount = MANAGEABLE_STORE_FEATURES.filter((feature) => isSingleStoreFeature(feature.key)).length;
+  const singleStoreCount = MANAGEABLE_STORE_FEATURES.length;
 
   const entitlements = new Map(
     store.featureEntitlements.map((entitlement) => [
@@ -112,17 +112,17 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
         <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
           <Metric label="目前方案" value={PRICING_PLAN_INFO[store.plan].label} />
           <Metric label="實際授權" value={`${availableCount} 項`} />
-          <Metric label="單店功能" value={`${singleStoreCount} 項`} />
+          <Metric label="試用功能" value={`${singleStoreCount} 項`} />
           <Metric label="試用計時" value={trialNotStarted ? "尚未開始" : store.planExpiresAt ? (store.planExpiresAt < new Date() ? "已到期" : "已開始") : "不適用"} />
         </div>
       </div>
 
       {fullSingleStoreAccess && (
         <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          <p className="font-medium">{trialNotStarted ? "課程體驗店功能已授權，30 天試用尚未起算" : "完整單店試用權限已開放"}</p>
-          <p className="mt-1 text-xs">功能授權不等於外部服務已設定。LINE 入口、提醒規則與實際發送仍須逐項驗收；多店功能不包含在單店試用內。</p>
+          <p className="font-medium">{trialNotStarted ? "課程體驗店功能已授權，30 天試用尚未起算" : "完整功能試用權限已開放"}</p>
+          <p className="mt-1 text-xs">功能授權不等於外部服務已設定。LINE 入口、提醒規則與實際發送仍須逐項驗收；包含母子店與展店功能，預設可串接一家分店。</p>
           {!store.lineDestination && <p className="mt-1 text-xs font-medium">此店尚未設定 LINE 導流入口。</p>}
-          <p className="mt-1 text-xs">試用保留完整單店授權；隱藏／鎖定依總部設定生效，既有資料保留。</p>
+          <p className="mt-1 text-xs">試用保留完整功能授權；隱藏／鎖定依總部設定生效，既有資料保留。</p>
         </div>
       )}
 
@@ -142,7 +142,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
 
       <FeatureEntitlementList storeId={store.id} categories={[...STORE_FEATURE_CATEGORIES]} rows={MANAGEABLE_STORE_FEATURES.map(feature => {
                   const entitlement = entitlements.get(feature.key) ?? null;
-                  const trialAllowed = fullSingleStoreAccess && isSingleStoreFeature(feature.key) && feature.key !== FEATURES.WORK_ORDERS;
+                  const trialAllowed = fullSingleStoreAccess;
                   const baseAllowed = trialAllowed || hasFeature(store.plan, feature.key);
                   const ordinaryState = resolveStoreFeatureDisplayState(
                     store.plan,
@@ -155,7 +155,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                     effectiveAllowed: featureAccess.get(feature.key) === true,
                     statusLabel: "試用授權",
                     statusClass: "bg-blue-50 text-blue-700",
-                    sourceLabel: "單店試用規則",
+                    sourceLabel: "完整功能試用規則",
                   } : { ...ordinaryState, effectiveAllowed: featureAccess.get(feature.key) === true };
                   const requiresLineSetup = feature.key === "line_reminder" || feature.key === "digital_butler" || feature.key === "member_portal";
 

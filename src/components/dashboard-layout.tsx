@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import { CourseSetupGuide } from "@/components/admin/course-setup-guide";
+import { getCourseSetup } from "@/server/queries/course-setup";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { isHqPlatformPath } from "@/lib/hq-navigation";
 import { FeaturePresentationProvider } from "@/components/feature-presentation";
@@ -246,9 +249,16 @@ export default async function DashboardLayout({
       }
     >
       <PreviewNavigationReporter />
-      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{children}</CustomerLabelsProvider>
+      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
+      {children}</CustomerLabelsProvider>
     </DashboardShell>
     </FeaturePresentationProvider>
     </OperationScope>
   );
+}
+
+async function CourseSetupProgress({storeId,userId}:{storeId:string;userId:string}) {
+  let setup:Awaited<ReturnType<typeof getCourseSetup>>|null=null;
+  try { setup=await getCourseSetup(storeId,userId); } catch { /* Daily operations remain accessible if progress cannot load. */ }
+  return setup ? <CourseSetupGuide key={storeId} {...setup}/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
 }

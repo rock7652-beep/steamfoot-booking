@@ -33,6 +33,17 @@ export function scheduleOnDate<T extends ScheduleSession>(sessions: T[], date: s
   return sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === date);
 }
 
+/** Historical slots remain visible; only live slots contribute to class totals. */
+export function scheduleMonthSummary<T extends ScheduleSession>(sessions: T[], month: string) {
+  const records = sessions.filter(session => toLocalDateStr(new Date(session.startsAt)).startsWith(month));
+  return {
+    records,
+    totals: scheduleTotals(records),
+    changes: records.filter(session => session.previewFaded).length,
+    activeDays: new Set(records.filter(session => !session.previewFaded).map(session => toLocalDateStr(new Date(session.startsAt)))).size,
+  };
+}
+
 export function slotDecision(
   sessions: ScheduleSession[],
   target: { startsAt: string; endsAt: string; roomId: string; coachId: string; fixed: boolean; restoringId?: string },

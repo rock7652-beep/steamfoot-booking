@@ -52,9 +52,11 @@ const field =
 type RosterView = "roster" | "member-booking" | "trial-booking";
 
 type RosterBooking = Awaited<ReturnType<typeof getCourseRoster>>[number];
-function RosterReminders({booking,canEdit,onOpen}:{booking:RosterBooking;canEdit:boolean;onOpen:()=>void}) {
-  return <RosterNotes customerId={booking.customerId??undefined} name={booking.customerName} readOnly={!canEdit}
-    notes={[{label:"平時",value:booking.serviceNote},{label:"本堂",value:booking.notes,emphasis:true}]} onOpen={onOpen} />;
+function RosterReminders({booking,canEdit,onOpen,onEdit}:{booking:RosterBooking;canEdit:boolean;onOpen:()=>void;onEdit:()=>void}) {
+  return <div className="min-w-0"><RosterNotes customerId={booking.customerId??undefined} name={booking.customerName} readOnly={!canEdit}
+    notes={[{label:"店內備註",value:booking.serviceNote},{label:"本次備註",value:booking.notes,emphasis:true}]} onOpen={onOpen} />
+    {canEdit && booking.status !== "CANCELLED" && <button type="button" className="min-h-11 text-sm text-primary-700" aria-label={`${booking.customerName} 本次備註`} onClick={onEdit}>{booking.notes?.trim() ? "編輯本次備註" : "＋本次備註"}</button>}
+  </div>;
 }
 
 function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof getCourseRoster>>[number] }) {
@@ -299,10 +301,10 @@ export function CourseRoster({
   ) {
     if (teacherStatus) { setStatusFilter("all"); setRetainedRows([]); setSelected([]); }
     const updates = optimistic ? Array.isArray(optimistic) ? optimistic : [optimistic] : [];
-    const quickAttendance = view === "roster" && musicLayout && updates.length === 1 && !teacherStatus;
+    const quickAttendance = view === "roster" && updates.length === 1 && !teacherStatus;
     const bookingId = quickAttendance ? updates[0].bookingId : null;
     if (mutationLock.current || uncertain ||
-        (bookingId ? quickInFlight.current.has(bookingId) : quickInFlight.current.size > 0)) return;
+        (bookingId ? quickInFlight.current.has(bookingId) || !musicLayout && quickInFlight.current.size > 0 : quickInFlight.current.size > 0)) return;
     if (bookingId) {
       quickInFlight.current.add(bookingId);
       setSavingBookingIds([...quickInFlight.current]);
@@ -340,8 +342,7 @@ export function CourseRoster({
         }));
       }
     };
-    if (bookingId) flushSync(applyOptimisticRoster);
-    else applyOptimisticRoster();
+    flushSync(applyOptimisticRoster);
     updates.forEach(item => onAttendanceOptimistic?.(item.bookingId, item.status, Boolean(item.absenceKind)));
     if (teacherStatus) {
       setSession(old => old ? { ...old, teacherAttendance: teacherStatus } : old);
@@ -350,7 +351,7 @@ export function CourseRoster({
 
     const rollback = () => {
       if (updates.length) {
-        if (bookingId && previousRow) {
+        if (bookingId && previousRow && musicLayout) {
           setRoster(rows => rows.map(row => row.id === bookingId ? previousRow : row));
         } else {
           setRoster(previous);
@@ -1182,7 +1183,7 @@ export function CourseRoster({
 
 
                 </div>
-                <div className="min-w-[14rem] flex-1 lg:order-1"><RosterReminders booking={booking} canEdit={canEdit} onOpen={()=>setInfoBookingId(booking.id)} /></div>
+                <div className="min-w-[14rem] flex-1 lg:order-1"><RosterReminders booking={booking} canEdit={canEdit} onOpen={()=>setInfoBookingId(booking.id)} onEdit={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}} /></div>
                 {savingBookingIds.includes(booking.id) && <span className="self-center whitespace-nowrap text-xs text-primary-700" role="status">儲存中…</span>}
                 {canEdit && <div className={`flex min-w-0 gap-1 ${largeMusicGroup ? "ml-auto flex-wrap justify-end lg:order-1 lg:flex-nowrap lg:shrink-0" : "ml-auto flex-wrap"}`}>
 
@@ -1220,7 +1221,7 @@ export function CourseRoster({
         </div>
       ) : <div className="min-h-0 flex-1 overflow-auto overscroll-contain rounded-xl border border-earth-200 [overflow-anchor:none]" aria-label="學員名單捲動區" tabIndex={0}>
         <div className="grid min-w-[960px] grid-cols-[minmax(20rem,2fr)_6rem_5rem_5rem_minmax(16rem,2fr)_3rem] items-center gap-2 sticky top-0 z-10 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
-          <span>學員／電話</span><span>所屬店長</span><span className="text-center">本堂點數</span><span className="text-center">課後剩餘</span><span>標籤／備註</span><span />
+          <span>學員／電話</span><span>所屬店長</span><span className="text-center">本堂點數</span><span className="text-center">本方案課後剩餘</span><span>標籤／備註</span><span />
         </div>
         <ul className="min-w-[960px] divide-y divide-earth-100">
           {searchedRows.map(booking => {
@@ -1241,7 +1242,7 @@ export function CourseRoster({
               <span className="text-xs text-earth-600">{booking.assignedCoachName || ""}</span>
               <span className="text-center tabular-nums">{booking.bookingKind === "TRIAL" ? "" : booking.bookingKind === "TEACHER_MAKEUP" ? "免費券" : <>{booking.pointCost}{booking.unit === "SESSION" && <span className="ml-1 text-xs">堂</span>}</>}</span>
               <span className={`text-center tabular-nums ${after != null && after <= 0 ? "text-amber-700" : ""}`} title="本堂全部共卡預約扣點後的餘額；其他堂預約尚未扣點">{after == null ? "" : after < 0 ? "不足" : after}</span>
-              <RosterReminders booking={booking} canEdit={canEdit} onOpen={()=>setInfoBookingId(booking.id)} />
+              <RosterReminders booking={booking} canEdit={canEdit} onOpen={()=>setInfoBookingId(booking.id)} onEdit={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}} />
               {canEdit && <button type="button" className="min-h-11 min-w-11 rounded text-earth-600 hover:bg-earth-100" aria-label={`${booking.customerName} 更多操作`} aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event => toggleRosterMenu(event.currentTarget,booking.id)}>⋯</button>}
             </li>;
           })}
@@ -1252,7 +1253,7 @@ export function CourseRoster({
 
 
 
-      {infoBookingId && (()=>{const booking=roster.find(row=>row.id===infoBookingId);if(!booking)return null;return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={`${booking.customerName} 標籤與備註`}><div className="max-h-[85dvh] w-full max-w-lg space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-xs text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-xs text-earth-500">平時備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-xs text-earth-500">本堂備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本堂備註</button>}<button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></div>;})()}
+      {infoBookingId && (()=>{const booking=roster.find(row=>row.id===infoBookingId);if(!booking)return null;return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={`${booking.customerName} 標籤與備註`}><div className="max-h-[85dvh] w-full max-w-lg space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-xs text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-xs text-earth-500">店內備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-xs text-earth-500">本次備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}<button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></div>;})()}
 
       {paymentMenu && (() => {
         const booking = roster.find(row => row.id === paymentMenu);
@@ -1409,9 +1410,9 @@ export function CourseRoster({
         </div>
       )}
 
-      {editingNote && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label={`${editingNote.name}備註`}>
+      {editingNote && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label={`${editingNote.name}${editingNote.bookingId ? "本次備註" : "教師備註"}`}>
         <form className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft}),"備註已儲存");setEditingNote(null);}}>
-          <h3 className="text-lg font-semibold">{editingNote.name} · 備註</h3>
+          <h3 className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : "教師備註"}</h3>
           <textarea autoFocus className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
           <div className="mt-4 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton} disabled={pending}>儲存</button></div>
         </form>

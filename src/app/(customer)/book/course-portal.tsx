@@ -10,6 +10,7 @@ import { getCourseCards } from "@/server/queries/course-members";
 import { CoursePortalClient } from "./course-portal-client";
 import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
+import { getNativeHealthSummary } from "@/lib/native-health-service";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
 import { personalIncomeAccess } from "@/server/services/course-personal-income";
@@ -76,7 +77,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       where: { storeId, date: { gte: range.start, lte: range.end } },
       select: { date: true, type: true },
     }),
-    access ? Promise.resolve(false) : hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
+    hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
     prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
     access ? Promise.resolve(null) : personalIncomeAccess(user.id, storeId),
   ]);
@@ -422,6 +423,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       confirmedAt: o.confirmedAt?.toISOString() ?? null,
     })),
     healthCount,
+    previewHealthSummary: access && memberEnabled && healthEnabled ? await getNativeHealthSummary(customer.id, storeId) : null,
     health: health.map((h) => ({
       id: h.id,
       measuredAt: h.measuredAt.toISOString().slice(0, 10),
@@ -441,5 +443,5 @@ export type CoursePortalData = Awaited<ReturnType<typeof loadCoursePortal>>;
 export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
   const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
   const data = await loadCoursePortal(selectedDate?.slice(0,7) ?? month);
-  return <CoursePortalClient key={data.rolePreferenceKey} {...data} initialDate={selectedDate} initialCoach={view === "work"} initialView={view === "work" ? "schedule" : view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
+  return <CoursePortalClient key={data.rolePreferenceKey} {...data} initialDate={selectedDate} initialCoach={view === "work"} initialView={view === "work" ? "schedule" : view === "bookings" ? "bookings" : view === "plans" ? "plans" : view === "shop" ? "shop" : view === "schedule" ? "schedule" : "home"} />;
 }

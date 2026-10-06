@@ -9,12 +9,12 @@ export function courseSetupCookieName(storeId:string,userId:string) {
 }
 export async function getCourseSetup(storeId:string,userId:string) {
   const [coaches,rooms,templates,plans,sessions,staff] = await Promise.all([
-    prisma.staff.count({where:{storeId,status:"ACTIVE",courseCoachEnabled:true,user:{status:"ACTIVE"}}}),
+    prisma.staff.count({where:{storeId,status:"ACTIVE",courseCoachEnabled:true}}),
     coursePrisma.courseRoom.count({where:{storeId,isActive:true}}),
     coursePrisma.courseTemplate.count({where:{storeId,isActive:true,visibility:{not:"OFF"}}}),
     coursePrisma.coursePointPlan.count({where:{storeId,isActive:true}}),
     coursePrisma.courseSession.count({where:{storeId,cancelledAt:null,releasedAt:null}}),
-    prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true,courseQualificationsConfirmed:true,user:{status:"ACTIVE"}},select:{courseQualifiedTemplateIds:true}}),
+    prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true,courseQualificationsConfirmed:true},select:{courseQualifiedTemplateIds:true}}),
   ]);
   const activeTemplates=await coursePrisma.courseTemplate.findMany({where:{storeId,isActive:true,visibility:{not:"OFF"}},select:{id:true}});
   const ids=new Set(activeTemplates.map(t=>t.id));

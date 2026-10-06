@@ -24,6 +24,12 @@ export function defaultTrialCareRules(): TrialCareRule[] {
     { enabled: false, days: 10, time: "10:00", body: "{{customerName}} 您好，{{storeName}} 想再邀請您回來坐坐。若想了解目前的方案或優惠，歡迎與我們聊聊。期待有機會再次服務您。" },
   ];
 }
+export function defaultCourseTrialCareRules(): TrialCareRule[] {
+  const rules = defaultTrialCareRules();
+  rules[1].body = "{{customerName}} 您好，還記得上次在 {{storeName}} 的體驗課嗎？如果想繼續上課，歡迎了解適合您的課程方案。有任何問題，我們很樂意協助。";
+  rules[2].body = "{{customerName}} 您好，{{storeName}} 想再邀請您回來上課。若想了解目前的課程方案，歡迎與我們聊聊。期待再次見到您。";
+  return rules;
+}
 export function readTrialCareRules(value: unknown): TrialCareRule[] {
   return trialCareRulesSchema.parse(value);
 }

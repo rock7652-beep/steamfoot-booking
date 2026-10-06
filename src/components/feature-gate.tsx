@@ -68,7 +68,7 @@ function UpgradeCard({ feature }: { feature: FeatureKey }) {
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <a
           href={addon?.href ?? "/pricing"}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
         >
           {addon ? "查看加購費用" : gateCopy.primaryCta}
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -77,7 +77,7 @@ function UpgradeCard({ feature }: { feature: FeatureKey }) {
         </a>
         <a
           href={addon ? `/pricing/features#${feature === "inventory" ? "inventory" : "work-orders"}` : "/pricing"}
-          className="inline-flex items-center rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
+          className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
         >
           {addon ? "查看功能說明" : gateCopy.secondaryCta}
         </a>
@@ -220,7 +220,6 @@ export function TrialLimitModal({
           ))}
         </ul>
 
-        {addon && <p className="mt-2 text-sm leading-6 text-earth-600">{addon.retention}</p>}
         <div className="mt-5 space-y-2">
           <div className="flex gap-2">
             <a
@@ -491,7 +490,7 @@ export function LockedNavItem({
       <button
         type="button"
         onClick={() => setShowPrompt(true)}
-        className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-earth-400 transition-colors hover:bg-earth-50 ${
+        className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-earth-400 transition-colors hover:bg-earth-50 ${
           collapsed ? "justify-center" : ""
         }`}
         title={collapsed ? label : undefined}

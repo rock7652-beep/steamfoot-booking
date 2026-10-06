@@ -7,7 +7,7 @@
  * 唯一方案分級系統，綁定 Store.plan。
  */
 
-import { isSingleStoreTrial, isSingleStoreFeature, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
+import { isSingleStoreTrial, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
 import type { PricingPlan, Store } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 
@@ -75,8 +75,8 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 // ============================================================
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
-  // Full single-store trial, shared by every industry (multi-store is excluded).
-  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.WORK_ORDERS && isSingleStoreFeature(feature)),
+  // Full trial includes expansion features; role permissions still apply.
+  EXPERIENCE: Object.values(FEATURES),
   BASIC: [
     "line_reminder",
     "device_preview",
@@ -189,7 +189,7 @@ export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
     maxMonthlyBookings: 100,
     maxMonthlyReports: 0,
     maxReminderSends: 50,
-    maxStores: 1,
+    maxStores: 2,
   },
   BASIC: {
     maxStaff: 5,
@@ -303,7 +303,7 @@ export function getPlanLimits(
   if (isSingleStoreTrial(store)) return {
     maxStaff: SINGLE_STORE_TRIAL_STAFF, maxCustomers: base.maxCustomers,
     maxMonthlyBookings: base.maxMonthlyBookings, maxMonthlyReports: null,
-    maxReminderSends: base.maxReminderSends, maxStores: 1,
+    maxReminderSends: base.maxReminderSends, maxStores: Math.max(2, store.maxStoresOverride ?? 2),
   };
   return {
     maxStaff: store.maxStaffOverride ?? base.maxStaff,
@@ -314,7 +314,7 @@ export function getPlanLimits(
       : null,
     maxMonthlyReports: store.maxMonthlyReportsOverride ?? base.maxMonthlyReports,
     maxReminderSends: store.maxReminderSendsOverride ?? base.maxReminderSends,
-    maxStores: store.maxStoresOverride ?? base.maxStores,
+    maxStores: store.plan === "EXPERIENCE" ? Math.max(2, store.maxStoresOverride ?? base.maxStores ?? 2) : store.maxStoresOverride ?? base.maxStores,
   };
 }
 

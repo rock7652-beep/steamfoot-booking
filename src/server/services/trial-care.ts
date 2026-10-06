@@ -97,6 +97,7 @@ export async function runTrialCare(now = new Date()) {
   const result = { sent: 0, skipped: 0, failed: 0, blocked: false };
   const settings = await prisma.trialCareSetting.findMany({ where: { enabled: true, activatedAt: { not: null }, store: { operatingStatus: "ACTIVE", isDemo: false } }, include: { store: true } });
   for (const setting of settings) {
+    if(setting.store.industryModule === "COURSE") continue;
     try {
       if (!await hasStoreFeature(setting.storeId, FEATURES.LINE_REMINDER)) continue;
       const rules = readTrialCareRules(setting.rules);
@@ -158,5 +159,8 @@ export async function runTrialCare(now = new Date()) {
       }
     } catch (error) { console.error("[TrialCare] store failed", setting.storeId, error instanceof Error ? error.name : "UnknownError"); result.failed++; }
   }
+  const {runCourseTrialCare}=await import("./course-trial-care");
+  const course=await runCourseTrialCare(now);
+  result.sent+=course.sent;result.skipped+=course.skipped;result.failed+=course.failed;
   return result;
 }

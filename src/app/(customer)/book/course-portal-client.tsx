@@ -1,4 +1,6 @@
 "use client";
+import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-summary";
+import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
 import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
 import { findCoursePortalGuides } from "@/lib/course-portal-guides";
@@ -42,6 +44,7 @@ import {
 } from "@/server/actions/course-portal";
 import type { CoursePortalData } from "./course-portal";
 import { CourseMemberContactForm } from "@/components/course-member-contact-form";
+import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import { CopyButton } from "./shop/[planId]/checkout/copy-button";
 import "./course-portal.css";
@@ -193,7 +196,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop"; initialCoach?: boolean }) {
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
   const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
@@ -205,10 +208,15 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     }),
     sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
   };
+  const balanceTotals = courseBalanceTotals(p.cards);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.initialRole);
+  const [notification,setNotification]=useState<{bookingId:string;action:"confirm"|"reschedule"|"cancel"}|null>(()=>{
+    const bookingId=params.get("bookingId"),action=params.get("action");
+    return bookingId && /^[a-zA-Z0-9:_-]{1,100}$/.test(bookingId) && (action==="confirm"||action==="reschedule"||action==="cancel") ? {bookingId,action} : null;
+  });
+  const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.memberEnabled && (notification || p.initialView) ? "member" : p.initialRole);
   const role = resolveCoursePortalRole(preferredRole, p.memberEnabled, p.hasWork);
   const [page, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
@@ -291,7 +299,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     participantCount = companionMode ? headcount : learners.length,
     waitlistMode = !!session && session.occupied + Math.max(1, participantCount) > session.capacity && session.waitlistAllowed,
     waitlistAlready = !!session?.waitlistPosition,
-    modal = !!(session || attendance || cancelId || buy || companionEditor);
+    modal = !!(notification || session || attendance || cancelId || buy || companionEditor);
   const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
   const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
   const todayWork = work.filter(s => courseDate(s.startsAt) === today);
@@ -943,6 +951,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
               ) : (
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>立即預約</button>
+                  <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><p>{courseBalanceText(balanceTotals)}</p><button onClick={()=>go("plans")}>查看各方案與期限</button></section>
                   <h2>常用功能</h2>
                   <section className="cp-card">
                     {menu("我的預約", "bookings", "待上課與歷史紀錄")}
@@ -953,7 +962,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                         ? `${p.cards.filter((c) => !c.expired && !c.closed).length} 個有效方案`
                         : "尚無方案",
                     )}
-                    {p.healthEnabled && menu("健康紀錄", "health", "查看身體數據與趨勢")}
+                    {p.healthEnabled && menu("健康追蹤", "health", "查看身體數據與趨勢")}
                     {menu("操作指南", "guide", "預約、取消、方案與共卡")}
                   </section>
                 </>
@@ -1031,6 +1040,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                           <span className="cp-badge" data-status={b.status}>
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
+                          {b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
+                          {b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
                           {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
                               disabled={pending}
@@ -1099,7 +1110,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                     : undefined,
                 )}
                 {menu("共卡成員", "shared")}
-                {p.healthEnabled && menu("健康紀錄", "health")}
+                {p.healthEnabled && menu("健康追蹤", "health")}
               </section>
               <h2>帳戶與店家</h2>
               <section className="cp-card">
@@ -1114,6 +1125,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           {page === "plans" && (
             <>
               {heading("我的方案")}
+              <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計 · {balanceTotals.reduce((sum,total)=>sum+total.count,0)} 個</h2><p>{courseBalanceText(balanceTotals)}</p><p>共卡為共同餘額；各方案期限與適用課程分開計算。</p></section>
               <p>可用額度＝剩餘－預約保留；每張方案的期限分開計算。</p>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
               <a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a>
@@ -1255,8 +1267,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           )}
           {page === "health" && p.healthEnabled && (
             <>
-              {heading("健康紀錄")}
-              <CourseHealthWorkspace member />
+              {heading("健康追蹤")}
+              <>{p.readOnly ? p.previewHealthSummary?.latest ? <HealthAssessmentCard summary={p.previewHealthSummary} /> : <p>尚無量測紀錄。</p> : <CourseHealthWorkspace member />}</>
             </>
           )}
           {page === "store" && (
@@ -1510,6 +1522,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           )}
         </Sheet>
       )}
+      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
       {cancelId && (
         <Sheet
           title="取消預約"

@@ -531,7 +531,7 @@ async function DowngradeRequestSection({
 // ── 方案狀態 badge ──
 
 const STATUS_DESCRIPTION: Record<StorePlanStatus, string> = {
-  TRIAL: "完整單店試用，到期後保留資料並改為唯讀；選購正式方案後原帳號續用",
+  TRIAL: "完整功能試用，到期後保留資料並改為唯讀；選購正式方案後原帳號續用",
   ACTIVE: "方案已啟用",
   PAYMENT_PENDING: "方案已核准，待完成付款後啟用",
   PAST_DUE: "付款逾期，請盡速完成付款",

@@ -128,7 +128,7 @@ export default async function PricingPage() {
         <details className="mt-3 border-t border-[#153B31]/15 text-base leading-7">
           <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看體驗額度與使用說明</summary>
           <div className="space-y-2 pb-2 text-[#4C6259]">
-            <p>所選模組的完整單店功能開放體驗，人員仍依店長／員工角色權限操作。含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。</p>
+            <p>所選模組的全部功能開放體驗，含母子店串接，人員仍依店長／員工角色權限操作。含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。</p>
             <p>從帳號可正常使用當天開通起算 30 天；網頁前台可先使用，LINE／LIFF 完成設定後接上。</p>
             <p>到期後後台改為唯讀，資料保留 30 天；保留期間轉正式，可沿用原帳號與資料，功能及額度依購買方案。</p>
             <p>30 天系統體驗免費，不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，LINE 訊息、金流等外部服務費用於開通前確認。</p>

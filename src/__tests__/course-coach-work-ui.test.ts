@@ -17,6 +17,11 @@ vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: m
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: m.purchase }));
 vi.mock("@/server/actions/course-companions", () => ({addCourseCompanion: vi.fn(), loadCourseCompanionUsage: m.loadUsage, saveCourseCompanionUsage: m.usage}));
 vi.mock("@/server/actions/course-waitlist", () => ({joinMemberCourseWaitlist: vi.fn(), cancelMemberCourseWaitlistAction: vi.fn()}));
+vi.mock("@/server/actions/course-booking-notification", () => ({
+  loadCourseBookingNotification: vi.fn(),
+  confirmMemberCourseTrial: vi.fn(),
+  rescheduleMemberCourseBooking: vi.fn(),
+}));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, cardId: "card-a", companionIndex: null, reserverName: null, canAddCompanion: false, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
@@ -273,7 +278,7 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
     expect(host.textContent).toContain("本人＋家人 · 共 2 位");
-    for (const label of ["立即預約","我的預約","我的方案","健康紀錄","操作指南"]) expect(host.textContent).toContain(label);
+    for (const label of ["立即預約","我的預約","我的方案","健康追蹤","操作指南"]) expect(host.textContent).toContain(label);
     expect(host.querySelector('[aria-label="身分"]')).toBeNull();
     expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
     expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(4);

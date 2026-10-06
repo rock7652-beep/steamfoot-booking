@@ -395,6 +395,9 @@ export async function settleCourseBooking(
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
   if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
+  if (!booking.cardId && booking.bookingKind === "TRIAL" && target === "ATTENDED") {
+    await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"createdAt") VALUES (${`course-trial-care-completed:${actor.storeId}:${booking.id}`},${actor.userId},${actor.storeId},'COURSE','完成體驗課程，供啟用後關懷判斷','CourseBooking',${booking.id},'COURSE_TRIAL_CARE_COMPLETED',NOW()) ON CONFLICT (id) DO NOTHING`;
+  }
   if (!booking.cardId) { if (booking.bookingKind === "TRIAL") await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
   const kind = shouldDebit ? "DEBIT" : "RELEASE";
   const previousEntry = await tx.coursePointEntry.findUnique({where:{bookingId_kind:{bookingId:booking.id,kind}}});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { scheduleOnDate, scheduleTotals, slotDecision } from "@/lib/music-schedule-audit";
+import { scheduleMonthSummary, scheduleOnDate, scheduleTotals, slotDecision } from "@/lib/music-schedule-audit";
 
 const at = (day: string, time: string) => `${day}T${time}:00+08:00`;
 const booking = (customerId: string, status = "RESERVED") => ({ customerId, status });
@@ -73,4 +73,24 @@ it("9/26 陸比截圖轉錄的已知堂數與租借可核對，團體名單未�
   expect(rows.filter((row) => row.length === 6)).toHaveLength(10);
   expect(rows.filter((row) => row[4] !== "RENTAL" && row.length === 5)).toHaveLength(52);
   expect(rows.filter((row) => ["GROUP", "GROUP_CHANGED"].includes(row[4]) && row.length === 5)).toHaveLength(10);
+});
+
+
+it("月表保留單人點名及異動紀錄，釋出與調課原位不灌入正常統計", () => {
+  const attended = { ...temporary, id: "attended", startsAt: at("2026-10-07", "10:00"), bookings: [booking("one", "ATTENDED")] };
+  const noShow = { ...attended, id: "no-show", bookings: [booking("one", "NO_SHOW")] };
+  const released = { ...attended, id: "released", previewFaded: "異動／請假", bookings: [booking("one", "CANCELLED")] };
+  const moved = { ...released, id: "old-slot", previewFaded: "已調課" };
+  const nextMonth = { ...attended, id: "next-month", startsAt: at("2026-11-01", "10:00") };
+  const result = scheduleMonthSummary([attended, noShow, released, moved, nextMonth], "2026-10");
+  expect(result.records.map(row => row.id)).toEqual(["attended", "no-show", "released", "old-slot"]);
+  expect(result.totals).toEqual({classes: 2, people: 2, rentals: 0});
+  expect(result.changes).toBe(2);
+  expect(result.activeDays).toBe(1);
+  expect(scheduleOnDate(result.records, "2026-10-07")).toHaveLength(4);
+  const onlyHistory = scheduleMonthSummary([released], "2026-10");
+  expect(onlyHistory.records).toHaveLength(1);
+  expect(onlyHistory.totals.classes).toBe(0);
+  expect(onlyHistory.changes).toBe(1);
+  expect(onlyHistory.activeDays).toBe(0);
 });

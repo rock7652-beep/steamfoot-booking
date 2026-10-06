@@ -1,4 +1,5 @@
 import "server-only";
+import { formatTWDateTime } from "@/lib/date-utils";
 import { courseReminderAlreadySent } from "./course-reminder-merge-dedupe";
 import {createHash,randomUUID} from "node:crypto";
 import {prisma} from "@/lib/db";
@@ -11,15 +12,18 @@ import {LINE_CARD_COLORS,LINE_CARD_STYLES} from "@/lib/line-card-theme";
 import type {LineMessage} from "@/lib/line";
 import {deliverCourseCardNotification} from "./course-card-notification-delivery";
 
-export function courseLowBalanceMessages(body:string,slug:string):LineMessage[] {
+export function courseLowBalanceMessages(body:string,slug:string, usedUp=false, hasBooking=false, storeName?:string):LineMessage[] {
   const url=courseMemberNotificationUrl(slug,"plans",undefined,"book");
   const preferences=new URL(`/s/${encodeURIComponent(slug)}/book/reminders`,deriveBaseUrl());
   return [{type:"flex",altText:body,contents:{type:"bubble",styles:LINE_CARD_STYLES,
     body:{type:"box",layout:"vertical",spacing:"md",contents:[
-      {type:"text",text:"蒸管家｜方案可用額度提醒",weight:"bold",color:LINE_CARD_COLORS.primary,wrap:true},
+      {type:"text",text:usedUp ? "蒸管家｜本期方案已完成" : "蒸管家｜方案可用額度提醒",weight:"bold",color:LINE_CARD_COLORS.primary,wrap:true},
       {type:"text",text:body,wrap:true},
     ]},footer:{type:"box",layout:"vertical",contents:[
       {type:"button",style:"primary",color:LINE_CARD_COLORS.primary,action:{type:"uri",label:"查看我的方案",uri:url.toString()}},
+      ...(!usedUp && !hasBooking ? [{type:"button" as const,style:"primary" as const,color:LINE_CARD_COLORS.primary,action:{type:"uri" as const,label:"立即預約",uri:courseMemberNotificationUrl(slug,"schedule",undefined,"book").toString()}}] : []),
+      {type:"button",style:"primary",color:LINE_CARD_COLORS.primary,action:{type:"uri",label:"購買／續購方案",uri:courseMemberNotificationUrl(slug,"shop",undefined,"book").toString()}},
+      {type:"button",style:"link",action:{type:"message",label:"諮詢店長",text:storeName ? `我想詢問 ${storeName} 的課程方案` : "我想詢問課程方案"}},
       {type:"button",style:"link",action:{type:"uri",label:"停止／管理此類提醒",uri:preferences.toString()}},
     ]}}}];
 }
@@ -27,7 +31,7 @@ export function courseLowBalanceMessages(body:string,slug:string):LineMessage[] 
 /** Same once-per-card notification policy as the mature wallet reminder, never sum cards. */
 export async function runCourseLowBalanceReminders(now=new Date(),onlyStoreId?:string,cardIds?:string[]) {
   const summary={total:0,sent:0,skipped:0,failed:0};
-  const stores=await prisma.store.findMany({where:{industryModule:"COURSE",...(onlyStoreId?{id:onlyStoreId}: {})},select:{id:true,slug:true}});
+  const stores=await prisma.store.findMany({where:{industryModule:"COURSE",...(onlyStoreId?{id:onlyStoreId}: {})},select:{id:true,slug:true,name:true}});
   for(const store of stores) {
     if(!(await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))) continue;
     const cards=await coursePrisma.coursePointCard.findMany({where:{storeId:store.id,...(cardIds?{id:{in:cardIds}}:{}),closedAt:null,expiresAt:{gt:now},plan:{lowBalanceEnabled:true,lowBalanceThreshold:{not:null}}},include:{plan:true,members:true,bookings:{where:{storeId:store.id,status:"RESERVED"},select:{pointCost:true}}}});
@@ -37,29 +41,30 @@ export async function runCourseLowBalanceReminders(now=new Date(),onlyStoreId?:s
       const people=await prisma.customer.findMany({where:{storeId:store.id,id:{in:card.members.map(m=>m.customerId)},mergedIntoCustomerId:null},select:{id:true,lineUserId:true,lineLinkStatus:true}});
       for(const person of people) {
         summary.total++;
-        const hash=createHash("sha256").update(`course-low-balance:${store.id}:${card.id}:${person.id}`).digest("hex");
-        const id=`course-low-balance:${hash}`,templateId=`course-low-balance:${store.id}`;
+        const hash=createHash("sha256").update(`course-${card.remaining===0?"used-up":"low-balance"}:${store.id}:${card.id}:${person.id}`).digest("hex");
+        const phase=card.remaining===0?"used-up":"low-balance";
+        const id=`course-${phase}:${hash}`,templateId=`course-low-balance:${store.id}`;
         const retryKey=`${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
         try {
           const status=await prisma.$transaction(async tx=>{
             await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} FOR UPDATE`;
-            if(await courseReminderAlreadySent(tx,store.id,person.id,customerId=>`course-low-balance:${createHash("sha256").update(`course-low-balance:${store.id}:${card.id}:${customerId}`).digest("hex")}`)) return "SKIPPED";
-            const current=await tx.$queryRaw<{remaining:number;held:number;unit:string;nameSnapshot:string}[]>`
-              SELECT c.remaining,c.unit,c."nameSnapshot",COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held
+            if(await courseReminderAlreadySent(tx,store.id,person.id,customerId=>`course-${phase}:${createHash("sha256").update(`course-${phase}:${store.id}:${card.id}:${customerId}`).digest("hex")}`)) return "SKIPPED";
+            const current=await tx.$queryRaw<{remaining:number;held:number;unit:string;nameSnapshot:string;nextStartsAt:Date|null}[]>`
+              SELECT (SELECT MIN(s."startsAt") FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED' AND s."cancelledAt" IS NULL) AS "nextStartsAt",c.remaining,c.unit,c."nameSnapshot",COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held
               FROM "CoursePointCard" c JOIN "CoursePointPlan" p ON p.id=c."planId" AND p."storeId"=c."storeId"
               WHERE c.id=${card.id} AND c."storeId"=${store.id} AND c."closedAt" IS NULL AND c."expiresAt">${now}
               AND p."lowBalanceEnabled" AND p."lowBalanceThreshold" IS NOT NULL
               AND c.remaining-COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)<=p."lowBalanceThreshold"
               AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;
-            if(!current[0]) return "SKIPPED";
+            if(!current[0] || (current[0].remaining===0)!==(phase==="used-up")) return "SKIPPED";
             const pref=await tx.$queryRaw<{stoppedAt:Date|null}[]>`
               INSERT INTO "CourseBalanceReminderPreference" (id,"storeId","customerId") VALUES (${randomUUID()},${store.id},${person.id})
               ON CONFLICT ("storeId","customerId") DO UPDATE SET "customerId"=EXCLUDED."customerId" RETURNING "stoppedAt"`;
-            const body=courseLowBalanceBody(current[0].nameSnapshot,current[0].remaining,current[0].held,current[0].unit);
+            const body=courseLowBalanceBody(current[0].nameSnapshot,current[0].remaining,current[0].held,current[0].unit) + (current[0].remaining===0 ? "本期額度已使用完畢，歡迎查看本店方案。" : current[0].nextStartsAt ? `下一次上課：${formatTWDateTime(current[0].nextStartsAt)}。` : "");
             await tx.messageTemplate.upsert({where:{id:templateId},create:{id:templateId,storeId:store.id,name:"課程低可用額度提醒",channel:"LINE",body:"每卡可用額度達門檻時提醒一次"},update:{}});
             await tx.messageLog.upsert({where:{id},create:{id,templateId,storeId:store.id,customerId:person.id,courseCardId:card.id,channel:"LINE",status:"PENDING",renderedBody:body},update:{status:"PENDING",renderedBody:body,errorMessage:null}});
             if(pref[0].stoppedAt) {await tx.messageLog.update({where:{id},data:{status:"SKIPPED",errorMessage:"顧客已停止接收此類訊息"}});return "SKIPPED";}
-            return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages:courseLowBalanceMessages(body,store.slug),retryKey,now});
+            return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages:courseLowBalanceMessages(body,store.slug,current[0].remaining===0,current[0].held>0,store.name),retryKey,now});
           },{timeout:25000});
           if(status==="SENT")summary.sent++;else if(status==="FAILED")summary.failed++;else summary.skipped++;
         } catch {

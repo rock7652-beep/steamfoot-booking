@@ -9,6 +9,7 @@ export type OrganizationStore = {
 
 // Existing maxStoresOverride counts the HQ itself; the UI exposes branch slots only.
 export function branchCapacity(store: OrganizationStore): number {
+  if (store.plan === "EXPERIENCE") return Math.max(1, (store.maxStoresOverride ?? 2) - 1);
   return Math.max(0, (store.maxStoresOverride ?? (store.plan === "ALLIANCE" ? 2 : 1)) - 1);
 }
 /** null means a custom quote is required; never extrapolate beyond 15 branches. */
@@ -59,12 +60,12 @@ export function assertOrganizationCapacity(stores: OrganizationStore[], parentId
     visited.add(id);
     const parent = byId.get(id);
     if (!parent) throw new Error("上層店舖不存在");
-    if (parent.plan === "ALLIANCE") {
+    if (parent.plan === "ALLIANCE" || parent.plan === "EXPERIENCE") {
       subscribed = true;
       const count = organizationDescendants(stores, id).size;
       if (count > branchCapacity(parent)) throw new Error(`${parent.name}的分店串接額度不足，請聯絡平台管理員確認費用並開通；16 間起另行報價`);
     }
     id = parent.parentStoreId;
   }
-  if (parentId && !subscribed) throw new Error("請先為所屬總部開通展店版，再串接分店");
+  if (parentId && !subscribed) throw new Error("請先為所屬總部開通體驗版或展店版，再串接分店");
 }

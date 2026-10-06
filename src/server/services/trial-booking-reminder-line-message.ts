@@ -14,6 +14,7 @@ export type PackageBookingReminderCard = {
   mapUrl?: string;
   reminderText?: string;
   managementOnlyLabel?: string;
+  courseActions?: { confirm?: string; reschedule: string; cancel: string };
   recurrenceIndex?: number;
   recurrenceTotalOccurrences?: number;
 };
@@ -127,7 +128,11 @@ export function buildPackageBookingTestReminderLineMessages(
                 action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
               }]
             : []),
-          ...(card.managementOnlyLabel ? [outlinedLineAction({type:"uri",label:card.managementOnlyLabel,uri:managementUrl})] : [outlinedLineAction({ type: "uri", label: "改時段", uri: actionUrl("reschedule") }),
+          ...(card.courseActions ? [
+            ...(card.courseActions.confirm ? [{type:"button" as const,style:"primary" as const,color:REMINDER_CARD_COLORS.primary,action:{type:"uri" as const,label:"確認會到",uri:card.courseActions.confirm}}] : []),
+            outlinedLineAction({type:"uri",label:card.courseActions.confirm ? "需要改期" : "改時段",uri:card.courseActions.reschedule}),
+            {type:"button" as const,style:"link" as const,color:REMINDER_CARD_COLORS.cancel,action:{type:"uri" as const,label:card.courseActions.confirm ? "取消預約" : "取消前往",uri:card.courseActions.cancel}},
+          ] : card.managementOnlyLabel ? [outlinedLineAction({type:"uri",label:card.managementOnlyLabel,uri:managementUrl})] : [outlinedLineAction({ type: "uri", label: "改時段", uri: actionUrl("reschedule") }),
           {
             type: "button" as const,
             style: "link" as const,
