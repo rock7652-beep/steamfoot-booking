@@ -1,5 +1,7 @@
 "use server";
 
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
+
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
@@ -413,7 +415,7 @@ export async function collectTrialPayment(
 
       // wallet-free：不帶 customerPlanWalletId，不建 WalletSession，
       // 不呼叫 assignPlanToCustomer。
-      const transaction = await txClient.transaction.create({
+      const transaction = await createFinancialTransaction(txClient, {
         data: {
           customerId: booking.customerId,
           bookingId: booking.id,

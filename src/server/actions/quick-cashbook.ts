@@ -118,7 +118,7 @@ export async function saveQuickCashbook(storeId: string, id: string | null, form
     const data = { entryDate: toLocalDateStr(), type: type as "INCOME" | "EXPENSE", amount: Number(form.get("amount")), category: String(form.get("category") ?? ""), paymentMethod: form.get("paymentMethod") as "CASH" | "OTHER", note: String(form.get("note") ?? ""), confirmClosedCashbookChange: form.get("confirmClosedCashbookChange") === "on" };
     return id
       ? await updateCashbookEntry(id, { ...data, customerId: customerId || null })
-      : await createCashbookEntry({ ...data, customerId: customerId || undefined });
+      : await createCashbookEntry({ ...data, requestId: String(form.get("requestId") || "") || undefined, customerId: customerId || undefined });
   } catch (e) { return handleActionError(e); }
 }
 

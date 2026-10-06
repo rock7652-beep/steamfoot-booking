@@ -47,7 +47,8 @@ beforeEach(() => {
     mocks.permission.mockResolvedValue(ctx.user);
     mocks.feature.mockResolvedValue(true);
     mocks.audit.mockResolvedValue({});
-    mocks.db.$queryRaw = vi.fn(async () => [{ id: ctx.storeId }]);
+    mocks.db.$queryRaw = vi.fn(async (sql: TemplateStringsArray) => sql.join("?").includes('"CashDrawerSession"') ? [] : [{ id: ctx.storeId }]);
+    mocks.db.$executeRaw = vi.fn(async () => 1);
     mocks.db.user = { findUnique: vi.fn(async () => ({ role: ctx.user.role, status: "ACTIVE" })) };
     mocks.db.staff = { findFirst: vi.fn(async () => {
         const permissions = ["inventory.read", "inventory.write", "inventory.manage", "inventory.receive", "inventory.purchase.pay", "cashbook.create"];

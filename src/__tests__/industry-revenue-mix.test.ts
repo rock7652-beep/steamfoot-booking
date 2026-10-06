@@ -50,12 +50,35 @@ it("keeps SPA voids and internal uses out of collected revenue, but includes cas
 
 it("groups course receipts and refunds by their own business months", async () => {
   mocks.industry.mockResolvedValue("course");
-  mocks.purchases.mockResolvedValue([{ confirmedAt: new Date("2026-04-10T02:00:00Z"), price: 1200 }]);
-  mocks.courseRefunds.mockResolvedValue([{ createdAt: new Date("2026-09-10T02:00:00Z"), amount: 200 }]);
-  mocks.trials.mockResolvedValue([{ createdAt: new Date("2026-09-03T02:00:00Z"), voidedAt: null, amount: 300 }]);
+  mocks.cashbook.mockResolvedValue([
+    { id: "course-purchase:p", entryDate: new Date("2026-04-10T00:00:00Z"), type: "INCOME", amount: 1200 },
+    { id: "course-refund:r", entryDate: new Date("2026-09-10T00:00:00Z"), type: "EXPENSE", amount: 200 },
+    { id: "course-trial:t:0", entryDate: new Date("2026-09-03T00:00:00Z"), type: "INCOME", amount: 300 },
+  ]);
   const points = await getIndustrySixMonthRevenueMixTrend("course-store", "2026-09-23");
   expect(points.map((p) => p.key)).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
   expect(points[0].netRevenue).toBe(1200);
   expect(points[5]).toMatchObject({ netRevenue: 100, balance: 100 });
-  expect(mocks.purchases).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "course-store" }) }));
+  expect(mocks.purchases).not.toHaveBeenCalled();
+  expect(mocks.cashbook).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "course-store" }) }));
+});
+
+it("counts linked course collections once, separates reversals and keeps retail income", async () => {
+  mocks.industry.mockResolvedValue("course");
+  mocks.purchases.mockResolvedValue([{ confirmedAt: new Date("2026-09-03T02:00:00Z"), price: 1200 }]);
+  const entryDate = new Date("2026-09-03T00:00:00Z");
+  mocks.cashbook.mockResolvedValue([
+    { id: "course-purchase:p", entryDate, type: "INCOME", amount: 1200 },
+    { id: "course-trial:t:0", entryDate, type: "INCOME", amount: 100 },
+    { id: "course-trial:t:1", entryDate, type: "INCOME", amount: 200 },
+    { id: "course-trial-void:t:0", entryDate, type: "EXPENSE", amount: 100 },
+    { id: "course-trial-void:t:1", entryDate, type: "EXPENSE", amount: 200 },
+    { id: "course-fee:f", entryDate, type: "EXPENSE", amount: 400 },
+    { id: "course-fee-void:f", entryDate, type: "INCOME", amount: 400 },
+    { id: "inventory:p:goods", entryDate, type: "INCOME", category: "零售-商品銷售", amount: 500 },
+  ]);
+  expect(await getIndustryRevenueMix("store", "2026-09-01", "2026-09-30")).toMatchObject({
+    packageRevenue: 1200, otherRevenue: 300, retailRevenue: 500, refunds: 300, expense: 0, netRevenue: 1700, balance: 1700, manualIncome: 0,
+  });
+  expect(mocks.purchases).not.toHaveBeenCalled();
 });

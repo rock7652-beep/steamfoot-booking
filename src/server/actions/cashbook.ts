@@ -11,7 +11,8 @@ import type { ActionResult } from "@/types";
 import type { CashbookEntryType } from "@prisma/client";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { resolveWriteStoreId } from "@/lib/store";
-import { isBusinessDateClosed } from "@/server/queries/cash-drawer";
+import { lockCashDay } from "@/server/services/cash-day";
+import { parseTaiwanDateToDbDate, isAnalysisDate } from "@/lib/date-utils";
 
 // ============================================================
 // Validators
@@ -23,7 +24,8 @@ const paymentMethodSchema = z.enum(["CASH", "OTHER"], {
 });
 
 const createCashbookEntrySchema = z.object({
-  entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必須為 YYYY-MM-DD"),
+  requestId: z.string().uuid().optional(),
+  entryDate: z.string().refine(isAnalysisDate, "日期格式必須為有效的 YYYY-MM-DD"),
   type: z.enum(["INCOME", "EXPENSE", "WITHDRAW", "ADJUSTMENT"]),
   category: z.string().optional(),
   amount: z.number().positive("金額必須大於 0"),
@@ -39,7 +41,7 @@ const createCashbookEntrySchema = z.object({
 const updateCashbookEntrySchema = z.object({
   entryDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式必須為 YYYY-MM-DD")
+    .refine(isAnalysisDate, "日期格式必須為有效的 YYYY-MM-DD")
     .optional(),
   type: z.enum(["INCOME", "EXPENSE", "WITHDRAW", "ADJUSTMENT"]).optional(),
   category: z.string().optional(),
@@ -52,14 +54,16 @@ const updateCashbookEntrySchema = z.object({
   confirmClosedCashbookChange: z.boolean().optional(),
 });
 
-// PR-4：把 "YYYY-MM-DD" 轉成 UTC 午夜 Date，對齊 CashDrawerSession.businessDate（@db.Date）。
-function businessDateFromStr(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
-}
-
 const CLOSED_CASHBOOK_GUARD_MSG =
   "這一天已經結帳了。請先勾選「我知道這只是補紀錄」，確認後再送出。";
+
+async function guardCashDay(tx: Parameters<typeof lockCashDay>[0], storeId: string, day: Date, confirmed?: boolean) {
+  try { return await lockCashDay(tx, storeId, day, { allowClosedSupplement: confirmed }); }
+  catch (error) {
+    if (error instanceof AppError && error.code === "BUSINESS_RULE") throw new AppError("BUSINESS_RULE", CLOSED_CASHBOOK_GUARD_MSG);
+    throw error;
+  }
+}
 
 // 現金帳稽核快照（寫入 AuditLog.beforeJson / afterJson；不新增任何 schema）
 function cashbookSnapshot(e: {
@@ -119,20 +123,6 @@ export async function createCashbookEntry(
       }
     }
 
-    // PR-4 防呆 guard（後端權威，不只靠前端）：
-    // 只在現金收付（CASH）時才需要知道該日抽屜是否已 CLOSED（OTHER 不影響抽屜）。
-    // 已閉店 + CASH + 未確認 → 拒絕；已閉店 + CASH + 已確認 → 放行但標記為敏感操作（需留痕）。
-    let auditClosedCashCreate = false;
-    if (data.paymentMethod === "CASH") {
-      const closed = await isBusinessDateClosed(storeId, businessDateFromStr(data.entryDate));
-      if (closed) {
-        if (!data.confirmClosedCashbookChange) {
-          throw new AppError("BUSINESS_RULE", CLOSED_CASHBOOK_GUARD_MSG);
-        }
-        auditClosedCashCreate = true;
-      }
-    }
-
     // 非 Owner 員工若未指定 staffId，自動綁定自己
     let staffId = data.staffId || null;
     if (user.role !== "ADMIN") {
@@ -141,7 +131,7 @@ export async function createCashbookEntry(
     }
 
     const createData = {
-      entryDate: new Date(data.entryDate + "T00:00:00"),
+      entryDate: parseTaiwanDateToDbDate(data.entryDate),
       type: data.type as CashbookEntryType,
       category: data.category || null,
       amount: data.amount,
@@ -154,7 +144,18 @@ export async function createCashbookEntry(
     };
 
     const entry = await prisma.$transaction(async (tx) => {
-      const created = await tx.cashbookEntry.create({ data: createData });
+      if (data.requestId) {
+        await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
+        const previous = await tx.cashbookEntry.findUnique({ where: { id: `manual:${storeId}:${user.id}:${data.requestId}` } });
+        if (previous) {
+          if (JSON.stringify(cashbookSnapshot(previous)) !== JSON.stringify(cashbookSnapshot(createData)))
+            throw new AppError("CONFLICT", "這筆記帳已完成，金額或內容已變更，請重新開啟核對。");
+          return previous;
+        }
+      }
+      const auditClosedCashCreate = data.paymentMethod === "CASH"
+        ? await guardCashDay(tx, storeId, createData.entryDate, data.confirmClosedCashbookChange) : false;
+      const created = await tx.cashbookEntry.create({ data: { ...createData, ...(data.requestId ? { id: `manual:${storeId}:${user.id}:${data.requestId}` } : {}) } });
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
@@ -172,6 +173,8 @@ export async function createCashbookEntry(
     });
 
     revalidatePath("/dashboard/cashbook");
+    revalidatePath("/dashboard/cash-drawer");
+    revalidatePath("/dashboard/revenue");
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
@@ -201,27 +204,8 @@ export async function updateCashbookEntry(
     if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
-    // PR-4 防呆 guard（後端權威）：
-    // 若編輯涉及現金（既有或更新後任一為 CASH），且涉及的營業日（既有日期或新日期）
-    // 已 CLOSED，但未明確確認 → 拒絕。OTHER↔OTHER 不涉現金，不擋。
     const effectivePaymentMethod = data.paymentMethod ?? entry.paymentMethod;
-    const involvesCash =
-      effectivePaymentMethod === "CASH" || entry.paymentMethod === "CASH";
-    if (involvesCash && !data.confirmClosedCashbookChange) {
-      const datesToCheck = new Set<string>();
-      datesToCheck.add(entry.entryDate.toISOString().slice(0, 10));
-      if (data.entryDate) datesToCheck.add(data.entryDate);
-      let anyClosed = false;
-      for (const ds of datesToCheck) {
-        if (await isBusinessDateClosed(entry.storeId, businessDateFromStr(ds))) {
-          anyClosed = true;
-          break;
-        }
-      }
-      if (anyClosed) {
-        throw new AppError("BUSINESS_RULE", CLOSED_CASHBOOK_GUARD_MSG);
-      }
-    }
+    const involvesCash = effectivePaymentMethod === "CASH" || entry.paymentMethod === "CASH";
 
     const effectiveType = data.type ?? entry.type;
     const effectiveCustomerId = data.customerId === undefined ? entry.customerId : data.customerId;
@@ -251,7 +235,7 @@ export async function updateCashbookEntry(
     }
 
     const updateData: Record<string, unknown> = {};
-    if (data.entryDate !== undefined) updateData.entryDate = new Date(data.entryDate + "T00:00:00");
+    if (data.entryDate !== undefined) updateData.entryDate = parseTaiwanDateToDbDate(data.entryDate);
     if (data.type !== undefined) updateData.type = data.type;
     if (data.category !== undefined) updateData.category = data.category;
     if (data.amount !== undefined) updateData.amount = data.amount;
@@ -264,7 +248,11 @@ export async function updateCashbookEntry(
     if (data.note !== undefined) updateData.note = data.note;
 
     await prisma.$transaction(async (tx) => {
-      const updated = await tx.cashbookEntry.update({ where: { id: entryId }, data: updateData });
+      if (involvesCash) {
+        const dates = [...new Set([entry.entryDate.toISOString().slice(0, 10), data.entryDate].filter((d): d is string => !!d))].sort();
+        for (const date of dates) await guardCashDay(tx, entry.storeId, parseTaiwanDateToDbDate(date), data.confirmClosedCashbookChange);
+      }
+      const updated = await tx.cashbookEntry.update({ where: { id: entryId, updatedAt: entry.updatedAt }, data: updateData });
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
@@ -282,6 +270,8 @@ export async function updateCashbookEntry(
     });
 
     revalidatePath("/dashboard/cashbook");
+    revalidatePath("/dashboard/cash-drawer");
+    revalidatePath("/dashboard/revenue");
     if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: undefined };
@@ -306,7 +296,8 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
     await prisma.$transaction(async (tx) => {
-      await tx.cashbookEntry.delete({ where: { id: entryId } });
+      if (entry.paymentMethod === "CASH") await lockCashDay(tx, entry.storeId, entry.entryDate);
+      await tx.cashbookEntry.delete({ where: { id: entryId, updatedAt: entry.updatedAt } });
       await tx.auditLog.create({
         data: {
           actorUserId: user.id,
@@ -323,6 +314,8 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     });
 
     revalidatePath("/dashboard/cashbook");
+    revalidatePath("/dashboard/cash-drawer");
+    revalidatePath("/dashboard/revenue");
     if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
