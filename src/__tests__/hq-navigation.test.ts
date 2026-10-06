@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { hqStoreSwitchDestination, isHqPlatformPath, isNavigationItemActive } from "@/lib/hq-navigation";
 
 describe("HQ store navigation", () => {
+  it.each(["/hq/dashboard/settings/line-official-accounts", "/hq/dashboard/settings/line-official-accounts/"])("keeps LINE management global on %s", path => {
+    expect(isHqPlatformPath(path)).toBe(true);
+  });
+  it.each(["/hq/dashboard/settings", "/hq/dashboard/settings/line-official-accounts-other", "/hq/dashboard/settings/line-official-accounts/unrecognized", "/s/course/admin/dashboard/settings/line-official-accounts"])("does not widen store settings access for %s", path => {
+    expect(isHqPlatformPath(path)).toBe(false);
+  });
   it.each(["", "?page=frontend-preview&device=tablet", "?view=analytics&store=old"])("resets stale page context when switching (%s)", search => {
     expect(hqStoreSwitchDestination(search)).toBe("/hq/dashboard");
   });

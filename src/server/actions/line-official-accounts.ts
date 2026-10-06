@@ -6,7 +6,7 @@ import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getLineBotInfo } from "@/lib/line";
 import { getLineConfigForStore } from "@/lib/line-config";
-import { getConfiguredStoreLine } from "@/lib/store-line-config";
+import { getConfiguredStoreLine, readStoreLineConfigs } from "@/lib/store-line-config";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import type { ActionResult } from "@/types";
@@ -64,18 +64,26 @@ async function inspectStore(
 }
 
 async function collectStatuses(repair: boolean): Promise<LineOfficialAccountStatus[]> {
+  const configured = readStoreLineConfigs();
+  const configuredBySlug = new Map(configured.map(entry => [entry.slug, entry]));
+  const storeSlugs = [...new Set<string>([...STORE_SLUGS, ...configured.map(entry => entry.slug)])];
   const stores = await prisma.store.findMany({
-    where: { slug: { in: [...STORE_SLUGS] } },
+    where: { slug: { in: storeSlugs } },
     select: { id: true, slug: true, name: true, lineDestination: true },
   });
   const bySlug = new Map(stores.map((store) => [store.slug, store]));
 
   return Promise.all(
-    STORE_SLUGS.map(async (storeSlug) => {
+    storeSlugs.map(async (storeSlug) => {
       const store = bySlug.get(storeSlug);
-      const storeName = store?.name ?? ({ zhubei: "竹北", hsinchu: "新竹", taichung: "台中" }[storeSlug]);
+      const legacyNames: Record<string, string> = { zhubei: "竹北", hsinchu: "新竹", taichung: "台中" };
+      const storeName = store?.name ?? legacyNames[storeSlug] ?? storeSlug;
       if (!store) {
         return { storeSlug, storeName, status: "NOT_CONFIGURED" as const };
+      }
+      const explicit = configuredBySlug.get(storeSlug);
+      if (explicit && explicit.storeId !== store.id) {
+        return { storeSlug, storeName, status: "NEEDS_ATTENTION" as const };
       }
       return inspectStore(store, repair);
     }),
