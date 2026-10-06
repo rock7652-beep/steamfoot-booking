@@ -183,7 +183,7 @@ export default function NewStoreForm() {
               {result.store.isDemo
                 ? "ℹ️ Demo 店不可啟用為正式店"
                 : result.store.currentSubscriptionId
-                  ? "✅ 已開通 30 天完整單店試用，可交由店長完成課程設定"
+                  ? "✅ 已開通 30 天完整功能試用，可交由店長完成課程設定"
                 : result.canActivate
                   ? "✅ 建置完成，尚未起算試用；入口驗收可用後再開通 30 天"
                   : "⚠️ 部分項目未通過，建議先修正"}
@@ -281,7 +281,7 @@ export default function NewStoreForm() {
               label="PricingPlan"
               value={plan}
               onChange={setPlan as (v: string) => void}
-              options={industryModule === "COURSE" ? [{ value: "EXPERIENCE", label: "30 天完整單店試用（3 位人員）" }] : [
+              options={industryModule === "COURSE" ? [{ value: "EXPERIENCE", label: "30 天完整功能試用（3 位人員）" }] : [
                 { value: "EXPERIENCE", label: "EXPERIENCE" },
                 { value: "BASIC", label: "BASIC" },
                 { value: "GROWTH", label: "GROWTH" },
