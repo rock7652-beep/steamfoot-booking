@@ -41,6 +41,7 @@ export const FEATURES = {
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
   CUSTOMER_LABELS: "customer_labels",
+  INVENTORY: "inventory",
 
   // ── GROWTH / PRO（專業版）── 人才經營 + 進階分析
   CUSTOMER_CARE: "customer_care",
@@ -76,7 +77,9 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full single-store trial, shared by every industry (multi-store is excluded).
   EXPERIENCE: Object.values(FEATURES).filter(isSingleStoreFeature),
   BASIC: [
+    "line_reminder",
     "device_preview",
+    "customer_labels",
     "member_portal",
     "basic_booking",
     "customer_management",
@@ -91,7 +94,9 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "store_revenue",
   ],
   GROWTH: [
+    "line_reminder",
     "device_preview",
+    "customer_labels",
     "basic_reports", // 專業版固定內含分析，不占選配名額
     "member_portal",
     "basic_booking",
@@ -120,7 +125,9 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "talent_upgrade_progress",
   ],
   ALLIANCE: [
+    "inventory",
     "device_preview",
+    "customer_labels",
     "basic_reports", // 分析：專業版與展店版內含；基本版加購
     "basic_booking",
     "customer_management",
