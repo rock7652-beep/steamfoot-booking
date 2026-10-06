@@ -55,3 +55,12 @@
 - 已有10項工單 PostgreSQL 案例前次 CI 通過，含並行防重送、防超收、贈品扣庫存、取件不代表付款、關帳防護與HQ開關。
 - 目前未提供工單取消、退款操作；不得以手動收支帳或直接改 paid 替代退款，這兩個流程未通過業務驗收。已收款工單禁止改到應收低於已收；不會靜默產生超收。
 - 僅在草稿 PR #1231／隔離預覽補驗，未合併正式站，未變更正式資料。
+
+
+### 補驗最終結果
+
+- 驗證提交：aa76cd90b006d78a8303d78f63a0fc0b632dea28。工單 PostgreSQL 12/12、金流 PostgreSQL 9/9 通過；Changed-file ESLint、Typecheck、Targeted tests、Full Vitest baseline 全部 success。完整測試為既有基線比較通過，不宣稱既有所有測試零失敗。
+- 初次新增案例後 CI 的固定數量門檻仍為10，已修正要求12項全部通過且不可跳過，再次 CI success。
+- Cloudflare Workers Builds failure 依使用者指示排除，未修復；非本次必要 postgres-integration skip。
+- 本次僅補測試、CI數量門檻及驗收文件，沒有變更介面或金額計算，不增加店家操作步驟。
+- 工單取消／退款仍為未提供項目；紙本實際列印、QR掃描與iPad列印頁仍沿用既有未驗限制。
