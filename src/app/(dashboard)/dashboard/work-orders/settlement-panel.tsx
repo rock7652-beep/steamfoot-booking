@@ -37,7 +37,7 @@ export function WorkOrderSettlementPanel({initial,kind,storeId,onClose,onSaved}:
   let invalid="";
   if(order&&draft)try{workOrderSettlementPlan(order.lines,order.paid,draft);if(draft.refund>Math.max(0,order.total-total))invalid="退款不可超過本次減收金額";if(kind==="REFUND"&&draft.refund===0)invalid="請調整保留費用及退款金額";}catch(e){invalid=e instanceof Error?e.message:"請確認金額";}
   async function submit(e:FormEvent){
-    e.preventDefault();if(!order||!draft||locked.current||invalid)return;
+    e.preventDefault();if(!order||!draft||locked.current||invalid||discarding)return;
     locked.current=true;setBusy(true);setError("");
     try{const result=await settleWorkOrderAction({...draft,kind,id:order.id,revision:order.revision,requestId:requestId.current});if(!result.success){setError(result.error||"操作失敗");return;}reader.clear();await onSaved();}
     catch{setError("連線中斷，請重試；同一筆送出不會重複退款或回補庫存");}finally{locked.current=false;setBusy(false);}
