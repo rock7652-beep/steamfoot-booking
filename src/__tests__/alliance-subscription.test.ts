@@ -31,3 +31,11 @@ describe("independent HQ and branch subscriptions", () => {
     expect(() => assertOrganizationCapacity([], "missing")).toThrow("不存在");
   });
 });
+
+it('allows an EXPERIENCE parent to connect the first branch without a paid upgrade',()=>{
+ const rows=[store('trial',null,'EXPERIENCE'),store('branch','trial','EXPERIENCE')];
+ expect(branchCapacity(rows[0])).toBe(1);
+ expect(()=>assertOrganizationCapacity(rows,'trial')).not.toThrow();
+ expect(()=>assertOrganizationCapacity([...rows,store('extra','trial')],'trial')).toThrow('額度不足');
+ expect(organizationSubscriptionRows(rows)).toEqual([]);
+});
