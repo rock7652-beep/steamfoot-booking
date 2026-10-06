@@ -1,17 +1,30 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ permission: vi.fn(), active: vi.fn(), feature: vi.fn(), store: vi.fn(), update: vi.fn(), config: vi.fn(), bot: vi.fn() }));
+const m = vi.hoisted(() => ({ permission: vi.fn(), active: vi.fn(), feature: vi.fn(), store: vi.fn(), update: vi.fn(), config: vi.fn(), explicit: vi.fn(), bot: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.active }));
 vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: m.feature }));
 vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: m.store, update: m.update } } }));
 vi.mock("@/lib/line", () => ({ getLineBotInfo: m.bot }));
 vi.mock("@/lib/line-config", () => ({ getLineConfigForStore: m.config }));
-import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
+vi.mock("@/lib/store-line-config", () => ({ getConfiguredStoreLine: m.explicit }));
+import { getCurrentLineOfficialAccountStatus, checkCurrentLineOfficialAccount } from "@/server/actions/line-official-accounts";
 beforeEach(() => {
   vi.resetAllMocks();
   m.permission.mockResolvedValue({ role: "OWNER" }); m.active.mockResolvedValue("active-store");
   m.config.mockReturnValue({ accessToken: "fixture", channelSecret: "fixture", expectedBasicId: "@fixture" });
   m.bot.mockResolvedValue({ ok: true, data: { basicId: "@fixture", userId: "bot" } });
+});
+it("verifies and rechecks a shared OA without writing the unique legacy destination", async () => {
+  m.store.mockResolvedValue({ id: "active-store", slug: "course-b", name: "Store", lineDestination: null });
+  m.explicit.mockReturnValue({ sharedAccountKey: "ufun", destination: "bot" });
+  expect(await checkCurrentLineOfficialAccount()).toMatchObject({ success: true, data: { status: "NORMAL" } });
+  expect(m.update).not.toHaveBeenCalled();
+});
+it("rejects a shared bot destination mismatch without trying to repair it", async () => {
+  m.store.mockResolvedValue({ id: "active-store", slug: "course-b", name: "Store", lineDestination: "bot" });
+  m.explicit.mockReturnValue({ sharedAccountKey: "ufun", destination: "another-bot" });
+  expect(await checkCurrentLineOfficialAccount()).toMatchObject({ success: true, data: { status: "NEEDS_ATTENTION" } });
+  expect(m.update).not.toHaveBeenCalled();
 });
 it.each(["zhubei", "hsinchu", "taichung", "new-course", "new-spa"])("uses the same configured health service for %s", async slug => {
   m.store.mockResolvedValue({ id: "active-store", slug, name: "Store", lineDestination: "bot" });
