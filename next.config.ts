@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
 
+// Vercel can override package.json's build command, so enforce isolation here too.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-organization-order") {
+  const isolated = (value: string | undefined) => {
+    try {
+      const url = new URL(value ?? "");
+      return ["postgres:", "postgresql:"].includes(url.protocol) && (url.hostname === "db.ttworfzgwejdeolegkxl.supabase.co" || (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === "postgres.ttworfzgwejdeolegkxl"));
+    } catch { return false; }
+  };
+  if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isolated)) throw new Error("HQ organization Preview requires the isolated database for both connections.");
+}
+
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
