@@ -46,7 +46,7 @@ describe("SPA store manager platformization", () => {
 
   it("includes the approved SPA scheduling and resource modules", () => {
     const sidebar = readFileSync("src/components/sidebar.tsx", "utf8");
-    expect(sidebar).toContain("spaNavigation");
+    expect(sidebar).toContain('const spa = industryModule === "spa"');
     for (const path of [
       "/dashboard/bookings",
       "/dashboard/customers",

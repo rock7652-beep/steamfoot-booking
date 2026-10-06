@@ -17,7 +17,7 @@ describe("digital butler dashboard entry entitlement contract", () => {
     expect(layout).toContain("effectiveFeatures={effectiveFeatures}");
     expect(sidebar).toContain("requiredFeature: FEATURES.DIGITAL_BUTLER");
     expect(sidebar).toContain(
-      "effectiveFeatures[item.requiredFeature] ?? hasFeature",
+      "effectiveFeatures[feature] ?? hasFeature",
     );
   });
 
