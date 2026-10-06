@@ -786,7 +786,7 @@ export default function DashboardShell({
     const growthEntry = effectiveFeatures[FEATURES.CUSTOMER_CARE] === false && effectiveFeatures[FEATURES.DIGITAL_BUTLER] === true
       ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
     const daily: NavItem[] = [
-      entry("/dashboard"),
+      { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
       { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
       { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
@@ -799,13 +799,13 @@ export default function DashboardShell({
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: "課程管理" },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理" },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
     if (spa) management.push(
       { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage" },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
     );
     management.push({ ...entry("/dashboard/settings"), href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings" });
     return [
