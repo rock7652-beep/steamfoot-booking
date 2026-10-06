@@ -7,12 +7,12 @@ import { GuideAccessContext } from "./operation-guide-access";
 import type { GuideAccess } from "@/lib/operation-guide-types";
 import { lockGuideBackground } from "@/lib/operation-guide-scroll";
 
-const GuideContext = createContext<{ open: () => void; register: (status?: string) => void } | null>(null);
+const GuideContext = createContext<{ open: () => void; opened: boolean; register: (status?: string) => void } | null>(null);
 
 export function OperationGuideTrigger() {
   const guide = useContext(GuideContext);
   if (!guide) return null;
-  return <button type="button" onClick={guide.open} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm font-semibold text-primary-800 hover:bg-earth-100 focus-visible:outline-2 focus-visible:outline-primary-500">？操作指南</button>;
+  return <button type="button" onClick={guide.open} aria-expanded={guide.opened} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm font-semibold text-primary-800 hover:bg-earth-100 focus-visible:outline-2 focus-visible:outline-primary-500">？操作指南</button>;
 }
 
 /** Register context only; the header remains the sole help entry. */
@@ -34,7 +34,11 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
   const [status, setStatus] = useState<string>();
   const register = useCallback((next?: string) => setStatus(next), []);
   const open = useCallback(() => {
-    if (panel.current?.open) return;
+    if (panel.current?.open) {
+      panel.current.close();
+      setOpened(false);
+      return;
+    }
     if (window.matchMedia("(min-width: 1024px)").matches) panel.current?.show();
     else panel.current?.showModal();
     setOpened(true);
@@ -59,7 +63,7 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
   }, [enabled, opened]);
   if (!enabled) return <>{children}</>;
   const bookingPage = pathname.endsWith("/bookings");
-  return <GuideAccessContext.Provider value={access}><GuideContext.Provider value={{ open, register }}>
+  return <GuideAccessContext.Provider value={access}><GuideContext.Provider value={{ open, opened, register }}>
     <div data-operation-guide-shell data-guide-open={opened ? "true" : "false"}>
       {children}
       <dialog ref={panel} aria-labelledby={heading} onCancel={close} onClose={() => { if (!panel.current?.open) setOpened(false); }}

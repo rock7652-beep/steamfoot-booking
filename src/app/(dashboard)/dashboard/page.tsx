@@ -37,7 +37,8 @@ import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday
 import { ReconciliationBanner } from "@/components/reconciliation-banner";
 import { UpgradeResultBanner } from "@/components/upgrade-result-banner";
 import { StoreTodoCard } from "./store-todo-card";
-import { CashDrawerTodayCard } from "./cash-drawer-today-card";
+import { CashDrawerHomeStatus } from "@/components/cash-drawer-shortcut";
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import {
   CustomerCareSummaryCard,
   type CustomerWorkspaceSummary,
@@ -112,11 +113,9 @@ export default async function DashboardHomePage() {
 
   // 現金抽屜首頁卡（PR-3 UX revision）— 需 cashDrawer.read 權限 + 已選店
   const canViewCashDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read");
-  const canInitCashDrawer = isOwner && !isReadOnly;
-  const canOpenCashDrawer =
-    !isReadOnly && await checkPermission(user.role, user.staffId, "cashDrawer.open");
+
   let cashDrawerView: CashDrawerView | null = null;
-  if (canViewCashDrawer && dashboardStoreId) {
+  if (canViewCashDrawer && dashboardStoreId && await canReadInventoryFinance(dashboardStoreId, user)) {
     const cashDrawerEnabled = await hasStoreFeature(dashboardStoreId, FEATURES.CASH_DRAWER).catch(
       (e) => {
         console.error("[dashboard-home] hasStoreFeature(cash_drawer) failed", {
@@ -387,13 +386,10 @@ export default async function DashboardHomePage() {
   // 有權限缺席的摘要卡會被濾掉,單張時佔滿整行；待處理固定保留,避免重要內容被第三欄壓窄。
   const summaryCards = [
     cashDrawerView ? (
-      <CashDrawerTodayCard
-        key="cash-drawer"
-        view={cashDrawerView}
-        canInit={canInitCashDrawer}
-        canOpen={canOpenCashDrawer}
-        readOnly={isViewMode}
-      />
+      <section key="cash-drawer" className="rounded-xl border border-earth-200 bg-white px-4 py-2">
+        <h2 className="text-sm font-semibold text-primary-900">開店狀態</h2>
+        <CashDrawerHomeStatus key={`${dashboardStoreId}:${cashDrawerView.state}:${cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status : ""}`} storeId={dashboardStoreId!} initialStatus={cashDrawerView.state === "OPENED_TODAY" ? cashDrawerView.session.status === "OPEN" ? "營業中" : "已結帳" : cashDrawerView.state === "WARNING_LAST_OPEN" ? "前次尚未結帳" : "未開店"}/>
+      </section>
     ) : null,
     canViewCustomers ? (
       <CustomerCareSummaryCard
@@ -404,7 +400,7 @@ export default async function DashboardHomePage() {
   ].filter(Boolean);
 
   return (
-    <PageShell>
+    <PageShell compact>
       <PageHeader
         title="儀表板"
         subtitle={`${todayLabel}｜歡迎回來，${user.name ?? "店長"}`}
@@ -427,7 +423,7 @@ export default async function DashboardHomePage() {
         }
       />
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {pendingMemberLinkReviews > 0 ? (
           <Link
             href="/dashboard/member-link-reviews"
@@ -438,7 +434,7 @@ export default async function DashboardHomePage() {
           </Link>
         ) : null}
         {summaryCards.length > 1 ? (
-          <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
             {summaryCards}
           </div>
         ) : (

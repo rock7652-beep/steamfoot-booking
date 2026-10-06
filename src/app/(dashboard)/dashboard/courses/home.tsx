@@ -7,7 +7,7 @@ import { courseHomeAccess } from "@/server/queries/course-home-access";
 import { getCourseUnassignedPlanCount } from "@/server/queries/course-unassigned-plans";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { courseCashStatus } from "@/lib/course-home-display";
+import { CashDrawerHomeStatus } from "@/components/cash-drawer-shortcut";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -22,6 +22,7 @@ const descriptions: Record<string, string> = {
   customers: "目前顧客總數，不限今日。名下顧客依目前直屬店長計算，是全店的子集合，不可相加；顯示範圍依權限。",
   "customers-music": "目前可見範圍內的顧客總數，不限今日。",
   care: "各類獨立去重，同一顧客可能符合多類，不加總為顧客總數。",
+  "unassigned-plans": "排除待核帳及已有個人／共用方案紀錄的顧客；到期或用完不算未指派。不自動發送 LINE。",
   todos: "課程結束後仍有未完成點名學員即列入，每堂一件。另列有權限處理的待核帳及待接手／處理中／已報價跟進名單。",
 };
 function StatisticInfo({ id, title }: { id: string; title: string }) {
@@ -64,31 +65,30 @@ export async function CourseHome({ user, storeId }: {
     const date = toLocalDateStr();
     const revenueHref = `/dashboard/revenue?summary=receipts&dateFrom=${date}&dateTo=${date}`;
     const scheduleHref = `/dashboard/courses?date=${date}`;
-    return <PageShell><HomePosition>
+    return <PageShell compact><HomePosition>
     <PageHeader title="首頁" subtitle={`${date} · 今日工作`} actions={<div className="flex flex-wrap gap-2">{access.create && <><Link className={`${linkStyle} bg-primary-700 !text-white`} href={`${scheduleHref}&action=booking`}>替學員預約</Link><Link className={`${linkStyle} border border-earth-200`} href={`${scheduleHref}&action=schedule`}>新增排課</Link></>}</div>}/>
-    <div className="space-y-3">
+    <div className="@container space-y-2">
       {!music && access.create && ["OWNER","ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupHome storeId={storeId} userId={user.id}/></Suspense>}
       {access.bookings && <Stream title="今日摘要" id="today" load={async () => { const row = await getCourseHomeToday(storeId, date); return <><HomeClockRefresh nextAt={Math.min(row.nextEnd?.getTime() ?? Infinity, dayRange(date).end.getTime() + 1)}/><div className="flex flex-wrap items-center gap-x-5 gap-y-1">{[["今日課程", row.sessions, "堂"], ["今日完成", row.ended, "堂"], ["今日預約", row.bookings, "人次"], ["今日完成", row.attended, "人次"]].map(([label, value, unit]) => <Link key={`${label}-${unit}`} href={`${scheduleHref}&action=booking`} className="inline-flex min-h-11 items-baseline gap-2 py-2 text-sm"><span className="text-earth-600">{label}</span><strong className="text-lg tabular-nums text-primary-900">{value}</strong><span>{unit}</span></Link>)}<div className="ml-auto flex items-center gap-1"><Link href={scheduleHref} className={linkStyle}>查看課表 →</Link><StatisticInfo id="today" title="今日摘要"/></div></div></>; }}/>}
-      <div className="grid items-start gap-3 lg:grid-cols-2">
+      <div className="grid items-start gap-2 @min-[40rem]:grid-cols-2 @min-[72rem]:grid-cols-3">
       {access.revenue && <Stream title="今日收款" id="receipts" load={async () => { const r = await getCourseReceiptTotals(storeId, date, date); return <><Link href={revenueHref} className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2 text-sm"><strong className="text-lg text-primary-900">{money(r.gross)}</strong><span>退款 {money(r.refunds)}</span><span>沖銷 {money(r.voids)}</span><span>淨收款 {money(r.net)}</span><span className="text-primary-700 underline">查看收款明細</span></Link></>; }}/>}
       {access.customers && <Stream title="顧客概況 · 目前總數" id={music ? "customers-music" : "customers"} load={async () => { const r = await getCourseHomeCustomers(storeId, user.staffId, access.staffScope); return <><div className="flex flex-wrap gap-3">{r.total !== null && <Link href="/dashboard/courses?view=customers" className={linkStyle}>全店顧客 <strong className="mx-2 tabular-nums">{r.total}</strong> 人</Link>}{music && r.total === null && <Link href="/dashboard/courses?view=customers" className={linkStyle}>可見顧客 <strong className="mx-2 tabular-nums">{r.mine ?? 0}</strong> 人</Link>}{!music && r.mine !== null && <Link href={`/dashboard/courses?view=customers&staff=${encodeURIComponent(user.staffId!)}`} className={linkStyle}>名下顧客 <strong className="mx-2 tabular-nums">{r.mine}</strong> 人</Link>}</div></>; }}/>}
+      {access.cash && <Stream title="開店狀態" id="cash" load={async () => {
+        if (!await hasStoreFeature(storeId, FEATURES.CASH_DRAWER)) return <p className="text-sm text-earth-500">尚未開通</p>;
+        const c = await getCourseHomeCash(storeId);
+        const label = c.state === "OPEN" ? "營業中" : c.state === "CLOSED" ? "已結帳" : c.state === "PREVIOUS_OPEN" ? "前次尚未結帳" : "未開店";
+        return <CashDrawerHomeStatus key={`${storeId}:${label}`} storeId={storeId} initialStatus={label}/>;
+      }}/> }
       </div>
-      <Stream title="今天待處理" id="todos" load={async () => { const permissions = { ...access.todos, followUp: access.todos.followUp && await hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER) }; const result = await getCourseHomeTodos(storeId, permissions); return <CourseTodoList result={result}/>; }}/>
+      <Stream title="今天待處理" id="todos" load={async () => { const permissions = { ...access.todos, followUp: access.todos.followUp && await hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER) }; const result = await getCourseHomeTodos(storeId, permissions, new Date(), 0, 3); return <CourseTodoList result={result}/>; }}/>
+      <div className="grid items-start gap-2 @min-[40rem]:grid-cols-2">
       {access.customers && access.planStatus && <Stream title="顧客方案待辦" id="unassigned-plans" load={async () => {
         const total = await getCourseUnassignedPlanCount(storeId, access.staffScope);
         return <>
           <Link prefetch={false} className={linkStyle} href="/dashboard/courses/unassigned-plans">未指派方案 <strong className="mx-2 tabular-nums">{total}</strong> 人 →</Link>
-          <p className="pb-2 text-xs text-earth-500">排除待核帳及已有個人／共用方案紀錄的顧客；到期或用完不算未指派。不自動發送 LINE。</p>
+
         </>;
       }} />}
-      <div className="grid items-start gap-3 lg:grid-cols-2">
-        {access.cash && <Stream title="開店與對帳" id="cash" load={async () => {
-                if (!await hasStoreFeature(storeId, FEATURES.CASH_DRAWER))
-                    return <p className="text-sm">現金抽屜未開通；請由有權限的人員處理設定。</p>;
-                const c = await getCourseHomeCash(storeId);
-                const label = courseCashStatus(c.state, "actual" in c ? c.actual : null, "difference" in c ? c.difference : null);
-                return <><div className="flex items-center justify-between gap-3"><strong className={`text-sm ${"difference" in c && c.difference ? "text-amber-800" : "text-primary-900"}`}>{label}</strong><Link className={linkStyle} href="/dashboard/cash-drawer">管理現金 →</Link></div>{"expected" in c && <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm"><p>應有現金：{c.expected == null ? "待核對" : money(c.expected)}</p><p>結帳實點：{c.actual == null ? "尚未盤點" : money(c.actual)}</p><p>結帳差額：{c.difference == null ? "尚未確認" : money(c.difference)}</p>{c.state === "OPEN" && <p className="text-xs text-earth-500">開店實點 {money(c.openingActual)}・開店差額 {money(c.openingDifference)}。尚未結帳盤點，不代表已對平。</p>}</div>}</>;
-            }}/>}
         {access.customers && <Stream title="顧客關懷" id="care" load={async () => { if (!await hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE))
         return <p className="text-sm">顧客經營尚未開通。</p>; const r = await getCourseCareCounts(storeId, access.staffScope); return <><div className="grid grid-cols-1 sm:grid-cols-2">{Object.entries(COURSE_CARE_LABELS).map(([kind, label]) => <Link key={kind} className={linkStyle} href={`/dashboard/growth?segment=${kind}&month=${date.slice(0, 7)}`}>{label}<strong className="ml-auto pl-3 tabular-nums">{r[kind as keyof typeof r]} 人</strong></Link>)}</div></>; }}/>}
       </div>

@@ -4,6 +4,7 @@ import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
 import { PreviewToolsMenu } from "./preview-tools-menu";
 import { resolveNavigationAccess } from "@/lib/navigation-access";
+import { CashDrawerShortcut } from "./cash-drawer-shortcut";
 import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
@@ -631,6 +632,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   operationGuidePreview?: boolean;
   industryModule?: IndustryModuleId;
@@ -664,6 +666,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  cashDrawerStoreId,
   musicEnabled=false,
   operationGuidePreview = false,
   industryModule = "steamfoot",
@@ -834,6 +837,7 @@ export default function DashboardShell({
         .filter(
           (item) =>
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
+            !previewItems.some(preview => preview.href === item.href) &&
             !(isIframePreview && item.href === "/dashboard/device-preview"),
         )
         .map((item) => ({ item, ...accessFor(item) }));
@@ -922,7 +926,7 @@ export default function DashboardShell({
   const renderNavItem = (c: { item: NavItem; locked: boolean; status?: string }, options: { indented: boolean }) => {
     const { item, locked, status } = c;
 
-    if (status) return <li key={item.href}><span aria-disabled="true" className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-earth-500"><span className="shrink-0">{item.icon}</span><span>{item.label}</span><span className="ml-auto shrink-0 text-xs">{status}</span></span></li>;
+    if (status) return <li key={item.href}><span aria-disabled="true" className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-earth-700 opacity-50"><span className="shrink-0">{item.icon}</span><span>{item.label}</span></span></li>;
     if (locked) {
       return (
         <li key={item.href}>
@@ -972,7 +976,7 @@ export default function DashboardShell({
   const renderNavItemCollapsed = (c: { item: NavItem; locked: boolean; status?: string }) => {
     const { item, locked, status } = c;
 
-    if (status) return <li key={item.href}><span aria-disabled="true" aria-label={`${item.label}・${status}`} title={`${item.label}・${status}`} className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-earth-400">{item.icon}</span></li>;
+    if (status) return <li key={item.href}><span aria-disabled="true" aria-label={item.label} title={item.label} className="flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-earth-700 opacity-50">{item.icon}</span></li>;
     if (locked) {
       return (
         <li key={item.href}>
@@ -1083,7 +1087,7 @@ export default function DashboardShell({
     </nav>
   );
 
-  const guideEnabled = operationGuidePreview && !isHqRoute && permissions.length > 0;
+  const guideEnabled = operationGuidePreview && !isHqPlatformView && permissions.length > 0;
 
   // The studio itself owns the screen. Iframe pages use devicePreview=1 and
   // deliberately retain this shell for real dashboard navigation.
@@ -1091,8 +1095,10 @@ export default function DashboardShell({
     return <div className="min-h-dvh bg-earth-50">{children}</div>;
   }
 
+  if (pathname === "/dashboard/cash-drawer" && searchParams.get("cashDrawerPanel") === "1") return <div className="min-h-dvh bg-earth-50">{children}</div>;
+
   return (
-    <OperationGuideShell enabled={guideEnabled} contextPath={industryModule === "course" ? `${pathname}?${routeQuery}` : undefined} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
+    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
@@ -1201,8 +1207,11 @@ export default function DashboardShell({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            <div className="flex shrink-0 items-center gap-1">
+            {!isHqPlatformView && !isIframePreview && cashDrawerStoreId && <CashDrawerShortcut key={cashDrawerStoreId} storeId={cashDrawerStoreId} prefix={dashboardPrefix} />}
             <OperationGuideTrigger />
-            {!isHqPlatformView && <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />}
+            <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={isHqPlatformView ? undefined : activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />
+            </div>
             {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
               <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>

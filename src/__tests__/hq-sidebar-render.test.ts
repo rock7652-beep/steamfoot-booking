@@ -6,7 +6,7 @@ const context = vi.hoisted(() => ({ path: "/hq/dashboard", search: "" }));
 vi.mock("next/navigation", () => ({ usePathname: () => context.path, useSearchParams: () => new URLSearchParams(context.search) }));
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 vi.mock("next/link", () => ({ default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as never) }));
-vi.mock("@/components/operation-guide-shell", () => ({ OperationGuideShell: ({ children }: {children: unknown}) => children, OperationGuideTrigger: () => null }));
+vi.mock("@/components/operation-guide-shell", () => ({ OperationGuideShell: ({ children, enabled, contextPath }: {children: unknown; enabled: boolean; contextPath: string}) => createElement("div", {"data-guide-enabled": String(enabled), "data-guide-path": contextPath}, children as never), OperationGuideTrigger: () => null }));
 vi.mock("@/components/feature-gate", () => ({ PlanBadge: () => null, TrialProgressBar: () => null, LockedNavItem: ({label}: {label: string}) => createElement("button", {}, label) }));
 vi.mock("@/components/breadcrumb", () => ({ DashboardBreadcrumb: () => null }));
 vi.mock("@/components/build-footer", () => ({ default: () => null }));
@@ -22,6 +22,8 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
+    operationGuidePreview: true,
+    cashDrawerStoreId: selected && permissions.includes("cashDrawer.read") ? selected : undefined,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
     storeOptions: [{id: "a", name: "店 A", isDefault: true}], activeStoreId: selected,
     effectiveFeatures: Object.fromEntries(Object.values(FEATURES).map(key => [key, true])),
@@ -31,6 +33,26 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
 }
 
 describe("actual HQ shell rendering", () => {
+  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("puts cash first in the %s header (music=%s)", (module, music) => {
+    const html = render(module, "a", "/hq/dashboard", music);
+    expect(html.indexOf("現金抽屜")).toBeGreaterThan(0);
+    expect(html.indexOf("現金抽屜")).toBeLessThan(html.indexOf('aria-label="預覽工具"'));
+    expect(render(module, null)).not.toContain("現金抽屜");
+  });
+  it.each(["steamfoot", "spa", "course"] as const)("keeps the store guide available when HQ enters %s", module => {
+    const html = render(module, "a", "/hq/dashboard/bookings");
+    expect(html).toContain('data-guide-enabled="true"');
+    expect(html).toContain('data-guide-path="/dashboard/bookings"');
+    const noPermission = render(module, "a", "/s/store-a/admin/dashboard", false, false, []);
+    expect(noPermission).toContain('data-guide-enabled="false"');
+  });
+  it("moves HQ preview tools into the header without duplicate sidebar entries", () => {
+    const html = render("steamfoot", null);
+    expect(html).toContain('aria-label="預覽工具"');
+    expect(html).not.toContain('href="/hq/dashboard/frontend-preview"');
+    expect(html).not.toContain('href="/hq/dashboard/device-preview"');
+    expect(html).toContain('data-guide-enabled="false"');
+  });
   it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("uses the same two open sections for %s (music=%s)", (module, music) => {
     const html = render(module, "a", "/s/store-a/admin/dashboard", music);
     expect(html).toContain("日常工作"); expect(html).toContain("店務管理");
@@ -41,9 +63,12 @@ describe("actual HQ shell rendering", () => {
     expect(html).not.toContain("數位管家名單</span>");
     expect(html).toContain('aria-label="預覽工具"');
   });
-  it("shows an HQ hidden entry without turning it into a granted link", () => {
-    const html = render("steamfoot", "a", "/hq/dashboard", false, true, [], true);
-    expect(html).toContain("進銷存"); expect(html).toContain("已隱藏");
+  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("dims a hidden HQ entry without extra status text for %s (music=%s)", (module, music) => {
+    const html = render(module, "a", "/hq/dashboard", music, true, [], true);
+    expect(html).toContain("進銷存");
+    expect(html).not.toContain("已隱藏");
+    expect(html).not.toContain("未開通");
+    expect(html).toMatch(/aria-disabled="true"[^>]*opacity-50/);
     expect(html).not.toContain('href="/hq/dashboard/inventory"');
     expect(html).toContain('href="/hq/dashboard/staff"');
   });

@@ -9,6 +9,8 @@
  * 本頁只負責 fetch + 權限 + render workspace。
  */
 
+import { CashDrawerPanelBridge } from "@/components/cash-drawer-shortcut";
+import { prisma } from "@/lib/db";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { CourseTodaySummary } from "../courses/today-summary";
 import { redirect } from "next/navigation";
@@ -35,20 +37,26 @@ import { CashDrawerWorkspace } from "./cash-drawer-workspace";
 
 interface PageProps {
   courseHome?: boolean;
-  searchParams: Promise<{ error?: string; cashDrawerError?: string }>;
+  searchParams: Promise<{ error?: string; cashDrawerError?: string; cashDrawerPanel?: string; panelStoreId?: string; panelPrefix?: string }>;
 }
 
 export default async function CashDrawerPage({ searchParams, courseHome = false }: PageProps) {
+  const params = await searchParams;
+  const panel = params.cashDrawerPanel === "1";
+  const panelError = (message: string) => <div className="p-4"><CashDrawerPanelBridge storeId={params.panelStoreId ?? ""}/><p role="alert">{message}</p></div>;
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "cashDrawer.read"))) {
+    if (panel) return panelError("目前沒有查看現金抽屜的權限，請關閉後重新登入或聯絡店長。");
     redirect("/dashboard");
   }
   await searchParams; // 觸發 dynamic rendering，錯誤 toast 由 <FormErrorToast /> 自己讀 URL
 
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const [activeStoreId, storeViewContext] = await Promise.all([
+    getActiveStoreForRead(user), resolveStoreViewContextFromCookie(user),
+  ]);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const storeId = storeIdForViewContext(activeStoreId, storeViewContext);
+  if (panel && (!storeId || params.panelStoreId !== storeId)) return panelError("店家已切換，請關閉視窗後重新開啟。");
   if (!storeId) {
     // ADMIN 未選店時 storeId 可能為 null
     redirect("/dashboard");
@@ -56,10 +64,20 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
 
   if (!(await hasStoreFeature(storeId, FEATURES.CASH_DRAWER))) {
     if (courseHome) return <PageShell><PageHeader title="首頁" subtitle="今日課程與待處理工作" /><CourseTodaySummary /></PageShell>;
+    if (panel) return panelError("現金抽屜尚未開通。");
     return <CashDrawerLockedState />;
   }
 
-  if(!await canReadInventoryFinance(storeId,user)) return <PageShell><PageHeader title="現金抽屜" /><p>完整結帳需有查看進貨成本的權限。</p></PageShell>;
+  if(panel && !await canReadInventoryFinance(storeId,user)) return panelError("完整結帳需有查看進貨成本的權限。");
+  if(!panel && !await canReadInventoryFinance(storeId,user)) return <PageShell><PageHeader title="現金抽屜" /><p>完整結帳需有查看進貨成本的權限。</p></PageShell>;
+  const industryModule = await getStoreIndustryModule(storeId);
+  // The lightweight panel omits DashboardLayout, so retain its course staff
+  // membership boundary here before reading any financial amounts.
+  if (panel && industryModule === "course" && user.role !== "ADMIN"
+    && !(user.role === "OWNER" && !!user.storeId && activeStoreId !== user.storeId)
+    && !await prisma.staff.findFirst({ where: { id: user.staffId ?? "", storeId: activeStoreId!, userId: user.id, status: "ACTIVE" } })) {
+    return panelError("目前人員無法存取此店，請聯絡店長。");
+  }
   const todayStr = toLocalDateStr();
   const [y, m, d] = todayStr.split("-").map(Number);
   const todayBusinessDate = new Date(Date.UTC(y, m - 1, d));
@@ -90,17 +108,20 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
       ? Promise.resolve(false)
       : checkPermission(user.role, user.staffId, "cashbook.create"),
     listClosedBusinessDates(storeId, fromDate.toISOString().slice(0, 10), todayStr),
-    listStaffSelectOptions(),
+    !isViewMode && user.role === "ADMIN" ? listStaffSelectOptions() : Promise.resolve([]),
   ]);
   const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
   const canReopen = canInit && canClose;
   const canAssignStaff = !isViewMode && user.role === "ADMIN";
 
+  const panelPrefix = /^(?:\/hq|\/s\/[^/?#]+\/admin)$/.test(params.panelPrefix ?? "") ? params.panelPrefix! : "";
+  const panelReturnPath = `${panelPrefix}/dashboard/cash-drawer?${new URLSearchParams({cashDrawerPanel: "1", panelStoreId: storeId, panelPrefix})}`;
   return (
     <PageShell className={courseHome ? "course-home flex w-full min-w-0 flex-col gap-4 py-6" : undefined}>
+      {panel && <CashDrawerPanelBridge storeId={storeId} status={view.state === "OPENED_TODAY" ? view.session.status === "OPEN" ? "營業中" : "已結帳" : view.state === "WARNING_LAST_OPEN" ? "前次尚未結帳" : "未開店"}/>}
       <FormErrorToast />
 
-      <PageHeader
+      {!panel && <PageHeader
         title={courseHome ? "首頁" : "現金抽屜"}
         subtitle={courseHome ? "今日課程、學員與待處理工作" : "每日開店點錢 / 閉店點錢 / 滾動結餘核對"}
         actions={
@@ -111,14 +132,14 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
             查看收支明細
           </Link>
         }
-      />
+      />}
 
       {courseHome && <CourseTodaySummary />}
       <section aria-label={courseHome ? "現金與收支" : undefined}>
       {courseHome && <h2 className="mb-3 text-sm font-semibold text-earth-600">現金與收支</h2>}
       <CashDrawerWorkspace
-        compactSetup={courseHome}
-        instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"}
+        compactSetup={panel || courseHome}
+        instantSearch={industryModule === "steamfoot"}
         view={view}
         todayStr={todayStr}
         storeId={storeId}
@@ -131,7 +152,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         closedDates={closedDates}
         canAssignStaff={canAssignStaff}
         staffOptions={staffOptions}
-        returnPath={courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
+        returnPath={panel ? panelReturnPath : courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
       />
       </section>
     </PageShell>
