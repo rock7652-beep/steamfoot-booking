@@ -12,7 +12,7 @@ import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
   title: "功能介紹｜少一點手動，多一點照顧 — 蒸管家",
-  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識多店管理、提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
+  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識進銷存、維修保養工單、多店管理、提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
 };
 
 const features = [
@@ -23,6 +23,14 @@ const features = [
     manual: ["翻進貨單", "核對商品庫存", "另登記銷售收款"],
     takeaway: "商品與帳務接在一起，庫存更容易掌握。",
     detail: "各付費方案皆額外加購，不列入免費選配或展店版內含。歸入原價 NT$800／月的經營功能，優惠與期限沿用同組規則。關閉或停用保留商品、庫存與單據資料。" },
+  {
+    id: "work-orders", name: "工單管理", icon: "checklist", fee: 800,
+    title: "維修・保養・施工，進度與欠款一張看清楚。",
+    before: "接件需求寫在紙上，處理進度留在聊天裡；顧客來取件時，還要另外找收款紀錄。",
+    after: "顧客需求、種類／型號、處理內容、材料工費、進度與付款狀態集中管理，支援取件及顧客／店家雙聯列印。",
+    manual: ["找接件單與顧客需求", "詢問目前處理到哪裡", "取件時再核對有沒有欠款"],
+    takeaway: "維修、保養與施工都有紀錄，交班、取件與收款更清楚。",
+    detail: "工單可獨立加購，管理接件、處理進度、工費、收款與取件；加入商品材料及扣庫存，需搭配已開通的進銷存及相應人員權限。工費預設 0 元，工單預設未付款，可用姓名、電話或單號查找；支援取消、不維修及退款。各付費方案皆額外加購，原價 NT$800／月，不列入免費選配或展店版內含；優惠與期限沿用經營功能規則。各門市獨立開通，旗下分店依各自授權。關閉或加購到期後保留原有工單與收款紀錄，重新開通可接續使用。" },
   {
     id: "reminders", name: "LINE 自動提醒", icon: "bell", fee: 0,
     title: "明天的顧客，你還在一個個傳訊息嗎？",
@@ -112,6 +120,7 @@ function Rows({ items }: { items: readonly (readonly [string, string])[] }) {
   return <dl className="divide-y divide-[#153B31]/10">{items.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-3 text-sm sm:text-base"><dt className="text-[#4C6259]">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>;
 }
 function Example({ id }: { id: FeatureId }) {
+  if (id === "work-orders") return <div className={panel}><p className="font-semibold">維修／保養工單｜範例資料</p><Rows items={[["單號", "261007001"], ["種類／型號", "吉他・範例型號 A"], ["問題與需求", "琴弦老化，需換弦與保養"], ["處理內容", "更換琴弦、清潔與調整"]]} /><div className="mt-3 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 font-medium">處理進度：已完成・待取件</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 font-medium text-[#59441E]">付款狀態：未付款</span></div><Rows items={[["商品材料", "吉他弦 1 組・NT$600"], ["工費", "NT$300"], ["應收／已收／尚欠", "NT$900／NT$0／NT$900"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">商品材料示意需搭配進銷存；可列印顧客聯與店家聯。</p></div>;
   if (id === "inventory") return <div className={panel}><p className="font-semibold">商品與庫存｜範例資料</p><Rows items={[["商品", "範例商品 A"], ["庫存", "進貨 20・銷貨 3・剩餘 17"], ["銷售收款", "串接現金收支"]]} /></div>;
   if (id === "labels") return <div className={panel}><p className="font-semibold">範例顧客 A</p><div aria-label="顧客標籤示意" className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 text-sm font-medium text-[#153B31]">晚間時段</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 text-sm font-medium text-[#59441E]">朋友推薦</span></div><Rows items={[["備註", "平日下班後方便安排"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">標籤統一分類，備註保留個別細節。</p></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">課程候補｜範例資料</p><Rows items={[["課程", "週三 19:00 瑜珈"], ["候補順位", "範例學員 A・第 1 組"], ["空位出現", "依順位自動遞補"]]} /><p className="mt-3 rounded-lg bg-[#E9F1EB] p-3 text-sm leading-6">遞補成功後，以 LINE 通知學員查看預約。</p></div>;
@@ -146,6 +155,7 @@ function Example({ id }: { id: FeatureId }) {
 }
 
 function BeforeExample({ id }: { id: FeatureId }) {
+  if (id === "work-orders") return <div className={panel}><p className="font-semibold">接件、進度與收款分散記錄</p><Rows items={[["紙本接件單", "吉他換弦、清潔與調整"], ["技師聊天紀錄", "處理完成了嗎？"], ["顧客來取件", "這張有收過錢嗎？"]]} /></div>;
   if (id === "inventory") return <div className={panel}><p className="font-semibold">商品紀錄分散在不同表格</p><Rows items={[["進貨單", "商品 A・20 件"], ["銷貨便條", "賣出 3 件"], ["現金紀錄", "還要再登記一次"]]} /></div>;
   if (id === "labels") return <div className={panel}><p className="font-semibold">分類散在不同備註裡</p><Rows items={[["顧客 A", "晚上方便，朋友介紹"], ["顧客 B", "下班後可以安排"], ["交班時", "這兩位算同一類嗎？"]]} /></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">候補名單散在聊天裡</p><Rows items={[["學員 A", "有空位再通知我"], ["有人取消", "誰還能來上課？"], ["確認後", "再手動補進名單"]]} /></div>;
@@ -234,17 +244,10 @@ export default async function FeaturesPage() {
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
         <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
-          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}{fee === 800 && <a href="#work-orders" className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">工單管理<span aria-hidden="true">↓</span></a>}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
+          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee && item.id !== "labels").map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・<AddonRate initialNow={initialNow} original={fee} /></p></div>)}
         </nav>
 
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
-      </section>
-      <section id="work-orders" aria-labelledby="work-orders-title" className="mt-10 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
-        <p className="text-base font-semibold">工單管理｜維修・保養・施工</p>
-        <h2 id="work-orders-title" className="mt-3 text-2xl font-semibold">接件、處理、收款與取件，一張工單看清楚。</h2>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">適合樂器維修、保養、施工與服務案件。記錄顧客需求、種類／型號與處理內容，搭配商品材料、工費、進度及付款狀態，並列印顧客與店家雙聯工單。</p>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">工單可獨立加購，管理接件、處理進度、工費、收款與取件；加入商品材料及扣庫存，需搭配已開通的進銷存及相應人員權限。商品庫存與收款紀錄共用，減少重複登記；支援取消、不維修及退款。各付費方案皆額外加購，原價 NT$800／月，不列入免費選配或展店版內含；優惠與期限沿用經營型模組規則。各門市保留獨立開關，旗下分店依各自加購授權。關閉或加購到期後保留原有工單與收款紀錄，重新開通可接續使用。</p>
-        <a href="/pricing#addons" className="mt-3 inline-flex min-h-11 items-center text-base font-semibold underline underline-offset-4">查看工單加購費用與優惠 →</a>
       </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
@@ -262,7 +265,7 @@ export default async function FeaturesPage() {
             </section>
           </div>
           <p className="mt-4 border-l-4 border-[#967039] pl-4 text-lg font-medium leading-7">{feature.takeaway}</p>
-          <details className="mt-3 text-sm leading-6 text-[#4C6259]"><summary className="cursor-pointer">功能使用說明</summary><p className="mt-2">{feature.detail}</p></details>
+          <details className="mt-3 text-sm leading-6 text-[#4C6259]"><summary className="inline-flex min-h-11 cursor-pointer items-center">功能使用說明</summary><p className="mt-2">{feature.detail}</p>{feature.id === "work-orders" && <p className="mt-3"><AddonRate initialNow={initialNow} original={feature.fee} /></p>}</details>
         </article>)}
       </div>
       <section aria-labelledby="next-step" className="mt-12 rounded-2xl bg-[#123E32] p-6 text-white sm:p-8"><h2 id="next-step" className="text-2xl font-semibold">找到需要的功能，再選適合的方案。</h2><p className="mt-3 text-base leading-7 text-[#D4E0D8]">依需求選功能，已包含的不用重複買。選定後由總部協助確認與開通。</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/pricing#comparison" className="rounded-full bg-white px-5 py-3 text-base font-semibold text-[#123E32]">比較方案與價格</Link><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/50 px-5 py-3 text-base">聊聊店裡的需求</a></div></section>
