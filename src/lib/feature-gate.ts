@@ -105,7 +105,9 @@ export async function requireStoreFeature(
   if (!allowed) {
     throw new AppError(
       "FORBIDDEN",
-      "此功能尚未開通，請聯絡總部加購或升級方案",
+      feature === FEATURES.INVENTORY || feature === FEATURES.WORK_ORDERS
+        ? "此功能需額外加購，請聯絡總部確認與開通"
+        : "此功能尚未開通，請聯絡總部加購或升級方案",
     );
   }
 }

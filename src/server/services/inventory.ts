@@ -42,7 +42,7 @@ export async function inventoryContext(permission: "inventory.read" | "inventory
         prisma.storeFeatureEntitlement.findUnique({ where: { uq_store_feature_entitlement: { storeId, featureKey: isWorkOrder ? "work_orders" : "inventory" } } }),
     ]);
     if (!store || (isWorkOrder ? !(grant?.status === "ENABLED" && (!grant.startsAt || grant.startsAt <= new Date()) && (!grant.expiresAt || grant.expiresAt >= new Date())) : !inventoryFeatureAllowed(store.plan, grant)))
-        throw new AppError("FORBIDDEN", isWorkOrder ? "工單尚未開通" : "進銷存尚未開通");
+        throw new AppError("FORBIDDEN", isWorkOrder ? "工單需額外加購，請聯絡總部確認與開通" : "進銷存需額外加購，請聯絡總部確認與開通");
     const canCost = await checkPermission(user.role, user.staffId, "inventory.cost.read");
     return { user, storeId, canCost, permission };
 }

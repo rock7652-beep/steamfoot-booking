@@ -243,7 +243,7 @@ export default async function FeaturesPage() {
         <p className="text-base font-semibold">工單管理・額外加購</p>
         <h2 id="work-orders-title" className="mt-3 text-2xl font-semibold">接件、處理、收款與取件，一張工單看清楚。</h2>
         <p className="mt-3 text-base leading-7 text-[#4C6259]">適合樂器維修、保養、施工與服務案件。記錄顧客需求、種類／型號與處理內容，搭配商品材料、工費、進度及付款狀態，並列印顧客與店家雙聯工單。</p>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">共用商品庫存與收款紀錄，減少重複登記；支援取消、不維修及退款。各付費方案皆額外加購，原價 NT$800／月，不列入免費選配或展店版內含；優惠與期限沿用經營型模組規則。各門市保留獨立開關，旗下分店依各自加購授權。</p>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">共用商品庫存與收款紀錄，減少重複登記；支援取消、不維修及退款。各付費方案皆額外加購，原價 NT$800／月，不列入免費選配或展店版內含；優惠與期限沿用經營型模組規則。各門市保留獨立開關，旗下分店依各自加購授權。關閉或加購到期後保留原有工單與收款紀錄，重新開通可接續使用。</p>
       </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">

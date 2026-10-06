@@ -321,6 +321,9 @@ export function getPlanLimits(
 /** 要求某功能 — 不通過則 throw AppError */
 export function requireFeature(plan: PricingPlan, feature: FeatureKey): void {
   if (!hasFeature(plan, feature)) {
+    if (feature === FEATURES.INVENTORY || feature === FEATURES.WORK_ORDERS) {
+      throw new AppError("FORBIDDEN", "此功能需額外加購，請聯絡總部確認與開通");
+    }
     const required = getRequiredPlan(feature);
     const label = PRICING_PLAN_INFO[required].label;
     throw new AppError(

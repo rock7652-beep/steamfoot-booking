@@ -2,6 +2,7 @@
 
 import { useFeaturePresentation } from "@/components/feature-presentation";
 import { useState } from "react";
+import { getPaidAddon } from "@/lib/paid-addon";
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import type { PricingPlan } from "@prisma/client";
 import {
@@ -42,6 +43,7 @@ export function FeatureGate({ plan, feature, enabled, children, fallback }: Feat
 // ============================================================
 
 function UpgradeCard({ feature }: { feature: FeatureKey }) {
+  const addon = getPaidAddon(feature);
   const requiredPlan = getRequiredPlan(feature);
   const info = PRICING_PLAN_INFO[requiredPlan];
   const gateCopy = getFeatureGateCopy(requiredPlan);
@@ -54,29 +56,30 @@ function UpgradeCard({ feature }: { feature: FeatureKey }) {
         </svg>
       </div>
       <div className={`mx-auto mb-2 inline-flex rounded-lg px-3 py-1 text-xs font-medium ${info.bgColor} ${info.color}`}>
-        {info.label}
+        {addon ? "額外加購" : info.label}
       </div>
       <h3 className="text-lg font-semibold text-earth-900">
-        升級至{info.label}即可使用此功能
+        {addon ? addon.title : `升級至${info.label}即可使用此功能`}
       </h3>
       <p className="mt-1 text-sm text-earth-500">
-        {gateCopy.description}
+        {addon ? addon.description : gateCopy.description}
       </p>
-      <div className="mt-5 flex items-center justify-center gap-2">
+      {addon && <p className="mt-2 text-sm leading-6 text-earth-600">{addon.retention}</p>}
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <a
-          href="/pricing"
+          href={addon?.href ?? "/pricing"}
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700"
         >
-          {gateCopy.primaryCta}
+          {addon ? "查看加購費用" : gateCopy.primaryCta}
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
           </svg>
         </a>
         <a
-          href="/pricing"
+          href={addon ? `/pricing/features#${feature === "inventory" ? "inventory" : "work-orders"}` : "/pricing"}
           className="inline-flex items-center rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
         >
-          {gateCopy.secondaryCta}
+          {addon ? "查看功能說明" : gateCopy.secondaryCta}
         </a>
       </div>
     </div>
@@ -92,19 +95,22 @@ interface UpgradePromptProps {
   onClose: () => void;
   targetPlan: PricingPlan;
   featureLabel?: string;
+  feature?: FeatureKey;
 }
 
-export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: UpgradePromptProps) {
+export function UpgradePrompt({ open, onClose, targetPlan, featureLabel, feature }: UpgradePromptProps) {
   if (!open) return null;
   const info = PRICING_PLAN_INFO[targetPlan];
+  const addon = getPaidAddon(feature);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       <div className="absolute inset-0 bg-earth-900/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <div className="relative mx-4 max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 rounded-lg p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-600"
+          aria-label="關閉提示"
+          className="absolute min-h-11 min-w-11 right-3 top-3 rounded-lg p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-600"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -113,34 +119,35 @@ export function UpgradePrompt({ open, onClose, targetPlan, featureLabel }: Upgra
 
         <div className="text-center">
           <div className={`mx-auto mb-3 inline-flex rounded-lg px-3 py-1 text-xs font-medium ${info.bgColor} ${info.color}`}>
-            {info.label}
+            {addon ? "額外加購" : info.label}
           </div>
           <h3 className="text-lg font-bold text-earth-900">
-            {featureLabel ? `「${featureLabel}」需要${info.label}方案` : `升級至${info.label}`}
+            {addon ? addon.title : featureLabel ? `「${featureLabel}」需要${info.label}方案` : `升級至${info.label}`}
           </h3>
           <p className="mt-1 text-sm text-earth-500">
-            升級後可立即解鎖更多營運能力
+            {addon ? addon.description : "升級後可立即解鎖更多營運能力"}
           </p>
         </div>
 
+        {addon && <p className="mt-2 text-sm leading-6 text-earth-600">{addon.retention}</p>}
         <div className="mt-5 space-y-2">
           <div className="flex gap-2">
             <a
-              href="/pricing"
-              className="flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
+              href={addon?.href ?? "/pricing"}
+              className="min-h-11 flex-1 rounded-lg bg-primary-600 py-2.5 text-center text-sm font-medium text-white transition hover:bg-primary-700"
             >
-              立即升級
+              {addon ? "查看加購費用" : "立即升級"}
             </a>
             <a
               href="/pricing"
-              className="rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
+              className="min-h-11 rounded-lg border border-earth-200 px-4 py-2.5 text-sm text-earth-600 transition hover:bg-earth-50"
             >
               查看方案比較
             </a>
           </div>
           <button
             onClick={onClose}
-            className="w-full py-1.5 text-xs text-earth-400 transition hover:text-earth-600"
+            className="min-h-11 w-full py-1.5 text-sm text-earth-400 transition hover:text-earth-600"
           >
             稍後再說
           </button>
@@ -213,6 +220,7 @@ export function TrialLimitModal({
           ))}
         </ul>
 
+        {addon && <p className="mt-2 text-sm leading-6 text-earth-600">{addon.retention}</p>}
         <div className="mt-5 space-y-2">
           <div className="flex gap-2">
             <a
@@ -468,11 +476,13 @@ export function LockedNavItem({
   icon,
   collapsed,
   targetPlan,
+  feature,
 }: {
   label: string;
   icon: React.ReactNode;
   collapsed: boolean;
   targetPlan: PricingPlan;
+  feature?: FeatureKey;
 }) {
   const [showPrompt, setShowPrompt] = useState(false);
 
@@ -501,6 +511,7 @@ export function LockedNavItem({
         onClose={() => setShowPrompt(false)}
         targetPlan={targetPlan}
         featureLabel={label}
+        feature={feature}
       />
     </>
   );
