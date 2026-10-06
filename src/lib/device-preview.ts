@@ -70,6 +70,11 @@ export const DEVICE_PRESETS = {
     width: 1024,
     height: 768,
   },
+  tabletPortrait: {
+    label: "平板直向",
+    width: 768,
+    height: 1024,
+  },
   desktop: {
     label: "桌機",
     width: 1440,
