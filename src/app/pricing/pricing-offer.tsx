@@ -94,7 +94,7 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
         <div className="rounded-xl border border-[#153B31]/15 bg-white p-4 md:col-span-2">
           <p className="text-sm leading-6 text-[#4C6259]">進銷存與工單可分別開通，各付費版本皆可加購；不列入免費選配，展店版亦不內含。</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {[{ id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" }, { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "接件、進度、材料工費、收款與取件集中管理，支援工單列印，快速掌握進度與欠款。" }].map(addon => <section key={addon.id} className="min-w-0 rounded-lg bg-[#F8F5EE] p-3">
+            {[{ id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" }, { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "鋼琴調音、管弦樂器與吉他維修保養，以及其他施工服務；集中管理接件、進度、材料工費、收款與取件，支援工單列印。" }].map(addon => <section key={addon.id} className="min-w-0 rounded-lg bg-[#F8F5EE] p-3">
               <h4 className="text-base font-semibold leading-6">{addon.name}</h4>
               <p className="mt-1 text-sm leading-6 text-[#4C6259]">{addon.description}</p>
               <p className="mt-2 text-sm font-semibold">每項原價 NT$800／月</p>
