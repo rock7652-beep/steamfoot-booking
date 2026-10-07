@@ -1,3 +1,4 @@
+import { installAuditOutboxTestSchema } from "./helpers/audit-outbox-test-schema";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn()}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:vi.fn()}));
@@ -14,8 +15,10 @@ const url=databaseUrl?new URL(databaseUrl):null;url?.searchParams.set("schema",s
 const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
 (databaseUrl?describe:describe.skip)("music makeup — isolated real PostgreSQL",()=>{
  let created=false;
+  const fixtureStoreIds = new Set<string>();
  beforeAll(async()=>{
   await db!.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);created=true;
+  await installAuditOutboxTestSchema(databaseUrl!, db!);
   const ddl=execFileSync("node_modules/.bin/prisma",["migrate","diff","--from-empty","--to-schema-datamodel","course-prisma/schema.prisma","--script"],{encoding:"utf8"});
   for(const sql of ddl.split(";").map(s=>s.trim()).filter(Boolean))await db!.$executeRawUnsafe(sql);
   await db!.$executeRawUnsafe('ALTER TABLE "CourseBooking" DROP COLUMN "makeupForBookingId"');
@@ -29,10 +32,10 @@ const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
    'CREATE TABLE "BusinessHours" ("storeId" text,"dayOfWeek" int,"isOpen" boolean)',
   ])await db!.$executeRawUnsafe(sql);
  },30000);
- afterAll(async()=>{vi.useRealTimers();if(created)await db!.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);await db?.$disconnect();});
+ afterAll(async()=>{vi.useRealTimers();for (const storeId of fixtureStoreIds) await db!.$executeRaw`DELETE FROM public."OperationAuditOutbox" WHERE payload->>'storeId'=${storeId}`;if(created)await db!.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);await db?.$disconnect();});
  async function fixture(){
   vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2030-01-10T00:00:00Z"));
-  const storeId=randomUUID(),customerId=randomUUID();
+  const storeId=randomUUID(),customerId=randomUUID(); fixtureStoreIds.add(storeId);
   await db!.$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
   await db!.$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'驗收學員',NULL)`;
   await db!.$executeRaw`INSERT INTO "StoreFeatureEntitlement" VALUES (${storeId},'business.music','ENABLED')`;
@@ -55,6 +58,8 @@ const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
   expect((await db!.coursePointCard.findUnique({where:{id:f.card.id}}))!.remaining).toBe(4);
   const [a,b]=await Promise.all([f.transact(tx=>reserveCourseInTransaction(tx,f.actor,f.input,100)),f.transact(tx=>reserveCourseInTransaction(tx,f.actor,f.input,100))]);
   expect(a.id).toBe(b.id);
+  const evidence = await db!.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM public."OperationAuditOutbox" WHERE payload->>'storeId'=${f.storeId} AND payload->>'targetId'=${a.id}`;
+  expect(Number(evidence[0].count)).toBe(1);
   vi.setSystemTime(new Date("2030-01-11T12:00:00Z"));
   await f.transact(tx=>settleCourseBooking(tx,f.actor,a.id,"ATTENDED"));
   await f.transact(tx=>settleCourseBooking(tx,f.actor,a.id,"ATTENDED"));

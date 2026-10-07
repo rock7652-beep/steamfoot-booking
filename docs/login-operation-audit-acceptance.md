@@ -41,3 +41,10 @@
 - 6 組相關測試共 26 個通過（含 11 個白話呈現／跨店名稱查詢測試），完整 TypeScript、修改檔案 ESLint 與 diff whitespace 通過；本機補齊既有 PGlite 測試依賴並提高 TypeScript 記憶體上限後完成檢查。
 - RWD：保留原清單／行內展開；摘要與詳情可換行、內容維持 14px；五欄只在寬畫面排列。需驗桌機 1366／寬螢幕、iPad 1024×768／768×1024、手機 390／360、長名稱、鍵盤與旋轉。
 - 當次雲端瀏覽器存取固定支線 Preview 回傳 502（Connection refused），一次重新載入後仍相同。Vercel 查詢確認原 662aa66 部署 READY；不可據此認定瀏覽器或登入後流程已驗收。新版白話化的 Preview 與真實資料驗收仍待完成。
+
+### 遠端驗收缺口補齊
+
+- 2cdc4cb8e Preview READY、遠端型別／ESLint／targeted tests 通過。完整 Vitest 發現新增跨模組稽核 reader 尚未列入明確查詢邊界；音樂真實 PostgreSQL 測試缺少 public 稽核 outbox。
+- 已補上只讀 reader 的邊界宣告與 SPA 精確 storeId／targetId、不讀蒸足 Booking 的測試，保留原模組防火牆檢查。
+- 音樂補課／通知的隔離 fixture 以實際 migration 的 outbox DDL 建表，只允許 loopback 且資料庫名稱結尾為 _test；清理只刪除本測試產生之 storeId 的 outbox，不更改正式 migration 或業務交易。補课重複預約同時驗證只保存一筆待送紀錄。
+- 本機 8 組、30 個相關測試、完整 TypeScript、修改檔案 ESLint、diff whitespace 通過；真實 PostgreSQL 流程仍以本次遠端重跑結果為準。

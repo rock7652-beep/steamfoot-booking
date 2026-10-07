@@ -1,7 +1,7 @@
 import { beforeEach, it, expect, vi } from "vitest";
-const m = vi.hoisted(()=>({ customers:vi.fn(), stores:vi.fn(), bookings:vi.fn(), staff:vi.fn(), plans:vi.fn() }));
+const m = vi.hoisted(()=>({ customers:vi.fn(), stores:vi.fn(), bookings:vi.fn(), staff:vi.fn(), plans:vi.fn(), spaBookings:vi.fn() }));
 vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customers},store:{findMany:m.stores},booking:{findMany:m.bookings},staff:{findMany:m.staff},servicePlan:{findMany:m.plans}}}));
-vi.mock("@/lib/spa-db",()=>({spaPrisma:{}}));
+vi.mock("@/lib/spa-db",()=>({spaPrisma:{spaBooking:{findMany:m.spaBookings}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
 vi.mock("@/lib/permissions",()=>({PERMISSION_LABELS:{"audit.read":"查看操作紀錄"}}));
 import { resolveAuditPresentation } from "@/server/services/audit-presentation";
@@ -41,4 +41,10 @@ it("resolves a cross-store view name only when the caller has HQ authority",asyn
   m.stores.mockClear();
   await resolveAuditPresentation([row],{hq:true});
   expect(m.stores.mock.calls[0][0].where.id.in).toEqual(["own","previous"]);
+});
+
+it("reads SPA target names only with the exact authorized store and target, without legacy booking reads",async()=>{
+  await resolveAuditPresentation([{id:"a",storeId:"spa-own",targetType:"SpaBooking",targetId:"spa-booking",action:"UPDATE"}]);
+  expect(m.spaBookings).toHaveBeenCalledWith(expect.objectContaining({where:{OR:[{id:"spa-booking",storeId:"spa-own"}]}}));
+  expect(m.bookings).not.toHaveBeenCalled();
 });
