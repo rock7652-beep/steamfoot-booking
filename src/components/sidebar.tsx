@@ -1166,7 +1166,7 @@ export default function DashboardShell({
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
+        <div data-dashboard-navigation-overlay className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
           <div
             className="absolute inset-0 bg-earth-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}

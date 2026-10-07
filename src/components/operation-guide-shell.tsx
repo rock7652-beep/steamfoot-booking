@@ -80,6 +80,8 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
     </div>
     <style>{`
       [data-operation-guide-shell] [data-dashboard-header] { z-index: 60; }
+      /* Navigation must cover the raised header, but stay below the guide dialog. */
+      [data-operation-guide-shell] [data-dashboard-navigation-overlay] { z-index: 70; }
       [data-operation-guide-shell] [data-right-sheet] { top: 3.5rem; }
       @media (min-width: 1440px) {
         [data-operation-guide-shell][data-guide-open="true"] { padding-right: 380px; }
