@@ -71,31 +71,55 @@ function OnlinePayment() {
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
-    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">免費任選：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">額外加購：</strong>額外付費。</p>
-    <p className="mt-2 text-sm leading-6 text-[#4C6259]">基本版：資料匯出／現金抽屜免費 2 選 1；專業版：健康追蹤／月結管理／課程候補免費 3 選 1。免費任選可之後再決定，由總部協助開通；超出名額才加購。</p>
-    <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
+    <div id="comparison-help" className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm sm:text-base">
+      <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="font-bold text-[#28684D]">✓</span>已包含</span>
+      <span className="rounded-md border border-[#D7B771] bg-[#FFF6DF] px-2 py-1 text-[#79591D]">免費任選</span>
+      <span className="text-[#64756D]">加購：另外付費</span>
+    </div>
     <p className="mt-3 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">三版皆內含：</strong>預約管理、顧客資料、方案堂數、基本收款與 LINE 顧客入口。</p>
     <table aria-describedby="comparison-help" className="mt-4 w-full table-fixed border-separate border-spacing-0 text-sm sm:text-base">
-      <caption className="sr-only">蒸管家三方案功能與使用規模比較</caption>
+      <caption className="sr-only">蒸管家三方案功能與使用規模比較；淡金色合併儲存格所涵蓋的項目共用一個免費名額。</caption>
       <colgroup><col className="w-[37%] sm:w-[43%]" /><col /><col /><col /></colgroup>
       <thead className="sticky top-20 z-10">
-        <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-1.5 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-1.5 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
+        <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-3 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th id={"comparison-plan-" + i} key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-3 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
       </thead>
       <tbody>
         {comparisonRows.map(row => <tr key={row.label}>
-          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-1.5 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
-          {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-1.5 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "額外加購" ? "text-[#64756D]" : "font-medium")}>{value === "免費任選" ? <><span className="block">免費</span><span className="whitespace-nowrap">{i === 0 ? "2 選 1" : "3 選 1"}</span></> : value}</td>)}
+          <th id={"comparison-" + featureLinks[row.label]} scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-1 text-left font-normal leading-6 sm:px-4"><a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center gap-1 rounded-sm hover:text-[#28684D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#123E32]">{row.label}<span aria-hidden="true" className="text-[#64756D]">↗</span></a></th>
+          {row.values.map((value, i) => {
+            if (value === "免費任選") {
+              const startsChoice = (i === 0 && row.label === "資料匯出") || (i === 1 && row.label === "健康追蹤");
+              if (!startsChoice) return null;
+              const optionIds = i === 0 ? "comparison-export comparison-cash" : "comparison-health comparison-settlement comparison-waitlist";
+              return <td key={i} rowSpan={i === 0 ? 2 : 3} headers={"comparison-plan-" + i + " " + optionIds} className="border border-[#D7B771] bg-[#FFF6DF] px-1 py-2 text-center align-middle text-[#79591D]">
+                <span className="block font-semibold">免費</span><span className="block font-semibold">{i === 0 ? "2 選 1" : "3 選 1"}</span>
+                <span className="mt-2 block leading-5 text-[#79591D]"><span className="block">其餘</span><span className="block">可加購</span></span>
+              </td>;
+            }
+            return <td key={i} headers={"comparison-plan-" + i + " comparison-" + featureLinks[row.label]} className={"border-b border-[#153B31]/10 px-1 py-1 text-center " + (i === 1 ? "bg-[#F6F8F5] " : "bg-white ")}>
+              {value === "內含" ? <><span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF3EC] text-xl font-semibold text-[#28684D]">✓</span><span className="sr-only">已包含</span></> : <span className="text-[#64756D]">加購</span>}
+            </td>;
+          })}
         </tr>)}
       </tbody>
       <tbody>
-        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-1.5 text-left text-base font-semibold sm:px-4">使用規模</th></tr>
-        {limits.map(item => <tr key={item.field}><th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-1.5 text-left font-normal sm:px-4">{item.label}</th>{plans.map(plan => {
+        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-2 text-left text-base font-semibold sm:px-4">使用規模</th></tr>
+        {limits.map(item => <tr key={item.field}><th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal sm:px-4">{item.label}</th>{plans.map(plan => {
           const value = PLAN_LIMITS[plan.id][item.field];
-          return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-1.5 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
+          return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-3 text-center font-semibold " + (plan.id === "GROWTH" ? "bg-[#F6F8F5]" : "bg-white")}>{value === null ? "不限" : <>{value.toLocaleString("zh-TW")}<span className="ml-0.5 font-normal">{item.unit}</span></>}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-1.5 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">多店管理</a></th><td className="bg-white px-1 py-1.5 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-1.5 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-1.5 text-center leading-6">總部管理<br />分店另計</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-1 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="inline-flex min-h-11 items-center gap-1 rounded-sm hover:text-[#28684D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#123E32]">多店管理<span aria-hidden="true" className="text-[#64756D]">↗</span></a></th><td className="bg-white px-1 py-1 text-center">單店</td><td className="bg-[#F6F8F5] px-1 py-1 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-1 text-center leading-6">總部管理<br />分店另計</td></tr>
       </tbody>
     </table>
+    <details className="mt-3 border-b border-[#153B31]/15 text-base leading-7">
+      <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看使用說明</summary>
+      <div className="space-y-2 pb-3 text-[#4C6259]">
+        <p>基本版：資料匯出／現金抽屜免費 2 選 1；專業版：健康追蹤／月結管理／課程候補免費 3 選 1。免費任選可之後再決定，由總部協助開通；同一淡金色區塊選 1 項免費，其餘可加購。</p>
+        <p>展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
+        <p>可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
+        <p>付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
+      </div>
+    </details>
   </section>;
 }
 export default async function PricingPage() {
@@ -130,8 +154,6 @@ export default async function PricingPage() {
       <h2 className="mb-3 text-2xl font-semibold">方案價格與優惠</h2>
       <PricingOffer initialNow={initialNow} trialUrl={TRIAL_URL} />
       <FeatureComparison />
-      <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
-      <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="scroll-mt-24 text-2xl font-semibold">需要更多功能，再加購。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="inline-flex min-h-11 items-center underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
