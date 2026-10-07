@@ -21,7 +21,10 @@ export async function LoginAuditView(input: {
   // login has a recorded operation in this store, without exposing other operations.
   if (input.login && input.storeId) {
     const linked = await prisma.auditLog.findFirst({ where: { storeId: input.storeId, loginRecordId: input.login }, select: { id: true } });
-    if (linked) delete where.storeId;
+    if (linked) {
+      delete where.storeId;
+      where.OR = [{ storeId: input.storeId }, { storeId: null, actorRoleSnapshot: "ADMIN" }];
+    }
   }
   const [actors, total, rows] = await Promise.all([
     prisma.staffLoginRecord.findMany({
