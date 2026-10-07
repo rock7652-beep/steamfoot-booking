@@ -6,6 +6,7 @@ import { AppError } from "@/lib/errors";
 import { isStaffRole } from "@/lib/permissions";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
+import { registerAuditActor } from "@/server/services/audit-actor-context";
 
 // ============================================================
 // Session helpers
@@ -220,7 +221,7 @@ export const getCurrentUser = cache(async () => {
     const { touchStaffLogin } = await import("@/server/services/staff-login-audit");
     await touchStaffLogin(user.loginRecordId, user.id);
   }
-  return user;
+  return registerAuditActor(user);
 });
 
 /** 取得 session；若未登入拋出 UNAUTHORIZED */

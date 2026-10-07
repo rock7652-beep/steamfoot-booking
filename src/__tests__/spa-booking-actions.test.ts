@@ -43,7 +43,8 @@ describe("SPA booking actions", () => {
   it("auto assigns one compatible location and snapshots buffer in the end time", async () => {
     expect((await createSpaBookingAction(input)).success).toBe(true);
     expect(m.create.mock.calls[0][0].data).toMatchObject({ serviceLocationId: "location", endTime: "11:15", storeId: "spa-store" });
-    expect(m.lock).toHaveBeenCalledOnce();
+    expect(m.lock.mock.calls.filter(([sql]) => sql.join("").includes("pg_advisory_xact_lock"))).toHaveLength(1);
+    expect(m.lock.mock.calls.filter(([sql]) => sql.join("").includes("OperationAuditOutbox"))).toHaveLength(1);
   });
   it("does not write for inactive installation", async () => {
     m.installation.mockResolvedValue({ status: "PROVISIONING" });

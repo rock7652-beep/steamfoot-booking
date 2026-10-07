@@ -1,4 +1,5 @@
 "use server";
+import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -13,7 +14,6 @@ import {
   joinCourseWaitlist,
   promoteCourseWaitlistForSession,
 } from "@/server/services/course-waitlist";
-import { recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 import { notifyCourseWaitlistPromotions } from "@/server/services/course-waitlist-notifications";
 
 const id = z.string().min(1).max(100);
@@ -38,8 +38,7 @@ export async function saveCourseWaitlistSettings(input: unknown) {
         create: { storeId, ...data },
         update: { ...data, updatedAt: new Date() },
       });
-    });
-    await recordOperationAuditBestEffort({
+    }, async (auditResult, tx) => { await enqueueOperationAudit({
       actorUserId: user.id,
       actorNameSnapshot: user.name,
       storeId,
@@ -49,7 +48,8 @@ export async function saveCourseWaitlistSettings(input: unknown) {
       action: data.enabled ? "ENABLE" : "DISABLE",
       summary: data.enabled ? "開啟課程候補" : "關閉課程候補",
       after: data,
-    });
+    }, tx); });
+
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -71,17 +71,7 @@ export async function joinMemberCourseWaitlist(input: unknown) {
       { userId: user.id, storeId, name: customer.name, customerId: customer.id },
       data,
     );
-    await recordOperationAuditBestEffort({
-      actorUserId: user.id,
-      actorNameSnapshot: customer.name,
-      storeId,
-      module: "COURSE",
-      targetType: "CourseWaitlist",
-      targetId: result.rows[0]?.groupKey ?? data.sessionId,
-      action: "JOIN",
-      summary: `加入課程候補（${result.rows.length} 人）`,
-      after: { sessionId: data.sessionId, position: result.position, count: result.rows.length },
-    });
+
     refresh();
     return { success: true as const, data: { position: result.position, count: result.rows.length } };
   } catch (error) {
@@ -94,7 +84,7 @@ export async function joinManagerCourseWaitlist(input: unknown) {
     const data=z.object({sessionId:id,cardId:id,customerIds:z.array(id).min(1).max(20),requestKey:z.string().uuid()}).parse(input);
     const {user,storeId}=await courseManager("booking.create");
     const result=await joinCourseWaitlist({userId:user.id,storeId,name:user.name??"店長"},data);
-    await recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseWaitlist",targetId:result.rows[0]?.groupKey??data.sessionId,action:"JOIN",summary:`店長加入候補（${result.rows.length} 人）`,after:{sessionId:data.sessionId,position:result.position,count:result.rows.length}});
+
     refresh();
     return {success:true as const,data:{position:result.position,count:result.rows.length}};
   }catch(error){return handleActionError(error);}
@@ -104,21 +94,11 @@ export async function cancelMemberCourseWaitlistAction(input: unknown) {
   try {
     const data = z.object({ sessionId: id }).parse(input);
     const { user, storeId, customer } = await courseMember({ write: true });
-    const result = await cancelMemberCourseWaitlist(
+    await cancelMemberCourseWaitlist(
       { userId: user.id, storeId, name: customer.name, customerId: customer.id },
       data,
     );
-    await recordOperationAuditBestEffort({
-      actorUserId: user.id,
-      actorNameSnapshot: customer.name,
-      storeId,
-      module: "COURSE",
-      targetType: "CourseWaitlist",
-      targetId: data.sessionId,
-      action: "CANCEL",
-      summary: `取消課程候補（${result.count} 人）`,
-      after: { sessionId: data.sessionId, count: result.count },
-    });
+
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -133,10 +113,7 @@ export async function promoteCourseWaitlistManually(input: unknown) {
     await requireStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
     const promoted = await courseTransaction(storeId, tx =>
       promoteCourseWaitlistForSession(tx, storeId, data.sessionId, { ignoreCutoff: true }),
-    );
-    if (promoted.length) {
-      after(() => notifyCourseWaitlistPromotions(storeId, promoted));
-      await recordOperationAuditBestEffort({
+     async (promoted, tx) => { if (promoted.length) await enqueueOperationAudit({
         actorUserId: user.id,
         actorNameSnapshot: user.name,
         storeId,
@@ -146,8 +123,8 @@ export async function promoteCourseWaitlistManually(input: unknown) {
         action: "MANUAL_PROMOTE",
         summary: `人工遞補候補（${promoted.length} 人）`,
         after: { bookingIds: promoted.map(item => item.bookingId) },
-      });
-    }
+      }, tx, promoted.map(item=>item.bookingId).sort().join('|')); });
+    if (promoted.length) { after(() => notifyCourseWaitlistPromotions(storeId, promoted)); }
     refresh();
     return { success: true as const, data: { promoted: promoted.length } };
   } catch (error) {

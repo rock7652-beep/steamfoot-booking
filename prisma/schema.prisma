@@ -2166,6 +2166,17 @@ model Reminder {
 // AuditLog（稽核紀錄）— Phase 2 但先建 schema
 // ============================================================
 
+model OperationAuditOutbox {
+  id String @id
+  payload Json
+  createdAt DateTime @default(now())
+  nextAttemptAt DateTime @default(now())
+  deliveredAt DateTime?
+  attempts Int @default(0)
+
+  @@index([deliveredAt, nextAttemptAt, createdAt])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   actorUserId String
@@ -3326,4 +3337,5 @@ model StaffLoginRecord {
   lastUsedAt DateTime?
   @@index([storeId, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([createdAt])
 }

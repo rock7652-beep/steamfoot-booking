@@ -112,6 +112,9 @@ export default async function OperationAuditsPage({
   const storeId = user.role === "ADMIN" ? storeIdForViewContext(activeStoreId, viewContext) : user.storeId;
   if (user.role !== "ADMIN" && !storeId) notFound();
   if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} />;
+  const pendingCount = await prisma.operationAuditOutbox.count({
+    where: { deliveredAt: null, ...(storeId ? { payload: { path: ["storeId"], equals: storeId } } : {}) },
+  });
   const result = await listOperationAudits({
     storeId,
     actorUserId: params.actor || undefined,
@@ -151,6 +154,9 @@ export default async function OperationAuditsPage({
         <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}`}>操作紀錄</Link>
         <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}`}>登入紀錄</Link>
       </nav>
+      {pendingCount > 0 ? <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {storeId ? "本店" : "目前"}有 {pendingCount} 筆操作紀錄補記中，完成後會顯示於清單。
+      </p> : null}
       {params.login ? <p className="text-sm text-earth-600">正在查看指定登入的操作 · <Link href="/dashboard/operation-audits">清除</Link></p> : null}
 
       <OperationAuditFilters
