@@ -71,7 +71,7 @@ const url = resolveBookingIntegrationTestDatabaseUrl(process.env);
       product: await db.inventoryProduct.findUniqueOrThrow({ where: { id: productId } }),
       payments: await db.inventoryPayment.findMany({ where: { storeId }, orderBy: { id: "asc" } }),
       cash: await db.cashbookEntry.findMany({ where: { storeId }, orderBy: { id: "asc" } }),
-      commands: await db.inventoryCommand.findMany({ where: { storeId }, orderBy: { id: "asc" } }),
+      commands: await db.inventoryCommand.findMany({ where: { storeId }, orderBy: { requestId: "asc" } }),
       audits: await db.auditLog.findMany({ where: { storeId }, orderBy: { id: "asc" } }) };
   }
   it("ordinary staff direct refund and correction are denied without any mutation", async () => {
