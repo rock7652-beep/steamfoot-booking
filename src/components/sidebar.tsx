@@ -355,7 +355,7 @@ const ORIGINAL_NAV_GROUPS: NavGroup[] = [
       },
       {
         href: "/dashboard/operation-audits",
-        label: "稽核紀錄",
+        label: "操作與登入紀錄",
         permission: "audit.read",
         icon: (
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>

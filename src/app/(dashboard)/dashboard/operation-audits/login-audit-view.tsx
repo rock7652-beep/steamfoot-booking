@@ -42,7 +42,7 @@ export async function LoginAuditView(input: {
     return `/dashboard/operation-audits?${q}`;
   };
   return <PageShell>
-    <PageHeader title="稽核紀錄" subtitle="裝置資訊僅供參考；登入時間與最近使用時間分開記錄" />
+    <PageHeader title="操作與登入紀錄" subtitle="裝置資訊僅供參考；登入時間與最近使用時間分開記錄" />
     <nav className="flex gap-2 text-sm" aria-label="稽核分類">
       <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?dateFrom=${input.dateFrom}&dateTo=${input.dateTo}`}>操作紀錄</Link>
       <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${input.dateFrom}&dateTo=${input.dateTo}`}>登入紀錄</Link>

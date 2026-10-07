@@ -114,7 +114,7 @@ export default async function OperationAuditsPage({
 
   return (
     <PageShell>
-      <PageHeader title="稽核紀錄" subtitle="查詢登入與資料異動；紀錄僅供查閱" />
+      <PageHeader title="操作與登入紀錄" subtitle="查詢登入與資料異動；紀錄僅供查閱" />
       <nav className="flex gap-2 text-sm" aria-label="稽核分類">
         <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}`}>操作紀錄</Link>
         <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}`}>登入紀錄</Link>
