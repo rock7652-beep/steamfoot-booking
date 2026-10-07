@@ -1,6 +1,9 @@
+import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+
+assertMusicOpeningRuntimeIsolation();
 
 const globalForCourse = globalThis as unknown as {
   coursePrisma?: PrismaClient;

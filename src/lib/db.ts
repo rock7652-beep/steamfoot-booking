@@ -1,6 +1,9 @@
+import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
 import { PrismaClient } from "@prisma/client";
 import { buildDatabaseUrl } from "@/lib/database-url";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+
+assertMusicOpeningRuntimeIsolation();
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;

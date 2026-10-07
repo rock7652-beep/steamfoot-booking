@@ -467,11 +467,11 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
       .filter(
         (c) =>
           !c.expired && !c.closed &&
-          c.expiresAt >= s.startsAt &&
+          !c.openingImported && c.expiresAt !== null && c.expiresAt >= s.startsAt &&
           (!c.termSessionIds?.length || c.termSessionIds.includes(s.id)) &&
           (!c.templateIds.length || c.templateIds.includes(s.templateId)),
       )
-      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+      .sort((a, b) => (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999"));
   const amount = (s: Session, c: CoursePortalData["cards"][number]) =>
     c.unit === "SESSION" ? 1 : s.cost;
   function book(s: Session) {
@@ -1138,8 +1138,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                     </strong>
                   </div>
                   <p>
-                    {courseDate(c.expiresAt)} 到期{c.expired ? " · 已到期" : ""}
+                    {c.expiresAt ? `${courseDate(c.expiresAt)} 到期` : "期初效期待核對"}{c.expired ? " · 已到期" : ""}
                   </p>
+                  {c.openingImported && <p>{c.openingIssue ?? "期初方案新增預約須先連結來源堂次"}</p>}
                   <p>
                     剩餘 {c.remaining} · 已預約保留 {c.held}
                   </p>
@@ -1456,7 +1457,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                   {eligible(session).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} · 可用 {c.available}
-                      {unit(c.unit)} · {courseDate(c.expiresAt)} 到期
+                      {unit(c.unit)} · {c.expiresAt ? `${courseDate(c.expiresAt)} 到期` : "期初效期待核對"}
                     </option>
                   ))}
                 </select>

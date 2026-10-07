@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/ci-migrate.mjs && npm run generate:clients && next build",
+    "build": "node scripts/music-opening-preflight.mjs && node scripts/ci-migrate.mjs && npm run generate:clients && next build",
     "generate:clients": "prisma generate && prisma generate --schema spa-prisma/schema.prisma && prisma generate --schema course-prisma/schema.prisma",
     "start": "next start",
     "lint": "eslint",

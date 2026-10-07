@@ -182,6 +182,9 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  // Durable discriminator: a missing opening row must never become a native card.
+  musicOpeningStateRequired Boolean @default(false)
+  musicOpeningState CourseMusicOpeningState?
   musicJoinSessionId String?
   musicManualBonus Int @default(0)
   musicTermSizes Int[] @default([])
@@ -218,6 +221,12 @@ model CourseCardMember {
 }
 
 model CourseBooking {
+  // Source identity only; ordinary reservation APIs never accept these fields.
+  musicOpeningTermKey String?
+  musicOpeningLessonOrdinal Int?
+  musicOpeningSourceLessonKey String?
+  @@unique([storeId, cardId, musicOpeningSourceLessonKey], map: "CourseBooking_opening_source_key")
+  @@unique([storeId, cardId, musicOpeningTermKey, musicOpeningLessonOrdinal], map: "CourseBooking_opening_ordinal_key")
   makeupForBookingId String?
   @@index([makeupForBookingId, storeId], map: "CourseBooking_makeup_source_idx")
   id String @id @default(cuid())
@@ -550,4 +559,22 @@ model CourseRentalPayment {
   rental CourseRental @relation(fields:[rentalId,storeId],references:[id,storeId])
   @@unique([storeId,requestKey])
   @@index([storeId,rentalId])
+}
+
+// Local design only. SQL draft is outside prisma/migrations; do not deploy before approval.
+// This is immutable opening state, not a purchase, cash receipt, attendance or payroll event.
+model CourseMusicOpeningState {
+  id String @id @default(cuid())
+  storeId String
+  cardId String
+  customerId String
+  sourceKey String @unique
+  contentHash String
+  snapshot Json
+  appliedBatchId String
+  teacherFeePolicy String @default("UNVERIFIED")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  card CoursePointCard @relation(fields: [cardId, storeId], references: [id, storeId], onDelete: Restrict)
+  @@unique([cardId, storeId])
+  @@index([storeId, customerId])
 }

@@ -243,6 +243,8 @@ export async function setCoursePointPlanStatus(input: unknown) {
 
 export async function assignCoursePointCard(input: unknown) {
   try {
+    if (input && typeof input === "object" && ["musicOpeningState","musicOpeningStateRequired","sourceKey","openingBalance"].some(key=>key in input))
+      throw new AppError("VALIDATION","期初資料不可經新增購買或收款流程建立");
     const { user, storeId } = await courseManager("wallet.create");
     const data = z
       .object({
@@ -316,6 +318,7 @@ export async function setCourseCardMembers(input: unknown) {
         include: { plan: { select: { allowShared: true } } },
       });
       if (!card) throw new AppError("NOT_FOUND", "找不到本店方案");
+      if (card.musicOpeningStateRequired) throw new AppError("VALIDATION","期初方案的學員關聯須先核對，不能轉為共卡");
       if (!card.plan.allowShared) throw new AppError("VALIDATION", "此方案未開放共卡");
       if(card.termSessionIds.length)throw new AppError("VALIDATION","期課為指定學員，不開放共卡；請另購方案");
       for (const customerId of new Set(data.customerIds)) {

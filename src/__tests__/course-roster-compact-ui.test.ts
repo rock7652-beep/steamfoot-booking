@@ -426,3 +426,19 @@ it("hides zero pending counts and hides the legend on an empty fitness roster", 
   expect(host.textContent).toContain("○ 待點名");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it.each(["GROUP","PRIVATE"])("renders imported ordinal and closed prefix in %s history without fake old attendance",async(classType)=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const roster=[{id:"opening-ui",customerId:"synthetic-student",customerName:"Synthetic learner",customerPhone:"",sharedCard:false,bookingSource:"來源映射",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"Synthetic plan",termNumber:7,termIndex:3,termCount:4,termLeaveCount:0,termNoShowCount:0,termLessons:[{ordinal:3,date:"2026-10-01T02:00:00.000Z",status:"待上課"}],termPrivateLeaves:[],termMakeups:[],termClosedBeforeCutoff:2,termUnscheduledOrdinals:[4],openingImported:true,openingIssue:null,openingTuition:{paid:2000,receivable:1200},termPayment:null,nextTerm:null,nextPaidLessons:null,absenceCount:0,absenceHistory:[],available:1,unit:"SESSION",notes:"",pointCost:1}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-01T02:00:00.000Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`opening-${classType}`,capacity:classType==="GROUP"?15:1,canCreate:false,canEdit:false,musicLayout:true,classType,teacherName:"Synthetic teacher"})));
+  if(classType==="GROUP")await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
+  expect(host.textContent).toContain("原第 7 期第 3/4 堂");expect(host.textContent).toContain("切點前已處理 2 堂");
+  expect(host.textContent).toContain("3. 2026-10-01");expect(host.textContent).toContain("4. 尚未排課");
+  expect(host.textContent).not.toContain("1. 尚未排課");expect(host.textContent).not.toContain("2. 尚未排課");
+  expect(host.querySelector("section[aria-label='學員'] li")?.textContent).not.toContain("已出席");expect(host.textContent).not.toContain("本期付款：");
+  expect(host.textContent).toContain("期初已收 NT$ 2,000");expect(host.textContent).toContain("非本期收款");
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

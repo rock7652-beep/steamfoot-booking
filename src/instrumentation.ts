@@ -1,5 +1,15 @@
 /** Log-only, read-only connection verification for the isolated SPA Preview. */
 export async function register() {
+  // This feature branch is Preview-only. Missing scope or schema blocks readiness.
+  const { assertMusicOpeningPreviewEnvironment } = await import("../scripts/music-opening-preview-scope.mjs");
+  if (process.env.NODE_ENV !== "test" || process.env.VERCEL === "1") {
+    assertMusicOpeningPreviewEnvironment(process.env);
+    if (process.env.NEXT_RUNTIME === "nodejs") {
+      const { runMusicOpeningSchemaPreflight } = await import("../scripts/music-opening-schema-check.mjs");
+      await runMusicOpeningSchemaPreflight();
+    }
+  }
+
   if (
     process.env.NEXT_RUNTIME !== "nodejs" ||
     process.env.VERCEL_ENV !== "preview" ||

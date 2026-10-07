@@ -614,9 +614,10 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
         {!card.closed && !card.expired && <> · {card.unit === "SESSION" ? `還可預約 ${card.available} 堂` : `可用 ${card.available} 點`}</>}
       </p>
       <p>
-        期限：{card.musicValidityDays && !card.musicActivatedAt ? `首次上課起 ${card.musicValidityDays} 天` : toLocalDateStr(new Date(card.expiresAt))}
-        {new Date(card.expiresAt) < new Date() ? "（已到期）" : ""}
+        期限：{!card.expiresAt || (card.openingImported && !card.musicActivatedAt) ? "期初效期待核對" : card.musicValidityDays && !card.musicActivatedAt ? `首次上課起 ${card.musicValidityDays} 天` : toLocalDateStr(new Date(card.expiresAt))}
+        {card.expiresAt && new Date(card.expiresAt) < new Date() ? "（已到期）" : ""}
       </p>
+      {card.openingIssue && <p className="text-amber-800">{card.openingIssue}</p>}
       <p>{card.members.length>1?"共同餘額 · 共卡人":"持有人"}：{card.members.map((m) => m.name).join("、")}</p>
       {(card.closed || card.expired) ? <p>{card.closed ? "已停用" : "已到期"} · 剩餘額度僅供查詢</p> : card.remaining>0 && card.available===0 && card.held>=card.remaining ? <p>額度已全數預約</p> : card.remaining===0 ? <p>額度已用完</p> : null}
     </div>

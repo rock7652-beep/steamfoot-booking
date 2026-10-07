@@ -90,6 +90,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
+  const cardProjectionById = new Map(cards.map(card=>[card.id,card]));
+  const projectedExpiry = (cardId:string|null,fallback:Date|null|undefined) => { const card=cardProjectionById.get(cardId??"");return card?card.expiresAt:fallback?.toISOString()??null; };
   const sessionInclude = {
     room: { select: { name: true } },
     template: { select: { precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
@@ -385,7 +387,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       trialPrice: b.trialPrice,
       unit: b.card?.unit ?? "TRIAL",
       planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
-      expiresAt: b.card?.expiresAt.toISOString() ?? null,
+      expiresAt: projectedExpiry(b.cardId,b.card?.expiresAt),
     })),
     work: work.map((s) => ({
       id: s.id,
@@ -407,11 +409,11 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         updatedAt: b.updatedAt.toISOString(),
         notes: b.notes,
         serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
-        available: b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null,
+        available: cardProjectionById.get(b.cardId??"")?.available ?? (b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null),
         cost: b.pointCost,
         unit: b.card?.unit ?? "TRIAL",
         planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
-        expiresAt: b.card?.expiresAt.toISOString() ?? null,
+        expiresAt: projectedExpiry(b.cardId,b.card?.expiresAt),
       })),
     })),
     orders: orders.map((o) => ({

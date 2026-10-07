@@ -59,11 +59,20 @@ function RosterReminders({booking,canEdit,onOpen,onEdit}:{booking:RosterBooking;
   </div>;
 }
 
+// Old native cached payloads remain readable. Imported progress never falls back
+// to array indexes or inferred placeholders when source fields are missing.
+function remainingTermOrdinals(booking: RosterBooking) {
+  if (booking.termUnscheduledOrdinals) return booking.termUnscheduledOrdinals;
+  if (booking.openingImported) return [];
+  return Array.from({length:Math.max(0,booking.termCount-booking.termLessons.length)},(_,index)=>booking.termLessons.length+index+1);
+}
+
 function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof getCourseRoster>>[number] }) {
-  if (!booking.termPayment && !booking.nextTerm) return null;
+  if (!booking.termPayment && !booking.nextTerm && !booking.openingTuition) return null;
   const payment = (record: NonNullable<typeof booking.termPayment>) =>
     `${record.date ? toLocalDateStr(new Date(record.date)) : "已收款"} · NT$ ${record.amount.toLocaleString()} · ${COURSE_PAYMENT_LABELS[record.method ?? ""] ?? record.method ?? "付款方式未記錄"}`;
   return <div className="space-y-1 border-t border-earth-100 pt-2">
+    {booking.openingTuition && <p>期初已收 NT$ {booking.openingTuition.paid.toLocaleString()} · 期初應收 NT$ {booking.openingTuition.receivable.toLocaleString()}（非本期收款）</p>}
     {booking.termPayment && <p>本期付款：{payment(booking.termPayment)}</p>}
     {booking.nextTerm && <div>
       <p className="font-medium">下期已繳 {booking.nextPaidLessons} 堂 · {payment(booking.nextTerm.payment)}</p>
@@ -584,11 +593,13 @@ export function CourseRoster({
           item.members.some((member) => member.id === memberId) &&
           !item.expired &&
           !item.closed &&
+          !item.openingImported &&
+          item.expiresAt !== null &&
           item.available >=
             (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
           (!session || item.expiresAt >= session.startsAt),
       )
-      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+      .sort((a, b) => (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999"));
   const eligibleCards = eligibleCardsFor(customerId);
   const memberBookingReady = Boolean(
     customerId && cardId && eligibleCards.some((item) => item.id === cardId),
@@ -633,8 +644,10 @@ export function CourseRoster({
             return;
           }
           const chosenCard=cards.find(card=>card.id===cardId);
+          if (!chosenCard || chosenCard.openingImported || !chosenCard.expiresAt) {setMessage("請先核對可用方案與來源堂次");return;}
+          const chosenExpiry=chosenCard.expiresAt;
           const totalCost=enrollmentSessions.reduce((total,item)=>total+(chosenCard?.unit==="SESSION"?1:item.pointCost),0);
-          if(enrollmentScope==="FUTURE" && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>item.startsAt>chosenCard.expiresAt))){setMessage("請確認後續日期與方案額度、有效期限");return;}
+          if(enrollmentScope==="FUTURE" && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>item.startsAt>chosenExpiry))){setMessage("請確認後續日期與方案額度、有效期限");return;}
           const allowOverCapacity = enrollmentScope==="FUTURE" ? enrollmentSessions.some(item=>item.full) : occupiedCount >= capacity;
           if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
           const data = new FormData(event.currentTarget);
@@ -788,14 +801,14 @@ export function CourseRoster({
                 {eligibleCards.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name} · 可用 {item.available} {item.unit === "SESSION" ? "堂" : "點"} · 到期{" "}
-                    {formatTWDateTime(new Date(item.expiresAt)).slice(0, 10)}
+                    {item.expiresAt ? formatTWDateTime(new Date(item.expiresAt)).slice(0, 10) : "期初效期待核對"}
                   </option>
                 ))}
               </select>
             </label>
             {!eligibleCards.length && (
               <p className="text-sm text-earth-600">
-                沒有可用方案，請先指派方案。
+                {cards.some(item=>item.openingImported && item.members.some(member=>member.id===customerId)) ? "期初方案須先連結來源堂次，暫不能在此新增預約。" : "沒有可用方案，請先指派方案。"}
               </p>
             )}
             <label className="block text-sm font-medium">
@@ -1177,7 +1190,7 @@ export function CourseRoster({
                   <div className="min-w-[17rem] flex-1"><CustomerListIdentity showLabels={false} name={<span className="inline-flex flex-wrap items-center gap-x-2"><span>{booking.customerName}</span>{trialBadge(booking)}</span>} phone={booking.customerPhone} /></div>
                   {booking.status !== "RESERVED" && booking.status !== "ATTENDED" && <span className="text-xs text-amber-800">{booking.absenceKind === "TEACHER_ABSENT" ? "本堂免扣" : booking.status === "NO_SHOW" ? "曠課・扣堂" : booking.absenceKind === "STUDENT_LEAVE" ? "請假・不扣堂" : booking.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假・扣堂" : "已取消"}</span>}
                   {!musicLayout && booking.absenceCount > 0 && <details name="course-roster-details" className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
-                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</span>}
+                  {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">{booking.openingImported ? `原第 ${booking.termNumber} 期第` : booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</span>}
                    {musicLayout && booking.nextPaidLessons !== null && <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">下期已繳 {booking.nextPaidLessons} 堂</span>}
                    {booking.bookingKind !== "TRIAL" && booking.termLeaveCount + booking.termNoShowCount > 0 && <span className="whitespace-nowrap text-xs text-amber-800">此方案請假 {booking.termLeaveCount}・曠課 {booking.termNoShowCount}</span>}
 
@@ -1190,13 +1203,15 @@ export function CourseRoster({
 
                   <button type="button" className="min-h-11 min-w-11 text-earth-600" aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event=>toggleRosterMenu(event.currentTarget,booking.id)} aria-label={`${booking.customerName} 更多操作`}>⋯</button>
                 </div>}
+                {booking.openingIssue && <p className="text-sm text-amber-800">{booking.openingIssue}</p>}
+                {booking.termClosedBeforeCutoff > 0 && <p className="text-sm text-earth-600">切點前已處理 {booking.termClosedBeforeCutoff} 堂，僅保留期初進度</p>}
                 {booking.bookingKind !== "TRIAL" && (booking.termLessons.length > 0 || booking.termPrivateLeaves.length > 0) && (largeMusicGroup ? <>
                   <button type="button" className="whitespace-nowrap py-1 text-xs text-primary-800 lg:order-2" aria-expanded={expandedLessonIds.includes(booking.id)} aria-controls={`lesson-history-${booking.id}`} onClick={() => { setOpenActionMenu(null); setExpandedLessonIds((ids) => ids.includes(booking.id) ? [] : [booking.id]); }}>{expandedLessonIds.includes(booking.id) ? "▼" : "▶"} 查看日期</button>
                   {expandedLessonIds.includes(booking.id) && <div id={`lesson-history-${booking.id}`} className="w-full text-xs text-earth-700 lg:order-3">
                   {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
                   <div className="flex flex-wrap gap-1.5 pb-2">
-                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
-                     {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
+                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{lesson.ordinal ?? (booking.openingImported ? "待核對" : index+1)}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
+                     {remainingTermOrdinals(booking).map(ordinal => <span key={`upcoming-${ordinal}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{ordinal}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
                     {booking.termMakeups?.map((item,index)=><span key={`makeup-${index}`} className="rounded-md bg-primary-50 px-2 py-1 text-primary-800">{toLocalDateStr(new Date(item.originalDate))} 請假 → {toLocalDateStr(new Date(item.date))} {item.status}</span>)}
                   </div>
@@ -1206,8 +1221,8 @@ export function CourseRoster({
                   <summary className="cursor-pointer whitespace-nowrap py-1 text-primary-800">查看本期上課日期</summary>
                   {booking.unit === "SESSION" && booking.expiresAt && <p className="mb-2 text-earth-600">方案：{booking.planName} · 尚未安排 {booking.available} 堂 · 期限 {toLocalDateStr(new Date(booking.expiresAt))}</p>}
                   <div className="flex flex-wrap gap-1.5 pb-2">
-                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{index + 1}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
-                     {booking.termCount > booking.termLessons.length && Array.from({length: booking.termCount - booking.termLessons.length}, (_, index) => <span key={`upcoming-${index}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{booking.termLessons.length + index + 1}. 尚未排課</span>)}
+                    {booking.termLessons.map((lesson, index) => <span key={index} className="rounded-md bg-earth-50 px-2 py-1">{lesson.ordinal ?? (booking.openingImported ? "待核對" : index+1)}. {toLocalDateStr(new Date(lesson.date))} {lesson.status === "待上課" && toLocalDateStr(new Date(lesson.date)) === toLocalDateStr() ? "今天" : lesson.status}</span>)}
+                     {remainingTermOrdinals(booking).map(ordinal => <span key={`upcoming-${ordinal}`} className="rounded-md bg-earth-50 px-2 py-1 text-earth-500">{ordinal}. 尚未排課</span>)}
                     {booking.termPrivateLeaves.map((date, index) => <span key={`leave-${index}`} className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">{toLocalDateStr(new Date(date))} 請假・不扣堂</span>)}
                     {booking.termMakeups?.map((item,index)=><span key={`makeup-${index}`} className="rounded-md bg-primary-50 px-2 py-1 text-primary-800">{toLocalDateStr(new Date(item.originalDate))} 請假 → {toLocalDateStr(new Date(item.date))} {item.status}</span>)}
                   </div>

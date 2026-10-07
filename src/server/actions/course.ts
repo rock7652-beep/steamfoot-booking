@@ -1,4 +1,5 @@
 "use server";
+import { MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -248,10 +249,14 @@ export async function updateCourseSession(input: unknown) {
           where: {
             storeId,
             sessionId: session.id,
-            status: { not: "CANCELLED" },
+            ...MUSIC_OPENING_CALENDAR_BOOKINGS,
           },
-          include: { card: { select: { expiresAt: true } } },
+          include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
         });
+        for (const booking of bookings) {
+          const issue = musicOpeningSessionChangeIssue(storeId, {...booking,session:{startsAt:session.startsAt}}, range.startsAt);
+          if (issue) throw new AppError("VALIDATION",issue);
+        }
         if (bookings.some((b) => b.status === "ATTENDED"))
           throw new AppError(
             "CONFLICT",
@@ -262,7 +267,7 @@ export async function updateCourseSession(input: unknown) {
             "CONFLICT",
             "新日期超過已預約方案期限，尚未修改排課",
           );
-        if (data.capacity < bookings.length)
+        if (data.capacity < bookings.filter(booking=>booking.status!=="CANCELLED").length)
           throw new AppError("CONFLICT", "人數上限不能少於已預約人數");
         if (bookings.length && (data.pointCost !== session.pointCost || (data.templateId && data.templateId !== session.templateId)))
           throw new AppError(
@@ -568,8 +573,8 @@ export async function moveCourseSessions(input: unknown) {
         where: { id: d.id, storeId, cancelledAt: null },
         include: {
           bookings: {
-            where: { status: { not: "CANCELLED" } },
-            include: { card: { select: { expiresAt: true } } },
+            where: MUSIC_OPENING_CALENDAR_BOOKINGS,
+            include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
           },
         },
       });
@@ -599,8 +604,8 @@ export async function moveCourseSessions(input: unknown) {
             },
             include: {
               bookings: {
-                where: { status: { not: "CANCELLED" } },
-                include: { card: { select: { expiresAt: true } } },
+                where: MUSIC_OPENING_CALENDAR_BOOKINGS,
+                include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
               },
             },
             orderBy: { startsAt: "asc" },
@@ -641,6 +646,10 @@ export async function moveCourseSessions(input: unknown) {
           },
           change.session,
         );
+        for (const booking of change.session.bookings) {
+          const issue = musicOpeningSessionChangeIssue(storeId,{...booking,session:{startsAt:change.session.startsAt}},change.startsAt);
+          if (issue) throw new AppError("VALIDATION",issue);
+        }
         if (change.session.bookings.some((booking) => booking.status === "ATTENDED"))
           throw new AppError("CONFLICT", "已完成的課程不可調整");
         if (change.session.bookings.some((booking) => booking.card && booking.card.expiresAt < change.startsAt))
@@ -892,8 +901,8 @@ export async function updateCourseSeries(input: unknown) {
           },
           include: {
             bookings: {
-              where: { status: { not: "CANCELLED" } },
-              include: { card: { select: { expiresAt: true } } },
+              where: MUSIC_OPENING_CALENDAR_BOOKINGS,
+              include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
             },
           },
           orderBy: { startsAt: "asc" },
@@ -911,6 +920,10 @@ export async function updateCourseSeries(input: unknown) {
       }));
       for (const change of changes) {
         await assertCourseResources(tx,storeId,{...d,templateId:d.templateId ?? change.session.templateId},change.session);
+        for (const booking of change.session.bookings) {
+          const issue = musicOpeningSessionChangeIssue(storeId,{...booking,session:{startsAt:change.session.startsAt}},change.startsAt);
+          if (issue) throw new AppError("VALIDATION",issue);
+        }
         if (change.session.bookings.some((b) => b.status === "ATTENDED"))
           throw new AppError("CONFLICT", "包含已完成點名的課程，整批尚未修改");
         if (
@@ -923,7 +936,7 @@ export async function updateCourseSeries(input: unknown) {
             "新日期超過已預約方案期限，整批尚未修改",
           );
         if (
-          change.session.bookings.length > d.capacity ||
+          change.session.bookings.filter(booking=>booking.status!=="CANCELLED").length > d.capacity ||
           (change.session.bookings.length &&
             (change.session.pointCost !== d.pointCost || (d.templateId && d.templateId !== change.session.templateId)))
         )
