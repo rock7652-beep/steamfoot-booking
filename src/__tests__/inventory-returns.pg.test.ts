@@ -13,6 +13,7 @@ const identity = vi.hoisted(() => ({ actor: {
   email: null, storeSlug: null,
 } }));
 vi.mock("@/lib/session", () => ({ requireStaffSession: async () => identity.actor }));
+vi.mock("@/lib/auth", () => ({ auth: async () => ({ user: identity.actor }) }));
 vi.mock("next/cache", () => ({
   unstable_cache: (fn: unknown) => fn, revalidatePath: vi.fn(),
 }));
