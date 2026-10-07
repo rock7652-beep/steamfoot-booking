@@ -55,6 +55,8 @@ describe("October 6 operation guide audit", () => {
     expect(findOperationGuides("批次收款 重複入帳", access("steamfoot")).map((item) => item.id)).toContain("O05");
     expect(guide("O06").additionalPermissions).toEqual(["inventory.cost.read", "inventory.purchase.pay"]);
     expect(guide("O08").important).toContain("report.export");
+    expect(guide("O08").important).toContain("銷貨報表分頁另需 inventory.cost.read");
+    expect(guide("O08").important).toContain("具收貨權限仍可使用進貨收貨流程");
     expect(guide("O04").details.join(" ")).toContain("inventory.price.override");
   });
 

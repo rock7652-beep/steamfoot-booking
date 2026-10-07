@@ -28,7 +28,7 @@ describe("October 3 guide review", () => {
   it("updates rental, setup, attendance, identity and pricing explanations", () => {
     expect(JSON.stringify(guide("C108"))).toContain("每小時租金");
     expect(JSON.stringify(guide("C110"))).toContain("可授課時段");
-    expect(JSON.stringify(guide("C123"))).toContain("四步設定進度");
+    expect(JSON.stringify(guide("C123"))).toContain("五項顯示進度");
     expect(JSON.stringify(guide("C127"))).toContain("保留原分頁");
     expect(JSON.stringify(guide("C128"))).toContain("所屬教練");
     expect(JSON.stringify(guide("C146"))).toContain("不會重新扣回");

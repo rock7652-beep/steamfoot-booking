@@ -30,7 +30,7 @@ describe("scoped guide correction audit accounting", () => {
     expect(state.previousBatchReview.totalInteractionPendingCount).toBe(171);
     expect(state.scopedCorrectionReview.newPendingGuideIds).toEqual(["O09", "O10", "F03"]);
     expect(state.newGuideIds).toEqual(["O09", "O10"]);
-    expect(state.updatedGuideIds).toHaveLength(13);
+    expect(state.updatedGuideIds).toHaveLength(14);
     expect(state.scopedCorrectionReview.pullRequests).toEqual([1240, 1242, 1243]);
     expect(state.cumulativeDraftNewGuideIds).toHaveLength(22);
     expect(state.cumulativeDraftUpdatedGuideIds).toHaveLength(35);

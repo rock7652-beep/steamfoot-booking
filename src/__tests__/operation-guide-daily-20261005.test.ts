@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findOperationGuides, operationGuides } from "../lib/operation-guide";
+import { DEVICE_PRESETS } from "../lib/device-preview";
 import type { GuideAccess } from "../lib/operation-guide-types";
 
 const basePermissions = [
@@ -27,9 +28,13 @@ const guide = (id: string) => {
 };
 
 describe("October 5 operation guide audit", () => {
-  it("keeps the current three device preview presets without treating preview as isolation", () => {
+  it("keeps the current four device preview presets without treating preview as isolation", () => {
     const item = guide("I08");
-    expect(item.steps.join(" ")).not.toContain("768×1024");
+    expect(Object.values(DEVICE_PRESETS)).toHaveLength(4);
+    for (const preset of Object.values(DEVICE_PRESETS)) {
+      expect(item.steps.join(" ")).toContain(`${preset.width}×${preset.height}`);
+    }
+    expect(item.steps.join(" ")).not.toContain("不再顯示直向選項");
     expect(item.steps.join(" ")).toContain("1024×768");
     expect(item.steps.join(" ")).toContain("1440×900");
     expect(item.important).toContain("操作仍可能生效");
