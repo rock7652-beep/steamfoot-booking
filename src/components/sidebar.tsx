@@ -638,6 +638,8 @@ interface DashboardShellProps {
   operationGuidePreview?: boolean;
   industryModule?: IndustryModuleId;
   isOwner: boolean;
+  /** Course settings has a stricter role gate than legacy ownerOnly navigation. */
+  canOpenCourseSettings?: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
   /** Server-resolved effective entitlements for features migrated off plan-only gating. */
@@ -672,6 +674,7 @@ export default function DashboardShell({
   operationGuidePreview = false,
   industryModule = "steamfoot",
   isOwner,
+  canOpenCourseSettings = isOwner,
   permissions,
   pricingPlan,
   effectiveFeatures = {},
@@ -815,12 +818,16 @@ export default function DashboardShell({
       { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
       { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
     );
-    management.push({ ...entry("/dashboard/settings"), href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings" });
+    if (!course || canOpenCourseSettings) management.push({
+      ...entry("/dashboard/settings"),
+      href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
+      permission: course ? "booking.read" : undefined,
+    });
     return [
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, effectiveFeatures, canOpenCourseSettings]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);

@@ -200,6 +200,7 @@ export default async function DashboardLayout({
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
       isOwner={isOwnerLevel}
+      canOpenCourseSettings={["ADMIN", "OWNER", "PARTNER"].includes(user.role)}
       permissions={permissions}
       pricingPlan={pricingPlan}
       effectiveFeatures={effectiveFeatures}
