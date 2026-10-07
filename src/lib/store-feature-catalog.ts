@@ -62,7 +62,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.CUSTOMER_CARE,
     label: "顧客經營",
     module: "顧客",
-    description: "待追蹤顧客、好久不見、堂數偏低、方案快到期與追蹤紀錄。",
+    description: "待追蹤顧客、好久不見、堂數偏低、方案快到期與追蹤紀錄。額外加購原價 NT$500／月；專業版與展店版內含。",
   },
   {
     key: FEATURES.LINE_REMINDER,
@@ -98,7 +98,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.COURSE_WAITLIST,
     label: "課程候補",
     module: "營運",
-    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
+    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購原價 NT$500／月、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
   },
   { key: FEATURES.INVENTORY, label: "進銷存管理", module: "營運", description: "商品、進貨、銷貨與庫存管理。各付費方案皆額外加購 NT$800／月，不列入免費選配或展店版內含。隱藏或鎖定保留資料。" },
   {
@@ -111,13 +111,13 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.BASIC_REPORTS,
     label: "分析",
     module: "分析",
-    description: "基本版加購 NT$800／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
+    description: "基本版加購原價 NT$500／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
     label: "健康評估與體態追蹤",
     module: "健康",
-    description: "量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
+    description: "額外加購原價 NT$500／月；量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
   },
   {
     key: FEATURES.MULTI_STORE,

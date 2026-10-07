@@ -61,7 +61,7 @@ export default async function PlanSettingsPage() {
   const PLAN_HIGHLIGHTS: Record<PricingPlan, string[]> = {
     EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
     BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "可選 1 個 $500 工具型模組"],
-    GROWTH: ["基本版＋顧客經營、現金抽屜", "可選 1 個 $500 工具型模組", "可選 1 個 $800 經營型模組"],
+    GROWTH: ["基本版＋顧客經營、現金抽屜", "可選 1 個 $500 工具型模組", "健康追蹤／月結管理／課程候補 3 選 1"],
     ALLIANCE: ["總部管理（分店串接費與系統月費另計）", "多店與月結管理", ALLIANCE_BRANCH_PRICING_COPY],
   };
 
@@ -90,7 +90,7 @@ export default async function PlanSettingsPage() {
     {
       group: "進階分析",
       features: [
-        { key: "basic_reports", label: "分析（NT$800／月獨立加購）" },
+        { key: "basic_reports", label: "分析（基本版加購原價 NT$500／月）" },
         { key: "ai_health_summary", label: "健康評估與體態追蹤" },
         { key: "kpi_dashboard", label: "KPI 儀表板" },
         { key: "talent_pipeline", label: "人才管道" },

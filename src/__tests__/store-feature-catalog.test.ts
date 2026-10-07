@@ -72,7 +72,7 @@ describe("store feature catalog", () => {
       label: "健康評估與體態追蹤",
       module: "健康",
       description:
-        "量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
+        "額外加購原價 NT$500／月；量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
     });
     expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估與體態追蹤");
   });

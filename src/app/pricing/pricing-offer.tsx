@@ -83,7 +83,7 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
       <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>
     </div>}
     <div className="mt-3 grid items-start gap-3 md:grid-cols-2">
-      {[{ name: "工具功能", features: "資料匯出／現金抽屜", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", features: "顧客經營／健康追蹤／月結管理／課程候補／分析／進銷存管理／工單管理", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className="flex min-w-0 flex-col rounded-xl border border-[#153B31]/15 bg-white p-4">
+      {[{ name: "日常加購", features: "資料匯出／現金抽屜／顧客經營／健康追蹤／課程候補／分析", monthly: offer.toolMonthly, original: 500 }, { name: "進階加購", features: "月結管理／進銷存管理／工單管理", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className="flex min-w-0 flex-col rounded-xl border border-[#153B31]/15 bg-white p-4">
         <h3 className="text-lg font-semibold">{item.name}</h3>
         <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.features}・各項分別選購</p>
         {offer.active && <p className="mt-1 text-sm text-[#64756D] line-through">原價每項 NT${money(item.original)}／月</p>}
@@ -97,7 +97,8 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
             {[{ id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" }, { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "鋼琴調音、管弦樂器與吉他維修保養，以及其他施工服務；集中管理接件、進度、材料工費、收款與取件，支援工單列印。" }].map(addon => <section key={addon.id} className="min-w-0 rounded-lg bg-[#F8F5EE] p-3">
               <h4 className="text-base font-semibold leading-6">{addon.name}</h4>
               <p className="mt-1 text-sm leading-6 text-[#4C6259]">{addon.description}</p>
-              <p className="mt-2 text-sm font-semibold">每項原價 NT$800／月</p>
+              <p className="mt-2 text-sm text-[#64756D]"><span className={offer.active ? "line-through" : "font-semibold"}>每項原價 NT$800／月</span></p>
+              {offer.active && <p className="mt-1 text-sm font-semibold">十月年繳優惠 NT${offer.businessMonthly}／月</p>}
               <a href={"/pricing/features#" + addon.id} className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2">查看{addon.id === "inventory" ? "進銷存" : "工單"}功能說明 →</a>
             </section>)}
           </div>
