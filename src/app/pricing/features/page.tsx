@@ -1,3 +1,4 @@
+import { marketingMetadata } from "@/lib/marketing-seo";
 import { PUBLIC_WORK_ORDER_DEPENDENCY, PUBLIC_LINE_DEPENDENCY } from "@/lib/public-marketing-copy";
 import { PUBLIC_ADDON_GROUPS } from "@/lib/public-marketing-copy";
 
@@ -11,6 +12,7 @@ import { BookingTypes } from "../booking-types";
 import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
+  ...marketingMetadata("/pricing/features"),
   title: "功能介紹｜少一點手動，多一點照顧 — 蒸管家",
   description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識進銷存、維修保養工單、多店管理、提醒、資料匯出、顧客標籤、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
 };

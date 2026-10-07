@@ -1,8 +1,10 @@
+import { marketingMetadata } from "@/lib/marketing-seo";
 import Link from "next/link";
 import { MarketingBrand } from "@/components/marketing-brand";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  ...marketingMetadata("/privacy"),
   title: "隱私權政策｜蒸管家",
   description: "蒸管家對個人資料、預約資料與通訊平台資料的蒐集、使用及刪除說明。",
 };

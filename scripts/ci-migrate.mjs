@@ -1,3 +1,8 @@
+// This review branch must not deploy or access a database before separate approval.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
+  throw new Error("SEO review branch deployment is disabled; use local verification.");
+}
+
 // HQ ordering preview requires the same isolated test database as archive verification.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-organization-order") {
   if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))

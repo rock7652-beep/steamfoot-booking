@@ -1,9 +1,11 @@
+import { marketingMetadata } from "@/lib/marketing-seo";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  ...marketingMetadata("/guides"),
   title: "店長經營指南｜蒸管家",
   description: "九篇店務做法：安排預約、顧客追蹤、收款對帳、商品盤點與維修保養接件。每篇一個問題、三個步驟，把方法帶回店裡。",
 };

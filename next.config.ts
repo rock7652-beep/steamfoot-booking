@@ -1,3 +1,8 @@
+// This review branch must not deploy or access a database before separate approval.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
+  throw new Error("SEO review branch deployment is disabled; use local verification.");
+}
+
 import type { NextConfig } from "next";
 
 // Vercel can override package.json's build command, so enforce isolation here too.
@@ -39,6 +44,12 @@ const nextConfig: NextConfig = {
           : process.env.NODE_ENV === "production"
             ? "prod"
             : "dev",
+  },
+  async headers() {
+    // Vercel marks Preview explicitly; production behavior is unchanged.
+    return process.env.VERCEL_ENV === "preview"
+      ? [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]
+      : [];
   },
   async redirects() {
     return [
