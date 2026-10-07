@@ -1,3 +1,4 @@
+import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
@@ -118,9 +119,19 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (marketing) {
     const url = req.nextUrl.clone();
     url.pathname = marketing.destination;
-    return marketing.kind === "redirect"
+    const response = marketing.kind === "redirect"
       ? NextResponse.redirect(url, 308)
       : NextResponse.rewrite(url);
+    if (!isCanonicalMarketingRequest(req)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+
+  // Mark only existing public marketing documents on non-canonical hosts;
+  // this does not grant access or change any store/auth routing.
+  if (pathname !== "/" && (MARKETING_SITEMAP_PATHS as readonly string[]).includes(pathname) && !isCanonicalMarketingRequest(req)) {
+    const response = withDomainCookie(NextResponse.next(), domainStoreId);
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
   }
 
   // Exact public completion endpoint for Taiwan's server-coordinated LINE
@@ -603,6 +614,6 @@ function hqRewrite(
 
 export const config = {
   matcher: [
-    "/((?!api/line/webhook|api/cron|_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!robots\\.txt$|sitemap\\.xml$|api/line/webhook|api/cron|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };

@@ -8,6 +8,9 @@ const aliases: Record<string, string> = {
   "/refunds": "/pricing/refunds.html",
 };
 
+// Let crawlers observe these existing 308 redirects without listing duplicate URLs.
+export const MARKETING_LEGACY_PATHS = Object.values(aliases);
+
 export function marketingRoute(pathname: string, storeDomain = false) {
   const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
   // Dedicated store domains keep their customer homepage.
