@@ -1,3 +1,4 @@
+import { PUBLIC_WORK_ORDER_DEPENDENCY } from "@/lib/public-marketing-copy";
 import { HomepageOffer } from "../pricing-offer";
 import { MarketingFaq } from "../marketing-faq";
 import { StoreTestimonial } from "@/components/store-testimonial";
@@ -61,7 +62,7 @@ export default async function BusinessPage() {
         <MarketingUsageStatistics snapshot={usage} />
         <BookingOverview />
         <BookingTypes />
-        <section aria-labelledby="inventory-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8"><div className="rounded-2xl border border-[#153B31]/15 bg-white p-5 sm:p-7"><p className="text-sm font-medium text-[#74603C]">店務管理</p><h2 id="inventory-title" className="mt-2 text-2xl font-semibold">進銷存管理</h2><p className="mt-3 text-base leading-7 text-[#4C6259]">商品、進貨、銷貨與庫存集中管理，銷售收款串接現金收支，減少重複登記。</p><p className="mt-3 text-sm leading-6 text-[#4C6259]">各付費方案皆額外加購，每項原價 NT$800／月；不列入免費選配或展店版內含。</p><Link href="/pricing/features#inventory" className="mt-2 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">了解進銷存功能 →</Link></div></section>
+        <section aria-labelledby="store-work-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8"><h2 id="store-work-title" className="text-2xl font-semibold">商品與維修服務，也能一起管理。</h2><div className="mt-4 grid gap-4 md:grid-cols-2"><div className="rounded-xl border border-[#153B31]/15 bg-white p-5"><h3 className="text-lg font-semibold">進銷存管理</h3><p className="mt-2 text-base leading-7 text-[#4C6259]">商品、進貨、銷貨與庫存集中管理，掌握收付款。</p><Link href="/pricing/features#inventory" className="mt-2 inline-flex min-h-11 items-center underline underline-offset-4">了解進銷存管理 →</Link></div><div className="rounded-xl border border-[#153B31]/15 bg-white p-5"><h3 className="text-lg font-semibold">工單管理｜維修・保養・施工</h3><p className="mt-2 text-base leading-7 text-[#4C6259]">鋼琴調音、管弦與吉他維修保養，從接件、進度到收款與取件。</p><Link href="/pricing/features#work-orders" className="mt-2 inline-flex min-h-11 items-center underline underline-offset-4">了解工單管理 →</Link></div></div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{PUBLIC_WORK_ORDER_DEPENDENCY} <Link href="/pricing#addons" className="inline-flex min-h-11 items-center underline underline-offset-4">查看加購費用 →</Link></p></section>
 
         <section id="brands" aria-labelledby="cases-title" className="scroll-mt-24 border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-6xl">

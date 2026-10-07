@@ -1,3 +1,4 @@
+import { PUBLIC_TRIAL_COPY, PUBLIC_SUBSCRIPTION_RETENTION } from "@/lib/public-marketing-copy";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
@@ -43,7 +44,7 @@ function OnlinePayment() {
   return <section id="payment" aria-labelledby="payment-title" className="mt-8 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
     <p className="text-sm font-semibold tracking-widest text-[#74603C]">綠界 ECPay 金流</p>
     <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
-    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案及金額，再進行付款。付款金額請填寫雙方確認的方案及加購總額。</p>
+    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案、加購項目及完整金額，再進行付款。一次付款不代表授權自動續扣。付款金額請填寫雙方確認的方案及加購總額。</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -141,13 +142,10 @@ export default async function PricingPage() {
           </div>
           <a href={TRIAL_URL} className="inline-flex min-h-11 shrink-0 items-center justify-center self-start rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 lg:self-center">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
         </div>
-        <details className="mt-3 border-t border-[#153B31]/15 text-base leading-7">
+        <details id="trial-details" className="mt-3 scroll-mt-24 border-t border-[#153B31]/15 text-base leading-7">
           <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看體驗額度與使用說明</summary>
           <div className="space-y-2 pb-2 text-[#4C6259]">
-            <p>所選模組的全部功能開放體驗，含母子店串接，人員仍依店長／員工角色權限操作。含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。</p>
-            <p>從帳號可正常使用當天開通起算 30 天；網頁前台可先使用，LINE／LIFF 完成設定後接上。</p>
-            <p>到期後後台改為唯讀，資料保留 30 天；保留期間轉正式，可沿用原帳號與資料，功能及額度依購買方案。</p>
-            <p>30 天系統體驗免費，包含母子店管理（母店加一家分店），不含代辦金流申請與串接；自動提醒每月最多 50 次，LINE 訊息、金流等外部服務費用於開通前確認。</p>
+            {Object.entries(PUBLIC_TRIAL_COPY).map(([key, text]) => <p key={key}>{text}</p>)}
           </div>
         </details>
       </section>
@@ -158,8 +156,8 @@ export default async function PricingPage() {
         <h2 id="addons" className="scroll-mt-24 text-2xl font-semibold">需要更多功能，再加購。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="inline-flex min-h-11 items-center underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
         <AddonOffer initialNow={initialNow} />
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或免費任選的功能不另收費。任選項目可之後再決定，由總部協助開通；超出名額才需額外加購。</p>
-        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">方案與費用說明</summary>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">任選項目可之後再決定，由總部協助開通；超出名額才需額外加購。</p>
+        <details id="fee-details" className="mt-4 scroll-mt-24 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
             <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
@@ -174,6 +172,7 @@ export default async function PricingPage() {
             <div><dt className="font-medium">健康追蹤提供什麼？</dt><dd className="mt-1 text-[#4C6259]">量測紀錄、歷史數據與變化趨勢，協助體態追蹤；不作醫療診斷或效果保證。</dd></div>
           </dl></details>
       </section>
+      <section id="data-retention" aria-labelledby="retention-title" className="mt-6 scroll-mt-24 border-t border-[#153B31]/15 pt-5"><h2 id="retention-title" className="text-xl font-semibold">停用與到期，資料怎麼處理？</h2><p className="mt-2 text-base leading-7 text-[#4C6259]">{PUBLIC_SUBSCRIPTION_RETENTION}</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">試用有獨立的 30 天資料保留期，請查看上方體驗說明。<a href="/terms" className="inline-flex min-h-11 items-center underline underline-offset-4">服務條款 →</a></p></section>
       <OnlinePayment />
     </main>
     <section className="bg-[#123E32] px-5 py-8 text-center text-white">

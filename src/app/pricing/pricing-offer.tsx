@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getPublicAddonOffer, getPublicAnnualSavings, getPublicOfferHighlights, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
+import { PUBLIC_ADDON_GROUPS, PUBLIC_WORK_ORDER_DEPENDENCY } from "@/lib/public-marketing-copy";
 import { MarketingIcon } from "./marketing-icon";
 
 function useNow(initialNow: number) {
@@ -83,26 +84,12 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
       <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>
     </div>}
     <p className="mt-4 text-base leading-7 text-[#4C6259]">依需求挑選，每項分別計費；已內含或免費任選的功能不另收費。</p>
-    <div className="mt-3 grid items-start gap-4 md:grid-cols-2">
-      {[
-        { name: "日常加購", purpose: "整理資料、照顧顧客、掌握營運", monthly: offer.toolMonthly, original: 500, features: [
-          { id: "export", name: "資料匯出", description: "下載資料，方便整理與備份。" },
-          { id: "cash", name: "現金抽屜", description: "記錄現金進出與交班盤點。" },
-          { id: "care", name: "顧客經營", description: "追蹤回訪、關懷與續購。" },
-          { id: "health", name: "健康追蹤", description: "記錄量測與歷次變化。" },
-          { id: "waitlist", name: "課程候補", description: "管理候補與空位遞補。" },
-          { id: "analysis", name: "分析", description: "查看營運數據與趨勢。" },
-        ] },
-        { name: "進階加購", purpose: "處理月結、商品庫存與維修服務", monthly: offer.businessMonthly, original: 800, features: [
-          { id: "settlement", name: "月結管理", description: "整理授課明細與月結金額。" },
-          { id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" },
-          { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "鋼琴調音、管弦與吉他維修保養；接件、進度、收款與取件一處管理，支援雙聯列印。" },
-        ] },
-      ].map(item => <article key={item.name} className="min-w-0 rounded-2xl border border-[#153B31]/15 bg-white">
+    <div className="mt-3 grid gap-4 md:grid-cols-2">
+      {PUBLIC_ADDON_GROUPS.map(group => ({ ...group, monthly: group.original === 500 ? offer.toolMonthly : offer.businessMonthly })).map(item => <article key={item.name} className="min-w-0 rounded-2xl border border-[#153B31]/15 bg-white">
         <div className="border-b border-[#153B31]/10 p-4 sm:p-5">
           <h3 className="text-xl font-semibold">{item.name}</h3>
           <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.purpose}</p>
-          <p className="mt-4 text-sm text-[#4C6259]">{offer.active ? "年繳優惠・每項" : "年繳計價・每項"}</p>
+          <p className="mt-4 text-sm text-[#4C6259]">{offer.active ? "優惠年繳計價・每項" : "年繳計價・每項"}</p>
           <p className="mt-1 flex flex-wrap items-baseline gap-x-2"><span className="text-3xl font-semibold">NT${money(item.monthly)}</span><span className="text-base">／月</span>{offer.active && <span className="text-sm text-[#64756D] line-through">原價 NT${money(item.original)}／月</span>}</p>
           <p className="mt-2 text-base font-medium">每項年繳 NT${money(item.monthly * 12)}・一次繳清</p>
           {offer.active && <p className="mt-1 text-sm font-medium text-[#805C1B]">每項年繳省 NT${money((item.original - item.monthly) * 12)}</p>}
@@ -114,11 +101,12 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
             </a>
           </li>)}
         </ul>
-        {item.original === 800 && <p className="border-t border-[#153B31]/10 px-4 py-3 text-sm leading-6 text-[#4C6259] sm:px-5">進銷存、工單各自加購，展店版亦不內含。工單可獨立使用；商品材料與扣庫存需另開通進銷存及人員權限。</p>}
+
       </article>)}
     </div>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">進銷存、工單各自加購，展店版亦不內含。{PUBLIC_WORK_ORDER_DEPENDENCY}</p>
     <p className="mt-3 text-base font-medium text-[#805C1B]">{offer.months === 14 ? "年繳 12 個月＋贈送 2 個月，使用 14 個月。" : "年繳使用 12 個月。"}</p>
-    <p className="mt-3 text-sm leading-6 text-[#4C6259]">加購採年繳，與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">以上月費以年繳總額 ÷ 12 個月計價，優惠不提供月繳；贈送月份另計。加購與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
   </div>;
 }
 

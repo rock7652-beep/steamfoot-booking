@@ -30,7 +30,7 @@ export function DeviceReview() {
           onChange={(event) => setPage(event.target.value)}
           className="min-h-11 max-w-full rounded-lg border bg-white px-3 py-2 text-sm"
         >
-          <option value="/pricing#comparison">方案比較</option>
+          <option value="/guides">經營指南</option><option value="/guides?guide=work-order-handoff">工單經營指南</option><option value="/pricing/features">功能介紹</option><option value="/pricing/features/music">音樂課程</option><option value="/apply">店家需求申請</option><option value="/terms">服務條款</option><option value="/pricing#comparison">方案比較</option>
           <option value="/pricing#addons">加購項目</option>
           <option value="/pricing/features#work-orders">工單功能說明</option>
           <option value="/pricing/features#inventory">進銷存功能說明</option>
