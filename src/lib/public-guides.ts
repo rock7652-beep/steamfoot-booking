@@ -59,7 +59,7 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
   "category": "booking",
   "title": "音樂教室如何管理請假、補課與剩餘堂數？",
   "summary": "把請假規則、例外協調、補課安排與剩餘堂數記清楚，也照顧老師已付出的時間。",
-  "status": "draft",
+  "status": "published",
   "format": "article",
   "feature": "daily",
   "featureName": "預約與日常店務",

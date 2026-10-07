@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import type { PublicGuide } from "@/lib/public-guides";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextRequest } from "next/server";
 import { PUBLIC_GUIDES, PUBLISHED_GUIDE_PATHS, GUIDE_CATEGORIES, findPublicGuide, guidePath, visiblePublicGuides } from "@/lib/public-guides";
@@ -10,7 +12,7 @@ import { GET as robots } from "@/app/robots.txt/route";
 vi.mock("@/lib/auth", () => ({ auth: (handler: unknown) => handler }));
 import { proxy } from "@/proxy";
 
-const draftSlug = "music-school-leave-makeup-lesson-balance";
+const musicSlug = "music-school-leave-makeup-lesson-balance";
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
 const route = (path: string, host = "www.steamfoot.com") => {
   const req = new NextRequest(`https://${host}${path}`, { headers: { host } });
@@ -23,7 +25,7 @@ describe("public editorial guides", () => {
   it("preserves the nine original IDs, category anchors, and complete short content", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual(originalIds);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -63,9 +65,9 @@ describe("public editorial guides", () => {
     }
   });
 
-  it("returns the Next 404 boundary for unknown article slugs and unapproved production drafts", async () => {
+  it("returns the Next 404 boundary for unknown article slugs", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
-    for (const slug of ["missing", "private", "constructor", "UPPERCASE", "with_underscore", draftSlug]) {
+    for (const slug of ["missing", "private", "constructor", "UPPERCASE", "with_underscore"]) {
       expect(findPublicGuide(slug)).toBeUndefined();
       expect(route(`/guides/${slug}`).status).toBe(404);
       await expect(GuideArticle(props(slug))).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
@@ -73,20 +75,56 @@ describe("public editorial guides", () => {
     }
   });
 
-  it("renders the approved music draft for review with anonymous examples and bounded retention", async () => {
-    vi.stubEnv("VERCEL_ENV", "preview");
-    const html = renderToStaticMarkup(await GuideArticle(props(draftSlug)));
-    const guide = findPublicGuide(draftSlug)!;
+  it("publishes the unchanged approved music article with anonymous examples and bounded retention", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const html = renderToStaticMarkup(await GuideArticle(props(musicSlug)));
+    const guide = findPublicGuide(musicSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
     for (const paragraph of [...guide.introduction, ...guide.sections.flatMap(section => [...section.paragraphs, ...(section.bullets ?? [])]), guide.conclusion, guide.callToAction.text]) expect(html).toContain(paragraph);
-    expect(html).toContain("校閱草稿，尚未發布");
+    expect(guide.status).toBe("published");
+    expect(createHash("sha256").update(JSON.stringify({ ...guide, status: "draft" })).digest("hex")).toBe("85883df43bdfaf7afe7d47a928466e8289f9c94707e64aea6d4304ebb3ef99f7");
+    expect(html).not.toContain("校閱草稿，尚未發布");
+    expect(route(`/guides/${musicSlug}`).status).toBe(200);
+    expect(route(`/guides/${musicSlug}`).headers.get("x-robots-tag")).toBeNull();
     expect(html).toContain("四堂與八堂均為匿名示例");
     expect(html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1]).not.toContain("陸比");
     expect(html).toContain("試用到期後後台改為唯讀，資料保留 30 天");
     expect(html).toContain('href="https://www.steamfoot.com/apply"');
     expect(html).toContain('href="/pricing/features/music"');
-    expect((await generateMetadata(props(draftSlug))).robots).toEqual({ index: false, follow: false });
+    expect((await generateMetadata(props(musicSlug))).robots).toEqual({ index: true, follow: true });
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect((await generateMetadata(props(musicSlug))).robots).toEqual({ index: false, follow: false });
+  });
+
+  it("keeps a future unpublished fixture private without treating the published music article as draft", async () => {
+    const fixture: PublicGuide = { ...PUBLIC_GUIDES[0], id: "unpublished-test-fixture", status: "draft" };
+    const registry = PUBLIC_GUIDES as PublicGuide[];
+    registry.push(fixture);
+    try {
+      vi.stubEnv("VERCEL_ENV", "production");
+      expect(findPublicGuide(fixture.id)).toBeUndefined();
+      expect(route(`/guides/${fixture.id}`).status).toBe(404);
+      await expect(GuideArticle(props(fixture.id))).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+      await expect(generateMetadata(props(fixture.id))).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
+      // Sitemap paths are initialized before this runtime fixture is inserted.
+      // Keep the published-only initialization contract independently covered.
+      expect(readFileSync("src/lib/public-guides.ts", "utf8")).toContain('PUBLIC_GUIDES.filter(guide => guide.status === "published").map(guidePath)');
+      const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
+      expect(index).not.toContain(fixture.id);
+      expect(await sitemap(new Request("https://www.steamfoot.com/sitemap.xml")).text()).not.toContain(fixture.id);
+      vi.stubEnv("VERCEL_ENV", "preview");
+      expect(findPublicGuide(fixture.id)).toBe(fixture);
+      expect((await generateMetadata(props(fixture.id))).robots).toEqual({ index: false, follow: false });
+    } finally {
+      registry.splice(registry.indexOf(fixture), 1);
+    }
+  });
+
+  it("keeps this publication-only branch from auto-deploying a new Preview", () => {
+    const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
+    expect(deployment["fix/publish-music-guide-20261008"]).toBe(false);
+    expect(deployment.main).toBeUndefined();
   });
 
   it("uses per-article canonical, metadata, and truthful structured data without invented authors/dates", async () => {
@@ -111,14 +149,15 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(9);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(10);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(23);
     for (const path of PUBLISHED_GUIDE_PATHS) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com${path}</loc>`);
       expect(rules).toContain(`Allow: ${path}$\n`);
     }
-    expect(xml).not.toMatch(/music-school|token|hq|dashboard|operation-guide/);
+    expect(xml).not.toMatch(/token|hq|dashboard|operation-guide/);
     expect([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].every(match => !match[1].includes("?"))).toBe(true);
-    expect(rules).not.toContain(draftSlug);
+    expect(rules).toContain(`Allow: /guides/${musicSlug}$`);
   });
 
   it("supports a single public slug without granting access to private route families", () => {
