@@ -3055,6 +3055,7 @@ model ManagerNotificationLog {
   type          String
   status        String    @default("PENDING")
   renderedBody  String
+  renderedMessages Json?
   errorMessage  String?
   createdAt     DateTime  @default(now())
   sentAt        DateTime?

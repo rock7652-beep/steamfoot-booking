@@ -131,7 +131,7 @@ describe("store manager LINE notifications", () => {
     expect(pushMessage).toHaveBeenCalledWith(
       "store_1",
       "Umanager123",
-      [expect.objectContaining({ type: "text", text: expect.stringContaining("💰 等待確認入帳") })],
+      [expect.objectContaining({ type: "flex", altText: expect.stringContaining("💰 等待確認入帳") })],
       expect.any(String),
     );
   });

@@ -132,7 +132,7 @@ describe("manager delivery preferences and durable deduplication", () => {
     expect(h.push).toHaveBeenCalledWith(
       "store-a",
       "line-b",
-      event.messages,
+      [expect.objectContaining({ type: "flex", altText: expect.stringContaining("預約通知") })],
       expect.any(String),
     );
   });
@@ -198,6 +198,14 @@ describe("manager delivery preferences and durable deduplication", () => {
       [{ type: "text", text: "original" }],
       "retry-uuid",
     );
+  });
+  it("retries the exact saved Flex payload even when the event body changes", async () => {
+    const saved = [{ type: "flex", altText: "saved", contents: { type: "bubble" } }];
+    h.createLog.mockRejectedValue(duplicate());
+    h.findLog.mockResolvedValue({ id: "retry-flex", status: "FAILED", createdAt: new Date(), renderedBody: "old", renderedMessages: saved });
+    h.claimLog.mockResolvedValue({ count: 1 });
+    await deliverManagerNotification(event);
+    expect(h.push).toHaveBeenCalledWith("store-a", "line-a", saved, "retry-flex");
   });
   it("does not retry beyond LINE's deduplication window", async () => {
     h.createLog.mockRejectedValue(duplicate());
