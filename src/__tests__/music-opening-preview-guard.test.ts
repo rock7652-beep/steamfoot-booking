@@ -70,7 +70,7 @@ it("rejects routing overrides before creating a client and does not retry bad sc
  const create=vi.fn();await expect(readMusicOpeningSchemaConnection(direct+"?host=other.invalid",create)).rejects.toThrow();expect(create).not.toHaveBeenCalled();
  const client={$queryRawUnsafe:vi.fn().mockResolvedValue([{...ready(),columns_ready:false}]),$disconnect:vi.fn().mockResolvedValue(undefined)};
  create.mockReturnValue(client);
- await expect(checkMusicOpeningSchema(env,url=>readMusicOpeningSchemaConnection(url,create))).rejects.toThrow("columns_ready");expect(create).toHaveBeenCalledOnce();
+ await expect(checkMusicOpeningSchema(env,(url:string)=>readMusicOpeningSchemaConnection(url,create))).rejects.toThrow("columns_ready");expect(create).toHaveBeenCalledOnce();
 });
 it.each(["columns_ready","native_default_ready","policy_default_ready","indexes_ready","fks_ready","rls_ready","client_access_blocked","no_client_policies","tenant_ready"])("blocks missing schema capability %s",field=>{
  expect(()=>assertMusicOpeningSchema([{...ready(),[field]:false}])).toThrow(field);
