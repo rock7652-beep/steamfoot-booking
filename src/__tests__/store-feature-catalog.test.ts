@@ -17,7 +17,7 @@ describe("store feature catalog", () => {
       key: "service_fee_calculator",
       label: "月結管理",
       module: "營運",
-      description: "每月服務金額、固定月費、加扣項與月結紀錄。",
+      description: expect.stringContaining("專業版與健康追蹤、課程候補免費 3 選 1"),
     });
     expect(getStoreFeatureLabel(FEATURES.SERVICE_FEE_CALCULATOR)).toBe("月結管理");
   });
@@ -72,7 +72,7 @@ describe("store feature catalog", () => {
       label: "健康評估與體態追蹤",
       module: "健康",
       description:
-        "額外加購原價 NT$500／月；量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
+        expect.stringContaining("專業版與月結管理、課程候補免費 3 選 1"),
     });
     expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估與體態追蹤");
   });

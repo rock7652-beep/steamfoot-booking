@@ -50,9 +50,9 @@ describe("plan feature package alignment", () => {
   it("includes only the fixed 專業版 store modules by default", () => {
     expect(hasFeature("GROWTH", FEATURES.CASH_DRAWER)).toBe(true);
     expect(hasFeature("GROWTH", FEATURES.CUSTOMER_CARE)).toBe(true);
+    expect(hasFeature("GROWTH", FEATURES.DATA_EXPORT)).toBe(true);
 
     expectUnavailable("GROWTH", [
-      FEATURES.DATA_EXPORT,
       FEATURES.ADVANCED_REPORTS,
       FEATURES.AI_HEALTH_SUMMARY,
       FEATURES.SERVICE_FEE_CALCULATOR,

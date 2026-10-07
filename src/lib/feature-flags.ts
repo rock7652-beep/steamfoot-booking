@@ -109,6 +109,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "plan_management",
     "cashbook",
     "cash_drawer",
+    "data_export", // 專業版固定內含資料匯出，不占免費任選名額
     "reconciliation",
     "ops_dashboard_basic",
     "store_revenue",

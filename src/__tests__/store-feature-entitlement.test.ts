@@ -54,6 +54,29 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
+  it.each([
+    ["BASIC", false], ["GROWTH", true], ["ALLIANCE", true],
+  ] as const)("%s data export follows the included package without an HQ grant", async (plan, expected) => {
+    mockStore(plan);
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.DATA_EXPORT)).toBe(expected);
+  });
+
+  it.each(["DISABLED", "LOCKED", "HIDDEN"] as const)("included professional data export still honors HQ %s", async status => {
+    mockStore("GROWTH");
+    mockEntitlement(status);
+    const { hasStoreFeature, requireStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.DATA_EXPORT)).toBe(false);
+    await expect(requireStoreFeature("store-1", FEATURES.DATA_EXPORT)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("expired export grants return to the professional included package", async () => {
+    mockStore("GROWTH");
+    mockEntitlement("DISABLED", { expiresAt: new Date("2000-01-01") });
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("store-1", FEATURES.DATA_EXPORT)).toBe(true);
+  });
+
   it("dated course trials include expansion features without manual grants", async () => {
     mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "new-course", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
     const { hasStoreFeature } = await import("@/lib/feature-gate");
