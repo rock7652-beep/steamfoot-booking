@@ -27,7 +27,8 @@ describe("human-readable audit presentation", () => {
   });
   it("uses authorized names and permission explanations", () => {
     expect(auditValue("customerId","x",{"customerId:x":"小華（目前姓名）"})).toBe("小華（目前姓名）");
-    expect(auditValue("permissions",["audit.read","future.permission"],{"permission:audit.read":"查看操作紀錄"})).toBe("查看操作紀錄、權限說明未記錄");
+    expect(auditValue("permissions",["audit.read","future.permission"],{"permission:audit.read":"查看操作紀錄"})).toBe("查看操作紀錄、1 項權限未保存中文說明");
+    expect(auditValue("granted",["future.a","future.b"])).toBe("2 項權限未保存中文說明");
     expect(auditValue("permissions",{"audit.read":true},{"permission:audit.read":"查看操作紀錄"})).toBe("查看操作紀錄：允許");
     expect(auditValue("viewedStoreId","__all__")).toBe("總部全部店家");
   });

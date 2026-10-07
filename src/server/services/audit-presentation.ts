@@ -84,9 +84,11 @@ export async function resolveAuditPresentation(rows: AuditRow[], options: { hq?:
     }
   }
   for (const row of rows) for (const snapshot of [row.beforeJson,row.afterJson]) {
-    const permissions = auditRecord(snapshot).permissions;
-    const codes = Array.isArray(permissions) ? permissions.filter((v):v is string=>typeof v === "string") : Object.keys(auditRecord(permissions));
-    for (const code of codes) if (Object.hasOwn(PERMISSION_LABELS,code)) refs[row.id][`permission:${code}`] = PERMISSION_LABELS[code as keyof typeof PERMISSION_LABELS];
+    for (const key of ["permissions", "permissionKeys", "granted", "denied"]) {
+      const permissions = auditRecord(snapshot)[key];
+      const codes = Array.isArray(permissions) ? permissions.filter((v):v is string=>typeof v === "string") : typeof permissions === "string" ? [permissions] : Object.keys(auditRecord(permissions));
+      for (const code of codes) if (Object.hasOwn(PERMISSION_LABELS,code)) refs[row.id][`permission:${code}`] = PERMISSION_LABELS[code as keyof typeof PERMISSION_LABELS];
+    }
   }
   return new Map(rows.map(row => {
     const snapshot = auditSnapshotTarget(row), current = targets.get(`${row.targetType}:${row.storeId}:${row.targetId}`);

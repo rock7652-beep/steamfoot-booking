@@ -5,7 +5,16 @@ vi.mock("@/lib/spa-db",()=>({spaPrisma:{spaBooking:{findMany:m.spaBookings}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
 vi.mock("@/lib/permissions",()=>({PERMISSION_LABELS:{"audit.read":"查看操作紀錄"}}));
 import { resolveAuditPresentation } from "@/server/services/audit-presentation";
+import { auditChanges } from "@/lib/audit-presentation";
 beforeEach(()=>{vi.clearAllMocks();Object.values(m).forEach(fn=>fn.mockResolvedValue([]));});
+it("explains legacy granted and denied permission snapshots observed in Preview", async()=>{
+  const row={id:"a",storeId:"own",targetType:"StaffPermission",targetId:"staff",action:"UPDATE",afterJson:{granted:["audit.read"],denied:["future.a","future.b"]}};
+  const result=await resolveAuditPresentation([row]);
+  expect(auditChanges(null,row.afterJson,result.get("a")?.references)).toEqual([
+    {label:"允許操作",before:"未記錄",after:"查看操作紀錄"},
+    {label:"禁止操作",before:"未記錄",after:"2 項權限未保存中文說明"},
+  ]);
+});
 it("never resolves a snapshot's customer outside the evidence store",async()=>{
   await resolveAuditPresentation([{id:"a",storeId:"own",targetType:"Customer",targetId:"foreign",action:"UPDATE",afterJson:{customerId:"foreign"}}]);
   expect(m.customers).toHaveBeenCalledWith(expect.objectContaining({where:{OR:[{id:"foreign",storeId:"own"}]}}));

@@ -78,7 +78,15 @@ export function auditValue(key: string, value: unknown, references: AuditReferen
   if (value === null || value === undefined || value === "") return "未記錄";
   if (value === "[已隱藏]" || /password|secret|token|authorization|cookie|otp|verificationcode/i.test(key)) return "敏感資料已隱藏";
   if (depth > 4) return "詳細內容未提供白話說明";
-  if (Array.isArray(value)) return value.length ? value.map(v => auditValue(key.replace(/Ids$/, "Id"), v, references, depth + 1)).join("、") : "無";
+  if (Array.isArray(value)) {
+    if (!value.length) return "無";
+    if (/^(permissions|permissionKeys|granted|denied)$/.test(key)) {
+      const known = value.filter(v => typeof v === "string" && references[`permission:${v}`]).map(v => references[`permission:${v}`]);
+      const missing = value.length - known.length;
+      return [...known, ...(missing ? [`${missing} 項權限未保存中文說明`] : [])].join("、");
+    }
+    return value.map(v => auditValue(key.replace(/Ids$/, "Id"), v, references, depth + 1)).join("、");
+  }
   if (/^(permissions|permissionKeys|granted|denied)$/.test(key) && typeof value === "string") return references[`permission:${value}`] ?? "權限說明未記錄";
   if (/Id$/.test(key)) return value === "__all__" ? values.__all__ : references[`${key}:${value}`] ?? "有關聯資料（舊紀錄未保存名稱）";
   if (typeof value === "boolean") return value ? "是" : "否";
