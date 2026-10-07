@@ -1,3 +1,4 @@
+import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import { PrismaClient } from "@prisma/client";
 import { buildDatabaseUrl } from "@/lib/database-url";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
@@ -21,8 +22,9 @@ const globalForPrisma = globalThis as unknown as {
  *
  * 參考：https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
  */
-export const prisma =
-  globalForPrisma.prisma ??
+export const prisma: PrismaClient = isGuideUiPreview()
+  ? createGuideUiDisabledClient() as PrismaClient
+  : globalForPrisma.prisma ??
   withAuditDatabaseContext(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },
@@ -30,9 +32,9 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   }), true);
 
-if (
+if (!isGuideUiPreview() && (
   process.env.NODE_ENV !== "production" ||
   (process.env.VERCEL_ENV === "preview" &&
     process.env.VERCEL_GIT_COMMIT_REF === "codex/hq-module-foundation")
-)
+))
   globalForPrisma.prisma = prisma;

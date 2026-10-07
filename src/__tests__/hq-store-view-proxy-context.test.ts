@@ -68,4 +68,18 @@ describe("verified request context on every HQ/API pass-through", () => {
     expect(response.headers.get("x-middleware-request-x-next-pathname")).toBe("/s/store-a/admin/dashboard/customers");
     expect(response.headers.get("x-middleware-request-x-store-slug")).toBe("store-a");
   });
+
+  it.each(["/guides", "/guides/solo-store"])("keeps public marketing rewrites free of forged store context on %s", path => {
+    const response = request(path);
+    expect(response.headers.get("x-middleware-rewrite")).toBe(`https://preview.example/pricing${path}`);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expectVerifiedNonStoreContext(response, path);
+  });
+
+  it("sanitizes the new non-canonical marketing pass-through without dropping noindex", () => {
+    const response = request("/pricing/features");
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expectVerifiedNonStoreContext(response, "/pricing/features");
+  });
 });

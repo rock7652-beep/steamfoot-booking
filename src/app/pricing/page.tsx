@@ -1,3 +1,4 @@
+import { marketingMetadata } from "@/lib/marketing-seo";
 import { PUBLIC_TRIAL_COPY, PUBLIC_SUBSCRIPTION_RETENTION } from "@/lib/public-marketing-copy";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
 
 export const metadata = {
+  ...marketingMetadata("/pricing"),
   title: "方案與價格 — 蒸管家",
   description: "蒸管家｜店務管理系統，適用於預約制門市、工作室與服務品牌。新客 30 天免費體驗，單店功能完整開放，轉正式沿用原帳號與資料。比較方案價格、年繳省額與限時加購優惠。",
 };

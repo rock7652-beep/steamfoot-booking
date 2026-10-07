@@ -1,3 +1,4 @@
+import { marketingMetadata } from "@/lib/marketing-seo";
 import { PUBLIC_WORK_ORDER_DEPENDENCY } from "@/lib/public-marketing-copy";
 import { HomepageOffer } from "../pricing-offer";
 import { MarketingFaq } from "../marketing-faq";
@@ -13,9 +14,9 @@ import { BookingOverview } from "./booking-overview";
 import { BookingTypes } from "../booking-types";
 
 export const metadata: Metadata = {
+  ...marketingMetadata("/"),
   title: "蒸管家｜每一家店，都值得擁有一位數位管家",
   description: "預約、堂數、收款與顧客追蹤，集中管理。了解蒸管家如何協助預約制門市與工作室的日常營運。",
-  robots: { index: false, follow: false },
 };
 
 const LINE_URL = "https://lin.ee/SGy5UBz";

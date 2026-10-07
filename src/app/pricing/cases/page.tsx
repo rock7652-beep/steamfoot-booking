@@ -1,3 +1,4 @@
+import { marketingMetadata } from "@/lib/marketing-seo";
 import { StoreTestimonial } from "@/components/store-testimonial";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
@@ -7,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 export const metadata: Metadata = {
+  ...marketingMetadata("/cases"),
   title: "真實店家案例｜蒸管家",
   description: "來回確認時段、重複建檔與逐筆提醒，都是店長的時間成本。看看蒸管家如何接手預約、建檔與 LINE 通知。",
 };

@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - fix/public-seo-crawlers-20261007
       - codex/course-scheduling-stage1
     types:
       - opened
@@ -91,6 +92,7 @@ jobs:
         shell: bash
         run: |
           mapfile -t tests < <(find src -type f \( -name '*digital-butler*.test.ts' -o -name '*digital-butler*.test.tsx' \) | sort)
+          tests+=(src/__tests__/guide-ui-preview-isolation.test.ts src/__tests__/public-guides.test.ts src/__tests__/marketing-seo.test.ts src/__tests__/marketing-routing.test.ts)
           tests+=(src/__tests__/client-read-cache.test.ts src/__tests__/panel-read-cache.test.ts)
           tests+=(src/__tests__/quick-cashbook-panel-loading.test.ts src/__tests__/quick-cashbook.test.ts src/__tests__/quick-cashbook-transport.test.ts src/__tests__/cash-drawer-live-totals.test.ts)
           tests+=(src/__tests__/panel-acceptance-regression.test.ts src/__tests__/right-sheet-centered.test.ts)
