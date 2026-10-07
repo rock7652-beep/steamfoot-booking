@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Authentication is stubbed for this business unit test; audit DB writes remain real mocks.
+vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
+
 // PR-NoShow-1/3：markNoShow「扣堂並給 7 日補課資格」行為保證（PR-NoShow-3：10→7 日）
 //  - DEDUCTED_WITH_MAKEUP：依 booking.people 建 N 張補課券（一張抵 1 人 / 1 堂），
 //    每張 isUsed=false、expiredAt ≈ now+7 天

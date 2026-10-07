@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Delivery is verified by the dedicated outbox suite; this suite exercises store scope and redirects.
+vi.mock("@/server/services/operation-audit-outbox", () => ({
+  persistFollowupAudit: vi.fn(async () => ({ id: "store-view-intent" })),
+}));
+
 const mockFindMany = vi.fn();
 const mockPermissionFindMany = vi.fn();
 const mockRequireStaffSession = vi.fn();
