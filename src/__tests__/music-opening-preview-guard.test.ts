@@ -1,7 +1,7 @@
 import {readFileSync} from "node:fs";
 import {expect,it,vi} from "vitest";
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase,MUSIC_OPENING_BRANCH} from "../../scripts/music-opening-preview-scope.mjs";
-import {assertMusicOpeningSchema,checkMusicOpeningSchema,MUSIC_OPENING_SCHEMA_SQL} from "../../scripts/music-opening-schema-check.mjs";
+import {assertMusicOpeningSchema,checkMusicOpeningSchema,MUSIC_OPENING_SCHEMA_SQL,musicOpeningConnectionFailure} from "../../scripts/music-opening-schema-check.mjs";
 const direct="postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
 const pooled="postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const env={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:MUSIC_OPENING_BRANCH,VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:pooled,DIRECT_URL:direct};
@@ -9,6 +9,13 @@ const ready=()=>({columns_ready:true,native_default_ready:true,policy_default_re
  "CHECK (musicOpeningTermKey IS NOT NULL AND musicOpeningSourceLessonKey IS NOT NULL AND musicOpeningLessonOrdinal IS NOT NULL AND musicOpeningLessonOrdinal >= 1 AND musicOpeningLessonOrdinal <= 100000 AND cardId IS NOT NULL AND customerId IS NOT NULL)",
  "CHECK (contentHash ~ '^[a-f0-9]{64}$')", "CHECK (jsonb_typeof(snapshot) = 'object')", "CHECK (teacherFeePolicy IN ('UNVERIFIED','MUSIC_V2_ORIGINAL_PRICE'))",
 ]});
+it("reports only safe connection categories, never driver URLs or credentials",()=>{
+ const secret="postgresql://postgres:secret@private.invalid/postgres";
+ expect(musicOpeningConnectionFailure({errorCode:"P1001",message:secret},"direct").message).toContain("direct:P1001");
+ expect(musicOpeningConnectionFailure({message:"Query engine could not locate "+secret},"pooled").message).toContain("pooled:ENGINE_UNAVAILABLE");
+ expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).toContain("pooled:UNKNOWN");
+ expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).not.toContain("secret");
+});
 it("accepts only the exact existing preview project and both connections",()=>{
  expect(isMusicOpeningDatabase(direct)).toBe(true);expect(isMusicOpeningDatabase(pooled)).toBe(true);
  expect(()=>assertMusicOpeningPreviewEnvironment(env)).not.toThrow();

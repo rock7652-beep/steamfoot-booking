@@ -81,6 +81,15 @@ export async function checkMusicOpeningSchema(env, readSchema) {
   for (const url of [env.DATABASE_URL,env.DIRECT_URL]) assertMusicOpeningSchema(await readSchema(url));
 }
 
+/** Stable diagnostic categories only; never forward driver messages or URLs. */
+export function musicOpeningConnectionFailure(error, connectionKind) {
+  const code = [error?.code, error?.errorCode].find(value => typeof value === "string" && /^P\d{4}$/.test(value));
+  const message = typeof error?.message === "string" ? error.message : "";
+  const category = code ?? (/query engine|engine.*not found|could not locate/i.test(message) ? "ENGINE_UNAVAILABLE" : "UNKNOWN");
+  const kind = connectionKind === "pooled" ? "pooled" : "direct";
+  return new Error(`Music opening isolated schema verification failed (${kind}:${category}); startup/build blocked.`);
+}
+
 /** Reuse platform-provided existing credentials without reading/saving them elsewhere. */
 export async function runMusicOpeningSchemaPreflight(env = process.env) {
   assertMusicOpeningPreviewEnvironment(env);
@@ -94,8 +103,8 @@ export async function runMusicOpeningSchemaPreflight(env = process.env) {
     const client = new PrismaClient({datasources:{db:{url:url.toString()}},log:[]});
     try {
       return await client.$transaction(tx=>tx.$queryRawUnsafe(MUSIC_OPENING_SCHEMA_SQL),{maxWait:5000,timeout:10000});
-    } catch {
-      throw new Error("Music opening isolated schema verification failed; startup/build blocked.");
+    } catch (error) {
+      throw musicOpeningConnectionFailure(error, url.hostname.endsWith(".pooler.supabase.com") ? "pooled" : "direct");
     } finally { await client.$disconnect().catch(()=>{}); }
   });
   console.info("[music-opening-preflight] isolated_database=true schema_ready=true tenant_verified=true");
