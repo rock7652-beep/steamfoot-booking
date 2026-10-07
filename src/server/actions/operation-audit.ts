@@ -38,7 +38,7 @@ export async function loadOperationHistory(
 ): Promise<ActionResult<OperationHistoryItem[]>> {
   try {
     const user = await requirePermission("audit.read");
-    if (user.role === "CUSTOMER") throw new AppError("FORBIDDEN", "無權查看操作紀錄");
+    if (user.role !== "ADMIN") throw new AppError("FORBIDDEN", "無權查看操作紀錄");
     const storeId = await resolveWriteStoreId(user);
     assertStoreAccess(user, storeId);
     const data = inputSchema.parse(input);

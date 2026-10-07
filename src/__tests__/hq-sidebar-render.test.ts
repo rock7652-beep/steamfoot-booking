@@ -23,6 +23,7 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
     canOpenCourseSettings,
+    canViewAudit: path.startsWith("/hq"),
     operationGuidePreview: true,
     cashDrawerStoreId: selected && permissions.includes("cashDrawer.read") ? selected : undefined,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
@@ -142,4 +143,9 @@ describe("actual HQ shell rendering", () => {
     expect(html).not.toContain('href="/hq/dashboard/ranking"');
     expect(html).not.toContain('href="/hq/dashboard/analytics"');
   });
+});
+
+it.each(["steamfoot", "spa", "course"] as const)("hides audits from %s stores despite all permissions", module => {
+  expect(render(module, "a", "/s/store-a/admin/dashboard")).not.toContain("operation-audits");
+  expect(render(module, "a", "/hq/dashboard")).toContain("operation-audits");
 });

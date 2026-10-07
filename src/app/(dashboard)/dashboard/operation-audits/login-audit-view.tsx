@@ -12,7 +12,7 @@ export async function LoginAuditView(input: {
   storeId: string | null; dateFrom: string; dateTo: string; from: Date; to: Date;
   actor?: string; outcome?: string; login?: string; page: number; viewerKey?: string; returnTo?: string;
 }) {
-  // Caller enforced staff + audit.read; non-HQ scope is always its own store.
+  // Caller enforces ADMIN + audit.read; HQ may select a store or view all stores.
   const where: Prisma.StaffLoginRecordWhereInput = {
     ...(input.storeId ? { storeId: input.storeId } : {}),
     ...(input.actor ? { actorUserId: input.actor } : {}),

@@ -2,6 +2,7 @@
 
 import { AuditChanges } from "@/components/audit-changes";
 import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
+import { useOperationAuditAccess } from "@/components/operation-audit-access";
 import { useState } from "react";
 import { loadOperationHistory, type OperationHistoryItem } from "@/server/actions/operation-audit";
 
@@ -25,6 +26,7 @@ export function OperationHistoryButton({
   targetId: string;
   className?: string;
 }) {
+  const canViewAudit = useOperationAuditAccess();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<OperationHistoryItem[] | null>(null);
@@ -39,6 +41,8 @@ export function OperationHistoryButton({
     else setError(result.error ?? "無法讀取操作紀錄");
     setLoading(false);
   }
+
+  if (!canViewAudit) return null;
 
   return (
     <>

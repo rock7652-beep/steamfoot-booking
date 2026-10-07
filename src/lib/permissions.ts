@@ -115,7 +115,7 @@ export const ALL_PERMISSIONS = [
   "trial.cancel",  // 取消體驗 / 退款取消
   "trial.manage",  // 體驗課設定
   // 系統稽核
-  "audit.read", // 查看本店操作紀錄中心
+  "audit.read", // 僅限總部查看操作與登入紀錄
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -176,10 +176,6 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   trial: {
     label: "體驗單",
     codes: ["trial.read", "trial.create", "trial.confirm", "trial.cancel", "trial.manage"],
-  },
-  audit: {
-    label: "操作紀錄",
-    codes: ["audit.read"],
   },
 };
 
@@ -247,7 +243,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
 // ============================================================
 
 /** Owner 的權限不能以個別勾選縮減；店舖範圍與模組開通仍由各入口把關。 */
-export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = [...ALL_PERMISSIONS];
+export const DEFAULT_OWNER_PERMISSIONS: PermissionCode[] = ALL_PERMISSIONS.filter(permission => permission !== "audit.read");
 
 /** Manager 具店務管理權，不預設成本、進貨付款或價格管理。 */
 export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
@@ -290,7 +286,6 @@ export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
   "trial.confirm",
   "trial.cancel",
   "trial.manage",
-  "audit.read",
 ];
 
 /** 合作店長 預設權限（日常操作，不含營收報表/系統設定/人才管理） */
@@ -394,6 +389,8 @@ export async function checkPermission(
 ): Promise<boolean> {
   // Admin 永遠放行
   if (role === "ADMIN") return true;
+
+  if (permission === "audit.read") return false;
 
   // Owner 在已授權門市內全權；不得取代入口的 store scope / feature gate。
   if (role === "OWNER") return Boolean(staffId);
@@ -580,9 +577,10 @@ export const getUserPermissions = cache(
     role: UserRole,
     staffId: string | null,
   ): Promise<PermissionCode[]> => {
-    if (role === "ADMIN" || (role === "OWNER" && staffId)) return [...ALL_PERMISSIONS];
+    if (role === "ADMIN") return [...ALL_PERMISSIONS];
+    if (role === "OWNER" && staffId) return ALL_PERMISSIONS.filter(permission => permission !== "audit.read");
     if (!isNonOwnerStaff(role) || !staffId) return [];
     const perms = await getStaffPermissions(staffId);
-    return Array.from(perms);
+    return Array.from(perms).filter(permission => permission !== "audit.read");
   },
 );

@@ -16,6 +16,7 @@ import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS, checkPermission, isStaffRole } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
 import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
+import { OperationAuditAccessProvider } from "@/components/operation-audit-access";
 import { OperationScope } from "@/components/operations/operation-scope";
 import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { LogoutButton } from "@/components/logout-button";
@@ -195,7 +196,9 @@ export default async function DashboardLayout({
   return (
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
+    <OperationAuditAccessProvider allowed={user.role === "ADMIN"}>
     <DashboardShell
+      canViewAudit={user.role === "ADMIN"}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
@@ -253,6 +256,7 @@ export default async function DashboardLayout({
       <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
       {children}</CustomerLabelsProvider>
     </DashboardShell>
+    </OperationAuditAccessProvider>
     </FeaturePresentationProvider>
     </OperationScope>
   );

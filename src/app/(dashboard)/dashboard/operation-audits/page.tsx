@@ -58,7 +58,7 @@ export default async function OperationAuditsPage({
   }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) notFound();
+  if (!user || user.role !== "ADMIN") notFound();
   if (!isStaffRole(user.role)) redirect("/dashboard");
   if (!(await checkPermission(user.role, user.staffId, "audit.read"))) notFound();
 
@@ -76,8 +76,7 @@ export default async function OperationAuditsPage({
 
   const activeStoreId = await getActiveStoreForRead(user);
   const viewContext = await resolveStoreViewContextFromCookie(user);
-  const storeId = user.role === "ADMIN" ? storeIdForViewContext(activeStoreId, viewContext) : user.storeId;
-  if (user.role !== "ADMIN" && !storeId) notFound();
+  const storeId = storeIdForViewContext(activeStoreId, viewContext);
   if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} viewerKey={user.id} returnTo={params.returnTo} />;
   const pendingCount = await prisma.operationAuditOutbox.count({
     where: { deliveredAt: null, ...(storeId ? { payload: { path: ["storeId"], equals: storeId } } : {}) },

@@ -640,6 +640,7 @@ interface DashboardShellProps {
   isOwner: boolean;
   /** Course settings has a stricter role gate than legacy ownerOnly navigation. */
   canOpenCourseSettings?: boolean;
+  canViewAudit?: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
   /** Server-resolved effective entitlements for features migrated off plan-only gating. */
@@ -675,6 +676,7 @@ export default function DashboardShell({
   industryModule = "steamfoot",
   isOwner,
   canOpenCourseSettings = isOwner,
+  canViewAudit = false,
   permissions,
   pricingPlan,
   effectiveFeatures = {},
@@ -846,6 +848,7 @@ export default function DashboardShell({
       const categorizedItems = group.items
         .filter(
           (item) =>
+            (item.href !== "/dashboard/operation-audits" || canViewAudit) &&
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
             !previewItems.some(preview => preview.href === item.href) &&
             !(isIframePreview && item.href === "/dashboard/device-preview"),
