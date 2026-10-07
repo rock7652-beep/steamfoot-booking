@@ -12,6 +12,8 @@ import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { listOperationAudits, type OperationModule } from "@/server/services/operation-audit";
 import { LoginAuditView } from "./login-audit-view";
+import { AuditListState } from "./audit-list-state";
+import { auditTimeLabel, auditReturnQuery } from "./audit-list-format";
 import { OperationAuditFilters } from "./operation-audit-filters";
 
 const MODULE_LABELS: Record<OperationModule, string> = {
@@ -52,6 +54,7 @@ export default async function OperationAuditsPage({
     tab?: string;
     outcome?: string;
     login?: string;
+    returnTo?: string;
   }>;
 }) {
   const user = await getCurrentUser();
@@ -75,7 +78,7 @@ export default async function OperationAuditsPage({
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const storeId = user.role === "ADMIN" ? storeIdForViewContext(activeStoreId, viewContext) : user.storeId;
   if (user.role !== "ADMIN" && !storeId) notFound();
-  if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} />;
+  if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} viewerKey={user.id} returnTo={params.returnTo} />;
   const pendingCount = await prisma.operationAuditOutbox.count({
     where: { deliveredAt: null, ...(storeId ? { payload: { path: ["storeId"], equals: storeId } } : {}) },
   });
@@ -112,13 +115,17 @@ export default async function OperationAuditsPage({
     return `/dashboard/operation-audits?${query.toString()}`;
   };
 
+  const backHref = auditReturnQuery(params.returnTo);
+  const returnQuery = pageHref(result.page).split("?")[1];
+  const columns = storeId ? "@[720px]:grid-cols-[96px_150px_minmax(0,1fr)_20px]" : "@[900px]:grid-cols-[96px_150px_minmax(0,1fr)_150px_20px]";
   return (
     <PageShell>
-      <PageHeader title="操作與登入紀錄" subtitle="查詢登入與資料異動；紀錄僅供查閱" />
+      <PageHeader title="操作與登入紀錄" compact />
       <nav className="flex gap-2 text-sm" aria-label="稽核分類">
         <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}`}>操作紀錄</Link>
         <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}`}>登入紀錄</Link>
       </nav>
+      {backHref ? <Link className="w-fit min-h-11 py-3 text-sm text-primary-800 underline" href={backHref}>← 返回紀錄列表</Link> : null}
       {pendingCount > 0 ? <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
         {storeId ? "本店" : "目前"}有 {pendingCount} 筆操作紀錄補記中，完成後會顯示於清單。
       </p> : null}
@@ -133,27 +140,34 @@ export default async function OperationAuditsPage({
         showModuleFilter
       />
 
-      <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">
+      <AuditListState viewKey={`${user.id}:${storeId ?? "all"}:${returnQuery}`}><div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
         <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-sm text-earth-600">
           <span>共 {result.total} 筆</span><span>第 {result.page}／{totalPages} 頁</span>
+        </div>
+        <div aria-hidden="true" className={`hidden gap-3 border-b border-earth-100 bg-earth-50/50 px-3 py-2 text-sm text-earth-500 ${storeId ? "@[720px]:grid" : "@[900px]:grid"} ${columns}`}>
+          <span>時間</span><span>操作人</span><span>做了什麼</span>{!storeId ? <span>店家</span> : null}<span />
         </div>
         {result.items.length === 0 ? (
           <div className="px-6 py-14 text-center text-earth-500">指定期間尚無操作紀錄</div>
         ) : (
           <div className="divide-y divide-earth-100">
-            {result.items.map((item) => (
-              <details key={item.id} className="group px-3 py-2 open:bg-earth-50/60">
-                <summary className="grid cursor-pointer list-none gap-1.5 text-sm xl:grid-cols-[160px_110px_90px_minmax(0,1fr)_130px] xl:items-center">
-                  <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
-                  <span className="break-words font-medium text-earth-900">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
-                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-sm text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
-                  <span className="min-w-0 break-words text-earth-800">{auditSummary(item, presentation.get(item.id)?.target)}</span>
-                  <span className="break-words text-sm text-earth-500 xl:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
+            {result.items.map((item, index) => (
+              <details key={item.id} data-record={item.id} className="group px-3 py-1 open:bg-earth-50/60">
+                <summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden ${columns}`}>
+                  <time dateTime={item.createdAt.toISOString()} className="col-start-1 row-start-1 tabular-nums text-earth-500">{auditTimeLabel(item.createdAt, result.items[index - 1]?.createdAt)}</time>
+                  <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
+                  <span className={`col-span-2 col-start-1 row-start-2 min-w-0 break-words ${storeId ? "@[720px]:col-span-1 @[720px]:col-start-3 @[720px]:row-start-1" : "@[900px]:col-span-1 @[900px]:col-start-3 @[900px]:row-start-1"}`}>
+                    <span className="font-medium text-earth-900">{auditSummary(item, presentation.get(item.id)?.target)}</span>
+                    <span className="ml-2 text-earth-500">{MODULE_LABELS[displayedModule(item)]}</span>
+                  </span>
+                  {!storeId ? <span className="col-span-2 min-w-0 break-words text-earth-500 @[900px]:col-span-1 @[900px]:col-start-4 @[900px]:row-start-1">{item.storeId ? storeNames.get(item.storeId) ?? "已封存門市" : "系統"}</span> : null}
+                  <span aria-hidden="true" className={`col-start-3 row-start-1 text-center text-earth-400 transition-transform group-open:rotate-90 ${storeId ? "@[720px]:col-start-4" : "@[900px]:col-start-5"}`}>›</span>
                 </summary>
                 <div className="mt-2 min-w-0 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
+                  <time className="text-earth-500 md:col-span-2">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
                   {(item.actorRoleSnapshot || item.loginRecordId) && <div className="flex flex-wrap gap-x-3 gap-y-1 md:col-span-2 text-earth-500">
                     {item.actorRoleSnapshot && <span>{auditRoleLabel(item.actorRoleSnapshot)}</span>}
-                    {item.loginRecordId && <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`}>查看當次登入</Link>}
+                    {item.loginRecordId && <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}&returnTo=${encodeURIComponent(returnQuery)}`}>查看當次登入</Link>}
                   </div>}
                   <div className="min-w-0 md:col-span-2"><AuditChanges target={presentation.get(item.id)?.target} targetType={item.targetType} before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
                 </div>
@@ -161,7 +175,7 @@ export default async function OperationAuditsPage({
             ))}
           </div>
         )}
-      </div>
+      </div></AuditListState>
 
       <nav className="flex items-center justify-end gap-2" aria-label="操作紀錄分頁">
         {result.page > 1 ? <Link className="rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm" href={pageHref(result.page - 1)}>上一頁</Link> : null}

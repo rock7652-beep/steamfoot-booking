@@ -47,7 +47,7 @@ export function OperationAuditFilters({
     if (loginRecordId) query.set("login", loginRecordId);
     localStorage.setItem(cacheKey, JSON.stringify(values));
     const search = query.toString();
-    router.replace(`/dashboard/operation-audits${search ? `?${search}` : ""}`);
+    router.replace(`/dashboard/operation-audits${search ? `?${search}` : ""}`, { scroll: false });
   };
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function OperationAuditFilters({
 
   return (
     <form
-      className={`grid gap-2 rounded-xl border border-earth-200 bg-white p-3 md:items-end ${showModuleFilter ? "md:grid-cols-2 xl:grid-cols-[150px_150px_minmax(150px,1fr)_130px_minmax(220px,1.4fr)]" : "md:grid-cols-2 xl:grid-cols-4"}`}
+      className="flex min-w-0 flex-wrap items-center gap-2 text-sm"
       method="get"
       onSubmit={(event) => {
         event.preventDefault();
@@ -97,21 +97,27 @@ export function OperationAuditFilters({
         applyFilters(form);
       }}
     >
-      <label className="text-sm text-earth-600">開始日期
-        <input className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" type="date" name="dateFrom" defaultValue={defaults.dateFrom} />
-      </label>
-      <label className="text-sm text-earth-600">結束日期
-        <input className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" type="date" name="dateTo" defaultValue={defaults.dateTo} />
-      </label>
-      <label className="text-sm text-earth-600">操作人
-        <select className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" name="actor" defaultValue={defaults.actor}>
-          <option value="">全部操作人</option>
-          {actors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}
-        </select>
-      </label>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="text-earth-600">日期</span>
+        <input aria-label="開始日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2 text-sm" type="date" name="dateFrom" defaultValue={defaults.dateFrom} />
+        <span className="text-earth-400">至</span>
+        <input aria-label="結束日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2 text-sm" type="date" name="dateTo" defaultValue={defaults.dateTo} />
+      </div>
+      <select aria-label="操作人" className="h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-2 text-sm sm:w-44" name="actor" defaultValue={defaults.actor}>
+        <option value="">全部操作人</option>
+        {actors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}
+      </select>
+      <button className="min-h-11 px-3 text-earth-600" type="button" onClick={() => {
+        if (keywordTimer.current) clearTimeout(keywordTimer.current);
+        localStorage.removeItem(cacheKey);
+        router.replace("/dashboard/operation-audits", { scroll: false });
+      }}>清除</button>
+      <details className="open:basis-full" open={Boolean(defaults.module || defaults.q)}>
+        <summary className="flex min-h-11 w-fit cursor-pointer items-center py-2 text-earth-600">更多篩選{defaults.module || defaults.q ? " · 已套用" : ""}</summary>
+        <div className="flex flex-wrap items-end gap-2 pt-1">
       {showModuleFilter ? (
         <label className="text-sm text-earth-600">模組
-          <select className="mt-1 h-11 w-full rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" name="module" defaultValue={defaults.module}>
+          <select className="mt-1 h-11 w-full rounded-lg border border-earth-200 bg-white px-2 text-sm text-earth-1100" name="module" defaultValue={defaults.module}>
             <option value="">全部模組</option>
             <option value="STEAM">蒸足</option>
             <option value="SPA">SPA</option>
@@ -126,16 +132,10 @@ export function OperationAuditFilters({
       <label className="text-sm text-earth-600">關鍵字
         <div className="mt-1 flex gap-1.5">
           <input className="h-11 min-w-0 flex-1 rounded-lg border border-earth-200 px-2 text-sm text-earth-1100" name="q" defaultValue={defaults.q} placeholder="操作或資料類型" maxLength={80} />
-          <button
-            className="h-11 whitespace-nowrap rounded-lg border border-earth-200 bg-white px-2 text-sm text-earth-600"
-            type="button"
-            onClick={() => {
-              localStorage.removeItem(cacheKey);
-              router.replace("/dashboard/operation-audits");
-            }}
-          >清除</button>
         </div>
       </label>
+        </div>
+      </details>
     </form>
   );
 }
