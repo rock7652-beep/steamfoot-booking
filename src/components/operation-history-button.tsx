@@ -1,15 +1,9 @@
 "use client";
 
+import { AuditChanges } from "@/components/audit-changes";
+import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
 import { useState } from "react";
 import { loadOperationHistory, type OperationHistoryItem } from "@/server/actions/operation-audit";
-
-const roleLabels: Record<string, string> = {
-  ADMIN: "總部",
-  OWNER: "店長",
-  STAFF: "人員",
-  PARTNER: "人員",
-  CUSTOMER: "顧客",
-};
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat("zh-TW", {
@@ -22,58 +16,10 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
-const fieldLabels: Record<string, string> = {
-  notes: "備註",
-  note: "備註",
-  status: "狀態",
-  entryDate: "日期",
-  type: "收支類型",
-  category: "分類",
-  amount: "金額",
-  paymentMethod: "付款方式",
-  staffId: "歸屬人員",
-  customerId: "顧客",
-  checkedInAt: "簽到時間",
-};
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
-function formatValue(key: string, value: unknown) {
-  if (value === null || value === undefined || value === "") return "—";
-  const text = typeof value === "object" ? JSON.stringify(value) : String(value);
-  if (/phone|mobile/i.test(key)) return text.replace(/(\d{4})\d+(\d{3})/, "$1***$2");
-  if (key === "amount" && Number.isFinite(Number(value))) return `NT$ ${Number(value).toLocaleString("zh-TW")}`;
-  return text.length > 80 ? `${text.slice(0, 80)}…` : text;
-}
-
-function Changes({ before, after }: { before: unknown; after: unknown }) {
-  const previous = asRecord(before);
-  const next = asRecord(after);
-  const keys = [...new Set([...Object.keys(previous), ...Object.keys(next)])]
-    .filter((key) => JSON.stringify(previous[key]) !== JSON.stringify(next[key]));
-  if (keys.length === 0) return null;
-  return (
-    <dl className="mt-2 space-y-1 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-700">
-      {keys.map((key) => (
-        <div key={key} className="grid grid-cols-[5rem_1fr] gap-2">
-          <dt className="text-earth-500">{fieldLabels[key] ?? key}</dt>
-          <dd className="min-w-0 break-words">
-            {formatValue(key, previous[key])} <span aria-hidden="true">→</span> {formatValue(key, next[key])}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 export function OperationHistoryButton({
   targetType,
   targetId,
-  className = "text-xs text-earth-500 underline underline-offset-2 hover:text-earth-800",
+  className = "text-sm text-earth-500 underline underline-offset-2 hover:text-earth-800",
 }: {
   targetType: "Booking" | "SpaBooking" | "CourseBooking" | "CashbookEntry" | "StaffPermission" | "InventoryOrder" | "InventoryProduct" | "InventorySupplier" | "InventoryPayment" | "InventoryStockCount";
   targetId: string;
@@ -115,14 +61,16 @@ export function OperationHistoryButton({
                   {items.map((item, index) => (
                     <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <p className="text-sm font-medium text-earth-900">{item.summary ?? item.action}</p>
-                        <time className="text-xs tabular-nums text-earth-500">{formatTime(item.createdAt)}</time>
+                        <p className="text-sm font-medium text-earth-900">{auditSummary({...item,targetType})}</p>
+                        <time className="text-sm tabular-nums text-earth-500">{formatTime(item.createdAt)}</time>
                       </div>
-                      <p className="mt-1 text-xs text-earth-600">
-                        {item.actorNameSnapshot ?? item.actor.name}・{roleLabels[item.actor.role] ?? item.actor.role}
+                      <p className="mt-1 text-sm text-earth-600">
+                        {item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}・{auditRoleLabel(item.actorRoleSnapshot ?? item.actor.role)}
+                        {!item.actorRoleSnapshot ? "（目前身分；舊紀錄未保存當時身分）" : ""}
                         {index === 0 ? "（最後操作）" : ""}
                       </p>
-                      <Changes before={item.beforeJson} after={item.afterJson} />
+                      <p className="mt-1 break-words text-sm text-earth-600">{item.targetLabel}</p>
+                      <AuditChanges before={item.beforeJson} after={item.afterJson} references={item.references} />
                     </li>
                   ))}
                 </ol>

@@ -12,6 +12,6 @@ describe("operation history entrypoints", () => {
   it("renders actor snapshot and before/after changes", () => {
     const history = read("src/components/operation-history-button.tsx");
     expect(history).toContain("item.actorNameSnapshot ?? item.actor.name");
-    expect(history).toContain("<Changes before={item.beforeJson} after={item.afterJson} />");
+    expect(history).toContain("<AuditChanges before={item.beforeJson} after={item.afterJson} references={item.references} />");
   });
 });

@@ -1,9 +1,11 @@
-import { redactAuditValue } from "@/lib/audit-redact";
+import { auditActionLabel, auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
+import { resolveAuditPresentation } from "@/server/services/audit-presentation";
+import { AuditChanges } from "@/components/audit-changes";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
-import { checkPermission, ROLE_LABELS, isStaffRole } from "@/lib/permissions";
+import { checkPermission, isStaffRole } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
@@ -22,31 +24,6 @@ const MODULE_LABELS: Record<OperationModule, string> = {
   SYSTEM: "系統管理",
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  CREATE: "新增",
-  UPDATE: "修改",
-  DELETE: "刪除",
-  VIEW_CROSS_STORE: "跨店查看",
-  CANCEL: "取消",
-  COMPLETE: "完成",
-  NO_SHOW: "標記未到",
-  REVERT: "恢復",
-  BOOKING_NOTE_UPDATED: "修改預約備註",
-};
-
-const TARGET_LABELS: Record<string, string> = {
-  Booking: "蒸足預約",
-  SpaBooking: "SPA 預約",
-  SpaBookingGroup: "SPA 同行預約",
-  CourseBooking: "課程預約",
-  CourseCompensation: "課程拆帳設定",
-  CourseTeacherCompensationSetting: "老師拆帳設定",
-  CourseTeacherFinanceScope: "老師帳務範圍",
-  Staff: "人員資料",
-  StaffPermission: "人員權限",
-  CashbookEntry: "現金收支",
-};
-
 const SYSTEM_TARGETS = new Set(["Staff", "StaffPermission", "CourseTeacherFinanceScope"]);
 
 function displayedModule(item: { module: string | null; targetType: string }): OperationModule {
@@ -58,21 +35,8 @@ function displayedModule(item: { module: string | null; targetType: string }): O
   return "SHARED";
 }
 
-function summaryText(item: { summary: string | null; targetType: string; action: string }) {
-  const target = TARGET_LABELS[item.targetType] ?? item.targetType;
-  const action = ACTION_LABELS[item.action] ?? item.action;
-  if (!item.summary || item.summary.includes(item.action) || item.summary.startsWith(item.targetType)) {
-    return `${action}${target}`;
-  }
-  return item.summary.replace(item.targetType, target);
-}
-
 function dateDaysAgo(days: number) {
   return toLocalDateStr(new Date(Date.now() - days * 86_400_000));
-}
-
-function jsonText(value: unknown) {
-  return value == null ? "—" : JSON.stringify(redactAuditValue(value), null, 2);
 }
 
 export default async function OperationAuditsPage({
@@ -126,6 +90,7 @@ export default async function OperationAuditsPage({
     page,
     pageSize: 50,
   });
+  const presentation = await resolveAuditPresentation(result.items, { hq: user.role === "ADMIN" });
   const storeIds = Array.from(new Set(result.items.flatMap((item) => item.storeId ? [item.storeId] : [])));
   const stores = storeIds.length
     ? await prisma.store.findMany({ where: { id: { in: storeIds } }, select: { id: true, name: true } })
@@ -169,7 +134,7 @@ export default async function OperationAuditsPage({
       />
 
       <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white">
-        <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-xs text-earth-600">
+        <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-sm text-earth-600">
           <span>共 {result.total} 筆</span><span>第 {result.page}／{totalPages} 頁</span>
         </div>
         {result.items.length === 0 ? (
@@ -178,21 +143,20 @@ export default async function OperationAuditsPage({
           <div className="divide-y divide-earth-100">
             {result.items.map((item) => (
               <details key={item.id} className="group px-3 py-2 open:bg-earth-50/60">
-                <summary className="grid cursor-pointer list-none gap-1.5 text-sm md:grid-cols-[145px_105px_72px_1fr_105px] md:items-center">
+                <summary className="grid cursor-pointer list-none gap-1.5 text-sm xl:grid-cols-[160px_110px_90px_minmax(0,1fr)_130px] xl:items-center">
                   <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
-                  <span className="truncate font-medium text-earth-900">{item.actorNameSnapshot ?? item.actor.name}</span>
-                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-xs text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
-                  <span className="min-w-0 truncate text-earth-800">{summaryText(item)}</span>
-                  <span className="truncate text-xs text-earth-500 md:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
+                  <span className="break-words font-medium text-earth-900">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
+                  <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-sm text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
+                  <span className="min-w-0 break-words text-earth-800">{auditSummary(item)}<span className="block text-earth-600">{presentation.get(item.id)?.target}</span></span>
+                  <span className="break-words text-sm text-earth-500 xl:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>
-                <div className="mt-2 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
+                <div className="mt-2 min-w-0 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
                   <div><span className="text-earth-500">來源：</span>{item.source === "SYSTEM" ? "系統自動" : item.source === "MANUAL" ? "人員操作" : "歷史紀錄（未分類）"}</div>
-                  <div><span className="text-earth-500">動作：</span>{ACTION_LABELS[item.action] ?? item.action}</div>
-                  <div><span className="text-earth-500">{item.actorRoleSnapshot ? "當時身分：" : "目前身分（歷史未記錄）："}</span>{ROLE_LABELS[(item.actorRoleSnapshot ?? item.actor.role) as keyof typeof ROLE_LABELS] ?? item.actorRoleSnapshot ?? item.actor.role}</div>
+                  <div><span className="text-earth-500">動作：</span>{auditActionLabel(item.action)}</div>
+                  <div><span className="text-earth-500">{item.actorRoleSnapshot ? "當時身分：" : "目前身分（歷史未記錄）："}</span>{auditRoleLabel(item.actorRoleSnapshot ?? item.actor.role)}</div>
                   <div className="md:col-span-2">{item.loginRecordId ? <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`}>查看當次登入</Link> : "未連結登入（歷史或其他來源）"}</div>
-                  <div className="md:col-span-2"><span className="text-earth-500">資料：</span>{item.targetType} · {item.targetId}</div>
-                  <div><p className="mb-1 font-medium text-earth-700">異動前</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-2 text-xs">{jsonText(item.beforeJson)}</pre></div>
-                  <div><p className="mb-1 font-medium text-earth-700">異動後</p><pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-earth-100 p-2 text-xs">{jsonText(item.afterJson)}</pre></div>
+                  <div className="min-w-0 break-words md:col-span-2"><span className="text-earth-500">資料：</span>{presentation.get(item.id)?.target}</div>
+                  <div className="min-w-0 md:col-span-2"><AuditChanges before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
                 </div>
               </details>
             ))}

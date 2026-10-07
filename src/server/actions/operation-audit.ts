@@ -6,6 +6,8 @@ import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { AppError, handleActionError } from "@/lib/errors";
+import { resolveAuditPresentation } from "@/server/services/audit-presentation";
+import type { AuditReferences } from "@/lib/audit-presentation";
 import { getOperationHistory } from "@/server/services/operation-audit";
 import type { ActionResult } from "@/types";
 
@@ -22,6 +24,10 @@ export type OperationHistoryItem = {
   module: string | null;
   createdAt: string;
   actorNameSnapshot: string | null;
+  actorRoleSnapshot?: string | null;
+  source?: string;
+  targetLabel?: string;
+  references?: AuditReferences;
   beforeJson: unknown;
   afterJson: unknown;
   actor: { id: string; name: string; role: string };
@@ -37,9 +43,10 @@ export async function loadOperationHistory(
     assertStoreAccess(user, storeId);
     const data = inputSchema.parse(input);
     const history = await getOperationHistory({ storeId, ...data });
+    const presentation = await resolveAuditPresentation(history.map(item=>({...item,storeId,targetType:data.targetType,targetId:data.targetId})), { hq: user.role === "ADMIN" });
     return {
       success: true,
-      data: history.map((item) => ({ ...item, beforeJson: redactAuditValue(item.beforeJson), afterJson: redactAuditValue(item.afterJson), createdAt: item.createdAt.toISOString() })),
+      data: history.map((item) => ({ ...item, targetLabel: presentation.get(item.id)?.target, references: presentation.get(item.id)?.references, beforeJson: redactAuditValue(item.beforeJson), afterJson: redactAuditValue(item.afterJson), createdAt: item.createdAt.toISOString() })),
     };
   } catch (error) {
     return handleActionError(error);

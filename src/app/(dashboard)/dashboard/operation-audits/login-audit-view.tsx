@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
-import { ROLE_LABELS } from "@/lib/permissions";
+import { auditRoleLabel } from "@/lib/audit-presentation";
 import type { Prisma } from "@prisma/client";
 
 const format = (value: Date | null) => value ? value.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false }) : "尚無使用紀錄";
@@ -62,7 +62,7 @@ export async function LoginAuditView(input: {
           <time>{format(row.createdAt)}</time><span className="break-words">{row.actorNameSnapshot ?? "未識別帳號"}</span><span className="break-words">{row.storeId ? names.get(row.storeId) ?? "已封存門市" : row.actorRoleSnapshot === "ADMIN" ? "總部" : "未識別門市"}</span><span>{row.outcome === "SUCCESS" ? "成功" : "失敗"}</span>
         </summary>
         <div className="mt-3 grid gap-2 border-t pt-3 text-sm md:grid-cols-2">
-          <p>當時身分：{row.actorRoleSnapshot ? ROLE_LABELS[row.actorRoleSnapshot as keyof typeof ROLE_LABELS] ?? row.actorRoleSnapshot : "未識別"}</p>
+          <p>當時身分：{auditRoleLabel(row.actorRoleSnapshot)}</p>
           <p>裝置：{row.device}</p><p>最近使用：{format(row.lastUsedAt)}</p>
           {row.reason ? <p>原因：{row.reason}</p> : null}
           {row.outcome === "SUCCESS" ? <Link className="w-fit p-3 underline" href={`/dashboard/operation-audits?login=${encodeURIComponent(row.id)}&dateFrom=${input.dateFrom}&dateTo=${input.dateTo}`}>查看這次操作（所選期間）</Link> : null}
