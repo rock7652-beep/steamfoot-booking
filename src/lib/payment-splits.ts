@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AppError } from "@/lib/errors";
+import { AppError } from "@/lib/app-error";
 
 export const paymentMethodValues = ["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"] as const;
 export type PaymentMethodValue = (typeof paymentMethodValues)[number];
