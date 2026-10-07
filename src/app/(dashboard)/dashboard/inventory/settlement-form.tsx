@@ -23,16 +23,19 @@ export function SettlementForm({order,kind,data,requestId,pending,onDirty,onSubm
  return <form onSubmit={e=>{e.preventDefault();if(plan)onSubmit(v);}} className={styles.editor}>
  <p>{order.partyName}・原應收 {money(order.total)}・淨已收 {money(order.paid)}</p>
  {kind!=="REFUND"&&<div className={styles.table}><table><thead><tr><th>商品</th><th>尚可退</th><th>本次退貨</th><th>放回庫存</th></tr></thead><tbody>{order.lines.map(l=><tr key={l.productId}><td>{l.name}{l.gift?"・贈品":""}</td><td>{l.quantity}</td><td><input aria-label={`${l.name}退貨數量`} type="number" min="0" max={l.quantity} step="1" value={quantities[l.productId]} disabled={pending||kind==="VOID"} onChange={e=>setQuantities({...quantities,[l.productId]:Number(e.target.value)})}/></td><td><label className={styles.checkbox}><input type="checkbox" disabled={pending||!quantities[l.productId]} checked={restock[l.productId]??false} onChange={e=>setRestock({...restock,[l.productId]:e.target.checked})}/>可再次販售，放回庫存</label></td></tr>)}</tbody></table></div>}
- <p className={styles.sub}>未勾選回庫的商品不增加可售庫存。退款金額只填實際已退給顧客的錢。</p>
- <div className={styles.payment}>
- <label className={styles.field}>處理日期<input type="date" min={order.date} max={toLocalDateStr()} value={date} required disabled={pending} onChange={e=>setDate(e.target.value)}/></label>
- {kind!=="REFUND"&&<label className={styles.field}>退還運費<input type="number" min="0" max={order.freight} step="1" value={freight} disabled={pending||kind==="VOID"} onChange={e=>setFreight(Number(e.target.value))}/></label>}
- <label className={styles.field}>本次實際退款<input aria-label="本次實際退款" type="number" min="0" max={ceiling} step="1" value={refund} disabled={pending} onChange={e=>setRefund(Number(e.target.value))}/><span>最高可退 {money(ceiling)}；晚點退錢可填 0</span><button type="button" disabled={pending||ceiling<=0} onClick={()=>{setRefund(ceiling);onDirty();}}>填入全額退款</button></label>
+ <div className={styles.fields}>
+ {kind!=="REFUND"&&order.freight>0&&<label className={styles.field}>退還運費<input type="number" min="0" max={order.freight} step="1" value={freight} disabled={pending||kind==="VOID"} onChange={e=>setFreight(Number(e.target.value))}/></label>}
+ <div className={styles.wide}>
+ <div className={styles.fields}>
+ <div className={styles.field}><label htmlFor="settlement-refund">本次實際退款</label><input id="settlement-refund" type="number" min="0" max={ceiling} step="1" value={refund} disabled={pending} onChange={e=>setRefund(Number(e.target.value))}/><div className={styles.toolbar}><span>可退 {money(ceiling)}</span><button type="button" disabled={pending||ceiling<=0} onClick={()=>{setRefund(ceiling);onDirty();}}>填入全額退款</button></div><span>尚未退錢填 0</span></div>
  <label className={styles.field}>退款方式<select value={method} disabled={pending} onChange={e=>setMethod(e.target.value as SettlementInput["method"])}>{["現金","轉帳","其他"].map(m=><option key={m}>{m}</option>)}</select></label>
- <ReasonField value={reason} onChange={setReason} pending={pending}/>
- {kind==="RETURN"&&<details><summary>換貨關聯（選填）</summary><p className={styles.sub}>先建立新銷貨單，再選擇關聯；兩張單分別結清。</p><label className={styles.field}>換貨新單<select value={exchangeOrderId} disabled={pending} onChange={e=>setExchange(e.target.value)}><option value="">未換貨</option>{data.orders.filter(o=>o.id!==order.id&&o.partyId===order.partyId&&o.kind==="SALE"&&!o.voided&&!o.workOrder).map(o=><option key={o.id} value={o.id}>{o.date}・{o.id.slice(-8)}・{money(o.total)}</option>)}</select></label></details>}
  </div>
- {plan?<div role="status" className={styles.stats}><span>退貨 {v.lines.reduce((n,l)=>n+l.quantity,0)} 件・回庫 {v.lines.filter(l=>l.restock).reduce((n,l)=>n+l.quantity,0)} 件</span><span>商品退還金額 {money(plan.returned.reduce((n,l)=>n+l.total,0))}・運費 {money(freight)}</span><strong>本次實際退款 {money(refund)}・完成後{plan.pendingRefund>0?`尚需退款 ${money(plan.pendingRefund)}`:`尚欠 ${money(plan.remaining)}`}</strong></div>:<p role="alert">{error}</p>}
+ {plan?<p role="status"><strong>{plan.pendingRefund>0?`本次處理後尚需退款 ${money(plan.pendingRefund)}`:plan.remaining>0?`本次處理後顧客尚欠 ${money(plan.remaining)}`:"本次處理後款項已結清"}</strong></p>:<p role="alert">{error}</p>}
+ </div>
+ <label className={styles.field}>處理日期<input type="date" min={order.date} max={toLocalDateStr()} value={date} required disabled={pending} onChange={e=>setDate(e.target.value)}/></label>
+ <ReasonField value={reason} onChange={setReason} pending={pending}/>
+ {kind==="RETURN"&&<details className={styles.wide}><summary>換貨關聯（選填）</summary><p className={styles.sub}>先建立新銷貨單，再選擇關聯；兩張單分別結清。</p><label className={styles.field}>換貨新單<select value={exchangeOrderId} disabled={pending} onChange={e=>setExchange(e.target.value)}><option value="">未換貨</option>{data.orders.filter(o=>o.id!==order.id&&o.partyId===order.partyId&&o.kind==="SALE"&&!o.voided&&!o.workOrder).map(o=><option key={o.id} value={o.id}>{o.date}・{o.id.slice(-8)}・{money(o.total)}</option>)}</select></label></details>}
+ </div>
  <p className={styles.sub}>確認後保留原單與處理紀錄，不能直接刪除。</p>
  <button className={styles.primary} type="submit" disabled={pending||!plan||!reason.trim()}>{pending?"處理中…":"確認"+(kind==="VOID"?"作廢":kind==="REFUND"?"退款":"退貨")}</button>
  </form>;
