@@ -76,7 +76,7 @@ function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
     <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">免費任選：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">額外加購：</strong>額外付費。</p>
-    <p className="mt-2 text-sm leading-6 text-[#4C6259]">免費任選可之後再決定，由總部協助開通；超出名額才需額外加購。進銷存與工單不列入免費選配，各付費方案皆額外加購，每項原價 NT$800／月。</p>
+    <p className="mt-2 text-sm leading-6 text-[#4C6259]">免費任選可之後再決定，由總部協助開通；超出名額才需額外加購。進銷存與工單皆額外加購。</p>
     <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
     <div className="mt-4 rounded-xl border border-[#153B31]/15 bg-white px-4 py-3 text-base leading-7">
       <p className="font-semibold">三個方案都內含日常店務</p>
@@ -91,7 +91,7 @@ function FeatureComparison() {
       {groups.map(group => <tbody key={group.title}>
         <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span><ul className="mt-2 space-y-1 text-sm font-normal leading-6 text-[#4C6259]">{group.choices.map(choice => <li key={choice.plan}><span className="font-semibold">{choice.plan}：</span>{choice.detail}{choice.count && <strong className="text-[#153B31]">{choice.count}</strong>}{choice.suffix}</li>)}</ul></th></tr>
         {group.rows.map(row => <tr key={row.label}>
-          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={row.label === "進銷存管理" || row.label === "工單管理" ? "#addons" : "/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
+          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
           {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "額外加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
         </tr>)}
       </tbody>)}
@@ -141,11 +141,11 @@ export default async function PricingPage() {
       <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
       <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
-        <h2 id="addons" className="scroll-mt-24 text-2xl font-semibold">加購專區｜需要更多功能，再加就好。</h2>
+        <h2 id="addons" className="scroll-mt-24 text-2xl font-semibold">需要更多功能，再加購。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="inline-flex min-h-11 items-center underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
         <AddonOffer initialNow={initialNow} />
         <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或免費任選的功能不另收費。任選項目可之後再決定，由總部協助開通；超出名額才需額外加購。</p>
-        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
+        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
             <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
@@ -153,7 +153,7 @@ export default async function PricingPage() {
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
         </details>
-        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">申請前須知</summary>
+        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">申請前須知</summary>
           <dl className="mt-3 grid gap-4 text-base leading-7 sm:grid-cols-3">
             <div><dt className="font-medium">體驗怎麼開始？</dt><dd className="mt-1 text-[#4C6259]">填寫門市需求後，由專人聯繫，確認體驗內容與期限，再提供登入方式。</dd></div>
             <div><dt className="font-medium">開通前確認哪些費用？</dt><dd className="mt-1 text-[#4C6259]">確認選用項目、額外費用與優惠期間後再開通；數位管家另行確認開通，LINE 訊息等第三方費用另外確認。</dd></div>

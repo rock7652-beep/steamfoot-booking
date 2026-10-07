@@ -92,17 +92,15 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
         <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active && <span className="mb-1 block text-lg">每項年繳省 NT${money((item.original - item.monthly) * 12)}</span>}{offer.months === 14 ? "12 個月＋贈送 2 個月，使用 14 個月" : "使用 12 個月"}</p>
       </article>)}
         <div className="rounded-xl border border-[#153B31]/15 bg-white p-4 md:col-span-2">
-          <p className="text-sm leading-6 text-[#4C6259]">進銷存與工單可分別開通，各付費版本皆可加購；不列入免費選配，展店版亦不內含。</p>
+          <p className="text-sm leading-6 text-[#4C6259]">進銷存、工單各自加購，展店版亦不內含。</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {[{ id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" }, { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "鋼琴調音、管弦樂器與吉他維修保養，以及其他施工服務；集中管理接件、進度、材料工費、收款與取件，支援工單列印。" }].map(addon => <section key={addon.id} className="min-w-0 rounded-lg bg-[#F8F5EE] p-3">
+            {[{ id: "inventory", name: "進銷存管理", description: "商品、採購、銷貨與庫存集中管理，掌握庫存與收付款。" }, { id: "work-orders", name: "工單管理｜維修・保養・施工", description: "鋼琴調音、管弦與吉他維修保養等服務；接件、進度、收款與取件一處管理，支援雙聯列印。" }].map(addon => <section key={addon.id} className="min-w-0">
               <h4 className="text-base font-semibold leading-6">{addon.name}</h4>
               <p className="mt-1 text-sm leading-6 text-[#4C6259]">{addon.description}</p>
-              <p className="mt-2 text-sm text-[#64756D]"><span className={offer.active ? "line-through" : "font-semibold"}>每項原價 NT$800／月</span></p>
-              {offer.active && <p className="mt-1 text-sm font-semibold">十月年繳優惠 NT${offer.businessMonthly}／月</p>}
               <a href={"/pricing/features#" + addon.id} className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2">查看{addon.id === "inventory" ? "進銷存" : "工單"}功能說明 →</a>
             </section>)}
           </div>
-          <p className="mt-2 text-sm leading-6 text-[#4C6259]">工單可獨立使用；加入商品材料與扣庫存，需搭配已開通的進銷存及相應人員權限。</p>
+          <p className="mt-2 text-sm leading-6 text-[#4C6259]">工單可獨立使用；商品材料與扣庫存需另開通進銷存及人員權限。</p>
         </div>
 
     </div>

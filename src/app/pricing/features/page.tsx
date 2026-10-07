@@ -189,7 +189,8 @@ export default async function FeaturesPage() {
         <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
         <a href="#multi-store" className="inline-flex min-h-11 items-center underline underline-offset-4">多店管理 ↓</a>
         <a href="#labels" className="inline-flex min-h-11 items-center underline underline-offset-4">顧客標籤 ↓</a>
-        <a href="#store-management" className="inline-flex min-h-11 items-center underline underline-offset-4">店務管理 ↓</a>
+        <a href="#inventory" className="inline-flex min-h-11 items-center underline underline-offset-4">進銷存 ↓</a>
+        <a href="#work-orders" className="inline-flex min-h-11 items-center underline underline-offset-4">工單管理 ↓</a>
         <a href="#export" className="inline-flex min-h-11 items-center underline underline-offset-4">資料匯出 ↓</a>
         <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
         <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
@@ -239,7 +240,7 @@ export default async function FeaturesPage() {
         </div>
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">LINE 顧客入口需完成串接並開通；LINE 自動提醒與顧客標籤皆內含，仍需完成串接與店內設定。</p>
       </section>
-      <section id="store-management" className="mt-8 scroll-mt-24 rounded-xl border border-[#153B31]/15 bg-white p-5"><h2 className="text-2xl font-semibold">店務管理</h2><p className="mt-2 text-base leading-7 text-[#4C6259]">從現金收支到商品、進貨、銷貨與庫存，把店務放在一起。</p><a href="#inventory" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">了解進銷存管理 →</a></section>
+      <div id="store-management" className="scroll-mt-24" />
       <section id="more" aria-labelledby="more-title" className="mt-10 scroll-mt-24 border-t border-[#153B31]/20 pt-7 sm:mt-12">
         <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
