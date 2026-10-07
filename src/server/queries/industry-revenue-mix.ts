@@ -61,14 +61,15 @@ async function cashbookEvents(storeId: string, startDate: string, endDate: strin
     const id = entry.id ?? "";
     // Course receipts already post to this ledger. Read their entryDate and
     // amount once, including split payments and their compensating entries.
-    const refund = /^course-(refund|void|trial-void|rental-void):/.test(id)||(/^inventory:.*:refund$/.test(id)&&entry.category==="工單退款");
+    const refund = /^course-(refund|void|trial-void|rental-void):/.test(id)||(/^inventory:.*:refund$/.test(id)&&["工單退款","銷貨退款"].includes(entry.category??""));
     const feeReversal = /^course-(fee|profit)-void:/.test(id);
     const linked = id.startsWith("course:") || id.startsWith("course-") || id.startsWith("inventory:");
-    const field: RevenueField = refund ? "refunds" : feeReversal ? "expense"
+    const correction=id.startsWith("inventory:")&&id.includes(":correction:");
+    const field: RevenueField = correction ? (isRetailCashbookCategory(entry.category)?"retailRevenue":"otherRevenue") : refund ? "refunds" : feeReversal ? "expense"
       : entry.type === "EXPENSE" ? "expense" : id.startsWith("course-purchase:") ? "packageRevenue"
       : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue";
     return { date: entry.entryDate.toISOString().slice(0, 10), field,
-      amount: Number(entry.amount) * (feeReversal ? -1 : 1), manual: !linked && entry.type === "INCOME" };
+      amount: Number(entry.amount) * (correction ? -1 : 1) * (feeReversal ? -1 : 1), manual: !linked && entry.type === "INCOME" };
   });
 }
 

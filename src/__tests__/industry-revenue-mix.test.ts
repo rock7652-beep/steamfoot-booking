@@ -102,3 +102,14 @@ it("counts linked course collections once, separates reversals and keeps retail 
   });
   expect(mocks.purchases).not.toHaveBeenCalled();
 });
+
+it("keeps sales refunds and receipt corrections out of operating expense",async()=>{
+  mocks.industry.mockResolvedValue("music");
+  mocks.cashbook.mockResolvedValue([
+    {id:"inventory:p:goods",entryDate:new Date("2026-10-01"),type:"INCOME",category:"零售-商品銷售",amount:500},
+    {id:"inventory:c:correction:goods",entryDate:new Date("2026-10-02"),type:"EXPENSE",category:"零售-商品銷售",amount:500},
+    {id:"inventory:new:goods",entryDate:new Date("2026-10-02"),type:"INCOME",category:"零售-商品銷售",amount:500},
+    {id:"inventory:r:refund",entryDate:new Date("2026-10-03"),type:"EXPENSE",category:"銷貨退款",amount:200},
+  ]);
+  expect(await getIndustryRevenueMix("store","2026-10-01","2026-10-31")).toMatchObject({retailRevenue:500,refunds:200,expense:0,netRevenue:300,manualIncome:0});
+});

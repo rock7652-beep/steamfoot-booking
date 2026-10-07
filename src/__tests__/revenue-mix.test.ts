@@ -92,3 +92,14 @@ it("recognizes a linked work-order cash refund as reduced revenue, not an operat
   ]);
   expect(await getRevenueMix("store","2026-10-06","2026-10-06")).toMatchObject({otherRevenue:500,refunds:400,netRevenue:100,expense:0,manualIncome:0});
 });
+
+it("keeps sales refunds and receipt corrections out of operating expense",async()=>{
+  mocks.transactions.mockResolvedValue([]);
+  mocks.cashbook.mockResolvedValue([
+    {id:"inventory:p:goods",entryDate:new Date("2026-10-01"),type:"INCOME",category:"零售-商品銷售",amount:500},
+    {id:"inventory:c:correction:goods",entryDate:new Date("2026-10-02"),type:"EXPENSE",category:"零售-商品銷售",amount:500},
+    {id:"inventory:new:goods",entryDate:new Date("2026-10-02"),type:"INCOME",category:"零售-商品銷售",amount:500},
+    {id:"inventory:r:refund",entryDate:new Date("2026-10-03"),type:"EXPENSE",category:"銷貨退款",amount:200},
+  ]);
+  expect(await getRevenueMix("store","2026-10-01","2026-10-31")).toMatchObject({retailRevenue:500,refunds:200,expense:0,netRevenue:300,manualIncome:0});
+});

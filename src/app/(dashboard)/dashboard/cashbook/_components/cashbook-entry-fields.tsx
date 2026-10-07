@@ -71,6 +71,7 @@ export function CashbookEntryFields({
           </label>
         ))}
       </div>
+      {kind==="RETAIL"&&<p className="mt-2 text-sm text-earth-600">手動記帳不扣庫存；銷貨單已收款者不需重複記帳。</p>}
       <input type="hidden" name="type" value={entryType} />
       <input type="hidden" name="category" value={category} />
     </div>
