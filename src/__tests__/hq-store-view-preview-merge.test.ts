@@ -5,7 +5,7 @@ const branch = "feat/hq-store-real-view-20261007";
 const isolated = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
 const unverified = "postgresql://postgres:fixture@unverified.invalid/postgres";
 
-function run(overrides: NodeJS.ProcessEnv = {}) {
+function run(overrides: Partial<NodeJS.ProcessEnv> = {}) {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const key of ["DATABASE_URL", "DIRECT_URL", "PRODUCTION_MIGRATION_TARGET", "GUIDE_UI_PREVIEW", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])
     delete env[key];
