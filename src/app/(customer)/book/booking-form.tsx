@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { createBooking } from "@/server/actions/booking";
 import { toast } from "sonner";
 import { ShareReferral } from "@/components/share-referral";
-import { useStoreSlugRequired } from "@/lib/store-context";
+import { useStoreSlugRequired } from "@/lib/store-context-client";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import { getSlotCapacityDisplay } from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";

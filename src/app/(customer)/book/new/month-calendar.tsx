@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useStoreSlugRequired } from "@/lib/store-context";
+import { useStoreSlugRequired } from "@/lib/store-context-client";
 
 interface Props {
   selectedDate: string; // "YYYY-MM-DD"

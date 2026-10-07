@@ -1,7 +1,7 @@
 "use client";
 
 import { AppLink as Link } from "@/components/app-link";
-import { useStoreSlugRequired } from "@/lib/store-context";
+import { useStoreSlugRequired } from "@/lib/store-context-client";
 
 export default function CustomerError({
   error,

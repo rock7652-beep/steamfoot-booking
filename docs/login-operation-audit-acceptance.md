@@ -22,12 +22,12 @@
 - 稽核相關測試：17 組、186 個通過（2026-10-07）。涵蓋登入與權限、交易上下文並行隔離、SPA／課程業務、登入關聯、敏感資料遮蔽。
 - PGlite 隔離 PostgreSQL 執行實際兩份 migration：舊 SQL 身份／門市／遮蔽、commit／rollback 上下文重置、錯誤登入關聯、ACK 失敗回滾／重試冪等、保留政策、RLS、模組快照及 Preview 重複遷移通過。
 - 完整 TypeScript、修改檔案 ESLint、diff whitespace 通過；Prisma client 生成成功。
-- 營業時間／課程值班邊界修正：另 3 組、43 個測試通過；純計算模組不再引入 DB／session。
+- 營業時間／課程值班邊界修正：另 7 組、68 個測試通過（營業時間／值班、付款拆分、店家網址 helper）；純計算與前端 helper 不再引入 DB／session。
 - 上述 PostgreSQL 測試使用最小隔離 schema，不能代替完整 Supabase schema／Prisma／瀏覽器端到端驗收。
 
 ## 發布與剩餘驗收
 
-- 提交 6445699 的隔離 Preview 遷移成功，建置紀錄 audit_schema_ready=true；Next 建置發現既有課程值班的前端共用函式引入 DB 邊界，已拆分純函式，待修正版本建置。
+- 提交 6445699 的隔離 Preview 遷移成功，建置紀錄 audit_schema_ready=true；本機 Next 編譯已通過；共用營業時間、錯誤類別、店家網址 helper 的伺服器邊界已修正。待最新版本 Vercel 完整建置。
 - 待隔離環境 Email 登入成功／失敗、停用帳號、HQ 代操作、跨店限制、操作與登入互查，以及實際 Prisma 三套連線交易驗收。
 - 待 1366／寬螢幕、1024×768／768×1024 iPad、390／360 手機；長名稱、50 筆以上、分頁、空資料、錯誤、鍵盤、旋轉與篩選保留驗收。
 - 本機沒有 DATABASE_URL／DIRECT_URL；不使用正式資料庫驗收。Preview 登入與真機驗收未完成前，維持草稿，不視為可合併。
