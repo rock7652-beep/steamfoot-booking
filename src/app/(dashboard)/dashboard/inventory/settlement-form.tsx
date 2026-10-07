@@ -39,12 +39,12 @@ export function SettlementForm({order,kind,data,requestId,pending,onDirty,onSubm
 }
 export function CorrectionForm({payment,data,requestId,pending,onSubmit}:{payment:InventoryPaymentView;data:InventoryData;requestId:string;pending:boolean;onSubmit:(v:unknown)=>void}){
  const [date,setDate]=useState(toLocalDateStr()),[reason,setReason]=useState(""),[method,setMethod]=useState("");
- return <form className={styles.editor} onSubmit={e=>{e.preventDefault();onSubmit({requestId,paymentId:payment.id,date,reason,...(method?{method}:{})});}}>
+ return <form className={styles.editor} onSubmit={e=>{e.preventDefault();onSubmit({requestId,paymentId:payment.id,date,reason,...(method&&method!=="VOID"?{method}:{})});}}>
  <p>原收款 {money(payment.total)}・{payment.method}。以下 {payment.allocations.length} 張單據全部同步處理，庫存不變。</p>
- {payment.allocations.map(a=><p key={a.orderId}>{data.orders.find(o=>o.id===a.orderId)?.partyName}・{a.orderId.slice(-8)}・{method?"欠款不變":`恢復尚欠 ${money(a.amount)}`}</p>)}
+ {payment.allocations.map(a=><p key={a.orderId}>{data.orders.find(o=>o.id===a.orderId)?.partyName}・{a.orderId.slice(-8)}・{!method?"請選擇處理方式":method!=="VOID"?"欠款不變":`恢復尚欠 ${money(a.amount)}`}</p>)}
  <div className={styles.payment}><label className={styles.field}>處理日期<input type="date" min={payment.date} max={toLocalDateStr()} required value={date} disabled={pending} onChange={e=>setDate(e.target.value)}/></label>
- <label className={styles.field}>處理方式<select value={method} disabled={pending} onChange={e=>setMethod(e.target.value)}><option value="">作廢收款紀錄（恢復欠款）</option>{["現金","轉帳","其他"].filter(m=>m!==payment.method).map(m=><option key={m} value={m}>更正為{m}（保留原收款金額）</option>)}</select></label>
+ <label className={styles.field}>處理方式<select required value={method} disabled={pending} onChange={e=>setMethod(e.target.value)}><option value="" disabled>請選擇處理方式</option><option value="VOID">作廢收款紀錄（恢復欠款）</option>{["現金","轉帳","其他"].filter(m=>m!==payment.method).map(m=><option key={m} value={m}>更正為{m}（保留原收款金額）</option>)}</select></label>
  <ReasonField correction value={reason} onChange={setReason} pending={pending}/></div>
- <p role="status">{method?`沖回原${payment.method}紀錄並重新登錄${method} ${money(payment.total)}；欠款不變。`:`沖回收款紀錄 ${money(payment.total)}，恢復各單尚欠款。`}只修正收款紀錄，不會退款給顧客。</p>
- <button type="submit" className={styles.primary} disabled={pending||!reason.trim()}>{pending?"處理中…":"確認更正"}</button></form>;
+ <p role="status">{!method?"選擇更正付款方式或作廢收款紀錄。":method!=="VOID"?`沖回原${payment.method}紀錄並重新登錄${method} ${money(payment.total)}；欠款不變。`:`沖回收款紀錄 ${money(payment.total)}，恢復各單尚欠款。`}只修正收款紀錄，不會退款給顧客。</p>
+ <button type="submit" className={styles.primary} disabled={pending||!method||!reason.trim()}>{pending?"處理中…":method==="VOID"?"確認作廢收款":"確認更正付款方式"}</button></form>;
 }
