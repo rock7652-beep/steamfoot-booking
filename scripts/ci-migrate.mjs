@@ -15,6 +15,12 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
     throw new Error("Store archive Preview requires the isolated preview database.");
 }
 
+import { isGuideUiPreview } from "./guide-ui-preview-scope.mjs";
+if (isGuideUiPreview()) {
+  console.info("[guide-ui-preview] database_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
+
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";

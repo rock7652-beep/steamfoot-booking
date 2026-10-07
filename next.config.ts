@@ -3,6 +3,9 @@ if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.e
   throw new Error("SEO review branch deployment is disabled; use local verification.");
 }
 
+import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
+isGuideUiPreview(); // Validate the isolated mode before Next build work.
+
 import type { NextConfig } from "next";
 
 // Vercel can override package.json's build command, so enforce isolation here too.
@@ -19,7 +22,11 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
-  images: {
+  images: isGuideUiPreview() ? {
+    unoptimized: true,
+    remotePatterns: [],
+    localPatterns: [{ pathname: "/pricing/brand/steam-butler-logo.png", search: "" }],
+  } : {
     remotePatterns: [{ protocol: "https", hostname: "profile.line-scdn.net" }],
   },
   env: {
@@ -52,6 +59,7 @@ const nextConfig: NextConfig = {
       : [];
   },
   async redirects() {
+    if (isGuideUiPreview()) return []; // No external redirects before the proxy guard.
     return [
       // 保底轉址：LINE 圖文選單 / 舊連結 / 外部分享連結
       // query string 自動保留（Next.js 預設行為）
