@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 
 type ActorOption = { id: string; name: string };
 
@@ -31,6 +32,7 @@ export function OperationAuditFilters({
   showModuleFilter: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const restored = useRef(false);
   const keywordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,7 +49,7 @@ export function OperationAuditFilters({
     if (loginRecordId) query.set("login", loginRecordId);
     localStorage.setItem(cacheKey, JSON.stringify(values));
     const search = query.toString();
-    router.replace(`/dashboard/operation-audits${search ? `?${search}` : ""}`, { scroll: false });
+    router.replace(resolveDashboardHref(`/dashboard/operation-audits${search ? `?${search}` : ""}`, pathname), { scroll: false });
   };
 
   useEffect(() => {
@@ -62,11 +64,11 @@ export function OperationAuditFilters({
         const value = cached[name];
         if (typeof value === "string" && value) query.set(name, value);
       });
-      router.replace(`/dashboard/operation-audits?${query.toString()}`);
+      router.replace(resolveDashboardHref(`/dashboard/operation-audits?${query.toString()}`, pathname), { scroll: false });
     } catch {
       localStorage.removeItem(cacheKey);
     }
-  }, [cacheKey, hasExplicitFilters, router, showModuleFilter, loginRecordId]);
+  }, [cacheKey, hasExplicitFilters, pathname, router, showModuleFilter, loginRecordId]);
 
   useEffect(() => () => {
     if (keywordTimer.current) clearTimeout(keywordTimer.current);
@@ -110,7 +112,7 @@ export function OperationAuditFilters({
       <button className="min-h-11 px-3 text-earth-600" type="button" onClick={() => {
         if (keywordTimer.current) clearTimeout(keywordTimer.current);
         localStorage.removeItem(cacheKey);
-        router.replace("/dashboard/operation-audits", { scroll: false });
+        router.replace(resolveDashboardHref("/dashboard/operation-audits", pathname), { scroll: false });
       }}>清除</button>
       <details className="open:basis-full" open={Boolean(defaults.module || defaults.q)}>
         <summary className="flex min-h-11 w-fit cursor-pointer items-center py-2 text-earth-600">更多篩選{defaults.module || defaults.q ? " · 已套用" : ""}</summary>
