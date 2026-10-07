@@ -1,4 +1,4 @@
-import { assertMusicOpeningPreviewEnvironment } from "./music-opening-preview-scope.mjs";
+import { assertMusicOpeningPreviewEnvironment, isMusicOpeningDatabase } from "./music-opening-preview-scope.mjs";
 
 /** Read-only catalog capability check; no tenant records or credential output. */
 export const MUSIC_OPENING_SCHEMA_SQL = `
@@ -90,22 +90,37 @@ export function musicOpeningConnectionFailure(error, connectionKind) {
   return new Error(`Music opening isolated schema verification failed (${kind}:${category}); startup/build blocked.`);
 }
 
+/** One read-only statement does not need interactive transaction setup/commit.
+ * A cold pool acquisition timeout gets one bounded retry against the SAME target.
+ * Missing schema, authentication and all other errors never retry or fall back.
+ */
+export async function readMusicOpeningSchemaConnection(value, createClient) {
+  if (!isMusicOpeningDatabase(value)) throw new Error("Music opening connection target rejected.");
+  const url = new URL(value);
+  url.searchParams.set("connection_limit", "1");
+  url.searchParams.set("connect_timeout", "10");
+  url.searchParams.set("pool_timeout", "15");
+  url.searchParams.set("socket_timeout", "15");
+  const pooled = url.hostname.endsWith(".pooler.supabase.com");
+  if (pooled) url.searchParams.set("pgbouncer", "true");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const client = createClient({ datasources: { db: { url: url.toString() } }, log: [] });
+    try {
+      return await client.$queryRawUnsafe(MUSIC_OPENING_SCHEMA_SQL);
+    } catch (error) {
+      if (attempt === 1 || (error?.code !== "P2024" && error?.errorCode !== "P2024")) {
+        throw musicOpeningConnectionFailure(error, pooled ? "pooled" : "direct");
+      }
+    } finally { await client.$disconnect().catch(() => {}); }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  throw new Error("Music opening schema verification exhausted; startup/build blocked.");
+}
+
 /** Reuse platform-provided existing credentials without reading/saving them elsewhere. */
 export async function runMusicOpeningSchemaPreflight(env = process.env) {
   assertMusicOpeningPreviewEnvironment(env);
   const { PrismaClient } = await import("@prisma/client");
-  await checkMusicOpeningSchema(env, async (value) => {
-    const url = new URL(value);
-    url.searchParams.set("connection_limit","1");
-    url.searchParams.set("connect_timeout","5");
-    url.searchParams.set("pool_timeout","5");
-    if (url.hostname.endsWith(".pooler.supabase.com")) url.searchParams.set("pgbouncer","true");
-    const client = new PrismaClient({datasources:{db:{url:url.toString()}},log:[]});
-    try {
-      return await client.$transaction(tx=>tx.$queryRawUnsafe(MUSIC_OPENING_SCHEMA_SQL),{maxWait:5000,timeout:10000});
-    } catch (error) {
-      throw musicOpeningConnectionFailure(error, url.hostname.endsWith(".pooler.supabase.com") ? "pooled" : "direct");
-    } finally { await client.$disconnect().catch(()=>{}); }
-  });
+  await checkMusicOpeningSchema(env, value => readMusicOpeningSchemaConnection(value, options => new PrismaClient(options)));
   console.info("[music-opening-preflight] isolated_database=true schema_ready=true tenant_verified=true");
 }
