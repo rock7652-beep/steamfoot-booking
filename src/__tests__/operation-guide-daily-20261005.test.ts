@@ -27,10 +27,11 @@ const guide = (id: string) => {
 };
 
 describe("October 5 operation guide audit", () => {
-  it("restores all four device preview presets without treating preview as isolation", () => {
+  it("keeps the current three device preview presets without treating preview as isolation", () => {
     const item = guide("I08");
-    expect(item.steps.join(" ")).toContain("768×1024");
+    expect(item.steps.join(" ")).not.toContain("768×1024");
     expect(item.steps.join(" ")).toContain("1024×768");
+    expect(item.steps.join(" ")).toContain("1440×900");
     expect(item.important).toContain("操作仍可能生效");
     expect(findOperationGuides("平板 直向", access("spa")).map((entry) => entry.id)).toContain("I08");
   });
@@ -53,4 +54,3 @@ describe("October 5 operation guide audit", () => {
     expect(new Set(operationGuides.map((entry) => entry.id)).size).toBe(operationGuides.length);
   });
 });
-
