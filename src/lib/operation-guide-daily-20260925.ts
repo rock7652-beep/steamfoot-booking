@@ -63,15 +63,37 @@ export const dailyOperationGuides20260925: OperationGuide[] = [
     sources: ["src/server/actions/store-rename.ts", "src/app/hq/dashboard/stores/[storeId]/rename-store-form.tsx"],
   },
   {
-    id: "S04", category: "start", title: "課程體驗店顯示已授權，為什麼 LINE 還不能用？",
-    summary: "功能授權、試用計時與外部服務設定是三件不同的事。",
-    answer: "HQ 功能頁會顯示實際授權及試用計時；LINE 入口、提醒規則和發送仍需另行設定與驗收。",
-    path: "請 HQ 核對店舖詳情與功能設定", keywords: "體驗版 試用授權 實際授權 三十天 30 天 尚未開始 LINE 未設定 全功能",
-    steps: ["請 HQ 核對門市的實際授權、試用起迄及「尚未開始／已開始／已到期」狀態。", "課程體驗店尚未設定試用起迄時，可顯示功能已授權但 30 天試用尚未起算。", "LINE 相關功能另核對導流入口、綁定、提醒規則及實際發送結果；不要只憑授權標籤判斷成功。"],
-    important: "完整功能試用包含母子店與展店功能，預設可串接一家分店；人員仍依各自角色權限操作。",
-    details: ["本題說明 HQ 顯示與檢查方式，不提供重新起算試用或略過訂閱限制的方法。"],
-    success: "能區分已開通功能、試用日期與仍待設定／驗收的 LINE 流程。",
-    modules: ["course"], permission: "", feature: null, kind: "explanation", verification: "source-reviewed",
-    sources: ["src/app/hq/dashboard/stores/[storeId]/features/page.tsx", "src/app/hq/dashboard/stores/[storeId]/page.tsx"],
+    "id": "S04",
+    "category": "start",
+    "title": "體驗店顯示已授權，為什麼 LINE 或前台預覽還不能用？",
+    "summary": "功能授權、試用計時與外部服務設定是三件不同的事。",
+    "answer": "HQ 功能頁會顯示實際授權及試用計時；LINE 入口、提醒規則和發送仍需另行設定與驗收。",
+    "path": "請 HQ 核對店舖詳情與功能設定",
+    "keywords": "體驗版 試用授權 三十天 尚未開始 完整單店 LINE 未設定 前台預覽 鎖定 隱藏",
+    "steps": [
+      "請 HQ 核對方案、試用起迄及有效隱藏／鎖定。",
+      "三模組 EXPERIENCE 都用完整單店預設，尚未倒數也適用；前台預覽與進銷存試用內含，普通付費方案仍依方案或加購開通。",
+      "另查 LINE 入口、綁定、店家提醒開關及送達結果，不只看授權標籤。"
+    ],
+    "important": "完整單店體驗排除母子店功能；HQ 有效隱藏／鎖定仍阻擋，功能資格不等於全部角色權限或成本權限。",
+    "details": [
+      "不能另建店家或重新申請繞過試用期限。",
+      "授權不代表 LINE 已設定或提醒已開；進銷存仍依角色及細項權限遮蔽成本與付款操作。"
+    ],
+    "success": "能區分已開通功能、試用日期與仍待設定／驗收的 LINE 流程。",
+    "modules": [
+      "steamfoot",
+      "spa",
+      "course"
+    ],
+    "permission": "",
+    "feature": null,
+    "kind": "explanation",
+    "verification": "source-reviewed",
+    "sources": [
+      "src/lib/feature-gate.ts",
+      "src/lib/feature-flags.ts",
+      "src/app/hq/dashboard/stores/[storeId]/features/page.tsx"
+    ]
   },
 ];
