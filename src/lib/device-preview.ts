@@ -1,6 +1,7 @@
 import type { IndustryModuleId } from "@/lib/industry-modules";
 
 export const DEVICE_PREVIEW_PAGES = [
+  { id: "operation-audits", label: "操作紀錄", path: "/dashboard/operation-audits" },
   { id: "frontend-preview", label: "前台預覽", path: "/dashboard/frontend-preview" },
   {
     id: "dashboard",
@@ -41,6 +42,7 @@ export const DEVICE_PREVIEW_PAGES = [
 ] as const;
 
 export const COURSE_DEVICE_PREVIEW_PAGES = [
+  { id: "operation-audits", label: "操作紀錄", path: "/dashboard/operation-audits" },
   { id: "frontend-preview", label: "前台預覽", path: "/dashboard/frontend-preview" },
   { id: "dashboard", label: "首頁", path: "/dashboard" },
   { id: "bookings", label: "課表排程", path: "/dashboard/courses" },

@@ -68,7 +68,6 @@ export function OperationHistoryButton({
                         {item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}
                         {item.actorRoleSnapshot ? `・${auditRoleLabel(item.actorRoleSnapshot)}` : ""}
                       </p>
-                      {(targetType !== "StaffPermission" || item.action !== "UPDATE") && <p className="mt-1 break-words text-sm text-earth-600">{item.targetLabel}</p>}
                       <AuditChanges before={item.beforeJson} after={item.afterJson} references={item.references} />
                     </li>
                   ))}

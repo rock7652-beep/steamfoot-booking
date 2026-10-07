@@ -11,6 +11,12 @@ describe("human-readable audit presentation", () => {
     expect(auditActionLabel("HQ_VIEW_STORE")).toBe("申請切換店家檢視");
     expect(auditActionLabel("HQ_VIEW_ALL_STORES")).toContain("申請");
   });
+  it("combines the action with the recognizable record without technical names or repeated context", () => {
+    expect(auditSummary({action:"CANCEL",targetType:"SpaBooking",summary:"取消服務預約"},"服務預約 · 吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）")).toBe("取消服務預約：吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）");
+    expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 小華")).toBe("修改顧客資料：小華");
+    expect(auditSummary({action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「蒸足店」"},"店家檢視 · 蒸足店（目前資料）")).toBe("切換總部店家檢視請求「蒸足店」");
+    expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("修改顧客資料（資料未記錄）");
+  });
   it("shows before and after with real labels, amounts and state meanings", () => {
     expect(auditChanges({usedSessions:10,paymentMethod:"CASH",role:"STAFF"},{usedSessions:8,paymentMethod:"TRANSFER",role:"MANAGER"})).toEqual([
       {label:"已使用堂數",before:"10",after:"8"}, {label:"付款方式",before:"現金",after:"轉帳"}, {label:"人員身分",before:"門市人員",after:"店長"},

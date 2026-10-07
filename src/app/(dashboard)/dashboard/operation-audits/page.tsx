@@ -147,7 +147,7 @@ export default async function OperationAuditsPage({
                   <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
                   <span className="break-words font-medium text-earth-900">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
                   <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-sm text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
-                  <span className="min-w-0 break-words text-earth-800">{auditSummary(item, presentation.get(item.id)?.target)}{(item.targetType !== "StaffPermission" || item.action !== "UPDATE") && <span className="block text-earth-600">{presentation.get(item.id)?.target}</span>}</span>
+                  <span className="min-w-0 break-words text-earth-800">{auditSummary(item, presentation.get(item.id)?.target)}</span>
                   <span className="break-words text-sm text-earth-500 xl:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>
                 <div className="mt-2 min-w-0 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
