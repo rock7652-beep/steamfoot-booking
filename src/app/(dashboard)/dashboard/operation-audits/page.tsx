@@ -155,7 +155,7 @@ export default async function OperationAuditsPage({
                     {item.actorRoleSnapshot && <span>{auditRoleLabel(item.actorRoleSnapshot)}</span>}
                     {item.loginRecordId && <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`}>查看當次登入</Link>}
                   </div>}
-                  <div className="min-w-0 md:col-span-2"><AuditChanges before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
+                  <div className="min-w-0 md:col-span-2"><AuditChanges target={presentation.get(item.id)?.target} targetType={item.targetType} before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
                 </div>
               </details>
             ))}

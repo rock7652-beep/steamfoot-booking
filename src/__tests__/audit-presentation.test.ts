@@ -7,16 +7,28 @@ import { auditActionLabel, auditChanges, auditSummary, auditValue, auditSnapshot
 describe("human-readable audit presentation", () => {
   it("explains actual actions, including old logs without summaries", () => {
     expect(auditSummary({action:"SERVICE_NOTE_UPDATED",targetType:"Customer"})).toBe("修改顧客服務備註 · 顧客資料");
-    expect(auditSummary({action:"ADJUST_CHECKOUT_METHOD",targetType:"Booking",summary:"Booking ADJUST_CHECKOUT_METHOD"})).toContain("調整結帳方式");
+    expect(auditSummary({action:"ADJUST_CHECKOUT_METHOD",targetType:"Booking",summary:"Booking ADJUST_CHECKOUT_METHOD"})).toContain("修改付款方式");
     expect(auditActionLabel("HQ_VIEW_STORE")).toBe("申請切換店家檢視");
     expect(auditActionLabel("HQ_VIEW_ALL_STORES")).toContain("申請");
   });
   it("combines the action with the recognizable record without technical names or repeated context", () => {
-    expect(auditSummary({action:"CANCEL",targetType:"SpaBooking",summary:"取消服務預約"},"服務預約 · 吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）")).toBe("取消服務預約：吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）");
+    expect(auditSummary({action:"CANCEL",targetType:"SpaBooking",summary:"取消服務預約"},"服務預約 · 吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）")).toBe("取消服務預約：吳小姐 · 全身芳療 · 2026-10-07 10:00");
     expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 小華")).toBe("修改顧客資料：小華");
-    expect(auditSummary({action:"INVENTORY_WRITE",targetType:"InventoryOrder",summary:"建立銷貨單"},"進銷貨單 · 銷貨 · 小華 · 2026-10-07")).toBe("建立銷貨單：銷貨 · 小華 · 2026-10-07");
-    expect(auditSummary({action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「蒸足店」"},"店家檢視 · 蒸足店（目前資料）")).toBe("切換總部店家檢視請求「蒸足店」");
+    expect(auditSummary({action:"INVENTORY_WRITE",targetType:"InventoryOrder",summary:"建立銷貨單"},"進銷貨單 · 銷貨 · 小華 · 2026-10-07")).toBe("建立小華的銷貨單 · 2026-10-07");
+    expect(auditSummary({action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「蒸足店」"},"店家檢視 · 蒸足店（目前資料）")).toBe("提出切換店家請求：蒸足店");
     expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("修改顧客資料（資料未記錄）");
+  });
+  it("keeps current-data provenance in details and never treats a switch request as success", () => {
+    const target="進銷貨單 · 銷貨 · 小華 · 2026-10-07（目前資料）";
+    expect(auditSummary({action:"INVENTORY_WRITE",targetType:"InventoryOrder",summary:"編輯銷貨單"},target)).toBe("修改小華的銷貨單 · 2026-10-07");
+    expect(auditSummary({action:"UPDATE_PAYMENT_METHOD",targetType:"Transaction",summary:"更正收款方式"},"收款單 · 小華（目前資料）")).toBe("修改付款方式：小華");
+    expect(auditSummary({action:"HQ_VIEW_ALL_STORES",targetType:"StoreView",summary:"已返回總部"},"店家檢視 · 舊店家（目前資料）")).toBe("提出返回總部全部店家請求");
+    expect(auditSummary({action:"CUSTOMER_LABEL_SET",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("調整顧客標籤（資料未記錄）");
+    const html=renderToStaticMarkup(createElement(AuditChanges,{before:{paymentMethod:"CASH"},after:{paymentMethod:"TRANSFER"},target,targetType:"InventoryOrder"}));
+    expect(html).toContain("資料來源：目前資料");
+    expect(html).toContain("現金");
+    expect(html).toContain("轉帳");
+    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null,target:"顧客資料 · 小華"}))).not.toContain("資料來源");
   });
   it("shows before and after with real labels, amounts and state meanings", () => {
     expect(auditChanges({usedSessions:10,paymentMethod:"CASH",role:"STAFF"},{usedSessions:8,paymentMethod:"TRANSFER",role:"MANAGER"})).toEqual([
@@ -30,7 +42,7 @@ describe("human-readable audit presentation", () => {
     const html = renderToStaticMarkup(createElement(AuditChanges,{ before:{customerId:"foreign-secret-id",futureField:{detailCode:"RAW_ENUM"}},after:{customerId:"other-secret-id",futureField:{detailCode:"NEW_ENUM"},status:"FUTURE_STATUS"} }));
     for (const raw of ["foreign-secret-id","other-secret-id","futureField","detailCode","RAW_ENUM","NEW_ENUM","FUTURE_STATUS"]) expect(html).not.toContain(raw);
     expect(html).toContain("舊紀錄未保存名稱");
-    expect(html).toContain("部分異動內容未保存");
+    expect(html).toContain("部分異動說明未記錄");
   });
   it("uses authorized names and permission explanations", () => {
     expect(auditValue("customerId","x",{"customerId:x":"小華（目前姓名）"})).toBe("小華（目前姓名）");
@@ -42,7 +54,7 @@ describe("human-readable audit presentation", () => {
   it("keeps snapshots and does not invent missing history", () => {
     expect(auditSnapshotTarget({targetType:"CourseBooking",action:"CREATE",afterJson:{customerName:"小華"}})).toContain("小華");
     expect(auditSnapshotTarget({targetType:"Booking",action:"CREATE"})).toBeNull();
-    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null}))).toContain("未保存異動內容");
+    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null}))).toContain("異動內容未記錄");
     expect(auditChanges({status:"ACTIVE"},{status:"ACTIVE"})).toEqual([]);
   });
   it("shows only added and removed permissions and does not invent a missing baseline", () => {
@@ -53,8 +65,8 @@ describe("human-readable audit presentation", () => {
     ]);
     expect(auditChanges({granted:["audit.read"],denied:["report.export"]},{granted:["report.export"],denied:["audit.read"]},references)).toHaveLength(2);
     expect(auditChanges({permissions:{"audit.read":true,"report.export":false}},{permissions:{"audit.read":false,"report.export":true}},references)).toHaveLength(2);
-    expect(auditChanges([],{granted:["audit.read"],storeId:"own"},references)).toEqual([{label:"",before:"",after:"未保存異動內容"}]);
-    expect(auditSummary({action:"UPDATE",targetType:"StaffPermission"},"人員權限 · 黃店長（目前資料）")).toBe("調整黃店長的權限（目前姓名）");
+    expect(auditChanges([],{granted:["audit.read"],storeId:"own"},references)).toEqual([{label:"",before:"",after:"異動內容未記錄"}]);
+    expect(auditSummary({action:"UPDATE",targetType:"StaffPermission"},"人員權限 · 黃店長（目前資料）")).toBe("調整黃店長的權限");
     const html=renderToStaticMarkup(createElement(AuditChanges,{before:{permissions:["customer.read","audit.read"]},after:{permissions:["customer.read","report.export"]},references}));
     expect(html).not.toContain("查看顧客");
     expect(html).toContain("新增權限");

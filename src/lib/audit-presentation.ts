@@ -70,25 +70,36 @@ export function auditText(value: string): string {
     .replace(/\bc[a-z0-9]{20,}\b/g, "（資料編號已省略）")
     .replace(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g, "（舊紀錄未提供中文說明）");
 }
+const withoutSourceNote = (text: string) => text.replace(/（目前(?:資料|姓名)）/g, "");
+const familiarAction = (text: string) => text.replace(/更正收款方式|調整結帳方式/g, "修改付款方式");
 export function auditSummary(item: PresentedAudit, target?: string) {
+  const subject = target ? withoutSourceNote(target.replace(`${auditTargetLabel(item.targetType)} · `, "")) : null;
   if (item.targetType === "StaffPermission" && item.action === "UPDATE") {
-    const name = target?.replace(/^人員權限 · /, "").replace(/（目前資料）$/, "");
-    return name && !name.includes("未保存") ? `調整${name}的權限${target?.endsWith("（目前資料）") ? "（目前姓名）" : ""}` : `調整人員權限${target ? "（人員未記錄）" : ""}`;
+    return subject && !subject.includes("未保存") ? `調整${subject}的權限` : `調整人員權限${target ? "（人員未記錄）" : ""}`;
   }
-  const savedSummary = item.summary && /[\u3400-\u9fff]/.test(item.summary) && !item.summary.includes(item.targetType) && !item.summary.includes(item.action) ? auditText(item.summary) : null;
-  if (item.action === "HQ_VIEW_ALL_STORES") return savedSummary ?? auditActionLabel(item.action);
-  if (!target) return savedSummary ?? `${auditActionLabel(item.action)} · ${auditTargetLabel(item.targetType)}`;
-  if (target.includes("舊紀錄未保存辨識內容")) return `${savedSummary ?? `${auditActionLabel(item.action)}${auditTargetLabel(item.targetType)}`}（資料未記錄）`;
-  const subject = target.replace(`${auditTargetLabel(item.targetType)} · `, "");
+  const savedSummary = item.summary && /[\u3400-\u9fff]/.test(item.summary) && !item.summary.includes(item.targetType) && !item.summary.includes(item.action) ? familiarAction(withoutSourceNote(auditText(item.summary))) : null;
+  // These events persist intent before the view cookie changes. Never infer success.
+  if (item.action === "HQ_VIEW_ALL_STORES") return "提出返回總部全部店家請求";
+  if (item.action === "HQ_VIEW_STORE") {
+    const name = savedSummary?.match(/「([^」]+)」/)?.[1] ?? (subject && !subject.includes("未保存") ? subject : null);
+    return `提出切換店家請求${name ? `：${name}` : "（店家未記錄）"}`;
+  }
   const operation = savedSummary ?? (
     ["CREATE", "UPDATE", "DELETE"].includes(item.action) ? `${auditActionLabel(item.action)}${auditTargetLabel(item.targetType)}` :
-    ["CANCEL", "CANCELLED"].includes(item.action) && item.targetType === "CourseBooking" ? "取消課程預約" : auditActionLabel(item.action)
+    ["CANCEL", "CANCELLED"].includes(item.action) && item.targetType === "CourseBooking" ? "取消課程預約" : familiarAction(auditActionLabel(item.action))
   );
-  // Existing summaries can already name the record (e.g. an HQ switch).
+  if (!subject) return savedSummary ?? `${operation}${["CREATE", "UPDATE", "DELETE"].includes(item.action) ? "" : ` · ${auditTargetLabel(item.targetType)}`}`;
+  if (subject.includes("舊紀錄未保存辨識內容")) return `${operation}（資料未記錄）`;
   const parts = subject.split(" · ");
-  const name = (item.targetType === "InventoryOrder" && ["銷貨", "進貨"].includes(parts[0]) ? parts[1] ?? "" : parts[0]).replace(/（目前資料）$/, "");
+  const inventoryKind = item.targetType === "InventoryOrder" && ["銷貨", "進貨"].includes(parts[0]) ? parts.shift() : null;
+  const name = parts[0];
+  const orderAction = operation.match(/^(建立|新增|編輯|修改|刪除|作廢)(銷貨單|進貨單)$/);
+  if (inventoryKind && orderAction && name) {
+    const verb = orderAction[1] === "編輯" ? "修改" : orderAction[1];
+    return `${verb}${name}的${orderAction[2]}${parts.length > 1 ? ` · ${parts.slice(1).join(" · ")}` : ""}`;
+  }
   if (name && operation.includes(name)) return operation;
-  return `${operation}：${subject}`;
+  return `${operation}：${parts.join(" · ")}`;
 }
 export function auditValue(key: string, value: unknown, references: AuditReferences = {}, depth = 0): string {
   if (value === null || value === undefined || value === "") return "未記錄";
@@ -144,7 +155,7 @@ export function auditChanges(before: unknown, after: unknown, references: AuditR
     if (!fields[key]) { missing = true; continue; }
     changes.push({label:fields[key],before:auditValue(key,previous[key],references),after:auditValue(key,next[key],references)});
   }
-  if (missing) changes.push({label:"",before:"",after:changes.length ? "部分異動內容未保存" : "未保存異動內容"});
+  if (missing) changes.push({label:"",before:"",after:changes.length ? "部分異動說明未記錄" : "異動內容未記錄"});
   return changes;
 }
 function permissionSnapshot(snapshot: Record<string, unknown>): Set<string> | null {

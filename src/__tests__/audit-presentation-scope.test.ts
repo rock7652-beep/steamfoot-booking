@@ -11,7 +11,7 @@ it("explains legacy granted and denied permission snapshots observed in Preview"
   const row={id:"a",storeId:"own",targetType:"StaffPermission",targetId:"staff",action:"UPDATE",afterJson:{granted:["audit.read"],denied:["future.a","future.b"]}};
   const result=await resolveAuditPresentation([row]);
   expect(result.get("a")?.references["permission:audit.read"]).toBe("查看操作紀錄");
-  expect(auditChanges(null,row.afterJson,result.get("a")?.references)).toEqual([{label:"",before:"",after:"未保存異動內容"}]);
+  expect(auditChanges(null,row.afterJson,result.get("a")?.references)).toEqual([{label:"",before:"",after:"異動內容未記錄"}]);
 });
 it("never resolves a snapshot's customer outside the evidence store",async()=>{
   await resolveAuditPresentation([{id:"a",storeId:"own",targetType:"Customer",targetId:"foreign",action:"UPDATE",afterJson:{customerId:"foreign"}}]);
