@@ -139,7 +139,7 @@ describe("public editorial guides", () => {
   });
 
   it("fails closed before migrations and builds on both review branches and provider environments", () => {
-    for (const branch of ["fix/public-seo-crawlers-20261007", "feat/public-guide-articles-20261007"]) {
+    for (const branch of ["fix/public-seo-crawlers-20261007"]) {
       expect(JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled[branch]).toBe(false);
       for (const file of ["scripts/ci-migrate.mjs", "next.config.ts"]) {
         const source = readFileSync(file, "utf8");

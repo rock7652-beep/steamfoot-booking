@@ -19,7 +19,9 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("public crawler documents", () => {
   it.each(["/robots.txt", "/sitemap.xml", "/robots.txt?x=1", "/sitemap.xml?x=1"])("bypasses auth only for %s", url => {
-    expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url })).toBe(false);
+    expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url })).toBe(true);
+    expect(route(url).headers.get("x-middleware-next")).toBe("1");
+    expect(route(url).headers.get("location")).toBeNull();
   });
   it.each(["/robots.txt/private", "/sitemap.xml/private", "/robots.txtx", "/sitemap.xmlx", "/s/zhubei/robots.txt", "/hq/dashboard", "/s/zhubei/admin/dashboard", "/liff", "/line-oauth/complete", "/api/auth/session"])("retains proxy protection/dispatch for %s", url => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url })).toBe(true);

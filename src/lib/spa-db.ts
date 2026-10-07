@@ -1,3 +1,4 @@
+import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { configureSpaPreviewPool } from "./spa-preview-pool";
 
@@ -22,16 +23,17 @@ const globalForSpaPrisma = globalThis as unknown as {
 };
 
 /** Dedicated SPA client: it intentionally cannot address Steamfoot Booking or Transaction. */
-export const spaPrisma =
-  globalForSpaPrisma.spaPrisma ??
+export const spaPrisma: PrismaClient = isGuideUiPreview()
+  ? createGuideUiDisabledClient() as PrismaClient
+  : globalForSpaPrisma.spaPrisma ??
   withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: buildSpaDatabaseUrl() } },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   }));
 
-if (
+if (!isGuideUiPreview() && (
   process.env.NODE_ENV !== "production" ||
   (process.env.VERCEL_ENV === "preview" &&
     process.env.VERCEL_GIT_COMMIT_REF === "codex/hq-module-foundation")
-)
+))
   globalForSpaPrisma.spaPrisma = spaPrisma;

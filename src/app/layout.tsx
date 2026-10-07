@@ -1,3 +1,4 @@
+import { isGuideUiPreview } from "../../scripts/guide-ui-preview-scope.mjs"
 import type { Metadata, Viewport } from 'next'
 import { Toaster } from 'sonner'
 import { NextAuthSessionProvider } from '@/components/session-provider-wrapper'
@@ -22,10 +23,10 @@ export default function RootLayout({
   return (
     <html lang="zh-TW">
       <body className="bg-white text-gray-900 antialiased min-h-screen flex flex-col">
-        <NextAuthSessionProvider>
+        {isGuideUiPreview() ? <div className="flex-1">{children}</div> : <NextAuthSessionProvider>
           <div className="flex-1">{children}</div>
           <Toaster position="top-center" richColors closeButton />
-        </NextAuthSessionProvider>
+        </NextAuthSessionProvider>}
       </body>
     </html>
   )

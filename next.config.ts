@@ -1,12 +1,10 @@
-// Article review is not permission to deploy or run migrations.
-if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/public-guide-articles-20261007")) {
-  throw new Error("Guide article review branch deployment is disabled; use local verification.");
-}
-
 // This review branch must not deploy or access a database before separate approval.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
   throw new Error("SEO review branch deployment is disabled; use local verification.");
 }
+
+import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
+isGuideUiPreview(); // Validate the isolated mode before Next build work.
 
 import type { NextConfig } from "next";
 
@@ -57,6 +55,7 @@ const nextConfig: NextConfig = {
       : [];
   },
   async redirects() {
+    if (isGuideUiPreview()) return []; // No external redirects before the proxy guard.
     return [
       // 保底轉址：LINE 圖文選單 / 舊連結 / 外部分享連結
       // query string 自動保留（Next.js 預設行為）

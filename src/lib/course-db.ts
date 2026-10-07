@@ -1,3 +1,4 @@
+import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
@@ -15,11 +16,12 @@ function databaseUrl() {
     url.searchParams.set("pool_timeout", "10");
   return url.toString();
 }
-export const coursePrisma =
-  globalForCourse.coursePrisma ??
+export const coursePrisma: PrismaClient = isGuideUiPreview()
+  ? createGuideUiDisabledClient() as PrismaClient
+  : globalForCourse.coursePrisma ??
   withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],
   }));
-if (process.env.NODE_ENV !== "production")
+if (!isGuideUiPreview() && process.env.NODE_ENV !== "production")
   globalForCourse.coursePrisma = coursePrisma;

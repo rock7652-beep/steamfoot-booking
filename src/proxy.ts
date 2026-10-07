@@ -1,3 +1,4 @@
+import { isGuideUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -50,7 +51,7 @@ type SessionUser = {
 // ============================================================
 
 // Next.js 16: proxy.ts（前身為 middleware.ts）
-export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
+const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
   // Internal destination only; public requests must pass the scoped route guards.
   if (pathname === "/cash-drawer-panel" || pathname.startsWith("/cash-drawer-panel/")) {
@@ -629,8 +630,43 @@ function hqRewrite(
   return response;
 }
 
-export const config = {
-  matcher: [
-    "/((?!robots\\.txt$|sitemap\\.xml$|api/line/webhook|api/cron|_next/static|_next/image|favicon\\.ico).*)",
-  ],
-};
+// The outer boundary runs before auth callbacks, including routes previously
+// excluded from proxy. Normal deployments retain the old exclusions verbatim.
+const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
+export function proxy(...args: Parameters<typeof authenticatedProxy>) {
+  const [req] = args;
+  if (isGuideUiPreview()) {
+    const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
+    if (req.method !== "GET" && req.method !== "HEAD")
+      return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+    const path = req.nextUrl.pathname;
+    // No optimizer, API, auth, store, admin, arbitrary files, or external URLs.
+    if (path.startsWith("/_next/static/") || ["/favicon.ico", "/pricing/brand/steam-butler-logo.png", "/robots.txt", "/sitemap.xml"].includes(path))
+      return NextResponse.next({ headers });
+    if (!/^\/(?:pricing\/)?guides(?:\/[a-z0-9-]+)?\/?$/.test(path))
+      return new NextResponse("Not available in guide preview", { status: 404, headers });
+    const marketing = marketingRoute(path);
+    if (!marketing || marketing.kind === "not-found")
+      return new NextResponse("找不到這篇經營指南", { status: 404, headers });
+    const url = req.nextUrl.clone();
+    if (marketing.kind === "rewrite" && marketing.destination === "/pricing/guides") {
+      const ids = req.nextUrl.searchParams.getAll("guide");
+      const selected = ids.length === 1 ? findPublicGuide(ids[0]) : undefined;
+      if (selected) {
+        url.pathname = guidePath(selected);
+        url.search = "";
+        const response = NextResponse.redirect(url, 308);
+        Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+        return response;
+      }
+    }
+    url.pathname = marketing.destination;
+    const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
+    Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
+  }
+  if (legacyProxyExclusion.test(req.nextUrl.pathname)) return NextResponse.next();
+  return authenticatedProxy(...args);
+}
+
+export const config = { matcher: ["/:path*"] };
