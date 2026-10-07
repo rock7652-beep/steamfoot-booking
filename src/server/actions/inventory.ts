@@ -97,3 +97,6 @@ export async function saveStockCount(raw: unknown) {
 
 export async function receiveGoods(raw:unknown) {return action(async()=> (await import("@/server/services/inventory-receiving")).receiveInventory(raw));}
 export async function confirmReceivingCost(raw:unknown) {return action(async()=> (await import("@/server/services/inventory-receiving")).completeReceiving(raw));}
+
+export async function settleSale(raw:unknown){return action(async()=>(await import("@/server/services/inventory-settlement")).settleInventory(raw));}
+export async function correctReceipt(raw:unknown){return action(async()=>(await import("@/server/services/inventory-settlement")).correctInventoryPayment(raw));}

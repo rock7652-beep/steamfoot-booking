@@ -1,4 +1,5 @@
 "use client";
+import { ManagerNotificationPreview } from "./manager-notification-preview";
 import {notificationSwitchClass} from "@/components/admin/notification-switch";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { useState, useTransition } from "react";
@@ -179,6 +180,7 @@ export function LineNotificationRecipientsCard({
   useSettingsPanelGuard(!!name.trim(), pending);
   return (
     <section className="space-y-3">
+      <ManagerNotificationPreview course={course} />
       {showHeading ? (
         <div>
           <h2 className="text-lg font-semibold text-earth-900">店長 LINE 通知</h2>

@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { signIn, signOut } from "@/lib/auth";
+import { recordStaffLogin } from "@/server/services/staff-login-audit";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/db";
 import { getStoreSlugById } from "@/lib/store-resolver";
@@ -78,10 +79,12 @@ export async function hqLoginAction(
   }
 
   if (!user) {
+    await recordStaffLogin(null, "FAILED", "帳號不存在");
     return { error: "此帳號不存在，請確認 Email 是否正確" };
   }
 
   if (user.status !== "ACTIVE") {
+    await recordStaffLogin(user, "FAILED", "帳號已停用");
     return { error: "此帳號已停用，請聯絡管理員" };
   }
 
@@ -131,6 +134,8 @@ async function findLoginUser(email: string) {
   return prisma.user.findUnique({
     where: { email },
     select: {
+      id: true,
+      name: true,
       role: true,
       status: true,
       staff: { select: { storeId: true } },

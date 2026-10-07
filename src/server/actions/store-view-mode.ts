@@ -7,7 +7,7 @@ import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
-import { recordOperationAuditBestEffort } from "@/server/services/operation-audit";
+import { persistFollowupAudit } from "@/server/services/operation-audit-outbox";
 
 /**
  * Switch a non-HQ staff user into a descendant read-only view context.
@@ -50,12 +50,7 @@ export async function switchViewedStore(
     if (authorizedStore.id === user.storeId) {
       cookieStore.delete(VIEWED_STORE_COOKIE_NAME);
     } else {
-      cookieStore.set(VIEWED_STORE_COOKIE_NAME, authorizedStore.id, {
-        path: "/",
-        sameSite: "lax",
-        httpOnly: true,
-      });
-      await recordOperationAuditBestEffort({
+      await persistFollowupAudit({
         actorUserId: user.id,
         actorNameSnapshot: user.name,
         storeId: authorizedStore.id,
@@ -63,12 +58,17 @@ export async function switchViewedStore(
         targetType: "StoreView",
         targetId: authorizedStore.id,
         action: "VIEW_CROSS_STORE",
-        summary: `跨店查看「${authorizedStore.name}」`,
+        summary: `切換跨店檢視請求「${authorizedStore.name}」`,
         after: {
           ownStoreId: user.storeId,
           viewedStoreId: authorizedStore.id,
           viewedStoreName: authorizedStore.name,
         },
+      });
+      cookieStore.set(VIEWED_STORE_COOKIE_NAME, authorizedStore.id, {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: true,
       });
     }
 

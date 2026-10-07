@@ -1,5 +1,9 @@
 import "server-only";
+import { redactAuditValue } from "@/lib/audit-redact";
+import { auditActorData, hasVerifiedAuditActor, registerAuditActor } from "./audit-actor-context";
+import { currentAuditActor } from "@/lib/audit-db-context";
 
+import type { Session } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
@@ -11,11 +15,14 @@ export type OperationModule =
   | "COURSE"
   | "SHARED"
   | "SYSTEM";
-type AuditClient = Pick<Prisma.TransactionClient, "auditLog">;
+type AuditClient = Pick<Prisma.TransactionClient, "auditLog"> & Partial<Pick<Prisma.TransactionClient, "storeFeatureEntitlement">>;
 
 export type OperationAuditInput = {
+  actor?: object;
   actorUserId: string;
   actorNameSnapshot?: string | null;
+  actorRoleSnapshot?: string | null;
+  loginRecordId?: string | null;
   storeId: string;
   module: OperationModule;
   targetType: string;
@@ -32,27 +39,44 @@ export async function recordOperationAudit(
   client: AuditClient = prisma,
 ) {
   const auditModule = input.module === "COURSE"
-    ? await resolveCourseOperationModule(input.storeId)
+    ? await resolveCourseOperationModule(input.storeId, client)
     : input.module;
+  let session: Session | null = null;
+  // An interactive transaction may hold the only connection. Never perform
+  // a second auth/database lookup while using its client.
+  if (client === prisma && !hasVerifiedAuditActor(input.actor, input.actorUserId)) {
+    const { auth } = await import("@/lib/auth");
+    try { session = await auth(); } catch {
+      // Scheduled jobs have no request session; leave the login unlinked.
+    }
+  }
+  const transactionActor = currentAuditActor();
+  const verifiedActor = session?.user?.id === input.actorUserId ? registerAuditActor(session.user)
+    : transactionActor?.id === input.actorUserId ? registerAuditActor(transactionActor) : input.actor;
+  const actorData = auditActorData(verifiedActor, input.actorUserId);
   return client.auditLog.create({
     data: {
+      source: /(?:^|_)AUTO_/.test(input.action) ? "SYSTEM" : "MANUAL",
       actorUserId: input.actorUserId,
-      actorNameSnapshot: input.actorNameSnapshot?.trim() || null,
+      actorRoleSnapshot: actorData.actorRoleSnapshot ?? null,
+      loginRecordId: actorData.loginRecordId ?? null,
+      actorNameSnapshot: actorData.actorNameSnapshot ?? input.actorNameSnapshot?.trim() ?? null,
       storeId: input.storeId,
       module: auditModule,
       targetType: input.targetType,
       targetId: input.targetId,
       action: input.action,
       summary: input.summary,
-      ...(input.before === undefined ? {} : { beforeJson: input.before }),
-      ...(input.after === undefined ? {} : { afterJson: input.after }),
+      ...(input.before === undefined ? {} : { beforeJson: redactAuditValue(input.before) as Prisma.InputJsonValue }),
+      ...(input.after === undefined ? {} : { afterJson: redactAuditValue(input.after) as Prisma.InputJsonValue }),
     },
     select: { id: true },
   });
 }
 
-async function resolveCourseOperationModule(storeId: string): Promise<"MUSIC" | "FITNESS"> {
-  const music = await prisma.storeFeatureEntitlement.findFirst({
+async function resolveCourseOperationModule(storeId: string, client: AuditClient): Promise<"MUSIC" | "FITNESS" | "COURSE"> {
+  if (!client.storeFeatureEntitlement) return "COURSE";
+  const music = await client.storeFeatureEntitlement.findFirst({
     where: { storeId, featureKey: "business.music", status: "ENABLED" },
     select: { storeId: true },
   });
@@ -63,13 +87,17 @@ async function resolveCourseOperationModule(storeId: string): Promise<"MUSIC" | 
  * completed business action as failed only because its follow-up audit write failed. */
 export async function recordOperationAuditBestEffort(input: OperationAuditInput) {
   try {
-    return await recordOperationAudit(input);
+    const { persistFollowupAudit, deliverOperationAudits } = await import("./operation-audit-outbox");
+    const pending = await persistFollowupAudit(input);
+    // Queue already committed. Delivery failure cannot discard the evidence.
+    try { await deliverOperationAudits(10); } catch { /* cron will retry */ }
+    return pending;
   } catch (error) {
     console.error("[operation-audit] follow-up write failed", {
       targetType: input.targetType,
       targetId: input.targetId,
       action: input.action,
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     return null;
   }
@@ -88,7 +116,7 @@ export async function getOperationHistory(input: {
     take: limit,
     select: {
       id: true, action: true, summary: true, module: true, createdAt: true,
-      actorNameSnapshot: true, beforeJson: true, afterJson: true,
+      source: true, actorNameSnapshot: true, actorRoleSnapshot: true, loginRecordId: true, beforeJson: true, afterJson: true,
       actor: { select: { id: true, name: true, role: true } },
     },
   });
@@ -98,6 +126,7 @@ export type OperationAuditCenterFilters = {
   storeId?: string | null;
   storeIds?: string[];
   actorUserId?: string;
+  loginRecordId?: string;
   module?: OperationModule;
   modules?: OperationModule[];
   keyword?: string;
@@ -143,6 +172,7 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
         ? { storeId: { in: input.storeIds } }
         : {}),
     ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
+    ...(input.loginRecordId ? { loginRecordId: input.loginRecordId } : {}),
     ...moduleWhere(input),
     ...(keyword
       ? {
@@ -166,7 +196,7 @@ export async function listOperationAudits(input: OperationAuditCenterFilters) {
       select: {
         id: true, action: true, summary: true, module: true, targetType: true,
         targetId: true, createdAt: true, actorUserId: true,
-        actorNameSnapshot: true, beforeJson: true, afterJson: true, storeId: true,
+        source: true, actorNameSnapshot: true, actorRoleSnapshot: true, loginRecordId: true, beforeJson: true, afterJson: true, storeId: true,
         actor: { select: { name: true, role: true } },
       },
     }),

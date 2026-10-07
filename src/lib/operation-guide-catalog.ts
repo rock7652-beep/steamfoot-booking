@@ -1037,7 +1037,7 @@ export const additionalGuides: OperationGuide[] = [
       "記帳時選零售收入會納入零售分析；選其他收入會納入其他收入分析。顧客姓名不影響分類。",
       "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。",
       "搜尋框最多取前 60 字並短暫等待輸入完成；切換月份會清除自訂起訖日期，其他篩選可組合使用。",
-      "面板讀取失敗時會保留原位置並提供重試；不要連按新增。由進銷存收付款建立的現金紀錄會標示來源，必須回原銷貨／進貨單處理，現金帳不可獨立修改或刪除。"
+      "面板讀取失敗時會保留原位置並提供重試；不要連按新增。由進銷存收付款建立的現金紀錄會標示來源，必須回原銷貨／進貨單處理，現金帳不可獨立修改或刪除。銷貨退貨、退款或作廢請依 O09；付款方式誤登或重複登收款請依 O10，收款更正本身不會退款給顧客。"
     ],
     "modules": [
       "steamfoot",
@@ -1052,7 +1052,9 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx",
       "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx",
       "src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx",
-      "src/app/(dashboard)/dashboard/cashbook/page.tsx"
+      "src/app/(dashboard)/dashboard/cashbook/page.tsx",
+      "src/app/(dashboard)/dashboard/inventory/settlement-form.tsx",
+      "src/server/actions/cashbook.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1157,18 +1159,21 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F01",
     "category": "care",
     "title": "顧客提醒與店長通知在哪裡分開設定？",
-    "summary": "提醒面板分顧客提醒、店長 LINE 通知與發送紀錄；修改其中一邊不代表另一邊已開啟或訊息已送達。",
+    "summary": "提醒面板分店長通知、顧客提醒與發送紀錄；店長卡片可先用示範資料預覽，不會發送 LINE。",
     "path": "設定 → 通知與顧客經營 → 提醒管理",
     "steps": [
       "開啟提醒管理；桌機在設定側邊面板、手機在滿版面板操作。",
-      "切到顧客提醒、店長 LINE 通知或發送紀錄；顧客提醒再分預約前、體驗後關懷與方案使用提醒。",
-      "修改後明確儲存，重新開啟核對開關與收件人；實際結果從發送紀錄查。"
+      "切到店長通知、顧客提醒或發送紀錄；顧客提醒再分預約前、體驗後關懷與方案使用提醒。店長通知可展開預設收合的「查看訊息預覽」，從「通知類型」切換卡片。",
+      "店長通知開關變更後等待「已儲存」；需要儲存的其他設定明確送出，再重新開啟核對開關與收件人。實際發送結果另從發送紀錄查。"
     ],
-    "important": "顧客與店長是不同收件對象；開啟前先核對，避免傳錯人。",
+    "important": "顧客與店長是不同收件對象；開啟前先核對。預覽按鈕不跳轉業務操作、不發 LINE，不需為了看樣式建立真實預約或收款。",
     "success": "各分頁的設定符合預期。",
-    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 發送紀錄 預約前 體驗後 方案使用",
+    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 發送紀錄 預約前 體驗後 方案使用 查看訊息預覽 通知類型 Flex 示範資料 9種",
     "details": [
-      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋；顯示摘要不等於已送出任何通知。"
+      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋；顯示摘要不等於已送出任何通知。",
+      "蒸足／SPA 的共用店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
+      "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
+      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。"
     ],
     "modules": [
       "steamfoot",
@@ -1178,7 +1183,11 @@ export const additionalGuides: OperationGuide[] = [
     "feature": "line_reminder",
     "sources": [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
-      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
+      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+      "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
+      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+      "src/lib/manager-notification-preview.ts",
+      "src/lib/manager-notification-preferences.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1188,17 +1197,20 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F03",
     "category": "care",
     "title": "當日臨時預約，要怎麼通知店長？",
-    "summary": "當日預約的店長通知需開啟對應設定，並確認收件店長已完成 LINE 綁定。",
+    "summary": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定；SPA 共用預覽不代表已接上當日預約通知。",
     "path": "提醒管理 → 店長通知",
     "steps": [
-      "找到當日預約相關通知設定。",
-      "核對通知開關與要接收通知的人員。",
-      "儲存後查看設定，後續由發送紀錄核對結果。"
+      "在店長通知找到正確收件人，確認 LINE 已綁定並開啟「接收 LINE 通知」。",
+      "點「設定提醒」，核對「當日新預約」開關；變更後等待「已儲存」。",
+      "要看卡片樣式時展開「查看訊息預覽」，在「通知類型」選「當日新預約」；實際發送結果從發送紀錄核對。"
     ],
-    "important": "接收人需完成相應 LINE 綁定；不要把測試訊息發給正式顧客。",
+    "important": "接收人需完成本店 LINE 綁定；示範預覽不發送通知，也不能測試綁定或送達，不要為看樣式新增真實預約。",
     "success": "開關與收件人正確，能追查通知結果。",
-    "keywords": "當天 臨時預約 店長通知",
-    "details": [],
+    "keywords": "當天 臨時預約 店長通知 當日新預約 查看訊息預覽 通知類型 Flex 示範資料",
+    "details": [
+      "新版當日新預約店長通知使用 Flex 卡片。預覽按鈕僅展示，不會跳轉；實際卡片需另核對正確門市與預約連結。",
+      "預覽不改變觸發規則。此當日通知針對蒸足顧客自行預約今天的服務，SPA 預約目前未接此觸發；共用預覽不代表各模組都會發送。課程店另有自己的當日新預約通知，設定入口見 C123。開啟設定不會把任意舊預約重新發送。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1207,11 +1219,15 @@ export const additionalGuides: OperationGuide[] = [
     "feature": "line_reminder",
     "sources": [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
-      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
+      "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
+      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+      "src/lib/manager-notification-preferences.ts",
+      "src/server/services/same-day-booking-manager-notification.ts",
+      "src/server/services/manager-notification-delivery.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "當日預約的店長通知需開啟對應設定，並確認收件店長已完成 LINE 綁定。"
+    "answer": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定；SPA 共用預覽不代表已接上當日預約通知。"
   },
   {
     "id": "F04",
@@ -1221,13 +1237,16 @@ export const additionalGuides: OperationGuide[] = [
     "path": "提醒管理 → 發送紀錄",
     "steps": [
       "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
-      "核對通知規則是否啟用、發送時間與收件身分。",
+      "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
       "若失敗，保留原因，檢查綁定與官方帳號狀態後處理。"
     ],
-    "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。",
+    "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。預覽看起來正確或發送紀錄顯示成功，不代表本人已在 LINE 看見或點過連結。",
     "success": "",
-    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 通知已連結",
+    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好",
     "details": [
+      "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
+      "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
+      "課程顧客收到的改期、取消、確認會到與續購提醒是另一種用途，請看 C167；不要拿店長示範卡片測試顧客操作。",
       "公開體驗完成頁的「體驗預約成功」與 LINE 通知狀態是兩件事。若預約已成功但通知尚未完成，不要重複預約；先依 F12 核對完成頁顯示的狀態。",
       "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
       "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
@@ -1245,7 +1264,11 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
       "src/app/api/line/webhook/route.ts",
       "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
-      "src/server/services/configured-course-line-webhook.ts"
+      "src/server/services/configured-course-line-webhook.ts",
+      "src/server/services/manager-notification-delivery.ts",
+      "src/lib/manager-notification-preferences.ts",
+      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+      "docs/manager-line-flex-inventory.md"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",

@@ -6,6 +6,7 @@ import { AppError } from "@/lib/errors";
 import { isStaffRole } from "@/lib/permissions";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
+import { registerAuditActor } from "@/server/services/audit-actor-context";
 
 // ============================================================
 // Session helpers
@@ -215,7 +216,12 @@ async function recoverMissingStaffIdentity<T extends CustomerSessionUser>(user: 
 export const getCurrentUser = cache(async () => {
   const session = await auth();
   if (!session?.user) return null;
-  return recoverMissingStaffIdentity(await recoverMissingCustomerIdentity(session.user));
+  const user = await recoverMissingStaffIdentity(await recoverMissingCustomerIdentity(session.user));
+  if (user.loginRecordId && isStaffRole(user.role)) {
+    const { touchStaffLogin } = await import("@/server/services/staff-login-audit");
+    await touchStaffLogin(user.loginRecordId, user.id);
+  }
+  return registerAuditActor(user);
 });
 
 /** 取得 session；若未登入拋出 UNAUTHORIZED */

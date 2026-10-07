@@ -23,7 +23,7 @@ describe("September 30 guide review", () => {
   it("adds selected-date hours, operation history and the new music workflows", () => {
     expect(operationGuides.length).toBeGreaterThanOrEqual(179);
     expect(findOperationGuides("跨月 複選 覆蓋 復原", steam).map(item => item.id)).toContain("B11");
-    expect(findOperationGuides("誰修改 最後操作", steam).map(item => item.id)).toContain("I11");
+    expect(findOperationGuides("誰修改 最後操作", { ...steam, permissions: ["audit.read"] }).map(item => item.id)).toContain("I11");
     expect(findOperationGuides("課程 科目 收費方案 分開", course).map(item => item.id)).toContain("C153");
     expect(findOperationGuides("買三送一 5加4加4", course).map(item => item.id)).toContain("C154");
     expect(findOperationGuides("拖曳 上移 下移", course).map(item => item.id)).toContain("C155");
@@ -38,7 +38,9 @@ describe("September 30 guide review", () => {
     expect(availableGuides({ ...course, permissions: ["wallet.create", "transaction.create"] }).some(item => item.id === "C154")).toBe(false);
     expect(availableGuides({ ...course, permissions: ["staff.manage"] }).some(item => item.id === "C156")).toBe(false);
     expect(availableGuides({ ...course, permissions: ["teacher.compensation.manage"] }).some(item => item.id === "C157")).toBe(false);
-    expect(availableGuides({ module: "spa", permissions: [], features: {} }).map(item => item.id)).toEqual(expect.arrayContaining(["G04", "I11"]));
+    expect(availableGuides({ module: "spa", permissions: [], features: {} }).map(item => item.id)).toContain("G04");
+    expect(availableGuides({ module: "spa", permissions: [], features: {} }).some(item => item.id === "I11")).toBe(false);
+    expect(availableGuides({ module: "spa", permissions: ["audit.read"], features: {} }).some(item => item.id === "I11")).toBe(true);
   });
 
   it("updates old guidance and traces all affected articles to real source files", () => {

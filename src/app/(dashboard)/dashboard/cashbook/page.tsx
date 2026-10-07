@@ -362,7 +362,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-earth-600"><span>{e.category ?? "—"}</span>{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
+                    <td className="px-4 py-3 text-earth-600"><span>{e.category ?? "—"}</span>{e.category?.startsWith("零售-")&&!e.id.startsWith("inventory:")&&<span className="ml-2 text-sm text-earth-500">手動記帳</span>}{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${
                         e.type === "INCOME" ? "text-green-700" : "text-red-700"
@@ -382,7 +382,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       ) : (
                         <div className="flex items-center gap-3">
                           <OperationHistoryButton targetType="CashbookEntry" targetId={e.id} />
-                          {e.id.startsWith("inventory:") ? <span className="text-sm text-earth-500">進銷存連動</span> : <>
+                          {e.id.startsWith("inventory:") ? <Link href={`/dashboard/inventory?reference=${encodeURIComponent(e.id.split(":")[1])}`} className="text-sm text-primary-700 hover:underline">進銷存連動・查看原單</Link> : <>
                           {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"

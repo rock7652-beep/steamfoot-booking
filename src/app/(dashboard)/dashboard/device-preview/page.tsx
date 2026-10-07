@@ -34,5 +34,5 @@ export default async function DevicePreviewPage({ searchParams }: DevicePreviewP
   const storeId = await getActiveStoreForRead(user);
   if (storeId && !await hasStoreFeature(storeId, FEATURES.DEVICE_PREVIEW)) notFound();
   const moduleId = storeId ? await getStoreIndustryModule(storeId) : "steamfoot";
-  return <DevicePreview moduleId={moduleId} />;
+  return <DevicePreview moduleId={moduleId} canViewAudit={user.role === "ADMIN"} />;
 }

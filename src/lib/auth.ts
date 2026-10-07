@@ -1,5 +1,6 @@
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import NextAuth from "next-auth";
+import { recordStaffLogin } from "@/server/services/staff-login-audit";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { compareSync } from "bcryptjs";
@@ -30,6 +31,7 @@ import { createStaffSessionStamp, isStaffSessionRole, matchesStaffSessionStamp }
 
 declare module "next-auth" {
   interface User {
+    loginRecordId?: string;
     staffSessionStamp?: string;
     role: UserRole;
     staffId: string | null;
@@ -40,6 +42,7 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
+      loginRecordId?: string;
       name: string;
       email: string | null;
       role: UserRole;
@@ -52,6 +55,7 @@ declare module "next-auth" {
 }
 
 interface AppJWT {
+  loginRecordId?: string;
   staffSessionStamp?: string;
   sub?: string;
   role: UserRole;
@@ -163,7 +167,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "密碼", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
 
@@ -184,19 +188,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
-        if (!user || !user.passwordHash) return null;
-        if (user.status !== "ACTIVE") return null;
+        if (!user || !user.passwordHash || user.status !== "ACTIVE") {
+          if (!user || isStaffSessionRole(user.role)) await recordStaffLogin(user, "FAILED", "帳號不存在、停用或尚未設定密碼", request);
+          return null;
+        }
 
         const valid = compareSync(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          if (isStaffSessionRole(user.role)) await recordStaffLogin(user, "FAILED", "驗證失敗", request);
+          return null;
+        }
 
         const staffSessionStamp = isStaffSessionRole(user.role) ? createStaffSessionStamp(user) : null;
-        if (isStaffSessionRole(user.role) && !staffSessionStamp) return null;
+        if (isStaffSessionRole(user.role) && !staffSessionStamp) {
+          await recordStaffLogin(user, "FAILED", "工作權限已停用", request);
+          return null;
+        }
+        const loginRecord = staffSessionStamp ? await recordStaffLogin(user, "SUCCESS", undefined, request) : null;
 
         // ADMIN 是平台管理者，不綁定任何 store — storeId/staffId 永遠為 null
         if (user.role === "ADMIN") {
           return {
             staffSessionStamp: staffSessionStamp!,
+            loginRecordId: loginRecord?.id,
             id: user.id,
             name: user.name,
             email: user.email ?? null,
@@ -213,7 +227,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email ?? null,
           role: user.role,
-          ...(staffSessionStamp ? { staffSessionStamp } : {}),
+          ...(staffSessionStamp ? { staffSessionStamp, loginRecordId: loginRecord?.id } : {}),
           staffId: user.staff?.id ?? null,
           customerId: user.customer?.id ?? null,
           storeId: user.staff?.storeId ?? user.customer?.storeId ?? null,
@@ -1519,6 +1533,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         appToken.sub = current.id;
         appToken.role = current.role;
         appToken.staffSessionStamp = stamp;
+        if (user) appToken.loginRecordId = user.loginRecordId;
         appToken.staffId = current.role === "ADMIN" ? null : current.staff!.id;
         appToken.customerId = null;
         appToken.storeId = current.role === "ADMIN" ? null : current.staff!.storeId;
@@ -1734,6 +1749,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       const appToken = token as unknown as AppJWT;
       session.user.id = appToken.sub ?? token.sub ?? "";
+      session.user.loginRecordId = appToken.loginRecordId;
       session.user.role = appToken.role;
       session.user.staffId = appToken.staffId ?? null;
       session.user.customerId = appToken.customerId ?? null;

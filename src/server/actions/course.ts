@@ -1,4 +1,5 @@
 "use server";
+import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { assertMusicCourseAvailability, assertMusicCourseDuration } from "@/server/services/course-availability";
@@ -67,20 +68,14 @@ function scheduleCapacityWaitlistPromotion(
       const [
         { promoteCourseWaitlistForSession },
         { notifyCourseWaitlistPromotions },
-        { recordOperationAuditBestEffort },
       ] = await Promise.all([
         import("@/server/services/course-waitlist"),
         import("@/server/services/course-waitlist-notifications"),
-        import("@/server/services/operation-audit"),
       ]);
       for (const sessionId of uniqueSessionIds) {
         const promoted = await courseTransaction(storeId, tx =>
           promoteCourseWaitlistForSession(tx, storeId, sessionId),
-        );
-        if (!promoted.length) continue;
-        await Promise.all([
-          notifyCourseWaitlistPromotions(storeId, promoted),
-          recordOperationAuditBestEffort({
+         async (promoted, tx) => { if (promoted.length) await enqueueOperationAudit({
             actorUserId: actor.id,
             actorNameSnapshot: actor.name,
             storeId,
@@ -90,8 +85,9 @@ function scheduleCapacityWaitlistPromotion(
             action: "CAPACITY_AUTO_PROMOTE",
             summary: `課程增額自動遞補（${promoted.length} 人）`,
             after: { bookingIds: promoted.map(item => item.bookingId) },
-          }),
-        ]);
+          }, tx, promoted.map(item=>item.bookingId).sort().join('|')); });
+        if (!promoted.length) continue;
+        await notifyCourseWaitlistPromotions(storeId, promoted);
       }
     } catch (error) {
       console.error("[course-waitlist] capacity promotion failed", {
@@ -203,8 +199,8 @@ export async function deleteUnusedCourseTemplate(input: unknown) {
       ]);
       if(uses.some(Boolean))throw new AppError("VALIDATION","此課程已有排課、方案或拆帳設定，請使用下架保留紀錄");
       await tx.courseTemplate.delete({where:{id,storeId}});
+      await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseTemplate",targetId:id,action:"DELETE",summary:"刪除未使用課程"},tx);
     });
-    await (await import("@/server/services/operation-audit")).recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseTemplate",targetId:id,action:"DELETE",summary:"刪除未使用課程"});
     kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/book");
     return {success:true as const};
   }catch(error){return handleCourseActionError(error);}

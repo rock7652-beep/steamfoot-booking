@@ -60,8 +60,8 @@ export default async function PlanSettingsPage() {
   /** Plan highlights for the hero cards */
   const PLAN_HIGHLIGHTS: Record<PricingPlan, string[]> = {
     EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
-    BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "可選 1 個 $500 工具型模組"],
-    GROWTH: ["基本版＋顧客經營、現金抽屜", "可選 1 個 $500 工具型模組", "可選 1 個 $800 經營型模組"],
+    BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "資料匯出／現金抽屜免費 2 選 1"],
+    GROWTH: ["顧客經營、分析、現金抽屜、資料匯出內含", "健康追蹤／月結管理／課程候補免費 3 選 1", "進銷存、工單額外加購"],
     ALLIANCE: ["總部管理（分店串接費與系統月費另計）", "多店與月結管理", ALLIANCE_BRANCH_PRICING_COPY],
   };
 
@@ -85,12 +85,14 @@ export default async function PlanSettingsPage() {
         { key: "plan_management", label: "方案管理" },
         { key: "cashbook", label: "帳簿" },
         { key: "reconciliation", label: "對帳" },
+        { key: "data_export", label: "資料匯出" },
+        { key: "cash_drawer", label: "現金抽屜" },
       ],
     },
     {
       group: "進階分析",
       features: [
-        { key: "basic_reports", label: "分析（NT$800／月獨立加購）" },
+        { key: "basic_reports", label: "分析（基本版加購原價 NT$500／月）" },
         { key: "ai_health_summary", label: "健康評估與體態追蹤" },
         { key: "kpi_dashboard", label: "KPI 儀表板" },
         { key: "talent_pipeline", label: "人才管道" },
@@ -244,7 +246,7 @@ export default async function PlanSettingsPage() {
       {/* ── Feature Comparison Table ── */}
       <div className="rounded-xl border border-earth-200 bg-white overflow-hidden">
         <div className="border-b border-earth-100 px-5 py-3">
-          <h3 className="text-sm font-semibold text-earth-800">方案預設權限（不含門市選配與個別開關）</h3>
+          <h3 className="text-sm font-semibold text-earth-800">方案內含功能（免費任選與門市開關另計）</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

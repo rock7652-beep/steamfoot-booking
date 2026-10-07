@@ -1,5 +1,6 @@
 "use client";
 
+import { PUBLIC_TRIAL_COPY } from "@/lib/public-marketing-copy";
 import { useId, useState } from "react";
 
 type Question = { question: string; answers: string[]; pricingLink?: boolean };
@@ -21,9 +22,9 @@ const categories: { label: string; questions: Question[] }[] = [
   ] },
   { label: "試用與費用", questions: [
     { question: "可以先試用，再決定是否付費嗎？", answers: ["可以，先免費體驗 30 天。點選「申請 30 天免費體驗」填寫門市需求，由專人聯繫確認設定與體驗內容；帳號可正常使用當天才起算，送出需求不扣款。"] },
-    { question: "免費體驗開放哪些功能？", answers: ["所選模組已提供的單店功能完整開放，人員權限依店長設定。最多 3 位啟用人員（含店長）、100 筆顧客資料、每月新建預約 100 筆、自動提醒每月 50 次。", "網頁前台可先使用；需要測試 LINE 流程時，再協助設定 LIFF，完成設定後才能使用 LINE 功能。", "系統體驗免費，不含跨店總部管理或代辦金流申請與串接；LINE 訊息、金流等外部服務費用於使用前確認。"], pricingLink: true },
-    { question: "體驗到期後，資料還能沿用嗎？", answers: ["到期後後台改為唯讀，資料保留 30 天。保留期間轉正式，可沿用原帳號、顧客、預約與方案資料，不用重新建檔；功能及額度依購買方案。"] },
-    { question: "月費之外，還有哪些費用？", answers: ["額外模組與分店串接管理費依選擇另計。主方案年繳送 2 個月，優惠範圍與內含項目可查看方案頁；LINE 訊息等第三方費用需另外確認。"], pricingLink: true },
+    { question: "免費體驗開放哪些功能？", answers: [PUBLIC_TRIAL_COPY.scope, PUBLIC_TRIAL_COPY.limits, PUBLIC_TRIAL_COPY.exclusions], pricingLink: true },
+    { question: "體驗到期後，資料還能沿用嗎？", answers: [PUBLIC_TRIAL_COPY.retention] },
+    { question: "月費之外，還有哪些費用？", answers: ["額外模組與分店串接管理費依選擇另計。優惠範圍、期限與內含項目統一查看方案頁；LINE 訊息等第三方費用需另外確認。"], pricingLink: true },
   ] },
 ];
 

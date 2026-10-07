@@ -49,7 +49,7 @@ export default async function StoreRevenuePage() {
     return (
       <UpgradeNoticePage
         title="分析尚未開通"
-        description="分析為 NT$800／月獨立加購，請聯絡總部開通。"
+        description="分析基本版加購原價 NT$500／月，專業版與展店版內含；請聯絡總部確認與開通。"
       />
     );
   }

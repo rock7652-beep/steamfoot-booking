@@ -2,6 +2,7 @@ import "server-only";
 import { configureSpaPreviewPool } from "./spa-preview-pool";
 
 import { PrismaClient } from "../../generated/spa-client";
+import { withAuditDatabaseContext } from "@/lib/audit-db-context";
 
 function buildSpaDatabaseUrl(): string {
   const base = process.env.DATABASE_URL ?? "";
@@ -23,10 +24,10 @@ const globalForSpaPrisma = globalThis as unknown as {
 /** Dedicated SPA client: it intentionally cannot address Steamfoot Booking or Transaction. */
 export const spaPrisma =
   globalForSpaPrisma.spaPrisma ??
-  new PrismaClient({
+  withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: buildSpaDatabaseUrl() } },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  });
+  }));
 
 if (
   process.env.NODE_ENV !== "production" ||

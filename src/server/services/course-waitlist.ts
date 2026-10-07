@@ -1,3 +1,4 @@
+import { enqueueOperationAudit } from "./operation-audit-outbox";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -188,6 +189,7 @@ export async function joinCourseWaitlist(
       select: { id: true, groupKey: true, createdAt: true },
     });
     const groups = waitlistGroups(all);
+    await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId: actor.storeId, module: "COURSE", targetType: "CourseWaitlist", targetId: groupKey, action: "JOIN", summary: `加入課程候補（${rows.length} 人）`, after: { sessionId: input.sessionId, count: rows.length } }, tx, input.requestKey);
     return { rows, position: groups.findIndex(group => group.some(row => row.groupKey === groupKey)) + 1 };
   }, { timeout: 15_000 });
 }
@@ -209,6 +211,7 @@ export async function cancelMemberCourseWaitlist(
       where: { storeId: actor.storeId, sessionId: input.sessionId, groupKey, status: "WAITING" },
       data: { status: "CANCELLED", failureReason: "會員取消", updatedAt: new Date() },
     });
+    await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId: actor.storeId, module: "COURSE", targetType: "CourseWaitlist", targetId: groupKey, action: "CANCEL", summary: `取消課程候補（${result.count} 人）` }, tx);
     return { count: result.count };
   });
 }

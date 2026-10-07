@@ -4,22 +4,31 @@ export function PlanPackageNotes() {
   return (
     <section className="rounded-xl border border-earth-200 bg-white p-5 text-sm leading-relaxed text-earth-700">
       <p className="mb-3">30 天完整功能試用，包含母子店與展店功能（母店加一家分店），含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。從帳號可正常使用當天開通起算；網頁前台可先使用，LINE／LIFF 完成設定後接上。到期後保留資料、後台改為唯讀；轉正式沿用原帳號與資料，功能及額度依購買方案。</p>
-      <p className="mb-3">試用包含所選模組的單店功能，不含跨店總部管理或代辦金流申請與串接。自動提醒每月最多 50 次，LINE 訊息等外部費用於開通前確認。</p>
+      <p className="mb-3">試用包含所選模組功能與母子店管理（母店加一家分店），不含代辦金流申請與串接。自動提醒每月最多 50 次，LINE 訊息等外部費用於開通前確認。</p>
       <h3 className="font-semibold text-earth-900">限時優惠｜一次繳一年，再送 2 個月</h3>
       <p className="mt-2">付費方案不設每月預約筆數上限，依功能模組與人員額度分級，不按預約筆數自動加收費用。訊息與金流等外部費用另計。</p>
       <p className="mt-2">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
       <p className="mt-2">主方案一次支付 12 個月費用，共可使用 14 個月。基本版 NT$17,880、專業版 NT$29,880、展店版 NT$59,880 起。</p>
       <p className="mt-2">三個付費方案皆內含 LINE 提醒、顧客標籤與 LINE 顧客入口（LIFF），可預約、取消及查詢方案堂數；保留各門市獨立開關。入口開啟不代表其他模組全部開通。</p>
       <p className="mt-3">展店版每月 $4,990，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</p>
-      <h4 className="mt-4 font-semibold text-earth-900">選配額度與額外加購</h4>
+      <h4 className="mt-4 font-semibold text-earth-900">內含、免費任選、額外加購</h4>
       <ul className="mt-2 list-disc space-y-1 pl-5">
-        <li>基本版：資料匯出／現金抽屜 <strong>2 選 1</strong>，不另收費。</li>
-        <li>專業版：顧客經營、分析、現金抽屜內含；資料匯出可選配，不另收費。</li>
-        <li>工具型模組：資料匯出、現金抽屜；額外加購每個 NT$500／月。</li>
-        <li>經營型模組：顧客經營、健康評估與體態追蹤、月結管理、課程候補、分析、進銷存管理；額外加購每個 NT$800／月。</li>
-        <li>額度內選配不另收費；展店版總部包含適用模組，分店仍依各自購買的方案開通。數位管家需個別確認開通，不列入上述全含範圍。</li>
-        <li>專業版：健康追蹤／月結管理／課程候補／進銷存 <strong>4 選 1</strong>，不另收費；超出名額才需加購。選定後由總部協助開通。</li>
+        <li>基本版：資料匯出／現金抽屜<strong>免費 2 選 1</strong>；另一項需要時再加購。</li>
+        <li>專業版：顧客經營、分析、現金抽屜、資料匯出內含；健康追蹤／月結管理／課程候補<strong>免費 3 選 1</strong>，超出名額才需額外加購。</li>
+        <li>展店版：總部適用工具與經營功能內含；進銷存、工單及數位管家除外。分店仍依各自購買的方案開通；數位管家需個別確認開通。</li>
       </ul>
+      <p className="mt-2">免費任選可之後再決定，由總部協助開通；額度內選配不另收費。已內含的功能不重複收費，各門市保留獨立開關。</p>
+      <details className="mt-3 border-t border-earth-100 pt-2">
+        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-earth-900 focus-visible:outline-2 focus-visible:outline-offset-2">額外加購價格與適用情境</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>日常加購：資料匯出、現金抽屜、顧客經營、健康評估與體態追蹤、課程候補、分析；每項原價 NT$500／月。</li>
+        <li>進階加購：月結管理、進銷存管理、工單管理；每項原價 NT$800／月。十月年繳優惠與期限依官網加購專區公告。</li>
+        <li>進銷存與工單管理：各付費方案皆額外加購，每項 NT$800／月，不列入免費選配或展店版內含；各門市保留獨立開關。關閉或加購到期保留資料，重新開通可接續使用。</li>
+        <li>健康追蹤：適合有量測與體態追蹤需求的店家。課程候補：適用音樂、運動等課程模組。月結管理：適合有月費、分潤或合作結算需求的店家。</li>
+        <li>工單可獨立處理鋼琴調音、管樂／弦樂器／吉他維修保養等案件與工費；加入商品材料及扣庫存須搭配已開通的進銷存與相應人員權限。兩項各自計費，材料只扣一次庫存。</li>
+        </ul>
+        <a href="/pricing#addons" className="mt-2 inline-flex min-h-11 items-center font-medium underline underline-offset-4">查看加購費用與優惠 →</a>
+      </details>
       <p className="mt-3">健康評估與體態追蹤包含量測紀錄、歷史數據與變化趨勢，協助日常追蹤與顧客關懷，不作醫療診斷或效果保證；各門市保留獨立開關。</p>
       <p className="mt-3 text-xs text-earth-500">以上年繳總額僅計主方案。額外加購模組、分店串接管理費及其贈送期間，請於開通前確認；實際開通與付款請聯絡客服。本頁不變更既有帳單或訂閱期限。</p>
     </section>

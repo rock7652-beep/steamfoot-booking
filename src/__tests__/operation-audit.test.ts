@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ create: vi.fn(), findMany: vi.fn(), count: vi.fn(), findMusic: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn(), findMusic: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { auditLog: mocks, storeFeatureEntitlement: { findFirst: mocks.findMusic } } }));
+
+vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 
 import { getOperationHistory, listOperationAudits, recordOperationAudit } from "@/server/services/operation-audit";
 
 describe("shared operation audit", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); mocks.auth.mockResolvedValue(null); });
 
   it("records course operations as music or fitness from the store profile", async () => {
     mocks.create.mockResolvedValue({ id: "audit-course" });
@@ -29,6 +31,14 @@ describe("shared operation audit", () => {
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
       actorUserId: "user-1", actorNameSnapshot: "王店長", storeId: "store-1", module: "STEAM", targetId: "booking-1",
     }) }));
+  });
+
+  it("links only the authenticated actor's login, never an input login ID", async () => {
+    mocks.auth.mockResolvedValue({ user: { id: "user-1", role: "ADMIN", loginRecordId: "signed-login" } });
+    await recordOperationAudit({ actorUserId: "user-1", storeId: "store-1", module: "STEAM", targetType: "Booking", targetId: "b", action: "UPDATE", summary: "修改", loginRecordId: "forged" });
+    expect(mocks.create).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ loginRecordId: "signed-login", actorRoleSnapshot: "ADMIN" }) }));
+    await recordOperationAudit({ actorUserId: "other", storeId: "store-1", module: "STEAM", targetType: "Booking", targetId: "b", action: "UPDATE", summary: "修改", loginRecordId: "forged" });
+    expect(mocks.create).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ loginRecordId: null }) }));
   });
 
   it("scopes history to one store and target and bounds the page", async () => {

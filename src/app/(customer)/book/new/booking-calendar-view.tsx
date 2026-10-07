@@ -10,7 +10,7 @@ import { createBooking } from "@/server/actions/booking";
 import { createRecurringBookings } from "@/server/actions/recurring-booking";
 import { generateWeeklyDateStrings, parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import { buildRecurringPreview, formatBookingWalletOption, recurringWeekOptions } from "@/lib/recurring-booking-preview";
-import { useStoreSlugRequired } from "@/lib/store-context";
+import { useStoreSlugRequired } from "@/lib/store-context-client";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import {
   getSlotCapacityDisplay,

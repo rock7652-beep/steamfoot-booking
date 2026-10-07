@@ -15,6 +15,9 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+// Authentication is stubbed for this business unit test; audit DB writes remain real mocks.
+vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
+
 const STORE_A = "ck0000000000000000000store-a";
 const CUSTOMER_ID = "ck0000000000000000000cust1";
 const BOOKING_ID = "ck0000000000000000000bk001";

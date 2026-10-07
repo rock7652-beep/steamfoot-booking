@@ -1,4 +1,4 @@
-import { parseBusinessPeriods } from "./business-hours-resolver";
+import { parseBusinessPeriods } from "./business-periods";
 const names = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 export type Hour = { dayOfWeek:number; isOpen:boolean; openTime:string|null; closeTime:string|null; segments:unknown; slotInterval:number; defaultCapacity:number };
 export type Special = { date:Date; type:string; reason:string|null; openTime:string|null; closeTime:string|null; segments:unknown; slotInterval:number|null; defaultCapacity:number|null };

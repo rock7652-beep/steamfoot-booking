@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { LINE_CARD_COLORS as colors } from "@/lib/line-card-theme";
 
 // Preview shares the delivery palette; buttons are intentionally non-interactive.
-export function LineCardPreview({ title, subtitle, children, actions }: {
+export function LineCardPreview({ title, subtitle, children, actions, exactTitle = false }: {
+  exactTitle?: boolean;
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -10,7 +11,7 @@ export function LineCardPreview({ title, subtitle, children, actions }: {
 }) {
   return <div className="mx-auto w-full max-w-[360px] overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm">
     <div className="border-b p-4" style={{ backgroundColor: colors.headerBackground, color: colors.headerText, borderColor: colors.gold }}>
-      <p className="font-semibold">蒸管家｜{title}</p>
+      <p className="font-semibold">{exactTitle ? title : `蒸管家｜${title}`}</p>
       {subtitle && <p className="mt-1 text-xs" style={{ color: colors.headerSubtext }}>{subtitle}</p>}
     </div>
     <div className="space-y-3 whitespace-pre-wrap break-words p-4 text-sm leading-relaxed" style={{ color: colors.text }}>{children}</div>

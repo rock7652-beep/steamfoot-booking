@@ -23,5 +23,5 @@ it("authorized summaries keep real recorded totals intact",async()=>{m.permissio
 
 it("keeps nullable categories and inventory sale receipts readable",async()=>{
  const filter=await inventoryCashbookReadFilter(employee);
- expect(filter).toEqual({AND:[{OR:[{type:{not:"EXPENSE"}},{id:{not:{startsWith:"inventory:"}}}]},{OR:[{category:null},{category:{not:"進銷存進貨"}}]}]});
+ expect(filter).toEqual({AND:[{NOT:{id:{startsWith:"inventory:",endsWith:":purchase"}}},{OR:[{category:null},{category:{not:"進銷存進貨"}}]}]});
 });

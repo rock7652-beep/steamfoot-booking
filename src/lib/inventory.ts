@@ -40,6 +40,8 @@ export type InventoryProductView = Partial<ProductDetails> & {
     costPending?: boolean;
 };
 export type InventoryOrderView = {
+    voided?:boolean;
+    settlements?:import("./inventory-settlement").InventorySettlement[];
     workOrderNumber?:string|null;
     workOrder?: import("./work-orders").WorkOrderDetails | null;
     priceCategory?:PriceCategory;
@@ -61,6 +63,7 @@ export type InventoryOrderView = {
     revision: number;
 };
 export type InventoryPaymentView = {
+    correction?:{requestId:string;date:string;reason:string;actorName:string;replacementId:string}|null;
     actorName?: string;
     id: string;
     kind: string;
@@ -77,6 +80,8 @@ export type InventoryPaymentView = {
     }[];
 };
 export type InventoryData = {
+    canRefund?:boolean;
+    canCorrectPayment?:boolean;
     store: {
         id: string;
         name: string;
@@ -138,22 +143,31 @@ export function inventoryReport(orders: InventoryOrderView[], from: string, to: 
         date: string;
         name: string;
         sold: number;
+        returned: number;
+        salesAmount: number;
+        returnsAmount: number;
         gifts: number;
         total: number;
         cost: number;
         costPending: boolean;
     }>();
-    for (const o of orders.filter(o => o.kind === "SALE" && o.date >= from && o.date <= to))
-        for (const l of o.lines) {
-            const key = (daily ? o.date + ":" : "") + l.productId;
-            const r = rows.get(key) || { date: daily ? o.date : "", name: l.name, sold: 0, gifts: 0, total: 0, cost: 0, costPending:false };
-            r.sold += l.gift ? 0 : l.quantity;
-            r.gifts += l.gift ? l.quantity : 0;
-            r.total += l.total;
-            r.cost += l.cost || 0;
-            r.costPending ||= !!Object.keys(l.pendingCostShares || {}).length;
-            rows.set(key, r);
-        }
+    const events = orders.filter(o=>o.kind==="SALE").flatMap(o=>{
+      const history=o.settlements??[];
+      const sale={date:o.date,lines:history[0]?.originalLines??o.lines,isReturn:false,restock:[] as {productId:string;restock:boolean}[]};
+      return [sale,...history.filter(e=>e.returned.length).map(e=>({date:e.date,lines:e.returned,isReturn:true,restock:e.restock??[]}))];
+    });
+    for (const o of events.filter(o=>o.date>=from&&o.date<=to))
+      for(const l of o.lines){
+        const key=(daily?o.date+":" : "")+l.productId;
+        const r=rows.get(key)||{date:daily?o.date:"",name:l.name,sold:0,returned:0,salesAmount:0,returnsAmount:0,gifts:0,total:0,cost:0,costPending:false};
+        const sign=o.isReturn?-1:1;
+        r.sold+=l.gift?0:sign*l.quantity;r.gifts+=l.gift?sign*l.quantity:0;
+        r.total+=sign*l.total;
+        if(o.isReturn){r.returned+=l.quantity;r.returnsAmount+=l.total;}else r.salesAmount+=l.total;
+        r.cost+=o.isReturn?(o.restock.some(c=>c.productId===l.productId&&c.restock)?-(l.cost??0):0):(l.cost??0);
+        r.costPending ||= !!Object.keys(l.pendingCostShares??{}).length;
+        rows.set(key,r);
+      }
     return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)).map(r => ({ ...r, profit: r.total - r.cost, margin: r.total ? 100 * (r.total - r.cost) / r.total : null }));
 }
 

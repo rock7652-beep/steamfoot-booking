@@ -7,6 +7,7 @@ import { DevicePageSelect } from "./device-page-select";
 
 interface DeviceToolbarProps {
   moduleId?: IndustryModuleId;
+  canViewAudit?: boolean;
   page: DevicePreviewPageId;
   device: DevicePresetId;
   onPageChange: (page: DevicePreviewPageId) => void;
@@ -17,6 +18,7 @@ interface DeviceToolbarProps {
 
 export function DeviceToolbar({
   moduleId = "steamfoot",
+  canViewAudit = false,
   page,
   device,
   onPageChange,
@@ -29,7 +31,7 @@ export function DeviceToolbar({
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-3 shadow-sm sm:p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <DevicePageSelect moduleId={moduleId} value={page} onChange={onPageChange} />
+        <DevicePageSelect canViewAudit={canViewAudit} moduleId={moduleId} value={page} onChange={onPageChange} />
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-xs font-medium text-earth-600">裝置</span>

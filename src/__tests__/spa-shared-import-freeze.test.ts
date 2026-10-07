@@ -72,6 +72,11 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   // Reviewed 2026-09-16: explicit store module gates and storeId filters;
   // trial-care-plans and trial-care-delivery tests cover SPA isolation and
   // COURSE rejection. These adapters were introduced on main, not by courses.
+  // Reviewed 2026-10-07: the cross-module audit reader only resolves SPA
+  // evidence targets already authorized by audit.read + store scope. It never
+  // mutates bookings or routes business operations across modules; the SPA
+  // predicate and no-legacy-query assertions live in audit-presentation-scope.
+  "src/server/services/audit-presentation.ts",
   "src/server/services/trial-care-plans.ts",
   "src/server/services/trial-care.ts",
 ].sort();

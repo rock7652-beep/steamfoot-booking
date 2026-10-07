@@ -5,6 +5,8 @@ import type { GuideAccess } from "../lib/operation-guide-types";
 const inventoryPermissions = [
   "inventory.read",
   "inventory.write",
+  "inventory.refund",
+  "inventory.payment.correct",
   "inventory.manage",
   "inventory.cost.read",
   "inventory.receive",
@@ -31,7 +33,7 @@ const guide = (id: string) => {
 
 describe("October 6 operation guide audit", () => {
   it("adds one inventory category and ten source-reviewed guides", () => {
-    expect(operationGuides).toHaveLength(199);
+    expect(operationGuides).toHaveLength(201);
     expect(guideCategoryForPath("/dashboard/inventory")).toBe("inventory");
     for (const id of ["A13", "G05", "O01", "O02", "O03", "O04", "O05", "O06", "O07", "O08"]) {
       expect(guide(id).verification).toBe("source-reviewed");
@@ -39,7 +41,7 @@ describe("October 6 operation guide audit", () => {
   });
 
   it("gates inventory by feature and each operation permission", () => {
-    expect(availableGuides(access("steamfoot")).filter((item) => item.id.startsWith("O"))).toHaveLength(8);
+    expect(availableGuides(access("steamfoot")).filter((item) => item.id.startsWith("O"))).toHaveLength(10);
     expect(availableGuides(access("spa")).map((item) => item.id)).toContain("O01");
     expect(availableGuides(access("course")).map((item) => item.id)).toContain("O08");
     expect(availableGuides(access("steamfoot", false)).some((item) => item.id.startsWith("O"))).toBe(false);

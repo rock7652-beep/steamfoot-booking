@@ -4,7 +4,7 @@ import { LoadingStatus } from "@/components/loading-status";
 
 import { useEffect, useState, useTransition } from "react";
 import { AppLink as Link } from "@/components/app-link";
-import { useStoreSlugRequired } from "@/lib/store-context";
+import { useStoreSlugRequired } from "@/lib/store-context-client";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import {
   getCustomerBookingRescheduleStatus,

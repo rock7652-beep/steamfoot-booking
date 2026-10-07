@@ -9,12 +9,12 @@ import type { UserRole, Prisma } from "@prisma/client";
 
 // Protect historical payments even when the inventory feature has been disabled.
 export const inventoryPurchaseCashbookWhere: Prisma.CashbookEntryWhereInput = {
- OR: [{ type: "EXPENSE", id: { startsWith: "inventory:" } }, { category: "進銷存進貨" }],
+ OR: [{ id: { startsWith: "inventory:", endsWith: ":purchase" } }, { category: "進銷存進貨" }],
 };
 type Reader = { role: UserRole; staffId: string | null };
 export async function inventoryCashbookReadFilter(user: Reader): Promise<Prisma.CashbookEntryWhereInput> {
  return await checkPermission(user.role,user.staffId,"inventory.cost.read") ? {} : { AND: [
-  { OR: [{ type: { not: "EXPENSE" } }, { id: { not: { startsWith: "inventory:" } } }] },
+  { NOT: { id: { startsWith: "inventory:", endsWith: ":purchase" } } },
   { OR: [{ category: null }, { category: { not: "進銷存進貨" } }] },
  ] };
 }

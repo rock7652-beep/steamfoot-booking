@@ -19,9 +19,11 @@ describe("pricing and growth plan copy", () => {
   it("includes analysis in professional and alliance plans", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
     expect(source).not.toContain('aria-label="分析功能方案比較"');
-    expect(source).toContain('{ label: "分析", values: ["加購", "內含", "內含"] }');
-    expect(source).toContain("健康追蹤／月結管理／課程候補／進銷存");
-    expect(source).toContain("資料匯出可選配");
+    expect(source).toContain('{ label: "分析", values: ["額外加購", "內含", "內含"] }');
+    expect(source).toContain("健康追蹤／月結管理／課程候補");
+    expect(source).toContain('label: "資料匯出", values: ["免費任選", "內含", "內含"]');
+    expect(source).not.toContain("資料匯出可選配");
+    expect(source).toContain("免費任選可之後再決定");
     expect(source).not.toContain("分析另購");
     expect(source).not.toContain("獨立加購・展店版內含");
     expect(source).not.toContain("另購 NT$800／月");

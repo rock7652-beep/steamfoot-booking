@@ -29,6 +29,12 @@ describe("October 1 guide review", () => {
     expect(availableGuides({ ...course, permissions: ["business_hours.manage"] }).some(item => item.id === "C159")).toBe(false);
     expect(availableGuides({ module: "spa", permissions: ["audit.read"], features: {} }).some(item => item.id === "I12")).toBe(true);
     expect(availableGuides({ module: "course", permissions: [], features: {} }).some(item => item.id === "I13")).toBe(false);
+    for (const id of ["I11", "I12"]) {
+      expect(guide(id).permission).toBe("audit.read");
+      expect(guide(id).feature).toBeNull();
+      expect(JSON.stringify(guide(id))).toContain("HQ ADMIN");
+      expect(availableGuides({ ...hq, permissions: [] }).some(item => item.id === id)).toBe(false);
+    }
   });
 
   it("updates existing navigation, role and multi-store explanations", () => {
@@ -43,6 +49,21 @@ describe("October 1 guide review", () => {
     expect(JSON.stringify(guide("C136"))).toContain("最後選");
     expect(JSON.stringify(coursePortalGuides.find(item => item.id === "CP17"))).toContain("每頁最多 50 筆");
     expect(JSON.stringify(coursePortalGuides.find(item => item.id === "CP18"))).not.toContain("歷史付款紀錄");
+  });
+
+  it("describes the current HQ login crosslinks and distinct filter actions", () => {
+    const item = guide("I12");
+    expect(item.path).toContain("操作與登入紀錄");
+    expect(item.steps.join(" ")).toContain("更多篩選");
+    for (const label of ["查看當次登入", "查看這次操作", "返回紀錄列表"]) {
+      expect(item.steps.join(" ")).toContain(label);
+    }
+    expect(item.details.join(" ")).toContain("登入紀錄則需點「查詢」");
+    expect(item.details.join(" ")).toContain("最近使用約每 5 分鐘更新");
+    expect(item.important).toContain("不要因此重做交易");
+    expect(item.steps.join(" ")).not.toMatch(/資料 ID|原始 JSON/);
+    expect(item.sources).toContain("src/app/(dashboard)/dashboard/operation-audits/login-audit-view.tsx");
+    expect(guide("I11").sources).toContain("src/app/(dashboard)/dashboard/operation-audits/page.tsx");
   });
 
   it("traces every new backend article to real source files", () => {

@@ -17,11 +17,13 @@ import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false) {
+function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
+    canOpenCourseSettings,
+    canViewAudit: path.startsWith("/hq"),
     operationGuidePreview: true,
     cashDrawerStoreId: selected && permissions.includes("cashDrawer.read") ? selected : undefined,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
@@ -33,6 +35,19 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
 }
 
 describe("actual HQ shell rendering", () => {
+  it("hides course settings from staff despite legacy owner-level navigation and booking access", () => {
+    const html = render("course", "a", "/s/store-a/admin/dashboard", false, true, ["booking.read"], false, false);
+    expect(html).toContain('href="/s/store-a/admin/dashboard/courses"');
+    expect(html).not.toContain('href="/s/store-a/admin/dashboard/courses?view=settings"');
+  });
+  it("retains course settings for eligible store managers with booking access", () => {
+    const html = render("course", "a", "/s/store-a/admin/dashboard", false, true, ["booking.read"], false, true);
+    expect(html).toContain('href="/s/store-a/admin/dashboard/courses?view=settings"');
+  });
+  it("hides course settings when an eligible role lacks its required booking access", () => {
+    const html = render("course", "a", "/s/store-a/admin/dashboard", false, true, [], false, true);
+    expect(html).not.toContain('href="/s/store-a/admin/dashboard/courses?view=settings"');
+  });
   it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("puts cash first in the %s header (music=%s)", (module, music) => {
     const html = render(module, "a", "/hq/dashboard", music);
     expect(html.indexOf("現金抽屜")).toBeGreaterThan(0);
@@ -128,4 +143,9 @@ describe("actual HQ shell rendering", () => {
     expect(html).not.toContain('href="/hq/dashboard/ranking"');
     expect(html).not.toContain('href="/hq/dashboard/analytics"');
   });
+});
+
+it.each(["steamfoot", "spa", "course"] as const)("hides audits from %s stores despite all permissions", module => {
+  expect(render(module, "a", "/s/store-a/admin/dashboard")).not.toContain("operation-audits");
+  expect(render(module, "a", "/hq/dashboard")).toContain("operation-audits");
 });

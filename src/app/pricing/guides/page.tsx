@@ -1,199 +1,77 @@
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "店長經營指南｜蒸管家",
-  description: "一人店預約安排、每日開店檢查，以及體驗預約與提醒做法。從店長能直接照做的小步驟開始，把時間留給顧客。",
+  description: "九篇店務做法：安排預約、顧客追蹤、收款對帳、商品盤點與維修保養接件。每篇一個問題、三個步驟，把方法帶回店裡。",
 };
-
+const categories = [
+  { id: "booking", name: "開店與預約" },
+  { id: "customers", name: "顧客與續購" },
+  { id: "operations", name: "收款與店務" },
+] as const;
 const guides = [
-  {
-    id: "solo-store", icon: "clock" as const, category: "一人店實用做法", title: "一個人顧店，怎麼安排時間？",
-    summary: "先留好服務、整理和休息時間，有空時再一起回訊息。",
-    cost: "一個人顧店，常常服務到一半，又要停下來查時間、回訊息。預約排得太滿，連收款、整理和休息的時間都沒有。",
-    action: "先算好一次服務要多久，加上結帳和整理的時間，再開放顧客預約。顧客可以在線上自己選時間，你有空時再查看新預約、回覆訊息。",
-    steps: ["先確認今天哪些時間可以接客，休息或有事的時間不要開放預約。設定好後，打開顧客的預約頁確認一次。", "請顧客從 LINE 裡的預約入口自己選時間。需要幫忙時，你再利用服務空檔回覆。", "服務結束後，看看下一位幾點來、有沒有人改期或取消，再回覆還沒處理的訊息。"],
-    takeaway: "預約之間留一點空檔，才有時間整理，也讓自己喘口氣。",
-    note: "顧客能選哪些時間，會依店內設定顯示。記得把整理、休息和不能接客的時間一起安排好。",
-    checklist: [["先安排", "服務、結帳、整理、休息"], ["再開放", "確認顧客能選哪些時間"], ["空檔處理", "新預約、改期、取消和未回覆訊息"]],
-    checklistTitle: "一人店的安排順序", example: "您好，我正在服務其他顧客。您可以先點 LINE 裡的預約入口，選好時間並送出。有其他問題也可以先留言，我忙完就回覆您。",
-    image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
-  },
-  {
-    id: "opening-checklist", icon: "checklist" as const, category: "每日開店檢查", title: "開店前，先看這三件事。",
-    summary: "今天誰會來？有沒有人改時間？這次要收款還是扣堂？",
-    cost: "顧客到了，才發現時間改了、體驗用品還沒準備，或不知道這次要扣哪個方案，就得邊接待邊找資料。開店前先看一遍，接客時會從容一些。",
-    action: "打開蒸管家後台，先看今天的預約，再看看誰改期、取消或已確認會到。最後查看今天顧客的方案，先知道這次要收款還是扣堂。",
-    steps: ["看今天誰會來：確認幾點、幾位、做什麼服務。留意第一次來的顧客，以及兩筆預約靠得太近的時間。", "看有沒有人改時間：查看改期、取消和確認會到的回覆。沒回覆不代表取消，原本的預約要保留。", "看這次用哪個方案：確認預約選的方案、還剩幾堂、有沒有到期。服務結束後，再確認這次收多少錢或扣幾堂。"],
-    takeaway: "開店前先看一遍，顧客來了就能專心接待。",
-    note: "依這個順序查看後台即可。「確認會到」需有對應的提醒功能。結帳時，仍要再確認金額與扣堂。",
-    checklist: [["今日預約", "時間、人數、項目、首次體驗"], ["改期與取消", "改期、取消、確認狀態"], ["服務準備", "這次用的方案、剩幾堂、何時到期"]],
-    checklistTitle: "開店前，照這個順序看", example: "",
-    image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
-  },
-  {
-    id: "trial-booking", icon: "calendar" as const, category: "體驗預約", title: "體驗預約，讓顧客自己選時間。",
-    summary: "讓顧客自己選時間，省下來回確認與重複建檔。",
-    cost: "顧客問「什麼時候可以體驗？」你查時間、回訊息，再等對方確認。約好後，還要把姓名和電話輸入系統，排到當天的預約裡。同一筆預約，又得忙一次。",
-    action: "顧客在線上選好體驗時間、填完資料並送出成功，蒸管家就會自動建立顧客資料，排到選好的日期和時間。設定好 LINE 通知後，店長也會收到體驗客資訊。",
-    steps: ["先設定哪幾天、哪些時間可以體驗，每個時段能接幾位。", "把體驗預約連結放在店家的官方 LINE，讓顧客自己選時間。", "收到通知後，查看當天的預約名單，準備接待顧客。"],
-    takeaway: "顧客填一次，你就少抄一次，也少一輪來回確認。",
-    note: "顧客要完成預約並送出才算約好。只在 LINE 留言詢問，還不會排進預約。店長要收到通知，也需要先完成 LINE 連接與通知設定。",
-    image: "/pricing/business-assets/booking-time-original.png", width: 1532, height: 1364,
-    alt: "暖暖蒸足體驗預約頁的可約日期與時段", caption: "暖暖蒸足預約畫面・點圖放大",
-    caseUrl: "/cases?store=nuannuan", caseLabel: "看看暖暖蒸足怎麼用",
-  },
-  {
-    id: "arrival-reminder", icon: "bell" as const, category: "到店提醒", title: "到店提醒，交給蒸管家。",
-    summary: "讓蒸管家發提醒，你再看誰回覆、誰改時間。",
-    cost: "每天找出明天的預約，一個一個傳提醒，再看看誰回了、誰要改時間。訊息散在不同對話裡，忙著服務時還要來回找。",
-    action: "開啟到店提醒後，蒸管家會照你設定的時間發送。顧客可以點卡片上的按鈕改期或取消；如果卡片有「確認會到」，顧客按下後，你也能在後台看到。",
-    steps: ["選好什麼時候提醒、要說什麼，例如體驗前一天提醒顧客準時到店。", "確認店家的 LINE 已連接蒸管家，提醒已開啟，通知也有設定好要傳給誰。", "每天看看提醒有沒有發出、誰改期或取消，再幫需要協助的顧客處理。"],
-    takeaway: "提醒交給蒸管家，需要多聊幾句的顧客，留給你親自關心。",
-    note: "不同預約和店內設定，卡片按鈕可能不同。下圖是改期和取消的示意，顧客要完成操作才算更改成功。提醒發出了，也不代表顧客一定會到。",
-    image: "/pricing/business-assets/brand-reminder-example.jpeg", width: 1058, height: 1487,
-    alt: "林小姐的蒸管家預約提醒示意卡片，包含日期時間、店名與改時段及取消前往選項", caption: "新版提醒示意・姓名與預約資料為範例・點圖放大",
-    caseUrl: "/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
-  },
-  {
-    id: "plan-expiry", icon: "calendar-clock" as const, category: "方案到期", title: "方案快到期，提早提醒顧客。",
-    summary: "不用一個一個查到期日，提早提醒顧客約時間。",
-    cost: "你得一個一個查方案哪天到期、還剩幾堂，再問顧客什麼時候有空。忙起來忘了提醒，等顧客想預約，才發現已經過期。",
-    action: "開啟方案到期提醒後，蒸管家會依到期日和店內設定發通知。顧客看到還剩幾堂、哪天到期，就能接著預約，有問題也能聯繫店長。",
-    steps: ["先確認顧客的方案哪天到期、還剩幾堂。", "確認店內有方案到期提醒功能，設定提醒時間，並開啟 LINE 通知。", "讓顧客自己選時間預約。時間不好安排或有其他問題，再請他聯繫你。"],
-    takeaway: "讓系統幫你記得到期日，把時間留給真正需要你關心的顧客。",
-    note: "收到提醒不代表已經預約，也不會延長方案期限。顧客仍要在期限內，選擇店內開放的時間預約。",
-    image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
-  },
-];
-
-function GuideArticle({ guide }: { guide: (typeof guides)[number] }) {
-  return (<article aria-label={guide.title} className="p-5 sm:p-7 lg:p-8">
-                <p className="mb-5 text-base leading-7 text-[#4C6259]">{guide.summary}</p>
-                <div className="grid gap-5 xl:grid-cols-2">
-                  <section>
-                    <h3 className="text-lg font-semibold">時間花在哪裡？</h3>
-                    <p className="mt-2 text-base leading-7 text-[#4C6259]">{guide.cost}</p>
-                  </section>
-                  <section className="rounded-xl bg-[#EEF4F0] p-4">
-                    <h3 className="text-lg font-semibold">怎麼做比較省事？</h3>
-                    <p className="mt-2 text-base leading-7">{guide.action}</p>
-                  </section>
-                </div>
-                <div className="mt-5 grid items-start gap-5 xl:grid-cols-2">
-                  {guide.checklist ? (
-                    <section className="rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] p-4">
-                      <h3 className="text-lg font-semibold">{guide.checklistTitle}</h3>
-                      <dl className="mt-3 divide-y divide-[#153B31]/15">
-                        {guide.checklist.map(([label, value]) => <div key={label} className="py-3">
-                          <dt className="text-base font-semibold">{label}</dt>
-                          <dd className="mt-1 text-base leading-7 text-[#4C6259]">{value}</dd>
-                        </div>)}
-                      </dl>
-                      {guide.example ? <div className="mt-3 border-t border-[#153B31]/15 pt-3">
-                        <h4 className="text-base font-semibold">可以這樣回顧客</h4>
-                        <blockquote className="mt-2 text-base leading-7 text-[#4C6259]">{guide.example}</blockquote>
-                      </div> : null}
-                    </section>
-                  ) : guide.image ? (
-                    <figure>
-                      <a href={guide.image} target="_blank" rel="noopener noreferrer" aria-label={guide.caption + "（另開視窗）"} className="block rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] p-2 focus-visible:outline-2 focus-visible:outline-offset-4">
-                        <Image src={guide.image} width={guide.width} height={guide.height} alt={guide.alt} unoptimized className="mx-auto h-auto max-h-[300px] w-full object-contain" />
-                      </a>
-                      <figcaption className="mt-2 text-sm leading-6 text-[#4C6259]">{guide.caption}</figcaption>
-                    </figure>
-                  ) : (
-                    <figure className="overflow-hidden rounded-xl border border-[#C4A45C]/50">
-                      <div className="border-b-2 border-[#C4A45C] bg-[#153F33] p-4 text-base font-semibold text-white">蒸管家｜方案到期提醒</div>
-                      <div className="p-4">
-                        <p className="text-lg font-semibold">林小姐，別忘了你的剩餘堂數。</p>
-                        <dl className="mt-3 divide-y divide-[#153B31]/15 text-base">
-                          <div className="flex justify-between gap-3 py-3"><dt>剩餘堂數</dt><dd className="font-semibold">2 堂</dd></div>
-                          <div className="flex justify-between gap-3 py-3"><dt>方案到期日</dt><dd className="font-semibold">9 月 30 日</dd></div>
-                        </dl>
-                        <p className="mt-2 text-base leading-7 text-[#4C6259]">記得在方案到期前預約。時間不好安排，也可以找店長幫忙。</p>
-                      </div>
-                      <figcaption className="bg-[#FAF8F2] p-3 text-sm leading-6 text-[#4C6259]">通知內容示意・姓名、堂數與日期皆為範例</figcaption>
-                    </figure>
-                  )}
-                  <section>
-                    <h3 className="text-lg font-semibold">你可以這樣做</h3>
-                    <ol className="mt-3 list-decimal space-y-3 pl-5 text-base leading-7 text-[#4C6259]">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol>
-                    {guide.caseUrl ? <Link href={guide.caseUrl} className="mt-3 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">{guide.caseLabel} →</Link> : null}
-                  </section>
-                </div>
-                <p className="mt-5 border-l-4 border-[#C4A45C] bg-[#EEF4F0] p-4 text-base font-medium leading-7">{guide.takeaway}</p>
-                <p className="mt-3 text-sm leading-6 text-[#4C6259]">{guide.note}</p>
-              </article>);
-}
+  { id: "solo-store", category: "booking", title: "一個人顧店，怎麼安排時間？", summary: "先留好服務、整理和休息時間，再開放預約。",
+    steps: ["先列出一次服務或上課需要多久，預留結帳、整理與休息的空檔。", "只開放能接待的時間；不方便接客的時段先保留。", "利用空檔集中查看預約與回覆訊息，電話或現場預約也要登記。"],
+    example: [["SPA", "療程後預留床位整理時間"], ["音樂／運動", "課程之間預留換場與點名時間"], ["蒸足", "每個時段依現場可接待人數安排"]],
+    note: "顧客看到的空位依店內設定顯示，調整營業安排時也要核對既有預約。", feature: "daily", featureName: "預約與日常店務" },
+  { id: "opening-checklist", category: "booking", title: "開店前，先看這三件事。", summary: "今天誰會來？有沒有異動？要準備什麼？",
+    steps: ["確認今天的時間、人數、項目、老師或服務人員，先標記首次來店的顧客。", "查看改期、取消與確認狀態；沒有回覆不代表取消。", "核對方案期限、剩餘堂數與備註，準備教室、位置或服務用品。"],
+    example: [["預約", "14:00・範例顧客 A・首次體驗"], ["異動", "範例顧客 B 已改期，核對新時間"], ["準備", "確認方案、服務人員與使用空間"]],
+    note: "收款與扣堂仍需在實際服務或出席時核對，不能以看過名單代替完成操作。", feature: "daily", featureName: "預約與日常店務" },
+  { id: "trial-booking", category: "booking", title: "體驗預約，怎麼少一輪來回確認？", summary: "讓顧客選好時間並送出，再準備接待。",
+    steps: ["先確認可以提供體驗的日期、時段、人員及名額。", "把正確門市的預約入口提供給顧客，讓顧客填完資料並完成送出。", "查看預約是否成功進入名單，再依資料準備接待；需要通知時先完成 LINE 串接。"],
+    example: [["顧客", "選日期、時間並送出資料"], ["店家", "查看成功建立的預約與顧客資料"], ["現場", "核對姓名、電話與體驗內容"]],
+    note: "LINE 私訊詢問不等於預約成功。不同模組的時段、人員與課程規則依門市設定。", feature: "daily", featureName: "預約與顧客入口" },
+  { id: "arrival-reminder", category: "customers", title: "到店提醒，怎麼少一筆手動訊息？", summary: "例行提醒交給系統，需要協助的顧客再親自處理。",
+    steps: ["訂好提醒時間與內容，確認店名、地址及聯絡方式正確。", "完成 LINE 串接與提醒設定，確認要通知的對象。", "查看發送與預約異動紀錄，針對需要改期或協助的顧客聯繫。"],
+    example: [["提醒", "明天 14:00・範例顧客 A"], ["顧客", "依卡片提供的按鈕完成操作"], ["店家", "核對異動或確認結果"]],
+    note: "提醒送出不代表一定到店；按鈕依模組與店內規則提供，改期或取消需完成操作才生效。", feature: "reminders", featureName: "LINE 自動提醒" },
+  { id: "plan-expiry", category: "customers", title: "方案快到期，怎麼提早安排？", summary: "先核對期限與剩餘堂數，再提醒顧客安排。",
+    steps: ["先確認顧客的有效期限、剩餘堂數與已預約安排。", "在到期前提醒可使用的時間；遇到安排困難，再由店家聯繫。", "顧客完成新預約後核對結果，有續購需求再確認新方案與付款。"],
+    example: [["剩餘", "範例顧客 A・2 堂"], ["期限", "依目前有效方案核對"], ["下一步", "安排預約或詢問續購需求"]],
+    note: "提醒不會延長期限，也不代表已完成預約或續購。音樂個別課、團體課與運動課程的請假、補課及扣堂依各課型處理。", feature: "care", featureName: "顧客經營" },
+  { id: "trial-follow-up", category: "customers", title: "體驗結束後，怎麼接著關心顧客？", summary: "記下需求、約定聯繫時間，避免重複詢問。",
+    steps: ["體驗結束時記下顧客在意的事，以及希望改善或學習的方向。", "確認顧客願意接受的聯繫方式與時間，再安排追蹤。", "聯繫後記錄結果與下一步，讓接手的人知道已經談到哪裡。"],
+    example: [["音樂", "想學鋼琴，先確認合適的上課時間"], ["運動", "關心課程難度與可出席時段"], ["SPA／蒸足", "詢問服務感受與下次安排需求"]],
+    note: "顧客經營協助整理名單與追蹤紀錄，不代表自動代發所有關懷訊息；通知依已開通功能及設定。", feature: "care", featureName: "顧客經營" },
+  { id: "closing-cash", category: "operations", title: "打烊時，現金對不起來怎麼查？", summary: "先清點，再核對現金異動，留下差額原因。",
+    steps: ["清點抽屜的實際現金，分清楚開帳零用金、今日收入與提領。", "對照現金收款、退款與支出紀錄；轉帳、信用卡等非現金付款分開核對。", "有差額先查找原因，記錄清點結果；不要新增一筆收入只為把差額補平。"],
+    example: [["應有現金", "範例 NT$8,200"], ["實際清點", "範例 NT$8,000"], ["差額", "−NT$200，先查耗材支出是否漏登"]],
+    note: "現金抽屜需要實際清點；收款紀錄、營收與抽屜現金不是同一個數字。功能內含與加購請查方案頁。", feature: "cash", featureName: "現金抽屜" },
+  { id: "stock-check", category: "operations", title: "商品帳面數量和現場不同，怎麼查？", summary: "核對單據與實物，再處理差異。",
+    steps: ["選定盤點範圍與時間，清點商品；盤點期間的進出貨另外記清楚。", "核對進貨、銷貨、退貨及工單材料紀錄，找出漏登或重複登記。", "確認差異原因後依店內流程處理，保留單據與調整紀錄供下次追查。"],
+    example: [["進貨", "範例商品 A・20 件"], ["出庫", "已完成單據・3 件"], ["盤點", "應有 17 件，與現場清點核對"]],
+    note: "收款不代表再次出庫。工單與商品單據應核對原始關聯；不要另外新增銷貨單重複記同一份材料。", feature: "inventory", featureName: "進銷存管理" },
+  { id: "work-order-handoff", category: "operations", title: "維修保養接件，到取件怎麼不漏事？", summary: "需求、處理進度與付款分開記，交件時一起核對。",
+    steps: ["接件時確認姓名、電話、種類／型號、問題與需求，記清楚顧客備註。", "處理過程更新內容與進度，確認材料、工費及是否繼續處理；不維修或取消也留下紀錄。", "取件前確認應收、已收、尚欠與付款結果，核對交件；讓顧客知道營業時間、地址及聯絡方式。"],
+    example: [["樂器", "鋼琴調音、管樂保養、提琴或吉他維修"], ["進度", "範例：已完成・待取件"], ["付款", "範例：應收 NT$900・已收 NT$0・尚欠 NT$900"]],
+    note: "工單可獨立使用；商品材料及扣庫存需另開通進銷存。已完成處理不等於已付款，退款與取消依實際交易及權限操作。", feature: "work-orders", featureName: "工單管理" },
+] as const;
 
 export default async function StoreGuidesPage({ searchParams }: { searchParams: Promise<{ guide?: string | string[] }> }) {
-  const selectedId = (await searchParams).guide;
-  const selected = guides.find(guide => guide.id === selectedId) ?? guides[0];
-  return (
-    <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-      <MarketingNavigation active="guides" />
-      <main id="main" className="mx-auto max-w-7xl px-5 py-7 sm:px-8 sm:py-10">
-        <div className="max-w-2xl">
-          <div>
-            <p className="flex items-center gap-2 text-sm text-[#74603C]">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 shrink-0">
-                <path d="M12 5v15M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Z" />
-              </svg>
-              店長經營指南
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">一個人顧店，<br className="sm:hidden" />也能少忙一點。</h1>
-            <p className="mt-3 text-base leading-7 text-[#4C6259]">排時間、看預約、做提醒。選一篇，把方法帶回店裡。</p>
-          </div>
-
-        </div>
-        <div className="mt-8 hidden items-start gap-8 lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="sticky top-24" aria-label="指南目錄">
-            <p className="mb-3 text-sm font-medium text-[#74603C]">選擇閱讀主題</p>
-            <nav className="space-y-2">
-              {guides.map((guide, index) => (
-                <Link key={guide.id} href={`/guides?guide=${guide.id}`} scroll={false}
-                  aria-current={selected.id === guide.id ? "page" : undefined}
-                  className={`block rounded-xl border p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 ${selected.id === guide.id ? "border-[#153B31] bg-[#153B31] text-white" : "border-[#153B31]/15 bg-white hover:bg-[#EEF4F0]"}`}>
-                  <span className="flex items-center gap-2 text-sm opacity-80"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
-                  <span className="mt-2 block text-base font-semibold leading-7">{guide.title}</span>
-                </Link>
-              ))}
-            </nav>
-          </aside>
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-[#153B31]/20 bg-white" aria-label="文章閱讀區">
-            <header className="border-b border-[#153B31]/15 px-8 pb-6 pt-8">
-              <p className="text-sm font-medium text-[#74603C]">{selected.category}</p>
-              <h2 className="mt-2 text-3xl font-semibold leading-snug">{selected.title}</h2>
-            </header>
-            <GuideArticle guide={selected} />
-          </div>
-        </div>
-        <div className="mt-5 space-y-3 lg:hidden">
-          {guides.map((guide, index) => (
-            <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
-              <summary className="cursor-pointer list-none rounded-2xl px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
-                <span className="flex items-center gap-3 text-sm font-medium text-[#74603C]"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
-                <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
-
-                <span className="mt-2 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
-                <span className="mt-2 hidden text-base font-medium group-open:block">收起文章 −</span>
-              </summary>
-              <GuideArticle guide={guide} />
-            </details>
-          ))}
-        </div>
-        <section aria-labelledby="guide-contact" className="mt-6 rounded-2xl bg-[#123E32] p-5 text-white sm:p-6">
-          <h2 id="guide-contact" className="text-xl font-semibold">你最想先少忙哪件事？</h2>
-          <p className="mt-2 text-base leading-7 text-[#D4E0D8]">告訴我們店裡最忙的是什麼，我們會聯繫你，安排適合的體驗。</p>
-          <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
-        </section>
-      </main>
-      <MarketingFooter />
-    </div>
-  );
+  const requested = (await searchParams).guide;
+  const selectedId = typeof requested === "string" && guides.some(guide => guide.id === requested) ? requested : undefined;
+  return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
+    <MarketingNavigation active="guides" />
+    <main id="main" className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-10">
+      <p className="text-sm font-medium text-[#74603C]">店長經營指南</p>
+      <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">選一件事，把做法帶回店裡。</h1>
+      <p className="mt-3 max-w-3xl text-base leading-7 text-[#4C6259]">這裡分享店務做法；系統能做什麼請看<Link href="/pricing/features" className="inline-flex min-h-11 items-center underline underline-offset-4">功能介紹</Link>，按哪裡、怎麼設定，請在登入後台後查看「操作指南」。</p>
+      <nav id="guide-list" aria-label="經營指南分類" className="mt-4 flex flex-wrap gap-3 scroll-mt-24">{categories.map(category => <a key={category.id} href={"#guides-" + category.id} className="inline-flex min-h-11 items-center rounded-full border border-[#153B31]/20 bg-white px-4 text-base focus-visible:outline-2 focus-visible:outline-offset-2">{category.name} ↓</a>)}</nav>
+      {categories.map(category => <section key={category.id} id={"guides-" + category.id} aria-labelledby={"title-" + category.id} className="mt-7 scroll-mt-24">
+        <h2 id={"title-" + category.id} className="mb-3 text-xl font-semibold">{category.name}</h2>
+        <div className="space-y-3">{guides.filter(guide => guide.category === category.id).map(guide => <details key={guide.id} id={guide.id} name="store-guide" open={guide.id === selectedId} className="group scroll-mt-24 rounded-xl border border-[#153B31]/20 bg-white">
+          <summary className="flex min-h-14 cursor-pointer list-none items-start justify-between gap-4 rounded-xl p-4 focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-5 [&::-webkit-details-marker]:hidden"><span><span className="block text-lg font-semibold leading-7">{guide.title}</span><span className="mt-1 block text-base leading-7 text-[#4C6259]">{guide.summary}</span></span><span aria-hidden="true" className="shrink-0 text-xl group-open:rotate-45">＋</span></summary>
+          <article aria-label={guide.title} className="border-t border-[#153B31]/10 p-4 sm:p-5">
+            <div className="grid items-start gap-5 md:grid-cols-2"><section><h3 className="text-lg font-semibold">三個做法</h3><ol className="mt-3 list-decimal space-y-3 pl-5 text-base leading-7 text-[#4C6259]">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol></section><figure className="rounded-xl bg-[#EEF4F0] p-4"><h3 className="text-lg font-semibold">店務範例</h3><dl className="mt-3 divide-y divide-[#153B31]/15">{guide.example.map(([label,value]) => <div key={label} className="py-3"><dt className="font-semibold">{label}</dt><dd className="mt-1 text-base leading-7 text-[#4C6259]">{value}</dd></div>)}</dl><figcaption className="mt-2 text-sm leading-6 text-[#4C6259]">情境與數字為範例，非實際店家成果。</figcaption></figure></div>
+            <p className="mt-4 border-t border-[#153B31]/10 pt-3 text-base leading-7 text-[#4C6259]">{guide.note}</p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><Link href={"/pricing/features#" + guide.feature} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">查看{guide.featureName} →</Link><a href="#guide-list" className="inline-flex min-h-11 items-center text-sm underline underline-offset-4">返回主題列表 ↑</a></div>
+          </article>
+        </details>)}</div>
+      </section>)}
+    </main><MarketingFooter />
+  </div>;
 }
