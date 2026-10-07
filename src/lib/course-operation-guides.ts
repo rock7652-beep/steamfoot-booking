@@ -3,14 +3,35 @@ import type { OperationGuide } from "./operation-guide-types";
 /** Course instructions use the course actions, never the steamfoot wallet rules. */
 export const courseOperationGuides: OperationGuide[] = [
   {
-    id: "C101", category: "booking", title: "共卡會員只替另一位學員預約，怎麼操作？",
-    summary: "先選實際上課者，再核對使用方案與占用額度。", answer: "預約人可以不上課；名額與額度依實際上課者計算。",
-    keywords: "共卡 代約 多人 本人 學員 點數", path: "會員專區 → 預約課程 → 誰要上課？",
-    steps: ["選日期與課程，點預約。", "只勾選要上課的已授權共卡成員；本人不上課就不要勾本人。", "核對上課者、適用方案及總占用額度，再確認預約。"],
-    important: "共卡授權不會開放其他成員的健康資料，也不會授予教練權限。",
-    success: "我的預約依同堂課合併，學員逐人列出，能辨識本人與代約。",
-    details: ["方案必須未過期、適用該課程且可用額度足夠；預約先占用，完成出席才正式使用。", "滿班或送出時額度已被使用會拒絕預約，不能以畫面先前顯示的餘額為準。"],
-    permission: "booking.read", feature: null, sources: ["src/app/(customer)/book/course-portal-client.tsx", "src/server/services/course-booking.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    "id": "C101",
+    "category": "booking",
+    "title": "共卡會員只替另一位學員預約，怎麼操作？",
+    "summary": "先選實際上課者，再核對使用方案與占用額度。",
+    "answer": "預約人可以不上課；名額與額度依實際上課者計算。",
+    "keywords": "共卡 代約 多人 本人 學員 點數 指定成員 同行模式",
+    "path": "會員專區 → 預約課程 → 誰要上課？",
+    "steps": [
+      "選日期與課程，點預約。",
+      "只勾選要上課的已授權共卡成員；本人不上課就不要勾本人。",
+      "核對上課者、適用方案及總占用額度，再確認預約。"
+    ],
+    "important": "共卡授權不會開放其他成員的健康資料，也不會授予教練權限。",
+    "success": "我的預約依同堂課合併，學員逐人列出，能辨識本人與代約。",
+    "details": [
+      "方案須有效、適用課程且額度足夠；預約保留，出席才正式使用。",
+      "此題是指定已授權成員代約。運動自由選課另有含本人 1～3 人同行，不能用它代替本人不上課的指定成員代約。"
+    ],
+    "permission": "booking.read",
+    "feature": null,
+    "sources": [
+      "src/app/(customer)/book/course-portal-client.tsx",
+      "src/server/services/course-booking.ts"
+    ],
+    "kind": "howto",
+    "modules": [
+      "course"
+    ],
+    "verification": "source-reviewed"
   },
   {
     id: "C102", category: "booking", title: "同堂多人只取消其中一人，怎麼處理？",
@@ -55,11 +76,11 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C106", category: "care", title: "課程提醒會寄給誰？怎麼確認有沒有送達？",
     summary: "上課提醒給實際學員，店長通知另行指定收件人。", answer: "通知需啟用規則、具備店家功能與額度，並有有效 LINE 連結。",
-    keywords: "LINE 提醒 通知 收件人 發送 紀錄", path: "設定 → 提醒管理",
-    steps: ["在顧客提醒編輯課程上課提醒，並依方案設定低額度門檻與到期前天數。", "需要店長當日預約或待核帳通知時，到店長通知設定授權收件人與偏好。", "到發送紀錄核對對象與狀態；跳過或失敗不代表送達。"],
+    keywords: "LINE 提醒 通知 收件人 發送紀錄 改期 取消 確認會到 預約 購買 續購 共用官方帳號 館名", path: "設定 → 提醒管理",
+    steps: ["在顧客提醒編輯上課、低額度、到期及體驗後關懷；低額度與用完可顯示預約、購買／續購或諮詢店長。", "前一日提醒可提供改期、取消與確認會到；店長通知另行授權收件人與偏好。", "到發送紀錄核對門市、對象、操作與狀態；跳過或失敗不代表送達。"],
     important: "上課提醒給實際上課者，不會因共卡而寄給其他成員；隔離預覽不向外發送。",
     success: "設定成功後重新開啟仍保留；實際送達需以成功紀錄及收件端確認。",
-    details: ["課程上課提醒於前一日18:00處理，取消預約不發送。低額度依可用額度（剩餘扣除占用）判斷；到期提醒須同時開啟總開關與方案設定。", "儲存文字不會自動啟用；店長 LINE 收件人必須另行授權，教練身分不會自動加入。", "發送紀錄顯示已略過時，先看原因，例如隔離預覽不外發、提醒額度已用完或 LINE 身分／通道未確認；失敗或略過不能當成送達，也不要直接重發全店通知。"],
+    details: ["課程上課提醒於前一日18:00處理，取消預約不發送。改期／取消仍由後端重新檢查門市、身分、期限、名額與方案；確認會到不等於出席。", "低額度依可用額度判斷；到期提醒須同時開啟總開關與方案設定。體驗關懷只納入啟用後且課程結束後完成的體驗。", "共用官方 LINE 的諮詢訊息會帶館名，入口與資料仍依門市隔離；一般聊天不猜門市。", "發送紀錄顯示已略過時先看原因；失敗或略過不能當成送達，也不要直接重發全店通知。"],
     permission: "business_hours.manage", feature: "line_reminder", sources: ["src/server/services/course-reminders.ts", "src/server/services/course-manager-notifications.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -196,10 +217,10 @@ export const courseOperationGuides: OperationGuide[] = [
     id: "C120", category: "care", title: "每個課程方案的低額度與到期提醒怎麼設定？",
     summary: "在提醒管理逐一設定低額度門檻與到期前天數，再一次儲存。", answer: "每張卡依可用額度與該方案的天數判斷；到期提醒還需要總開關啟用。",
     keywords: "低額度提醒 到期提醒 方案提醒 門檻 到期天數 14 7 可用額度", path: "設定 → 通知與顧客經營 → 提醒管理 → 顧客提醒",
-    steps: ["搜尋方案，勾選低額度提醒並填門檻。", "勾選到期提醒，輸入逗號分隔的天數，例如 14, 7；確認上方到期提醒總開關已開。", "儲存全部修改，重新開啟並用預覽核對方案名稱、單位與提醒階段。"],
+    steps: ["搜尋方案，勾選低額度提醒並填門檻。", "勾選到期提醒，輸入逗號分隔的天數，例如 14, 7；確認上方到期提醒總開關已開。", "儲存後用預覽核對方案名稱、單位、提醒階段，以及立即預約、購買／續購與諮詢店長操作。"],
     important: "預覽是示意，不會證明 LINE 已送達；隔離預覽不向外發送。",
     success: "頁面顯示所有設定已儲存，重新開啟後各方案門檻與天數仍正確。",
-    details: ["低額度用剩餘扣除已預約占用後的可用額度判斷；每卡每位成員提醒一次。", "到期天數限 1–365 天、最多 6 次；更改天數不補發已錯過階段，也不會變更方案期限。"],
+    details: ["低額度用剩餘扣除已預約占用後的可用額度判斷；額度用完與低額度使用不同通知階段。", "到期天數限 1–365 天、最多 6 次；更改天數不補發已錯過階段，也不會變更方案期限。", "預覽按鈕要與實際訊息一致，但預覽不送出訊息，也不能替代真人 LINE 操作驗收。"],
     permission: "business_hours.manage", feature: "line_reminder", sources: ["src/app/(dashboard)/dashboard/courses/reminders/low-balance-settings.tsx", "src/server/actions/course-plan-reminders.ts", "src/server/services/course-expiry-reminders.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

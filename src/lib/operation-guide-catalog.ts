@@ -53,6 +53,20 @@ export const guideCategories: GuideCategory[] = [
     ]
   },
   {
+    "id": "inventory",
+    "label": "進銷存",
+    "routes": [
+      "/dashboard/inventory"
+    ]
+  },
+  {
+    "id": "work-orders",
+    "label": "工單管理",
+    "routes": [
+      "/dashboard/work-orders"
+    ]
+  },
+  {
     "id": "care",
     "label": "通知與顧客關懷",
     "routes": [
@@ -209,49 +223,57 @@ export const additionalGuides: OperationGuide[] = [
     "id": "A04",
     "category": "booking",
     "title": "如何替顧客新增預約？",
-    "summary": "新增預約時先選對顧客，再選日期、人數與可用時段。",
-    "path": "預約管理 → 新增預約",
+    "summary": "從新增預約右側視窗選顧客、日期、人數與可用時段；窄畫面會自動重排，未儲存內容不因尺寸切換消失。",
+    "path": "預約管理 → 新增預約／當日清單 → 新增預約",
     "steps": [
-      "先找到正確顧客，避免為既有顧客重複建檔。",
-      "選日期、人數及可用時段，核對方案或體驗資訊。",
-      "確認資料後送出，回到當日清單核對顧客、時間與人數。"
+      "點頂部或當日清單的新增預約，右側視窗先顯示已知日期與表單，再載入可用顧客、方案與時段。",
+      "搜尋並選對顧客，核對方案、體驗或補課資格；選日期、人數與可用時段，人數改變後重新檢查容量。",
+      "成功後視窗關閉、清單更新；回查顧客、時間與人數，避免重複建立。"
     ],
     "important": "人數變更後若原時段容量不足，需要重新選時段。",
     "success": "當日清單出現正確的預約，沒有重複新增。",
-    "keywords": "代約 新預約 新增",
-    "details": [],
+    "keywords": "代約 新預約 新增 右側視窗 新增補課 未儲存 日期保留 iPad 手機 窄畫面 載入 重試",
+    "details": [
+      "已知摘要會先顯示；時段、方案與容量等仍須等最新資料載入。顯示讀取失敗時先重試，不要憑舊畫面送出。",
+      "新增補課沿用同一右側表單，仍需有效補課資格。",
+      "旋轉、縮放或切換預覽尺寸不應清除草稿；未儲存關閉會先詢問，送出中不能關閉，失敗保留輸入。",
+      "容量、方案、值班與權限仍由原流程檢查；跨店唯讀不能新增。"
+    ],
     "modules": [
       "steamfoot"
     ],
     "permission": "booking.create",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
+      "src/app/(dashboard)/dashboard/bookings/steam-booking-drawer.tsx",
+      "src/server/actions/steam-booking-form.ts",
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/components/operations/panel-read-cache.tsx",
+      "src/server/actions/booking.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "新增預約時先選對顧客，再選日期、人數與可用時段。"
+    "answer": "從新增預約右側視窗選顧客、日期、人數與可用時段；窄畫面會自動重排，未儲存內容不因尺寸切換消失。"
   },
   {
     "id": "A05",
     "category": "booking",
     "title": "怎麼查看當日預約、狀態並直接聯絡顧客？",
-    "summary": "切換日期查看當日清單；需要聯絡時直接點顧客電話旁的「撥打」，不必先開預約詳情。",
+    "summary": "依月份與日期查看精簡清單、狀態、統計與顧客聯絡方式；手機會把篩選獨立成一列並保留主要操作。",
     "path": "預約管理",
     "steps": [
-      "在日期區選今天或要查看的日期。",
-      "查看該日清單；月曆淡灰表示預約中、淡綠表示已完成、淡紅表示未到，並以畫面圖例為準。",
-      "需要聯絡顧客時，在清單點電話旁的「撥打」；要處理預約才點同一列其他位置開啟詳情。",
-      "若找不到資料，先確認門市、日期及目前篩選。"
+      "在上方選月份與日期；手機篩選會獨立成一列，月曆與名單只在自己的區塊捲動。",
+      "點月曆日期開啟當日清單，依統計與圖例辨識預約中、已完成、未到、補課及待收款；再用姓名／電話、人員或未收款篩選。",
+      "名單優先顯示顧客、時間、方案及主要狀態；點電話旁的撥打聯絡顧客，要處理預約才開該列明細。",
+      "關閉後留在原月份與篩選；月曆圖例旁可看最後更新時間並按手動更新。"
     ],
     "important": "「撥打」只開啟裝置的電話功能，不會改預約狀態；沒有電話時顯示「未留電話」。",
     "success": "當日清單顯示正確預約；點電話不會誤開詳情或更改資料。",
-    "keywords": "月曆 今天 明天 查詢 今日預約 顧客電話 直接撥打 未留電話 預約中 已完成 未到 狀態顏色",
+    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段",
     "details": [
-      "月曆不再用服務人員色條表示預約狀態；指定人員篩選時，其他人員的預約會淡化，但狀態底色不變。",
-      "電話以目前顧客資料顯示；號碼錯誤請回顧客基本資料核對，不要只改預約備註。"
+      "手機與 iPad 窄寬度會重排月份、篩選與主要操作；月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
+      "點電話不會開詳情或改狀態；號碼錯誤請回顧客資料修正。所屬店長顯示帳號的店內名稱，不能據此改派顧客。",
+      "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。"
     ],
     "modules": [
       "steamfoot"
@@ -261,29 +283,32 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/booking-calendar-desktop.tsx",
       "src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx",
-      "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx"
+      "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx",
+      "src/app/(dashboard)/dashboard/bookings/booking-layout.module.css"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "切換日期查看當日清單；需要聯絡時直接點顧客電話旁的「撥打」，不必先開預約詳情。"
+    "answer": "切換月份與日期查看精簡清單、狀態與統計；需要聯絡時直接點顧客電話旁的「撥打」，不必先開預約詳情。"
   },
   {
     "id": "A06",
     "category": "booking",
     "title": "服務完成前，要核對哪些資料？",
     "summary": "完成服務會影響堂數與收款紀錄。送出前要核對顧客、實際到店人數、方案與付款狀態。",
-    "path": "預約管理 → 預約明細",
+    "path": "預約管理 → 當日名單 → 收款／預約明細",
     "steps": [
-      "核對顧客、實際到店人數、方案與到期日。",
-      "檢查本次的付款方式、收款金額或扣堂說明。",
-      "確認無誤再完成服務；畫面會先顯示完成，再於背景核對實際結果，最後回查收款／堂數紀錄。"
+      "核對顧客、實到人數、方案、到期日與付款狀態。",
+      "待到店且未收款的體驗／單次預約可點名單收款；左側完成圈也會先進入收款確認。",
+      "等待完整明細；巢狀收款／確認視窗會顯示在最上層，再核對金額、方式與必要的多人實到人數。",
+      "有收款權限才可確認；成功後回查預約、收款與扣堂紀錄，堂數提醒另於背景處理。"
     ],
     "important": "完成服務可能影響收款與堂數；顯示正在確認或暫時無法確認時先查看最新狀態，不要重複送出。",
     "success": "預約、實際到店、收款與扣堂紀錄一致；需要發送的堂數提醒另於背景處理。",
-    "keywords": "完成 結帳 報到 即時更新 背景同步 正在確認 堂數提醒",
+    "keywords": "完成 結帳 收款並完成 當日名單 未收款 單次 多人實到 背景同步 正在確認 堂數提醒 最上層 Escape 返回",
     "details": [
-      "單人方案或已收款預約可在其他明細背景同步中完成服務；多人、未收款或需調整實到人數時，仍須等畫面提供對應確認步驟。",
-      "完成服務的交易先提交，低堂數／最後一堂等 LINE 提醒在背景派送；完成成功不等於訊息已送達，通知失敗也不會回滾已完成服務。"
+      "快捷入口仍需既有確認，不因點一次就自動扣款。查看模式、已收款、已完成／取消／未到不提供入口。",
+      "巢狀視窗按 Escape 只關閉最上層；取消會回原視窗且不送出。顯示正在確認時不能關閉，避免不確定結果下重複操作。",
+      "結果不明先查最新狀態，避免重送。低堂數／最後一堂 LINE 提醒在背景派送；完成成功不等於訊息送達，通知失敗不回滾服務。"
     ],
     "modules": [
       "steamfoot"
@@ -294,6 +319,7 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
       "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
+      "src/components/admin/modal-panel.tsx",
       "src/hooks/use-responsive-action.ts",
       "src/server/actions/booking.ts",
       "src/server/services/session-balance-notifications.ts"
@@ -594,17 +620,21 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C03",
     "category": "customers",
     "title": "顧客姓名或電話填錯，怎麼修正？",
-    "summary": "顧客基本資料可以編輯，但修改姓名或電話不會自動更換 LINE 綁定。",
-    "path": "顧客管理 → 顧客資料 → 編輯",
+    "summary": "顧客基本資料可以在右側資料視窗編輯；儲存後同一位顧客與清單會同步更新，但不會自動更換 LINE 綁定。",
+    "path": "顧客管理 → 點選顧客 → 編輯基本資料",
     "steps": [
-      "找到顧客，先核對目前的姓名與電話。",
-      "進入編輯，修改需要更正的欄位後儲存。",
-      "返回顧客資料確認新內容。"
+      "從顧客清單開啟正確顧客，先核對目前姓名與電話。",
+      "進入編輯，修改需要更正的欄位後儲存；送出中不要關閉或連按。",
+      "留在同一位顧客核對更新後資料，再核對背景清單的姓名、電話或備註已同步。"
     ],
     "important": "更正聯絡資料不等於重新綁定 LINE；若遇到電話衝突，保留提示再處理。",
-    "success": "資料頁顯示正確的姓名與電話。",
-    "keywords": "名字 手機 更正 編輯",
-    "details": [],
+    "success": "目前顧客視窗與背景清單都顯示正確資料，搜尋與篩選仍保留。",
+    "keywords": "名字 手機 更正 編輯 顧客右側視窗 清單同步 保留搜尋 保留篩選 重新整理",
+    "details": [
+      "儲存成功會失效並重讀目前顧客，再在背景更新清單；不必關閉重開，也不要因短暫舊值重複修改。",
+      "關閉顧客視窗只移除目前顧客參數，不會清掉原搜尋、分頁或篩選；瀏覽器上一頁／下一頁可依網址重開對應顧客。",
+      "SPA 顧客儲存後同樣會重讀目前顧客並更新清單；總部跨店查看為唯讀，不會顯示編輯。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -612,11 +642,14 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "customer.update",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
+      "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "src/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content.tsx",
+      "src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx",
+      "src/app/(dashboard)/dashboard/customers/_components/spa-customer-overview.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "顧客基本資料可以編輯，但修改姓名或電話不會自動更換 LINE 綁定。"
+    "answer": "顧客基本資料可以在右側資料視窗編輯；儲存後同一位顧客與清單會同步更新，但不會自動更換 LINE 綁定。"
   },
   {
     "id": "C04",
@@ -914,7 +947,9 @@ export const additionalGuides: OperationGuide[] = [
       "此題說明蒸足方案的待確認收款；SPA 請查看「SPA 服務完成後，怎麼收款或扣方案？」。",
       "送出購買申請時還不會開通堂數。確認失敗或顯示已處理時，先查原交易及方案，不要重新指派或再建訂單。"
     ],
-    "modules": ["steamfoot"],
+    "modules": [
+      "steamfoot"
+    ],
     "permission": "transaction.create",
     "feature": null,
     "sources": [
@@ -988,7 +1023,7 @@ export const additionalGuides: OperationGuide[] = [
     "id": "E08",
     "category": "money",
     "title": "要登記收入或支出，從哪裡操作？",
-    "summary": "三個模組共用同一組記帳欄位；收入分零售／其他，並可依月份、類型或關鍵字回查。",
+    "summary": "三個模組共用同一組記帳欄位；收入分零售／其他，可依月份、類型或關鍵字回查，讀取失敗可在原面板重試。",
     "path": "營運 → 現金抽屜 → 記一筆收支",
     "steps": [
       "開啟現金抽屜，點「記一筆收支」；新增時預設選零售收入並直接顯示顧客欄位，需要補登其他日期時先選正確日期。",
@@ -997,11 +1032,12 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "預設零售收入只是方便開始輸入，不代表系統已判斷分類；非零售請先改成其他收入或支出。非現金收支與抽屜現金不同，付款方式要如實填寫。",
     "success": "收支明細出現正確紀錄。",
-    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 預設零售收入 零售分類 其他收入 補登日期 搜尋記帳 全部收入 提領 調整 顧客電話 備註",
+    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 預設零售收入 零售分類 其他收入 補登日期 搜尋記帳 全部收入 提領 調整 顧客電話 備註 讀取失敗 重試 進銷存 連動 唯讀",
     "details": [
       "記帳時選零售收入會納入零售分析；選其他收入會納入其他收入分析。顧客姓名不影響分類。",
       "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。",
-      "搜尋框最多取前 60 字並短暫等待輸入完成；切換月份會清除自訂起訖日期，其他篩選可組合使用。"
+      "搜尋框最多取前 60 字並短暫等待輸入完成；切換月份會清除自訂起訖日期，其他篩選可組合使用。",
+      "面板讀取失敗時會保留原位置並提供重試；不要連按新增。由進銷存收付款建立的現金紀錄會標示來源，必須回原銷貨／進貨單處理，現金帳不可獨立修改或刪除。"
     ],
     "modules": [
       "steamfoot",
@@ -1014,27 +1050,33 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx",
       "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx",
-      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx"
+      "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-record-filters.tsx",
+      "src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx",
+      "src/app/(dashboard)/dashboard/cashbook/page.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "三個模組共用同一組記帳欄位；收入可選關聯顧客與消費項目，並可依月份、收支類型及關鍵字回查。"
+    "answer": "從現金抽屜登記一般收支，可關聯顧客並依月份、類型或關鍵字回查；讀取失敗在原面板重試，進銷存連動紀錄不可在現金帳重複修改。"
   },
   {
     "id": "E09",
     "category": "money",
     "title": "開店與閉店怎麼核對現金？",
     "summary": "開店與閉店都要填實際點到的現金；若有差額，記錄原因後再確認。",
-    "path": "營運 → 現金抽屜 → 今日現金狀態",
+    "path": "後台上方工具 → 現金抽屜 → 今日現金狀態",
     "steps": [
+      "從四模組任何後台頁面上方點「現金抽屜」；系統會讀取目前門市的最新狀態。",
       "開店時輸入實際點到金額；若與帳面不同，填寫原因。",
       "營業中登錄收支、提領與補入現金。",
       "在今日現金狀態點「閉店點錢」，核對系統應有與實際金額，再完成閉店。"
     ],
     "important": "閉店後當日現金異動會鎖定，先完成登錄再閉店。",
     "success": "閉店實點、差額與下次開店起點均可查。",
-    "keywords": "點錢 開店 閉店 對帳",
-    "details": [],
+    "keywords": "上方工具 現金抽屜 點錢 開店 閉店 對帳 任何頁面 彈窗",
+    "details": [
+      "現金抽屜彈窗每次以目前門市權威資料為準；切店、權限不足、唯讀查看或功能未開通時不能操作。",
+      "送出中不可關閉；儲存只更新抽屜內容，外層頁面的草稿、篩選與位置應保留。"
+    ],
     "modules": [
       "steamfoot",
       "spa",
@@ -1044,7 +1086,9 @@ export const additionalGuides: OperationGuide[] = [
     "feature": "cash_drawer",
     "sources": [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
-      "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
+      "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx",
+      "src/components/cash-drawer-shortcut.tsx",
+      "src/app/cash-drawer-panel/page.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1186,11 +1230,13 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "公開體驗完成頁的「體驗預約成功」與 LINE 通知狀態是兩件事。若預約已成功但通知尚未完成，不要重複預約；先依 F12 核對完成頁顯示的狀態。",
       "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
-      "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。"
+      "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
+      "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。"
     ],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
@@ -1198,7 +1244,8 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
       "src/app/api/line/webhook/route.ts",
-      "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx"
+      "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
+      "src/server/services/configured-course-line-webhook.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -1208,7 +1255,7 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F06",
     "category": "care",
     "title": "如何啟用體驗後自動關懷？",
-    "summary": "啟用並儲存後，符合條件的新完成體驗才會進入關懷流程；不會補發所有歷史體驗。",
+    "summary": "啟用並儲存後，符合條件的新完成體驗才會進入關懷流程；課程體驗要等課程結束且已完成，不會補發歷史資料。",
     "path": "提醒管理 → 顧客提醒 → 體驗客後續關懷",
     "steps": [
       "打開整組關懷，檢查每一階段的開關。",
@@ -1221,7 +1268,8 @@ export const additionalGuides: OperationGuide[] = [
     "details": [],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
@@ -1266,7 +1314,7 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F08",
     "category": "care",
     "title": "顧客已購買或預約，還會收到體驗邀請嗎？",
-    "summary": "已購買或已有預約會略過後續邀請；蒸足套票申請待核帳也會略過，但不代表已付款。第一階段關心不受這些條件影響。",
+    "summary": "已購買、待核帳或已有預約會依模組規則略過後續邀請；第一階段關心不受這些條件影響。",
     "path": "體驗客後續關懷 → 發送規則與避免打擾",
     "steps": [
       "查看該顧客的購買及預約紀錄，確認是否已完成購買或已有預約。",
@@ -1278,11 +1326,12 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "後續邀請階段會檢查購買與預約條件。第一階段仍依其他啟用、時間及停止關懷條件判斷。",
       "蒸足顧客已有本店套票購買申請、仍待核帳時，也會略過後續邀請；這不代表已付款或已開通堂數。",
-      "已略過的階段不補發。訂單取消後，尚未到發送時間的階段仍依當時狀態判斷；SPA 使用自己的購買與預約紀錄，不套用蒸足待核帳訂單規則。"
+      "已略過的階段不補發。訂單取消後，尚未到發送時間的階段仍依當時狀態判斷；SPA 與課程各用自己的購買及預約紀錄。"
     ],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
@@ -1327,87 +1376,113 @@ export const additionalGuides: OperationGuide[] = [
   {
     "id": "F10",
     "category": "customers",
-    "title": "如何找到久未到店或需要續約關心的顧客？",
-    "summary": "顧客經營會整理久未到店、建議回店與建議續約名單，讓店家找出需要關心的人。",
+    "title": "如何處理待關懷、已安排與已處理的顧客？",
+    "summary": "顧客經營依生日、體驗未轉換、久未回店及額度條件整理名單；可記錄結果、下次追蹤或直接開啟預約。",
     "path": "顧客經營",
     "steps": [
-      "打開顧客經營，選「好久不見」「建議安排回店」或「建議續約」。",
-      "查看名單，再打開顧客資料核對近期紀錄。",
-      "依實際狀況聯絡並記錄追蹤情形。"
+      "打開顧客經營，切換待關懷、已安排／已預約或已處理，核對關懷原因與近期紀錄。",
+      "實際聯絡後記錄結果；需要稍後追蹤時設定下次日期，不要把手動聯繫結果當成已建立預約。",
+      "需要安排服務時從同頁開啟本模組預約，完成後重新載入核對狀態。"
     ],
     "important": "名單是經營參考，不代表已自動完成聯絡。",
     "success": "",
-    "keywords": "留存 久未到店 續約 回訪",
-    "details": [],
+    "keywords": "留存 久未到店 續約 回訪 生日祝福 體驗未轉換 下次追蹤 已安排 已預約 同頁預約",
+    "details": [
+      "生日依年度、關懷原因分開記錄；舊的一般聯繫紀錄不會自動視為今年生日已處理。",
+      "有未來預約時顯示已預約；取消後重新依條件與追蹤日期判斷，實際完成回店後原條件會重新計算。",
+      "蒸足、SPA、課程使用各自的預約、方案與權限規則；記錄祝福本身不會發送 LINE。"
+    ],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "customer.read",
     "feature": "customer_care",
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
+      "src/app/(dashboard)/dashboard/growth/_components/care-workspace.tsx",
+      "src/server/queries/customer-care-activity.ts",
+      "src/server/actions/customer-care-booking.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "顧客經營會整理久未到店、建議回店與建議續約名單，讓店家找出需要關心的人。"
+    "answer": "先依狀態與原因核對顧客，再記錄實際聯繫、設定下次追蹤或用同頁預約；只有真正建立的預約才會顯示已預約。"
   },
   {
     "id": "G01",
     "category": "staff",
-    "title": "新增服務人員時，要準備什麼？",
-    "summary": "新增帳號前，準備人員姓名、手機與初始密碼，再依工作需求設定角色與權限。",
+    "title": "新增後台人員時，角色與工作身分怎麼選？",
+    "summary": "先建立後台帳號並選 Staff／Manager／Owner；教練、教師或芳療師是另一種工作身分，要另外連結。",
     "path": "人員管理 → 新增人員",
     "steps": [
-      "點「＋ 新增人員」，填寫真實姓名、顯示名稱、手機與初始密碼。",
-      "核對輸入內容後建立人員，再確認人員列表與角色。",
-      "依工作需要另行確認權限，請本人登入確認。"
+      "到左側「人員管理」點「＋ 新增人員」，填姓名、手機、Email 與初始密碼。",
+      "一般日常人員選 Staff；需管理店務與較多權限時由 Owner 評估 Manager；只有實際店主才選 Owner。",
+      "建立後開啟該人員，核對角色與細項權限；需要教練、教師或芳療師工作身分時，再到對應模組完成連結與排班。",
+      "請本人重新登入正確門市，確認只看得到被授權的入口。"
     ],
-    "important": "建立人員與設定可操作權限不同，須另外核對授權範圍。",
-    "success": "人員列表能看到正確資料與角色。",
-    "keywords": "新增員工 教練 芳療師 帳號",
-    "details": [],
+    "important": "後台角色、細項權限與教練／教師／芳療師身分是三件事；新增業務身分不會自動給後台全權。",
+    "success": "人員能登入正確門市，角色、可見入口與實際工作身分符合安排。",
+    "keywords": "新增員工 後台帳號 Staff Manager Owner 門市人員 店長 老闆 教練 教師 芳療師 工作身分 角色 權限",
+    "details": [
+      "Manager 可管理 Staff／舊帳號，但不能管理自己、Owner、Admin 或其他 Manager，也不能授出自己沒有的權限。",
+      "只有 Owner／Admin 可指派 Owner、Manager、Staff；既有 PARTNER 保留原授權，不會自動改角色。",
+      "建立或明確勾選套用角色預設時才寫入預設權限；後續角色切換預設保留個別授權，除非勾選取代。"
+    ],
     "modules": [
-      "steamfoot"
+      "steamfoot",
+      "spa",
+      "course"
     ],
     "permission": "staff.manage",
     "feature": null,
     "sources": [
       "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
-      "src/lib/permissions.ts"
+      "src/app/(dashboard)/dashboard/staff/staff-account-editor.tsx",
+      "src/components/admin/staff-role-control.tsx",
+      "src/lib/permissions.ts",
+      "src/lib/staff-role-policy.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "新增帳號前，準備人員姓名、手機與初始密碼，再依工作需求設定角色與權限。"
+    "answer": "新增人員時選後台角色並確認個別權限；教練、教師或芳療師的業務身分與排班另行設定，不會因角色自動取得。"
   },
   {
     "id": "G03",
     "category": "staff",
     "title": "員工看不到某個功能，是系統壞了嗎？",
-    "summary": "功能是否出現會受角色權限、門市模組與方案開通狀態影響，先依序核對這三項。",
+    "summary": "功能是否出現會受角色、個別權限、門市模組與功能開通狀態影響；先依這四層核對。",
     "path": "人員管理／設定",
     "steps": [
-      "確認登入者身分及目前門市。",
-      "核對該功能的員工權限與門市開通狀態。",
-      "請有管理權限的人員調整；未開通功能需先確認方案。"
+      "確認登入者、目前門市與後台角色是 Owner、Manager、Staff 或舊帳號。",
+      "到人員管理核對該功能所需的查看／建立／管理／成本等細項權限，以及是否套用角色預設或已自訂。",
+      "再核對門市是否已開通該模組與功能；隱藏、鎖定或未開通時，不會因勾權限就出現。",
+      "由有 staff.manage 且階層允許的人員調整；儲存後請當事人重新登入並再次確認。"
     ],
-    "important": "有選單不代表有修改權限；操作指南不會代替權限授權。",
-    "success": "",
-    "keywords": "沒有按鈕 權限 看不到",
-    "details": [],
+    "important": "權限、功能開通與店舖範圍會一起檢查；Owner 也不能繞過未開通功能或跨店限制。",
+    "success": "重新登入後只出現授權且已開通的入口，直接網址與按鈕結果一致。",
+    "keywords": "沒有按鈕 權限 看不到 Owner Manager Staff 角色預設 已自訂 功能未開通 隱藏 鎖定 重新登入",
+    "details": [
+      "Owner 在所屬門市內擁有已開通功能的權限；Manager／Staff 依實際 StaffPermission 判定，不能只看角色名稱。",
+      "權限變更會清除快取；角色或帳號狀態變更會撤銷舊登入狀態。若仍看到舊畫面，先重新登入，不要重複儲存。",
+      "教練、教師、芳療師或會員連結不等於後台權限；需分別核對工作身分與人員帳號。"
+    ],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "staff.view",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
-      "src/lib/permissions.ts"
+      "src/app/(dashboard)/dashboard/staff/staff-account-editor.tsx",
+      "src/components/admin/staff-role-control.tsx",
+      "src/lib/permissions.ts",
+      "src/lib/staff-role-policy.ts",
+      "src/components/sidebar.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "功能是否出現會受角色權限、門市模組與方案開通狀態影響，先依序核對這三項。"
+    "answer": "先核對目前門市與角色，再查個別權限、模組及功能開通；有選單不表示能執行全部操作。"
   },
   {
     "id": "G04",
@@ -1422,11 +1497,12 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "重設連結限所屬門市、有效後台帳號且只能使用一次；更新成功後舊登入狀態會失效。不要刪除歷史來處理離職。",
     "success": "本人能用新密碼登入正確門市；或離職人員已停用且舊紀錄仍可追查。",
-    "keywords": "忘記密碼 重設密碼 沒收到信 垃圾郵件 連結過期 新密碼 停用 離職",
+    "keywords": "忘記密碼 重設密碼 沒收到信 垃圾郵件 連結過期 新密碼 停用 離職 最後一位 Owner 降級 重新登入",
     "details": [
       "畫面固定顯示已受理，不會透露 Email 是否存在；五分鐘內重複申請不會再寄一封。先檢查垃圾郵件、門市是否正確及是否輸入原綁定信箱。",
       "預覽環境會封鎖外部寄信，不能用預覽沒收到信判定正式站故障。連結失效或用過後請從原門市登入頁重新申請。",
-      "只有啟用中的店長／合作店長後台帳號可自助重設；停用帳號不會因申請重設而重新啟用。"
+      "只有啟用中的後台人員帳號可自助重設；停用帳號不會因申請重設而重新啟用。",
+      "停用、降級或改角色會撤銷舊登入狀態；每店最後一位啟用中的 Owner 不可停用或降級，須先安排另一位 Owner。"
     ],
     "modules": [
       "steamfoot",
@@ -1440,7 +1516,8 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/hq/forgot-password/page.tsx",
       "src/app/hq/reset-password/page.tsx",
       "src/server/actions/backoffice-password-reset.ts",
-      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx"
+      "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
+      "src/lib/staff-role-policy.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1606,18 +1683,21 @@ export const additionalGuides: OperationGuide[] = [
     "id": "I05",
     "category": "settings",
     "title": "切換分店後，為什麼只能查看？",
-    "summary": "切換分店是查看模式，供你閱讀該店資料；修改、收款與完成服務仍由該店有權限的帳號操作。",
-    "path": "左側門市切換 → 查看分店",
+    "summary": "切換分店是查看模式；總部或母店可閱讀授權資料，但新增、編輯、預約、收款、扣次與退款仍由該店操作。",
+    "path": "頂欄門市切換 → 查看分店",
     "steps": [
-      "核對頂欄目前正在查看的門市。",
-      "要操作自己的店時，從門市選單切回「我的店」；分店資料需由該店有權限的帳號處理。"
+      "核對頂欄目前正在查看的門市與「查看模式」提示。",
+      "可閱讀清單與有權限的明細；SPA 顧客可查看概況、服務歷程及可讀的方案／儲值與帳務分頁。",
+      "需要新增、修改、預約、購買／加值、收款或退款時，切回「我的店」或請該店有權限的帳號處理。"
     ],
     "important": "",
     "success": "",
-    "keywords": "串接 多店 分店 查看 唯讀",
+    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 SPA 顧客 概況 服務歷程 方案 儲值 不可編輯 不可預約 不可購買 不可退款",
     "details": [
-      "母店店主也只能查看下層店；查看模式不能新增、修改、收款、扣堂或發送通知。教學入口不會改變這項限制。",
-      "切入下層店時頂欄會保留查看狀態；回到「我的店」才恢復自己店內原有的寫入權限。跨店查看會留下唯讀操作紀錄。"
+      "母店店主也只能查看下層店；查看模式不會把本店 OWNER／MANAGER 的寫入權限延伸到其他店。",
+      "跨店查看不能新增或編輯顧客，也不提供預約、購買方案、加值、收款、扣次或退款按鈕；能看見資料不等於取得寫入權限。",
+      "實際店家 OWNER／MANAGER 仍依原本權限顯示操作；總部角色不會因可選店就繞過門市寫入範圍。",
+      "切入下層店時頂欄會保留查看狀態；回到「我的店」才恢復自己店內原有寫入權限。跨店查看會留下唯讀操作紀錄。"
     ],
     "modules": [
       "steamfoot",
@@ -1629,11 +1709,13 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/components/store-view-mode-switcher.tsx",
       "src/server/actions/store-view-mode.ts",
-      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx"
+      "src/app/(dashboard)/dashboard/customers/page.tsx",
+      "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
+      "src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "explanation",
-    "answer": "切換分店是查看模式，供你閱讀該店資料；修改、收款與完成服務仍由該店有權限的帳號操作。"
+    "answer": "切換分店是查看模式；總部或母店可閱讀授權資料，但新增、編輯、預約、收款、扣次與退款仍由該店操作。"
   },
   {
     "id": "I09",
@@ -2557,7 +2639,9 @@ export const additionalGuides: OperationGuide[] = [
       "LINE 通知依店家設定發送。複製資料或開啟 LINE 不等於已把訊息送給店長。",
       "已存在同方案待核帳申請或送出結果不明時，先提供訂單編號請店家查詢，不要直接重做。"
     ],
-    "modules": ["steamfoot"],
+    "modules": [
+      "steamfoot"
+    ],
     "permission": "customer.read",
     "feature": null,
     "sources": [
@@ -2589,7 +2673,11 @@ export const additionalGuides: OperationGuide[] = [
       "例：串接 6 間，串接費為 首間免費 ＋ 4 × $500 ＋ 1 × $300 ＝ $2,300／月；加上目前總部展店版 $4,990，共 $7,290／月，未包含各分店系統月費。",
       "已開通可串接 10 間、實際只串接 3 間時，串接費按 3 間計算，首間免費，其餘 2 間各 $500，即 $1,000／月；本頁試算不是自動扣款。"
     ],
-    "modules": ["steamfoot", "spa", "course"],
+    "modules": [
+      "steamfoot",
+      "spa",
+      "course"
+    ],
     "permission": "plans.edit",
     "feature": null,
     "sources": [
@@ -2625,7 +2713,10 @@ export const additionalGuides: OperationGuide[] = [
       "消費紀錄只顯示已歸戶的方案購買及店內收入；沒有紀錄不代表系統會依備註或姓名自動推測歸戶。",
       "首頁若有「分享店家給好友」，會開啟 LINE 分享選擇；開啟選單或取消不等於成功傳送。顯示「暫時無法分享，請稍後再試」時，保留錯誤資訊，不需要重新建立會員。"
     ],
-    "modules": ["steamfoot", "spa"],
+    "modules": [
+      "steamfoot",
+      "spa"
+    ],
     "permission": "customer.read",
     "feature": null,
     "sources": [
@@ -2661,7 +2752,9 @@ export const additionalGuides: OperationGuide[] = [
       "結果沿用已載入的月份資料，不會跨店查詢；清單過長時可在結果區向下捲動。",
       "搜尋框不會自動打開第一筆，必須點選明確結果。"
     ],
-    "modules": ["steamfoot"],
+    "modules": [
+      "steamfoot"
+    ],
     "permission": "booking.read",
     "feature": null,
     "sources": [
@@ -2690,7 +2783,10 @@ export const additionalGuides: OperationGuide[] = [
       "候選只會使用目前門市及登入者可查看的範圍；同名仍要用電話核對。",
       "載入失敗可點重試；切換門市或資料更新後會重新取得搜尋資料。"
     ],
-    "modules": ["steamfoot", "course"],
+    "modules": [
+      "steamfoot",
+      "course"
+    ],
     "permission": "customer.read",
     "feature": null,
     "sources": [
@@ -2720,9 +2816,15 @@ export const additionalGuides: OperationGuide[] = [
       "只有同店顧客可選；系統不會依備註或相似姓名自動補關聯。",
       "零售收入與其他收入由記帳時所選類別決定；選擇顧客只會關聯消費紀錄。"
     ],
-    "modules": ["steamfoot", "spa", "course"],
+    "modules": [
+      "steamfoot",
+      "spa",
+      "course"
+    ],
     "permission": "cashbook.create",
-    "additionalPermissions": ["customer.read"],
+    "additionalPermissions": [
+      "customer.read"
+    ],
     "feature": "cashbook",
     "sources": [
       "src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx",
@@ -2751,7 +2853,9 @@ export const additionalGuides: OperationGuide[] = [
       "無來源參數、無法辨識的參數及歷史舊資料列為「其他／未記錄」，系統不會用登入方式或 LINE 綁定反推來源。",
       "來源按預約建立日歸入期間；後續完成服務與方案指派會更新到店及轉換結果。"
     ],
-    "modules": ["steamfoot"],
+    "modules": [
+      "steamfoot"
+    ],
     "permission": "report.read",
     "feature": "basic_reports",
     "sources": [
@@ -2765,24 +2869,29 @@ export const additionalGuides: OperationGuide[] = [
   {
     "id": "I08",
     "category": "settings",
-    "title": "怎麼用裝置預覽檢查課程後台的平板與桌機畫面？",
-    "summary": "課程店可從側邊選單開啟裝置預覽；預設 iPad 尺寸，也可切換桌機及工作頁面。",
-    "answer": "進入裝置預覽後，先選課程工作頁，再切換平板或桌機尺寸核對目前門市資料。",
-    "path": "側邊選單 → 裝置預覽",
+    "title": "裝置預覽與前台唯讀預覽有何不同？",
+    "summary": "上方預覽工具可用手機、平板橫向與桌機尺寸檢查後台；前台唯讀預覽則查會員與工作畫面。",
+    "answer": "裝置框內後台操作仍可能生效；只有前台預覽內容受到唯讀保護，尺寸不代表資料隔離。",
+    "path": "後台上方工具 → 預覽",
     "steps": [
-      "從課程店後台側邊選單開啟裝置預覽，確認目前門市；系統預設 768 × 1024 平板。",
-      "從頁面選單切換課表、顧客、課程、教室、人員、方案、營運、現金帳、分析或設定。",
-      "需要時切換 1440 × 900 桌機，核對內容是否使用側欄以外的可用寬度，以及視窗、欄位與捲動；離開前確認沒有誤送出操作。"
+      "從上方「預覽」開啟選單，核對目前門市與頁面。",
+      "選手機 390×844、平板橫向 1024×768 或桌機 1440×900；既有直向連結會回退到平板，不再顯示直向選項。",
+      "旋轉或換尺寸後核對內容沒有整頁水平溢出、主操作可到達且草稿仍保留；要查會員／工作畫面再選前台唯讀預覽。"
     ],
     "important": "裝置預覽使用目前門市資料，操作仍可能生效；它不是靜態圖片或隔離資料庫。",
-    "success": "預覽維持正確課程頁面，切換平板／桌機不會跳回課表或開啟第二個操作指南入口。",
-    "keywords": "裝置預覽 課程後台 iPad 平板 桌機 768 1024 1440 900 課表不跳回",
+    "success": "預覽維持正確頁面與草稿，三種裝置尺寸可切換，且操作指南仍只有上方唯一入口。",
+    "keywords": "上方預覽 裝置預覽 前台唯讀預覽 平板 橫向 1024 768 手機 桌機 390 844 1440 900 iPad RWD",
     "details": [
-      "預覽工具本身不能再嵌套開啟裝置預覽；框內側邊選單會隱藏同一入口。",
-      "桌機後台已取消共用 1440px 內容上限，頁面可使用側欄以外的可用寬度；個別表單仍可保留閱讀寬度，不能只憑左右留白判定故障。",
-      "裝置尺寸只協助檢查排版，不代表已完成真實 iPad、瀏覽器或觸控驗收。"
+      "預覽是瀏覽器內尺寸模擬，不等於真實 iPad、Safari 或觸控驗收；實際直向版型仍需真機另驗。",
+      "前台預覽另需 frontend_preview 授權，裝置預覽不能繞過。",
+      "桌機後台可使用側欄以外的可用寬度；個別表單仍可保留閱讀寬度，不能只憑左右留白判定故障。",
+      "裝置預覽內仍是真實後台，操作可能生效；尺寸模擬不替代 LINE 登入或業務驗收。"
     ],
-    "modules": ["steamfoot", "course"],
+    "modules": [
+      "steamfoot",
+      "spa",
+      "course"
+    ],
     "permission": "booking.read",
     "feature": null,
     "sources": [
@@ -2817,7 +2926,9 @@ export const additionalGuides: OperationGuide[] = [
       "連結失效、已使用或不適用本店時，若先前已看到通知設定完成，不必重做；否則請店家核對。LINE 已屬於其他顧客時，原綁定不會被改寫。",
       "通知設定成功不等於訊息已發送。實際提醒與隔日關懷需另外查看店家設定、觸發條件及發送紀錄；不要為測試單一顧客而啟動全店群發。"
     ],
-    "modules": ["steamfoot"],
+    "modules": [
+      "steamfoot"
+    ],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
     "sources": [

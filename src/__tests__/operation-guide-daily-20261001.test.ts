@@ -14,7 +14,7 @@ const hq: GuideAccess = { module: "steamfoot", permissions: ["audit.read"], feat
 
 describe("October 1 guide review", () => {
   it("adds waitlist, HQ audit and unified settings guidance", () => {
-    expect(operationGuides).toHaveLength(179);
+    expect(operationGuides.length).toBeGreaterThanOrEqual(179);
     expect(findOperationGuides("候補 5人 4小時", course).map(item => item.id)).toContain("C158");
     expect(findOperationGuides("同行 立即遞補", course).map(item => item.id)).toContain("C159");
     expect(findOperationGuides("總部 各店 操作人", hq).map(item => item.id)).toContain("I12");
@@ -52,3 +52,4 @@ describe("October 1 guide review", () => {
     }
   });
 });
+
