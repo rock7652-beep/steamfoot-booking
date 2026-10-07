@@ -63,7 +63,7 @@ describe("public crawler documents", () => {
       const path = new URL(url).pathname;
       const mapped = marketingRoute(path);
       expect(mapped?.kind).not.toBe("redirect");
-      const source = mapped?.destination ?? path;
+      const source = (mapped?.destination ?? path).replace(/^(\/pricing\/guides)\/[^/]+$/, "$1/[slug]");
       expect(existsSync(`src/app${source}/page.tsx`) || existsSync(`public${source}`)).toBe(true);
       expect(route(path).headers.get("location")).toBeNull();
     }
@@ -87,20 +87,25 @@ describe("public crawler documents", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     expect(marketingMetadata("/")).toEqual({ alternates: { canonical: `${MARKETING_ORIGIN}/` }, robots: { index: true, follow: true } });
     expect(route("/guides").headers.get("x-robots-tag")).toBeNull();
-    expect(route("/guides/private").headers.get("location")).toContain("/s/zhubei/");
+    expect(route("/guides/private").status).toBe(404);
+    expect(route("/guides/private/admin").headers.get("location")).toContain("/s/zhubei/");
     expect(route("/hq/dashboard").headers.get("location")).toContain("/hq/login");
     expect(route("/s/zhubei/admin/dashboard").headers.get("location")).toBeTruthy();
     expect(route("/", "steamfoot-zhubei.com").headers.get("location")).toBe("https://steamfoot-zhubei.com/s/zhubei/");
   });
   it("wires canonical/index metadata into each public page without changing root metadata", () => {
     for (const path of MARKETING_SITEMAP_PATHS) {
-      const destination = marketingRoute(path)?.destination ?? path;
+      const destination = (marketingRoute(path)?.destination ?? path).replace(/^(\/pricing\/guides)\/[^/]+$/, "$1/[slug]");
       if (destination.endsWith(".html")) {
         expect(readFileSync(`public${destination}`, "utf8")).toContain(`<link rel="canonical" href="${MARKETING_ORIGIN}${path}">`);
       } else {
         const source = readFileSync(`src/app${destination}/page.tsx`, "utf8");
-        expect(source).toContain(`...marketingMetadata("${path}")`);
-        expect(source).not.toMatch(/robots:\s*\{/);
+        if (destination.includes("[slug]")) {
+          expect(source).toContain("...marketingMetadata(guidePath(guide))");
+        } else {
+          expect(source).toContain(`...marketingMetadata("${path}")`);
+          expect(source).not.toMatch(/robots:\s*\{/);
+        }
       }
     }
     expect(readFileSync("src/app/layout.tsx", "utf8")).not.toContain("marketingMetadata");

@@ -1,3 +1,8 @@
+// Article review is not permission to deploy or run migrations.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/public-guide-articles-20261007")) {
+  throw new Error("Guide article review branch deployment is disabled; use local verification.");
+}
+
 // This review branch must not deploy or access a database before separate approval.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
   throw new Error("SEO review branch deployment is disabled; use local verification.");

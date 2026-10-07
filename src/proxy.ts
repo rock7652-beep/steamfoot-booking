@@ -1,3 +1,4 @@
+import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
@@ -117,7 +118,23 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // the original customer page internally without re-entering this proxy.
   const marketing = marketingRoute(pathname, Boolean(domainStoreId));
   if (marketing) {
+    // Resolve static editorial boundaries before Next starts streaming so an
+    // unknown/unpublished article is a real HTTP 404, not a soft-404 document.
+    if (marketing.kind === "not-found") {
+      return new NextResponse("找不到這篇經營指南", { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow", "Content-Type": "text/plain; charset=utf-8" } });
+    }
     const url = req.nextUrl.clone();
+    if (marketing.kind === "rewrite" && marketing.destination === "/pricing/guides") {
+      const legacyIds = req.nextUrl.searchParams.getAll("guide");
+      const guide = legacyIds.length === 1 ? findPublicGuide(legacyIds[0]) : undefined;
+      if (guide) {
+        url.pathname = guidePath(guide);
+        url.search = "";
+        const response = NextResponse.redirect(url, 308);
+        if (!isCanonicalMarketingRequest(req)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+        return response;
+      }
+    }
     url.pathname = marketing.destination;
     const response = marketing.kind === "redirect"
       ? NextResponse.redirect(url, 308)

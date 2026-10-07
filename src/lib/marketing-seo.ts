@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PUBLISHED_GUIDE_PATHS } from "./public-guides";
 
 // Public marketing identity only. Never use this as an auth/store URL fallback.
 export const MARKETING_ORIGIN = "https://www.steamfoot.com";
@@ -10,6 +11,7 @@ export const MARKETING_SITEMAP_PATHS = [
   "/pricing/features/slots", "/pricing/features/services",
   "/pricing/features/music", "/pricing/features/fitness",
   "/apply", "/privacy", "/terms", "/refunds",
+  ...PUBLISHED_GUIDE_PATHS,
 ] as const;
 
 export function isMarketingIndexingEnabled() {
