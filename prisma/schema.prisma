@@ -3208,6 +3208,8 @@ model InventoryProduct {
   @@index([storeId, active])
 }
 model InventoryOrder {
+  settlements Json @default("[]")
+  voided Boolean @default(false)
   id String @id @default(cuid())
   storeId String
   store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
@@ -3240,6 +3242,7 @@ model InventoryOrder {
   @@index([storeId, kind, partyId])
 }
 model InventoryPayment {
+  correction Json?
   id String @id @default(cuid())
   storeId String
   store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)

@@ -120,9 +120,10 @@ export async function getRevenueMix(
     const date = entry.entryDate.toISOString().slice(0, 10);
     const point = points.get(monthly ? date.slice(0, 7) : date);
     if (!point) continue;
-    const field = /^inventory:.*:refund$/.test(entry.id??"")&&entry.category==="工單退款" ? "refunds" : entry.type === "EXPENSE" ? "expense"
+    const correction = entry.id?.includes(":correction:") && entry.id.startsWith("inventory:");
+    const field = correction ? (isRetailCashbookCategory(entry.category)?"retailRevenue":"otherRevenue") : /^inventory:.*:refund$/.test(entry.id??"")&&["工單退款","銷貨退款"].includes(entry.category??"") ? "refunds" : entry.type === "EXPENSE" ? "expense"
       : isRetailCashbookCategory(entry.category) ? "retailRevenue" : "otherRevenue";
-    const amount = Number(entry.amount);
+    const amount = Number(entry.amount) * (correction ? -1 : 1);
     point[field] += amount;
     if (inPeriod(date)) {
       summary[field] += amount;
