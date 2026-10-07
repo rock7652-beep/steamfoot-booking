@@ -22,7 +22,11 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
-  images: {
+  images: isGuideUiPreview() ? {
+    unoptimized: true,
+    remotePatterns: [],
+    localPatterns: [{ pathname: "/pricing/brand/steam-butler-logo.png", search: "" }],
+  } : {
     remotePatterns: [{ protocol: "https", hostname: "profile.line-scdn.net" }],
   },
   env: {
