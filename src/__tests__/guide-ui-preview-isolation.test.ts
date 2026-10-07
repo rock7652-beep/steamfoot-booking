@@ -116,7 +116,7 @@ describe("database and outbound isolation", () => {
     normalGlobals.prisma = cached; normalGlobals.spaPrisma = cached; normalGlobals.coursePrisma = cached;
     const clients = [(await import("@/lib/db")).prisma, (await import("@/lib/spa-db")).spaPrisma, (await import("@/lib/course-db")).coursePrisma];
     for (const client of clients) {
-      expect(client === cached).toBe(false);
+      expect(Object.is(client, cached)).toBe(false);
       for (const key of ["$connect", "$transaction", "$queryRaw", "$executeRaw", "user", "booking"])
         expect(() => Reflect.get(client, key)).toThrow("no database access");
     }
