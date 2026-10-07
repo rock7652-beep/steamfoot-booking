@@ -17,7 +17,7 @@ vi.mock("next-auth/react", () => ({
 vi.mock("@/hooks/use-one-shot-action-state", () => ({
   useOneShotActionState: () => undefined,
 }));
-vi.mock("@/lib/store-context", () => ({
+vi.mock("@/lib/store-context-client", () => ({
   useStoreSlugRequired: () => "staging",
 }));
 vi.mock("@/server/actions/profile", () => ({

@@ -18,6 +18,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Authentication is stubbed for this business unit test; audit DB writes remain real mocks.
+vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
+
 vi.mock("@/lib/industry-module-server", () => ({
   getStoreIndustryModule: vi.fn(async () => "steamfoot"),
 }));

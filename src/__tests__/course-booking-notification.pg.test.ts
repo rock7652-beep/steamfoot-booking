@@ -1,3 +1,4 @@
+import { installAuditOutboxTestSchema } from "./helpers/audit-outbox-test-schema";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -24,9 +25,11 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
 
 (databaseUrl ? describe : describe.skip)("course notification actions — real PostgreSQL", () => {
   let created = false;
+  const fixtureStoreIds = new Set<string>();
   beforeAll(async () => {
     await db!.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
     created = true;
+  await installAuditOutboxTestSchema(databaseUrl!, db!);
     const ddl = execFileSync("node_modules/.bin/prisma", ["migrate", "diff", "--from-empty", "--to-schema-datamodel", "course-prisma/schema.prisma", "--script"], { encoding: "utf8" });
     for (const sql of ddl.split(";").map(s => s.trim()).filter(Boolean)) await db!.$executeRawUnsafe(sql);
     for (const sql of [
@@ -41,6 +44,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
   }, 30000);
   afterAll(async () => {
     vi.useRealTimers();
+    for (const storeId of fixtureStoreIds) await db!.$executeRaw`DELETE FROM public."OperationAuditOutbox" WHERE payload->>'storeId'=${storeId}`;
     if (created) await db!.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
     await db?.$disconnect();
   });
@@ -49,6 +53,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2030-01-10T00:00:00Z"));
     const storeId = randomUUID(), customerId = randomUUID(), userId = randomUUID();
+    fixtureStoreIds.add(storeId);
     await db!.$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
     await db!.$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'驗收學員',NULL)`;
     const transact = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>) => db!.$transaction(async tx => { await lockCourseStore(tx, storeId); return work(tx); });

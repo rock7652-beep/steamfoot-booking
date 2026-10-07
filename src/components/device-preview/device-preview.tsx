@@ -19,7 +19,7 @@ import type { IndustryModuleId } from "@/lib/industry-modules";
 import { DeviceFrame } from "./device-frame";
 import { DeviceToolbar } from "./device-toolbar";
 
-export function DevicePreview({ moduleId = "steamfoot" }: { moduleId?: IndustryModuleId }) {
+export function DevicePreview({ moduleId = "steamfoot", canViewAudit = false }: { moduleId?: IndustryModuleId; canViewAudit?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -27,7 +27,7 @@ export function DevicePreview({ moduleId = "steamfoot" }: { moduleId?: IndustryM
 
   const requestedPage = searchParams.get("page");
   const requestedDevice = searchParams.get("device");
-  const page: DevicePreviewPageId = isDevicePreviewPageId(requestedPage, moduleId)
+  const page: DevicePreviewPageId = isDevicePreviewPageId(requestedPage, moduleId) && (requestedPage !== "operation-audits" || canViewAudit)
     ? requestedPage
     : DEFAULT_DEVICE_PREVIEW_PAGE;
   const device: DevicePresetId = isDevicePresetId(requestedDevice)
@@ -82,6 +82,7 @@ export function DevicePreview({ moduleId = "steamfoot" }: { moduleId?: IndustryM
 
         <DeviceToolbar
           moduleId={moduleId}
+          canViewAudit={canViewAudit}
           page={quickPage}
           device={device}
           onPageChange={handlePageChange}

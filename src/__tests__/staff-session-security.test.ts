@@ -9,6 +9,7 @@ vi.mock("next-auth", () => ({ default: (config: unknown) => {
 vi.mock("next-auth/providers/credentials", () => ({ default: (config: unknown) => config }));
 vi.mock("next-auth/providers/google", () => ({ default: (config: unknown) => config }));
 vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: mocks.findUnique, findFirst: mocks.findFirst } } }));
+vi.mock("@/server/services/staff-login-audit", () => ({ recordStaffLogin: vi.fn(async () => ({ id: "test-login" })) }));
 vi.mock("bcryptjs", () => ({ compareSync: mocks.compare }));
 vi.mock("next/headers", () => ({ cookies: vi.fn(), headers: vi.fn() }));
 

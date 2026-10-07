@@ -1,5 +1,6 @@
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";
+import { withAuditDatabaseContext } from "@/lib/audit-db-context";
 
 const globalForCourse = globalThis as unknown as {
   coursePrisma?: PrismaClient;
@@ -16,9 +17,9 @@ function databaseUrl() {
 }
 export const coursePrisma =
   globalForCourse.coursePrisma ??
-  new PrismaClient({
+  withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],
-  });
+  }));
 if (process.env.NODE_ENV !== "production")
   globalForCourse.coursePrisma = coursePrisma;

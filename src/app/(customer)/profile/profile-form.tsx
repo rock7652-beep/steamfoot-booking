@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { useOneShotActionState } from "@/hooks/use-one-shot-action-state";
-import { useStoreSlugRequired } from "@/lib/store-context";
+import { useStoreSlugRequired } from "@/lib/store-context-client";
 import { AppLink as Link } from "@/components/app-link";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { resolveProfileSuccessDestination } from "@/lib/profile-success-destination";

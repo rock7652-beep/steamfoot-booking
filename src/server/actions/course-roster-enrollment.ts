@@ -1,4 +1,5 @@
 "use server";
+import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
@@ -6,7 +7,6 @@ import { reserveCourseInTransaction } from "@/server/services/course-booking";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { Prisma } from "../../../generated/course-client";
-import { recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 
 const id=z.string().min(1).max(100);
 async function enrollmentScope(tx:Prisma.TransactionClient,storeId:string,sessionId:string,customerId:string) {
@@ -38,8 +38,8 @@ export async function enrollCourseSeries(input:unknown) {
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       for(const session of sessions)await reserveCourseInTransaction(tx,actor,{...data,sessionId:session.id,requestKey:`${data.requestKey}:${session.id}`},limits.maxMonthlyBookings);
       return sessions.length;
-    });
-    await recordOperationAuditBestEffort({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseSession",targetId:data.sessionId,action:"ENROLL_SERIES",summary:`加入學員至 ${count} 堂課程`,after:{customerId:data.customerId,sessionIds:data.sessionIds}});
+    }, async (auditResult, tx) => { await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseSession",targetId:data.sessionId,action:"ENROLL_SERIES",summary:`加入學員至 ${auditResult} 堂課程`,after:{customerId:data.customerId,sessionIds:data.sessionIds}}, tx, data.requestKey); });
+
     revalidatePath("/dashboard/courses");
     return {success:true as const,count};
   }catch(error){return handleActionError(error);}

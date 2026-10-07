@@ -8,10 +8,10 @@ import { canManageStaffRole, canAssignStaffRole, assertStoreRetainsOwner } from 
 import type { Prisma } from "@prisma/client";
 
 describe("Owner / Manager / Staff presets", () => {
-  it("Owner has every defined permission regardless of old grants, without becoming global Admin", async () => {
+  it("Owner has store permissions except headquarters-only audit reads", async () => {
     grants.mockResolvedValue([]);
-    for (const code of ALL_PERMISSIONS) expect(await checkPermission("OWNER", "owner", code)).toBe(true);
-    expect(await getUserPermissions("OWNER", "owner")).toEqual([...ALL_PERMISSIONS]);
+    for (const code of ALL_PERMISSIONS) expect(await checkPermission("OWNER", "owner", code)).toBe(code !== "audit.read");
+    expect(await getUserPermissions("OWNER", "owner")).toEqual(ALL_PERMISSIONS.filter(code => code !== "audit.read"));
     expect(isOwner("OWNER")).toBe(false); // legacy helper means global Admin
     expect(await checkPermission("OWNER", null, "inventory.read")).toBe(false);
   });
@@ -48,4 +48,15 @@ it.each(["OWNER", "MANAGER", "STAFF", "PARTNER"] as const)("%s login resolves to
   const { resolveLoginRedirect } = await import("@/server/auth/resolve-login-redirect");
   expect(resolveLoginRedirect({ userRole: role, entry: "hq", userStoreSlug: "store-a" })).toMatchObject({ redirectTo: "/s/store-a/admin/dashboard", error: null });
   expect(resolveLoginRedirect({ userRole: role, entry: "store-admin", targetStoreSlug: "store-b", userStoreSlug: "store-a" })).toMatchObject({ redirectTo: "/s/store-a/admin/dashboard", setStoreSlug: "store-a" });
+});
+
+it.each(["OWNER", "MANAGER", "PARTNER", "STAFF", "CUSTOMER"] as const)("%s cannot read audit even with a saved grant", async role => {
+  grants.mockResolvedValue([{ permission: "audit.read" }, { permission: "booking.read" }]);
+  expect(await checkPermission(role, "legacy-audit", "audit.read")).toBe(false);
+  expect(await getUserPermissions(role, "legacy-audit")).not.toContain("audit.read");
+  expect(getDefaultPermissionsForRole(role)).not.toContain("audit.read");
+});
+it("retains headquarters audit access", async () => {
+  expect(await checkPermission("ADMIN", null, "audit.read")).toBe(true);
+  expect(await getUserPermissions("ADMIN", null)).toContain("audit.read");
 });

@@ -1,4 +1,5 @@
 "use server";
+import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
@@ -31,7 +32,6 @@ import {
   refundTeacherAbsentSession,
   type CourseActor,
 } from "@/server/services/course-booking";
-import { recordOperationAudit, recordOperationAuditBestEffort } from "@/server/services/operation-audit";
 import { cancelCourseWaitlistForSession } from "@/server/services/course-waitlist";
 
 const id = z.string().min(1).max(100);
@@ -57,11 +57,7 @@ function scheduleCourseWaitlistPromotion(
       for (const sessionId of uniqueSessionIds) {
         const promoted = await courseTransaction(storeId, tx =>
           promoteCourseWaitlistForSession(tx, storeId, sessionId),
-        );
-        if (promoted.length) {
-          await Promise.all([
-            notifyCourseWaitlistPromotions(storeId, promoted),
-            recordOperationAuditBestEffort({
+         async (promoted, tx) => { if (promoted.length) await enqueueOperationAudit({
               actorUserId: trigger.actorUserId,
               actorNameSnapshot: trigger.actorNameSnapshot,
               storeId,
@@ -71,9 +67,8 @@ function scheduleCourseWaitlistPromotion(
               action: "AUTO_PROMOTE",
               summary: `候補自動遞補（${promoted.length} 人）`,
               after: { bookingIds: promoted.map(item => item.bookingId) },
-            }),
-          ]);
-        }
+            }, tx, promoted.map(item=>item.bookingId).sort().join('|')); });
+        if (promoted.length) { after(() => notifyCourseWaitlistPromotions(storeId, promoted)); }
       }
     } catch (error) {
       console.error("[course-waitlist] post-cancel promotion failed", {
@@ -376,7 +371,7 @@ export async function createCourseBooking(input: unknown) {
       { userId: user.id, storeId, name: user.name ?? "店長" },
       bookingInput.extend({allowOverCapacity:z.boolean().optional()}).parse(input),
     );
-    await recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" });
+
     scheduleCourseLowBalanceCheck(storeId,[booking.id]);
     refresh();
     return { success: true as const };
@@ -401,7 +396,7 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
-    await Promise.all(bookings.map(booking => recordOperationAudit({ actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "顧客建立課程預約" })));
+
     scheduleCourseLowBalanceCheck(storeId,bookings.map(b=>b.id));
     after(async () => {
       const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
@@ -470,13 +465,7 @@ export async function updateCourseBookingStatus(input: unknown) {
         data.noShowChoice,
       );
       return settled.sessionId;
-    });
-    if (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")
-      scheduleCourseWaitlistPromotion(actor.storeId, [settledSessionId], {
-        actorUserId: actor.userId,
-        actorNameSnapshot: actor.name,
-      });
-    await recordOperationAudit({
+    }, async (auditResult, tx) => { await enqueueOperationAudit({
       actorUserId: actor.userId,
       storeId: actor.storeId,
       module: "COURSE",
@@ -484,7 +473,13 @@ export async function updateCourseBookingStatus(input: unknown) {
       targetId: data.bookingId,
       action: data.status,
       summary: ({ CANCELLED: "取消課程預約", ATTENDED: "標記課程出席", CHECKED_IN: "課程報到", NO_SHOW: "標記課程未到", STUDENT_LEAVE: "記錄學員請假" } as const)[data.status],
-    });
+    }, tx); });
+    if (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")
+      scheduleCourseWaitlistPromotion(actor.storeId, [settledSessionId], {
+        actorUserId: actor.userId,
+        actorNameSnapshot: actor.name,
+      });
+
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
     else refresh();
@@ -864,15 +859,15 @@ export async function updateCourseRosterBatch(input: unknown) {
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
       writeMs = Date.now() - writeStartedAt;
-    });
-    transactionMs = Date.now() - transactionStartedAt;
-    for (const booking of data.bookings) {
-      await recordOperationAuditBestEffort({
+    }, async (auditResult, tx) => { for (const booking of data.bookings) {
+      await enqueueOperationAudit({
         actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
         targetId: booking.id, action: data.target,
         summary: ({ CHECKED_IN: "課程報到", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到", RESERVED: "恢復待點名" } as const)[data.target],
-      });
-    }
+      }, tx);
+    } });
+    transactionMs = Date.now() - transactionStartedAt;
+
     if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     const refreshStartedAt = Date.now();
     if (!(await musicLookup)) refresh();
@@ -909,14 +904,14 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
         if(data.target==="NO_SHOW")await settleCourseBooking(tx,actor,booking.id,"NO_SHOW","DEDUCTED");
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
-    });
-    for (const booking of data.bookings) {
-      await recordOperationAuditBestEffort({
+    }, async (auditResult, tx) => { for (const booking of data.bookings) {
+      await enqueueOperationAudit({
         actorUserId: user.id, storeId, module: "COURSE", targetType: "CourseBooking",
         targetId: booking.id, action: data.target,
         summary: ({ RESERVED: "恢復待點名", ATTENDED: "標記課程出席", NO_SHOW: "標記課程未到" } as const)[data.target],
-      });
-    }
+      }, tx);
+    } });
+
     scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();return {success:true as const};
   }catch(error){return handleActionError(error);}

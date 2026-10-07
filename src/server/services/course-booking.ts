@@ -1,3 +1,4 @@
+import { enqueueOperationAudit } from "./operation-audit-outbox";
 import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
@@ -312,6 +313,7 @@ export async function reserveCourseInTransaction(
       actorUserId: actor.userId,
     },
   });
+  await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" }, tx, input.requestKey);
   return booking;
 }
 

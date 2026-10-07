@@ -16,6 +16,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// Authentication is stubbed for this business unit test; audit DB writes remain real mocks.
+vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
 import { after } from "next/server";
 import { enqueueSessionBalanceNotifications, dispatchSessionBalanceNotifications } from "@/server/services/session-balance-notifications";
 

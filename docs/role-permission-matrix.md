@@ -13,6 +13,8 @@
 
 Owner 不會因舊 StaffPermission 缺少勾選而失去店內權限；不會因此取得 Admin 的跨店權限。店舖範圍、母子店既有授權、訂閱及模組開通限制仍需各入口檢查。舊 `isOwner()` helper 代表 Admin，不能改為 Owner 放行跨店。
 
+2026-10-07（PR #1240 預覽）：操作與登入紀錄僅限 ADMIN；OWNER／MANAGER／PARTNER／STAFF 不開放，既有 audit.read 授權亦不生效。店家操作照常留存，總部可查。
+
 ## 進銷存預設
 
 | 權限 | Owner | Manager | Staff |

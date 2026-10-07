@@ -120,11 +120,14 @@ export async function courseMember(options: { write?: boolean } = {}) {
 export async function courseTransaction<T>(
   storeId: string,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
+  audit?: (result: T, tx: Prisma.TransactionClient) => Promise<unknown>,
 ) {
   const result=await coursePrisma.$transaction(
     async (tx) => {
       await lockCourseStore(tx, storeId);
-      return work(tx);
+      const value = await work(tx);
+      if (audit) await audit(value, tx);
+      return value;
     },
     { timeout: 15000 },
   );

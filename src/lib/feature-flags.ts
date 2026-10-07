@@ -9,7 +9,7 @@
 
 import { isSingleStoreTrial, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
 import type { PricingPlan, Store } from "@prisma/client";
-import { AppError } from "@/lib/errors";
+import { AppError } from "@/lib/app-error";
 
 // ============================================================
 // Feature Keys

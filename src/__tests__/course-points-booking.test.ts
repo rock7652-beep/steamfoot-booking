@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   transaction: vi.fn(),
   tx: {
+    $executeRaw: vi.fn(),
     courseBooking: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { buildDatabaseUrl } from "@/lib/database-url";
+import { withAuditDatabaseContext } from "@/lib/audit-db-context";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -22,12 +23,12 @@ const globalForPrisma = globalThis as unknown as {
  */
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
+  withAuditDatabaseContext(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  });
+  }), true);
 
 if (
   process.env.NODE_ENV !== "production" ||

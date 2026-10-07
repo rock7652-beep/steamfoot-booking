@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
+import { buildAuditPreviewMigrationSql } from "./audit-preview-migrations.mjs";
 
 // Inventory preview must never migrate the live database.
 if (process.env.VERCEL_ENV === "preview" && ["feat/inventory-workspace-20261005", "fix/staff-account-editor-20261005", "feat/inventory-returns-20261007"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
@@ -36,7 +37,7 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 // override is missing or points at any non-isolated database.
 if (
   process.env.VERCEL_ENV === "preview" &&
-  process.env.VERCEL_GIT_COMMIT_REF === "feat/unified-operation-audit-center"
+  (process.env.VERCEL_GIT_COMMIT_REF === "feat/unified-operation-audit-center" || process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-login-operation-audit")
 ) {
   if (
     !isIsolatedCourseConnection(process.env.DATABASE_URL) ||
@@ -45,6 +46,12 @@ if (
     throw new Error("Operation audit Preview requires the isolated preview database for both connections.");
   }
   console.info("[operation-audit-preview-preflight] isolated_database=true");
+  if (process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-login-operation-audit") {
+    execFileSync("npx", ["prisma", "db", "execute", "--stdin", "--schema", "prisma"], {
+      input: buildAuditPreviewMigrationSql(), stdio: ["pipe", "inherit", "inherit"],
+    });
+    console.info("[operation-audit-preview-migration] audit_schema_ready=true");
+  }
 }
 
 // Transaction-panel verification must stop before any database access if isolation is missing.

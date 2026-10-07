@@ -8,7 +8,7 @@ const actor={storeId:"music",userId:"manager",name:"店長"};
 const input={sessionId:"new",cardId:"card",customerId:"student",requestKey:"request",makeupForBookingId:"leave"};
 const startsAt=new Date("2090-01-02T10:00:00Z");
 const source={id:"leave",session:{templateId:"private",startsAt:new Date("2090-01-01T10:00:00Z"),template:{classType:"PRIVATE"}}};
-const m={courseBooking:{findUnique:vi.fn(),findFirst:vi.fn(),count:vi.fn(),aggregate:vi.fn(),create:vi.fn()},courseSession:{findFirst:vi.fn()},coursePointCard:{findFirst:vi.fn()},courseBookingRule:{findUnique:vi.fn()},coursePointEntry:{create:vi.fn()},$queryRaw:vi.fn()};
+const m={courseBooking:{findUnique:vi.fn(),findFirst:vi.fn(),count:vi.fn(),aggregate:vi.fn(),create:vi.fn()},courseSession:{findFirst:vi.fn()},coursePointCard:{findFirst:vi.fn()},courseBookingRule:{findUnique:vi.fn()},coursePointEntry:{create:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
 const tx=m as unknown as Prisma.TransactionClient;
 beforeEach(()=>{
  vi.resetAllMocks();
