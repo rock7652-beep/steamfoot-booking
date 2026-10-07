@@ -58,18 +58,17 @@ export function OperationHistoryButton({
               {items?.length === 0 && <p className="text-sm text-earth-500">這筆資料尚無操作紀錄；功能上線前的歷史資料不會補填操作人。</p>}
               {items && items.length > 0 && (
                 <ol className="divide-y divide-earth-100">
-                  {items.map((item, index) => (
+                  {items.map((item) => (
                     <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <p className="text-sm font-medium text-earth-900">{auditSummary({...item,targetType})}</p>
+                        <p className="text-sm font-medium text-earth-900">{auditSummary({...item,targetType},item.targetLabel)}</p>
                         <time className="text-sm tabular-nums text-earth-500">{formatTime(item.createdAt)}</time>
                       </div>
                       <p className="mt-1 text-sm text-earth-600">
-                        {item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}・{auditRoleLabel(item.actorRoleSnapshot ?? item.actor.role)}
-                        {!item.actorRoleSnapshot ? "（目前身分；舊紀錄未保存當時身分）" : ""}
-                        {index === 0 ? "（最後操作）" : ""}
+                        {item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}
+                        {item.actorRoleSnapshot ? `・${auditRoleLabel(item.actorRoleSnapshot)}` : ""}
                       </p>
-                      <p className="mt-1 break-words text-sm text-earth-600">{item.targetLabel}</p>
+                      {(targetType !== "StaffPermission" || item.action !== "UPDATE") && <p className="mt-1 break-words text-sm text-earth-600">{item.targetLabel}</p>}
                       <AuditChanges before={item.beforeJson} after={item.afterJson} references={item.references} />
                     </li>
                   ))}

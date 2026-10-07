@@ -23,7 +23,7 @@ describe("human-readable audit presentation", () => {
     const html = renderToStaticMarkup(createElement(AuditChanges,{ before:{customerId:"foreign-secret-id",futureField:{detailCode:"RAW_ENUM"}},after:{customerId:"other-secret-id",futureField:{detailCode:"NEW_ENUM"},status:"FUTURE_STATUS"} }));
     for (const raw of ["foreign-secret-id","other-secret-id","futureField","detailCode","RAW_ENUM","NEW_ENUM","FUTURE_STATUS"]) expect(html).not.toContain(raw);
     expect(html).toContain("舊紀錄未保存名稱");
-    expect(html).toContain("舊紀錄未提供欄位說明");
+    expect(html).toContain("部分異動內容未保存");
   });
   it("uses authorized names and permission explanations", () => {
     expect(auditValue("customerId","x",{"customerId:x":"小華（目前姓名）"})).toBe("小華（目前姓名）");
@@ -35,8 +35,23 @@ describe("human-readable audit presentation", () => {
   it("keeps snapshots and does not invent missing history", () => {
     expect(auditSnapshotTarget({targetType:"CourseBooking",action:"CREATE",afterJson:{customerName:"小華"}})).toContain("小華");
     expect(auditSnapshotTarget({targetType:"Booking",action:"CREATE"})).toBeNull();
-    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null}))).toContain("未保存修改前後內容");
+    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null}))).toContain("未保存異動內容");
     expect(auditChanges({status:"ACTIVE"},{status:"ACTIVE"})).toEqual([]);
+  });
+  it("shows only added and removed permissions and does not invent a missing baseline", () => {
+    const references={"permission:customer.read":"查看顧客","permission:audit.read":"查看操作紀錄","permission:report.export":"匯出報表"};
+    expect(auditChanges({permissions:["customer.read","audit.read"]},{permissions:["customer.read","report.export"]},references)).toEqual([
+      {label:"新增權限",before:"",after:"匯出報表"},
+      {label:"取消權限",before:"",after:"查看操作紀錄"},
+    ]);
+    expect(auditChanges({granted:["audit.read"],denied:["report.export"]},{granted:["report.export"],denied:["audit.read"]},references)).toHaveLength(2);
+    expect(auditChanges({permissions:{"audit.read":true,"report.export":false}},{permissions:{"audit.read":false,"report.export":true}},references)).toHaveLength(2);
+    expect(auditChanges([],{granted:["audit.read"],storeId:"own"},references)).toEqual([{label:"",before:"",after:"未保存異動內容"}]);
+    expect(auditSummary({action:"UPDATE",targetType:"StaffPermission"},"人員權限 · 黃店長（目前資料）")).toBe("調整黃店長的權限（目前姓名）");
+    const html=renderToStaticMarkup(createElement(AuditChanges,{before:{permissions:["customer.read","audit.read"]},after:{permissions:["customer.read","report.export"]},references}));
+    expect(html).not.toContain("查看顧客");
+    expect(html).toContain("新增權限");
+    expect(html).not.toContain("異動前");
   });
   it("redacts nested credentials and handles unknown summaries without code fallback", () => {
     expect(auditValue("lines",[{name:"商品 A",password:"private"}])).not.toContain("private");

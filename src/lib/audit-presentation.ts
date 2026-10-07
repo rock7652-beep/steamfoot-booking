@@ -70,7 +70,11 @@ export function auditText(value: string): string {
     .replace(/\bc[a-z0-9]{20,}\b/g, "（資料編號已省略）")
     .replace(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g, "（舊紀錄未提供中文說明）");
 }
-export function auditSummary(item: PresentedAudit) {
+export function auditSummary(item: PresentedAudit, target?: string) {
+  if (item.targetType === "StaffPermission" && item.action === "UPDATE") {
+    const name = target?.replace(/^人員權限 · /, "").replace(/（目前資料）$/, "");
+    return name && !name.includes("未保存") ? `調整${name}的權限${target?.endsWith("（目前資料）") ? "（目前姓名）" : ""}` : "調整人員權限";
+  }
   if (item.summary && /[\u3400-\u9fff]/.test(item.summary) && !item.summary.includes(item.targetType) && !item.summary.includes(item.action)) return auditText(item.summary);
   return `${auditActionLabel(item.action)} · ${auditTargetLabel(item.targetType)}`;
 }
@@ -109,7 +113,33 @@ export function auditValue(key: string, value: unknown, references: AuditReferen
 export function auditChanges(before: unknown, after: unknown, references: AuditReferences = {}) {
   const previous = auditRecord(redactAuditValue(Array.isArray(before) ? { records: before } : before)), next = auditRecord(redactAuditValue(Array.isArray(after) ? { records: after } : after));
   const keys = [...new Set([...Object.keys(previous), ...Object.keys(next)])].filter(key => JSON.stringify(previous[key]) !== JSON.stringify(next[key]));
-  return keys.map(key => ({ label: fields[key] ?? "其他資料（舊紀錄未提供欄位說明）", before: fields[key] ? auditValue(key, previous[key], references) : "未提供白話內容", after: fields[key] ? auditValue(key, next[key], references) : "未提供白話內容" }));
+  const permissionKeys = ["permissions", "permissionKeys", "granted", "denied"];
+  const changes: { label: string; before: string; after: string }[] = [];
+  let missing = false;
+  if (keys.some(key => permissionKeys.includes(key))) {
+    const oldPermissions = permissionSnapshot(previous), newPermissions = permissionSnapshot(next);
+    if (oldPermissions && newPermissions) {
+      const added = [...newPermissions].filter(code => !oldPermissions.has(code));
+      const removed = [...oldPermissions].filter(code => !newPermissions.has(code));
+      if (added.length) changes.push({label:"新增權限",before:"",after:auditValue("permissions",added,references)});
+      if (removed.length) changes.push({label:"取消權限",before:"",after:auditValue("permissions",removed,references)});
+    } else missing = true;
+  }
+  for (const key of keys.filter(key => !permissionKeys.includes(key))) {
+    if (key === "storeId" && keys.some(k => permissionKeys.includes(k)) && previous.storeId === undefined) continue;
+    // Empty legacy arrays contain no useful change evidence.
+    if (key === "records" && [previous[key],next[key]].every(v => v == null || Array.isArray(v) && !v.length)) continue;
+    if (!fields[key]) { missing = true; continue; }
+    changes.push({label:fields[key],before:auditValue(key,previous[key],references),after:auditValue(key,next[key],references)});
+  }
+  if (missing) changes.push({label:"",before:"",after:changes.length ? "部分異動內容未保存" : "未保存異動內容"});
+  return changes;
+}
+function permissionSnapshot(snapshot: Record<string, unknown>): Set<string> | null {
+  const value = snapshot.permissions ?? snapshot.permissionKeys ?? snapshot.granted;
+  if (Array.isArray(value) && value.every(v => typeof v === "string")) return new Set(value);
+  if (value && typeof value === "object" && Object.values(value).every(v => typeof v === "boolean")) return new Set(Object.entries(value).filter(([,enabled])=>enabled).map(([code])=>code));
+  return null;
 }
 export function auditSnapshotTarget(item: PresentedAudit) {
   const snapshot = { ...auditRecord(item.beforeJson), ...auditRecord(item.afterJson) };

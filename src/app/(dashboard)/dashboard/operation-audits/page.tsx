@@ -1,4 +1,4 @@
-import { auditActionLabel, auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
+import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
 import { resolveAuditPresentation } from "@/server/services/audit-presentation";
 import { AuditChanges } from "@/components/audit-changes";
 import { notFound, redirect } from "next/navigation";
@@ -147,15 +147,14 @@ export default async function OperationAuditsPage({
                   <time className="tabular-nums text-earth-600">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
                   <span className="break-words font-medium text-earth-900">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
                   <span className="w-fit rounded-full bg-primary-50 px-1.5 py-0.5 text-sm text-primary-800">{MODULE_LABELS[displayedModule(item)]}</span>
-                  <span className="min-w-0 break-words text-earth-800">{auditSummary(item)}<span className="block text-earth-600">{presentation.get(item.id)?.target}</span></span>
+                  <span className="min-w-0 break-words text-earth-800">{auditSummary(item, presentation.get(item.id)?.target)}{(item.targetType !== "StaffPermission" || item.action !== "UPDATE") && <span className="block text-earth-600">{presentation.get(item.id)?.target}</span>}</span>
                   <span className="break-words text-sm text-earth-500 xl:text-right">{item.storeId ? storeNames.get(item.storeId) ?? "本店" : "系統"} · 詳情</span>
                 </summary>
                 <div className="mt-2 min-w-0 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
-                  <div><span className="text-earth-500">來源：</span>{item.source === "SYSTEM" ? "系統自動" : item.source === "MANUAL" ? "人員操作" : "歷史紀錄（未分類）"}</div>
-                  <div><span className="text-earth-500">動作：</span>{auditActionLabel(item.action)}</div>
-                  <div><span className="text-earth-500">{item.actorRoleSnapshot ? "當時身分：" : "目前身分（歷史未記錄）："}</span>{auditRoleLabel(item.actorRoleSnapshot ?? item.actor.role)}</div>
-                  <div className="md:col-span-2">{item.loginRecordId ? <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`}>查看當次登入</Link> : "未連結登入（歷史或其他來源）"}</div>
-                  <div className="min-w-0 break-words md:col-span-2"><span className="text-earth-500">資料：</span>{presentation.get(item.id)?.target}</div>
+                  {(item.actorRoleSnapshot || item.loginRecordId) && <div className="flex flex-wrap gap-x-3 gap-y-1 md:col-span-2 text-earth-500">
+                    {item.actorRoleSnapshot && <span>{auditRoleLabel(item.actorRoleSnapshot)}</span>}
+                    {item.loginRecordId && <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}`}>查看當次登入</Link>}
+                  </div>}
                   <div className="min-w-0 md:col-span-2"><AuditChanges before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
                 </div>
               </details>
