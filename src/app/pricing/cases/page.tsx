@@ -141,7 +141,7 @@ export default async function StoreCasesPage({
           <p className="mt-4 text-base leading-7 text-[#4C6259]">{current.fit}</p>
           {current.id === "nuanmu" ? (
             <p className="mt-4 text-sm leading-6 text-[#4C6259]">
-              想先了解介面？<Link href="/#how-it-works" className="underline underline-offset-4">查看功能示意</Link>，切換「提醒與回訪」。
+              想先了解介面？<Link href="/pricing/features#reminders" className="underline underline-offset-4">查看 LINE 自動提醒的功能示意</Link>。
             </p>
           ) : null}
         </article>

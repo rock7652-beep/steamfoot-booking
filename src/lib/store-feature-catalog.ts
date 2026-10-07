@@ -46,7 +46,7 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
-  { key: FEATURES.WORK_ORDERS, label: "工單管理", module: "營運", description: "獨立管理維修、施工與服務案件。預設未付款，處理進度與付款分開；共用商品庫存與收款紀錄，支援顧客／店家雙聯列印。由 HQ 獨立開通，不依進銷存開關。" },
+  { key: FEATURES.WORK_ORDERS, label: "工單管理", module: "營運", description: "獨立管理鋼琴調音、管樂與弦樂器維修保養、吉他維修保養，以及其他施工與服務案件。預設未付款，處理進度與付款分開；支援顧客／店家雙聯列印；加入商品材料及扣庫存須搭配已開通的進銷存及相應人員權限，收款紀錄共用。各付費方案皆額外加購 NT$800／月；HQ 可獨立開通、關閉或隱藏，不依進銷存開關。關閉或加購到期保留資料。" },
   { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "完整功能試用內含；一般方案需另行開通。依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
   { key: FEATURES.DEVICE_PREVIEW, label: "裝置預覽", module: "營運", description: "依原權限預覽介面，隱藏或鎖定不變更顧客入口與資料。" },
   { key: FEATURES.CUSTOMER_LABELS, label: "顧客標籤", module: "顧客", description: "三個付費方案皆內含，不占選配名額。全模組共用分類、固定配色與顧客快速標記；關閉保留資料。" },
@@ -62,7 +62,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.CUSTOMER_CARE,
     label: "顧客經營",
     module: "顧客",
-    description: "待追蹤顧客、好久不見、堂數偏低、方案快到期與追蹤紀錄。",
+    description: "待追蹤顧客、好久不見、堂數偏低、方案快到期與追蹤紀錄。額外加購原價 NT$500／月；專業版與展店版內含。",
   },
   {
     key: FEATURES.LINE_REMINDER,
@@ -86,38 +86,38 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.CASH_DRAWER,
     label: "現金抽屜",
     module: "營運",
-    description: "每日現金抽屜開關帳與現金流盤點。",
+    description: "每日現金抽屜開關帳與現金流盤點。基本版與資料匯出免費 2 選 1，另一項額外加購原價 NT$500／月；專業版與展店版內含。",
   },
   {
     key: FEATURES.SERVICE_FEE_CALCULATOR,
     label: "月結管理",
     module: "營運",
-    description: "每月服務金額、固定月費、加扣項與月結紀錄。",
+    description: "每月服務金額、固定月費、分潤、加扣項與月結紀錄，適合合作結算。基本版額外加購原價 NT$800／月；專業版與健康追蹤、課程候補免費 3 選 1，超出名額再加購；展店版內含。",
   },
   {
     key: FEATURES.COURSE_WAITLIST,
     label: "課程候補",
     module: "營運",
-    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。基本版加購、專業版使用 1 個經營功能選配名額、展店版內含；店家另可設定是否啟用候補。",
+    description: "課程滿班後依順位候補、自動遞補與 LINE 通知。適用音樂、運動等課程模組。基本版額外加購原價 NT$500／月；專業版與健康追蹤、月結管理免費 3 選 1，超出名額再加購；展店版內含；店家另可設定是否啟用候補。",
   },
-  { key: FEATURES.INVENTORY, label: "進銷存管理", module: "營運", description: "商品、進貨、銷貨與庫存管理。基本版加購 NT$800／月；專業版使用 1 個經營功能選配名額，超出可加購；展店版內含。隱藏或鎖定保留資料。" },
+  { key: FEATURES.INVENTORY, label: "進銷存管理", module: "營運", description: "商品、進貨、銷貨與庫存管理。各付費方案皆額外加購 NT$800／月，不列入免費選配或展店版內含。隱藏或鎖定保留資料。" },
   {
     key: FEATURES.DATA_EXPORT,
     label: "資料匯出",
     module: "營運",
-    description: "匯出顧客、交易與營運資料。",
+    description: "匯出顧客、交易與營運資料。基本版與現金抽屜免費 2 選 1，另一項額外加購原價 NT$500／月；專業版與展店版內含，不占免費任選名額。保留門市獨立開關及人員匯出權限。",
   },
   {
     key: FEATURES.BASIC_REPORTS,
     label: "分析",
     module: "分析",
-    description: "基本版加購 NT$800／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
+    description: "基本版加購原價 NT$500／月；專業版與展店版內含，不占選配名額。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
     label: "健康評估與體態追蹤",
     module: "健康",
-    description: "量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
+    description: "適合有量測與體態追蹤需求的店家。基本版額外加購原價 NT$500／月；專業版與月結管理、課程候補免費 3 選 1，超出名額再加購；展店版內含。量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
   },
   {
     key: FEATURES.MULTI_STORE,

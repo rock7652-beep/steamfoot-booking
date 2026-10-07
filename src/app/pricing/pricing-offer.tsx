@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getPublicAddonOffer, getPublicAnnualSavings, getPublicOfferHighlights, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
+import { PUBLIC_ADDON_GROUPS, PUBLIC_WORK_ORDER_DEPENDENCY } from "@/lib/public-marketing-copy";
 import { MarketingIcon } from "./marketing-icon";
 
 function useNow(initialNow: number) {
@@ -82,17 +83,30 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
       </div>
       <p className="mt-3 border-t border-[#C39A51]/25 pt-2 text-sm leading-6 text-[#59441E]">2026/10/31 23:59:59 前完成付款（台灣時間），優惠價適用首次購買期間；續約恢復原價。</p>
     </div>}
-    <div className="mt-3 grid gap-3 md:grid-cols-2">
-      {[{ name: "工具功能", features: "資料匯出／現金抽屜", monthly: offer.toolMonthly, original: 500 }, { name: "經營功能", features: "顧客經營／健康追蹤／月結管理／課程候補／分析／進銷存管理", monthly: offer.businessMonthly, original: 800 }].map(item => <article key={item.name} className={"grid grid-rows-subgrid gap-y-0 rounded-xl border border-[#153B31]/15 bg-white p-4 " + (offer.active ? "row-span-6" : "row-span-5")}>
-        <h3 className="text-lg font-semibold">{item.name}</h3>
-        <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.features}・各項分別選購</p>
-        {offer.active && <p className="mt-1 text-sm text-[#64756D] line-through">原價每項 NT${money(item.original)}／月</p>}
-        <p className="mt-2 text-base">{offer.active ? "年繳優惠月費" : "年繳計價月費"} <span className="text-3xl font-semibold">NT${money(item.monthly)}</span>／月</p>
-        <p className="mt-2 text-base font-semibold">每項年繳 NT${money(item.monthly * 12)}・一次繳清</p>
-        <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active && <span className="mb-1 block text-lg">每項年繳省 NT${money((item.original - item.monthly) * 12)}</span>}{offer.months === 14 ? "12 個月＋贈送 2 個月，使用 14 個月" : "使用 12 個月"}</p>
+    <p className="mt-4 text-base leading-7 text-[#4C6259]">依需求挑選，每項分別計費；已內含或免費任選的功能不另收費。</p>
+    <div className="mt-3 grid gap-4 md:grid-cols-2">
+      {PUBLIC_ADDON_GROUPS.map(group => ({ ...group, monthly: group.original === 500 ? offer.toolMonthly : offer.businessMonthly })).map(item => <article key={item.name} className="min-w-0 rounded-2xl border border-[#153B31]/15 bg-white">
+        <div className="border-b border-[#153B31]/10 p-4 sm:p-5">
+          <h3 className="text-xl font-semibold">{item.name}</h3>
+          <p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.purpose}</p>
+          <p className="mt-4 text-sm text-[#4C6259]">{offer.active ? "優惠年繳計價・每項" : "年繳計價・每項"}</p>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-2"><span className="text-3xl font-semibold">NT${money(item.monthly)}</span><span className="text-base">／月</span>{offer.active && <span className="text-sm text-[#64756D] line-through">原價 NT${money(item.original)}／月</span>}</p>
+          <p className="mt-2 text-base font-medium">每項年繳 NT${money(item.monthly * 12)}・一次繳清</p>
+          {offer.active && <p className="mt-1 text-sm font-medium text-[#805C1B]">每項年繳省 NT${money((item.original - item.monthly) * 12)}</p>}
+        </div>
+        <ul className={"grid gap-x-4 px-4 py-2 sm:px-5 " + (item.original === 500 ? "lg:grid-cols-2" : "")}>
+          {item.features.map(feature => <li key={feature.id} className="min-w-0 border-b border-[#153B31]/10 last:border-b-0">
+            <a href={"/pricing/features#" + feature.id} className="group flex min-h-11 items-start justify-between gap-2 rounded-sm py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#123E32]">
+              <span className="min-w-0"><span className="block text-base font-semibold group-hover:text-[#28684D]">{feature.name}</span><span className="mt-1 block text-sm leading-6 text-[#4C6259]">{feature.description}</span></span><span aria-hidden="true" className="shrink-0 text-[#64756D]">↗</span>
+            </a>
+          </li>)}
+        </ul>
+
       </article>)}
     </div>
-    <p className="mt-3 text-sm leading-6 text-[#4C6259]">加購採年繳，與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">進銷存、工單各自加購，展店版亦不內含。{PUBLIC_WORK_ORDER_DEPENDENCY}</p>
+    <p className="mt-3 text-base font-medium text-[#805C1B]">{offer.months === 14 ? "年繳 12 個月＋贈送 2 個月，使用 14 個月。" : "年繳使用 12 個月。"}</p>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">以上月費以年繳總額 ÷ 12 個月計價，優惠不提供月繳；贈送月份另計。加購與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
   </div>;
 }
 

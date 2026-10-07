@@ -1,3 +1,4 @@
+import { PUBLIC_TRIAL_COPY, PUBLIC_SUBSCRIPTION_RETENTION } from "@/lib/public-marketing-copy";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
@@ -14,28 +15,25 @@ export const metadata = {
 const TRIAL_URL = "/apply";
 const featureLinks: Record<string, string> = {
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
-  "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
+  "工單管理": "work-orders", "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
 const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
   { label: "顧客資料", field: "maxCustomers", unit: "筆" },
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
 ] as const;
-const groups = [
-  { title: "工具功能", note: "LINE 提醒各版本皆內含。", choices: [{ plan: "基本版", count: "2 選 1", detail: "資料匯出／現金抽屜，", suffix: "，不另收費。" }, { plan: "專業版", count: "", suffix: "", detail: "現金抽屜內含；資料匯出可選配，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "全部內含。" }], rows: [
-    { label: "LINE 自動提醒", values: ["內含", "內含", "內含"] },
-    { label: "資料匯出", values: ["可選配", "可選配", "內含"] },
-    { label: "現金抽屜", values: ["可選配", "內含", "內含"] },
-  ] },
-  { title: "經營功能", note: "顧客標籤各版本皆內含。", choices: [{ plan: "基本版", count: "", suffix: "", detail: "其餘經營功能依需求加購。" }, { plan: "專業版", count: "4 選 1", detail: "顧客經營與分析內含；健康追蹤／月結管理／課程候補／進銷存，", suffix: "，不另收費。" }, { plan: "展店版", count: "", suffix: "", detail: "全部內含。" }], rows: [
-    { label: "顧客經營", values: ["加購", "內含", "內含"] },
-    { label: "顧客標籤", values: ["內含", "內含", "內含"] },
-    { label: "進銷存管理", values: ["加購", "可選配", "內含"] },
-    { label: "健康追蹤", values: ["加購", "可選配", "內含"] },
-    { label: "月結管理", values: ["加購", "可選配", "內含"] },
-    { label: "分析", values: ["加購", "內含", "內含"] },
-    { label: "課程候補", values: ["加購", "可選配", "內含"] },
-  ] },
+const comparisonRows = [
+  { label: "LINE 自動提醒", values: ["內含", "內含", "內含"] },
+  { label: "顧客標籤", values: ["內含", "內含", "內含"] },
+  { label: "資料匯出", values: ["免費任選", "內含", "內含"] },
+  { label: "現金抽屜", values: ["免費任選", "內含", "內含"] },
+  { label: "顧客經營", values: ["額外加購", "內含", "內含"] },
+  { label: "分析", values: ["額外加購", "內含", "內含"] },
+  { label: "健康追蹤", values: ["額外加購", "免費任選", "內含"] },
+  { label: "月結管理", values: ["額外加購", "免費任選", "內含"] },
+  { label: "課程候補", values: ["額外加購", "免費任選", "內含"] },
+  { label: "進銷存管理", values: ["額外加購", "額外加購", "額外加購"] },
+  { label: "工單管理", values: ["額外加購", "額外加購", "額外加購"] },
 ] as const;
 
 function OnlinePayment() {
@@ -46,7 +44,7 @@ function OnlinePayment() {
   return <section id="payment" aria-labelledby="payment-title" className="mt-8 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
     <p className="text-sm font-semibold tracking-widest text-[#74603C]">綠界 ECPay 金流</p>
     <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
-    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案及金額，再進行付款。付款金額請填寫雙方確認的方案及加購總額。</p>
+    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案、加購項目及完整金額，再進行付款。一次付款不代表授權自動續扣。付款金額請填寫雙方確認的方案及加購總額。</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -74,35 +72,55 @@ function OnlinePayment() {
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
-    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">內含：</strong>方案已包含。<strong className="text-[#153B31]">可選配：</strong>名額內選用，不另收費。<strong className="text-[#153B31]">加購：</strong>額外付費。</p>
-    <p className="mt-2 text-sm leading-6 text-[#4C6259]">超出選配名額才需加購。例如：專業版選配進銷存，方案月費不增加。</p>
-    <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
-    <div className="mt-4 rounded-xl border border-[#153B31]/15 bg-white px-4 py-3 text-base leading-7">
-      <p className="font-semibold">三個方案都內含日常店務</p>
-      <p className="text-[#4C6259]">預約管理、顧客資料、方案堂數、基本收款與 LINE 顧客入口。</p>
+    <div id="comparison-help" className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm sm:text-base">
+      <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="font-bold text-[#28684D]">✓</span>已包含</span>
+      <span className="rounded-md border border-[#D7B771] bg-[#FFF6DF] px-2 py-1 text-[#79591D]">免費任選</span>
+      <span className="text-[#64756D]">加購：另外付費</span>
     </div>
+    <p className="mt-3 text-base leading-7 text-[#4C6259]"><strong className="text-[#153B31]">三版皆內含：</strong>預約管理、顧客資料、方案堂數、基本收款與 LINE 顧客入口。</p>
     <table aria-describedby="comparison-help" className="mt-4 w-full table-fixed border-separate border-spacing-0 text-sm sm:text-base">
-      <caption className="sr-only">蒸管家三方案功能與使用規模比較</caption>
+      <caption className="sr-only">蒸管家三方案功能與使用規模比較；淡金色合併儲存格所涵蓋的項目共用一個免費名額。</caption>
       <colgroup><col className="w-[37%] sm:w-[43%]" /><col /><col /><col /></colgroup>
       <thead className="sticky top-20 z-10">
-        <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-3 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-3 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
+        <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-3 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th id={"comparison-plan-" + i} key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-3 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
       </thead>
-      {groups.map(group => <tbody key={group.title}>
-        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span><ul className="mt-2 space-y-1 text-sm font-normal leading-6 text-[#4C6259]">{group.choices.map(choice => <li key={choice.plan}><span className="font-semibold">{choice.plan}：</span>{choice.detail}{choice.count && <strong className="text-[#153B31]">{choice.count}</strong>}{choice.suffix}</li>)}</ul></th></tr>
-        {group.rows.map(row => <tr key={row.label}>
-          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
-          {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
-        </tr>)}
-      </tbody>)}
       <tbody>
-        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-3 text-left text-base font-semibold sm:px-4">使用規模</th></tr>
+        {comparisonRows.map(row => <tr key={row.label}>
+          <th id={"comparison-" + featureLinks[row.label]} scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-1 text-left font-normal leading-6 sm:px-4"><a href={"/pricing/features#" + featureLinks[row.label]} className="inline-flex min-h-11 items-center gap-1 rounded-sm hover:text-[#28684D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#123E32]">{row.label}<span aria-hidden="true" className="text-[#64756D]">↗</span></a></th>
+          {row.values.map((value, i) => {
+            if (value === "免費任選") {
+              const startsChoice = (i === 0 && row.label === "資料匯出") || (i === 1 && row.label === "健康追蹤");
+              if (!startsChoice) return null;
+              const optionIds = i === 0 ? "comparison-export comparison-cash" : "comparison-health comparison-settlement comparison-waitlist";
+              return <td key={i} rowSpan={i === 0 ? 2 : 3} headers={"comparison-plan-" + i + " " + optionIds} className="border border-[#D7B771] bg-[#FFF6DF] px-1 py-2 text-center align-middle text-[#79591D]">
+                <span className="block font-semibold">免費</span><span className="block font-semibold">{i === 0 ? "2 選 1" : "3 選 1"}</span>
+                <span className="mt-2 block leading-5 text-[#79591D]"><span className="block">其餘</span><span className="block">可加購</span></span>
+              </td>;
+            }
+            return <td key={i} headers={"comparison-plan-" + i + " comparison-" + featureLinks[row.label]} className={"border-b border-[#153B31]/10 px-1 py-1 text-center " + (i === 1 ? "bg-[#F6F8F5] " : "bg-white ")}>
+              {value === "內含" ? <><span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF3EC] text-xl font-semibold text-[#28684D]">✓</span><span className="sr-only">已包含</span></> : <span className="text-[#64756D]">加購</span>}
+            </td>;
+          })}
+        </tr>)}
+      </tbody>
+      <tbody>
+        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-2 text-left text-base font-semibold sm:px-4">使用規模</th></tr>
         {limits.map(item => <tr key={item.field}><th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-3 text-left font-normal sm:px-4">{item.label}</th>{plans.map(plan => {
           const value = PLAN_LIMITS[plan.id][item.field];
-          return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-3 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
+          return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-3 text-center font-semibold " + (plan.id === "GROWTH" ? "bg-[#F6F8F5]" : "bg-white")}>{value === null ? "不限" : <>{value.toLocaleString("zh-TW")}<span className="ml-0.5 font-normal">{item.unit}</span></>}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-3 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="inline-flex min-h-11 items-center underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">多店管理</a></th><td className="bg-white px-1 py-3 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-3 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-3 text-center leading-6">總部管理<br />分店另計</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-1 text-left font-normal sm:px-4"><a href="/pricing/features#multi-store" className="inline-flex min-h-11 items-center gap-1 rounded-sm hover:text-[#28684D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#123E32]">多店管理<span aria-hidden="true" className="text-[#64756D]">↗</span></a></th><td className="bg-white px-1 py-1 text-center">單店</td><td className="bg-[#F6F8F5] px-1 py-1 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-1 text-center leading-6">總部管理<br />分店另計</td></tr>
       </tbody>
     </table>
+    <details className="mt-3 border-b border-[#153B31]/15 text-base leading-7">
+      <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看使用說明</summary>
+      <div className="space-y-2 pb-3 text-[#4C6259]">
+        <p>基本版：資料匯出／現金抽屜免費 2 選 1；專業版：健康追蹤／月結管理／課程候補免費 3 選 1。免費任選可之後再決定，由總部協助開通；同一淡金色區塊選 1 項免費，其餘可加購。</p>
+        <p>展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
+        <p>可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
+        <p>付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
+      </div>
+    </details>
   </section>;
 }
 export default async function PricingPage() {
@@ -124,27 +142,22 @@ export default async function PricingPage() {
           </div>
           <a href={TRIAL_URL} className="inline-flex min-h-11 shrink-0 items-center justify-center self-start rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 lg:self-center">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
         </div>
-        <details className="mt-3 border-t border-[#153B31]/15 text-base leading-7">
+        <details id="trial-details" className="mt-3 scroll-mt-24 border-t border-[#153B31]/15 text-base leading-7">
           <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看體驗額度與使用說明</summary>
           <div className="space-y-2 pb-2 text-[#4C6259]">
-            <p>所選模組的全部功能開放體驗，含母子店串接，人員仍依店長／員工角色權限操作。含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。</p>
-            <p>從帳號可正常使用當天開通起算 30 天；網頁前台可先使用，LINE／LIFF 完成設定後接上。</p>
-            <p>到期後後台改為唯讀，資料保留 30 天；保留期間轉正式，可沿用原帳號與資料，功能及額度依購買方案。</p>
-            <p>30 天系統體驗免費，不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，LINE 訊息、金流等外部服務費用於開通前確認。</p>
+            {Object.entries(PUBLIC_TRIAL_COPY).map(([key, text]) => <p key={key}>{text}</p>)}
           </div>
         </details>
       </section>
       <h2 className="mb-3 text-2xl font-semibold">方案價格與優惠</h2>
       <PricingOffer initialNow={initialNow} trialUrl={TRIAL_URL} />
       <FeatureComparison />
-      <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
-      <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
-        <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
+        <h2 id="addons" className="scroll-mt-24 text-2xl font-semibold">需要更多功能，再加購。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="inline-flex min-h-11 items-center underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
         <AddonOffer initialNow={initialNow} />
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">已內含或使用任選名額的功能不另收費，超出名額才加購。選定後由總部協助開通。</p>
-        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">任選項目可之後再決定，由總部協助開通；超出名額才需額外加購。</p>
+        <details id="fee-details" className="mt-4 scroll-mt-24 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
             <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
@@ -152,13 +165,14 @@ export default async function PricingPage() {
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
         </details>
-        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">申請前須知</summary>
+        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">申請前須知</summary>
           <dl className="mt-3 grid gap-4 text-base leading-7 sm:grid-cols-3">
             <div><dt className="font-medium">體驗怎麼開始？</dt><dd className="mt-1 text-[#4C6259]">填寫門市需求後，由專人聯繫，確認體驗內容與期限，再提供登入方式。</dd></div>
             <div><dt className="font-medium">開通前確認哪些費用？</dt><dd className="mt-1 text-[#4C6259]">確認選用項目、額外費用與優惠期間後再開通；數位管家另行確認開通，LINE 訊息等第三方費用另外確認。</dd></div>
             <div><dt className="font-medium">健康追蹤提供什麼？</dt><dd className="mt-1 text-[#4C6259]">量測紀錄、歷史數據與變化趨勢，協助體態追蹤；不作醫療診斷或效果保證。</dd></div>
           </dl></details>
       </section>
+      <section id="data-retention" aria-labelledby="retention-title" className="mt-6 scroll-mt-24 border-t border-[#153B31]/15 pt-5"><h2 id="retention-title" className="text-xl font-semibold">停用與到期，資料怎麼處理？</h2><p className="mt-2 text-base leading-7 text-[#4C6259]">{PUBLIC_SUBSCRIPTION_RETENTION}</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">試用有獨立的 30 天資料保留期，請查看上方體驗說明。<a href="/terms" className="inline-flex min-h-11 items-center underline underline-offset-4">服務條款 →</a></p></section>
       <OnlinePayment />
     </main>
     <section className="bg-[#123E32] px-5 py-8 text-center text-white">

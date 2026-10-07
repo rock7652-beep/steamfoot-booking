@@ -132,7 +132,7 @@ const PLAN_CAPABILITIES: Record<PricingPlan, string[]> = {
     "顧客經營清單 + 自動標籤",
     "完整營運儀表板",
     "AI 顧客健康分析",
-    "分析可另購 NT$800／月",
+    "分析專業版內含；基本版加購原價 NT$500／月",
   ],
   ALLIANCE: [
     "完整開店準備度分析",

@@ -41,8 +41,8 @@ export async function inventoryContext(permission: "inventory.read" | "inventory
         prisma.store.findUnique({ where: { id: storeId }, select: { plan: true } }),
         prisma.storeFeatureEntitlement.findUnique({ where: { uq_store_feature_entitlement: { storeId, featureKey: isWorkOrder ? "work_orders" : "inventory" } } }),
     ]);
-    if (!store || (isWorkOrder ? !(grant?.status === "ENABLED" && (!grant.startsAt || grant.startsAt <= new Date()) && (!grant.expiresAt || grant.expiresAt >= new Date())) : !inventoryFeatureAllowed(store.plan, grant)))
-        throw new AppError("FORBIDDEN", isWorkOrder ? "工單尚未開通" : "進銷存尚未開通");
+    if (!store || !inventoryFeatureAllowed(store.plan, grant))
+        throw new AppError("FORBIDDEN", `${isWorkOrder ? "工單" : "進銷存"}尚未開通${store?.plan === "EXPERIENCE" ? "，請聯絡總部確認授權" : "，需額外加購，請聯絡總部確認與開通"}`);
     const canCost = await checkPermission(user.role, user.staffId, "inventory.cost.read");
     return { user, storeId, canCost, permission };
 }

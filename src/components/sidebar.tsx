@@ -937,6 +937,7 @@ export default function DashboardShell({
             icon={item.icon}
             collapsed={collapsed}
             targetPlan={item.upgradeTo ?? "BASIC"}
+            feature={item.requiredFeature}
           />
         </li>
       );
@@ -987,6 +988,7 @@ export default function DashboardShell({
             icon={item.icon}
             collapsed={collapsed}
             targetPlan={item.upgradeTo ?? "BASIC"}
+            feature={item.requiredFeature}
           />
         </li>
       );

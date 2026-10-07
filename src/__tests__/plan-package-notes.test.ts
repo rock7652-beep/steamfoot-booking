@@ -10,4 +10,12 @@ describe("shared plan terms", () => {
       expect(html).toContain(text);
     }
   });
+  it("explains included export, deferred free choices and independent materials access", () => {
+    const html = renderToStaticMarkup(createElement(PlanPackageNotes));
+    expect(html).toContain("顧客經營、分析、現金抽屜、資料匯出內含");
+    expect(html).toContain("免費任選可之後再決定");
+    expect(html).toContain("兩項各自計費");
+    expect(html).not.toContain("資料匯出可選配");
+    expect(html).toContain("<details");
+  });
 });
