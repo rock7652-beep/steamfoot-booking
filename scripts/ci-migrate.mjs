@@ -18,6 +18,14 @@ import { PrismaClient } from "@prisma/client";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 import { buildAuditPreviewMigrationSql } from "./audit-preview-migrations.mjs";
 
+// Guide acceptance must fail closed before build queries if either connection is not isolated.
+// All three business clients use DATABASE_URL; Prisma schemas use DIRECT_URL.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "docs/operation-guide-audit-20261004") {
+  if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
+    throw new Error("Operation guide Preview requires the existing isolated test database for both connections.");
+  console.info("[operation-guide-preview-preflight] isolated_database=true");
+}
+
 // Inventory preview must never migrate the live database.
 if (process.env.VERCEL_ENV === "preview" && ["feat/inventory-workspace-20261005", "fix/staff-account-editor-20261005", "feat/inventory-returns-20261007"].includes(process.env.VERCEL_GIT_COMMIT_REF)) {
   if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
