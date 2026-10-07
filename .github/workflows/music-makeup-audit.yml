@@ -4,10 +4,18 @@ on:
     branches: [main]
     paths:
       - 'src/server/services/course-booking.ts'
+      - 'src/server/actions/course-members.ts'
+      - 'src/lib/music-opening-*.ts'
+      - 'course-prisma/schema.prisma'
       - 'src/server/actions/course-booking-notification.ts'
       - 'src/__tests__/course-booking-notification.pg.test.ts'
       - 'src/__tests__/course-student-makeup.pg.test.ts'
+      - 'src/__tests__/music-opening-transactions.pg.test.ts'
+      - 'src/__tests__/helpers/booking-concurrency-test-db.ts'
+      - 'src/__tests__/fixtures/music-opening.ts'
       - 'supabase/migrations/20260928101128_course_student_makeup_link.sql'
+      - 'supabase/migrations/20261002093141_course_coach_notifications.sql'
+      - 'prisma/migrations/20260929140000_course_staff_person_link/migration.sql'
       - '.github/workflows/music-makeup-audit.yml'
 permissions:
   contents: read
@@ -55,6 +63,15 @@ jobs:
             const r = JSON.parse(readFileSync("course-notification-pg-results.json", "utf8"));
             if (!r.success || r.numTotalTests !== 4 || r.numPassedTests !== 4 || r.numPendingTests !== 0) throw new Error("All four notification database scenarios must pass without skips");
           '
+      - name: Exercise opening attendance, teacher changes and notification rollback against PostgreSQL
+        run: npx vitest run src/__tests__/music-opening-transactions.pg.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile=music-opening-pg-results.json
+      - name: Require all eight opening database tests without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("music-opening-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 8 || r.numPassedTests !== 8 || r.numPendingTests !== 0) throw new Error("All eight opening database scenarios must pass without skips");
+          '
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -62,4 +79,5 @@ jobs:
           path: |
             music-makeup-pg-results.json
             course-notification-pg-results.json
+            music-opening-pg-results.json
           retention-days: 7
