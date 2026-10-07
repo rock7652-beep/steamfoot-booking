@@ -13,6 +13,10 @@ import {
 } from "@/lib/date-utils";
 import { ACTIVE_BOOKING_STATUSES, STATUS_LABEL } from "@/lib/booking-constants";
 import { checkPermission } from "@/lib/permissions";
+import { getEffectiveStoreRole } from "@/lib/hq-store-view";
+import { getHqStoreViewContext, registerHqStoreViewContext } from "@/lib/hq-store-view-context";
+import { getStoreFeaturePresentation, hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import {
   resolveStoreViewContext,
   type StoreViewContext,
@@ -75,19 +79,37 @@ export default async function DashboardHomePage() {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
   }
   const isViewMode = storeViewContext?.isViewMode ?? false;
+  const [bookingPermission, createBookingPermission, customerPermission, revenuePermission, planPermission,
+    bookingFeature, customerFeature, revenueFeature, planFeature, reconciliationFeature, customerCareState] = await Promise.all([
+    checkPermission(user.role, user.staffId, "booking.read"),
+    checkPermission(user.role, user.staffId, "booking.create"),
+    checkPermission(user.role, user.staffId, "customer.read"),
+    checkPermission(user.role, user.staffId, "transaction.read"),
+    checkPermission(user.role, user.staffId, "wallet.read"),
+    activeStoreId ? hasStoreFeature(activeStoreId, FEATURES.BASIC_BOOKING) : false,
+    activeStoreId ? hasStoreFeature(activeStoreId, FEATURES.CUSTOMER_MANAGEMENT) : false,
+    activeStoreId ? hasStoreFeature(activeStoreId, FEATURES.TRANSACTION_MANAGEMENT) : false,
+    activeStoreId ? hasStoreFeature(activeStoreId, FEATURES.PLAN_MANAGEMENT) : false,
+    activeStoreId ? hasStoreFeature(activeStoreId, FEATURES.RECONCILIATION) : false,
+    activeStoreId ? getStoreFeaturePresentation(activeStoreId, FEATURES.CUSTOMER_CARE) : "HIDDEN",
+  ]);
+  const canViewBookings = bookingPermission && bookingFeature;
+  const canCreateBooking = canViewBookings && createBookingPermission;
+  const canViewCustomers = customerPermission && customerFeature;
+  const canViewRevenue = revenuePermission && revenueFeature;
+  const canViewPlans = planPermission && planFeature;
+  const canViewCustomerCare = canViewCustomers && customerCareState === "ENABLED";
+  const showCustomerCare = canViewCustomers && customerCareState !== "HIDDEN";
   if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "spa") {
-    const [canBookings, canCustomers, canRevenue] = await Promise.all([
-      checkPermission(user.role, user.staffId, "booking.read"),
-      checkPermission(user.role, user.staffId, "customer.read"),
-      checkPermission(user.role, user.staffId, "transaction.read"),
-    ]);
-    return <SpaHome storeId={activeStoreId} canBookings={canBookings} canCustomers={canCustomers} canRevenue={canRevenue} />;
+    return <SpaHome storeId={activeStoreId} canBookings={canViewBookings} canCustomers={canViewCustomers} canRevenue={canViewRevenue} />;
   }
 
   const dashboardStoreId = activeStoreId;
   const dashboardUser = dashboardStoreId
     ? { ...user, storeId: dashboardStoreId }
     : user;
+  const hqStoreViewContext = getHqStoreViewContext(user);
+  if (hqStoreViewContext) registerHqStoreViewContext(dashboardUser, hqStoreViewContext.storeId);
   // #307 唯讀模式：到期店家隱藏 / 停用「新增」入口（後端已擋，這裡避免店長白點）
   const subscriptionWriteBlocked = await isStoreSubscriptionWriteBlocked(activeStoreId);
   const isReadOnly = subscriptionWriteBlocked || (isViewMode && !storeViewContext?.canWrite);
@@ -112,13 +134,13 @@ export default async function DashboardHomePage() {
 
   // 顧客經營摘要 — 需 customer.read；只讀 count（不讀名單）。
   // 獨立 catch：查詢失敗回 null,卡片降級顯示,不影響首頁其他區塊。
-  const canViewCustomers = await checkPermission(user.role, user.staffId, "customer.read");
   // Central identity health is HQ-only. OWNER can have identity.rebind for
   // store-level workflows, but must not see or trigger this cross-identity scan.
-  const pendingMemberLinkReviews = user.role === "ADMIN" && dashboardStoreId
+  const effectiveRole = await getEffectiveStoreRole(user);
+  const pendingMemberLinkReviews = effectiveRole === "ADMIN" && dashboardStoreId
     ? await countPendingCentralMemberLinkReviews(dashboardStoreId).catch(() => 0)
     : 0;
-  const careSummaryPromise: Promise<CustomerCareSummary | null> = canViewCustomers
+  const careSummaryPromise: Promise<CustomerCareSummary | null> = canViewCustomerCare
     ? getCustomerCareSummary(dashboardUser, dashboardStoreId).catch((e) => {
         console.error("[dashboard-home] getCustomerCareSummary failed", {
           activeStoreId: dashboardStoreId,
@@ -131,7 +153,7 @@ export default async function DashboardHomePage() {
 
   // 首頁只取顧客工作台既有資料來源的數量，不另建統計口徑。
   const workspaceMonth = toLocalMonthStr();
-  const birthdayCountPromise: Promise<number | null> = canViewCustomers && dashboardStoreId
+  const birthdayCountPromise: Promise<number | null> = canViewCustomerCare && dashboardStoreId
     ? getBirthdayCustomersForMonth(dashboardStoreId, workspaceMonth)
         .then((customers) => customers.length)
         .catch((e) => {
@@ -142,9 +164,9 @@ export default async function DashboardHomePage() {
           });
           return null;
         })
-    : Promise.resolve(canViewCustomers ? 0 : null);
+    : Promise.resolve(canViewCustomerCare ? 0 : null);
   const monthlyUnconvertedCountPromise: Promise<number | null> =
-    canViewCustomers && dashboardStoreId
+    canViewCustomerCare && dashboardStoreId
       ? getMonthlyUnconvertedCustomers(dashboardStoreId, workspaceMonth)
           .then((customers) => customers.length)
           .catch((e) => {
@@ -155,7 +177,7 @@ export default async function DashboardHomePage() {
             });
             return null;
           })
-      : Promise.resolve(canViewCustomers ? 0 : null);
+      : Promise.resolve(canViewCustomerCare ? 0 : null);
 
   const [
     summary,
@@ -176,7 +198,7 @@ export default async function DashboardHomePage() {
       });
       return SUMMARY_FALLBACK;
     }),
-    prisma.booking.findMany({
+    canViewBookings ? prisma.booking.findMany({
       where: {
         bookingDate: todayBooking,
         bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
@@ -206,19 +228,32 @@ export default async function DashboardHomePage() {
         customer: { id: string; name: string };
         revenueStaff: { displayName: string; colorCode: string | null } | null;
       }>;
-    }),
-    user.storeId
-      ? getLatestResolvedRequest(user.storeId).catch(() => null)
+    }) : Promise.resolve([]),
+    dashboardStoreId
+      ? getLatestResolvedRequest(dashboardStoreId).catch(() => null)
       : Promise.resolve(null),
-    getLatestReconciliationRun().catch(() => null),
-    getStoreTodosForUser(dashboardUser, {
+    canViewRevenue && reconciliationFeature
+      ? getLatestReconciliationRun().catch(() => null)
+      : Promise.resolve(null),
+    canViewBookings || canViewCustomers || canViewRevenue ? getStoreTodosForUser(dashboardUser, {
       activeStoreId: dashboardStoreId,
       respectDismissed: !isViewMode,
-    }).catch(() => ({ items: [], total: 0 })),
+    }).catch(() => ({ items: [], total: 0 })) : Promise.resolve({ items: [], total: 0 }),
     careSummaryPromise,
     birthdayCountPromise,
     monthlyUnconvertedCountPromise,
   ]);
+
+  // Keep shortcuts aligned with the selected store's enabled modules.
+  const visibleTodos = todos.items.filter((item) => {
+    switch (item.type) {
+      case "BOOKING": return canViewBookings && canViewCustomers;
+      case "PAYMENT": return canViewRevenue && canViewCustomers;
+      case "VIP_INTEREST": return canViewCustomers && canViewPlans;
+      case "FOLLOW_UP": return canViewCustomerCare;
+      case "LOW_SESSIONS": return canViewCustomerCare && canViewPlans;
+    }
+  });
 
   const customerWorkspaceSummary: CustomerWorkspaceSummary | null =
     careSummary !== null && birthdayCount !== null && monthlyUnconvertedCount !== null
@@ -240,8 +275,8 @@ export default async function DashboardHomePage() {
   const rows: TodayBookingRow[] = todayBookings.map((b) => ({
     id: b.id,
     slotTime: b.slotTime,
-    customerName: b.customer.name,
-    customerId: b.customer.id,
+    customerName: canViewCustomers ? b.customer.name : "顧客資料受限",
+    customerId: canViewCustomers ? b.customer.id : null,
     bookingStatus: b.bookingStatus,
     people: b.people,
     staffName: b.revenueStaff?.displayName ?? null,
@@ -249,10 +284,10 @@ export default async function DashboardHomePage() {
   }));
 
   const kpis = [
-    { label: "今日預約", value: `${summary.todayBookingCount} 筆`, tone: "primary" as const },
+    ...(canViewBookings ? [{ label: "今日預約", value: `${summary.todayBookingCount} 筆`, tone: "primary" as const },
     { label: "今日人數", value: `${summary.todayPeople} 人`, tone: "blue" as const },
-    { label: "今日完成", value: `${summary.todayCompletedCount} 筆`, tone: "green" as const },
-    ...(summary.todayRevenue !== null
+    { label: "今日完成", value: `${summary.todayCompletedCount} 筆`, tone: "green" as const }] : []),
+    ...(canViewRevenue && summary.todayRevenue !== null
       ? [
           {
             label: "今日營收",
@@ -261,7 +296,7 @@ export default async function DashboardHomePage() {
           },
         ]
       : []),
-    { label: "名下顧客", value: `${summary.customerCount} 位`, tone: "earth" as const },
+    ...(canViewCustomers ? [{ label: "名下顧客", value: `${summary.customerCount} 位`, tone: "earth" as const }] : []),
   ];
 
   const columns: Column<TodayBookingRow>[] = [
@@ -329,7 +364,7 @@ export default async function DashboardHomePage() {
         title="首頁"
         subtitle={`${todayLabel} · 今日工作`}
         actions={
-          isReadOnly ? (
+          !canCreateBooking ? null : isReadOnly ? (
             <span
               className="inline-flex min-h-11 cursor-not-allowed items-center rounded-lg bg-earth-100 px-3 text-sm font-medium text-earth-400"
               title={isViewMode ? "查看模式下不可新增預約" : "系統已到期，目前為唯讀模式"}
@@ -359,9 +394,11 @@ export default async function DashboardHomePage() {
             <strong>{pendingMemberLinkReviews} 筆 →</strong>
           </Link>
         ) : null}
-        <div className={`grid items-start gap-2 ${canViewCustomers ? "@min-[56rem]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`}>
-          <StoreTodoCard items={todos.items} defaultVisible={3} readOnly={isViewMode} />
-          {canViewCustomers && <CustomerCareSummaryCard summary={customerWorkspaceSummary} />}
+        <div className={`grid items-start gap-2 ${showCustomerCare ? "@min-[56rem]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`}>
+          {(canViewBookings || canViewCustomers || canViewRevenue) && <StoreTodoCard items={visibleTodos} defaultVisible={3} readOnly={isViewMode} canCreateBooking={canCreateBooking && !isReadOnly} />}
+          {showCustomerCare && (canViewCustomerCare
+            ? <CustomerCareSummaryCard summary={customerWorkspaceSummary} />
+            : <section className="rounded-xl border border-earth-200 bg-white px-4 py-3"><h2 className="text-sm font-semibold text-earth-800">今日顧客經營</h2><p className="mt-2 text-sm text-earth-500">顧客經營尚未開通。</p></section>)}
         </div>
       </div>
 
@@ -385,7 +422,7 @@ export default async function DashboardHomePage() {
         />
       ) : null}
 
-      <section className="rounded-xl border border-earth-200 bg-white">
+      {canViewBookings && <section className="rounded-xl border border-earth-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
         <div>
           <h2 className="text-sm font-semibold text-earth-800">今日預約</h2>
@@ -414,10 +451,10 @@ export default async function DashboardHomePage() {
           hint={
             isReadOnly
               ? isViewMode ? "查看模式下無法新增預約" : "系統已到期，目前為唯讀模式，無法新增預約"
-              : "可手動建立或等顧客自助預約"
+              : canCreateBooking ? "可手動建立或等顧客自助預約" : "新預約會顯示在此處"
           }
           cta={
-            isReadOnly
+            isReadOnly || !canCreateBooking
               ? undefined
               : { label: "新增預約", href: "/dashboard/bookings/new" }
           }
@@ -431,7 +468,7 @@ export default async function DashboardHomePage() {
           className="rounded-none border-0 border-t border-earth-100"
         />
       )}
-      </section>
+      </section>}
     </PageShell>
   );
 }

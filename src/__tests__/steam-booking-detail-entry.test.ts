@@ -1,3 +1,4 @@
+vi.mock("@/lib/dashboard-core-feature", () => ({ requireDashboardCoreFeature: async () => {} }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({

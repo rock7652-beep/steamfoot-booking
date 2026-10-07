@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreContext } from "@/lib/store-context";
@@ -15,6 +16,7 @@ interface PageProps {
 }
 
 export default async function EditCustomerPage({ params }: PageProps) {
+  await requireDashboardCoreFeature("customer_management");
   const { id } = await params;
 
   const user = await getCurrentUser();

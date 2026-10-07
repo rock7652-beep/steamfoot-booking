@@ -9,7 +9,7 @@ describe("central member health HQ boundary", () => {
   it("guards the page with the non-delegable ADMIN role", () => {
     const page = source("src/app/(dashboard)/dashboard/member-link-reviews/page.tsx");
 
-    expect(page).toContain('user.role !== "ADMIN"');
+    expect(page).toContain('getEffectiveActorRole(user) !== "ADMIN"');
     expect(page).toContain("notFound()");
     expect(page).not.toContain('checkPermission(user.role, user.staffId, "customer.identity.rebind")');
   });
@@ -17,7 +17,7 @@ describe("central member health HQ boundary", () => {
   it("only queries and displays the dashboard reminder for ADMIN", () => {
     const dashboard = source("src/app/(dashboard)/dashboard/page.tsx");
 
-    expect(dashboard).toContain('user.role === "ADMIN" && dashboardStoreId');
+    expect(dashboard).toContain('effectiveRole === "ADMIN" && dashboardStoreId');
   });
 
   it("keeps a fixed entry in HQ navigation and no entry in store navigation", () => {

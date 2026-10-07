@@ -28,7 +28,7 @@ import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
-import { hasStoreFeature } from "@/lib/feature-gate";
+import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 
 export default async function CoursesPage({
@@ -37,6 +37,15 @@ export default async function CoursesPage({
   searchParams: Promise<{ [key: string]: string | undefined; date?: string; view?: string; month?: string; preset?: string; startDate?: string; endDate?: string }>;
 }) {
   const query = await searchParams;
+  const routeUser = await getCurrentUser();
+  if (!routeUser) redirect("/dashboard");
+  const routeStoreId = await getActiveStoreForRead(routeUser);
+  if (routeStoreId) {
+    const routeFeature = query.view === "customers" ? FEATURES.CUSTOMER_MANAGEMENT
+      : query.view === "plans" ? FEATURES.PLAN_MANAGEMENT
+      : ["analytics", "settings", "operations"].includes(query.view ?? "") ? undefined : FEATURES.BASIC_BOOKING;
+    if (routeFeature) await requireStoreFeature(routeStoreId, routeFeature);
+  }
   if (query.view === "analytics") return <CourseAnalyticsPage params={query}/>;
   if (query.view === "customers" || query.view === "plans")
     return <CourseMemberPage view={query.view} query={query} />;

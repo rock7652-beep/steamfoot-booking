@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { getCurrentUser } from "@/lib/session";
@@ -12,7 +13,6 @@ import {
   hasDataExportFeature,
 } from "@/lib/data-export-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
-import { isOwner } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -64,7 +64,7 @@ export default async function StoreRevenuePage() {
     </div>;
   }
 
-  const admin = isOwner(user.role);
+  const admin = getEffectiveActorRole(user) === "ADMIN";
   const storeFilter = getStoreFilter(reportsUser, reportsStoreId);
 
   // Load store list + coach list for filters

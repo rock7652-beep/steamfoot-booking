@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -31,6 +32,7 @@ export default async function CustomerMergePage({
 }: {
   searchParams: Promise<{ source?: string; target?: string; q?: string; result?: string; error?: string }>;
 }) {
+  await requireDashboardCoreFeature("customer_management");
   const user = await getCurrentUser();
   if (!user) notFound();
   // 高風險 staff 操作 — 僅 OWNER（單店店長）；ADMIN 也 ok

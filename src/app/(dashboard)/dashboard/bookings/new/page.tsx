@@ -1,3 +1,5 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import styles from "../booking-layout.module.css";
 import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
@@ -46,6 +48,7 @@ const inputCls =
   "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 
 export default async function NewBookingPage({ searchParams }: PageProps) {
+  await requireDashboardCoreFeature("basic_booking");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "booking.create"))) {
     redirect("/dashboard");
@@ -112,7 +115,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const lockSpaSchedule = !!defaultServiceStaff && !!requestedSlotTime;
   const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
   const days = enumerateBookableDates(todayStr, bookableUntil);
-  const isOwner = user.role === "ADMIN";
+  const isOwner = getEffectiveActorRole(user) === "ADMIN";
   // 從「新增補課」入口進來 → 預設選補課（顧客有有效補課券時）。
   const defaultMode = params.mode === "makeup" ? "makeup" : undefined;
 

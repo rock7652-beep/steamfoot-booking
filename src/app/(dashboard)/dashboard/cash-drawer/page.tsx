@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 /**
  * /dashboard/cash-drawer — 現金抽屜獨立頁
  *
@@ -73,7 +74,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   const industryModule = await getStoreIndustryModule(storeId);
   // The lightweight panel omits DashboardLayout, so retain its course staff
   // membership boundary here before reading any financial amounts.
-  if (panel && industryModule === "course" && user.role !== "ADMIN"
+  if (panel && industryModule === "course" && getEffectiveActorRole(user) !== "ADMIN"
     && !(user.role === "OWNER" && !!user.storeId && activeStoreId !== user.storeId)
     && !await prisma.staff.findFirst({ where: { id: user.staffId ?? "", storeId: activeStoreId!, userId: user.id, status: "ACTIVE" } })) {
     return panelError("目前人員無法存取此店，請聯絡店長。");
@@ -108,11 +109,11 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
       ? Promise.resolve(false)
       : checkPermission(user.role, user.staffId, "cashbook.create"),
     listClosedBusinessDates(storeId, fromDate.toISOString().slice(0, 10), todayStr),
-    !isViewMode && user.role === "ADMIN" ? listStaffSelectOptions() : Promise.resolve([]),
+    !isViewMode && getEffectiveActorRole(user) === "ADMIN" ? listStaffSelectOptions() : Promise.resolve([]),
   ]);
-  const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
+  const canInit = !isViewMode && (getEffectiveActorRole(user) === "ADMIN" || user.role === "OWNER");
   const canReopen = canInit && canClose;
-  const canAssignStaff = !isViewMode && user.role === "ADMIN";
+  const canAssignStaff = !isViewMode && getEffectiveActorRole(user) === "ADMIN";
 
   const panelPrefix = /^(?:\/hq|\/s\/[^/?#]+\/admin)$/.test(params.panelPrefix ?? "") ? params.panelPrefix! : "";
   const panelReturnPath = `${panelPrefix}/dashboard/cash-drawer?${new URLSearchParams({cashDrawerPanel: "1", panelStoreId: storeId, panelPrefix})}`;

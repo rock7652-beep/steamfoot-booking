@@ -12,10 +12,10 @@ import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { handleActionError, AppError } from "@/lib/errors";
 import { requireSpaStore } from "@/lib/industry-module-server";
-import { checkPermission, isStaffRole } from "@/lib/permissions";
+import { checkPermission, isStaffRole, requireWritablePermission } from "@/lib/permissions";
 import { spaPrisma } from "@/lib/spa-db";
 import { getCurrentUser } from "@/lib/session";
-import { getStoreContext } from "@/lib/store-context";
+import { resolveWriteStoreId } from "@/lib/store";
 import { applicableLocations, spaEndTime, staffAvailable, validSpaDate } from "@/lib/spa-scheduling";
 import type { ActionResult } from "@/types";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
@@ -41,21 +41,17 @@ async function authorizedStore(permission: "booking.create" | "booking.update") 
     throw new AppError("FORBIDDEN", "您沒有此操作的權限");
   }
 
-  // A Server Action request does not reliably retain the rewritten pathname,
-  // so obtain its route-scoped store from the proxy cookie.  The cookie is
-  // only a requested context: the signed-in user must also own an active Staff
-  // row in that exact store before any SPA data can be touched.
-  const context = await getStoreContext();
-  if (!context) throw new AppError("UNAUTHORIZED", "缺少目前店舖，請重新開啟 SPA 排程頁");
+  // Use the same authorized selection as pages and all other mutations.
+  await requireWritablePermission(permission);
+  const storeId = await resolveWriteStoreId(user);
   if (user.role !== "ADMIN") {
     const staff = await prisma.staff.findFirst({
-      where: { id: user.staffId ?? undefined, userId: user.id, storeId: context.storeId, status: "ACTIVE" },
+      where: { id: user.staffId ?? undefined, userId: user.id, storeId: storeId, status: "ACTIVE" },
       select: { id: true },
     });
     if (!staff) throw new AppError("FORBIDDEN", "您無權操作目前店舖");
   }
 
-  const storeId = context.storeId;
   await requireSpaStore(storeId);
   await assertStoreSubscriptionWritable(storeId);
   const installation = await prisma.storeModuleInstallation.findUnique({ where: { storeId }, select: { status: true } });

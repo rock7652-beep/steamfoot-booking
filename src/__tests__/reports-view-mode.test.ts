@@ -33,6 +33,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/lib/session", () => ({
+  getCurrentUser: async () => (await mockAuth())?.user ?? null,
   requireStaffSession: (...args: unknown[]) => mockRequireStaffSession(...args),
 }));
 

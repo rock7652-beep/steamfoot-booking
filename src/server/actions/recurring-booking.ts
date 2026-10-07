@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { Prisma } from "@prisma/client";
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -220,7 +221,7 @@ export async function createRecurringBookings(
         tx.businessHours.findMany({ where: { storeId } }),
         tx.specialBusinessDay.findMany({ where: { storeId, date: { gte: from, lte: to } } }),
         tx.slotOverride.findMany({ where: { storeId, date: { gte: from, lte: to } } }),
-        config.dutySchedulingEnabled && !(data.skipDutyCheck && user.role === "ADMIN")
+        config.dutySchedulingEnabled && !(data.skipDutyCheck && getEffectiveActorRole(user) === "ADMIN")
           ? tx.dutyAssignment.findMany({ where: { storeId, date: { gte: from, lte: to }, slotTime: data.slotTime }, select: { date: true } })
           : Promise.resolve([]),
       ]);
@@ -240,7 +241,7 @@ export async function createRecurringBookings(
         const slot = applySlotOverrides(rule, dayOverrides).find((item) => item.startTime === data.slotTime);
         if (!slot) eligibility("SLOT_INVALID", `${date} ${data.slotTime} 不是有效時段`, occurrenceIndex, date);
         if (!slot.isEnabled) eligibility("SLOT_DISABLED", `${date} ${data.slotTime} 時段已關閉`, occurrenceIndex, date);
-        if (config.dutySchedulingEnabled && !(data.skipDutyCheck && user.role === "ADMIN") && !dutyDates.has(date)) {
+        if (config.dutySchedulingEnabled && !(data.skipDutyCheck && getEffectiveActorRole(user) === "ADMIN") && !dutyDates.has(date)) {
           eligibility("DUTY_UNAVAILABLE", `${date} ${data.slotTime} 尚無值班人員`, occurrenceIndex, date);
         }
         const booked = await tx.booking.aggregate({

@@ -1,3 +1,4 @@
+vi.mock("@/lib/store", () => ({ resolveWriteStoreId: async () => "spa-store" }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   writable: vi.fn(), plan: vi.fn(), groupFind:vi.fn(),groupCreate:vi.fn(),count:vi.fn(),permission: vi.fn(), store: vi.fn(), guard: vi.fn(), installation: vi.fn(),
@@ -8,7 +9,7 @@ vi.mock("@/lib/subscription-guard", () => ({ assertStoreSubscriptionWritable: m.
 vi.mock("@/lib/store-plan", () => ({ getStoreForPlanByStoreId: m.plan }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: m.customer }, staff: { findFirst: m.staff }, storeModuleInstallation: { findUnique: m.installation } } }));
-vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission, isStaffRole: () => true }));
+vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission, isStaffRole: () => true, requireWritablePermission: async () => {} }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.store }));
 vi.mock("@/lib/store-context", () => ({ getStoreContext: m.guard }));
 vi.mock("@/lib/industry-module-server", () => ({ requireSpaStore: m.guard }));

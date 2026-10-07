@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { diagnoseMessengerPageToken, getTokenFormat } from "@/server/services/messenger-token-fingerprint";
 
@@ -25,8 +25,7 @@ function validFormat(value: unknown): value is ReturnType<typeof getTokenFormat>
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const user = session?.user;
+  const user = await getCurrentUser();
   if (!user) return respond({ error: "unauthorized" }, 401);
   if (user.role !== "OWNER" && user.role !== "ADMIN") return respond({ error: "forbidden" }, 403);
 

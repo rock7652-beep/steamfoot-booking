@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { AppError } from "@/lib/errors";
 import { requireSession } from "@/lib/session";
 import {
@@ -42,7 +43,7 @@ export interface CentralLineRecipientAudit {
 
 export async function getCentralLineRecipientAudit(): Promise<CentralLineRecipientAudit> {
   const user = await requireSession();
-  if (user.role !== "ADMIN") {
+  if (getEffectiveActorRole(user) !== "ADMIN") {
     throw new AppError("FORBIDDEN", "此盤點僅限總部管理員使用");
   }
   const customers = await prisma.customer.findMany({

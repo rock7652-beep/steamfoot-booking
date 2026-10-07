@@ -1,3 +1,5 @@
+vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "store-a" }));
+vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: async () => {} }));
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ session: vi.fn(), grant: vi.fn(), subscription: vi.fn(), store: vi.fn(), writable: vi.fn() }));
 vi.mock("react", () => ({ cache: (fn: unknown) => fn }));

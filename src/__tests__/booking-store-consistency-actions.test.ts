@@ -1,3 +1,4 @@
+vi.mock("@/lib/permissions", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/permissions")>(), requireWritablePermission: (...args: unknown[]) => h.permission(...args) }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/industry-module-server", () => ({
@@ -11,6 +12,7 @@ const WALLET_ID = "wallet-taichung";
 const PLAN_ID = "plan-taichung";
 
 const h = vi.hoisted(() => ({
+  permission: vi.fn(),
   resolveWriteStoreId: vi.fn(),
   errorLog: vi.fn(),
   requireSession: vi.fn(),
@@ -128,6 +130,7 @@ function customer(storeId = "store-taichung", walletStoreId = "store-taichung") 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.permission.mockImplementation(async () => h.requireSession());
   h.resolveWriteStoreId.mockResolvedValue("store-taichung");
   h.requireSession.mockResolvedValue({
     id: USER_ID,
@@ -289,4 +292,13 @@ describe("createBooking — store consistency", () => {
     if (!result.success) expect(result.error).toContain("STORE_CONSISTENCY_MISMATCH");
     expect(h.bookingCreate).not.toHaveBeenCalled();
   });
+});
+
+it("rejects disabled core booking permission before reading customer or writing booking", async () => {
+  h.permission.mockRejectedValueOnce(new Error("此功能尚未開通"));
+  const {createBooking} = await import("@/server/actions/booking");
+  const result = await createBooking({customerId:CUSTOMER_ID, bookingDate:"2026-07-11",slotTime:"10:00",bookingType:"PACKAGE_SESSION"});
+  expect(result.success).toBe(false);
+  expect(h.customerFindUnique).not.toHaveBeenCalled();
+  expect(h.bookingCreate).not.toHaveBeenCalled();
 });

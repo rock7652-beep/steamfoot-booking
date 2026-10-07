@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
+import { getAccessibleStoreIds, validateStoreAccess, getActiveStoreForRead } from "@/lib/store";
 import { prisma } from "@/lib/db";
 import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
 import type { DigitalButlerProviderFilter } from "@/lib/digital-butler-provider";
@@ -48,6 +48,7 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
     : null;
   const storeId = focusedLead?.storeId ?? activeStoreId;
   if (!storeId) notFound();
+  await validateStoreAccess(user, storeId, "read").catch(() => notFound());
   await requireDigitalButlerEntitlement(storeId).catch(() => notFound());
 
   const status = STATUSES.has(params.status as DigitalButlerLeadStatus)

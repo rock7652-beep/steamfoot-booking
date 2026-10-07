@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 
@@ -14,8 +14,7 @@ function isAuditAdministrator(role: string): boolean {
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  const user = session?.user;
+  const user = await getCurrentUser();
   if (!user) return noStoreJson({ error: "unauthorized" }, 401);
   if (!isAuditAdministrator(user.role)) return noStoreJson({ error: "forbidden" }, 403);
 

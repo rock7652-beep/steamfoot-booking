@@ -15,7 +15,7 @@ describe("OAuth confirmation proxy routing", () => {
   });
 
   it("does not rewrite oauth-confirm through a store route", () => {
-    expect(proxy).toContain('return withDomainCookie(NextResponse.next(), domainStoreId);');
+    expect(proxy).toContain('return withDomainCookie(routePassThrough(req), domainStoreId);');
     expect(proxy).not.toContain('`/s/${DEFAULT_STORE_SLUG}/oauth-confirm`');
   });
 });

@@ -1,8 +1,8 @@
 vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:async()=>false}));
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({auth:vi.fn(),staff:vi.fn(),module:vi.fn()}));
+const m=vi.hoisted(()=>({auth:vi.fn(),staff:vi.fn(),module:vi.fn(),cookies:vi.fn(),headers:vi.fn()}));
 vi.mock("react",()=>({cache:(fn:unknown)=>fn}));
-vi.mock("next/headers",()=>({cookies:vi.fn(),headers:vi.fn()}));
+vi.mock("next/headers",()=>({cookies:m.cookies,headers:m.headers}));
 vi.mock("@/lib/auth",()=>({auth:m.auth}));
 vi.mock("@/lib/db",()=>({prisma:{staff:{findFirst:m.staff}}}));
 vi.mock("@/lib/permissions",()=>({isStaffRole:(role:string)=>["OWNER","STAFF","ADMIN"].includes(role)}));
@@ -10,7 +10,7 @@ vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:m.module}));
 vi.mock("@/server/services/central-member-resolver",()=>({resolveCentralMemberCustomerForStore:vi.fn()}));
 import {requireStaffSession} from "@/lib/session";
 const user={id:"u",role:"OWNER",storeId:"s",staffId:"staff",customerId:null,storeSlug:"s"};
-beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({user});m.staff.mockResolvedValue(null);});
+beforeEach(()=>{vi.resetAllMocks();m.headers.mockResolvedValue(new Headers());m.cookies.mockResolvedValue({get:()=>undefined});m.auth.mockResolvedValue({user});m.staff.mockResolvedValue(null);});
 it("rechecks active course Staff on an existing session",async()=>{
  m.module.mockResolvedValue("course");
  await expect(requireStaffSession()).rejects.toThrow("工作權限已停用");

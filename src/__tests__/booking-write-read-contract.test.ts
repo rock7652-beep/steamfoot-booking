@@ -238,6 +238,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 }));
 
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: async () => mockRequireSession(),
   requirePermission: vi.fn(async () => mockRequireSession()),
 }));
 

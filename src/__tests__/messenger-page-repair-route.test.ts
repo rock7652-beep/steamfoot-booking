@@ -4,7 +4,7 @@ const mockAuth = vi.fn();
 const mockResolveStore = vi.fn();
 const mockRepair = vi.fn();
 
-vi.mock("@/lib/auth", () => ({ auth: (...args: unknown[]) => mockAuth(...args) }));
+vi.mock("@/lib/session", () => ({ getCurrentUser: async (...args: unknown[]) => (await mockAuth(...args))?.user ?? null }));
 vi.mock("@/lib/store", () => ({ resolveAuthorizedConcreteStore: (...args: unknown[]) => mockResolveStore(...args) }));
 vi.mock("@/server/services/messenger-page-repair", () => ({ repairMessengerPageBinding: (...args: unknown[]) => mockRepair(...args) }));
 

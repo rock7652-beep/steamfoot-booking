@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 import { createPlan } from "@/server/actions/plan";
 import { getCurrentUser } from "@/lib/session";
@@ -11,6 +12,7 @@ import { FormErrorToast } from "@/components/form-error-toast";
 type PlanCategory = "TRIAL" | "SINGLE" | "PACKAGE";
 
 export default async function NewPlanPage() {
+  await requireDashboardCoreFeature("plan_management");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.create"))) {
     redirect("/dashboard");

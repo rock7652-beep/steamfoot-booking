@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ permission: vi.fn(), activeStore: vi.fn(), context: vi.fn(), staff: vi.fn(), module: vi.fn() }));
+const m = vi.hoisted(() => ({ writeStore: vi.fn(), permission: vi.fn(), activeStore: vi.fn(), context: vi.fn(), staff: vi.fn(), module: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission }));
-vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.activeStore }));
+vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.activeStore, resolveWriteStoreId: m.writeStore }));
 vi.mock("@/lib/store-context", () => ({ getStoreContext: m.context }));
 vi.mock("@/lib/industry-module-server", () => ({ requireSpaStore: m.module }));
 vi.mock("@/lib/db", () => ({ prisma: { staff: { findFirst: m.staff } } }));
@@ -12,6 +12,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.permission.mockResolvedValue({ id: "hq", role: "ADMIN" });
   m.activeStore.mockResolvedValue("spa-demo");
+  m.writeStore.mockResolvedValue("spa-demo");
   m.context.mockResolvedValue(null);
   m.module.mockResolvedValue(undefined);
 });
@@ -30,9 +31,17 @@ it("requires a concrete selected store", async () => {
   await expect(spaResourceStoreRead("customer.read")).rejects.toThrow("請先選擇店家");
   expect(m.module).not.toHaveBeenCalled();
 });
-it("does not use the read resolver to enable HQ writes", async () => {
-  await expect(spaResourceStore("customer.update")).rejects.toThrow("請從店家後台開啟設定");
+it("uses the authorized write resolver and ignores stale shop cookies for HQ writes", async () => {
+  m.context.mockResolvedValue({storeId:"other-store"});
+  await expect(spaResourceStore("customer.update")).resolves.toBe("spa-demo");
+  expect(m.writeStore).toHaveBeenCalled();
   expect(m.activeStore).not.toHaveBeenCalled();
+  expect(m.context).not.toHaveBeenCalled();
+});
+it("does not write if the authoritative store resolver rejects access", async () => {
+  m.writeStore.mockRejectedValue(new Error("forbidden"));
+  await expect(spaResourceStore("customer.update")).rejects.toThrow("forbidden");
+  expect(m.module).not.toHaveBeenCalled();
 });
 it("still rejects non-SPA stores", async () => {
   m.module.mockRejectedValue(new Error("wrong module"));

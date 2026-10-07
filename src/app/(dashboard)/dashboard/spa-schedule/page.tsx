@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/desktop";
 import { prisma } from "@/lib/db";
@@ -17,6 +18,7 @@ type PageProps = { searchParams: Promise<{ date?: string; customerId?: string; n
 
 /** SPA schedule is intentionally backed only by SpaBooking. */
 export default async function SpaSchedulePage({ searchParams }: PageProps) {
+  await requireDashboardCoreFeature("basic_booking");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "booking.read"))) redirect("/dashboard");
   const storeId = await getActiveStoreForRead(user);

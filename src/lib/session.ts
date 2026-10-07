@@ -213,13 +213,36 @@ async function recoverMissingStaffIdentity<T extends CustomerSessionUser>(user: 
 }
 
 /** 取得當前 session user（null = 未登入）— React cache 確保同一 request 只查一次 */
-export const getCurrentUser = cache(async () => {
+const getAuthenticatedUser = cache(async () => {
   const session = await auth();
   if (!session?.user) return null;
   const user = await recoverMissingStaffIdentity(await recoverMissingCustomerIdentity(session.user));
   if (user.loginRecordId && isStaffRole(user.role)) {
     const { touchStaffLogin } = await import("@/server/services/staff-login-audit");
     await touchStaffLogin(user.loginRecordId, user.id);
+  }
+  return registerAuditActor(user);
+});
+
+/** Store switching must recover even when the previous selection was removed. */
+export async function requireHqStoreSwitchActor() {
+  const user = await getAuthenticatedUser();
+  if (!user || user.role !== "ADMIN") throw new AppError("FORBIDDEN", "僅總部可切換店舖");
+  return user;
+}
+
+export const getCurrentUser = cache(async () => {
+  const user = await getAuthenticatedUser();
+  if (!user) return null;
+  if (user.role === "ADMIN") {
+    const { isHqStoreView } = await import("@/lib/hq-store-view");
+    if (await isHqStoreView(user)) {
+      const { getActiveStoreForRead } = await import("@/lib/store");
+      const storeId = await getActiveStoreForRead(user);
+      if (!storeId) throw new AppError("FORBIDDEN", "請先選擇有效的店舖");
+      const { registerHqStoreViewContext } = await import("@/lib/hq-store-view-context");
+      registerHqStoreViewContext(user, storeId);
+    }
   }
   return registerAuditActor(user);
 });
@@ -260,8 +283,9 @@ export async function requireStaffSession() {
 /** 要求 Admin 身份 */
 export async function requireAdminSession() {
   const user = await requireSession();
-  if (user.role !== "ADMIN") {
-    throw new AppError("FORBIDDEN", "此功能僅限系統管理者使用");
+  const { isHqStoreView } = await import("@/lib/hq-store-view");
+  if (user.role !== "ADMIN" || await isHqStoreView(user)) {
+    throw new AppError("FORBIDDEN", "此功能僅限總部使用，請先返回 HQ 總部");
   }
   return user;
 }

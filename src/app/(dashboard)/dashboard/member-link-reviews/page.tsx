@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -37,7 +38,7 @@ export default async function MemberLinkReviewsPage() {
   // Central identity health spans stores and login providers. It is an HQ
   // operation, not a delegable store permission: OWNER may hold
   // customer.identity.rebind for store workflows but must never reach here.
-  if (!user || user.role !== "ADMIN") notFound();
+  if (!user || getEffectiveActorRole(user) !== "ADMIN") notFound();
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) {
     return (

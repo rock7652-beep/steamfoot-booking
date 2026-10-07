@@ -9,6 +9,7 @@ vi.mock("@/lib/date-utils",()=>({toLocalMonthStr:()=>"2026-09"}));
 vi.mock("@/lib/db",()=>({prisma:{$transaction:mocks.transaction}}));
 import { saveSteamfootRent } from "@/server/actions/steamfoot-rent";
 import { AppError } from "@/lib/errors";
+import { registerHqStoreViewContext } from "@/lib/hq-store-view-context";
 const input = {staffId:"p",startMonth:"2026-07",cycleMonths:6,monthlyAmount:5000,enabled:true,expectedTermId:null};
 beforeEach(()=>{
  vi.clearAllMocks();
@@ -18,6 +19,19 @@ beforeEach(()=>{
  mocks.transaction.mockImplementation(fn=>fn({$queryRaw:mocks.raw,$executeRaw:mocks.write,staff:{findFirst:mocks.staff}}));
 });
 describe("rent write boundaries",()=>{
+ it.each(["OWNER","ADMIN"])("selected HQ cannot change %s rent through a direct action",async role=>{
+  mocks.permission.mockResolvedValue(registerHqStoreViewContext({id:"actual-hq",role:"ADMIN",staffId:null,storeId:null},"s"));
+  mocks.staff.mockResolvedValue({id:"p",isOwner:role==="OWNER",user:{role}});
+  expect((await saveSteamfootRent(input)).success).toBe(false);
+  expect(mocks.write).not.toHaveBeenCalled();
+ });
+ it("selected HQ keeps its real actor when saving ordinary same-store rent",async()=>{
+  const actor=registerHqStoreViewContext({id:"actual-hq",role:"ADMIN",staffId:null,storeId:null},"s");
+  mocks.permission.mockResolvedValue(actor);
+  expect((await saveSteamfootRent(input)).success).toBe(true);
+  expect(mocks.write.mock.calls[0]).toContain("actual-hq");
+  expect(actor.role).toBe("ADMIN");expect(actor.staffId).toBeNull();
+ });
  it("writes only a rent agreement scoped to the staff's store",async()=>{
   expect(await saveSteamfootRent(input)).toEqual({success:true});
   expect(mocks.permission).toHaveBeenCalledWith("staff.manage");

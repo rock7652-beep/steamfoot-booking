@@ -1,3 +1,4 @@
+import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
@@ -6,7 +7,7 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { todayRange } from "@/lib/date-utils";
 import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, requirePermission } from "@/lib/permissions";
 
 /**
  * 桌機版顧客列表 toolbar 支援的複合篩選：
@@ -189,7 +190,7 @@ export async function listCustomersForUser(
 // ============================================================
 
 export async function searchCustomers(query: string, limit = 10, activeStoreId?: string | null) {
-  const user = await requireStaffSession();
+  const user = await requirePermission("customer.read");
 
   if (!query || query.length < 1) return [];
 
@@ -526,7 +527,7 @@ export async function getCustomerMergePreview(
   const userStoreFilter = getStoreFilter(user);
   const allowedStoreId = (userStoreFilter as { storeId?: string }).storeId;
   // ADMIN getStoreFilter() 會回 {}（無篩選），不擋；非 ADMIN 才比對
-  if (user.role !== "ADMIN") {
+  if (user.role !== "ADMIN" || getHqStoreViewContext(user)) {
     if (allowedStoreId && (source.storeId !== allowedStoreId || target.storeId !== allowedStoreId)) {
       throw new AppError("FORBIDDEN", "無權存取其他店舖的顧客");
     }

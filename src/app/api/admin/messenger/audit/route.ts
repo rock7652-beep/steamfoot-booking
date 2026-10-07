@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { createMessengerAuditRun } from "@/server/services/messenger-production-audit";
 
@@ -17,8 +17,7 @@ function isAuditAdministrator(role: string): boolean {
 }
 
 async function authorizeAudit(storeId: string) {
-  const session = await auth();
-  const user = session?.user;
+  const user = await getCurrentUser();
   if (!user) return { response: noStoreJson({ error: "unauthorized" }, 401) } as const;
   if (!isAuditAdministrator(user.role)) return { response: noStoreJson({ error: "forbidden" }, 403) } as const;
 

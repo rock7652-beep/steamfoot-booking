@@ -42,6 +42,7 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
   cookies: () =>
     Promise.resolve({
       get: (...args: unknown[]) => mockCookieGet(...args),

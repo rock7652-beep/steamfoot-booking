@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import {getStoreIndustryModule} from "@/lib/industry-module-server";
@@ -8,7 +9,8 @@ import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
-import { getStoreContext } from "@/lib/store-context";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
+import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import {
@@ -68,6 +70,7 @@ interface PageProps {
 }
 
 export default async function CustomersPage({ searchParams }: PageProps) {
+  await requireDashboardCoreFeature("customer_management");
   const params = await searchParams;
   const page = Number(params.page ?? 1);
   const pageSize = normalizePageSize(params.pageSize);
@@ -84,9 +87,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const customersUser = userForViewContext(user, storeViewContext);
   const industryModule = customersStoreId ? await getStoreIndustryModule(customersStoreId) : null;
   if(customersStoreId && industryModule === "spa") {
-    // SPA mutations require the shop context; an HQ-selected store is read-only.
-    const writeContext = isViewMode ? null : await getStoreContext();
-    const canWrite = !isViewMode && writeContext?.storeId === customersStoreId;
+    const canWrite = !isViewMode && !await isStoreSubscriptionWriteBlocked(customersStoreId);
     const canSell=canWrite && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
     const canRefund=canWrite && await checkPermission(user.role,user.staffId,"transaction.refund");
     const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions,canManageStaff]=await Promise.all([
@@ -97,7 +98,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     ]);
     return <SpaCustomers labelId={params.label} storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
       canEdit={canWrite&&canEdit} canCreate={canWrite&&canCreate} canBook={canWrite&&canBook&&canReadBookings}
-      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={canWrite&&user.role==="OWNER"&&canManageStaff}/>;
+      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={canWrite&&getEffectiveActorRole(user)==="OWNER"&&canManageStaff}/>;
   }
   const logCtx = {
     page: "customers" as const,
