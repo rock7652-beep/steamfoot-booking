@@ -66,6 +66,25 @@
 
 正式發布門檻仍以「仍未完成／發布門檻」為準；本輪不宣稱全面驗收完成。
 
+## 2026-10-07 接續驗收
+
+基準 14ca915；本次仍只使用隔離 Preview `ttworfzgwejdeolegkxl` / `staging-store`。
+
+- 重新還原工作目錄、生成三套 Prisma client。7 檔 115 項測試、TypeScript noEmit、修改檔 ESLint 通過。補齊 UI 測試的 Next navigation mock，另新增失敗退款的草稿／最新單據回歸測試。
+- 1366 桌機、1024×768、768×1024、390×844 裝置預覽：退貨數量、一鍵退款、回庫、其他原因必填、關閉 dirty guard。1024→768→390 切換保留數量1、退款200、回庫及原因；三個預覽寬度 document scrollWidth 均等於 clientWidth。為 Chrome 裝置尺寸模擬，不代表 Safari／真機鍵盤已驗。
+- 新增 QA1242 seed 單 RACE0001 / SWAP0001 / LOCK0001 / LOCK0002；初始 paid200 為直接資料庫 fixture，沒有虛構原收款紀錄。只用以驗證退貨服務增量與回滾，不當成完整新銷貨→收款證據；測試資料保留並標記 internalNote。
+- RACE0001 同一版本兩個瀏覽器視窗並行送出退貨1件／回庫／退款200、關聯SWAP0001。一筆成功、一筆明確顯示版本衝突。PostgreSQL total/paid0、revision2、events1、退款紀錄1筆／200；庫存15→16，只回庫一次，換貨關聯正確。不同requestId並發已驗；相同requestId重送仍只有service測試證據。
+- LOCK0001 的日期自動fill未反映到React狀態，實際以10/7成功退款；不能列為閉店日證據。另建LOCK0002，使用原生date field setValue並在送出前確認6/10，該日抽屜原已CLOSED。
+- LOCK0002 退貨1件／回庫／現金退款200被閉店規則拒絕。PostgreSQL total/paid200、revision1、events0、refundCount0、commandCount0、庫存16不變，確認商品回庫完整回滾；錯誤就地顯示、草稿保留。
+- 並發失敗視窗關閉後會看到舊金額，發現真實回歸。補修：任何儲存失敗後，使用者確認關閉草稿時先重新讀取權威資料再回明細；取消關閉不覆蓋草稿，讀取失敗亦保留草稿，不重送交易。新增測試涵蓋衝突、取消、重讀失敗、成功返回最新金額及只送出一次。
+
+- 換貨双向按鈕實際點擊通過：SWAP0001「查看換貨原單」→RACE0001，展開退貨紀錄再點「查看換貨新單」→SWAP0001。新單仍total/paid200，原單total/paid0，沒有跨單自動抵扣。
+- 額外1440×900桌機裝置預覽：document clientWidth/scrollWidth均1440，退款草稿200仍保留；1920尺寸未驗。
+
+本轮補修已本地提交。原支線推送被自動審查兩次拒絕：即使檢索找回使用者先前對同一repo／branch的明確授權，審查仍要求當前對話中的直接授權。不繞過；遠端仍14ca915，新補修尚未部署。
+
+本輪尚需：取得本對話推送授權後，複核最新補修的Preview；普通人員實際登入、相同requestId真實重送、1920及9月報表日期補驗。正式migration備份／順序／復原計畫與最後發布授權仍是發布門檻，不因單元測試通過視為已完成。未合併正式站。
+
 ## 2026-10-07 操作順序再簡化
 
 使用者要求直接從版面看懂，不以增加說明段落補救。程式碼51b69a46287ac90b6ee115c93aec9ba0917c6a59，deployment dpl_CRQ1g3htEwvXyPyfsuGC1bwG7Hdg READY。

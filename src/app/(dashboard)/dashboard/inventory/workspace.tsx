@@ -91,16 +91,34 @@ export function InventoryWorkspace({ initial }: {
     const dates = dateFilters[tab] || {from:"",to:""};
     const setDates = (v: {from:string;to:string}) => setDateFilters(prev => ({...prev,[tab]:v}));
     const detailOrder = data.orders.find(o => o.id === (panel?.type === "detail" || panel?.type === "settlement" ? panel.orderId : detailId));
-    const dirty = useRef(false), busy = useRef(false), requestId = useRef("");
+    const dirty = useRef(false), busy = useRef(false), requestId = useRef(""), refreshOnClose = useRef(false);
     const query = queries[tab] || "";
     const filter = filters[tab] || "all", party = parties[tab] || "";
     const setFilter = (v: string) => setFilters(prev => ({ ...prev, [tab]: v }));
     const setParty = (v: string) => setParties(prev => ({ ...prev, [tab]: v }));
     const search = (value: string) => setQueries({ ...queries, [tab]: value });
-    const open = (p: Panel) => { setLastReceipt(""); if(p?.type === "detail" || p?.type === "settlement")setDetailId(p.orderId);else if(p?.type !== "correction" && (p?.type !== "payment" || !p.orders.some(o=>o.id===detailId)))setDetailId(""); setError(""); dirty.current = false; requestId.current = crypto.randomUUID(); setPanel(p); };
-    const close = () => { if (pending)
+    const open = (p: Panel) => { setLastReceipt(""); if(p?.type === "detail" || p?.type === "settlement")setDetailId(p.orderId);else if(p?.type !== "correction" && (p?.type !== "payment" || !p.orders.some(o=>o.id===detailId)))setDetailId(""); setError(""); dirty.current = false; refreshOnClose.current = false; requestId.current = crypto.randomUUID(); setPanel(p); };
+    const close = async () => { if (pending || busy.current)
         return; if (dirty.current && !confirm("放棄尚未儲存的內容？"))
-        return; setPanel((panel?.type === "payment" || panel?.type === "settlement" || panel?.type === "correction") && detailId ? {type:"detail",orderId:detailId} : null); setError(""); dirty.current = false; };
+        return;
+        if (refreshOnClose.current) {
+            busy.current = true; setPending(true);
+            try {
+                const latest = await loadInventory();
+                if (!latest.success || !latest.data) {
+                    setError("無法取得最新單據，草稿已保留；請稍後再試");
+                    return;
+                }
+                setData(latest.data as InventoryData);
+                refreshOnClose.current = false;
+            } catch {
+                setError("無法取得最新單據，草稿已保留；請稍後再試");
+                return;
+            } finally {
+                busy.current = false; setPending(false);
+            }
+        }
+        setPanel((panel?.type === "payment" || panel?.type === "settlement" || panel?.type === "correction") && detailId ? {type:"detail",orderId:detailId} : null); setError(""); dirty.current = false; };
     const run = async (work: () => Promise<{
         success: boolean;
         error?: string;
@@ -109,6 +127,7 @@ export function InventoryWorkspace({ initial }: {
         return; busy.current = true; setPending(true); setError(""); try {
         const result = await work();
         if (!result.success) {
+            refreshOnClose.current = true;
             setError(result.error || "儲存失敗");
             return;
         }
@@ -131,7 +150,7 @@ export function InventoryWorkspace({ initial }: {
             setSelected([]);
             setNotice(successMessage);
             setError("已儲存，但清單更新失敗；請重新整理");
-        } else setError("連線失敗，請重試；重試不會重複入帳");
+        } else { refreshOnClose.current = true; setError("連線失敗，請重試；重試不會重複入帳"); }
     }
     finally {
         busy.current = false;
