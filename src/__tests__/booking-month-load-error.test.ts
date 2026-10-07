@@ -1,3 +1,4 @@
+vi.mock("@/lib/dashboard-core-feature", () => ({ requireDashboardCoreFeature: async () => {} }));
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ReactElement } from "react";
 

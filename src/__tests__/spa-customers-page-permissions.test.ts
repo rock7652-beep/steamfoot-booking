@@ -1,3 +1,5 @@
+vi.mock("@/lib/dashboard-core-feature", () => ({ requireDashboardCoreFeature: async () => {} }));
+vi.mock("@/lib/subscription-guard", () => ({ isStoreSubscriptionWriteBlocked: async () => false }));
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), activeStore: vi.fn(), context: vi.fn(), view: vi.fn(), module: vi.fn() }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
@@ -39,8 +41,8 @@ async function permissions() {
   return (await Page({ searchParams: Promise.resolve({}) })).props;
 }
 const readOnly = { canSell: false, canRefund: false, canEdit: false, canCreate: false, canBook: false, canManageStaff: false };
-it("keeps HQ-selected SPA customers readable without exposing shop mutations", async () => {
-  expect(await permissions()).toMatchObject({ ...readOnly, canReadBookings: true, canReadAccounts: true });
+it("uses selected-store SPA capabilities without relying on a stale shop cookie", async () => {
+  expect(await permissions()).toMatchObject({ canSell: true, canRefund: true, canEdit: true, canCreate: true, canBook: true, canReadBookings: true, canReadAccounts: true });
 });
 it("preserves an ADMIN's mutations through the matching shop route", async () => {
   m.context.mockResolvedValue({ storeId: "spa-a" });
@@ -51,9 +53,10 @@ it("preserves the OWNER's shop permissions", async () => {
   m.context.mockResolvedValue({ storeId: "spa-a" });
   expect(await permissions()).toMatchObject({ canSell: true, canRefund: true, canEdit: true, canCreate: true, canBook: true, canManageStaff: true });
 });
-it("does not expose writes for a different shop context", async () => {
+it("ignores a stale shop cookie in favor of the authorized active store", async () => {
   m.context.mockResolvedValue({ storeId: "spa-b" });
-  expect(await permissions()).toMatchObject(readOnly);
+  expect(await permissions()).toMatchObject({ canSell: true, canEdit: true, canCreate: true, canBook: true });
+  expect(m.context).not.toHaveBeenCalled();
 });
 it("keeps child-store viewing read-only even with a matching context", async () => {
   m.view.mockResolvedValue({ isViewMode: true });

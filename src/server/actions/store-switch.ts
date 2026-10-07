@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { requireStaffSession } from "@/lib/session";
+import { requireHqStoreSwitchActor } from "@/lib/session";
 import { validateStoreAccess } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
 import type { ActionResult } from "@/types";
@@ -20,7 +20,7 @@ export async function switchActiveStore(
   storeId: string,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireStaffSession();
+    const user = await requireHqStoreSwitchActor();
     if (user.role !== "ADMIN") {
       throw new AppError("UNAUTHORIZED", "僅總部管理者可使用平台店舖切換");
     }

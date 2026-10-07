@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { CourseStaffPage } from "../courses/staff-page";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { listStaff } from "@/server/queries/staff";
@@ -107,8 +108,8 @@ export default async function StaffPage({
       emergencyContact: null,
       weeklyAvailability: persistedAvailability,
       scheduleExceptions: persistedExceptions,
-      canEdit: canManage && staff.user.id !== user.id && canManageStaffRole(user.role, staff.user.role),
-      canResetPassword: canManage && staff.user.id !== user.id && staff.user.role !== "ADMIN" && canManageStaffRole(user.role, staff.user.role),
+      canEdit: canManage && staff.user.id !== user.id && canManageStaffRole(getEffectiveActorRole(user), staff.user.role),
+      canResetPassword: canManage && staff.user.id !== user.id && staff.user.role !== "ADMIN" && canManageStaffRole(getEffectiveActorRole(user), staff.user.role),
       compensationMode: compensation?.mode === "PERCENTAGE" || compensation?.mode === "FIXED" ? compensation.mode : null,
       compensationValue: compensation ? Number(compensation.value) : null,
     };

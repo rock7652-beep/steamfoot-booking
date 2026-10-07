@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -19,6 +20,7 @@ interface PageProps {
 }
 
 export default async function CustomerHealthPage({ params }: PageProps) {
+  await requireDashboardCoreFeature("customer_management");
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {

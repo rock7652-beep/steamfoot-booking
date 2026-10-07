@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -34,6 +35,7 @@ const statusCopy: Record<CentralBindingStatus, { label: string; hint: string; cl
 };
 
 export default async function CentralBindingPage() {
+  await requireDashboardCoreFeature("customer_management");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
     redirect("/dashboard");

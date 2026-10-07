@@ -1,3 +1,4 @@
+import { coreFeatureForPermission } from "@/lib/core-feature-permissions";
 import type { OperationTiming } from "@/lib/operation-timing";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
@@ -389,8 +390,11 @@ export async function checkPermission(
   staffId: string | null,
   permission: PermissionCode
 ): Promise<boolean> {
-  // Admin 永遠放行
-  if (role === "ADMIN") return true;
+  // Store view follows OWNER capabilities while retaining the real HQ actor.
+  if (role === "ADMIN") {
+    const { isHqStoreView } = await import("@/lib/hq-store-view");
+    return !await isHqStoreView({ role }) || DEFAULT_OWNER_PERMISSIONS.includes(permission);
+  }
 
   if (permission === "audit.read") return false;
 
@@ -520,17 +524,32 @@ function measurePermission<T>(timing: PermissionTiming | undefined, name: string
 export async function requirePermission(
   permission: PermissionCode,
   timing?: PermissionTiming,
-  options: { deferSubscriptionGuard?: boolean } = {},
+  options: { deferSubscriptionGuard?: boolean; storeId?: string } = {},
 ) {
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
   const user = await measurePermission(timing, "permission.session", () => requireStaffSession());
-  if (user.role === "ADMIN") return user;
   const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
-  if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission) && user.storeId) {
-    const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
-    await measurePermission(timing, "permission.subscription", () => assertStoreSubscriptionWritable(user.storeId!));
+  const explicitStoreId = options.storeId
+    ? await (await import("@/lib/store")).validateStoreAccess(user, options.storeId, /\.(read|view|export)$/.test(permission) ? "read" : "write")
+    : undefined;
+  const feature = coreFeatureForPermission(permission);
+  if (feature) {
+    const { getActiveStoreForRead } = await import("@/lib/store");
+    const storeId = explicitStoreId ?? await getActiveStoreForRead(user);
+    if (storeId) await (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature);
+  }
+  if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission)) {
+    const { isHqStoreView } = await import("@/lib/hq-store-view");
+    const storeView = await isHqStoreView(user);
+    const storeId = explicitStoreId ?? (storeView
+      ? await (await import("@/lib/store")).getActiveStoreForRead(user)
+      : user.role === "ADMIN" ? null : user.storeId);
+    if (storeId) {
+      const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
+      await measurePermission(timing, "permission.subscription", () => assertStoreSubscriptionWritable(storeId));
+    }
   }
   return user;
 }
@@ -579,7 +598,10 @@ export const getUserPermissions = cache(
     role: UserRole,
     staffId: string | null,
   ): Promise<PermissionCode[]> => {
-    if (role === "ADMIN") return [...ALL_PERMISSIONS];
+    if (role === "ADMIN") {
+      const { isHqStoreView } = await import("@/lib/hq-store-view");
+      return await isHqStoreView({ role }) ? [...DEFAULT_OWNER_PERMISSIONS] : [...ALL_PERMISSIONS];
+    }
     if (role === "OWNER" && staffId) return ALL_PERMISSIONS.filter(permission => permission !== "audit.read");
     if (!isNonOwnerStaff(role) || !staffId) return [];
     const perms = await getStaffPermissions(staffId);

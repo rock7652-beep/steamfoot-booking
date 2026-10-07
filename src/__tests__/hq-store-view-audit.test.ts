@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ get:vi.fn(), set:vi.fn(), user:vi.fn(), access:vi.fn(), store:vi.fn(), audit:vi.fn(), revalidate:vi.fn() }));
 vi.mock("next/headers",()=>({cookies:async()=>({get:m.get,set:m.set})}));
 vi.mock("next/cache",()=>({revalidatePath:m.revalidate}));
-vi.mock("@/lib/session",()=>({requireStaffSession:m.user}));
+vi.mock("@/lib/session",()=>({requireHqStoreSwitchActor:m.user}));
 vi.mock("@/lib/store",()=>({validateStoreAccess:m.access}));
 vi.mock("@/lib/db",()=>({prisma:{store:{findUnique:m.store}}}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({persistFollowupAudit:m.audit}));

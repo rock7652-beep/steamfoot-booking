@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockAuth = vi.fn();
 const mockResolveStore = vi.fn();
 const mockDiagnose = vi.fn();
-vi.mock("@/lib/auth", () => ({ auth: (...args: unknown[]) => mockAuth(...args) }));
+vi.mock("@/lib/session", () => ({ getCurrentUser: async (...args: unknown[]) => (await mockAuth(...args))?.user ?? null }));
 vi.mock("@/lib/store", () => ({ resolveAuthorizedConcreteStore: (...args: unknown[]) => mockResolveStore(...args) }));
 vi.mock("@/server/services/messenger-token-fingerprint", () => ({ diagnoseMessengerPageToken: (...args: unknown[]) => mockDiagnose(...args), getTokenFormat: () => ({}) }));
 

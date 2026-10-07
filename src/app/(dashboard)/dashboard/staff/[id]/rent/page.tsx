@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -12,13 +13,13 @@ import { PageHeader, PageShell } from "@/components/desktop";
 import { RentForm } from "./rent-form";
 export default async function StaffRentPage({ params }: { params: Promise<{id: string}> }) {
   const user = await getCurrentUser();
-  if (!user || (user.role !== "OWNER" && user.role !== "ADMIN") || !await checkPermission(user.role, user.staffId, "staff.manage")) notFound();
+  if (!user || (user.role !== "OWNER" && getEffectiveActorRole(user) !== "ADMIN") || !await checkPermission(user.role, user.staffId, "staff.manage")) notFound();
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireSteamfootStore(storeId);
   const { id } = await params;
   const staff = await prisma.staff.findFirst({ where: { id, storeId }, include: { user: { select: { role: true } } } });
-  if (!staff || (user.role !== "ADMIN" && (staff.isOwner || staff.user.role === "ADMIN"))) notFound();
+  if (!staff || (getEffectiveActorRole(user) !== "ADMIN" && (staff.isOwner || staff.user.role === "ADMIN"))) notFound();
   const terms = await readRentTerms(storeId, id);
   const view = await resolveStoreViewContextFromCookie(user);
   return <PageShell className="mx-auto max-w-3xl space-y-3 px-4 py-3">

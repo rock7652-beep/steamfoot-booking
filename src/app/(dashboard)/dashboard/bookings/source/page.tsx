@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default async function TrialSourceBookingsPage({ searchParams }: Props) {
+  await requireDashboardCoreFeature("basic_booking");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "booking.read"))) {
     redirect("/dashboard");

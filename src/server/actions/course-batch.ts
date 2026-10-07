@@ -1,5 +1,6 @@
 "use server";
 import { prisma } from "@/lib/db";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 import { assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
@@ -24,7 +25,7 @@ export async function batchCourseStatus(input: unknown) {
         const rows=await tx.$queryRaw<Array<{id:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店人員，未變更任何資料");
         const accounts=await tx.$queryRaw<Array<{id:string;role:UserRole}>>`SELECT s.id,u.role::text AS role FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.id=ANY(${ids}::text[])`;
-        if(accounts.some(a=>a.role!=="CUSTOMER" && !canManageStaffRole(user.role,a.role))) throw new AppError("FORBIDDEN","店長只能管理門市人員");
+        if(accounts.some(a=>a.role!=="CUSTOMER" && !canManageStaffRole(getEffectiveActorRole(user),a.role))) throw new AppError("FORBIDDEN","店長只能管理門市人員");
         if(!d.active && accounts.some(a=>a.role==="OWNER")) {
           const [owners]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.status::text='ACTIVE' AND u.status::text='ACTIVE' AND u.role::text='OWNER' AND NOT(s.id=ANY(${ids}::text[]))`;
           if(Number(owners?.count??0)===0)throw new AppError("FORBIDDEN","本店至少須保留一位啟用中的老闆");

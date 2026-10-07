@@ -1,4 +1,7 @@
+import { coreFeatureForDashboardPath } from "@/lib/core-feature-permissions";
 import { Suspense } from "react";
+import { ReturnToHqButton } from "@/components/return-to-hq-button";
+import { isHqStoreView } from "@/lib/hq-store-view";
 import { CourseSetupGuide } from "@/components/admin/course-setup-guide";
 import { getCourseSetup } from "@/server/queries/course-setup";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
@@ -11,7 +14,7 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect, notFound } from "next/navigation";
 import { AppError } from "@/lib/errors";
 import { cookies, headers } from "next/headers";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, requireHqStoreSwitchActor } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS, checkPermission, isStaffRole } from "@/lib/permissions";
 import { getCachedStorePlan, getCachedTrialStatus } from "@/lib/query-cache";
@@ -28,7 +31,7 @@ import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
-import { hasStoreFeature, getStoreFeaturePresentation } from "@/lib/feature-gate";
+import { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } from "@/lib/feature-gate";
 import type { StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   resolveStoreViewContext,
@@ -45,12 +48,22 @@ export default async function DashboardLayout({
   children: React.ReactNode;
   hqPlatform?: boolean;
 }) {
-  const user = await getCurrentUser();
+  let user: Awaited<ReturnType<typeof getCurrentUser>>;
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    if (!(error instanceof AppError) || !["FORBIDDEN", "NOT_FOUND"].includes(error.code)) throw error;
+    // The old selection may have been disabled/deleted. Expose only recovery,
+    // never selected-store content or platform data under an invalid scope.
+    try { await requireHqStoreSwitchActor(); } catch { throw error; }
+    return <main className="mx-auto max-w-lg space-y-4 p-6"><p>目前店舖已停用或無法存取，請返回總部重新選擇。</p><ReturnToHqButton /></main>;
+  }
   if (!user) {
     redirect("/hq/login");
   }
   hqPlatform = hqPlatform || (user.role === "ADMIN" && isHqPlatformPath((await headers()).get("x-next-pathname") ?? ""));
   if (hqPlatform && user.role !== "ADMIN") redirect("/hq/login");
+  if (hqPlatform && await isHqStoreView(user)) redirect("/hq/dashboard");
   if (user.role === "CUSTOMER") {
     // B7-4: 顧客不可進後台，導回所屬店
     const { cookies: getCookies } = await import("next/headers");
@@ -61,6 +74,8 @@ export default async function DashboardLayout({
 
   if (hqPlatform && !(await checkPermission(user.role, user.staffId, "staff.manage"))) notFound();
 
+  const storeView = await isHqStoreView(user);
+  const canViewAudit = user.role === "ADMIN" && !storeView;
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isAdmin = user.role === "ADMIN";
   // Legacy sidebar ownerOnly means backend identity; individual permissions still control each item.
@@ -80,6 +95,8 @@ export default async function DashboardLayout({
     const archived = await prisma.store.findUnique({ where: { id: activeStoreId }, select: { id: true, slug: true, name: true, isDefault: true, archivedAt: true } });
     if (archived?.archivedAt) storeOptions.push({ id: archived.id, slug: archived.slug, name: archived.name, isDefault: archived.isDefault, isArchived: true });
   }
+  const routeFeature = coreFeatureForDashboardPath((await headers()).get("x-next-pathname") ?? "");
+  if (!hqPlatform && activeStoreId && routeFeature) await requireStoreFeature(activeStoreId, routeFeature);
   const industryModule = !hqPlatform && activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
   // the remaining course-specific areas are being delivered.
@@ -196,9 +213,9 @@ export default async function DashboardLayout({
   return (
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
-    <OperationAuditAccessProvider allowed={user.role === "ADMIN"}>
+    <OperationAuditAccessProvider allowed={canViewAudit}>
     <DashboardShell
-      canViewAudit={user.role === "ADMIN"}
+      canViewAudit={canViewAudit}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}

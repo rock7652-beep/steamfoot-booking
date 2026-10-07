@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { getCurrentUser } from "@/lib/session";
 import { courseHomeAccess } from "@/server/queries/course-home-access";
 import { getCourseUnassignedPlanCount } from "@/server/queries/course-unassigned-plans";
-import { hasStoreFeature } from "@/lib/feature-gate";
+import { getStoreFeaturePresentation, hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -64,7 +64,30 @@ export async function CourseHome({ user, storeId }: {
     user: User;
     storeId: string;
 }) {
-    const access = await courseHomeAccess(user, storeId);
+    const [permissions, bookingFeature, customerFeature, revenueFeature, planFeature, careState, butlerFeature] = await Promise.all([
+      courseHomeAccess(user, storeId),
+      hasStoreFeature(storeId, FEATURES.BASIC_BOOKING),
+      hasStoreFeature(storeId, FEATURES.CUSTOMER_MANAGEMENT),
+      hasStoreFeature(storeId, FEATURES.TRANSACTION_MANAGEMENT),
+      hasStoreFeature(storeId, FEATURES.PLAN_MANAGEMENT),
+      getStoreFeaturePresentation(storeId, FEATURES.CUSTOMER_CARE),
+      hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER),
+    ]);
+    const access = {
+      ...permissions,
+      bookings: permissions.bookings && bookingFeature,
+      create: permissions.create && bookingFeature,
+      customers: permissions.customers && customerFeature,
+      revenue: permissions.revenue && revenueFeature,
+      planStatus: permissions.planStatus && planFeature,
+      todos: {
+        ...permissions.todos,
+        payments: permissions.todos.payments && revenueFeature && planFeature,
+        attendance: permissions.todos.attendance && bookingFeature,
+        followUp: permissions.todos.followUp && customerFeature && butlerFeature,
+      },
+    };
+    const showTodos = access.todos.payments || access.todos.attendance || access.todos.followUp || (access.customers && access.planStatus);
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}));
     const date = toLocalDateStr();
     const revenueHref = `/dashboard/revenue?summary=receipts&dateFrom=${date}&dateTo=${date}`;
@@ -78,8 +101,8 @@ export async function CourseHome({ user, storeId }: {
       {access.revenue && <Stream title="今日收款" id="receipts" load={async () => { const r = await getCourseReceiptTotals(storeId, date, date); return <><Link href={revenueHref} className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2 text-sm"><strong className="text-lg text-primary-900">{money(r.gross)}</strong><span>退款 {money(r.refunds)}</span><span>沖銷 {money(r.voids)}</span><span>淨收款 {money(r.net)}</span><span className="text-primary-700 underline">查看收款明細</span></Link></>; }}/>}
       {access.customers && <Stream title="顧客概況 · 目前總數" id={music ? "customers-music" : "customers"} load={async () => { const r = await getCourseHomeCustomers(storeId, user.staffId, access.staffScope); return <><div className="flex flex-wrap gap-3">{r.total !== null && <Link href="/dashboard/courses?view=customers" className={linkStyle}>全店顧客 <strong className="mx-2 tabular-nums">{r.total}</strong> 人</Link>}{music && r.total === null && <Link href="/dashboard/courses?view=customers" className={linkStyle}>可見顧客 <strong className="mx-2 tabular-nums">{r.mine ?? 0}</strong> 人</Link>}{!music && r.mine !== null && <Link href={`/dashboard/courses?view=customers&staff=${encodeURIComponent(user.staffId!)}`} className={linkStyle}>名下顧客 <strong className="mx-2 tabular-nums">{r.mine}</strong> 人</Link>}</div></>; }}/>}
       </div>
-      <Stream title="今天待處理" id="todos" footer={access.customers && access.planStatus ? <Suspense fallback={<p role="status" className="border-t border-earth-100 py-2 text-sm text-earth-500">方案待辦讀取中…</p>}><CoursePlanTodo storeId={storeId} staffScope={access.staffScope}/></Suspense> : null} load={async () => { const permissions = { ...access.todos, followUp: access.todos.followUp && await hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER) }; const result = await getCourseHomeTodos(storeId, permissions, new Date(), 0, 3); return <CourseTodoList result={result}/>; }}/>
-        {access.customers && <Stream title="顧客關懷" id="care" load={async () => { if (!await hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE))
+      {showTodos && <Stream title="今天待處理" id="todos" footer={access.customers && access.planStatus ? <Suspense fallback={<p role="status" className="border-t border-earth-100 py-2 text-sm text-earth-500">方案待辦讀取中…</p>}><CoursePlanTodo storeId={storeId} staffScope={access.staffScope}/></Suspense> : null} load={async () => { const result = await getCourseHomeTodos(storeId, access.todos, new Date(), 0, 3); return <CourseTodoList result={result}/>; }}/>}
+        {access.customers && careState !== "HIDDEN" && <Stream title="顧客關懷" id="care" load={async () => { if (careState !== "ENABLED")
         return <p className="text-sm">顧客經營尚未開通。</p>; const r = await getCourseCareCounts(storeId, access.staffScope); return <><div className="grid grid-cols-1 @min-[32rem]:grid-cols-2 @min-[56rem]:grid-cols-5">{Object.entries(COURSE_CARE_LABELS).map(([kind, label]) => <Link key={kind} className={linkStyle} href={`/dashboard/growth?segment=${kind}&month=${date.slice(0, 7)}`}>{label}<strong className="ml-auto pl-3 tabular-nums">{r[kind as keyof typeof r]} 人</strong></Link>)}</div></>; }}/>}
 
     </div>

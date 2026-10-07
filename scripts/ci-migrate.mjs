@@ -1,3 +1,9 @@
+// Store-view verification must never migrate or query the live database.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-real-view-20261007") {
+  if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
+    throw new Error("HQ store-view Preview requires isolated database overrides for both connections.");
+}
+
 // This review branch must not deploy or access a database before separate approval.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
   throw new Error("SEO review branch deployment is disabled; use local verification.");

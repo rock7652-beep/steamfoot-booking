@@ -1,3 +1,5 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import { FeatureEntry } from "@/components/feature-presentation";
 import { CustomerLabels } from "@/components/customer-labels";
@@ -113,6 +115,7 @@ interface PageProps {
 }
 
 export default async function CustomerDetailPage({ params }: PageProps) {
+  await requireDashboardCoreFeature("customer_management");
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) {
@@ -253,7 +256,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   );
 
   const staffList =
-    user.role === "ADMIN"
+    getEffectiveActorRole(user) === "ADMIN"
       ? staffOptions.map((s) => ({ id: s.id, displayName: s.displayName }))
       : [];
 
@@ -493,7 +496,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 <div className="flex items-center gap-2">
                   {/* PR-C：紙本舊客轉入線上（OWNER / ADMIN only） */}
                   {canAdjustWallet &&
-                    (user.role === "OWNER" || user.role === "ADMIN") && (
+                    (user.role === "OWNER" || getEffectiveActorRole(user) === "ADMIN") && (
                       <MigratePaperPlanDialog
                         customerId={id}
                         plans={plans.map((p) => ({
@@ -971,7 +974,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
 </CustomerDetailSection>
           {/* 身分診斷（協助店長判斷真實註冊方式 + 偵測來源異常）*/}
-{(!simplified || user.role === "ADMIN") && <CustomerDetailSection enabled={simplified} title="管理者診斷" >
+{(!simplified || getEffectiveActorRole(user) === "ADMIN") && <CustomerDetailSection enabled={simplified} title="管理者診斷" >
           <IdentityDiagnosticPanel
             derivedSource={derivedSource}
             snapshot={identitySnapshot}
@@ -1058,7 +1061,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
           </>)}
           {/* Transfer customer (ADMIN only) */}
-          {user.role === "ADMIN" && staffList.length > 0 && (
+          {getEffectiveActorRole(user) === "ADMIN" && staffList.length > 0 && (
             <SideCard title="轉移顧客" subtitle="指派給其他店長">
               <TransferCustomerForm
                 customerId={id}
@@ -1108,7 +1111,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 </CustomerDetailSection>
           {simplified && <Link href="/dashboard/growth" className="inline-flex min-h-11 items-center text-base text-primary-700">前往顧客經營 →</Link>}
           {/* System info */}
-{(!simplified || user.role === "ADMIN") && <CustomerDetailSection enabled={simplified} title="系統資訊" >
+{(!simplified || getEffectiveActorRole(user) === "ADMIN") && <CustomerDetailSection enabled={simplified} title="系統資訊" >
           <SideCard title="系統資訊" subtitle="營運除錯用">
             <dl className="flex flex-col">
               <SystemRow

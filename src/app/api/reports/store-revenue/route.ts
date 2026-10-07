@@ -5,7 +5,8 @@ import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
@@ -23,13 +24,12 @@ import {
 } from "@/lib/report-queries";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const allowed = await checkPermission(session.user.role, session.user.staffId, "report.read");
+  const allowed = await checkPermission(user.role, user.staffId, "report.read");
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const user = session.user;
   const cookieStore = await cookies();
   const cookieStoreId = cookieStore.get("active-store-id")?.value ?? null;
   const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
@@ -39,10 +39,10 @@ export async function GET(req: NextRequest) {
   const storeFilter = getStoreFilter(readUser, reportsStoreId);
 
   const sp = req.nextUrl.searchParams;
-  const analysisStoreId = user.role === "ADMIN" && !storeViewContext?.isViewMode
+  const analysisStoreId = getEffectiveActorRole(user) === "ADMIN" && !storeViewContext?.isViewMode
     ? sp.get("storeId") ?? reportsStoreId
     : reportsStoreId;
-  if ((!analysisStoreId && user.role !== "ADMIN") ||
+  if ((!analysisStoreId && getEffectiveActorRole(user) !== "ADMIN") ||
       (analysisStoreId && !(await hasStoreFeature(analysisStoreId, FEATURES.BASIC_REPORTS)))) {
     return NextResponse.json({ error: "分析尚未開通，NT$800／月獨立加購" }, { status: 403 });
   }
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
   const filters: ReportFilters = {
     startDate,
     endDate,
-    storeId: user.role === "ADMIN" ? sp.get("storeId") : reportsStoreId,
+    storeId: getEffectiveActorRole(user) === "ADMIN" ? sp.get("storeId") : reportsStoreId,
     planType: sp.get("planType"),
     paymentMethod: sp.get("paymentMethod"),
     keyword: sp.get("keyword"),

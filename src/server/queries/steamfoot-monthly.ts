@@ -2,6 +2,7 @@ import "server-only";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireSteamfootStore } from "@/lib/industry-module-server";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { AppError } from "@/lib/errors";
 import { getManagerReadFilter } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
@@ -30,7 +31,7 @@ export async function readSteamfootMonthly(storeId: string, month: string) {
     const history = terms.filter(t => t.staffId === s.id);
     const term = history.find(t => t.startMonth <= month && (!t.endMonth || t.endMonth >= month));
     return { id: s.id, name: s.displayName, active: s.status === "ACTIVE",
-      canManageRent: user.role === "ADMIN" || (!s.isOwner && s.user.role !== "ADMIN"),
+      canManageRent: getEffectiveActorRole(user) === "ADMIN" || (!s.isOwner && s.user.role !== "ADMIN"),
       summary: summaries.get(s.id), details: service.details.filter(d => d.revenueStaffId === s.id),
       rent: term ? rentPeriod(term, month) : null,
       rentLabel: term ? (term.enabled ? "" : "不收租金") : history.length ? "此月無租金約定" : s.spaceFeeEnabled ? "待設定租期" : "未設定租金",

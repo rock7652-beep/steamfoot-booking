@@ -8,7 +8,7 @@ vi.mock("@/lib/store-view-context-server", async (original) => ({ ...await origi
 vi.mock("@/server/queries/booking", () => ({ getBookingDetailForUser: mocks.booking }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.industry }));
 vi.mock("@/lib/shop-config", () => ({ getTrialSettings: vi.fn() }));
-vi.mock("@/lib/permissions", () => ({ checkPermission: vi.fn() }));
+vi.mock("@/lib/permissions", () => ({ checkPermission: vi.fn(), requirePermission: (...args: unknown[]) => mocks.session(...args) }));
 vi.mock("@/lib/manager-visibility", () => ({ getStoreFilter: vi.fn() }));
 import { fetchBookingDetail } from "@/server/actions/booking-drawer";
 const reachedQuery = new Error("query reached");

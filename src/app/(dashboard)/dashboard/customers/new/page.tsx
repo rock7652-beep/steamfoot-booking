@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getActiveStoreForRead } from "@/lib/store";
 import { listStaffSelectOptions } from "@/server/queries/staff";
@@ -21,6 +22,7 @@ export default async function NewCustomerPage({
 }: {
   searchParams: Promise<{ existingCustomerId?: string }>;
 }) {
+  await requireDashboardCoreFeature("customer_management");
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "customer.create"))) {

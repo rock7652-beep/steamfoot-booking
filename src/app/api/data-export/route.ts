@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import ExcelJS from "exceljs";
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { dayRange, formatTWTime } from "@/lib/date-utils";
@@ -58,9 +59,8 @@ function validDate(value: string | null): value is string {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
-  const user = session.user;
+  const user = await getCurrentUser();
+  if (!user) return new NextResponse("Unauthorized", { status: 401 });
   const permitted = await Promise.all([
     checkPermission(user.role, user.staffId, "customer.export"),
     checkPermission(user.role, user.staffId, "report.export"),
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
   const viewedStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
-  const requestedStoreId = user.role === "ADMIN" ? sp.get("storeId") ?? viewedStoreId : viewedStoreId;
+  const requestedStoreId = getEffectiveActorRole(user) === "ADMIN" ? sp.get("storeId") ?? viewedStoreId : viewedStoreId;
   const feature = await requireDataExportFeature(requestedStoreId);
   if (feature) return feature;
   const storeFilter = getStoreFilter(readUser, requestedStoreId);

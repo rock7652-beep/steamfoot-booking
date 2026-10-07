@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -14,7 +15,7 @@ export async function reviewCentralMemberLinkAction(
   formData: FormData,
 ): Promise<ReviewCentralMemberLinkState> {
   const actor = await requirePermission("customer.identity.rebind");
-  if (actor.role !== "ADMIN") {
+  if (getEffectiveActorRole(actor) !== "ADMIN") {
     return { error: "會員資料健康檢查僅限總部管理員處理", success: false };
   }
 

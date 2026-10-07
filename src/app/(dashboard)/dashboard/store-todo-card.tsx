@@ -9,12 +9,15 @@ interface StoreTodoCardProps {
   defaultVisible?: number;
   /** View Mode is read-only: no dismiss and no cross-module links. */
   readOnly?: boolean;
+  /** Permission and entitlement checked by the homepage. */
+  canCreateBooking?: boolean;
 }
 
 export function StoreTodoCard({
   items,
   defaultVisible,
   readOnly = false,
+  canCreateBooking = false,
 }: StoreTodoCardProps) {
   if (items.length === 0) {
     return (
@@ -31,14 +34,14 @@ export function StoreTodoCard({
             <span className="shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
               查看模式
             </span>
-          ) : (
+          ) : canCreateBooking ? (
             <Link
               href="/dashboard/bookings/new"
               className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
             >
               ＋ 新增預約
             </Link>
-          )}
+          ) : null}
         </div>
       </section>
     );

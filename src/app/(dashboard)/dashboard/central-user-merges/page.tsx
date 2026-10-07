@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -12,7 +13,7 @@ export default async function CentralUserMergesPage({
   searchParams: Promise<{ source?: string; target?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") notFound();
+  if (!user || getEffectiveActorRole(user) !== "ADMIN") notFound();
   const params = await searchParams;
   const sourceId = (params.source ?? "").trim();
   const targetId = (params.target ?? "").trim();

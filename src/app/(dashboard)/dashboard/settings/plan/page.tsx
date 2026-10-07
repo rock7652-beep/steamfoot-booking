@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -36,7 +37,7 @@ export default async function PlanSettingsPage() {
   if (!user) {
     redirect("/hq/login");
   }
-  if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER") {
+  if (getEffectiveActorRole(user) !== "ADMIN" && user.role !== "OWNER" && user.role !== "MANAGER" && user.role !== "STAFF" && user.role !== "PARTNER") {
     notFound();
   }
   if (!(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();
@@ -317,12 +318,12 @@ export default async function PlanSettingsPage() {
       {/* ═══════════════════════════════════════════ */}
       {/* HQ 方案總覽（ADMIN only）                    */}
       {/* ═══════════════════════════════════════════ */}
-      {user.role === "ADMIN" && <PlanOverviewStats />}
+      {getEffectiveActorRole(user) === "ADMIN" && <PlanOverviewStats />}
 
       {/* ═══════════════════════════════════════════ */}
       {/* PricingPlan — 店舖方案管理 + 用量儀表板（ADMIN only） */}
       {/* ═══════════════════════════════════════════ */}
-      {user.role === "ADMIN" && <StorePlanSection />}
+      {getEffectiveActorRole(user) === "ADMIN" && <StorePlanSection />}
     </PageShell>
   );
 }

@@ -1,3 +1,4 @@
+vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 import { describe, expect, it, vi } from "vitest";
 vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
 vi.mock("next/cache", () => ({ unstable_cache: (fn: unknown) => fn }));

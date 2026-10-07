@@ -108,6 +108,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 }));
 
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: async () => { const user = await mockRequireSession(); if (user.role === "CUSTOMER") throw new Error("CUSTOMER must not hit staff permission guard"); return user; },
   // 顧客流程不該呼叫 requirePermission；若有，視為紅燈
   requirePermission: vi.fn(async () => {
     throw new Error("CUSTOMER hit requirePermission — must not happen");

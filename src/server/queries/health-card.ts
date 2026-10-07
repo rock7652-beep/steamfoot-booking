@@ -1,3 +1,4 @@
+import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 /**
  * 客戶端健康評估卡片資料查詢
  *
@@ -57,6 +58,7 @@ export async function getHealthCardData(
 
     // Store ownership check: non-ADMIN users can only access their own store's customers
     const user = await getCurrentUser();
+    if (user && getHqStoreViewContext(user)?.storeId && getHqStoreViewContext(user)!.storeId !== customer.storeId) return { available: false, reason: "no-customer" };
     if (user && !isOwner(user.role) && user.storeId && customer.storeId !== user.storeId) {
       return { available: false, reason: "no-customer" };
     }

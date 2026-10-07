@@ -5,7 +5,8 @@ import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreFilter } from "@/lib/manager-visibility";
@@ -24,13 +25,12 @@ import {
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+  const user = await getCurrentUser();
+  if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
-  const allowed = await checkPermission(session.user.role, session.user.staffId, "report.export");
+  const allowed = await checkPermission(user.role, user.staffId, "report.export");
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
-  const user = session.user;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   if (storeViewContext?.isViewMode) {
     return new NextResponse("Reports export is not available in view mode", { status: 403 });
@@ -44,15 +44,15 @@ export async function GET(req: NextRequest) {
   const storeFilter = getStoreFilter(readUser, reportsStoreId);
 
   const sp = req.nextUrl.searchParams;
-  const analysisStoreId = user.role === "ADMIN" && !storeViewContext?.isViewMode
+  const analysisStoreId = getEffectiveActorRole(user) === "ADMIN" && !storeViewContext?.isViewMode
     ? sp.get("storeId") ?? reportsStoreId
     : reportsStoreId;
-  if ((!analysisStoreId && user.role !== "ADMIN") ||
+  if ((!analysisStoreId && getEffectiveActorRole(user) !== "ADMIN") ||
       (analysisStoreId && !(await hasStoreFeature(analysisStoreId, FEATURES.BASIC_REPORTS)))) {
     return NextResponse.json({ error: "分析尚未開通，NT$800／月獨立加購" }, { status: 403 });
   }
 
-  const dataExportStoreId = user.role === "ADMIN"
+  const dataExportStoreId = getEffectiveActorRole(user) === "ADMIN"
     ? sp.get("storeId") ?? reportsStoreId
     : reportsStoreId;
   const dataExportLocked = await requireDataExportFeature(dataExportStoreId);
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const filters: ReportFilters = {
     startDate,
     endDate,
-    storeId: user.role === "ADMIN" ? sp.get("storeId") : reportsStoreId,
+    storeId: getEffectiveActorRole(user) === "ADMIN" ? sp.get("storeId") : reportsStoreId,
     coachId: sp.get("coachId"),
     coachRole: sp.get("coachRole"),
     planType: sp.get("planType"),

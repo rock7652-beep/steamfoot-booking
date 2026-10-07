@@ -78,14 +78,12 @@ describe("actual HQ shell rendering", () => {
     expect(html).not.toContain("數位管家名單</span>");
     expect(html).toContain('aria-label="預覽工具"');
   });
-  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("dims a hidden HQ entry without extra status text for %s (music=%s)", (module, music) => {
-    const html = render(module, "a", "/hq/dashboard", music, true, [], true);
-    expect(html).toContain("進銷存");
-    expect(html).not.toContain("已隱藏");
-    expect(html).not.toContain("未開通");
-    expect(html).toMatch(/aria-disabled="true"[^>]*opacity-50/);
+  it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("removes hidden HQ store entries for %s (music=%s)", (module, music) => {
+    const html = render(module, "a", "/hq/dashboard", music, true, [...ALL_PERMISSIONS], true);
+    expect(html).not.toContain("進銷存");
     expect(html).not.toContain('href="/hq/dashboard/inventory"');
     expect(html).toContain('href="/hq/dashboard/staff"');
+    expect(render(module, "a", "/hq/dashboard", music, true, [], true)).not.toContain('href="/hq/dashboard/staff"');
   });
   it("keeps the same hidden inventory entry hidden for a store user", () => {
     const html = render("steamfoot", "a", "/s/store-a/admin/dashboard", false, true, [...ALL_PERMISSIONS], true);
@@ -147,5 +145,6 @@ describe("actual HQ shell rendering", () => {
 
 it.each(["steamfoot", "spa", "course"] as const)("hides audits from %s stores despite all permissions", module => {
   expect(render(module, "a", "/s/store-a/admin/dashboard")).not.toContain("operation-audits");
-  expect(render(module, "a", "/hq/dashboard")).toContain("operation-audits");
+  expect(render(module, "a", "/hq/dashboard")).not.toContain("operation-audits");
+  expect(render(module, null, "/hq/dashboard")).toContain("operation-audits");
 });

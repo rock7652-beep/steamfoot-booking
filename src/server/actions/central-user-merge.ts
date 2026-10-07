@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath } from "next/cache";
 import { AppError, handleActionError } from "@/lib/errors";
 import { getCurrentUser } from "@/lib/session";
@@ -13,7 +14,7 @@ export async function executeCentralUserMergeAction(input: {
 }): Promise<ActionResult<{ movedAccounts: number; movedLinks: number; checkedCustomers: number }>> {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "ADMIN") throw new AppError("FORBIDDEN", "僅限總部管理員執行");
+    if (!user || getEffectiveActorRole(user) !== "ADMIN") throw new AppError("FORBIDDEN", "僅限總部管理員執行");
     if (input.confirmation.trim() !== "確認整合") throw new AppError("VALIDATION", "請輸入「確認整合」");
     const plan = await executeCentralUserMerge({
       sourceUserId: input.sourceUserId.trim(),

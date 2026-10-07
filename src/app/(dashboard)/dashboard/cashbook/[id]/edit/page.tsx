@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { updateCashbookEntry } from "@/server/actions/cashbook";
 import { listClosedBusinessDates } from "@/server/queries/cash-drawer";
@@ -127,8 +128,8 @@ export default async function EditCashbookPage({ params }: PageProps) {
         {/* Staff —「登錄人」= 這筆紀錄的可見與編輯範圍歸屬。
             非 ADMIN 鎖定原登錄人；ADMIN 可改派其他店長（屬於 visibility 設定，
             不影響任何店長個人月結 / 結算 / 報表）。 */}
-        <FormSection title={user.role === "ADMIN" ? "登錄人（選填）" : "登錄人"}>
-          {user.role === "ADMIN" ? (
+        <FormSection title={getEffectiveActorRole(user) === "ADMIN" ? "登錄人（選填）" : "登錄人"}>
+          {getEffectiveActorRole(user) === "ADMIN" ? (
             <>
               <select
                 name="staffId"

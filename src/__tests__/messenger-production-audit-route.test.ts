@@ -5,7 +5,7 @@ const mockResolveStore = vi.fn();
 const mockCreateRun = vi.fn();
 const mockFindRun = vi.fn();
 
-vi.mock("@/lib/auth", () => ({ auth: (...args: unknown[]) => mockAuth(...args) }));
+vi.mock("@/lib/session", () => ({ getCurrentUser: async (...args: unknown[]) => (await mockAuth(...args))?.user ?? null }));
 vi.mock("@/lib/store", () => ({ resolveAuthorizedConcreteStore: (...args: unknown[]) => mockResolveStore(...args) }));
 vi.mock("@/server/services/messenger-production-audit", () => ({ createMessengerAuditRun: (...args: unknown[]) => mockCreateRun(...args) }));
 vi.mock("@/lib/db", () => ({ prisma: { messengerAuditRun: { findUnique: (...args: unknown[]) => mockFindRun(...args) } } }));

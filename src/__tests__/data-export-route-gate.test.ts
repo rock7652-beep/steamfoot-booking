@@ -1,3 +1,4 @@
+vi.mock("@/lib/session", () => ({ getCurrentUser: async () => (await mockAuth())?.user ?? null }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { AppError } from "@/lib/errors";
