@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 const features = [
-  { id: "inventory", name: "進銷存管理", icon: "store", fee: 800,
+  { id: "inventory", name: "進銷存管理", icon: "store",
     title: "商品剩多少？這筆銷售有收款嗎？",
     before: "進貨、銷貨與庫存分開記錄，賣出商品後還要重新登記收款。",
     after: "商品、進貨、銷貨與庫存集中管理，銷售收款串接現金收支，減少重複登記。",
@@ -24,15 +24,15 @@ const features = [
     takeaway: "商品與帳務接在一起，庫存更容易掌握。",
     detail: "商品與庫存依實際單據處理；收款不代表再次出庫。關閉或停用保留商品、庫存與單據資料。" },
   {
-    id: "work-orders", name: "工單管理", icon: "checklist", fee: 800,
+    id: "work-orders", name: "工單管理", icon: "checklist",
     title: "維修・保養・施工，進度與欠款一張看清楚。",
     before: "接件需求寫在紙上，處理進度留在聊天裡；顧客來取件時，還要另外找收款紀錄。",
     after: "從鋼琴調音到各類樂器維修保養，集中管理顧客需求、種類／型號、處理內容、材料工費、進度與付款，支援顧客／店家雙聯列印。",
     manual: ["找接件單與顧客需求", "詢問目前處理到哪裡", "取件時再核對有沒有欠款"],
     takeaway: "維修、保養與施工都有紀錄，交班、取件與收款更清楚。",
-    detail: "適用於鋼琴調音、管樂與弦樂器維修保養、吉他維修保養，以及其他施工與服務案件。工單可獨立加購，管理接件、處理進度、工費、收款與取件；加入商品材料及扣庫存，需搭配已開通的進銷存及相應人員權限。工費預設 0 元，工單預設未付款，可用姓名、電話或單號查找；支援取消、不維修及退款。各門市獨立開通，旗下分店依各自授權。關閉或加購到期後保留原有工單與收款紀錄，重新開通可接續使用。" },
+    detail: "適用於鋼琴調音、管樂與弦樂器維修保養、吉他維修保養，以及其他施工與服務案件。工費預設 0 元，工單預設未付款，可用姓名、電話或單號查找；支援取消、不維修及退款。各門市獨立開通，旗下分店依各自授權。關閉或加購到期後保留原有工單與收款紀錄，重新開通可接續使用。" },
   {
-    id: "reminders", name: "LINE 自動提醒", icon: "bell", fee: 0,
+    id: "reminders", name: "LINE 自動提醒", icon: "bell",
     title: "明天的顧客，你還在一個個傳訊息嗎？",
     before: "服務做到晚上，還要翻明天的預約，逐筆提醒，再整理誰回覆會到。",
     after: "依設定發送預約提醒。顧客點選確認會到，店長直接在後台看狀態。",
@@ -41,7 +41,7 @@ const features = [
     detail: "LINE 訊息等外部費用另計；需完成 LINE 串接並啟用提醒規則。顧客可依門市規則改期、取消或導航；確認會到不代表保證到店。",
   },
   {
-    id: "export", name: "資料匯出", icon: "checklist", fee: 500,
+    id: "export", name: "資料匯出", icon: "checklist",
     title: "想整理這個月的資料，又得重新抄一次？",
     before: "資料在後台，整理報表卻得另外開表格，一筆一筆複製、貼上、核對。",
     after: "選擇可匯出的資料與條件，下載 Excel，接著做需要的整理與核對。",
@@ -50,7 +50,7 @@ const features = [
     detail: "匯出內容依帳號權限與資料類型提供；不包含健康紀錄、內部備註或 LINE 身分資料。",
   },
   {
-    id: "cash", name: "現金抽屜", icon: "store", fee: 500,
+    id: "cash", name: "現金抽屜", icon: "store",
     title: "準備打烊，抽屜怎麼又差了 200 元？",
     before: "收款、找零、臨時支出混在一起，現金不對時，只能問今天值班的人。",
     after: "整理開帳、現金異動與關帳清點。對照應有金額與實際現金，留下差額及原因。",
@@ -59,7 +59,7 @@ const features = [
     detail: "現金仍需現場清點，異動需正確登記；系統協助對帳，不會自動辨識未登記的支出。",
   },
   {
-    id: "labels", name: "顧客標籤", icon: "checklist", fee: 0,
+    id: "labels", name: "顧客標籤", icon: "checklist",
     title: "想找某一類顧客，還要逐筆翻備註？",
     before: "顧客偏好與分類都寫在備註裡，換人接手時，要重新讀一遍才知道。",
     after: "用店內共用的標籤與固定配色，快速標記顧客，一眼辨識需要的分類。",
@@ -68,7 +68,7 @@ const features = [
     detail: "標籤可獨立開通或關閉，關閉保留資料。促銷試用依活動公告期限，試用到期不自動收費。",
   },
   {
-    id: "care", name: "顧客經營", icon: "return", fee: 500,
+    id: "care", name: "顧客經營", icon: "return",
     title: "那位常來的顧客，好像很久沒看到了。",
     before: "忙起來只顧眼前的預約，直到想起顧客，才發現已經很久沒回來。",
     after: "從好久不見、堂數偏低、方案快到期等名單，找出需要關心的人，並記下追蹤情況。",
@@ -77,7 +77,7 @@ const features = [
     detail: "名單依店內資料與條件整理；店長仍需主動聯繫，這項功能不等於自動代發關懷訊息。",
   },
   {
-    id: "health", name: "健康追蹤", icon: "checklist", fee: 500,
+    id: "health", name: "健康追蹤", icon: "checklist",
     title: "顧客問：跟上次比，有什麼變化？",
     before: "量測數字散在照片、紙本或聊天裡，要回答顧客，就得先找上次的紀錄。",
     after: "把量測紀錄、歷史數據與趨勢放在一起，陪顧客回顧不同時間的變化。",
@@ -86,7 +86,7 @@ const features = [
     detail: "適合有量測與體態追蹤需求的店家。依實際記錄呈現，提供日常追蹤參考，不作醫療診斷或效果保證。",
   },
   {
-    id: "settlement", name: "月結管理", icon: "calendar", fee: 800,
+    id: "settlement", name: "月結管理", icon: "calendar",
     title: "月底對帳，總是重算同一套公式？",
     before: "服務金額、分潤、固定月費與加扣項分開整理。改一個數字，又得重算一次。",
     after: "依服務金額與設定核對月結明細，整理固定月費、分潤及加扣項，保留月結紀錄。",
@@ -95,7 +95,7 @@ const features = [
     detail: "適合有月費、分潤或合作結算需求的店家。依門市設定計算，不會自動轉帳付款。",
   },
   {
-    id: "waitlist", name: "課程候補", icon: "calendar", fee: 500,
+    id: "waitlist", name: "課程候補", icon: "calendar",
     title: "課程滿班了，有人取消還要逐一聯絡？",
     before: "候補名單留在聊天裡，有人取消時，又要詢問誰還能來。",
     after: "滿班先候補，有空位依順位自動遞補，並透過 LINE 通知學員。",
@@ -104,7 +104,7 @@ const features = [
     detail: "適用音樂、運動等課程模組。需啟用候補並完成 LINE 串接；截止時間後停止自動遞補，LINE 訊息等外部費用於開通前確認。",
   },
   {
-    id: "analysis", name: "分析", icon: "bar-chart", fee: 500,
+    id: "analysis", name: "分析", icon: "bar-chart",
     title: "客人變多了嗎？體驗成交了嗎？舊客回來了嗎？",
     before: "店裡很忙，經營狀況卻要翻好幾份紀錄才知道。",
     after: "來客、成交、回流與方案購買收入，集中看清楚。",
@@ -184,7 +184,6 @@ export default async function FeaturesPage() {
             { icon: "calendar", name: "預約管理", context: "今天誰要來？幾點有空？", benefit: "集中查看預約，安排店裡的服務時間。" },
             { icon: "return", name: "顧客資料", context: "這位顧客，上次聊了什麼？", benefit: "查詢聯絡資料、備註與服務紀錄，接續照顧。" },
             { icon: "checklist", name: "方案堂數", context: "還剩幾次？什麼時候到期？", benefit: "查看方案剩餘堂數與期限，服務完成後核對扣堂。" },
-            { icon: "store", name: "基本收款", context: "這次服務，收了多少錢？", benefit: "記錄服務收款，留下可查詢的交易紀錄。" },
             { icon: "checklist", name: "人員與權限", context: "誰能查資料？誰能修改或收款？", benefit: "按角色與人員設定操作權限；老師、教練與技師可依身分查看工作行程。" },
             { icon: "store", name: "收款與收支紀錄", context: "應收、已收與尚欠，分清楚。", benefit: "查詢付款與收支紀錄；取消、退款依原交易及人員權限處理，已付款不等於已完成服務。" },
             { icon: "chat", name: "LINE 顧客入口", context: "顧客想預約，不用等你回訊息。", benefit: "從店家 LINE 預約、依規則取消與查詢堂數。" },

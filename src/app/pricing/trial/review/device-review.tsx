@@ -51,7 +51,7 @@ export function DeviceReview() {
         </a>
       </div>
       <iframe
-        title={`${devices[device].label}體驗申請頁`}
+        title={`${devices[device].label}官網預覽`}
         src={page}
         className="mx-auto block h-[820px] max-w-full rounded-xl border bg-white shadow-lg"
         style={{ width: devices[device].width }}
