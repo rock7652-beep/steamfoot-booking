@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { pushMessage } from "@/lib/line";
+import { buildManagerNotificationCard } from "./manager-notification-card";
+import { type LineMessage, pushMessage } from "@/lib/line";
 import {
   managerPreferences,
   MANAGER_EVENT_PREFERENCE,
@@ -124,6 +125,9 @@ export async function deliverManagerNotification(input: {
         lineUserId: { not: null },
       },
     });
+    const store = recipients.length ? await prisma.store.findUnique({
+      where: { id: input.storeId }, select: { name: true, slug: true },
+    }) : null;
     let sentCount = 0;
     let failedCount = 0;
     for (const recipient of recipients) {
@@ -164,6 +168,9 @@ export async function deliverManagerNotification(input: {
             recipientName: current.displayName,
             eventKey: input.eventKey,
             type: input.type,
+            renderedMessages: [buildManagerNotificationCard(
+              input.messages.map(m => m.text).join("\n"), store?.name ?? store?.slug ?? "門市通知", store?.slug,
+            )] as unknown as Prisma.InputJsonValue,
             renderedBody: input.messages
               .map((m) => m.text)
               .join("\n"),
@@ -187,7 +194,7 @@ export async function deliverManagerNotification(input: {
             sentCount++;
             continue;
           }
-          // Retry only the same text within LINE's 24-hour retry-key window.
+          // Retry only the same persisted payload within LINE's 24-hour retry-key window.
           if (
             !existing ||
             existing.status !== "FAILED" ||
@@ -211,7 +218,9 @@ export async function deliverManagerNotification(input: {
         const result = await pushMessage(
           input.storeId,
           current.lineUserId,
-          [{ type: "text", text: log.renderedBody }],
+          log.renderedMessages
+            ? log.renderedMessages as unknown as LineMessage[]
+            : [{ type: "text", text: log.renderedBody }],
           log.id,
         );
         await prisma.managerNotificationLog.update({
