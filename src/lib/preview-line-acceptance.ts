@@ -1,3 +1,4 @@
+import { isSportsSharedCardMockedUnitTest } from "../../scripts/sports-shared-card-preview-scope.mjs";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -10,6 +11,9 @@ const schema = z.object({
 export type PreviewLineAcceptance = z.infer<typeof schema>;
 const scope = new AsyncLocalStorage<PreviewLineAcceptance>();
 export function readPreviewLineAcceptance(): PreviewLineAcceptance | null {
+  // This unmerged checkout is authorized for zero external delivery. An old
+  // branch acceptance grant cannot override the release-bound Preview lock.
+  if (!isSportsSharedCardMockedUnitTest(process.env)) return null;
   if(process.env.VERCEL_ENV!=="preview" || process.env.VERCEL_GIT_COMMIT_REF!=="codex/course-scheduling-stage1") return null;
   const db=process.env.DATABASE_URL??"";
   if(!db.includes("ttworfzgwejdeolegkxl") || db.includes("qijlnhtpbintanzpxkvf")) return null;

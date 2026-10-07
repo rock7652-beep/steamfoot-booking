@@ -27,6 +27,15 @@ if (isGuideUiPreview()) {
   process.exit(0);
 }
 
+import { assertSportsSharedCardPreviewEnvironment, isSportsSharedCardMockedUnitTest } from "./sports-shared-card-preview-scope.mjs";
+
+// Must run before every database client, migration subprocess, or build query,
+// including when this Preview-only branch is accidentally targeted at production.
+if (!isSportsSharedCardMockedUnitTest(process.env)) {
+  assertSportsSharedCardPreviewEnvironment(process.env);
+  console.info("[sports-shared-card-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
+}
+
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";

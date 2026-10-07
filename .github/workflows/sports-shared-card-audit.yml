@@ -1,0 +1,67 @@
+name: Sports shared-card isolated PostgreSQL acceptance
+on:
+  pull_request:
+    branches: [main, feat/hq-store-real-view-20261007]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/server/services/course-*.ts'
+      - 'src/server/actions/course-*.ts'
+      - 'src/server/queries/course-*.ts'
+      - 'src/lib/course-*.ts'
+      - 'src/lib/feature-gate.ts'
+      - 'src/lib/store-feature-*.ts'
+      - 'src/__tests__/course-companions.pg.test.ts'
+      - 'src/__tests__/helpers/booking-concurrency-test-db.ts'
+      - 'course-prisma/**'
+      - 'supabase/migrations/*course_companion_booking.sql'
+      - '.github/workflows/sports-shared-card-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sports-shared-card-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-test-only
+          POSTGRES_DB: sports_shared_card_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sports_shared_card_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/sports_shared_card_test
+      DIRECT_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/sports_shared_card_test
+      BOOKING_CONCURRENCY_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/sports_shared_card_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Exercise shared-card booking, companions, refunds, waitlist and concurrency
+        run: >-
+          npx vitest run src/__tests__/course-companions.pg.test.ts
+          --reporter=default --reporter=json --outputFile=sports-shared-card-pg-results.json
+      - name: Require all seven PostgreSQL scenarios without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("sports-shared-card-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 7 || r.numPassedTests !== 7 || r.numPendingTests !== 0)
+              throw new Error("All seven sports shared-card PostgreSQL scenarios must pass without skips");
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sports-shared-card-pg-results
+          path: sports-shared-card-pg-results.json
+          retention-days: 7

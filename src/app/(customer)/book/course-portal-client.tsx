@@ -1,4 +1,5 @@
 "use client";
+import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-summary";
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
@@ -196,7 +197,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop"; initialCoach?: boolean }) {
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
   const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
@@ -209,6 +210,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
   };
   const balanceTotals = courseBalanceTotals(p.cards);
+  const sharedCardState = p.sharedCardState ?? "ENABLED";
+  const sharingVisible = sharedCardState !== "HIDDEN";
+  const sharingEnabled = sharedCardState === "ENABLED";
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -218,7 +222,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
   });
   const [preferredRole, setRole] = useState<CoursePortalRole>(p.initialCoach && p.hasWork ? "coach" : p.memberEnabled && (notification || p.initialView) ? "member" : p.initialRole);
   const role = resolveCoursePortalRole(preferredRole, p.memberEnabled, p.hasWork);
-  const [page, setPage] = useState<Page>(p.initialView ?? "home"),
+  const [requestedPage, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
     [history, setHistory] = useState(false),
@@ -232,6 +236,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     [limit, setLimit] = useState(20),
     [recordFilter, setRecordFilter] = useState("all"),
     [recordEdit, setRecordEdit] = useState<string | null>(null);
+  const page = requestedPage === "shared" && !sharingVisible ? "plans" : requestedPage;
   const [session, setSession] = useState<Session | null>(null),
     [cardId, setCardId] = useState(""),
     [learners, setLearners] = useState<string[]>([]),
@@ -253,6 +258,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     [error, setError] = useState(""),
     [refreshing, start] = useTransition();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
+  useEffect(() => {
+    if (!sharingEnabled && companionEditor?.add) setCompanionEditor(null);
+  }, [sharingEnabled, companionEditor]);
   const [saving, setSaving] = useState(false);
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const [companionReceipts, setCompanionReceipts] = useState<CompanionUsageReceipt[]>([]);
@@ -295,11 +303,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
     today = toLocalDateStr(new Date(now)),
     selected = date.startsWith(p.month) ? date : p.month + "-01",
     card = p.cards.find((c) => c.id === cardId),
-    companionMode = p.companionBookingEnabled && !!card && !card.termSessionIds.length,
-    participantCount = companionMode ? headcount : learners.length,
+    companionMode = p.companionBookingEnabled && !!card && !card.termSessionIds.length && (sharingEnabled || !card.members.some(member => member.id !== p.customerId)),
+    companionHeadcount = sharingEnabled ? headcount : 1,
+    authorizedLearners = learners.filter(id => card?.members.some(member => member.id === id)),
+    participantCount = companionMode ? companionHeadcount : authorizedLearners.length,
     waitlistMode = !!session && session.occupied + Math.max(1, participantCount) > session.capacity && session.waitlistAllowed,
     waitlistAlready = !!session?.waitlistPosition,
-    modal = !!(notification || session || attendance || cancelId || buy || companionEditor);
+    modal = !!(notification || session || attendance || cancelId || buy || (companionEditor && (!companionEditor.add || sharingEnabled)));
   const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
   const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
   const todayWork = work.filter(s => courseDate(s.startsAt) === today);
@@ -606,7 +616,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
         })}
       </div>
       <p className="cp-legend">
-        {coach ? "日期下方顯示授課堂數。" : "🔵 本人　🟠 共卡"}
+        {coach ? "日期下方顯示授課堂數。" : "🔵 本人　🟠 其他上課人"}
         　淡色為公休
       </p>
     </section>
@@ -798,7 +808,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                       <span className="cp-roster-detail-label"><span className="cp-detail-closed">詳情</span><span className="cp-detail-open">收起</span></span>
                     </summary>
                     {b.companionIndex && <p>同行 · 預約人 {b.reserverName}</p>}
-                    {!readOnly && !p.readOnly && p.companionBookingEnabled && !b.companionIndex && b.canAddCompanion && <button disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id, add: !b.companionIndex})}>{b.companionIndex ? "變更使用方式" : "新增同行"}</button>}
+                    {!readOnly && !p.readOnly && p.companionBookingEnabled && sharingEnabled && !b.companionIndex && b.canAddCompanion && <button disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id, add: !b.companionIndex})}>{b.companionIndex ? "變更使用方式" : "新增同行"}</button>}
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
                     {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
                       <label>本次備註（店長與授課教練可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
@@ -849,6 +859,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
   ) ?? [];
   const cancelBooking = p.bookings.find((booking) => booking.id === cancelId);
   const sharedCards = p.cards.filter((candidate) => candidate.members.length > 1);
+  const guides = findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled, sharedCardState);
   const shop = p.plans.filter(
     (plan) =>
       !session ||
@@ -963,7 +974,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                         : "尚無方案",
                     )}
                     {p.healthEnabled && menu("健康追蹤", "health", "查看身體數據與趨勢")}
-                    {menu("操作指南", "guide", "預約、取消、方案與共卡")}
+                    {menu("操作指南", "guide", sharingVisible ? "預約、取消、方案與共卡" : "預約、取消與方案")}
                   </section>
                 </>
               )}
@@ -1109,7 +1120,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                     ? "有待店家確認的訂單"
                     : undefined,
                 )}
-                {menu("共卡成員", "shared")}
+                {sharingVisible && menu("共卡成員", "shared", sharingEnabled ? undefined : "功能未開通，既有授權仍可使用")}
                 {p.healthEnabled && menu("健康追蹤", "health")}
               </section>
               <h2>帳戶與店家</h2>
@@ -1125,7 +1136,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           {page === "plans" && (
             <>
               {heading("我的方案")}
-              <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計 · {balanceTotals.reduce((sum,total)=>sum+total.count,0)} 個</h2><p>{courseBalanceText(balanceTotals)}</p><p>共卡為共同餘額；各方案期限與適用課程分開計算。</p></section>
+              <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計 · {balanceTotals.reduce((sum,total)=>sum+total.count,0)} 個</h2><p>{courseBalanceText(balanceTotals)}</p><p>{sharingVisible && "共卡為共同餘額；"}各方案期限與適用課程分開計算。</p></section>
               <p>可用額度＝剩餘－預約保留；每張方案的期限分開計算。</p>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
               <a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a>
@@ -1144,7 +1155,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                     剩餘 {c.remaining} · 已預約保留 {c.held}
                   </p>
                   <details>
-                    <summary>適用課程</summary>
+                    <summary>{c.members.length > 1 ? "方案詳情" : "適用課程"}</summary>
                     <p>
                       {c.templateIds.length
                         ? p.templates
@@ -1153,6 +1164,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                             .join("、")
                         : "本店所有課程"}
                     </p>
+                    {c.members.length > 1 && <><p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p><p>以上成員共用此方案餘額；代約僅代表協助預約，不會新增授權。</p></>}
                   </details>
                   <details>
                     <summary>使用紀錄（最近 100 筆）</summary>
@@ -1252,17 +1264,17 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
               )}
             </>
           )}
-          {page === "shared" && (
+          {page === "shared" && sharingVisible && (
             <>
               {heading("共卡成員")}
               {sharedCards.map((c) => (
                   <article className="cp-card cp-pad" key={c.id}>
                     <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
                     <p>{c.members.map((m) => m.name).join("、")}</p>
-                    <p>可替以上授權成員預約，不會開放其他人的健康資料。</p>
+                    <p>{p.companionBookingEnabled && sharingEnabled ? "以上為店家已授權成員；自由選課另以同行人數預約，姓名選填，不會新增授權成員。" : "可替以上既有授權成員預約；代約不會新增授權成員。"}不會開放其他人的健康資料。</p>
                   </article>
                 ))}
-              {!sharedCards.length && <section className="cp-card cp-pad cp-empty-state"><strong>目前沒有共用方案</strong><p>如需和家人共用額度，請聯絡店家協助設定。</p>{p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>}</section>}
+              {!sharedCards.length && <section className="cp-card cp-pad cp-empty-state"><strong>目前沒有共用方案</strong><p>{sharingEnabled ? "如需和家人共用額度，請聯絡店家協助設定。" : "共卡功能未開通，暫不開放新增授權。"}</p>{p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>}</section>}
             </>
           )}
           {page === "health" && p.healthEnabled && (
@@ -1295,18 +1307,18 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
             <>
               {heading("操作指南", "常用操作一次看懂")}
               <label className="cp-card cp-pad cp-guide-search">搜尋操作指南
-                <input type="search" aria-label="搜尋操作指南" placeholder={coach ? "點名、更正、備註…" : "預約、共卡、轉帳…"} value={search} onChange={event => setSearch(event.target.value)} />
+                <input type="search" aria-label="搜尋操作指南" placeholder={coach ? "點名、更正、備註…" : sharingVisible ? "預約、共卡、轉帳…" : "預約、取消、轉帳…"} value={search} onChange={event => setSearch(event.target.value)} />
               </label>
-              <p role="status">{coach ? "教練" : "會員"}指南 · {findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled).length} 題</p>
+              <p role="status">{coach ? "教練" : "會員"}指南 · {guides.length} 題</p>
               <section className="cp-card cp-pad cp-guide" key={`${role}:${search}`}>
-                {findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled).map(guide => (
+                {guides.map(guide => (
                   <details key={guide.id}>
                     <summary>{guide.title}</summary>
                     <ol className="list-decimal space-y-2 pl-5 py-3">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol>
                     <p>{guide.note}</p>
                   </details>
                 ))}
-                {!findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled).length && <p>找不到符合的教學，請換個關鍵字或聯絡店家。</p>}
+                {!guides.length && <p>找不到符合的教學，請換個關鍵字或聯絡店家。</p>}
               </section>
               {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">仍需協助？聯絡店家</a>}
             </>
@@ -1342,7 +1354,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
           )}
         </main>
       </div>
-      {companionEditor && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={receipt => { if (receipt) { setCompanionReceipts(previous => [...previous.filter(row => row.booking.id !== receipt.booking.id), receipt]); setMessage(receipt.returned ? `已返還 ${receipt.returned.amount} ${unit(receipt.returned.unit)}` : "使用方式已更新"); } else setMessage("同行已新增"); start(() => router.refresh()); }} />}
+      {companionEditor && (!companionEditor.add || sharingEnabled) && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={receipt => { if (receipt) { setCompanionReceipts(previous => [...previous.filter(row => row.booking.id !== receipt.booking.id), receipt]); setMessage(receipt.returned ? `已返還 ${receipt.returned.amount} ${unit(receipt.returned.unit)}` : "使用方式已更新"); } else setMessage("同行已新增"); start(() => router.refresh()); }} />}
       {session && !buy && (
         <Sheet
           title={waitlistAlready ? "候補狀態" : waitlistMode ? (confirm ? "確認候補" : companionMode ? "預約人數" : "選擇候補人") : (confirm ? "確認預約" : companionMode ? "預約人數" : "選擇上課人")}
@@ -1384,15 +1396,15 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
                             ? joinMemberCourseWaitlist({
                                 sessionId: session.id,
                                 cardId,
-                                customerIds: companionMode ? [p.customerId] : learners,
-                                companionNames: companionMode ? companionNames.slice(0, headcount - 1) : undefined,
+                                customerIds: companionMode ? [p.customerId] : authorizedLearners,
+                                companionNames: companionMode ? companionNames.slice(0, companionHeadcount - 1) : undefined,
                                 requestKey: key,
                               })
                             : createMemberCourseBooking({
                                 sessionId: session.id,
                                 cardId,
-                                customerIds: companionMode ? [p.customerId] : learners,
-                                companionNames: companionMode ? companionNames.slice(0, headcount - 1) : undefined,
+                                customerIds: companionMode ? [p.customerId] : authorizedLearners,
+                                companionNames: companionMode ? companionNames.slice(0, companionHeadcount - 1) : undefined,
                                 requestKey: key,
                                 notes,
                               }),
@@ -1463,22 +1475,24 @@ export function CoursePortalClient(serverData: CoursePortalData & { readOnly?: b
               </label>
               {card && (
                 <>
-                  {companionMode ? <fieldset disabled={confirm || pending}>
+                  {companionMode ? sharingVisible ? <fieldset disabled={confirm || pending}>
                     <legend>預約人數（含本人）</legend>
                     <div className="cp-headcount" role="group" aria-label="預約人數">
-                      {[1, 2, 3].map(count => <button key={count} type="button" aria-pressed={headcount === count} disabled={(count > 1 && !card.allowShared) || (!session.waitlistAllowed && count > session.capacity - session.occupied)} onClick={() => setHeadcount(count)}>{count} 人</button>)}
+                      {[1, 2, 3].map(count => <button key={count} type="button" aria-pressed={companionHeadcount === count} disabled={(count > 1 && (!sharingEnabled || !card.allowShared)) || (!session.waitlistAllowed && count > session.capacity - session.occupied)} onClick={() => setHeadcount(count)}>{count} 人</button>)}
                     </div>
-                    {headcount > 1 && <details><summary>同行姓名（選填）</summary>
-                      {Array.from({length: headcount - 1}, (_, index) => <label key={index}>同行者 {index + 1}<input maxLength={100} value={companionNames[index]} placeholder="姓名（選填）" onChange={event => setCompanionNames(names => names.map((name, i) => i === index ? event.target.value : name))} /></label>)}
+                    {sharedCardState === "LOCKED" && <p>同行預約功能未開通，目前可預約本人。</p>}
+                    {companionHeadcount > 1 && <details><summary>同行姓名（選填）</summary>
+                      {Array.from({length: companionHeadcount - 1}, (_, index) => <label key={index}>同行者 {index + 1}<input maxLength={100} value={companionNames[index]} placeholder="姓名（選填）" onChange={event => setCompanionNames(names => names.map((name, i) => i === index ? event.target.value : name))} /></label>)}
                     </details>}
-                  </fieldset> : (
+                  </fieldset> : <p>上課人：本人</p> : (
                   <fieldset disabled={confirm || pending}>
                     <legend>實際上課人</legend>
+                    {sharedCardState === "LOCKED" && p.companionBookingEnabled && <p>同行預約功能未開通，可選既有授權成員。</p>}
                     {card.members.map((m) => (
                       <label className="cp-check" key={m.id}>
                         <input
                           type="checkbox"
-                          checked={learners.includes(m.id)}
+                          checked={authorizedLearners.includes(m.id)}
                           onChange={(e) =>
                             setLearners(
                               e.target.checked

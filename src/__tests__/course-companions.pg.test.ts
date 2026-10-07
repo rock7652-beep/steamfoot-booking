@@ -41,7 +41,7 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     for (const sql of [
       'CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text)',
       'CREATE TABLE "Customer" (id text PRIMARY KEY, "storeId" text, name text, "mergedIntoCustomerId" text)',
-      'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text, "featureKey" text, status text)',
+      'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text, "featureKey" text, status text, "startsAt" timestamptz, "expiresAt" timestamptz)',
       'CREATE TABLE "ShopConfig" ("storeId" text, "bookableUntilDate" date, "bookingOpensAt" timestamptz, "bookingWindowDays" integer)',
       'CREATE TABLE "BusinessHours" ("storeId" text, "dayOfWeek" integer, "isOpen" boolean)',
       'CREATE TABLE "SpecialBusinessDay" ("storeId" text, date date, type text)',
@@ -55,9 +55,10 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
   }, 30000);
   afterAll(async () => {if (db) {await db.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`); await db.$disconnect();}});
 
-  async function fixture(capacity = 3, shared = true) {
+  async function fixture(capacity = 3, shared = true, sharedCardEnabled = true) {
     const storeId = randomUUID(), customerId = randomUUID(), bId = randomUUID();
     await database().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    if (sharedCardEnabled) await database().$executeRaw`INSERT INTO "StoreFeatureEntitlement" ("storeId", "featureKey", status) VALUES (${storeId},'shared_card','ENABLED')`;
     await database().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'A',NULL),(${bId},${storeId},'B',NULL)`;
     const plan = await database().coursePointPlan.create({data: {storeId, name: "自由選課", points: 10, price: 1000, validDays: 30, allowShared: shared}});
     const card = await database().coursePointCard.create({data: {storeId, planId: plan.id, nameSnapshot: "A 方案", remaining: 10, expiresAt: new Date("2099-12-31"), requestKey: randomUUID(), members: {create: {customerId}}}});
@@ -80,17 +81,17 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     expect((await database().courseBooking.aggregate({where: {cardId: f.card.id, status: "RESERVED"}, _sum: {pointCost: true}}))._sum.pointCost).toBe(6);
     expect(await database().courseCardMember.count({where: {cardId: f.card.id}})).toBe(1);
   });
-  it("rolls back the entire group when capacity or plan sharing prevents companions", async () => {
-    for (const f of [await fixture(2), await fixture(3, false)]) {
+  it("rolls back the entire group when capacity, plan sharing or absent store grant prevents companions", async () => {
+    for (const f of [await fixture(2), await fixture(3, false), await fixture(3, true, false)]) {
       await expect(reserveCourseMembers(f.actor, f.input)).rejects.toThrow();
       expect(await database().courseBooking.count({where: {storeId: f.storeId}})).toBe(0);
     }
   });
   it("keeps music and fixed-term bookings on their original named-member path", async () => {
     const f = await fixture();
-    await database().$executeRaw`INSERT INTO "StoreFeatureEntitlement" VALUES (${f.storeId},'business.music','ENABLED')`;
+    await database().$executeRaw`INSERT INTO "StoreFeatureEntitlement" ("storeId", "featureKey", status) VALUES (${f.storeId},'business.music','ENABLED')`;
     await expect(reserveCourseMembers(f.actor, f.input)).rejects.toThrow();
-    await database().$executeRaw`DELETE FROM "StoreFeatureEntitlement" WHERE "storeId"=${f.storeId}`;
+    await database().$executeRaw`DELETE FROM "StoreFeatureEntitlement" WHERE "storeId"=${f.storeId} AND "featureKey"='business.music'`;
     await database().coursePointCard.update({where: {id: f.card.id}, data: {termSessionIds: [f.session.id]}});
     await expect(reserveCourseMembers(f.actor, f.input)).rejects.toThrow("同行預約");
     expect((await reserveCourseMembers(f.actor, {...f.input, companionNames: []})).length).toBe(1);
@@ -119,6 +120,45 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     await transaction(f.storeId, tx => settleCourseBooking(tx, f.actor, rows[2].id, "CANCELLED"));
     expect(await database().courseBooking.count({where: {storeId: f.storeId, status: {not: "CANCELLED"}}})).toBe(2);
   });
+  it("serializes two real connections competing for the same shared balance across sessions", async () => {
+    const f = await fixture(3);
+    await database().courseCardMember.create({data: {storeId: f.storeId, cardId: f.card.id, customerId: f.bId}});
+    const second = await database().courseSession.create({data: {
+      storeId: f.storeId, templateId: f.session.templateId, nameSnapshot: "第二堂競爭預約",
+      coachId: f.session.coachId, roomId: f.session.roomId,
+      startsAt: new Date("2099-01-02T08:00:00Z"), endsAt: new Date("2099-01-02T09:00:00Z"),
+      pointCost: 2, capacity: 3, requestKey: randomUUID(), requestIndex: 0, createdById: "manager",
+    }});
+    const clients = [new PrismaClient({datasourceUrl: scopedUrl!.toString()}), new PrismaClient({datasourceUrl: scopedUrl!.toString()})];
+    const backendIds: number[] = [];
+    let next = 0;
+    let release!: () => void;
+    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    mocks.transaction.mockImplementation((storeId: string, work: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+      clients[next++ % clients.length].$transaction(async tx => {
+        const [{pid}] = await tx.$queryRaw<Array<{pid: number}>>`SELECT pg_backend_pid() AS pid`;
+        backendIds.push(pid);
+        if (backendIds.length === 2) release();
+        await bothStarted;
+        await lockCourseStore(tx, storeId);
+        return work(tx);
+      }, {maxWait: 10000, timeout: 10000}));
+    try {
+      const outcomes = await Promise.allSettled([
+        reserveCourseMembers(f.actor, f.input),
+        reserveCourseMembers({...f.actor, customerId: f.bId, userId: "member-b", name: "B"}, {...f.input, sessionId: second.id, customerIds: [f.bId], requestKey: randomUUID()}),
+      ]);
+      expect(new Set(backendIds).size).toBe(2);
+      expect(outcomes.filter(result => result.status === "fulfilled")).toHaveLength(1);
+      expect(outcomes.filter(result => result.status === "rejected")).toHaveLength(1);
+      expect(await database().courseBooking.count({where: {storeId: f.storeId, status: "RESERVED"}})).toBe(3);
+      expect((await database().courseBooking.aggregate({where: {cardId: f.card.id, status: "RESERVED"}, _sum: {pointCost: true}}))._sum.pointCost).toBe(6);
+      expect((await database().coursePointCard.findUniqueOrThrow({where: {id: f.card.id}})).remaining).toBe(10);
+    } finally {
+      mocks.transaction.mockImplementation((storeId, work) => transaction(storeId, work));
+      await Promise.all(clients.map(client => client.$disconnect()));
+    }
+  }, 20000);
   it("waits and promotes all three companions together, retaining their names and reserver", async () => {
     const f = await fixture(3);
     await database().courseWaitlistSetting.create({data: {storeId: f.storeId, enabled: true}});

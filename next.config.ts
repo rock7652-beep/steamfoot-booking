@@ -7,6 +7,13 @@ import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
 isGuideUiPreview(); // Validate the isolated mode before Next build work.
 
 import type { NextConfig } from "next";
+import { assertSportsSharedCardPreviewEnvironment, isSportsSharedCardMockedUnitTest } from "./scripts/sports-shared-card-preview-scope.mjs";
+
+// A provider build-command override must not bypass the Preview-only preflight.
+// This temporary release guard must be reviewed before any production release.
+if (!isGuideUiPreview() && !isSportsSharedCardMockedUnitTest(process.env)) {
+  assertSportsSharedCardPreviewEnvironment(process.env);
+}
 
 // Vercel can override package.json's build command, so enforce isolation here too.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-organization-order") {

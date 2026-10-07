@@ -1,4 +1,7 @@
 "use client";
+import type { FeaturePresentationState } from "@/lib/effective-entitlement";
+import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
+import { ModalPanel } from "@/components/admin/modal-panel";
 import { CourseCompanionEditor } from "@/components/course-companion-editor";
 import { useRetainedState, retainedString, retainedPage } from "@/components/operations/operation-scope";
 import { previewCourseEnrollment, enrollCourseSeries } from "@/server/actions/course-roster-enrollment";
@@ -16,7 +19,7 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
@@ -141,6 +144,10 @@ export function CourseRoster({
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; top: number; left: number } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [sharedCardState, setSharedCardState] = useState<FeaturePresentationState>("ENABLED");
+  useEffect(() => {
+    if (sharedCardState !== "ENABLED" && companionEditor?.add) setCompanionEditor(null);
+  }, [sharedCardState, companionEditor]);
   const [roster, setRoster] = useState<
     Awaited<ReturnType<typeof getCourseRoster>>
   >([]);
@@ -215,13 +222,15 @@ export function CourseRoster({
   const [requestKey, setRequestKey] = useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
   const [noteDraft,setNoteDraft]=useState("");
-  const [infoBookingId,setInfoBookingId]=useState<string|null>(null);
+  const [infoBooking,setInfoBooking]=useState<{id:string;sessionId:string}|null>(null);
+  const infoBookingId=infoBooking?.sessionId===sessionId?infoBooking.id:null;
+  const setInfoBookingId=useCallback((id:string|null)=>{setInfoBooking(id?{id,sessionId}:null);},[sessionId]);
   useEffect(()=>{
-    if(!infoBookingId)return;
+    if(!infoBookingId || !musicLayout)return;
     const escape=(event:KeyboardEvent)=>{if(event.key!=="Escape" || document.querySelector('[role="dialog"][aria-label="顧客標籤"]'))return;event.preventDefault();event.stopImmediatePropagation();setInfoBookingId(null);};
     document.addEventListener("keydown",escape,true);
     return ()=>document.removeEventListener("keydown",escape,true);
-  },[infoBookingId]);
+  },[infoBookingId,musicLayout,setInfoBookingId]);
   const [studentLeave, setStudentLeave]=useState<{id:string;name:string}|null>(null);
   const [teacherDialog,setTeacherDialog]=useState<"NO_SHOW"|"LEAVE"|"SCHEDULED"|null>(null);
   const [teacherReason,setTeacherReason]=useState("");
@@ -237,6 +246,7 @@ export function CourseRoster({
 
     if (result.success) {
       setRoster(result.data.roster);
+      setSharedCardState(result.data.sharedCardState ?? "ENABLED");
       setWaitlist(result.data.waitlist ?? []);
       setSession(old=>old ? {...old,teacherNote:result.data.teacherNote,teacherAttendance:result.data.teacherAttendance,teacherAttendanceReason:result.data.teacherAttendanceReason,waitlistStopMinutes:result.data.waitlistStopMinutes}:old);
       setLoaded(true);
@@ -259,6 +269,7 @@ export function CourseRoster({
             setSession(result.data.session);
             setTrial(result.data.trial);
             setRoster(result.data.roster);
+            setSharedCardState(result.data.sharedCardState ?? "ENABLED");
             setCards(result.data.cards);
             setPendingMakeups(result.data.pendingMakeups ?? []);
             setWaitlist(result.data.waitlist ?? []);
@@ -1235,7 +1246,7 @@ export function CourseRoster({
               <div className="flex min-w-0 items-center gap-1">
                 {batchMode && canEdit && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={bulkPending} onChange={event => setSelected(old => event.target.checked ? [...old, booking.id] : old.filter(id => id !== booking.id))} />}
                 <button type="button" className={rosterStatusButtonClassName} aria-label={`${booking.customerName}：${label}`} title={booking.status === "RESERVED" ? "標記出席" : "更正點名"} disabled={!canEdit || pending || savingBookingIds.includes(booking.id) || teacherAbsent || (booking.status === "CANCELLED" && !leave)} data-roster-action-trigger onClick={event => booking.status === "RESERVED" ? run(() => updateCourseBookingStatus({bookingId:booking.id,status:"ATTENDED"}), `已將 ${booking.customerName} 標記出席`, {bookingId:booking.id,status:"ATTENDED"}) : toggleRosterMenu(event.currentTarget, booking.id)}><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 ${booking.status === "ATTENDED" ? "border-primary-700 bg-primary-700 text-white" : deducted ? "border-amber-600 text-amber-700" : leave ? "border-earth-400 text-earth-600" : "border-earth-400"}`}>{booking.status === "ATTENDED" ? "✓" : leave || booking.status === "NO_SHOW" ? "−" : booking.status === "CANCELLED" ? "×" : ""}</span></button>
-                <div className="min-w-0 flex-1"><CustomerListIdentity showLabels={false} name={<span className="inline-flex flex-wrap items-center gap-x-2"><span>{booking.customerName}</span>{(leave || booking.status === "NO_SHOW" || booking.status === "CANCELLED") && <span className={`text-xs font-normal ${deducted ? "text-amber-700" : "text-earth-600"}`}>{label}</span>}{trialBadge(booking)}</span>} phone={booking.customerPhone} />
+                <div className="min-w-0 flex-1"><CustomerListIdentity showLabels={false} name={<span data-roster-name-flow className="inline-flex min-w-0 max-w-full flex-nowrap items-center gap-x-2"><button type="button" className="relative z-20 h-6 min-w-0 flex-1 text-left after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-primary-600" aria-label={`${booking.customerName} 預約詳情`} onClick={()=>setInfoBookingId(booking.id)}><span className="block truncate">{booking.customerName}</span></button><CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>{(leave || booking.status === "NO_SHOW" || booking.status === "CANCELLED") && <span className={`min-w-0 truncate text-xs font-normal ${deducted ? "text-amber-700" : "text-earth-600"}`}>{label}</span>}{trialBadge(booking)}</span>} phone={booking.customerPhone} />
 
                 </div>
               </div>
@@ -1253,7 +1264,19 @@ export function CourseRoster({
 
 
 
-      {infoBookingId && (()=>{const booking=roster.find(row=>row.id===infoBookingId);if(!booking)return null;return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={`${booking.customerName} 標籤與備註`}><div className="max-h-[85dvh] w-full max-w-lg space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-xs text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-xs text-earth-500">店內備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-xs text-earth-500">本次備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}<button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></div>;})()}
+      {infoBookingId && (()=>{const booking=roster.find(row=>row.id===infoBookingId);if(!booking)return null;
+        if(!musicLayout) return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="course-roster-info-title" width={512}>
+          <header className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-2"><h3 id="course-roster-info-title" className="min-w-0 break-words font-semibold">{booking.customerName} · 預約詳情</h3><button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></header>
+          <div className="min-h-0 space-y-4 overflow-y-auto p-4 text-sm">
+            <div><h4 className="text-earth-500">使用方案</h4><p className="break-words">{booking.planName}</p>{booking.sharedCard && <p>共卡：此方案由既有授權成員共用餘額。</p>}</div>
+            <div><h4 className="text-earth-500">預約來源</h4><p className="break-words">{booking.bookingSource}</p>{!!booking.operatorCustomerId && booking.operatorCustomerId!==booking.customerId && !booking.companionIndex && <p>代約：由 {booking.operatorName || "已授權成員"} 協助預約，上課人為 {booking.customerName}；不會新增共卡授權。</p>}<p>{formatTWDateTime(new Date(booking.createdAt))}</p></div>
+            {booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit}/>}
+            <div><h4 className="text-earth-500">店內備註</h4><p className="whitespace-pre-wrap break-words">{booking.serviceNote?.trim() || "尚無備註"}</p></div>
+            <div><h4 className="text-earth-500">本次備註</h4><p className="whitespace-pre-wrap break-words">{booking.notes?.trim() || "尚無備註"}</p></div>
+            {canEdit && booking.status!=="CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}
+          </div>
+        </ModalPanel>;
+        return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={`${booking.customerName} 標籤與備註`}><div className="max-h-[85dvh] w-full max-w-lg space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-xs text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-xs text-earth-500">店內備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-xs text-earth-500">本次備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}<button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></div>;})()}
 
       {paymentMenu && (() => {
         const booking = roster.find(row => row.id === paymentMenu);
@@ -1512,11 +1535,11 @@ export function CourseRoster({
         />
       )}
 
-      {companionEditor && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {void load(); router.refresh();}} />}
+      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {void load(); router.refresh();}} />}
       {openActionMenu && typeof document !== "undefined" && createPortal(<>
         <div data-roster-action-menu className="fixed z-[141] flex w-48 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
           {actionBooking ? <>
-            {canEdit && !musicLayout && actionBooking.status !== "CANCELLED" && (actionBooking.companionIndex || (canCreate && actionBooking.canAddCompanion)) && <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null); setCompanionEditor({bookingId: actionBooking.id, add: !actionBooking.companionIndex});}}>{actionBooking.companionIndex ? "變更使用方式" : "新增同行"}</button>}
+            {canEdit && !musicLayout && actionBooking.status !== "CANCELLED" && (actionBooking.companionIndex || (canCreate && sharedCardState === "ENABLED" && actionBooking.canAddCompanion)) && <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null); setCompanionEditor({bookingId: actionBooking.id, add: !actionBooking.companionIndex});}}>{actionBooking.companionIndex ? "變更使用方式" : "新增同行"}</button>}
             {canEdit && !musicLayout && !teacherAbsent && actionBooking.status === "RESERVED" && <><button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setNoShowBooking({id:actionBooking.id,name:actionBooking.customerName,trial:actionBooking.bookingKind === "TRIAL",term:actionBooking.termCount > 0});}}>缺席・扣堂</button><button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName});}}>缺席・不扣堂</button></>}
             {canEdit && !musicLayout && !teacherAbsent && (actionBooking.status === "ATTENDED" || actionBooking.status === "NO_SHOW" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(actionBooking.absenceKind ?? "")) && <button type="button" role="menuitem" className={button} onClick={() => {setOpenActionMenu(null);run(() => updateCourseRosterBatch({sessionId,target:"RESERVED",bookings:[{id:actionBooking.id,status:actionBooking.status}]}),`已恢復 ${actionBooking.customerName} 待點名`,{bookingId:actionBooking.id,status:"RESERVED"});}}>恢復待點名</button>}
             <button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>標籤與備註</button>
