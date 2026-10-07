@@ -94,3 +94,17 @@
 - 移除底部重複的退貨件數、回庫件數、商品退還金額及本次退款摘要，以及重複長說明。
 - 日期、原因與選填換貨位於退款區之後。沿用既有兩欄fields與窄尺寸單欄規則，無新增CSS、會計計算、請求或確認步驟。
 - 遠端build通過；本輪預覽瀏覽器與重設均逾時，尚未取得新版畫面及iPad驗收證據。不以舊截圖代表新版，不宣稱視覺或端到端驗收完成；沒有提交财務資料，正式站未變更。
+
+## 隔離 PostgreSQL 自動驗收完成
+
+2026-10-07：程式 `aa9bfc5f49689cd5b817641dcb8748fef95ffc99`，GitHub Actions [37572350754](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/37572350754) 成功，3/3 通過、0 skipped。
+
+- 普通 STAFF 沒有 inventory.refund / inventory.payment.correct，直接呼叫正式服務被 FORBIDDEN 拒絕；前後訂單、商品庫存、收款、現金紀錄、command 與 audit 完全相同。
+- 同一 requestId 的退貨退款並行送出20次：全部返回相同訂單；paid/total0、revision3、settlements1、庫存9→10、退款支出1筆、command1筆，原收款保留1筆。同 requestId 改原因被 CONFLICT 拒絕，整體快照不變。
+- 同一 requestId 的收款更正並行送出20次：原單已收仍200、庫存仍9、收款共2筆（原單與替代單）、沖銷支出1筆、command1筆；再重送亦不變。
+- 測試只替換 HTTP 登入身分與 Next cache 邊界；權限查詢、門市授權、功能檢查、Prisma transaction、Store row lock、回庫、現金與 audit 使用正式程式和真實 PostgreSQL。
+- `.github/workflows/inventory-returns-audit.yml` 建立一次性 localhost / inventory_returns_test，使用 schema db push；不讀取正式／Preview 資料库秘密、不建立公開驗收端點。既有測試 DB guard 拒絕非 loopback 或非 _test URL；CI另強制3項皆通過且沒有跳過。
+- 此為服務與資料庫整合證據，不代表 Preview HTTP session、正式 migration 或正式部署已驗。1920尺寸仍未驗。普通人員 staging / 運動測試店 UI 銷貨收款另已各完成一筆。
+- 本地相關3檔75項、TypeScript noEmit（8GB heap）、修改檔 ESLint 與 diff check 通過。此前未發布的未授權更正單元測試已推送支線。
+
+正式站未合併；最新正式備份還原點、schema/migration查核及正式發布授權仍待完成。上方歷史未完成記錄以本節及 PR 最新說明為準。
