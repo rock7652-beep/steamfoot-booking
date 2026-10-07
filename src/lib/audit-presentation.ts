@@ -76,6 +76,7 @@ export function auditSummary(item: PresentedAudit, target?: string) {
     return name && !name.includes("未保存") ? `調整${name}的權限${target?.endsWith("（目前資料）") ? "（目前姓名）" : ""}` : `調整人員權限${target ? "（人員未記錄）" : ""}`;
   }
   const savedSummary = item.summary && /[\u3400-\u9fff]/.test(item.summary) && !item.summary.includes(item.targetType) && !item.summary.includes(item.action) ? auditText(item.summary) : null;
+  if (item.action === "HQ_VIEW_ALL_STORES") return savedSummary ?? auditActionLabel(item.action);
   if (!target) return savedSummary ?? `${auditActionLabel(item.action)} · ${auditTargetLabel(item.targetType)}`;
   if (target.includes("舊紀錄未保存辨識內容")) return `${savedSummary ?? `${auditActionLabel(item.action)}${auditTargetLabel(item.targetType)}`}（資料未記錄）`;
   const subject = target.replace(`${auditTargetLabel(item.targetType)} · `, "");
@@ -84,7 +85,8 @@ export function auditSummary(item: PresentedAudit, target?: string) {
     ["CANCEL", "CANCELLED"].includes(item.action) && item.targetType === "CourseBooking" ? "取消課程預約" : auditActionLabel(item.action)
   );
   // Existing summaries can already name the record (e.g. an HQ switch).
-  const name = subject.split(" · ",1)[0].replace(/（目前資料）$/, "");
+  const parts = subject.split(" · ");
+  const name = (item.targetType === "InventoryOrder" && ["銷貨", "進貨"].includes(parts[0]) ? parts[1] ?? "" : parts[0]).replace(/（目前資料）$/, "");
   if (name && operation.includes(name)) return operation;
   return `${operation}：${subject}`;
 }

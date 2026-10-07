@@ -14,6 +14,7 @@ describe("human-readable audit presentation", () => {
   it("combines the action with the recognizable record without technical names or repeated context", () => {
     expect(auditSummary({action:"CANCEL",targetType:"SpaBooking",summary:"取消服務預約"},"服務預約 · 吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）")).toBe("取消服務預約：吳小姐 · 全身芳療 · 2026-10-07 10:00（目前資料）");
     expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 小華")).toBe("修改顧客資料：小華");
+    expect(auditSummary({action:"INVENTORY_WRITE",targetType:"InventoryOrder",summary:"建立銷貨單"},"進銷貨單 · 銷貨 · 小華 · 2026-10-07")).toBe("建立銷貨單：銷貨 · 小華 · 2026-10-07");
     expect(auditSummary({action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「蒸足店」"},"店家檢視 · 蒸足店（目前資料）")).toBe("切換總部店家檢視請求「蒸足店」");
     expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("修改顧客資料（資料未記錄）");
   });
