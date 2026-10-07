@@ -59,19 +59,19 @@ export async function LoginAuditView(input: {
       <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${input.dateFrom}&dateTo=${input.dateTo}`}>登入紀錄</Link>
     </nav>
     {backHref ? <Link className="w-fit min-h-11 py-3 text-sm text-primary-800 underline" href={backHref}>← 返回紀錄列表</Link> : null}
-    <form className="flex min-w-0 flex-wrap items-center gap-2 text-sm" method="get">
+    <form className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm" method="get">
       <input type="hidden" name="tab" value="login" />
       {input.login ? <input type="hidden" name="login" value={input.login} /> : null}
       {input.returnTo ? <input type="hidden" name="returnTo" value={input.returnTo} /> : null}
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="text-earth-600">日期</span>
-        <input aria-label="開始日期" className="h-11 min-w-0 w-[132px] rounded-lg border border-earth-200 bg-white px-2" type="date" name="dateFrom" defaultValue={input.dateFrom} />
+        <input aria-label="開始日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2" type="date" name="dateFrom" defaultValue={input.dateFrom} />
         <span className="text-earth-400">至</span>
-        <input aria-label="結束日期" className="h-11 min-w-0 w-[132px] rounded-lg border border-earth-200 bg-white px-2" type="date" name="dateTo" defaultValue={input.dateTo} />
+        <input aria-label="結束日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2" type="date" name="dateTo" defaultValue={input.dateTo} />
       </div>
-      <select aria-label="人員" className="h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-2 sm:w-36" name="actor" defaultValue={input.actor ?? ""}><option value="">全部人員</option>{actors.map(actor => <option key={actor.actorUserId!} value={actor.actorUserId!}>{actor.actorNameSnapshot ?? "未識別"}</option>)}</select>
+      <select aria-label="人員" className="h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-2 sm:w-32" name="actor" defaultValue={input.actor ?? ""}><option value="">全部人員</option>{actors.map(actor => <option key={actor.actorUserId!} value={actor.actorUserId!}>{actor.actorNameSnapshot ?? "未識別"}</option>)}</select>
       <select aria-label="結果" className="h-11 rounded-lg border border-earth-200 bg-white px-2" name="outcome" defaultValue={input.outcome ?? ""}><option value="">全部結果</option><option value="SUCCESS">成功</option><option value="FAILED">失敗</option></select>
-      <button className="min-h-11 rounded-lg border border-earth-200 bg-white px-3" type="submit">查詢</button><Link className="min-h-11 px-2 py-3 text-earth-600" href="/dashboard/operation-audits?tab=login">清除</Link>
+      <button className="min-h-11 rounded-lg border border-earth-200 bg-white px-2" type="submit">查詢</button><Link className="min-h-11 px-2 py-3 text-earth-600" href="/dashboard/operation-audits?tab=login">清除</Link>
     </form>
     <AuditListState viewKey={`${input.viewerKey ?? ""}:${input.storeId ?? "all"}:${returnQuery}`}>
     <div className="min-w-0 overflow-hidden rounded-xl border border-earth-200 bg-white">
