@@ -73,6 +73,40 @@ export async function saveStoreFeatureEntitlement(
     if (!storeId) return { success: false, error: "缺少店舖資訊" };
     if (!FEATURE_KEY_SET.has(featureKey)) return { success: false, error: "無效的功能代碼" };
 
+    if (featureKey === FEATURES.SHARED_CARD) {
+      if (override !== "INHERIT" && !ENTITLEMENT_STATUSES.has(override as StoreFeatureEntitlementStatus)) return { success: false, error: "無效的覆寫狀態" };
+      if (!ENTITLEMENT_SOURCES.has(source as StoreFeatureEntitlementSource)) return { success: false, error: "無效的來源" };
+      const startsAt = parseDateBoundary(startsAtInput, "start");
+      const expiresAt = parseDateBoundary(expiresAtInput, "end");
+      if (startsAt && expiresAt && startsAt > expiresAt) return { success: false, error: "開始日不可晚於到期日" };
+      await prisma.$transaction(async tx => {
+        // Serialize HQ shutdown with member, reservation and plan mutations.
+        const stores = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT s.id FROM "Store" s WHERE s.id = ${storeId}
+            AND s."industryModule"::text = 'COURSE'
+            AND NOT EXISTS (SELECT 1 FROM "StoreFeatureEntitlement" m
+              WHERE m."storeId" = s.id AND m."featureKey" = 'business.music'
+                AND m.status::text = 'ENABLED') FOR UPDATE OF s`;
+        if (!stores.length) throw new AppError("FORBIDDEN", "共卡獨立開關目前僅適用運動課程門市");
+        if (override === "INHERIT") {
+          await tx.storeFeatureEntitlement.deleteMany({ where: { storeId, featureKey } });
+          return;
+        }
+        const data = { status: override as StoreFeatureEntitlementStatus, source: source as StoreFeatureEntitlementSource, startsAt, expiresAt, note: note || null, updatedBy: admin.id };
+        await tx.storeFeatureEntitlement.upsert({
+          where: { uq_store_feature_entitlement: { storeId, featureKey } },
+          create: { ...data, storeId, featureKey, createdBy: admin.id },
+          update: data,
+        });
+      });
+      revalidateStoreFeatureEntitlements();
+      revalidatePath(`/hq/dashboard/stores/${storeId}`);
+      revalidatePath(`/hq/dashboard/stores/${storeId}/features`);
+      revalidatePath("/dashboard/courses");
+      revalidatePath("/book");
+      return { success: true, data: undefined };
+    }
+
     const store = await prisma.store.findUnique({
       where: { id: storeId },
       select: { id: true },

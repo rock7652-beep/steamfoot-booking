@@ -9,6 +9,7 @@ import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "
 import { AppError } from "@/lib/errors";
 import { reserveCourseInTransaction, type CourseActor } from "@/server/services/course-booking";
 import { lockCourseStore } from "@/server/services/course-store-lock";
+import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
 import { Prisma } from "../../../generated/course-client";
 import { waitlistGroups, withinAutoPromoteWindow } from "@/lib/course-waitlist";
 
@@ -111,6 +112,8 @@ export async function joinCourseWaitlist(
     if (companionNames.length) {
       const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
       if (music.length || activeCard.termSessionIds.length || !activeCard.plan.allowShared) fail("此方案未開放自由選課同行候補");
+      if (await getCourseSharedCardStateInTransaction(tx, actor.storeId) !== "ENABLED")
+        fail("本店共卡功能尚未開通，不能新增同行候補");
     }
     const now = new Date();
     if (activeSession.startsAt.getTime() <= now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60_000)
@@ -284,6 +287,7 @@ export async function promoteCourseWaitlistForSession(
             requestKey: `waitlist-promote:${entry.id}`,
           },
           limits.maxMonthlyBookings,
+          { existingWaitlistEntryId: entry.id },
         );
         groupBookings.push({ entry, booking });
       }

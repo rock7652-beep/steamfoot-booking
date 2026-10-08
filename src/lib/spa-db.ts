@@ -4,6 +4,7 @@ import { configureSpaPreviewPool } from "./spa-preview-pool";
 
 import { PrismaClient } from "../../generated/spa-client";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
 function buildSpaDatabaseUrl(): string {
   const base = process.env.DATABASE_URL ?? "";
@@ -25,11 +26,13 @@ const globalForSpaPrisma = globalThis as unknown as {
 /** Dedicated SPA client: it intentionally cannot address Steamfoot Booking or Transaction. */
 export const spaPrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
-  : globalForSpaPrisma.spaPrisma ??
-  withAuditDatabaseContext(new PrismaClient({
+  : guardedSportsSharedCardPreviewClient(
+  globalForSpaPrisma.spaPrisma,
+  () => withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: buildSpaDatabaseUrl() } },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  }));
+  })),
+);
 
 if (!isGuideUiPreview() && (
   process.env.NODE_ENV !== "production" ||

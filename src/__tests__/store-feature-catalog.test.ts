@@ -34,7 +34,7 @@ describe("store feature catalog", () => {
 
     expect(grouped).toEqual({
       顧客經營: ["customer_labels", "digital_butler", "customer_care", "line_reminder", "member_portal", "referral_share"],
-      營運: ["work_orders", "frontend_preview", "device_preview", "cash_drawer", "service_fee_calculator", "course_waitlist", "inventory", "data_export"],
+      營運: ["shared_card", "work_orders", "frontend_preview", "device_preview", "cash_drawer", "service_fee_calculator", "course_waitlist", "inventory", "data_export"],
       分析: ["basic_reports"],
       健康: ["ai_health_summary"],
       展店: ["multi_store"],

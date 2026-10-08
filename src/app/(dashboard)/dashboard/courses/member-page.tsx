@@ -1,3 +1,4 @@
+import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { EMPTY_LABELS } from "@/lib/customer-labels";
@@ -140,6 +141,7 @@ export async function CourseMemberPage({
         canManageStaff={canManageStaff}
         canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
         canDiscount={!isViewMode&&await checkPermission(user.role,user.staffId,"transaction.discount")}
+        sharedCardState={music ? "ENABLED" : await getCourseSharedCardState(storeId)}
         music={music}
       />
     </PageShell>
