@@ -2,7 +2,7 @@ import { fieldText } from "./consultation-view";
 
 /** Explicit operational markers only; never classify or merge by phone/name similarity. */
 export function intakeTestMarker(...values: (string | null | undefined)[]) {
-  return values.some(value => /TEST[-_]DO[-_]NOT[-_]CONTACT|SYSTEM_QA_DO_NOT_CONTACT|系統驗收|正式收件測試|非店家申請/i.test(value ?? ""));
+  return values.some(value => /TEST[-_]DO[-_]NOT[-_]CONTACT|SYSTEM_QA_DO_NOT_CONTACT|【HQ測試】|QA_URL_ONLY_|系統驗收|正式收件測試|非店家申請/i.test(value ?? ""));
 }
 export function requirementSummary(original: Record<string, unknown>) {
   return fieldText(typeof original.priorityNeed === "string" && original.priorityNeed.trim() ? original.priorityNeed : original.needs);

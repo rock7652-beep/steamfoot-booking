@@ -17,6 +17,7 @@ export function IntakeListRow({ store, contact, demand, status, next, submitted,
   return <details name="hq-intake-record" className={styles.row} open={open || undefined}>
     <summary className={styles.summary}>
       {values.map((value, index) => <span key={columns[index]} className={index === 0 ? styles.store : index === 2 ? styles.demand : undefined}>
+        {index === 0 && <span className={styles.compactMore} aria-hidden="true">詳情 <span className={styles.chevron}>›</span></span>}
         <span className={index === 0 ? "sr-only" : styles.label}>{columns[index]}{index === 0 ? "：" : ""}</span>{value}
       </span>)}
       <span className={styles.more}><span>詳情</span><span className={styles.chevron} aria-hidden="true">›</span></span>

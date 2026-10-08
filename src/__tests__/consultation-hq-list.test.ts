@@ -23,6 +23,13 @@ describe("consultation HQ lead details", () => {
     const item = lead(); item.originalPayload = { ...item.originalPayload, ...{ formVersion: "fitness-v2", source: "fitness-intake", contactWay: "目前暫不考慮" } }; m.find.mockResolvedValue([item]);
     const html = await render(); expect(html).toContain("請勿主動聯繫"); expect(html).not.toContain('href="tel:'); expect(html).not.toContain("複製 LINE ID"); expect(html).not.toContain("原留聯絡人");
   });
+  it("marks existing HQ test fixtures and never suggests contacting them", async () => {
+    m.find.mockResolvedValue([{ ...lead(), storeName: "【HQ測試】合成網址驗收", lineId: "QA_URL_ONLY_20990101" }]);
+    const html = await render();
+    expect(html).toContain("測試紀錄 · 請勿聯繫"); expect(html).toContain("保留查核，請勿聯繫");
+    expect(html).not.toContain('href="tel:'); expect(html).not.toContain("複製 LINE ID");
+    expect(html).not.toContain("依原留方式聯繫");
+  });
   it("uses only supplied LINE links", async () => {
     m.find.mockResolvedValue([{ ...lead(), lineId: "https://lin.ee/original" }]); const html = await render(); expect(html).toContain('href="https://lin.ee/original"'); expect(html).not.toContain("複製 LINE ID");
   });
