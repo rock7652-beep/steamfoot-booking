@@ -2276,6 +2276,7 @@ export function CourseWorkspace({
             (session) => session.id === courseDialog.sessionId,
           )!;
           const rentalDialog = dialogSession.previewKind === "RENTAL" || /租借|RENTAL/i.test(allTemplates.find(template=>template.id===dialogSession.templateId)?.category ?? "");
+          const sportsRosterDialog = !rentalDialog && courseDialog.kind === "roster" && businessProfile !== "MUSIC";
           const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
             && dialogSession.capacity === 1
             && allTemplates.find(template => template.id === dialogSession.templateId)?.classType === "PRIVATE";
@@ -2296,7 +2297,7 @@ export function CourseWorkspace({
               width={rentalDialog ? businessProfile === "MUSIC" ? 760 : 640 : oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
             >
-              <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : "items-start bg-primary-50 py-3"}`}>
+              <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : sportsRosterDialog ? "items-start bg-primary-50 py-2" : "items-start bg-primary-50 py-3"}`}>
                 <div className="min-w-0">
                   <h2
                     id="course-operation-title"
@@ -2349,7 +2350,7 @@ export function CourseWorkspace({
                 </div>
               )}
               <div
-                className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
+                className={`min-h-0 flex-1 overscroll-contain ${sportsRosterDialog ? "p-3" : "p-3 sm:p-4"} ${
                   courseDialog.kind === "roster"
                     ? rentalDialog?"flex flex-col overflow-hidden":oneToOneMusicDialog ? "overflow-y-auto" : "flex overflow-hidden"
                     : "overflow-y-auto"

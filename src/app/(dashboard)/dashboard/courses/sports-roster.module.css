@@ -1,0 +1,60 @@
+.root { container: sports-roster / inline-size; gap: 4px; }
+.list { min-width: 0; }
+.header, .row {
+  display: grid;
+  grid-template-columns: minmax(26rem, 1.2fr) 5rem 4rem 4rem minmax(14rem, 1.4fr) 44px;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px;
+  min-width: 0;
+}
+.row { min-height: 56px; padding-block: 5px; font-size: 14px; }
+.ownerInline { display: none; }
+.nameButton { display: flex; flex-direction: column; justify-content: center; height: 44px; min-height: 44px; line-height: 20px; }
+/* Real 44px controls need no extra hit-slop outside the now-compact row. */
+.row :global([data-roster-name-flow]) > button { height: 44px; min-height: 44px; }
+.row :global([data-roster-name-flow]) > button::after { content: none; }
+/* Payment information uses the same two-line band; its action stays 44px. */
+.row :global([data-course-trial-badge]) { display: grid; grid-template-columns: max-content auto; grid-template-rows: 20px 20px; column-gap: 4px; row-gap: 4px; line-height: 20px; }
+.row :global([data-course-trial-badge]) > span:first-child { grid-column: 1; grid-row: 1; }
+.row :global([data-course-trial-badge]) > span:nth-child(2) { grid-column: 1; grid-row: 2; }
+.row :global([data-course-trial-badge]) > button { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.reminders { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; align-items: center; gap: 2px; min-width: 0; }
+.overview { display: grid; grid-template-rows: 20px 20px; gap: 4px; width: 100%; min-width: 0; height: 44px; min-height: 44px; text-align: left; font-size: 14px; line-height: 20px; border-radius: 4px; }
+.summaryLine, .noteLine { display: flex; align-items: center; min-width: 0; height: 20px; white-space: nowrap; overflow: hidden; }
+.noteLine { gap: 2px; }
+.notePart { display: flex; flex: 1 1 0; min-width: 0; overflow: hidden; }
+.noteSource { flex-shrink: 0; }
+.noteText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actionSlot, .iconAction { display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+.iconAction { color: var(--color-primary-700); border-radius: 4px; }
+.overview:focus-visible, .iconAction:focus-visible { outline: 2px solid var(--color-primary-600); outline-offset: 1px; }
+.overview:hover, .iconAction:hover { background: var(--color-earth-50); }
+
+@container sports-roster (max-width: 1023px) {
+  .header, .row { grid-template-columns: minmax(26rem, 1.2fr) 4rem 4rem minmax(14rem, 1.4fr) 44px; }
+  .ownerColumn { display: none; }
+  .ownerInline { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-earth-600); font-weight: 400; }
+}
+
+/* Portrait/tablet split view: keep text and touch targets, then use a second band. */
+@container sports-roster (max-width: 879px) {
+  .header, .row { grid-template-columns: minmax(0, 1fr) 64px 72px 44px; }
+  .header .notesHeading { display: none; }
+  .row { row-gap: 4px; padding-block: 5px; }
+  .row .reminders { grid-column: 1 / -1; grid-row: 2; }
+  .row .more { grid-column: 4; grid-row: 1; }
+}
+
+/* In narrow split view, identity gets the full first band instead of colliding with counts. */
+@container sports-roster (max-width: 639px) {
+  .row .identity { grid-column: 1 / -1; grid-row: 1; }
+  .row .reminders { grid-column: 1; grid-row: 2; }
+  .row .pointColumn { grid-column: 2; grid-row: 2; }
+  .row .balanceColumn { grid-column: 3; grid-row: 2; }
+  .row .more { grid-column: 4; grid-row: 2; }
+}
+
+@container sports-roster (max-width: 359px) {
+  .row .reminders { grid-column: 1 / -1; grid-row: 3; }
+}

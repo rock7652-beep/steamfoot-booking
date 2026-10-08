@@ -496,8 +496,13 @@ it("uses one neutral touch-open indicator for shared authorization and proxy ope
   for (const flow of host.querySelectorAll<HTMLElement>("[data-roster-name-flow]")) {
     expect(flow.className).toContain("flex-nowrap");expect(flow.className).toContain("max-w-full");
     for (const control of flow.querySelectorAll<HTMLButtonElement>("button")) {
-      expect(control.className).not.toContain("min-h-11");expect(control.className).toContain("h-6");
-      expect(control.className).toContain("after:inset-x-0");expect(control.className).toContain("after:-inset-y-2.5");
+      if (control.hasAttribute("data-sports-roster-name")) {
+        expect(control.className).toContain("min-h-11");
+        expect(control.className).not.toContain("after:-inset-y-2.5");
+      } else {
+        expect(control.className).not.toContain("min-h-11");expect(control.className).toContain("h-6");
+        expect(control.className).toContain("after:inset-x-0");expect(control.className).toContain("after:-inset-y-2.5");
+      }
     }
   }
   expect(rows[0].querySelector('[data-roster-name-flow] > button > span')?.className).toContain("truncate");

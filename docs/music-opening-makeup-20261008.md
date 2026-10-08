@@ -28,7 +28,7 @@ This path creates no point entries, ordinary balance changes, purchases, payment
 
 Exact SQL is in `docs/sql/music-opening-makeup-20261008.sql`, outside automatic migrations. It adds one table, one nullable booking relation, indexes/constraints, and source immutability protection. The existing booking-values check is extended while preserving old branches. No other pending migration may run.
 
-The existing build/runtime database provenance checks remain unchanged in scope. Their read-only schema capability check additionally requires this table, relation, RLS/client denial, uniqueness and immutable-source trigger. Missing schema fails closed. `vercel.json` remains byte-for-byte public main345.
+The existing build/runtime database provenance checks remain unchanged in scope. Their read-only schema capability check additionally requires this table, relation, RLS/client denial, uniqueness and immutable-source trigger. Missing schema fails closed. `vercel.json` remains byte-for-byte current public main ef25f6a1 (including the authorized sports-roster deployment entry).
 
 ## Verification status at initial publication
 

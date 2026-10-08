@@ -42,6 +42,11 @@ if (releaseMode === "music-opening-preview") {
   console.info("[music-opening-preview-preflight] isolated_database=true notifications_blocked=true migrations_skipped=true");
   process.exit(0);
 }
+if (releaseMode === "sports-roster-preview") {
+  // Visual checks reuse existing test records. No schema or fixture writes.
+  console.info("[sports-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "consultation-preview") {
   // Consultation uses only its separately approved two-table DDL. Never run
   // unrelated pending migrations for this isolated candidate.
