@@ -65,3 +65,9 @@
 - `8240e4cc8b21f0643977216614a06ce3c3f42102` Preview 已 READY；build 確認 isolated_database、schema_ready、test_store_ready、notifications_blocked、migrations_skipped 全為 true。該版完整 Vitest、targeted tests、ESLint、既有 sports/music PG audits 通過；Typecheck 發現新 Preview 測試 env 型別過寬，已明確標註 NodeJS.ProcessEnv，仍須在更新版本重跑。
 - 新增 disposable loopback PostgreSQL 驗證：預約／候補 14 案、通知改期 6 案，Sports CI 強制全部通過且零 skip。包含真實兩個獨立 backend PID 的 Store 鎖阻塞觀察，切換提交後新增預約拒絕、自動候補原列與順位完整保留；人工遞補精確紀錄驗證、重新開啟、取消及 card/trial 原預約與付款保留。這些案例不使用 Supabase 或真實客戶資料。
 - 已登入的合成學員 UI 尚未驗證：未找到經確認的測試學員登入身份，禁止改用真實學員或新增持久憑證。瀏覽器驗收與正式發布仍為未完成項目。
+
+## 更新至已發布運動名單版
+
+- 已將 main `ef25f6a18fb9548725cf2cee056aa7b671966475`（#1258）整合到本候選，保留 sports-roster Preview 分派、唯讀 build 退出、其餘既有 Preview 模式，以及 current-main 全部 Vercel 自動部署設定。
+- 前一已公開 `0589255e4e9ded5b9f236a6c1dafbc2a4400f051` 的實際 CI：完整 Vitest 8,074 passed／129 skipped；Typecheck、變更檔 ESLint、targeted tests 通過。Sports PostgreSQL audit 的 14 預約／候補與 6 通知改期測試全數通過、零 skip。新整合候選須重新核對 exact-head CI，前版結果不代替本版。
+- 設定管理員互動驗收仍在進行；無已確認的合成學員登入，因此學員已登入 UI／LIFF／Safari 與真實 iPad 未驗。本 PR 繼續維持 Draft，尚未執行正式 DDL、merge 或 production deploy。
