@@ -21,6 +21,7 @@ export async function BrandOverviewContent() {
       { label: "使用門市", value: `${usage.stores.toLocaleString("en-US")} 間`, tone: "primary" },
       { label: "服務顧客名單", value: `${usage.customers.toLocaleString("en-US")} 筆`, tone: "earth" },
       { label: "累計完成服務", value: `${usage.completedPeople.toLocaleString("en-US")} 人次`, tone: "primary" },
+      { label: "自動提醒", value: `${usage.remindersSent.toLocaleString("en-US")} 則`, tone: "earth" },
     ]} />
     <section aria-labelledby="hq-region-heading" className="overflow-hidden rounded-xl border border-earth-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-200 px-4 py-3">
