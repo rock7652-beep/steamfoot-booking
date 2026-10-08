@@ -15,6 +15,11 @@ vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor() { spies.p
 vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor() { spies.spa(); } } }));
 vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor() { spies.course(); } } }));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: (client: unknown) => client }));
+// This test proves real outbound boundaries, not Next request-cache internals.
+// A reused Vitest worker may have initialized Next's external CJS cache module
+// before the per-file AsyncLocalStorage bootstrap; keep that unrelated cache
+// wrapper deterministic while preserving all actual sender implementations.
+vi.mock("next/cache", () => ({ unstable_cache: (fn: (...args: unknown[]) => unknown) => fn, revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: spies.send }; } }));
 import { config, proxy } from "@/proxy";

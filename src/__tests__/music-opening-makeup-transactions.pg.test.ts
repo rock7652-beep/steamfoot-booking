@@ -128,9 +128,14 @@ function statements(sql: string) {
   }
   async function unchanged(f: Awaited<ReturnType<typeof fixture>>) {
     expect(await database().coursePointCard.findUnique({ where: { id: f.card.id } })).toEqual(f.card);
-    for (const model of [database().coursePointEntry, database().coursePurchase, database().courseFeePayment, database().courseCompensationSnapshot, database().courseWaitlistEntry]) {
-      expect(await (model as { count(args: { where: { storeId: string } }): Promise<number> }).count({ where: { storeId: f.storeId } })).toBe(0);
-    }
+    const counts = await Promise.all([
+      database().coursePointEntry.count({ where: { storeId: f.storeId } }),
+      database().coursePurchase.count({ where: { storeId: f.storeId } }),
+      database().courseFeePayment.count({ where: { storeId: f.storeId } }),
+      database().courseCompensationSnapshot.count({ where: { storeId: f.storeId } }),
+      database().courseWaitlistEntry.count({ where: { storeId: f.storeId } }),
+    ]);
+    for (const count of counts) expect(count).toBe(0);
     expect(await transact(tx => tx.$queryRaw`SELECT count(*)::int n FROM "CourseCoachNotification" WHERE "storeId"=${f.storeId}`)).toEqual([{ n: 0 }]);
     expect(await transact(tx => tx.$queryRaw`SELECT count(*)::int n FROM "OperationAuditOutbox" WHERE payload->>'storeId'=${f.storeId}`)).toEqual([{ n: 0 }]);
   }
