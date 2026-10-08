@@ -23,6 +23,18 @@ const safe = {
   GUIDE_UI_PREVIEW: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: GUIDE_UI_PREVIEW_BRANCH,
   DATABASE_URL: GUIDE_UI_PREVIEW_DATABASE_URL, DIRECT_URL: GUIDE_UI_PREVIEW_DATABASE_URL,
 };
+const waitlistSafe = {
+  VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "content/yoga-waitlist-management",
+  VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
+  WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", GUIDE_UI_PREVIEW: "",
+  DATABASE_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
+  DIRECT_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
+};
+function enableWaitlist() {
+  for (const [key, value] of Object.entries(waitlistSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }];
+
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
 function enable() {
@@ -70,9 +82,9 @@ describe("exact guide UI preview scope", () => {
   });
 });
 
-describe("outer request boundary before auth", () => {
-  beforeEach(enable);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
+  beforeEach(enableMode);
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
@@ -96,7 +108,8 @@ describe("outer request boundary before auth", () => {
     expect(spies.auth).not.toHaveBeenCalled();
   });
   it("does not fall through to auth when runtime configuration loses isolation", () => {
-    vi.stubEnv("DIRECT_URL", "postgresql://invalid.invalid/db");
+    if (name === "waitlist") vi.stubEnv("VERCEL_GIT_REPO_OWNER", "other");
+    else vi.stubEnv("DIRECT_URL", "postgresql://invalid.invalid/db");
     expect(() => route("/api/auth/session")).toThrow(/isolation rejected/);
     expect(spies.auth).not.toHaveBeenCalled();
   });
@@ -109,8 +122,8 @@ describe("outer request boundary before auth", () => {
   });
 });
 
-describe("database and outbound isolation", () => {
-  beforeEach(enable);
+describe.each(previewModes)("$name database and outbound isolation", ({ enable: enableMode }) => {
+  beforeEach(enableMode);
   it("never constructs or reuses any real cached client", async () => {
     vi.resetModules();
     const cached = { connected: true };
@@ -141,5 +154,26 @@ describe("database and outbound isolation", () => {
   it("keeps automatic deployment disabled and removes auth polling only in this mode", () => {
     expect(JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled[GUIDE_UI_PREVIEW_BRANCH]).toBe(false);
     expect(readFileSync("src/app/layout.tsx", "utf8")).toContain("isGuideUiPreview() ?");
+  });
+});
+
+
+describe("waitlist publication exact Preview provenance", () => {
+  it("leaves production main and unrelated previews unchanged", () => {
+    expect(isGuideUiPreview(waitlistSafe)).toBe(true);
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...waitlistSafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/yoga-waitlist-management"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...waitlistSafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations in a real process even with inherited target and no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...waitlistSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
 });
