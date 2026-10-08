@@ -36,6 +36,11 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "sports-roster-preview") {
+  // Visual checks reuse existing test records. No schema or fixture writes.
+  console.info("[sports-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "consultation-preview") {
   // Consultation uses only its separately approved two-table DDL. Never run
   // unrelated pending migrations for this isolated candidate.
