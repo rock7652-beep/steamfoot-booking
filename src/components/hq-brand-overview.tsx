@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db";
 import { getMarketingUsage } from "@/lib/marketing-usage-server";
 import { buildHqBrandRegions } from "@/lib/hq-brand-regions";
-import { formatDateZh } from "@/lib/date-utils";
+import { HqBrandUsage } from "@/components/hq-brand-usage";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { PageShell, PageHeader, KpiStrip } from "@/components/desktop";
+import { PageShell } from "@/components/desktop";
 
 export async function BrandOverviewContent() {
   const [usage, stores] = await Promise.all([
@@ -16,13 +16,7 @@ export async function BrandOverviewContent() {
   ]);
   const regions = buildHqBrandRegions(stores);
   return <PageShell>
-    <PageHeader title="品牌總覽" subtitle={`與官網共用統計・截至 ${formatDateZh(usage.asOf)}`} />
-    <KpiStrip items={[
-      { label: "使用門市", value: `${usage.stores.toLocaleString("en-US")} 間`, tone: "primary" },
-      { label: "服務顧客名單", value: `${usage.customers.toLocaleString("en-US")} 筆`, tone: "earth" },
-      { label: "累計完成服務", value: `${usage.completedPeople.toLocaleString("en-US")} 人次`, tone: "primary" },
-      { label: "自動提醒", value: `${usage.remindersSent.toLocaleString("en-US")} 則`, tone: "earth" },
-    ]} />
+    <HqBrandUsage usage={usage} />
     <section aria-labelledby="hq-region-heading" className="overflow-hidden rounded-xl border border-earth-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-200 px-4 py-3">
         <h2 id="hq-region-heading" className="text-sm font-semibold text-primary-900">台灣店家分布</h2>
