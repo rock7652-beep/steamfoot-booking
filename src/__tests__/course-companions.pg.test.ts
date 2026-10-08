@@ -318,13 +318,14 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     const f = await fixture(3);
     await database().courseWaitlistSetting.create({data: {storeId: f.storeId, enabled: true}});
     await database().courseCardMember.create({data: {storeId: f.storeId, cardId: f.card.id, customerId: f.bId}});
-    const blocker = await reserveTrialCourse(f.manager, {sessionId: f.session.id, customerId: f.bId, trialPrice: 0, requestKey: randomUUID()});
+    // A distinct named customer occupies the seat without conflicting with either queued member.
+    const blockerCustomerId = randomUUID();
+    await database().$executeRaw`INSERT INTO "Customer" VALUES (${blockerCustomerId},${f.storeId},'占位學員',NULL)`;
+    const blocker = await reserveTrialCourse(f.manager, {sessionId: f.session.id, customerId: blockerCustomerId, trialPrice: 0, requestKey: randomUUID()});
     const first = await joinCourseWaitlist(f.actor, f.input);
     // The second group may join once all seats are occupied; the first remains unreserved.
     await database().courseSession.update({where: {id: f.session.id}, data: {capacity: 1}});
     const bActor = {...f.actor, customerId: f.bId, userId: "member-b", name: "B"};
-    // The occupant is only a trial placeholder, so use a separate identity for it.
-    await database().courseBooking.update({where: {id: blocker.id}, data: {customerId: null}});
     const bInput = {...f.input, customerIds: [f.bId], companionNames: [], requestKey: randomUUID()};
     const second = await joinCourseWaitlist(bActor, bInput);
     await database().courseWaitlistEntry.updateMany({where: {id: {in: first.rows.map(row => row.id)}}, data: {createdAt: new Date("2030-01-01T00:00:00Z"), updatedAt: new Date("2030-01-01T00:00:00Z")}});

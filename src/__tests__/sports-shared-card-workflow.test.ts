@@ -11,7 +11,7 @@ describe("sports shared-card stacked PR checks", () => {
     for (const check of ["changed-lint:", "targeted-tests:", "typecheck:", "full-vitest-baseline:"]) expect(source).toContain(check);
   });
 
-  it("executes all seven companion scenarios against a disposable local PostgreSQL service, without secrets", () => {
+  it("executes all fourteen companion and six notification scenarios against a disposable local PostgreSQL service, without secrets", () => {
     const source = readFileSync(".github/workflows/sports-shared-card-audit.yml", "utf8");
     expect(source).toContain("branches: [main, feat/hq-store-real-view-20261007]");
     expect(source).toContain("postgres:17.6");
@@ -27,8 +27,11 @@ describe("sports shared-card stacked PR checks", () => {
     }
     expect(source).toContain("npx vitest run src/__tests__/course-companions.pg.test.ts");
     expect(source).toContain("!r.success");
-    expect(source).toContain("r.numTotalTests !== 7");
-    expect(source).toContain("r.numPassedTests !== 7");
+    expect(source).toContain("r.numTotalTests !== 14");
+    expect(source).toContain("r.numPassedTests !== 14");
+    expect(source).toContain("npx vitest run src/__tests__/course-booking-notification.pg.test.ts");
+    expect(source).toContain("r.numTotalTests !== 6");
+    expect(source).toContain("r.numPassedTests !== 6");
     expect(source).toContain("r.numPendingTests !== 0");
     expect(source).not.toContain("secrets.");
     expect(source).not.toContain("continue-on-error");
