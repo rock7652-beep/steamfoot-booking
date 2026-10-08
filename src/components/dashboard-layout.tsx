@@ -1,3 +1,4 @@
+import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
 import { coreFeatureForDashboardPath } from "@/lib/core-feature-permissions";
 import { Suspense } from "react";
 import { ReturnToHqButton } from "@/components/return-to-hq-button";
@@ -74,8 +75,8 @@ export default async function DashboardLayout({
 
   if (hqPlatform && !(await checkPermission(user.role, user.staffId, "staff.manage"))) notFound();
 
-  const storeView = await isHqStoreView(user);
-  const canViewAudit = user.role === "ADMIN" && !storeView;
+  const auditScope = await resolveOperationAuditScope(user);
+  const canViewAudit = Boolean(auditScope);
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isAdmin = user.role === "ADMIN";
   // Legacy sidebar ownerOnly means backend identity; individual permissions still control each item.
@@ -209,11 +210,11 @@ export default async function DashboardLayout({
     : null;
 
   const operationScope = JSON.stringify([user.id, user.role, user.staffId, activeStoreId,
-    storeViewContext?.viewedStoreId, industryModule, [...permissions].sort()]);
+    storeViewContext?.viewedStoreId, industryModule, canViewAudit, auditScope?.hq, [...permissions].sort()]);
   return (
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
-    <OperationAuditAccessProvider allowed={canViewAudit}>
+    <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
     <DashboardShell
       canViewAudit={canViewAudit}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}

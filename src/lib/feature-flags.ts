@@ -41,6 +41,7 @@ export const FEATURES = {
   SERVICE_FEE_CALCULATOR: "service_fee_calculator",
   COURSE_WAITLIST: "course_waitlist",
   SHARED_CARD: "shared_card",
+  STORE_OPERATION_AUDIT: "store_operation_audit",
   INVENTORY: "inventory",
   WORK_ORDERS: "work_orders",
   CUSTOMER_LABELS: "customer_labels",
@@ -77,7 +78,7 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full trial includes expansion features; role permissions still apply.
-  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.SHARED_CARD),
+  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.SHARED_CARD && feature !== FEATURES.STORE_OPERATION_AUDIT),
   BASIC: [
     "line_reminder",
     "device_preview",

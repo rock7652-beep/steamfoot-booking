@@ -124,6 +124,7 @@ jobs:
           tests+=(src/__tests__/course-monthly-notification.test.ts src/__tests__/course-monthly-notification-ui.test.ts)
           tests+=(src/__tests__/course-personal-income.test.ts src/__tests__/course-monthly-usability.test.ts)
           tests+=(src/__tests__/sports-shared-card-preview-isolation.test.ts src/__tests__/sports-shared-card-preview-runtime.test.ts src/__tests__/sports-shared-card-workflow.test.ts)
+          tests+=(src/__tests__/store-operation-audit-preview-isolation.test.ts src/__tests__/store-operation-audit-preview-runtime.test.ts src/__tests__/store-operation-audit-access.test.ts src/__tests__/store-operation-audit-policy.test.ts src/__tests__/store-operation-audit-reader.test.ts src/__tests__/store-operation-audit-revocation.test.ts)
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "No targeted tests found."
             exit 0

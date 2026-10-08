@@ -117,6 +117,7 @@ export const ALL_PERMISSIONS = [
   "trial.manage",  // 體驗課設定
   // 系統稽核
   "audit.read", // 僅限總部查看操作與登入紀錄
+  "store.audit.read", // OWNER only; explicit store grant and scope checked at entry
 ] as const;
 
 export type PermissionCode = (typeof ALL_PERMISSIONS)[number];
@@ -239,6 +240,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "trial.cancel": "取消體驗 / 退款取消",
   "trial.manage": "管理體驗課設定",
   "audit.read": "查看操作紀錄",
+  "store.audit.read": "查看本店操作紀錄",
 };
 
 // ============================================================
@@ -397,6 +399,7 @@ export async function checkPermission(
   }
 
   if (permission === "audit.read") return false;
+  if (permission === "store.audit.read") return role === "OWNER" && Boolean(staffId);
 
   // Owner 在已授權門市內全權；不得取代入口的 store scope / feature gate。
   if (role === "OWNER") return Boolean(staffId);
@@ -605,6 +608,6 @@ export const getUserPermissions = cache(
     if (role === "OWNER" && staffId) return ALL_PERMISSIONS.filter(permission => permission !== "audit.read");
     if (!isNonOwnerStaff(role) || !staffId) return [];
     const perms = await getStaffPermissions(staffId);
-    return Array.from(perms).filter(permission => permission !== "audit.read");
+    return Array.from(perms).filter(permission => permission !== "audit.read" && permission !== "store.audit.read");
   },
 );
