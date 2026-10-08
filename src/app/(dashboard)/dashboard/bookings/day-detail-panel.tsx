@@ -92,6 +92,7 @@ interface DayDetailPanelProps {
   /** Slots fetch is in flight for the currently selected date. Lets the
    *  empty-state branch show a soft "檢查中" instead of a wrong empty hint. */
   slotsLoading?: boolean;
+  slotsError?: boolean;
   /** 該日營業狀態（從月份摘要 derive 出來）。null 代表無法判斷（例如 ADMIN
    *  全店視角無 store-specific 摘要）。用於 0 預約時的文案分流：
    *  open/custom → 「可預約（尚無預約）」；closed/training → 「不可預約 — 公休 / 進修」。 */
@@ -128,6 +129,7 @@ export function DayDetailPanel({
   slots,
   slotsKnown = true,
   slotsLoading = false,
+  slotsError = false,
   daySchedule = null,
   monthHasAnyBookings = false,
   filteredFrom = null,
@@ -263,6 +265,7 @@ export function DayDetailPanel({
                 daySchedule,
                 slotsKnown,
                 slotsLoading,
+                slotsError,
                 slotsCount: slots.length,
                 readOnly,
                 onCreated,
@@ -594,6 +597,7 @@ function buildEmptyStateProps(input: {
   daySchedule: DayDetailPanelProps["daySchedule"];
   slotsKnown: boolean;
   slotsLoading: boolean;
+  slotsError: boolean;
   slotsCount: number;
   onCreated?: () => void;
   readOnly?: boolean;
@@ -605,6 +609,7 @@ function buildEmptyStateProps(input: {
     daySchedule,
     slotsKnown,
     slotsLoading,
+    slotsError,
     slotsCount,
     readOnly = false,
     onCreated,
@@ -617,6 +622,8 @@ function buildEmptyStateProps(input: {
       cta: undefined,
     };
   }
+
+  if (slotsError) return { title: "時段暫時無法載入", hint: "目前無法確認可預約時段，請使用上方「重試時段」。", cta: undefined };
 
   if (daySchedule) {
     if (daySchedule.status === "closed") {

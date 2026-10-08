@@ -273,7 +273,7 @@ export default async function DashboardLayout({
     >
       <PreviewNavigationReporter />
       <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
-      <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId, pathname: (await headers()).get("x-next-pathname") ?? "" })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
+      <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
     </OperationAuditAccessProvider>
     </FeaturePresentationProvider>

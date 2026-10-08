@@ -64,3 +64,22 @@ Git 自動部署仍 disabled；隔離 Preview 由明確 Git deployment 啟動，
 新增相反權限組合測試：customer.update 允許、booking.update 不允許時，標籤可操作但本次備註不可編輯；反向時標籤不可操作但本次備註入口仍可用。沒有增加權限或真實資料操作。
 
 這項修正改變 SPA 的 runtime。e032 的舊 READY Preview 僅供歷史／初版記錄，不能當作此新版本已完成 UI 驗收；後續新版 Preview 部署與登入驗收另待確認。
+
+
+## 蒸足驗收錯誤：合成重現與修正（尚非 live 重驗結論）
+
+8dfe 隔離 UI 曾在開啟當日名單後進入頁級錯誤。原先僅按時間懷疑 60 秒刷新；後續全合成測試找到更具體、舊版亦存在的錯誤路徑：
+
+- ADMIN 可由 `/s/:slug/admin/dashboard/bookings` 的已驗證路徑載入名單，但原本時段 API 只沿用 active-store cookie。無該 cookie 時會 401；在未受限的合成 ADMIN session 下，有不同合法門市的舊 cookie 時會發生上下文錯配；真實 HQ store-view session 仍必須遵守伺服器註冊的門市限制，不能據此要求跨店成功。
+- 日期點選先顯示快取名單，另外的時段讀取放在 React async transition。該讀取若稍後失敗，原本只有 finally 沒有 catch，會卸載整份名單並進頁級 error boundary。新、舊 UI 使用相同合成資料皆能重現，且月份刷新尚未發出。
+- 修正：名單傳送明確 storeId 作為「待授權請求」，slots action 重新檢查指定門市的 booking.read／核心功能開通、validateStoreAccess(read)、HQ store-view 與有效門市；不接受空值、全部門市或任意跨店。未提供參數的既有顧客／其他入口保留原 scope。月份刷新也使用同一經授權門市。
+- 時段讀取失敗保留名單、清除該日未確認的時段快取、顯示失敗與重試入口；不假裝零時段或公休。原本自動更新維持運作。每日期讀取序號與獨立錯誤狀態防止晚到的舊失敗刪除新成功結果或蓋掉另一日期的重試提示。
+- 隔離安全碼另修為 server 驗環境／角色／門市，client 同時檢查即時精確 pathname，避免 Next persistent layout 沿用舊路徑判定。正式環境與其他門市維持 default deny。
+
+新測試均只用合成 session、headers、資料與記憶體 API 轉接，沒有 DB 或網路寫入。涵蓋真 proxy／scope resolver／slots action／GET／client reader、普通員工 own/other store、HQ store-view、無權限／不存在／停用門市，以及真 Next error boundary。React 名單測試涵蓋延遲失敗與重試、長換行備註、狀態／方案／標籤變更及多輪刷新。
+
+這些證據證明上述缺口與本機修正，不等同已取得先前 live 錯誤本體，也不等同四模組桌機／iPad／手機 UI 全數驗收。cb749 的隔離 Preview 與 CI 為前一版本；此修正需新 CI，runtime 畫面另待允許的驗收途徑。
+
+此修正本機驗證：22 focused suites／257 tests passed；changed-source ESLint 與 diff --check 通過。含既有 customer-facing slots／duty／店別規則回歸。完整 TypeScript 與 full Vitest 待同 PR 遠端 CI，未重跑資源不足的本機全量檢查。
+
+已在本支線整合正式 main 3248c08a（既有 robots 與官網數據修正），無衝突。本輪 4 個新增 suites 與 3 個官網 suites 在整合後共 97 項通過；marketing-usage-sql 的 worker 異常退出／終止逾時，該次 16 項未完成，整合後這次 8-suite run 不算全過。該 SQL suite 交遠端 CI，未用資源不足的結果宣稱通過。

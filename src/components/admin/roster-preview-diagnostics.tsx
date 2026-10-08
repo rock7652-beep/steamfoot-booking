@@ -1,10 +1,13 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 
 const Context = createContext(false);
 export function RosterPreviewDiagnosticsProvider({ enabled, children }: { enabled: boolean; children?: ReactNode }) {
-  return <Context.Provider value={enabled}>{children}</Context.Provider>;
+  const pathname = usePathname();
+  const exactRoster = /^\/s\/staging\/admin\/dashboard\/bookings\/?$/.test(pathname ?? "");
+  return <Context.Provider value={enabled && exactRoster}>{children}</Context.Provider>;
 }
 
 /** Never return arbitrary message text, stack frames, URLs, identifiers or user data. */
