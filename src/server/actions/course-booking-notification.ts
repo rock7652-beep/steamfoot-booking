@@ -1,5 +1,5 @@
 "use server";
-import { MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { courseMember, courseTransaction } from "@/server/services/course-access";
@@ -16,6 +16,7 @@ const id = z.string().min(1).max(100);
 async function ownedBooking(tx: Prisma.TransactionClient, storeId: string, customerId: string, bookingId: string) {
   const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:true,card:{include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}}}});
   if (!booking || !(booking.customerId === customerId || booking.reserverCustomerId === customerId || booking.card?.members.some(m=>m.customerId===customerId))) throw new AppError("FORBIDDEN", "無權操作此預約");
+  if (isMusicOpeningMakeupBooking(booking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   return booking;
 }
 export async function loadCourseBookingNotification(bookingId: string) {

@@ -17,8 +17,8 @@ beforeAll(async()=>{
  await db.exec(readFileSync("docs/sql/music-opening-state-draft-20261007.sql","utf8"));
 });
 afterAll(()=>db.close());
-it("actual local PostgreSQL catalogs satisfy the deployment capability guard",async()=>{
- const result=await db.query(MUSIC_OPENING_SCHEMA_SQL);expect(()=>assertMusicOpeningSchema(result.rows)).not.toThrow();
+it("prior opening schema alone fails the new entitlement deployment capability guard",async()=>{
+ const result=await db.query(MUSIC_OPENING_SCHEMA_SQL);expect(()=>assertMusicOpeningSchema(result.rows)).toThrow("columns_ready");
 });
 it("DDL preserves native defaults and leaves opening state empty",async()=>{
  expect((await db.query<{n:number}>(`SELECT count(*)::int n FROM "CourseMusicOpeningState"`)).rows[0].n).toBe(0);

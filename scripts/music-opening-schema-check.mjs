@@ -7,6 +7,13 @@ WITH expected_columns(table_name,column_name,udt_name,is_nullable) AS (VALUES
  ('CourseBooking','musicOpeningTermKey','text','YES'),
  ('CourseBooking','musicOpeningLessonOrdinal','int4','YES'),
  ('CourseBooking','musicOpeningSourceLessonKey','text','YES'),
+ ('CourseBooking','musicOpeningMakeupEntitlementId','text','YES'),
+ ('CourseMusicOpeningMakeupEntitlement','id','text','NO'),('CourseMusicOpeningMakeupEntitlement','storeId','text','NO'),
+ ('CourseMusicOpeningMakeupEntitlement','customerId','text','NO'),('CourseMusicOpeningMakeupEntitlement','templateId','text','NO'),
+ ('CourseMusicOpeningMakeupEntitlement','sourceKey','text','NO'),('CourseMusicOpeningMakeupEntitlement','sourceSlotKey','text','NO'),
+ ('CourseMusicOpeningMakeupEntitlement','contentHash','text','NO'),('CourseMusicOpeningMakeupEntitlement','snapshot','jsonb','NO'),
+ ('CourseMusicOpeningMakeupEntitlement','appliedBatchId','text','NO'),('CourseMusicOpeningMakeupEntitlement','version','int4','NO'),
+ ('CourseMusicOpeningMakeupEntitlement','createdAt','timestamptz','NO'),('CourseMusicOpeningMakeupEntitlement','updatedAt','timestamptz','NO'),
  ('CourseMusicOpeningState','id','text','NO'),('CourseMusicOpeningState','storeId','text','NO'),
  ('CourseMusicOpeningState','cardId','text','NO'),('CourseMusicOpeningState','customerId','text','NO'),
  ('CourseMusicOpeningState','sourceKey','text','NO'),('CourseMusicOpeningState','contentHash','text','NO'),
@@ -53,20 +60,52 @@ SELECT
  NOT has_table_privilege('anon','public."CourseMusicOpeningState"','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
  AND NOT has_table_privilege('authenticated','public."CourseMusicOpeningState"','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') END AS client_access_blocked,
  NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='CourseMusicOpeningState') AS no_client_policies,
+ (SELECT count(*)=3 FROM (VALUES
+ ('CourseMusicOpeningMakeupEntitlement',ARRAY['sourceKey']),('CourseMusicOpeningMakeupEntitlement',ARRAY['sourceSlotKey']),
+ ('CourseMusicOpeningMakeupEntitlement',ARRAY['id','storeId','customerId'])
+ ) e(t,fields) WHERE EXISTS(SELECT 1 FROM indexes i WHERE i.table_name=e.t AND i.fields=e.fields AND i.indisunique AND i.indisvalid AND i.unfiltered)) AS makeup_indexes_ready,
+ (SELECT count(*)=4 FROM (VALUES
+ ('CourseMusicOpeningMakeupEntitlement','Store',ARRAY['storeId'],ARRAY['id']),
+ ('CourseMusicOpeningMakeupEntitlement','Customer',ARRAY['customerId','storeId'],ARRAY['id','storeId']),
+ ('CourseMusicOpeningMakeupEntitlement','CourseTemplate',ARRAY['templateId','storeId'],ARRAY['id','storeId']),
+ ('CourseBooking','CourseMusicOpeningMakeupEntitlement',ARRAY['musicOpeningMakeupEntitlementId','storeId','customerId'],ARRAY['id','storeId','customerId'])
+ ) e(t,target,fields,target_fields) WHERE EXISTS(SELECT 1 FROM fk f WHERE f.table_name=e.t AND f.target=e.target AND f.fields=e.fields AND f.target_fields=e.target_fields AND f.confdeltype='r' AND f.convalidated)) AS makeup_fks_ready,
+ EXISTS(SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname='CourseBooking_opening_makeup_active_key' AND i.indisunique AND i.indisvalid
+ AND replace(pg_get_expr(i.indpred,i.indrelid),'"','') LIKE '%musicOpeningMakeupEntitlementId IS NOT NULL%'
+ AND pg_get_expr(i.indpred,i.indrelid) LIKE '%status <> %CANCELLED%') AS makeup_active_ready,
+ EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='CourseMusicOpeningMakeupEntitlement' AND c.relrowsecurity)
+ AND NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='CourseMusicOpeningMakeupEntitlement')
+ AND CASE WHEN to_regclass('public."CourseMusicOpeningMakeupEntitlement"') IS NULL THEN false ELSE
+ NOT has_table_privilege('anon','public."CourseMusicOpeningMakeupEntitlement"','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ AND NOT has_table_privilege('authenticated','public."CourseMusicOpeningMakeupEntitlement"','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') END AS makeup_access_blocked,
+ EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relname='CourseMusicOpeningMakeupEntitlement' AND t.tgname='CourseMusicOpeningMakeupEntitlement_immutable'
+ AND NOT t.tgisinternal AND t.tgenabled='O' AND NOT p.prosecdef AND p.proconfig=ARRAY['search_path=""']
+ AND p.prosrc LIKE '%TG_OP=''DELETE''%' AND p.prosrc LIKE '%NEW.version<>OLD.version+1%'
+ AND p.prosrc LIKE '%to_jsonb(NEW)-''version''-''updatedAt''%') AS makeup_immutable_ready,
  EXISTS(SELECT 1 FROM public."Store" WHERE id='store-lubymusic' AND slug='lubymusic' AND "industryModule"::text='COURSE') AS tenant_ready,
  COALESCE((SELECT json_agg(pg_get_constraintdef(p.oid)) FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='public' AND p.contype='c' AND p.convalidated AND c.relname IN ('CourseBooking','CourseMusicOpeningState')),'[]'::json) AS checks;
+ WHERE n.nspname='public' AND p.contype='c' AND p.convalidated AND c.relname IN ('CourseBooking','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement')),'[]'::json) AS checks;
 `;
 
 export function assertMusicOpeningSchema(rows) {
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error("Music opening schema capability result is unavailable.");
   const row = rows[0];
-  for (const field of ["columns_ready","native_default_ready","policy_default_ready","indexes_ready","fks_ready","rls_ready","client_access_blocked","no_client_policies","tenant_ready"]) {
+  for (const field of ["columns_ready","native_default_ready","policy_default_ready","indexes_ready","fks_ready","rls_ready","client_access_blocked","no_client_policies","tenant_ready","makeup_indexes_ready","makeup_fks_ready","makeup_active_ready","makeup_access_blocked","makeup_immutable_ready"]) {
     if (row[field] !== true) throw new Error(`Music opening schema capability failed: ${field}.`);
   }
   if (!Array.isArray(row.checks)) throw new Error("Music opening schema checks are unavailable.");
   const checks = row.checks.map(value => String(value).replaceAll('"','').replace(/\s+/g,' '));
   const identity = checks.find(value => value.includes("musicOpeningTermKey") && value.includes("musicOpeningSourceLessonKey"));
+  const makeup = checks.find(value => value.includes("musicOpeningMakeupEntitlementId") && value.includes("OPENING_MAKEUP"));
+  const values = checks.find(value => value.includes("OPENING_MAKEUP") && value.includes("TEACHER_MAKEUP") && value.includes("TRIAL") && value.includes("CARD"));
+  if (!values) throw new Error("Music opening booking-values constraint does not include the dedicated kind.");
+  const snapshot = checks.find(value => value.includes("SEPARATE_VERIFIED") && value.includes("nativeSourceBooking"));
+  if (!makeup || !["customerId IS NOT NULL", "cardId IS NULL", "pointCost = 0", "makeupForBookingId IS NULL", "musicOpeningSourceLessonKey IS NULL", "ATTENDED", "CANCELLED"].every(part => makeup.includes(part)) ||
+      !snapshot || !["OUTSTANDING", "VERIFIED", "cutoffBusinessDate", "completedPair"].every(part => snapshot.includes(part))) {
+    throw new Error("Music opening makeup constraints do not match the reviewed contract.");
+  }
   if (!identity || !["musicOpeningLessonOrdinal IS NOT NULL","musicOpeningLessonOrdinal >= 1","musicOpeningLessonOrdinal <= 100000","cardId IS NOT NULL","customerId IS NOT NULL"].every(part=>identity.includes(part)) ||
       !checks.some(value=>value.includes("contentHash") && value.includes("^[a-f0-9]{64}$")) ||
       !checks.some(value=>value.includes("jsonb_typeof(snapshot)") && value.includes("object")) ||

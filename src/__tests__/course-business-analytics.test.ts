@@ -75,3 +75,11 @@ it("music analysis omits manager scope without widening staff access",()=>{
  expect(()=>resolveBusinessScope({perspective:"coach",person:"other"},false,"teacher",true)).toThrow();
  expect(resolveBusinessScope({perspective:"manager"},true,"owner",false)).toEqual({view:"manager",person:"all"});
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("does not trust fixed/legacy/cached fees for opening makeup: %j", marker=>{
+ const s=session("opening","2026-09-02");s.bookings=[{...s.bookings[0],...marker}];
+ for(const calculatedAmount of [undefined,0,500]){
+  const result=summarizeCourseBusiness({...data,sessions:[s],fees:[{sessionId:s.id,staffId:s.coachId,rule:{mode:"CLASS",value:500},calculatedAmount}]});
+  expect(result.missingFees).toBe(1);expect(result.pendingFees[0].reason).toContain("UNVERIFIED");
+ }
+});

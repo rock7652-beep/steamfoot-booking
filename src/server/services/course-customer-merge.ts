@@ -6,6 +6,11 @@ import { AppError } from "@/lib/errors";
  * Caller holds the course store lock. No balance, financial row or name snapshot changes.
  */
 export async function moveCourseCustomerRelations(tx: Prisma.TransactionClient, storeId: string, sourceId: string, targetId: string) {
+  // Source identity and the same-customer entitlement FK are immutable in v1.
+  const openingRights = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM "CourseMusicOpeningMakeupEntitlement"
+    WHERE "storeId"=${storeId} AND "customerId" IN (${sourceId},${targetId}) LIMIT 1`;
+  if (openingRights.length) throw new AppError("CONFLICT", "顧客有期初補課權益，合併前須先完成來源身分核對");
   const conflicts = await tx.$queryRaw<Array<{ name: string; startsAt: Date }>>`
     SELECT s."nameSnapshot" AS name, s."startsAt" FROM "CourseBooking" a
     JOIN "CourseBooking" b ON b."storeId"=a."storeId" AND b."sessionId"=a."sessionId"

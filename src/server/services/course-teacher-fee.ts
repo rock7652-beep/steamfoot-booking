@@ -1,4 +1,4 @@
-import { readMusicOpeningCard, readMusicOpeningLesson } from "@/lib/music-opening-runtime";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_FEE_ISSUE, readMusicOpeningCard, readMusicOpeningLesson } from "@/lib/music-opening-runtime";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { calculateTeacherFee, originalMusicUnitPrice, type TeacherFeeSeat } from "@/lib/course-teacher-fee";
@@ -13,7 +13,7 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
       musicOpeningTermKey:string|null;musicOpeningLessonOrdinal:number|null;musicOpeningSourceLessonKey:string|null;startsAt:Date}>>`
     SELECT b.id,b."sessionId",b."customerName",b.status,b."bookingKind",b."absenceKind",b."cardId",b."trialPrice",
       p.count AS "purchaseCount",p."listPrice",p.points,p."musicBonusLessons",
-      b."customerId",b."pointCost",b."companionIndex",b."makeupForBookingId",b."musicOpeningTermKey",b."musicOpeningLessonOrdinal",b."musicOpeningSourceLessonKey",s."startsAt",
+      b."customerId",b."pointCost",b."companionIndex",b."makeupForBookingId",b."musicOpeningMakeupEntitlementId",b."musicOpeningTermKey",b."musicOpeningLessonOrdinal",b."musicOpeningSourceLessonKey",s."startsAt",
       c."musicOpeningStateRequired",c.unit AS "cardUnit",c."musicActivatedAt",c."expiresAt",
       CASE WHEN os.id IS NULL THEN NULL ELSE to_jsonb(os) END AS "musicOpeningState",
       ARRAY(SELECT m."customerId" FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId") AS "memberCustomerIds"
@@ -27,6 +27,7 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
     ) p ON true
     WHERE b."storeId"=${storeId} AND b."sessionId"=ANY(${sessionIds}::text[]) ORDER BY b.id`;
   for (const row of rows) {
+    const openingMakeupSource = isMusicOpeningMakeupBooking(row);
     const opening = readMusicOpeningCard(row.cardId ? {
       id: row.cardId, storeId, unit: row.cardUnit ?? undefined,
       musicOpeningStateRequired: row.musicOpeningStateRequired, musicOpeningState: row.musicOpeningState,
@@ -50,7 +51,8 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
     // Keep source snapshots/keys on the server; expose only the existing fee-seat shape.
     seats.push({ id:row.id, customerName:row.customerName, status:row.status, bookingKind:row.bookingKind,
       absenceKind:row.absenceKind, originalUnitPrice,
-      ...(opening.kind !== "NATIVE" || openingIssue ? { openingPriceSource:true, openingIssue } : {}) });
+      ...(openingMakeupSource ? { openingMakeupSource: true, openingIssue: MUSIC_OPENING_MAKEUP_FEE_ISSUE } : {}),
+      ...(!openingMakeupSource && (opening.kind !== "NATIVE" || openingIssue) ? { openingPriceSource:true, openingIssue } : {}) });
     grouped.set(row.sessionId,seats);
   }
   return grouped;
@@ -64,6 +66,7 @@ export type CapturedTeacherFee = {
   musicTrialMode?:string|null;musicTeacherFeeBase?:number|null;musicPricePerLesson?:number|null;
 };
 export function capturedTeacherFee(snapshot:CapturedTeacherFee,seats:TeacherFeeSeat[]):TeacherFeeResult {
+  if (seats.some(isMusicOpeningMakeupBooking)) return {amount:null,issue:MUSIC_OPENING_MAKEUP_FEE_ISSUE,details:[]};
   if (snapshot.cancelledAt || ["LEAVE","NO_SHOW"].includes(snapshot.teacherAttendance??"")) return {amount:0,issue:null,details:[]};
   if (seats.some(seat => seat.openingIssue)) return {amount:null,issue:seats.find(seat => seat.openingIssue)!.openingIssue!,details:[]};
   if (seats.some(seat => seat.openingPriceSource) && !isTeacherFeeV2(snapshot.rule)) return {amount:null,issue:"期初方案尚未核對此計薪版本",details:[]};

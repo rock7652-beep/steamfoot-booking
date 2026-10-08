@@ -1,4 +1,5 @@
 "use server";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import { z } from "zod";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -36,6 +37,7 @@ export async function loadCourseCompanionUsage(input: unknown) {
     const {user, storeId} = await access(data.coach);
     await courseTransaction(storeId, tx => authorize(tx, storeId, user.id, data.bookingId, data.coach));
     const booking = await coursePrisma.courseBooking.findFirst({where: {id: data.bookingId, storeId}, include: {card: {select: {nameSnapshot: true}}}});
+    if (booking && isMusicOpeningMakeupBooking(booking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
     if (!booking?.companionIndex || booking.status === "CANCELLED") throw new AppError("NOT_FOUND", "找不到同行預約");
     const [customers, settings] = await Promise.all([
       prisma.customer.findMany({where: {storeId, mergedIntoCustomerId: null, ...(data.search ? {OR: [{name: {contains: data.search}}, {phone: {contains: data.search}}]} : booking.customerId ? {id: booking.customerId} : {id: ""})}, select: {id: true, name: true, phone: true}, take: 20, orderBy: {name: "asc"}}),
@@ -81,9 +83,11 @@ export async function addCourseCompanion(input: unknown) {
     await courseTransaction(storeId, async tx => {
       await authorize(tx, storeId, user.id, data.bookingId, data.coach);
       const source = await tx.courseBooking.findFirst({where: {id: data.bookingId, storeId, status: {not: "CANCELLED"}}, include: {card: {include: {plan: true}}, session: true}});
+      if (source && isMusicOpeningMakeupBooking(source)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if (!source?.customerId || source.companionIndex || !source.cardId || source.card?.termSessionIds.length || source.session.endsAt <= new Date()) throw new AppError("VALIDATION", "此預約無法新增同行");
       const previous = await tx.courseBooking.findUnique({where: {storeId_requestKey: {storeId, requestKey: `onsite-companion:${data.requestKey}`}}});
       if (previous) {
+        if (isMusicOpeningMakeupBooking(previous)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
         if (previous.operatorUserId !== user.id || previous.reserverCustomerId !== source.customerId || previous.sessionId !== source.sessionId || previous.cardId !== source.cardId || previous.customerName !== (data.name || `同行者 ${previous.companionIndex}`)) throw new AppError("CONFLICT", "操作請求已使用");
         return previous;
       }

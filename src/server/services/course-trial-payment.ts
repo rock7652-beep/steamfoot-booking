@@ -1,3 +1,4 @@
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import { lockCashDay } from "./cash-day";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
@@ -12,12 +13,14 @@ export async function collectCourseTrialInTransaction(tx:Prisma.TransactionClien
   const {storeId,userId}=actor;
   const splits=normalizePaymentSplits(input.paymentSplits,input.amount);
   if(!Number.isSafeInteger(input.amount)||input.amount<0||input.amount>1000000) throw new AppError("VALIDATION","體驗金額不正確");
+  const booking=await tx.courseBooking.findFirst({where:{id:input.bookingId,storeId,bookingKind:"TRIAL",cardId:null},include:{session:true,trialPayments:{where:{status:"SUCCESS"}}}});
+  if(booking && isMusicOpeningMakeupBooking(booking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
+  if(!booking)throw new AppError("VALIDATION","找不到可收款的本店體驗預約");
   const prior=await tx.courseTrialPayment.findUnique({where:{storeId_requestKey:{storeId,requestKey:input.requestKey}}});
   if(prior){
     if(prior.bookingId!==input.bookingId||prior.amount!==input.amount||prior.paymentMethod!==input.paymentMethod||JSON.stringify(prior.paymentSplits)!==JSON.stringify(splits)||prior.note!==(input.note??"")) throw new AppError("CONFLICT","收款請求已使用，請重新確認");
     return prior;
   }
-  const booking=await tx.courseBooking.findFirst({where:{id:input.bookingId,storeId,bookingKind:"TRIAL",cardId:null},include:{session:true,trialPayments:{where:{status:"SUCCESS"}}}});
   if(!booking||booking.status==="CANCELLED"||booking.session.cancelledAt) throw new AppError("VALIDATION","找不到可收款的本店體驗預約");
   if(input.amount !== booking.trialPrice && (!pricing?.trialAllowPriceEdit || input.amount < pricing.trialMinPrice || input.amount > pricing.trialMaxPrice)) throw new AppError("VALIDATION","收款金額不符合體驗價格設定，請重新核對");
   const current=booking.trialPayments[0];
@@ -45,6 +48,8 @@ export async function voidCourseTrialInTransaction(tx:Prisma.TransactionClient,a
   if(!reason.trim())throw new AppError("VALIDATION","請填寫作廢原因");
   const payment=await tx.courseTrialPayment.findFirst({where:{id:paymentId,storeId:actor.storeId}});
   if(!payment)throw new AppError("NOT_FOUND","找不到本店體驗收款");
+  const booking=await tx.courseBooking.findFirst({where:{id:payment.bookingId,storeId:actor.storeId},select:{bookingKind:true,musicOpeningMakeupEntitlementId:true}});
+  if(!booking || isMusicOpeningMakeupBooking(booking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if(payment.status==="VOIDED")return payment;
   const result=await tx.courseTrialPayment.update({where:{id:payment.id},data:{status:"VOIDED",voidedAt:new Date(),voidReason:reason}});
   const splits=Array.isArray(payment.paymentSplits)?payment.paymentSplits as PaymentSplitInput[]:[{paymentMethod:payment.paymentMethod,amount:payment.amount}];

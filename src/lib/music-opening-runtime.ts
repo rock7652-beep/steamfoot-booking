@@ -25,6 +25,7 @@ export type OpeningState =
 export type OpeningBooking = {
   pointCost?: number;
   bookingKind?: string;
+  musicOpeningMakeupEntitlementId?: string | null;
   companionIndex?: number | null;
   makeupForBookingId?: string | null;
   customerId?: string | null;
@@ -33,6 +34,17 @@ export type OpeningBooking = {
   musicOpeningSourceLessonKey?: string | null;
   session: { startsAt: Date };
 };
+/** Either marker is enough to isolate a right, including damaged/incomplete rows. */
+export function isMusicOpeningMakeupBooking(booking: {
+  bookingKind?: string;
+  musicOpeningMakeupEntitlementId?: string | null;
+  openingMakeupSource?: boolean;
+}): boolean {
+  return booking.bookingKind === "OPENING_MAKEUP" || booking.musicOpeningMakeupEntitlementId != null || booking.openingMakeupSource === true;
+}
+export const MUSIC_OPENING_MAKEUP_OPERATION_ISSUE = "期初補課須由店家使用專用權益流程處理";
+export const MUSIC_OPENING_MAKEUP_FEE_ISSUE = "UNVERIFIED：期初補課授課費規則尚未核對";
+
 const rowSchema = z.object({
   storeId: z.string().min(1), cardId: z.string().min(1), customerId: z.string().min(1),
   sourceKey: z.string().min(1), contentHash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -79,6 +91,7 @@ export function musicOpeningOperationIssue(state: OpeningState, card: OpeningCar
 
 /** An explicit source ordinal is required; source IDs are never returned to the client. */
 export function readMusicOpeningLesson(state: OpeningState, booking: OpeningBooking) {
+  if (isMusicOpeningMakeupBooking(booking)) return { kind: "BLOCKED" as const, issue: MUSIC_OPENING_MAKEUP_OPERATION_ISSUE };
   const hasIdentity = booking.musicOpeningTermKey != null || booking.musicOpeningLessonOrdinal != null || booking.musicOpeningSourceLessonKey != null;
   if (state.kind === "NATIVE") return hasIdentity ? { kind: "BLOCKED" as const, issue: "原生方案不可帶入期初堂次關聯" } : { kind: "NATIVE" as const };
   if (state.kind === "BLOCKED") return state;
@@ -116,6 +129,7 @@ export const MUSIC_OPENING_CARD_SELECT = {
   members: { select: { customerId: true } },
 } as const;
 export function musicOpeningSessionChangeIssue(storeId: string, booking: OpeningBooking & { card?: OpeningCard | null }, startsAt: Date): string | null {
+  if (isMusicOpeningMakeupBooking(booking)) return MUSIC_OPENING_MAKEUP_OPERATION_ISSUE;
   const state = readMusicOpeningCard(booking.card, storeId, booking.customerId);
   const issue = musicOpeningOperationIssue(state, booking.card ?? {});
   if (issue) return issue;
@@ -128,6 +142,8 @@ export function musicOpeningSessionChangeIssue(storeId: string, booking: Opening
 export const MUSIC_OPENING_CALENDAR_BOOKINGS = {
   OR: [
     { status: { not: "CANCELLED" } },
+    { bookingKind: "OPENING_MAKEUP" },
+    { musicOpeningMakeupEntitlementId: { not: null } },
     { card: { is: { musicOpeningStateRequired: true } } },
     { card: { is: { musicOpeningState: { isNot: null } } } },
     { musicOpeningTermKey: { not: null } },

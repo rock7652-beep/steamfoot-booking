@@ -1,5 +1,5 @@
 "use server";
-import { MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -29,8 +29,9 @@ export async function scheduleTeacherMakeup(input: unknown) {
     const startsAt=parseTaipeiDateTime(data.date,data.time);
     if(!startsAt || startsAt <= new Date())throw new AppError("VALIDATION","請選擇未來的補課時段");
     const created=await courseTransaction(storeId,async(tx)=>{
-      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:"TEACHER_ABSENT"}]}}}});
+      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:"TEACHER_ABSENT"},{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:{not:null}}]}}}});
       if(!source || source.teacherAttendance!=="NO_SHOW")throw new AppError("VALIDATION","請先記錄老師曠課");
+      if(source.bookings.some(isMusicOpeningMakeupBooking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if(!source.bookings.length)throw new AppError("VALIDATION","這堂沒有需要補課的學員");
       if(source.bookings.some(booking=>booking.status==="ATTENDED"))throw new AppError("CONFLICT","這堂已有出席紀錄，請先核對再安排免費補課");
       if(await tx.courseSession.findFirst({where:{storeId,teacherMakeupForSessionId:source.id,cancelledAt:null}}))throw new AppError("CONFLICT","這堂已安排免費補課");

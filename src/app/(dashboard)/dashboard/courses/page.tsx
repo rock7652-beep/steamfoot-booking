@@ -339,6 +339,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
+      {businessProfile === "MUSIC" && <a href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">期初補課權益</a>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}

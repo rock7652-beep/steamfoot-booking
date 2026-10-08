@@ -1,4 +1,5 @@
 "use server";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
@@ -91,6 +92,8 @@ async function refreshUnlessMusicRoster(storeId: string) {
   if (!music) refresh();
 }
 const bookingInput = z.object({
+  bookingKind: z.never().optional(),
+  musicOpeningMakeupEntitlementId: z.never().optional(),
   makeupForBookingId: id.nullable().optional(),
   sessionId: id,
   notes: z.string().trim().max(1000).default(""),
@@ -530,8 +533,9 @@ export async function cancelCourseSession(input: unknown) {
       if (!session) throw new AppError("NOT_FOUND", "找不到課程");
       if (session.cancelledAt) return;
       const bookings = await tx.courseBooking.findMany({
-        where: { storeId, sessionId: session.id, status: { not: "CANCELLED" } },
+        where: { storeId, sessionId: session.id, OR: [{status: {not: "CANCELLED"}}, {bookingKind: "OPENING_MAKEUP"}, {musicOpeningMakeupEntitlementId: {not: null}}] },
       });
+      if (bookings.some(isMusicOpeningMakeupBooking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if (bookings.length !== data.expectedBookings)
         throw new AppError("CONFLICT", "預約人數已變動，請重新核對後取消");
       if (bookings.some((b) => b.status === "ATTENDED"))
@@ -574,9 +578,10 @@ async function futureMusicCourseScope(
   if (bookingId) {
     const learner = await tx.courseBooking.findFirst({
       where: { id: bookingId, storeId, sessionId, status: { not: "CANCELLED" } },
-      select: { customerId: true, customerName: true },
+      select: { customerId: true, customerName: true, bookingKind: true, musicOpeningMakeupEntitlementId: true },
     });
     if (!learner?.customerId) throw new AppError("NOT_FOUND", "找不到此堂學員");
+    if (isMusicOpeningMakeupBooking(learner)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
     customerId = learner.customerId;
     customerName = learner.customerName;
   }
@@ -592,10 +597,11 @@ async function futureMusicCourseScope(
   if (sessions.length > 500) throw new AppError("VALIDATION", "後續課程過多，請分段處理");
   const allBookings = await tx.courseBooking.findMany({
     where: { storeId, sessionId: { in: sessions.map((item) => item.id) },
-      ...(customerId ? { customerId } : {}), status: { not: "CANCELLED" } },
-    select: { id: true, status: true, sessionId: true },
+      ...(customerId ? { customerId } : {}), OR: [{status: {not: "CANCELLED"}}, {bookingKind: "OPENING_MAKEUP"}, {musicOpeningMakeupEntitlementId: {not: null}}] },
+    select: { id: true, status: true, sessionId: true, bookingKind: true, musicOpeningMakeupEntitlementId: true },
     orderBy: { id: "asc" },
   });
+  if (allBookings.some(isMusicOpeningMakeupBooking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if (allBookings.some((item) => item.status !== "RESERVED"))
     throw new AppError("CONFLICT", "後續課程已有完成點名，請先核對紀錄");
   return {
@@ -687,7 +693,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       getCourseRoster(storeId, sessionId),
       canCreate && !rosterOnly ? getCourseCards(storeId) : [],
       canCreate && musicStore && !rosterOnly ? coursePrisma.courseBooking.findMany({
-        where:{storeId,status:"CANCELLED",absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
+        where:{storeId,status:"CANCELLED",bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,absenceKind:"STUDENT_LEAVE",cardId:{not:null},session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
         select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
       }).then(async leaves => {
         const used = await coursePrisma.courseBooking.findMany({where:{storeId,makeupForBookingId:{in:leaves.map(leave=>leave.id)},OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]},select:{makeupForBookingId:true}});
@@ -776,7 +782,7 @@ export async function saveCourseRosterNote(input: unknown) {
     const data=z.object({sessionId:id,bookingId:id.optional(),note:z.string().trim().max(1000)}).parse(input);
     const {storeId}=await courseManager("booking.update");
     if(data.bookingId) {
-      const result=await coursePrisma.courseBooking.updateMany({where:{id:data.bookingId,sessionId:data.sessionId,storeId,status:{not:"CANCELLED"}},data:{notes:data.note}});
+      const result=await coursePrisma.courseBooking.updateMany({where:{id:data.bookingId,sessionId:data.sessionId,storeId,status:{not:"CANCELLED"},bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null},data:{notes:data.note}});
       if(!result.count)throw new AppError("NOT_FOUND","找不到本店學員預約");
     } else {
       const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null},data:{teacherNote:data.note}});
@@ -794,6 +800,8 @@ export async function markCourseTeacherAttendance(input: unknown) {
       const existing=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{id:true,teacherAttendance:true,teacherAttendanceReason:true,teacherAttendanceAt:true,teacherAttendanceById:true}});
       if(!existing)throw new AppError("NOT_FOUND","找不到本店課程");
       if (data.expectedStatus && data.expectedStatus !== existing.teacherAttendance) throw new AppError("CONFLICT", "教師狀態已更新，請重新確認");
+      const openingMakeups=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,OR:[{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:{not:null}}]}});
+      if(openingMakeups)throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       const result=await tx.courseSession.updateMany({where:{id:data.sessionId,storeId,teacherAttendance:existing.teacherAttendance},data:{teacherAttendance:data.status,teacherAttendanceReason:data.status==="SCHEDULED"?"":data.reason,teacherAttendanceAt:data.status==="SCHEDULED"?null:new Date(),teacherAttendanceById:data.status==="SCHEDULED"?null:user.id}});
       if(!result.count)throw new AppError("CONFLICT","老師狀態已更新，請重新整理");
       await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${user.name ?? "店長"},${storeId},'COURSE',${data.status === "SCHEDULED" ? "恢復授課" : data.status === "LEAVE" ? "教師請假，學員額度返還" : "教師曠課，學員額度返還"},'CourseSession',${data.sessionId},'COURSE_TEACHER_ATTENDANCE',${JSON.stringify({storeId,status:existing.teacherAttendance,reason:existing.teacherAttendanceReason,at:existing.teacherAttendanceAt,byId:existing.teacherAttendanceById})}::jsonb,${JSON.stringify({storeId,status:data.status,reason:data.status==="SCHEDULED"?"":data.reason,byId:user.id})}::jsonb,NOW())`;
@@ -877,7 +885,7 @@ export async function updateCourseRosterBatch(input: unknown) {
       lockWaitMs = transactionWorkAt - transactionStartedAt;
       const session=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null}});
       if(!session)throw new AppError("NOT_FOUND","找不到可點名的本店課次");
-      const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},...(data.target==="RESERVED"?{OR:[{status:{not:"CANCELLED"}},{status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]}:{status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}})}});
+      const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,...(data.target==="RESERVED"?{OR:[{status:{not:"CANCELLED"}},{status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]}:{status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}})}});
       if(count!==data.bookings.length)throw new AppError("CONFLICT","名單或狀態已變更，請重新核對");
       validationMs = Date.now() - transactionWorkAt;
       const writeStartedAt = Date.now();
@@ -923,7 +931,8 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
       const sessionIds=[...new Set(data.bookings.map(b=>b.sessionId))];
       const sessions=await tx.courseSession.findMany({where:{id:{in:sessionIds},storeId,cancelledAt:null},select:{id:true,endsAt:true}});
       if(sessions.length!==sessionIds.length)throw new AppError("CONFLICT","課程已變更，請重新核對名單");
-      const current=await tx.courseBooking.findMany({where:{storeId,id:{in:data.bookings.map(b=>b.id)}},select:{id:true,sessionId:true,status:true,absenceKind:true}});
+      const current=await tx.courseBooking.findMany({where:{storeId,id:{in:data.bookings.map(b=>b.id)}},select:{id:true,sessionId:true,status:true,absenceKind:true,bookingKind:true,musicOpeningMakeupEntitlementId:true}});
+      if(current.some(isMusicOpeningMakeupBooking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if(current.length!==data.bookings.length || data.bookings.some(b=>{
         const found=current.find(item=>item.id===b.id);
         return !found || found.sessionId!==b.sessionId || found.status!==b.status || (b.status==="CANCELLED" && !["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(found.absenceKind??""));
@@ -951,8 +960,9 @@ export async function saveCourseLeaveNote(input: unknown) {
     const data=z.object({bookingId:id,note:z.string().trim().max(1000)}).parse(input);
     const {user,storeId}=await courseManager("booking.update");
     await courseTransaction(storeId,async tx=>{
-      const booking=await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId,status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},select:{id:true,notes:true}});
+      const booking=await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId,status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},select:{id:true,notes:true,bookingKind:true,musicOpeningMakeupEntitlementId:true}});
       if(!booking)throw new AppError("CONFLICT","請假狀態已變更，請重新核對");
+      if(isMusicOpeningMakeupBooking(booking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if(booking.notes===data.note)return;
       await tx.courseBooking.update({where:{id:booking.id},data:{notes:data.note}});
       await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,"targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${storeId},'COURSE','CourseBooking',${booking.id},'COURSE_LEAVE_NOTE','修改請假備註',${JSON.stringify({note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;

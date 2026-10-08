@@ -9,6 +9,8 @@ const m = vi.hoisted(() => ({
     courseBooking: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findFirstOrThrow: vi.fn(),
+      findMany: vi.fn(),
       count: vi.fn(),
       aggregate: vi.fn(),
       create: vi.fn(),
@@ -31,7 +33,10 @@ import {
   reserveCourse,
   reserveCourseMembers,
   settleCourseBooking,
+  correctCourseAttendance,
+  refundTeacherAbsentSession,
 } from "@/server/services/course-booking";
+import { changeCompanionUsage } from "@/server/services/course-companions";
 import type { Prisma } from "../../generated/course-client";
 const actor = {
   storeId: "store-a",
@@ -429,4 +434,27 @@ describe("music manager full-class enrollment",()=>{
  it("fitness manager can add only with explicit capacity confirmation",async()=>{m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC"},startsAt:new Date("2026-09-16T10:00:00Z"),capacity:2,pointCost:1});await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");await reserveCourse(manager,{...input,allowOverCapacity:true});expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();});
  it("confirmed addition still rejects learner timetable collisions",async()=>{m.tx.courseBooking.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"overlap"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("同時段");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
  it("confirmed addition still rejects duplicate enrollment",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"duplicate"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("已預約");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+});
+
+describe("opening makeup cannot fall through ordinary mutation services",()=>{
+ const markers=[{bookingKind:"OPENING_MAKEUP",musicOpeningMakeupEntitlementId:null},{bookingKind:"CARD",musicOpeningMakeupEntitlementId:"right"}];
+ const noWrites=()=>{for(const write of [m.tx.courseBooking.create,m.tx.courseBooking.update,m.tx.coursePointCard.updateMany,m.tx.coursePointEntry.create,m.tx.$executeRaw])expect(write).not.toHaveBeenCalled();};
+ it.each(markers)("blocks every ordinary settlement and correction before writes: %j",async marker=>{
+  m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),...marker,card:null,cardId:null,pointCost:0});
+  for(const target of ["CANCELLED","ATTENDED","CHECKED_IN","NO_SHOW","STUDENT_LEAVE"] as const)await expect(settleCourseBooking(tx,actor,"booking",target)).rejects.toThrow("期初補課");
+  for(const target of ["RESERVED","ATTENDED","NO_SHOW","CANCELLED"] as const)await expect(correctCourseAttendance(tx,actor,"booking",target,"RESERVED")).rejects.toThrow("期初補課");
+  noWrites();
+ });
+ it.each(markers)("preflights the whole teacher absence batch before touching the native first learner: %j",async marker=>{
+  m.tx.courseBooking.findMany.mockResolvedValue([reserved(),{...reserved(),id:"opening",...marker,card:null,cardId:null,pointCost:0}]);
+  await expect(refundTeacherAbsentSession(tx,actor,"session")).rejects.toThrow("期初補課");noWrites();
+ });
+ it.each(markers)("rejects ordinary reserve and companion conversion including linked replay: %j",async marker=>{
+  await expect(reserveCourse(actor,{...input,...marker})).rejects.toThrow("期初補課");
+  await expect(reserveCourseMembers(actor,{...input,customerIds:["b"],...marker})).rejects.toThrow("期初補課");
+  m.tx.courseBooking.findUnique.mockResolvedValue({...reserved(),...marker});
+  await expect(reserveCourse(actor,input)).rejects.toThrow("期初補課");
+  m.tx.$queryRaw.mockResolvedValue([]);m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),...marker});
+  await expect(changeCompanionUsage(tx,actor,{bookingId:"booking",mode:"TRIAL",expectedUpdatedAt:"2026-10-01T00:00:00Z",requestKey:"req"})).rejects.toThrow("期初補課");noWrites();
+ });
 });

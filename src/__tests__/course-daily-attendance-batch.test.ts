@@ -49,3 +49,10 @@ describe("店長跨課次批次處理",()=>{
     expect(m.settle).toHaveBeenCalledOnce();
   });
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("preflights an opening right in the second position before the native first write: %j",async marker=>{
+ const pending=choices.map(row=>({...row,status:"RESERVED" as const}));
+ m.bookings.mockResolvedValue([{...pending[0],absenceKind:null},{...pending[1],absenceKind:null,...marker}]);
+ expect(await updateCourseDailyAttendanceBatch({target:"ATTENDED",bookings:pending})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ expect(m.correct).not.toHaveBeenCalled();expect(m.settle).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();
+});

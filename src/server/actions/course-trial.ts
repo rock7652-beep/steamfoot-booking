@@ -19,7 +19,7 @@ export async function saveCourseTrialSettings(input:unknown){try{
 }catch(e){return handleActionError(e);}}
 export async function createCourseTrial(input:unknown){try{
  const {storeId,user}=await courseManager("trial.create");await courseManager("booking.create");
- const data=z.object({allowOverCapacity:z.boolean().optional(),sessionId:id,customerId:id,requestKey:z.string().uuid(),price:z.number().int().min(0).max(1000000).optional(),notes:z.string().max(1000).default("")}).parse(input);
+ const data=z.object({bookingKind:z.never().optional(),musicOpeningMakeupEntitlementId:z.never().optional(),allowOverCapacity:z.boolean().optional(),sessionId:id,customerId:id,requestKey:z.string().uuid(),price:z.number().int().min(0).max(1000000).optional(),notes:z.string().max(1000).default("")}).parse(input);
  const settings=await getTrialSettings(storeId);if(!settings.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
  const trialPrice=clampTrialTotal(data.price,1,settings);
  await reserveTrialCourse({storeId,userId:user.id,name:user.name??"店長"},{sessionId:data.sessionId,customerId:data.customerId,requestKey:data.requestKey,notes:data.notes,allowOverCapacity:data.allowOverCapacity,trialPrice});refresh();return {success:true as const};

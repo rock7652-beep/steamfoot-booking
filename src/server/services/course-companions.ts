@@ -1,4 +1,5 @@
 import "server-only";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import { isDeepStrictEqual } from "node:util";
 import { AppError } from "@/lib/errors";
 import type { Prisma } from "../../../generated/course-client";
@@ -23,9 +24,12 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   if (replay.length) {
     if (replay[0].actorUserId !== actor.userId || replay[0].targetId !== input.bookingId || !isDeepStrictEqual(replay[0].afterJson.input, JSON.parse(JSON.stringify(input))))
       return fail("操作請求已使用，請重新開啟");
-    return tx.courseBooking.findFirstOrThrow({where: {id: input.bookingId, storeId: actor.storeId}});
+    const booking = await tx.courseBooking.findFirstOrThrow({where: {id: input.bookingId, storeId: actor.storeId}});
+    if (isMusicOpeningMakeupBooking(booking)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
+    return booking;
   }
   const booking = await tx.courseBooking.findFirst({where: {id: input.bookingId, storeId: actor.storeId}, include: {session: true, card: true, trialPayments: {where: {status: "SUCCESS"}}}});
+  if (booking && isMusicOpeningMakeupBooking(booking)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if (!booking?.companionIndex || !booking.reserverCustomerId || !booking.reserverCardId || booking.status === "CANCELLED" || booking.session.cancelledAt)
     return fail("找不到可變更的同行預約");
   if (booking.updatedAt.toISOString() !== input.expectedUpdatedAt) return fail("預約已更新，請重新確認");

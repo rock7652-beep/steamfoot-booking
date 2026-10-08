@@ -106,3 +106,17 @@ describe("opening-specific reconciliation",()=>{
     }
   });
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{bookingKind:"TRIAL",musicOpeningMakeupEntitlementId:"private-entitlement-link"}])("isolates opening makeup roster labels and never exposes the backing relation: %j",async marker=>{
+ const row={...syntheticOpeningBooking(),...marker,card:null,cardId:null,pointCost:0,musicOpeningTermKey:null,musicOpeningLessonOrdinal:null,musicOpeningSourceLessonKey:null};
+ m.bookings.mockResolvedValue([row]);const [result]=await getCourseRoster(store,"synthetic-session");
+ expect(result).toMatchObject({openingMakeup:true,planName:"期初補課（獨立權益）",canAddCompanion:false,available:0,termNumber:null,termIndex:null,termCount:0,termMakeups:[],termPayment:null,nextTerm:null});
+ expect(result.openingIssue).toContain("期初補課");expect(JSON.stringify(result)).not.toContain("private-entitlement-link");expect(result).not.toHaveProperty("musicOpeningMakeupEntitlementId");
+});
+it.each([{bookingKind:"OPENING_MAKEUP"},{bookingKind:"TRIAL",musicOpeningMakeupEntitlementId:"private-entitlement-link"}])("returns a sanitized UNVERIFIED fee seat for either opening marker: %j",async marker=>{
+ const row={...feeRow(),...marker,cardId:null,pointCost:0,musicOpeningTermKey:null,musicOpeningLessonOrdinal:null,musicOpeningSourceLessonKey:null};m.query.mockResolvedValue([row]);
+ const seats=(await readTeacherFeeSeats({$queryRaw:m.query} as unknown as Pick<Prisma.TransactionClient,"$queryRaw">,store,[row.sessionId])).get(row.sessionId)!;
+ expect(seats[0]).toMatchObject({openingMakeupSource:true,originalUnitPrice:null,openingIssue:expect.stringContaining("UNVERIFIED")});
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:500},revision:1},seats).amount).toBeNull();
+ expect(JSON.stringify(seats)).not.toContain("private-entitlement-link");
+});

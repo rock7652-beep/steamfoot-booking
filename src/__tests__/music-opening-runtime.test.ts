@@ -58,3 +58,15 @@ describe("validated runtime opening identity",()=>{
     expect(readMusicOpeningCard({...card,musicOpeningState:{...row,snapshot:{bad:true}}},store).kind).toBe("BLOCKED");
   });
 });
+
+describe("opening makeup isolation from ordinary source lessons",()=>{
+  it.each([
+    {bookingKind:"OPENING_MAKEUP",musicOpeningMakeupEntitlementId:null},
+    {bookingKind:"CARD",musicOpeningMakeupEntitlementId:"right"},
+    {bookingKind:"TRIAL",musicOpeningMakeupEntitlementId:""},
+  ])("rejects either marker before native fallthrough: %j",patch=>{
+    const booking={...syntheticOpeningBooking(),...patch,card:null};
+    expect(readMusicOpeningLesson({kind:"NATIVE"},booking)).toMatchObject({kind:"BLOCKED",issue:expect.stringContaining("期初補課")});
+    expect(musicOpeningSessionChangeIssue(store,booking,new Date("2026-10-15T02:00:00Z"))).toContain("期初補課");
+  });
+});

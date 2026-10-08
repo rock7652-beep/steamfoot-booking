@@ -26,12 +26,12 @@ export async function previewCourseEnrollment(input:unknown) {
 }
 export async function enrollCourseSeries(input:unknown) {
   try {
-    const data=z.object({sessionId:id,customerId:id,cardId:id,requestKey:z.string().uuid(),notes:z.string().trim().max(1000).default(""),sessionIds:z.array(id).min(1).max(100),allowOverCapacity:z.boolean().default(false)}).parse(input);
+    const data=z.object({bookingKind:z.never().optional(),musicOpeningMakeupEntitlementId:z.never().optional(),sessionId:id,customerId:id,cardId:id,requestKey:z.string().uuid(),notes:z.string().trim().max(1000).default(""),sessionIds:z.array(id).min(1).max(100),allowOverCapacity:z.boolean().default(false)}).parse(input);
     const {storeId,user}=await courseManager("booking.create");
     const limits=await getStoreLimitsByStoreId(storeId);
     const count=await courseTransaction(storeId,async tx=>{
       const sessions=await enrollmentScope(tx,storeId,data.sessionId,data.customerId);
-      const previous=await tx.courseBooking.findMany({where:{storeId,operatorUserId:user.id,customerId:data.customerId,cardId:data.cardId,requestKey:{in:data.sessionIds.map(sessionId=>`${data.requestKey}:${sessionId}`)}},select:{sessionId:true}});
+      const previous=await tx.courseBooking.findMany({where:{storeId,bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,operatorUserId:user.id,customerId:data.customerId,cardId:data.cardId,requestKey:{in:data.sessionIds.map(sessionId=>`${data.requestKey}:${sessionId}`)}},select:{sessionId:true}});
       // A complete replay is idempotent; partial or changed scopes require another preview.
       if(previous.length===data.sessionIds.length)return previous.length;
       if(sessions.map(session=>session.id).join("|")!==data.sessionIds.join("|"))throw new AppError("CONFLICT","後續課程或名單已變更，請重新確認日期");

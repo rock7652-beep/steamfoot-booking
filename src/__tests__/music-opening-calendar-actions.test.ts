@@ -44,3 +44,15 @@ describe("real calendar actions preserve canceled imported history",()=>{
     expect(result).toMatchObject({success:true});expect(m.update).toHaveBeenCalled();
   });
 });
+
+it.each(["single","move","series"])("%s rejects both markers on live or canceled opening makeup before calendar writes",async kind=>{
+ for(const marker of [{bookingKind:"OPENING_MAKEUP"},{bookingKind:"CARD",musicOpeningMakeupEntitlementId:"right"}]){
+  for(const status of ["RESERVED","ATTENDED","CANCELLED"]){
+   Object.assign(booking,{...marker,status,card:null,cardId:null,pointCost:0});
+   const input=request("2026-10-15");
+   const result=kind==="single"?await updateCourseSession(input):kind==="series"?await updateCourseSeries(input):await moveCourseSessions({...input,scope:"SINGLE"});
+   expect(result).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+   for(const write of [m.update,m.updateMany,m.moves])expect(write).not.toHaveBeenCalled();
+  }
+ }
+});

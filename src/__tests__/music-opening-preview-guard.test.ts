@@ -7,7 +7,10 @@ import {assertMusicOpeningSchema,checkMusicOpeningSchema,MUSIC_OPENING_SCHEMA_SQ
 const direct="postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
 const pooled="postgresql://postgres.ttworfzgwejdeolegkxl@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const env={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:MUSIC_OPENING_BRANCH,VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:pooled,DIRECT_URL:direct};
-const ready=()=>({columns_ready:true,native_default_ready:true,policy_default_ready:true,indexes_ready:true,fks_ready:true,rls_ready:true,client_access_blocked:true,no_client_policies:true,tenant_ready:true,checks:[
+const ready=()=>({columns_ready:true,native_default_ready:true,policy_default_ready:true,indexes_ready:true,fks_ready:true,rls_ready:true,client_access_blocked:true,no_client_policies:true,tenant_ready:true,makeup_indexes_ready:true,makeup_fks_ready:true,makeup_active_ready:true,makeup_access_blocked:true,makeup_immutable_ready:true,checks:[
+ "CHECK (bookingKind IN (CARD,TRIAL,TEACHER_MAKEUP,OPENING_MAKEUP))",
+ "CHECK (musicOpeningMakeupEntitlementId IS NOT NULL AND bookingKind = OPENING_MAKEUP AND customerId IS NOT NULL AND cardId IS NULL AND pointCost = 0 AND makeupForBookingId IS NULL AND musicOpeningSourceLessonKey IS NULL AND status IN (ATTENDED,CANCELLED))",
+ "CHECK (SEPARATE_VERIFIED AND nativeSourceBooking AND OUTSTANDING AND VERIFIED AND cutoffBusinessDate AND completedPair)",
  "CHECK (musicOpeningTermKey IS NOT NULL AND musicOpeningSourceLessonKey IS NOT NULL AND musicOpeningLessonOrdinal IS NOT NULL AND musicOpeningLessonOrdinal >= 1 AND musicOpeningLessonOrdinal <= 100000 AND cardId IS NOT NULL AND customerId IS NOT NULL)",
  "CHECK (contentHash ~ '^[a-f0-9]{64}$')", "CHECK (jsonb_typeof(snapshot) = 'object')", "CHECK (teacherFeePolicy IN ('UNVERIFIED','MUSIC_V2_ORIGINAL_PRICE'))",
 ]});
@@ -74,11 +77,11 @@ it("rejects routing overrides before creating a client and does not retry bad sc
  create.mockReturnValue(client);
  await expect(checkMusicOpeningSchema(env,(url:string)=>readMusicOpeningSchemaConnection(url,create))).rejects.toThrow("columns_ready");expect(create).toHaveBeenCalledOnce();
 });
-it.each(["columns_ready","native_default_ready","policy_default_ready","indexes_ready","fks_ready","rls_ready","client_access_blocked","no_client_policies","tenant_ready"])("blocks missing schema capability %s",field=>{
+it.each(["columns_ready","native_default_ready","policy_default_ready","indexes_ready","fks_ready","rls_ready","client_access_blocked","no_client_policies","tenant_ready","makeup_indexes_ready","makeup_fks_ready","makeup_active_ready","makeup_access_blocked","makeup_immutable_ready"])("blocks missing schema capability %s",field=>{
  expect(()=>assertMusicOpeningSchema([{...ready(),[field]:false}])).toThrow(field);
 });
 it("rejects missing constraint semantics and malformed query output",()=>{
- for(const rows of [[],null,[{}],[ready(),ready()],[{...ready(),checks:[]}],[{...ready(),checks:ready().checks.slice(1)}]])expect(()=>assertMusicOpeningSchema(rows)).toThrow();
+ for(const rows of [[],null,[{}],[ready(),ready()],[{...ready(),checks:[]}],[{...ready(),checks:ready().checks.slice(2)}]])expect(()=>assertMusicOpeningSchema(rows)).toThrow();
 });
 it("schema query is read-only and never fetches learner records",()=>{
  expect(MUSIC_OPENING_SCHEMA_SQL).not.toMatch(/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\s+(INTO|TABLE|FROM|INDEX|public)/i);

@@ -1,4 +1,4 @@
-import { MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue, musicOpeningDateIssue, type OpeningCard, type OpeningBooking } from "@/lib/music-opening-runtime";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue, musicOpeningDateIssue, type OpeningCard, type OpeningBooking } from "@/lib/music-opening-runtime";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
 import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
@@ -95,6 +95,7 @@ export async function reserveCourseMembers(
     allowOverCapacity?: boolean;
   },
 ) {
+  if (isMusicOpeningMakeupBooking(input as { bookingKind?: string; musicOpeningMakeupEntitlementId?: string | null }) || "musicOpeningMakeupEntitlementId" in input) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   const customers = [...new Set(input.customerIds)].sort();
   if (
     !customers.length ||
@@ -173,10 +174,12 @@ export async function reserveCourseInTransaction(
   options: { existingWaitlistEntryId?: string } = {},
 ) {
   const { storeId } = actor;
+  if (isMusicOpeningMakeupBooking(input as { bookingKind?: string; musicOpeningMakeupEntitlementId?: string | null }) || "musicOpeningMakeupEntitlementId" in input) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   const previous = await tx.courseBooking.findUnique({
     where: { storeId_requestKey: { storeId, requestKey: input.requestKey } },
   });
   if (previous) {
+    if (isMusicOpeningMakeupBooking(previous)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
     if (
       previous.operatorUserId !== actor.userId ||
       previous.sessionId !== input.sessionId ||
@@ -271,6 +274,7 @@ export async function reserveCourseInTransaction(
     if (actor.customerId || !card || card.unit !== "SESSION") return fail("補課僅由店長使用原堂數方案安排");
     const music = await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
     const source = await tx.courseBooking.findFirst({where:{id:input.makeupForBookingId,storeId,customerId:input.customerId,cardId:card.id,status:"CANCELLED",absenceKind:"STUDENT_LEAVE"},include:{session:{include:{template:true}}}});
+    if (source && isMusicOpeningMakeupBooking(source)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
     if (!music.length || !source || source.session.template.classType === "GROUP" || source.session.templateId !== session.templateId || source.session.startsAt >= session.startsAt) return fail("請選擇此學員同課程、原方案的待補課紀錄");
     if (await tx.courseBooking.findFirst({where:{storeId,makeupForBookingId:source.id,OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}})) return fail("這次請假已安排補課，請重新選擇");
   }

@@ -36,3 +36,10 @@ it.each(["LEAVE","NO_SHOW"] as const)("actual teacher %s action and restoration 
   expect(tx.coursePointCard.update).toHaveBeenCalledTimes(1);
   expect(tx.coursePointCard.update.mock.calls[0][0].data).toEqual({remaining:{increment:1}});
 });
+
+it.each(["LEAVE","NO_SHOW","SCHEDULED"])("rejects %s before changing teacher status if any opening makeup is linked",async status=>{
+ tx.courseBooking.count.mockResolvedValue(1);
+ expect(await markCourseTeacherAttendance({sessionId:booking.sessionId,status})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ for(const write of [tx.courseSession.updateMany,tx.courseSession.update,tx.courseBooking.update,tx.coursePointCard.update,tx.coursePointEntry.create,tx.$executeRaw])expect(write).not.toHaveBeenCalled();
+ expect(tx.courseBooking.count).toHaveBeenCalledWith({where:{storeId:syntheticOpeningScope.targetStoreId,sessionId:booking.sessionId,OR:[{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:{not:null}}]}});
+});

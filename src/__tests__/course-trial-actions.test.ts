@@ -35,3 +35,8 @@ it("rejects inconsistent price settings without saving",async()=>{
  expect((await saveCourseTrialSettings({trialEnabled:true,trialDefaultPrice:499,trialAllowPriceEdit:true,trialMinPrice:500,trialMaxPrice:1000})).success).toBe(false);
  expect(m.manager).toHaveBeenCalledWith("trial.manage");expect(m.upsert).not.toHaveBeenCalled();
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("does not strip an opening marker into an ordinary trial: %j",async marker=>{
+ expect(await createCourseTrial({sessionId:"class",customerId:"learner",requestKey:key,...marker})).toMatchObject({success:false});
+ expect(m.reserve).not.toHaveBeenCalled();
+});

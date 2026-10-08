@@ -55,7 +55,7 @@ async function render(notice:Notice,slug:string,storeName:string) {
  for(const [id,item] of entries){
   const before=item.before;
   const sessionId=notice.kind==='TRIAL'?(item.after as BookingSnapshot).sessionId:id;
-  const session=await coursePrisma.courseSession.findFirst({where:{storeId:notice.storeId,id:sessionId},include:{room:{select:{name:true}},template:{select:{classType:true}},bookings:{where:{bookingKind:'TRIAL',status:'RESERVED'},select:{id:true}}}});
+  const session=await coursePrisma.courseSession.findFirst({where:{storeId:notice.storeId,id:sessionId},include:{room:{select:{name:true}},template:{select:{classType:true}},bookings:{where:{bookingKind:'TRIAL',musicOpeningMakeupEntitlementId:null,status:'RESERVED'},select:{id:true}}}});
   if(!session)continue;
   if(notice.kind==='CHANGE'&&session.endsAt<=new Date())continue;
   let detail='',previous:string|undefined;
@@ -64,7 +64,7 @@ async function render(notice:Notice,slug:string,storeName:string) {
    detail=`體驗 ${session.bookings.length} 位`;
   }else if(notice.kind==='TRIAL'){
    if(session.cancelledAt||session.coachId!==notice.staffId)continue;
-   const booking=await coursePrisma.courseBooking.findFirst({where:{id,storeId:notice.storeId},select:{status:true,customerName:true}});if(!booking)continue;
+   const booking=await coursePrisma.courseBooking.findFirst({where:{id,storeId:notice.storeId,bookingKind:'TRIAL',musicOpeningMakeupEntitlementId:null},select:{status:true,customerName:true}});if(!booking)continue;
    const old=before as BookingSnapshot|null;
    if(booking.status==='CANCELLED'){
     // Only cancellation of an already sent trial alert warrants a second alert.

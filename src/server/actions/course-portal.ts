@@ -1,4 +1,5 @@
 "use server";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
 import {musicPurchaseTerms} from "@/lib/music-course-products";
 import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
 import {validateCourseTerm,enrollCourseTerm} from "@/server/services/course-term";
@@ -58,6 +59,8 @@ export async function saveCourseAttendance(input: unknown) {
           storeId,
           sessionId: data.sessionId,
           id: { in: data.bookings.map((b) => b.id) },
+          bookingKind: { not: "OPENING_MAKEUP" },
+          musicOpeningMakeupEntitlementId: null,
           status: (data.target === "CHECKED_IN" || data.target === "UNDO_CHECK_IN") ? "RESERVED" : { not: "CANCELLED" },
         },
       });
@@ -68,6 +71,7 @@ export async function saveCourseAttendance(input: unknown) {
         if (data.target === "UNDO_CHECK_IN") {
           const booking = await tx.courseBooking.findFirst({ where: { id: b.id, storeId, sessionId: data.sessionId, status: "RESERVED" } });
           if (!booking || b.status !== "RESERVED") throw new AppError("CONFLICT", "名單已變更，請重新確認");
+          if (isMusicOpeningMakeupBooking(booking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
           if (booking.checkedInAt) {
             const changed = await tx.courseBooking.updateMany({ where: { id: b.id, storeId, status: "RESERVED", checkedInAt: booking.checkedInAt }, data: { checkedInAt: null } });
             if (changed.count !== 1) throw new AppError("CONFLICT", "另一位人員已更新點名，請重新確認");
@@ -98,7 +102,7 @@ export async function saveCourseCoachNote(input: unknown) {
     await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<Array<{ id: string }>>`SELECT b.id FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" JOIN "StaffMemberLink" l ON l."staffId"=s."coachId" AND l."storeId"=s."storeId" JOIN "Staff" st ON st.id=l."staffId" AND st."storeId"=l."storeId" WHERE b.id=${data.bookingId} AND b."storeId"=${storeId} AND b.status::text<>'CANCELLED' AND s."cancelledAt" IS NULL AND l."userId"=${user.id} AND l."revokedAt" IS NULL AND st.status::text='ACTIVE' AND st."courseCoachEnabled"=true`;
       if (!allowed.length) throw new AppError("FORBIDDEN", "只能編輯自己被授權課程的備註");
-      const result = await tx.courseBooking.updateMany({ where: { id: data.bookingId, storeId, status: { not: "CANCELLED" }, notes: data.previousNotes }, data: { notes: data.notes } });
+      const result = await tx.courseBooking.updateMany({ where: { id: data.bookingId, storeId, status: { not: "CANCELLED" }, bookingKind: { not: "OPENING_MAKEUP" }, musicOpeningMakeupEntitlementId: null, notes: data.previousNotes }, data: { notes: data.notes } });
       if (result.count !== 1) throw new AppError("CONFLICT", "備註已由其他人更新，請保留草稿並重新核對。");
     });
     refresh();

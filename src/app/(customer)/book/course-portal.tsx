@@ -1,3 +1,4 @@
+import { isMusicOpeningMakeupBooking } from "@/lib/music-opening-runtime";
 import { courseCardPublicMembers } from "@/lib/course-card-public-members";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { authorizeFrontendPreview, resolveCoursePreviewIdentity, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
@@ -390,8 +391,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       cost: b.pointCost,
       trialPaid: b.trialPayments.at(0)?.amount ?? null,
       trialPrice: b.trialPrice,
-      unit: b.card?.unit ?? "TRIAL",
-      planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
+      unit: isMusicOpeningMakeupBooking(b) ? "SESSION" : b.card?.unit ?? "TRIAL",
+      planName: isMusicOpeningMakeupBooking(b) ? "期初補課（獨立權益，請由店家處理）" : b.card?.nameSnapshot ?? "體驗（不使用方案）",
       expiresAt: projectedExpiry(b.cardId,b.card?.expiresAt),
     })),
     work: work.map((s) => ({
@@ -407,7 +408,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         cardId: b.cardId,
         companionIndex: b.companionIndex,
         reserverName: b.reserverName,
-        canAddCompanion: sharedCardState === "ENABLED" && !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
+        canAddCompanion: !isMusicOpeningMakeupBooking(b) && sharedCardState === "ENABLED" && !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
         customerName: b.customerName,
         status: b.status,
         checkedIn: !!b.checkedInAt,
@@ -416,8 +417,8 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
         available: cardProjectionById.get(b.cardId??"")?.available ?? (b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null),
         cost: b.pointCost,
-        unit: b.card?.unit ?? "TRIAL",
-        planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
+        unit: isMusicOpeningMakeupBooking(b) ? "SESSION" : b.card?.unit ?? "TRIAL",
+        planName: isMusicOpeningMakeupBooking(b) ? "期初補課（獨立權益，請由店家處理）" : b.card?.nameSnapshot ?? "體驗（不使用方案）",
         expiresAt: projectedExpiry(b.cardId,b.card?.expiresAt),
       })),
     })),

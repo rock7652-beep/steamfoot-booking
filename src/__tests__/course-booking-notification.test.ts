@@ -39,3 +39,10 @@ it("does not release a booking when the cancellation deadline fails",async()=>{
  m.settle.mockRejectedValue(new Error("已超過取消截止時間"));
  expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false});expect(m.reserve).not.toHaveBeenCalled();
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("blocks customer trial confirmation and rescheduling for either opening marker: %j",async marker=>{
+ m.booking.mockResolvedValue({...original(),...marker});
+ expect(await confirmMemberCourseTrial("old")).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ for(const write of [m.exec,m.reserve,m.settle,m.payments])expect(write).not.toHaveBeenCalled();
+});
