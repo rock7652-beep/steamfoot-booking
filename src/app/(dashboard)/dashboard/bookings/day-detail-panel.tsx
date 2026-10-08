@@ -1,6 +1,7 @@
 "use client";
 import { useId, useState, type ReactNode } from "react";
-import { RosterToolbar, RosterNotes, RosterMoreMenu, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
+import { RosterToolbar, RosterMoreMenu, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
+import { RosterReminders } from "@/components/admin/roster-reminders";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import styles from "./day-detail-panel.module.css";
 import { ModalPanel } from "@/components/admin/modal-panel";
@@ -244,7 +245,7 @@ export function DayDetailPanel({
         </div>
       </ModalPanel>
       <div className="min-h-0 flex-1 px-4 pb-3">
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
+      <div className={`${styles.rosterContainer} flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white`}>
         <div className="min-h-0 flex-1 overflow-y-auto">
         <div aria-hidden="true" className={`sticky top-0 z-30 ${styles.columnHeader} border-b border-earth-200 bg-earth-50 py-2 pr-2 text-sm font-medium text-earth-600`}>
           <span />
@@ -537,9 +538,9 @@ function TimelineItem({
         ) : null}
         </div>
         <div className={styles.noteCell}>
-          <RosterNotes customerId={booking.customer.id} name={booking.customer.name} readOnly={readOnly}
-            notes={[{label:"平時",value:booking.customer.serviceNote},{label:"本次",value:booking.notes,emphasis:true}]}
-            onOpen={onClick ? handleBodyClick : undefined} />
+          <RosterReminders customerId={booking.customer.id} name={booking.customer.name} canEdit={!readOnly}
+            serviceNote={booking.customer.serviceNote} notes={booking.notes} usualLabel="平時"
+            canEditNote={!readOnly && !isActing && !!onClick} onEdit={onClick ? handleBodyClick : undefined} />
         </div>
         <span title={assignedStaffName} className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>

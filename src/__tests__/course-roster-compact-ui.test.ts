@@ -83,7 +83,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   expect(host.textContent).not.toContain("發補課券");
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="標籤與備註")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="編輯本次備註")!.click());
+  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="編輯本次備註")!.click());
   const save=[...host.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
  }finally{await act(async()=>root.unmount());host.remove();}

@@ -1,0 +1,44 @@
+# 四模組名單標籤／備註一致性：待 Preview 驗收
+
+本輪只調整預約／上課名單的標籤與備註呈現。未合併正式站、未部署、未修改任何店家設定或真實資料。
+
+## 入口與資料對應
+
+| 模組 | 入口／元件 | 標籤 | 平時／店內備註 | 本次備註 | 保留的模組資訊 |
+| --- | --- | --- | --- | --- | --- |
+| 蒸足 | 預約管理 → 當日預約；DayDetailPanel | customer.id 既有 CustomerLabels | customer.serviceNote，顯示「平時」 | booking.notes | 到店／完成人數、方案與堂數、實扣方案、收款、所屬店長 |
+| SPA | spa-schedule → 當日預約紀錄；SpaBookingRoster | booking.customerId 既有 CustomerLabels | 既有同店 customer.serviceNote，只讀映射，須原有 customer.read | SpaBooking.notes | 時間、服務、人員、位置、狀態與原始收款／退款摘要 |
+| 運動 | 課程 → 上課名單；SportsRosterReminders | booking.customerId | booking.serviceNote | booking.notes | 原 #1258 容器斷點、所屬店長折行、點數、課後剩餘、詳情與代理來源 |
+| 音樂 | 課程 → 上課名單；RosterReminders | booking.customerId | booking.serviceNote | booking.notes | 期數、下期已繳、請假／曠課、各期日期、補課日期、付款歷史與原有權限 |
+
+- 四模組共用 src/components/admin/roster-reminders.tsx 及 CSS module。
+- 第一行為標籤摘要；第二行為本次及平時／店內備註，各來源分開截斷。
+- 摘要維持 14px、兩行 20px＋4px 間隔；摘要、標籤與筆記入口有各自 44px 操作區。
+- 完整備註可透過摘要開啟，保留換行與全部內容；空／唯讀／取消情況保留一致欄位空間。
+- 蒸足與 SPA 使用實際容器寬度斷點；窄容器拆行，不縮小文字。音樂不強制將期數與付款內容壓成運動的一列。
+- 運動與音樂沿用既有編輯本次備註流程；蒸足與 SPA 的筆記入口開啟既有預約編輯介面，不新增寫入端點。
+- 標籤仍由 CustomerLabelsProvider 與原有後端授權控管，本輪不變更授權、加購、扣堂、缺課或資料模型。
+
+## 已執行
+
+- 原始參考截圖已查看；未納入 repository、fixtures 或此文件。
+- 9 個 focused suites，110 tests passed：四模組共用 cell、既有運動、蒸足當日列與批次流程、SPA 歷史摘要、音樂日期／付款／缺課顯示，以及 exact Preview guard。
+- 合成資料 Vite bundle build 通過。這只證明元件可編譯，不能視為視覺驗收。
+- changed-file ESLint 通過；git diff --check 通過。
+
+## 尚未完成
+
+- 全量 Vitest 啟動後遭 OS exit 137；沒有完整 suite 結果，不能算通過。
+- 全量 TypeScript 檢查遭 OS exit 137；不能算通過，待遠端 CI。
+- 雲端 Chromium 新分頁出現 Target crashed，文件建議的正常恢復也逾時；本輪沒有取得可用最終畫面或瀏覽器尺寸量測。
+- 1366px、寬螢幕、1024×768、768×1024、560px 窄容器、390／360px，sticky header、水平溢出與真實資料編輯往返均待 Preview 驗收。
+- 未驗真 iPad／Safari；單元測試只證明 DOM 及 callback／焦點回復行為。
+
+## 最小 Preview 發布範圍（仍需授權）
+
+1. 僅 push 本支線 fix/unify-module-notes-density，開 draft PR。
+2. Preview exact branch／repository／Vercel metadata 檢查，DATABASE_URL、DIRECT_URL 兩者都必須指向既有隔離測試資料庫。
+3. build 明確跳過所有 migration 與 seed；既有 Preview 外發通知抑制持續啟用。
+4. vercel.json 目前仍將此支線 deploymentEnabled 設為 false，沒有自行啟用部署。
+5. 如獲授權再啟用精確支線的 Preview，僅使用既有隔離測試門市與合成資料。無 schema 變更、無正式資料存取、無店家設定異動。
+6. 遠端 CI 完成 TypeScript 與相關回歸後，逐模組補齊桌機／iPad／手機與取消／返回驗收，呈交結果；正式合併另需明確授權。

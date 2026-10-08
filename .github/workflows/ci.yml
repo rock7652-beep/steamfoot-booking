@@ -123,6 +123,7 @@ jobs:
           tests+=(src/__tests__/course-monthly-settlement.test.ts src/__tests__/course-monthly-query.test.ts)
           tests+=(src/__tests__/course-monthly-notification.test.ts src/__tests__/course-monthly-notification-ui.test.ts)
           tests+=(src/__tests__/course-personal-income.test.ts src/__tests__/course-monthly-usability.test.ts)
+          tests+=(src/__tests__/module-roster-preview.test.ts src/__tests__/shared-roster-reminders.test.ts src/__tests__/sports-roster-reminders.test.ts src/__tests__/spa-booking-roster.test.ts src/__tests__/course-roster-compact-ui.test.ts src/__tests__/day-detail-panel.test.ts src/__tests__/day-detail-batch-selection.test.ts)
           tests+=(src/__tests__/sports-shared-card-preview-isolation.test.ts src/__tests__/sports-shared-card-preview-runtime.test.ts src/__tests__/sports-shared-card-workflow.test.ts)
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "No targeted tests found."

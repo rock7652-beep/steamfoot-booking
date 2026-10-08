@@ -1,7 +1,7 @@
 "use client";
 import scheduleControls from "@/components/admin/schedule-controls.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { SpaBookingRoster } from "./booking-roster";
 import { CustomerLabels } from "@/components/customer-labels";
 import { createCustomer } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
@@ -38,7 +38,7 @@ type Props = {
   date: string;
   bookings: SpaScheduleBooking[];
   staff: (Named & { colorCode?: string })[];
-  customers: (Named & { phone: string })[];
+  customers: (Named & { phone: string; serviceNote?: string | null })[];
   treatments: Treatment[];
   locations: Named[];
   canCreate: boolean;
@@ -614,36 +614,11 @@ export function SpaScheduleWorkspace(props: Props) {
       <p className="mt-2 text-xs text-earth-500">
         黃：待確認 · 綠：已預約 · 灰：已完成。短時段點開即可查看完整內容。
       </p>
-      <details className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
-        <summary className="cursor-pointer">
+      <details className="mt-4 min-w-0 rounded-xl border border-earth-200 bg-white">
+        <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm">
           當日預約紀錄（{bookings.length}）
         </summary>
-        {bookings.map((b) => (
-          <div key={b.id} className="border-b border-earth-100"><button
-            onClick={() => openEdit(b)}
-            className="flex w-full justify-between gap-3 border-b border-earth-100 py-3 text-left text-sm"
-          >
-            <span>
-              {b.startTime}–{b.endTime}{" "}
-              {b.serviceName}
-              <small className="block text-earth-500">
-                {staff.find((p) => p.id === b.serviceStaffId)?.name ??
-                  "服務人員"}{" "}
-                ·{" "}
-                {locations.find((l) => l.id === b.serviceLocationId)?.name ??
-                  "待安排位置"}
-              </small>
-            </span>
-            <span>
-              {statusNames[b.status]}
-              {b.receipt && (
-                <span className="ml-1 font-normal">
-                  · {spaReceiptStatus(b.receipt)}
-                </span>
-              )}
-            </span>
-          </button><CustomerListIdentity customerId={b.customerId} name={customers.find(c=>c.id===b.customerId)?.name ?? "顧客"} phone={customers.find(c=>c.id===b.customerId)?.phone}/></div>
-        ))}
+        <SpaBookingRoster bookings={bookings} customers={customers} staff={staff} locations={locations} canUpdate={canUpdate} onOpen={openEdit} />
       </details>
       {checkout && (
         <SpaCheckoutPanel

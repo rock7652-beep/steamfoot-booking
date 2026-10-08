@@ -41,6 +41,10 @@ if (releaseMode === "course-self-booking-preview") {
   await verifyCourseSelfBookingPreviewReadiness(process.env);
   process.exit(0); // Only the separately approved two-column DDL may run.
 }
+if (releaseMode === "module-roster-preview") {
+  console.info("[module-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "sports-roster-preview") {
   // Visual checks reuse existing test records. No schema or fixture writes.
   console.info("[sports-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
