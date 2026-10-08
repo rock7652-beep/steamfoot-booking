@@ -137,3 +137,51 @@ describe("provider build-command override defense", () => {
     expect(mocks.construct).not.toHaveBeenCalled();
   });
 });
+
+
+describe("reviewed production main release boundary", () => {
+  beforeEach(() => vi.stubEnv("NODE_ENV", "production"));
+  it("loads Next and restores production outbound policy only for exact production main", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    await expect(import("../../next.config")).resolves.toHaveProperty("default");
+    const { isPreviewExternalIntegrationBlocked } = await import("@/lib/runtime-env");
+    expect(isPreviewExternalIntegrationBlocked()).toBe(false);
+    const { readPreviewLineAcceptance } = await import("@/lib/preview-line-acceptance");
+    expect(readPreviewLineAcceptance()).toBeNull();
+  });
+
+  it.each(clients)("restores normal $name client construction and cache reuse", async ({ key, load }) => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    vi.stubEnv("DATABASE_URL", production);
+    vi.stubEnv("DIRECT_URL", production);
+    await load();
+    expect(mocks.construct).toHaveBeenCalledOnce();
+    vi.resetModules();
+    mocks.construct.mockClear();
+    const cached = { productionClient: true };
+    vi.stubGlobal(key, cached);
+    expect(await load()).toBe(cached);
+    expect(mocks.construct).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["VERCEL", undefined], ["VERCEL_ENV", undefined], ["VERCEL_ENV", "preview"],
+    ["VERCEL_GIT_COMMIT_REF", undefined], ["VERCEL_GIT_COMMIT_REF", ""],
+    ["VERCEL_GIT_COMMIT_REF", SPORTS_SHARED_CARD_PREVIEW_BRANCH],
+    ["VERCEL_GIT_REPO_OWNER", "wrong"], ["VERCEL_GIT_REPO_SLUG", undefined],
+    ["WORKERS_CI_BRANCH", SPORTS_SHARED_CARD_PREVIEW_BRANCH],
+    ["CF_PAGES_BRANCH", SPORTS_SHARED_CARD_PREVIEW_BRANCH],
+  ])("does not open production via incomplete/conflicting %s=%s", async (key, value) => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    // Prevent mocked-unit exemption from masking this deployed-path assertion.
+    vi.stubEnv("VITEST_WORKER_ID", undefined);
+    vi.stubEnv(key, value);
+    await expect(import("../../next.config")).rejects.toThrow("Sports shared-card");
+    const { isPreviewExternalIntegrationBlocked } = await import("@/lib/runtime-env");
+    expect(isPreviewExternalIntegrationBlocked()).toBe(true);
+    expect(mocks.construct).not.toHaveBeenCalled();
+  });
+});

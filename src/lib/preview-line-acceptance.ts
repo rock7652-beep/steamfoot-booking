@@ -11,8 +11,8 @@ const schema = z.object({
 export type PreviewLineAcceptance = z.infer<typeof schema>;
 const scope = new AsyncLocalStorage<PreviewLineAcceptance>();
 export function readPreviewLineAcceptance(): PreviewLineAcceptance | null {
-  // This unmerged checkout is authorized for zero external delivery. An old
-  // branch acceptance grant cannot override the release-bound Preview lock.
+  // Deployed Preview remains authorized for zero external delivery. A legacy
+  // acceptance grant must not override the generic Preview outbound lock.
   if (!isSportsSharedCardMockedUnitTest(process.env)) return null;
   if(process.env.VERCEL_ENV!=="preview" || process.env.VERCEL_GIT_COMMIT_REF!=="codex/course-scheduling-stage1") return null;
   const db=process.env.DATABASE_URL??"";

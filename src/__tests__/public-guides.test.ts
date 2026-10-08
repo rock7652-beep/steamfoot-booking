@@ -22,7 +22,7 @@ const route = (path: string, host = "www.steamfoot.com") => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("public editorial guides", () => {
-  it("preserves the nine original IDs, category anchors, and complete short content", async () => {
+  it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
     expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug]);
@@ -75,24 +75,171 @@ describe("public editorial guides", () => {
     }
   });
 
-  it("publishes the unchanged approved music article with anonymous examples and bounded retention", async () => {
+  it("renders every approved article verbatim, in order, with the disclosure directly below its title", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
-    const html = renderToStaticMarkup(await GuideArticle(props(musicSlug)));
-    const guide = findPublicGuide(musicSlug)!;
-    expect(guide.format).toBe("article");
-    if (guide.format !== "article") return;
-    for (const paragraph of [...guide.introduction, ...guide.sections.flatMap(section => [...section.paragraphs, ...(section.bullets ?? [])]), guide.conclusion, guide.callToAction.text]) expect(html).toContain(paragraph);
-    expect(guide.status).toBe("published");
-    expect(createHash("sha256").update(JSON.stringify({ ...guide, status: "draft" })).digest("hex")).toBe("85883df43bdfaf7afe7d47a928466e8289f9c94707e64aea6d4304ebb3ef99f7");
-    expect(html).not.toContain("校閱草稿，尚未發布");
-    expect(route(`/guides/${musicSlug}`).status).toBe(200);
-    expect(route(`/guides/${musicSlug}`).headers.get("x-robots-tag")).toBeNull();
-    expect(html).toContain("四堂與八堂均為匿名示例");
-    expect(html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1]).not.toContain("陸比");
-    expect(html).toContain("試用到期後後台改為唯讀，資料保留 30 天");
-    expect(html).toContain('href="https://www.steamfoot.com/apply"');
-    expect(html).toContain('href="/pricing/features/music"');
-    expect((await generateMetadata(props(musicSlug))).robots).toEqual({ index: true, follow: true });
+    // Content-only locks preserve the approved manuscripts independently of routing metadata.
+    const approved: Record<string, { keys: string[]; sha256: string }> = {
+      "solo-store": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "b6b36f2cabcbba625b5f99c8b58bc9e3da5cf116c77a2825719f8d1e5eb41add"
+      },
+      "opening-checklist": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "97749cf309409533837b631e93bd5f1d696b1f2eb0aee92c72256cd8a4d7a027"
+      },
+      "trial-booking": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "66772aec47f1939e83133dbaafd9b60a07ce78e5819f2c8d7dfa2d077775f85d"
+      },
+      "arrival-reminder": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "5b319f2bf275bb8fdd4fc913eddba5cfb931f223927dd4eadc8ac4ef89cae982"
+      },
+      "plan-expiry": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "c05d6a15732be9e1a778ba767d6eb0c10a182e8a023d81ce8b6f43d97a7d5f51"
+      },
+      "trial-follow-up": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "491c51db9bd603177591b2b8ec0587b6705b834a6308ef4624c471b101b8a61d"
+      },
+      "closing-cash": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "e3ea95f2d41b4c11d6f0a2ad31f8fcb6715c56b3ccdd3206dd3bd70808259809"
+      },
+      "stock-check": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "2cfcf404b97cea1ddc18b180a289da5b7750a9e204b4e6980f9a6e765467ba56"
+      },
+      "work-order-handoff": {
+            "keys": [
+                  "id",
+                  "title",
+                  "summary",
+                  "introduction",
+                  "sections",
+                  "conclusion",
+                  "callToAction",
+                  "disclosure"
+            ],
+            "sha256": "9925b9aaad33a839eee4c424462ca406813fee170f4a298e6b26eb9bc2933161"
+      },
+      "music-school-leave-makeup-lesson-balance": {
+            "keys": [
+                  "id",
+                  "title",
+                  "disclosure",
+                  "introduction",
+                  "sections",
+                  "callToAction"
+            ],
+            "sha256": "917854ae13720809901a8a6e0c7b1ebf5e73d860c3d5fd4a10ab8d9afe9b983e"
+      }
+};
+    for (const guide of visiblePublicGuides()) {
+      expect(guide.format).toBe("article");
+      if (guide.format !== "article") continue;
+      const lock = approved[guide.id];
+      const content = Object.fromEntries(lock.keys.map(key => [key, guide[key as keyof typeof guide]]));
+      expect(createHash("sha256").update(JSON.stringify(content)).digest("hex")).toBe(lock.sha256);
+      const html = renderToStaticMarkup(await GuideArticle(props(guide.id)));
+      const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
+      expect(article).toMatch(/<\/h1><p class="mt-3 text-sm leading-6 text-\[#4C6259\]">以下情境取材自門市常見困擾，人物與對話為示意，非特定店家的個案紀錄。<\/p>/);
+      const ordered = [guide.title, guide.disclosure!, ...(guide.showSummary === false ? [] : [guide.summary]), ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? [])]), ...(guide.conclusion ? [guide.conclusion] : []), guide.callToAction.heading, guide.callToAction.text];
+      let cursor = 0;
+      for (const text of ordered) {
+        const position = article.indexOf(text, cursor);
+        expect(position, text).toBeGreaterThanOrEqual(cursor);
+        cursor = position + text.length;
+      }
+      expect(article).not.toMatch(/內文改寫校稿版|全文校稿版|待使用者校稿|校閱草稿|常見問答|四堂與八堂均為匿名示例/);
+      expect(article).toContain("保留期間轉正式可沿用原帳號與試用資料");
+      expect(article).toContain('href="https://www.steamfoot.com/apply"');
+      expect(guide.status).toBe("published");
+      expect(route(`/guides/${guide.id}`).status).toBe(200);
+      expect(route(`/guides/${guide.id}`).headers.get("x-robots-tag")).toBeNull();
+      expect(html).toContain(guide.id === musicSlug ? 'href="/pricing/features/music"' : `href="/pricing/features#${guide.feature}"`);
+      if (guide.id === musicSlug) {
+        expect(guide.conclusion).toBeUndefined();
+        expect(guide.showSummary).toBe(false);
+        expect(article).not.toContain(guide.summary);
+      } else {
+        expect(guide.conclusion).toBeTruthy();
+        expect(article).toContain(guide.summary);
+      }
+    }
     vi.stubEnv("VERCEL_ENV", "preview");
     expect((await generateMetadata(props(musicSlug))).robots).toEqual({ index: false, follow: false });
   });
@@ -178,7 +325,7 @@ describe("public editorial guides", () => {
   });
 
   it("fails closed before migrations and builds on both review branches and provider environments", () => {
-    for (const branch of ["fix/public-seo-crawlers-20261007"]) {
+    for (const branch of ["fix/public-seo-crawlers-20261007", "content/approved-business-guides-20261008"]) {
       expect(JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled[branch]).toBe(false);
       for (const file of ["scripts/ci-migrate.mjs", "next.config.ts"]) {
         const source = readFileSync(file, "utf8");

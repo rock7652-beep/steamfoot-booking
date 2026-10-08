@@ -13,7 +13,7 @@
  * 參考：docs/deployment.md
  */
 
-import { isSportsSharedCardMockedUnitTest } from "../../scripts/sports-shared-card-preview-scope.mjs";
+import { isSportsSharedCardMockedUnitTest, isSportsSharedCardProductionRelease } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
 export type RuntimeEnv = "development" | "preview" | "production";
 
@@ -45,8 +45,8 @@ export function isDevelopment(): boolean {
  * environment unless this is the production deployment itself.
  */
 export function isPreviewExternalIntegrationBlocked(): boolean {
-  // This unmerged checkout is Preview-only. Block outbound delivery even before
-  // DB imports, including missing/wrong deployment metadata. Only existing
-  // non-deployed mocked unit tests retain their original environment policy.
-  return isPreview() || !isSportsSharedCardMockedUnitTest(process.env);
+  // Preview and unknown deployments stay blocked before DB imports. Only
+  // positively identified production main can resume normal outbound behavior.
+  return isPreview() || (!isSportsSharedCardMockedUnitTest(process.env) &&
+    !isSportsSharedCardProductionRelease(process.env));
 }

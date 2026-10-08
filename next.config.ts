@@ -1,3 +1,8 @@
+// Public article review must not trigger a preview build or database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
+  throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
+}
+
 // This review branch must not deploy or access a database before separate approval.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
   throw new Error("SEO review branch deployment is disabled; use local verification.");
@@ -7,11 +12,11 @@ import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
 isGuideUiPreview(); // Validate the isolated mode before Next build work.
 
 import type { NextConfig } from "next";
-import { assertSportsSharedCardPreviewEnvironment, isSportsSharedCardMockedUnitTest } from "./scripts/sports-shared-card-preview-scope.mjs";
+import { assertSportsSharedCardPreviewEnvironment, isSportsSharedCardMockedUnitTest, isSportsSharedCardProductionRelease } from "./scripts/sports-shared-card-preview-scope.mjs";
 
-// A provider build-command override must not bypass the Preview-only preflight.
-// This temporary release guard must be reviewed before any production release.
-if (!isGuideUiPreview() && !isSportsSharedCardMockedUnitTest(process.env)) {
+// A provider build-command override cannot bypass Preview isolation.
+// Only positively identified production main resumes normal build behavior.
+if (!isGuideUiPreview() && !isSportsSharedCardMockedUnitTest(process.env) && !isSportsSharedCardProductionRelease(process.env)) {
   assertSportsSharedCardPreviewEnvironment(process.env);
 }
 

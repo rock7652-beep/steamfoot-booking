@@ -6,6 +6,7 @@ import {
   isSportsSharedCardIsolatedConnection,
   isSportsSharedCardMockedUnitTest,
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
+  isSportsSharedCardProductionRelease,
 } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
 const direct = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
@@ -121,5 +122,23 @@ describe("sports shared-card Preview preflight", () => {
     expect(preflight).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     expect(preflight).toBeLessThan(source.indexOf("new PrismaClient("));
     expect(readFileSync("next.config.ts", "utf8")).toContain("assertSportsSharedCardPreviewEnvironment(process.env)");
+  });
+});
+
+
+describe("reviewed production main migration boundary", () => {
+  it("allows the exact production main build but preserves migration target gating", () => {
+    const release = { ...valid, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", DATABASE_URL: production, DIRECT_URL: production };
+    expect(isSportsSharedCardProductionRelease(release)).toBe(true);
+    const result = run(release);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("migration_skipped_no_target");
+    expect(result.output).not.toContain("isolated_database=true");
+  });
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects conflicting provider provenance via %s", (key) => {
+    expect(isSportsSharedCardProductionRelease({ ...valid, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", [key]: SPORTS_SHARED_CARD_PREVIEW_BRANCH })).toBe(false);
+    const result = run({ [key]: SPORTS_SHARED_CARD_PREVIEW_BRANCH });
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("exact authorized Preview branch and repository metadata");
   });
 });

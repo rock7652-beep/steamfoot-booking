@@ -39,9 +39,22 @@ export function isSportsSharedCardIsolatedConnection(value) {
 }
 
 /**
- * Temporary release-bound build/runtime preflight. This entire unmerged
- * checkout is authorized only for this Preview. Missing metadata never falls
- * back to another branch; production release requires a reviewed conversion.
+ * The reviewed release may use ordinary production behavior only on the exact
+ * main deployment. Missing or conflicting provider provenance never grants it.
+ * @param {Readonly<Record<string, string | undefined>>} env
+ */
+export function isSportsSharedCardProductionRelease(env) {
+  return env.VERCEL === "1" && env.VERCEL_ENV === "production" &&
+    env.VERCEL_GIT_COMMIT_REF === "main" &&
+    env.VERCEL_GIT_REPO_OWNER === "rock7652-beep" &&
+    env.VERCEL_GIT_REPO_SLUG === "steamfoot-booking" &&
+    !env.WORKERS_CI_BRANCH && !env.CF_PAGES_BRANCH;
+}
+
+/**
+ * Strict Preview build/runtime preflight. Callers exempt only positively
+ * identified production main; unknown deployments must still pass this gate.
+ * Missing metadata never falls back to another branch.
  * VERCEL_ENV=preview also activates the existing runtime-env notification
  * suppression policy; there is no separate notification override to enable.
  * Never include connection values or credentials in an error.
@@ -52,7 +65,8 @@ export function assertSportsSharedCardPreviewEnvironment(env) {
     throw new Error("Sports shared-card branch requires VERCEL_ENV=preview with outbound notifications blocked.");
   }
   if (env.VERCEL_GIT_COMMIT_REF !== SPORTS_SHARED_CARD_PREVIEW_BRANCH ||
-      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking") {
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Sports shared-card checkout requires its exact authorized Preview branch and repository metadata.");
   }
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isSportsSharedCardIsolatedConnection)) {
