@@ -12,6 +12,7 @@ import { GET as robots } from "@/app/robots.txt/route";
 vi.mock("@/lib/auth", () => ({ auth: (handler: unknown) => handler }));
 import { proxy } from "@/proxy";
 
+const waitlistSlug = "yoga-studio-waitlist-order";
 const musicSlug = "music-school-leave-makeup-lesson-balance";
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
 const route = (path: string, host = "www.steamfoot.com") => {
@@ -25,7 +26,7 @@ describe("public editorial guides", () => {
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -208,7 +209,8 @@ describe("public editorial guides", () => {
             "sha256": "917854ae13720809901a8a6e0c7b1ebf5e73d860c3d5fd4a10ab8d9afe9b983e"
       }
 };
-    for (const guide of visiblePublicGuides()) {
+    expect(Object.keys(approved)).toHaveLength(10);
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug)) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -244,6 +246,39 @@ describe("public editorial guides", () => {
     expect((await generateMetadata(props(musicSlug))).robots).toEqual({ index: false, follow: false });
   });
 
+  it("publishes only the approved waitlist article body, disclaimer and conditional trial CTA", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const guide = findPublicGuide(waitlistSlug)!;
+    expect(guide.format).toBe("article");
+    if (guide.format !== "article") return;
+    // Source: the approved waitlist article, excluding its research report and source appendix.
+    expect(createHash("sha256").update(JSON.stringify(guide)).digest("hex")).toBe("d35b30350925e88d355f57c29e989d891191146595f491386ca993f9c4dbc21f");
+    const html = renderToStaticMarkup(await GuideArticle(props(waitlistSlug)));
+    const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
+    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.heading, guide.callToAction.text];
+    let cursor = 0;
+    for (const text of ordered) {
+      const position = article.indexOf(text, cursor);
+      expect(position, text).toBeGreaterThanOrEqual(cursor);
+      cursor = position + text.length;
+    }
+    expect(guide.showSummary).toBe(false);
+    expect(guide.conclusion).toBeUndefined();
+    expect(article).not.toContain(guide.summary);
+    expect(article).not.toMatch(/文章校稿|查核來源|選題查核|Keyword Planner|Search Console|Le Gin|FitBook|VibeAI|高搜尋量|校閱草稿/);
+    expect(article).toContain("人物與對話為示意，非特定店家的個案紀錄");
+    expect(article).toContain("需啟用候補並完成 LINE 串接");
+    expect(article).toContain("從帳號可正常使用並正式開通當日起算");
+    expect(article).toContain("保留期間轉正式可沿用原帳號與試用資料");
+    expect(article).toContain("試用到期後資料保留 30 天");
+    expect(article).toContain('href="https://www.steamfoot.com/apply"');
+    expect(html).toContain('href="/pricing/features#waitlist"');
+    expect(route(`/guides/${waitlistSlug}`).status).toBe(200);
+    expect(route(`/guides/${waitlistSlug}`).headers.get("x-robots-tag")).toBeNull();
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect((await generateMetadata(props(waitlistSlug))).robots).toEqual({ index: false, follow: false });
+  });
+
   it("keeps a future unpublished fixture private without treating the published music article as draft", async () => {
     const fixture: PublicGuide = { ...PUBLIC_GUIDES[0], id: "unpublished-test-fixture", status: "draft" };
     const registry = PUBLIC_GUIDES as PublicGuide[];
@@ -271,6 +306,7 @@ describe("public editorial guides", () => {
   it("keeps this publication-only branch from auto-deploying a new Preview", () => {
     const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
     expect(deployment["fix/publish-music-guide-20261008"]).toBe(false);
+    expect(deployment["content/yoga-waitlist-management"]).toBe(false);
     expect(deployment.main).toBeUndefined();
   });
 
@@ -296,8 +332,8 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(10);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(23);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(11);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(24);
     for (const path of PUBLISHED_GUIDE_PATHS) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com${path}</loc>`);
       expect(rules).toContain(`Allow: ${path}$\n`);
