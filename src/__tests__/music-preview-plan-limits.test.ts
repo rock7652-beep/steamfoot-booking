@@ -37,7 +37,8 @@ describe("server-only exact music Preview subscription quotas", () => {
     ]) expect(getEffectivePlanLimits(candidate)).toEqual({ ...getPlanLimits(candidate), maxStaff: null, maxMonthlyBookings: null });
   });
   it.each(["store-other-music", "store-lubymusic-copy", "store-zhubei", "__all__", ""])("retains the native quotas for %s", id => {
-    expect(getEffectivePlanLimits({ ...store, id })).toEqual(getPlanLimits({ ...store, id }));
+    const candidate = { ...store, id };
+    expect(getEffectivePlanLimits(candidate)).toEqual(getPlanLimits(candidate));
   });
   it.each(["main", "feat/sports-shared-card-controls-20261007", "feat/other", ""])("never grants unlimited merely from matching the isolated database on %s", branch => {
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", branch);
