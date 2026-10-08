@@ -32,12 +32,20 @@ if (isGuideUiPreview()) {
   process.exit(0);
 }
 
-import { assertSportsSharedCardPreviewEnvironment, isSportsSharedCardMockedUnitTest, isSportsSharedCardProductionRelease } from "./sports-shared-card-preview-scope.mjs";
+import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.mjs";
 
-// Must run before every database client, migration subprocess, or build query,
-// except the explicitly identified production main release path.
-if (!isSportsSharedCardMockedUnitTest(process.env) && !isSportsSharedCardProductionRelease(process.env)) {
-  assertSportsSharedCardPreviewEnvironment(process.env);
+// Validate the exact release mode before any migration subprocess or DB client.
+const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "consultation-preview") {
+  // Consultation uses only its separately approved two-table DDL. Never run
+  // unrelated pending migrations for this isolated candidate.
+  console.info("[consultation-preview-preflight] isolated_database=true notifications_blocked=true flags_enabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "store-operation-audit-preview") {
+  console.info("[store-operation-audit-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
+}
+if (releaseMode === "sports-shared-card-preview") {
   console.info("[sports-shared-card-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
 }
 

@@ -21,9 +21,9 @@
 ## 發布前條件
 
 1. 公開程式草稿與隔離驗收；不包含正式合併或正式店家開通。
-2. 已整合 main `866f3329`（含 #1253 體驗表單與 #1254 名單密度）；各分支自動部署封鎖保留。最終檢查以草稿 PR 的精確 head 為準。
+2. 已整合 main `351356767`（含 #1251 諮詢收件、#1253 體驗表單與 #1254 名單密度）；各分支自動部署封鎖保留。最終檢查以草稿 PR 的精確 head 為準。
 3. 分支 `feat/store-operation-audit-20261008` 自動 Vercel 部署關閉；只接受明確的隔離 Preview，Cloudflare provenance 拒絕。
-4. 沿用 #1249 的 build/runtime guard，僅額外允許此精確分支＋repo，且 DATABASE_URL 與 DIRECT_URL 都必須符合既有隔離資料庫、帳號、資料庫名與安全參數白名單。保留通知封鎖，拒絕任意 Preview、缺少 metadata、未知 provider、正式 DB 及不安全連線覆寫；沒有新增金鑰或資料表。
+4. 整合 #1251 的共用 build/runtime dispatcher，以 `store-operation-audit-preview` 獨立模式檢查此精確分支＋repo；sports 與 consultation 保留各自分支與 opt-in 規則，不冒用其他模式。DATABASE_URL 與 DIRECT_URL 都必須符合原有隔離資料庫、帳號、資料庫名與安全參數白名單。保留通知封鎖，拒絕任意 Preview、缺少 metadata、未知 provider、正式 DB 及不安全連線覆寫；沒有新增金鑰或資料表。
 5. 合法隔離 Preview 上完成 OWNER／非 OWNER／HQ 切店／返回 HQ、off/on/expired、跨店 URL、單筆紀錄、登入路由拒絕及關閉返回等實際驗收。
 6. UI 驗收入口：HQ 功能設定、三模組側欄、操作紀錄中心與原資料歷史彈窗。需驗 1366px／寬桌機、1024×768／768×1024 iPad、390px／窄容器、長文字、展開／關閉、Back／Forward。尚未完成 browser 或真機驗收。
 7. 正式合併、部署與任何門市實際開通需另外取得相應授權。
@@ -33,5 +33,6 @@
 - 含 #1253 的本地整合：7,728 tests passed、120 skipped；changed-file ESLint passed。
 - OWNER 同一 session 的撤回、HIDDEN、DISABLED、到期與身分停用會在每次 server action 重查，五項測試通過。
 - 本地 TypeScript 驗證受記憶體限制中止，需由精確 head 的遠端 Typecheck 補證，不將中止列為通過。
-- 最终 #1254 整合與實際 Preview 驗收以 PR 更新為準。沒有可用的 OWNER／非 OWNER 測試帳號時，角色路徑只列 backend coverage；HQ 切店不冒充不同身分。
+- #1251 相容整合：10 個 guard／access 測試檔案、233 項測試通過；相容改動的 ESLint 與 diff whitespace 檢查通過。此輪未執行完整套件。
+- 最終 #1251 整合與實際 Preview 驗收以 PR 更新為準。沒有可用的 OWNER／非 OWNER 測試帳號時，角色路徑只列 backend coverage；HQ 切店不冒充不同身分。
 - tests、typecheck、lint、瀏覽器與實體裝置驗收彼此獨立，不以其中一項代替其他。

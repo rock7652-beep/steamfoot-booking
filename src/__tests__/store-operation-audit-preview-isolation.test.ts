@@ -3,11 +3,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   assertSportsSharedCardPreviewEnvironment,
+  SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   isSportsSharedCardIsolatedConnection,
   isSportsSharedCardMockedUnitTest,
-  STORE_OPERATION_AUDIT_PREVIEW_BRANCH,
   isSportsSharedCardProductionRelease,
 } from "../../scripts/sports-shared-card-preview-scope.mjs";
+
+import { assertReviewedReleaseEnvironment, assertConsultationPreviewEnvironment, CONSULTATION_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertStoreOperationAuditPreviewEnvironment, STORE_OPERATION_AUDIT_PREVIEW_BRANCH } from "../../scripts/store-operation-audit-preview-scope.mjs";
 
 const direct = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
 const pooled = "postgresql://postgres.ttworfzgwejdeolegkxl:fixture@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
@@ -62,10 +65,10 @@ describe("store operation audit Preview preflight", () => {
     for (const connection of invalidConnections) expect(isSportsSharedCardIsolatedConnection(connection)).toBe(false);
   });
   it.each([[direct, direct], [pooled, direct], [direct, pooled], [pooled, pooled]])("accepts both isolated connection forms without DB access", (database, directUrl) => {
-    expect(() => assertSportsSharedCardPreviewEnvironment({ ...valid, DATABASE_URL: database, DIRECT_URL: directUrl })).not.toThrow();
+    expect(() => assertStoreOperationAuditPreviewEnvironment({ ...valid, DATABASE_URL: database, DIRECT_URL: directUrl })).not.toThrow();
     const result = run({ DATABASE_URL: database, DIRECT_URL: directUrl });
     expect(result.status).toBe(0);
-    expect(result.output).toContain("[sports-shared-card-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
+    expect(result.output).toContain("[store-operation-audit-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
     expect(result.output).toContain("recovery_skipped_outside_production");
   });
 
@@ -74,7 +77,7 @@ describe("store operation audit Preview preflight", () => {
   it.each(["DATABASE_URL", "DIRECT_URL"])("rejects every missing, malformed, production or spoofed %s before DB work", (key) => {
     for (const value of invalidConnections) {
       const env = { ...valid, [key]: value };
-      expect(() => assertSportsSharedCardPreviewEnvironment(env)).toThrow("existing isolated database for both connections");
+      expect(() => assertStoreOperationAuditPreviewEnvironment(env)).toThrow("existing isolated database for both connections");
       const result = run({ [key]: value });
       expect(result.status).not.toBe(0);
       expect(result.output).toContain("existing isolated database for both connections");
@@ -84,7 +87,7 @@ describe("store operation audit Preview preflight", () => {
 
   it.each([undefined, "", "production", "development"])("rejects the branch in a non-Preview target (%s), even with isolated URLs", (environment) => {
     const env = { ...valid, VERCEL_ENV: environment };
-    expect(() => assertSportsSharedCardPreviewEnvironment(env)).toThrow("VERCEL_ENV=preview with outbound notifications blocked");
+    expect(() => assertStoreOperationAuditPreviewEnvironment(env)).toThrow("VERCEL_ENV=preview with outbound notifications blocked");
     const result = run({ VERCEL_ENV: environment });
     expect(result.status).not.toBe(0);
     expect(result.output).toContain("VERCEL_ENV=preview with outbound notifications blocked");
@@ -94,7 +97,7 @@ describe("store operation audit Preview preflight", () => {
   it.each(["VERCEL_GIT_COMMIT_REF", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing or changed %s for this temporary Preview-only checkout", (key) => {
     for (const value of [undefined, "", "main", "wrong"]) {
       const env = { ...valid, [key]: value };
-      expect(() => assertSportsSharedCardPreviewEnvironment(env)).toThrow("exact authorized Preview branch and repository metadata");
+      expect(() => assertStoreOperationAuditPreviewEnvironment(env)).toThrow("exact authorized Preview branch and repository metadata");
       const result = run({ [key]: value });
       expect(result.status).not.toBe(0);
       expect(result.output).toContain("exact authorized Preview branch and repository metadata");
@@ -117,11 +120,11 @@ describe("store operation audit Preview preflight", () => {
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
     expect(scripts.build).toBe("node scripts/ci-migrate.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
-    const preflight = source.indexOf("assertSportsSharedCardPreviewEnvironment(process.env)");
+    const preflight = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(preflight).toBeGreaterThan(-1);
     expect(preflight).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     expect(preflight).toBeLessThan(source.indexOf("new PrismaClient("));
-    expect(readFileSync("next.config.ts", "utf8")).toContain("assertSportsSharedCardPreviewEnvironment(process.env)");
+    expect(readFileSync("next.config.ts", "utf8")).toContain("assertReviewedReleaseEnvironment(process.env)");
   });
 });
 
@@ -140,5 +143,37 @@ describe("reviewed production main migration boundary", () => {
     const result = run({ [key]: STORE_OPERATION_AUDIT_PREVIEW_BRANCH });
     expect(result.status).not.toBe(0);
     expect(result.output).toContain("exact authorized Preview branch and repository metadata");
+  });
+});
+
+describe("independent audit release dispatch", () => {
+  it("selects only the audit mode without consultation opt-in flags", () => {
+    expect(assertReviewedReleaseEnvironment(valid)).toBe("store-operation-audit-preview");
+    const result = run({ CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined });
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("[store-operation-audit-preview-preflight]");
+    expect(result.output).not.toContain("[sports-shared-card-preview-preflight]");
+    expect(result.output).not.toContain("[consultation-preview-preflight]");
+  });
+
+  it("keeps every branch bound to its own guard and dispatcher mode", () => {
+    expect(() => assertSportsSharedCardPreviewEnvironment(valid)).toThrow("exact authorized Preview branch");
+    expect(() => assertConsultationPreviewEnvironment(valid)).toThrow("exact authorized Preview branch");
+    const sports = { ...valid, VERCEL_GIT_COMMIT_REF: SPORTS_SHARED_CARD_PREVIEW_BRANCH };
+    expect(() => assertStoreOperationAuditPreviewEnvironment(sports)).toThrow("exact authorized Preview branch");
+    expect(assertReviewedReleaseEnvironment(sports)).toBe("sports-shared-card-preview");
+    const consultation = { ...valid, VERCEL_GIT_COMMIT_REF: CONSULTATION_PREVIEW_BRANCH };
+    expect(() => assertStoreOperationAuditPreviewEnvironment(consultation)).toThrow("exact authorized Preview branch");
+    expect(() => assertReviewedReleaseEnvironment(consultation)).toThrow("both existing opt-in flags");
+    expect(assertReviewedReleaseEnvironment({ ...consultation, CONSULTATION_HQ_ENABLED: "true", CONSULTATION_PREVIEW_INTAKE_ENABLED: "true" })).toBe("consultation-preview");
+    expect(() => assertReviewedReleaseEnvironment({ ...valid, VERCEL_GIT_COMMIT_REF: "feat/store-operation-audit-20261008-spoof" })).toThrow("exact authorized Preview branch");
+  });
+
+  it("keeps automatic deployment disabled for the independent audit branch", () => {
+    const enabled = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
+    expect(enabled[STORE_OPERATION_AUDIT_PREVIEW_BRANCH]).toBe(false);
+    expect(enabled[SPORTS_SHARED_CARD_PREVIEW_BRANCH]).toBe(false);
+    expect(enabled[CONSULTATION_PREVIEW_BRANCH]).toBe(false);
+    expect(enabled.main).not.toBe(false);
   });
 });

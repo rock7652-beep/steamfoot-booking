@@ -1,262 +1,67 @@
-import { trialApplicationDatabaseAllowed } from "@/server/services/trial-application-access";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { prisma } from "@/lib/db";
-import { toLocalDateStr } from "@/lib/date-utils";
-import {
-  applicationStatuses,
-  trialApplicationSchema,
-  trialChecklist,
-  trialSetupSummary,
-} from "@/lib/trial-application";
-import { updateApplication, retryApplicationNotification } from "./actions";
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    q?: string;
-    status?: string;
-    page?: string;
-    application?: string;
-  }>;
-}) {
+import { isHqStoreView } from "@/lib/hq-store-view";
+import { trialApplicationDatabaseAllowed } from "@/server/services/trial-application-access";
+import { consultationDatabaseAllowed } from "@/server/services/consultation-lead-access";
+import { CONSULTATION_LEAD_STATUSES } from "@/lib/consultation-lead";
+import { applicationStatuses } from "@/lib/trial-application";
+import { TrialApplicationsList } from "./trial-application-list";
+import { ConsultationLeadList } from "./consultation-list";
+import { consultationHref, LEGACY_CONSULTATION_SHEET, parseConsultationSearch, type ConsultationSearchParams } from "./consultation-view";
+
+export default async function Page({ searchParams }: { searchParams: Promise<ConsultationSearchParams> }) {
   const user = await getCurrentUser();
-  if (
-    !user ||
-    user.role !== "ADMIN" ||
-    !(await checkPermission(user.role, user.staffId, "staff.manage"))
-  )
-    redirect("/hq/login");
-  if (!trialApplicationDatabaseAllowed())
-    return <p>預覽收件尚未連接獨立資料庫。</p>;
-  const params = await searchParams;
-  const q = (params.q ?? "").slice(0, 200);
-  const status =
-    params.status && params.status in applicationStatuses
-      ? params.status
-      : undefined;
-  const page = Math.max(
-    1,
-    Math.min(10000, Math.floor(Number(params.page)) || 1),
-  );
-  const where = {
-    ...(status ? { status } : {}),
-    ...(params.application ? { id: params.application } : {}),
-    ...(q
-      ? {
-          OR: [
-            { storeName: { contains: q, mode: "insensitive" as const } },
-            { contactEmail: { contains: q, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
-  };
-  const [items, total] = await Promise.all([
-    prisma.trialApplication.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * 20,
-      take: 20,
-    }),
-    prisma.trialApplication.count({ where }),
-  ]);
-  const pageLink = (p: number) =>
-    `?${new URLSearchParams({ q, status: status ?? "", page: String(p), ...(params.application ? { application: params.application } : {}) })}`;
+  if (!user || user.role !== "ADMIN" || await isHqStoreView(user) || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
+  if (!trialApplicationDatabaseAllowed()) return <p>預覽收件尚未連接獨立資料庫。</p>;
+  const search = parseConsultationSearch(await searchParams);
+  const enabled = process.env.CONSULTATION_HQ_ENABLED === "true";
+  const isConsultations = search.stage === "consultations";
+  if (isConsultations && enabled && !consultationDatabaseAllowed()) return <p>諮詢測試資料庫尚未確認隔離，暫停讀取。</p>;
+  const statuses = isConsultations ? CONSULTATION_LEAD_STATUSES : applicationStatuses;
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto min-w-0 max-w-5xl space-y-5 [overflow-wrap:anywhere]">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="admin-page-title">體驗版申請</h1>
-          <p className="mt-1 text-sm text-earth-500">
-            已提供資料不代表已取得權限；請人工確認後再設定。
-          </p>
+          <h1 className="admin-page-title">諮詢與體驗申請</h1>
+          <p className="mt-1 text-sm text-earth-600">需求諮詢與正式開通分階段處理，人工核對後才建立關聯。</p>
         </div>
-        <Link href="/hq/dashboard/stores" className="text-sm underline">
-          返回店舖管理
-        </Link>
-      </div>
-      <form className="flex flex-wrap gap-3 rounded-xl border bg-white p-4">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="搜尋店家／Email"
-          aria-label="搜尋店家或 Email"
-          className="min-w-0 flex-1 rounded-lg border px-3 py-2"
-        />
-        <select
-          name="status"
-          defaultValue={status ?? ""}
-          aria-label="申請狀態"
-          className="rounded-lg border px-3 py-2"
-        >
-          <option value="">全部狀態</option>
-          {Object.entries(applicationStatuses).map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </select>
-        <button className="rounded-lg bg-primary-600 px-4 py-2 text-white">
-          搜尋
-        </button>
-      </form>
-      <p className="text-sm">
-        共 {total} 件 · 第 {page} 頁
+        <Link href="/hq/dashboard/stores" className="flex min-h-11 items-center text-sm underline">返回店舖管理</Link>
+      </header>
+      <nav aria-label="申請階段" className="flex flex-wrap gap-2">
+        {([['consultations', '需求諮詢'], ['applications', '體驗版開通資料']] as const).map(([stage, label]) => (
+          <Link key={stage} href={consultationHref({ stage, q: search.q })} aria-current={search.stage === stage ? "page" : undefined}
+            className={`flex min-h-11 items-center rounded-lg border px-4 py-2 text-sm font-medium ${search.stage === stage ? "border-primary-600 bg-primary-50 text-primary-800" : "bg-white text-earth-700"}`}>
+            {label}
+          </Link>
+        ))}
+      </nav>
+      <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        歷史 Sheet 資料尚未匯入 HQ。較早的諮詢請查閱 <a href={LEGACY_CONSULTATION_SHEET} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">原有需求諮詢 Sheet ↗</a>。
       </p>
-      {items.map((item) => {
-        const parsed = trialApplicationSchema.safeParse(item.payload);
-        return (
-          <details
-            key={item.id}
-            open={params.application === item.id}
-            className="rounded-xl border bg-white p-5"
-          >
-            <summary className="cursor-pointer">
-              <span className="font-semibold">{item.storeName}</span>
-              <span className="ml-3 text-sm text-amber-800">
-                {
-                  applicationStatuses[
-                    item.status as keyof typeof applicationStatuses
-                  ]
-                }
-              </span>
-              <span className="ml-3 text-sm text-earth-500">
-                {toLocalDateStr(item.createdAt)} · {item.contactEmail}
-              </span>
-            </summary>
-            <div className="mt-5 space-y-5">
-              <p className="text-sm">
-                編號：{item.id} · 修訂 {item.revision}
-              </p>
-              {parsed.success && (
-                <>
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    {Object.entries({
-                      店家類型: parsed.data.industry,
-                      聯絡人: parsed.data.contactName,
-                      電話: parsed.data.phone,
-                      "官方 LINE ID": parsed.data.lineId,
-                      "LINE 狀態":
-                        parsed.data.lineStatus === "existing"
-                          ? "已有"
-                          : parsed.data.lineStatus === "new"
-                            ? "尚未申請"
-                            : "需要協助",
-                      既有串接:
-                        parsed.data.integration === "existing"
-                          ? parsed.data.integrationName || "有，待確認"
-                          : parsed.data.integration === "none"
-                            ? "無"
-                            : "不確定",
-                    }).map(([k, v]) => (
-                      <div key={k}>
-                        <dt className="text-earth-500">{k}</dt>
-                        <dd className="break-all">{v || "尚未提供"}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    {Object.entries({
-                      地圖: parsed.data.mapsUrl,
-                      加好友連結: parsed.data.friendUrl,
-                      "接受官方 LINE 邀請": parsed.data.inviteUrl,
-                    }).map(([label, url]) =>
-                      url ? (
-                        <a
-                          key={label}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg border px-3 py-2 text-primary-700"
-                        >
-                          {label} ↗
-                        </a>
-                      ) : null,
-                    )}
-                  </div>
-                  <pre className="whitespace-pre-wrap break-words font-sans text-sm">
-                    {trialSetupSummary(parsed.data)}
-                  </pre>
-                  <div className="flex flex-wrap gap-3">
-                    {parsed.data.attachments.map((a, index) => (
-                      <a
-                        key={`${a.name}-${index}`}
-                        href={`/api/trial-applications/${item.id}/attachments/${index}`}
-                        className="rounded border px-3 py-2 text-sm text-primary-700"
-                      >
-                        下載 {a.name}
-                      </a>
-                    ))}
-                  </div>
-                  <ul className="space-y-2 text-sm">
-                    {trialChecklist(parsed.data).map((i) => (
-                      <li key={i.label}>
-                        {i.label}：{i.state}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <form
-                key={item.status}
-                action={updateApplication}
-                className="flex flex-wrap gap-3"
-              >
-                <input type="hidden" name="id" value={item.id} />
-                <select
-                  name="status"
-                  aria-label={`${item.storeName}處理狀態`}
-                  defaultValue={item.status}
-                  className="rounded-lg border px-3 py-2"
-                >
-                  {Object.entries(applicationStatuses).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-                <button className="rounded-lg bg-primary-600 px-4 py-2 text-white">
-                  更新進度
-                </button>
-              </form>
-              <form
-                action={retryApplicationNotification}
-                className="flex items-center gap-3 text-sm"
-              >
-                <input type="hidden" name="id" value={item.id} />
-                <span>
-                  收件通知：
-                  {{
-                    SENT: "已寄送",
-                    FAILED: "寄送失敗",
-                    DISABLED: "尚未啟用／預覽停用",
-                    SENDING: "寄送中",
-                    PENDING: "待寄送",
-                  }[item.notificationStatus] ?? item.notificationStatus}
-                </span>
-                {["FAILED", "DISABLED", "PENDING"].includes(
-                  item.notificationStatus,
-                ) && (
-                  <button className="rounded-lg border px-3 py-2">
-                    重試通知
-                  </button>
-                )}
-              </form>
-            </div>
-          </details>
-        );
-      })}
-      {!items.length && (
-        <p className="rounded-xl border bg-white p-8 text-center text-earth-500">
-          目前沒有符合的申請
-        </p>
-      )}
-      <div className="flex justify-between text-sm">
-        {page > 1 ? <Link href={pageLink(page - 1)}>上一頁</Link> : <span />}
-        {page * 20 < total && <Link href={pageLink(page + 1)}>下一頁</Link>}
-      </div>
+      <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4">
+        <input type="hidden" name="stage" value={search.stage} />
+        <label className="min-w-0 flex-[1_1_16rem] text-sm">
+          <span className="mb-1 block">搜尋目前階段</span>
+          <input name="q" defaultValue={search.q} maxLength={200} placeholder={isConsultations ? "店家／聯絡人／電話／LINE ID／收件編號" : "店家／Email"}
+            className="min-h-11 w-full min-w-0 rounded-lg border px-3 py-2" />
+        </label>
+        <label className="min-w-0 text-sm">
+          <span className="mb-1 block">處理狀態</span>
+          <select name="status" key={search.stage} defaultValue={search.status ?? ""} className="min-h-11 max-w-full rounded-lg border px-3 py-2">
+            <option value="">全部狀態</option>
+            {Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <button className="min-h-11 rounded-lg bg-primary-600 px-4 py-2 text-white">搜尋</button>
+      </form>
+      {isConsultations ? enabled ? <ConsultationLeadList {...search} /> : (
+        <section className="rounded-xl border bg-white p-5" aria-label="需求諮詢尚未啟用">
+          <h2 className="font-semibold">HQ 需求諮詢尚未啟用</h2>
+          <p className="mt-2 text-sm text-earth-600">第一階段目前仍請查閱原有 Sheet；這不表示沒有收到諮詢。正式開通資料可由上方入口查看。</p>
+        </section>
+      ) : <TrialApplicationsList {...search} />}
     </div>
   );
 }

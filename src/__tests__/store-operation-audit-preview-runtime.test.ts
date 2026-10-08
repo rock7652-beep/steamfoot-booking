@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { STORE_OPERATION_AUDIT_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
+import { STORE_OPERATION_AUDIT_PREVIEW_BRANCH } from "../../scripts/store-operation-audit-preview-scope.mjs";
 
 const mocks = vi.hoisted(() => ({ construct: vi.fn(), audit: vi.fn((client: unknown) => client), resend: vi.fn(), sendMail: vi.fn() }));
 vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
@@ -51,11 +51,21 @@ describe.each(clients)("$name runtime database isolation", ({ name, key, load })
       vi.resetModules();
       const previous = process.env[envKey];
       vi.stubEnv(envKey, value);
-      await expect(load()).rejects.toThrow("Sports shared-card");
+      await expect(load()).rejects.toThrow(/Store operation audit|Sports shared-card/);
       vi.stubEnv(envKey, previous);
       expect(mocks.construct).not.toHaveBeenCalled();
       expect(mocks.audit).not.toHaveBeenCalled();
     }
+  });
+
+  it("rejects invalid metadata before even reading a cached singleton", async () => {
+    const read = vi.fn(() => ({ unverifiedCachedClient: true }));
+    Object.defineProperty(globalThis, key, { configurable: true, get: read });
+    vi.stubEnv("VERCEL_GIT_REPO_OWNER", "wrong");
+    await expect(load()).rejects.toThrow("Store operation audit");
+    expect(read).not.toHaveBeenCalled();
+    expect(mocks.construct).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
   });
 
   it("constructs from validated isolated URLs and does not trust a pre-existing singleton", async () => {
@@ -133,7 +143,7 @@ describe("provider build-command override defense", () => {
   });
   it.each(["VERCEL_ENV", "VERCEL_GIT_COMMIT_REF", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s even when the package build command is bypassed", async (key) => {
     vi.stubEnv(key, undefined);
-    await expect(import("../../next.config")).rejects.toThrow("Sports shared-card");
+    await expect(import("../../next.config")).rejects.toThrow(/Store operation audit|Sports shared-card/);
     expect(mocks.construct).not.toHaveBeenCalled();
   });
 });
@@ -179,7 +189,7 @@ describe("reviewed production main release boundary", () => {
     // Prevent mocked-unit exemption from masking this deployed-path assertion.
     vi.stubEnv("VITEST_WORKER_ID", undefined);
     vi.stubEnv(key, value);
-    await expect(import("../../next.config")).rejects.toThrow("Sports shared-card");
+    await expect(import("../../next.config")).rejects.toThrow(/Store operation audit|Sports shared-card/);
     const { isPreviewExternalIntegrationBlocked } = await import("@/lib/runtime-env");
     expect(isPreviewExternalIntegrationBlocked()).toBe(true);
     expect(mocks.construct).not.toHaveBeenCalled();

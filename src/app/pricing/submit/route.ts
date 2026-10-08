@@ -1,41 +1,12 @@
-import { z } from "zod";
+import { payloadSchema, sanitizeConsultationPayload, type ConsultationPayload } from "@/lib/consultation-lead";
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
+import { consultationDatabaseAllowed } from "@/server/services/consultation-lead-access";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Fixed receiver: never accept an upstream URL or notification recipient from the form.
 const RECEIVER = "https://script.google.com/macros/s/AKfycbyLTou6qvTiqPTGPShNRCY8F53FW98xr9PzbjRpE0n-ios3zdJAyAv_3aVdtTLJYwlr/exec";
-const text = z.string().trim().max(2000).optional();
-const payloadSchema = z.object({
-  requestId: z.string().uuid(),
-  storeName: z.string().trim().min(1).max(200),
-  contactName: z.string().trim().max(200).optional(),
-  industry: z.string().trim().min(1).max(200),
-  storeCount: text, staffCount: text, members: text, hasSystem: text,
-  systemName: text, otherNeed: text, contactWay: text, time: text,
-  bookingMode: z.enum(["固定時段，每個時段可接待固定人數", "依服務項目，安排技師／芳療師與服務時間", "依課表安排個別課或團體課", "不確定，希望協助判斷"]).optional(),
-  courseFormat: z.enum(["個別課", "團體課", "兩者都有", "尚未確定"]).optional(),
-  phone: text, lineId: text, source: text, medium: text, campaign: text,
-  content: text, landing: text, pageUrl: text, referrer: text, device: text,
-  formVersion: z.literal("fitness-v2").optional(),
-  priorityNeed: z.string().trim().max(200).optional(),
-  needs: z.array(z.string().trim().min(1).max(200)).min(1),
-  replaceReason: z.array(z.string().max(200)).max(20),
-}).superRefine((data, ctx) => {
-  const fitness = data.formVersion === "fitness-v2" && data.source === "fitness-intake";
-  const noContact = fitness && data.contactWay === "目前暫不考慮";
-  const invalid = (message: string) => ctx.addIssue({ code: "custom", message });
-  if (data.courseFormat && !["運動教室／健身／瑜伽", "音樂／才藝／教育服務"].includes(data.industry)) invalid("Classroom industry required");
-  if (data.formVersion && !fitness) invalid("Invalid form source");
-  if (!fitness && data.needs.length > 3) invalid("Legacy forms allow three needs");
-  if (new Set(data.needs).size !== data.needs.length) invalid("Duplicate needs");
-  if (!noContact && (!data.contactName || !(data.phone || data.lineId))) invalid("Contact required");
-  if (fitness) {
-    if (!["申請體驗帳號", "預約 20 分鐘線上示範", "先透過 LINE 了解", "目前暫不考慮"].includes(data.contactWay || "")) invalid("Invalid intent");
-    const unknown = data.needs.includes("還不確定，想先聊聊");
-    if (unknown ? data.needs.length !== 1 || Boolean(data.priorityNeed) : !data.priorityNeed || !data.needs.includes(data.priorityNeed)) invalid("Invalid priority");
-  }
-});
 
 function reply(body: object, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -47,16 +18,60 @@ export async function POST(request: Request) {
   if (!origin || origin !== new URL(request.url).origin) {
     return reply({ ok: false, code: "INVALID_ORIGIN" }, 403);
   }
-  let payload: z.infer<typeof payloadSchema>;
+  let payload: ConsultationPayload;
   try {
     const raw = await request.text();
     if (raw.length > 24000) return reply({ ok: false, code: "INVALID_INPUT" }, 400);
-    payload = payloadSchema.parse(JSON.parse(raw));
+    payload = sanitizeConsultationPayload(payloadSchema.parse(JSON.parse(raw)));
   } catch {
     return reply({ ok: false, code: "INVALID_INPUT" }, 400);
   }
 
+  const sheetPayload = { ...payload, otherNeed: [
+    payload.bookingMode && `預約方式：${payload.bookingMode}`,
+    payload.courseFormat && `授課型態：${payload.courseFormat}`,
+    payload.websiteUrl && `店家官網：${payload.websiteUrl}`,
+    payload.facebookUrl && `Facebook：${payload.facebookUrl}`,
+    payload.instagramUrl && `Instagram：${payload.instagramUrl}`,
+    payload.otherNeed,
+  ].filter(Boolean).join("\n") };
+  // Existing receivers keep these in the notes column; avoid sending two copies.
+  delete sheetPayload.websiteUrl; delete sheetPayload.facebookUrl; delete sheetPayload.instagramUrl;
+  const sheetBody = JSON.stringify(sheetPayload);
+  if (sheetBody.length > 24000) return reply({ ok: false, code: "INVALID_INPUT" }, 400);
+  // Only an authenticated HQ synthetic check may save to the explicitly isolated
+  // Preview database. Preview never reaches the external receiver or notifications.
+  const preview = isPreviewExternalIntegrationBlocked();
+  const hqEnabled = process.env.CONSULTATION_HQ_ENABLED === "true";
+  if (process.env.CONSULTATION_PREVIEW_INTAKE_ENABLED === "true" && !preview)
+    return reply({ ok: false, code: "PREVIEW_CONTEXT_REQUIRED" }, 503);
+  if (preview && (!hqEnabled || process.env.CONSULTATION_PREVIEW_INTAKE_ENABLED !== "true"))
+    return reply({ ok: false, code: "PREVIEW_DELIVERY_DISABLED" }, 503);
+  if (hqEnabled && !consultationDatabaseAllowed()) return reply({ ok: false, code: "INTAKE_UNAVAILABLE" }, 503);
+  if (preview) {
+    if (!payload.storeName.startsWith("【HQ測試】")) return reply({ ok: false, code: "SYNTHETIC_TEST_ONLY" }, 400);
+    try {
+      const { requireAdminSession } = await import("@/lib/session");
+      const { requirePermission } = await import("@/lib/permissions");
+      const user = await requireAdminSession();
+      if (user.role !== "ADMIN") return reply({ ok: false, code: "HQ_REQUIRED" }, 403);
+      await requirePermission("staff.manage");
+    } catch { return reply({ ok: false, code: "HQ_REQUIRED" }, 403); }
+  }
+  let savedHqId: string | undefined;
+  let intake: typeof import("@/server/services/consultation-lead-intake") | undefined;
   try {
+    if (hqEnabled) {
+      intake = await import("@/server/services/consultation-lead-intake");
+      const { lead } = await intake.saveConsultationLead(payload, preview ? { previewOnly: true } : undefined);
+      savedHqId = lead.id;
+      if (preview) return reply({ ok: true, saved: true, requestId: payload.requestId,
+        hqSaved: true, sheetStatus: "NOT_SENT_PREVIEW" });
+      if (lead.sheetStatus !== "PENDING") {
+        return reply({ ok: true, saved: true, requestId: payload.requestId,
+          hqSaved: true, sheetStatus: lead.sheetStatus === "CONFIRMED" ? "CONFIRMED" : "UNKNOWN" });
+      }
+    }
     if (payload.formVersion === "fitness-v2") {
       // Apps Script is deployed separately. Never POST the new contract to an old receiver.
       let ready = false;
@@ -66,19 +81,23 @@ export async function POST(request: Request) {
         ready = health.ok && info.ok === true && info.capabilities?.includes("fitness-v2")
           && (payload.needs.length <= 4 || info.capabilities?.includes("fitness-unlimited-needs"));
       } catch { /* No POST has occurred; the caller may safely retry later. */ }
-      if (!ready) return reply({ ok: false, code: "RECEIVER_UPDATE_REQUIRED" }, 503);
+      if (!ready) return savedHqId
+        ? reply({ ok: true, saved: true, requestId: payload.requestId, hqSaved: true, sheetStatus: "PENDING" })
+        : reply({ ok: false, code: "RECEIVER_UPDATE_REQUIRED" }, 503);
       if (payload.contactWay === "目前暫不考慮") {
         payload.contactName = ""; payload.phone = ""; payload.lineId = ""; payload.time = "";
       }
+    }
+    if (savedHqId && intake && !(await intake.claimConsultationDelivery(savedHqId))) {
+      // A concurrent request may already have sent the Sheet POST. Never resend.
+      return reply({ ok: true, saved: true, requestId: payload.requestId, hqSaved: true, sheetStatus: "UNKNOWN" });
     }
     // Do not retry POST: a lost response does not mean the row was not written.
     const response = await fetch(RECEIVER, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       // Keep the answer visible in the existing receiver's notes column too.
-      body: JSON.stringify({ ...payload, otherNeed: payload.bookingMode || payload.courseFormat
-        ? [payload.bookingMode && `預約方式：${payload.bookingMode}`, payload.courseFormat && `授課型態：${payload.courseFormat}`, payload.otherNeed].filter(Boolean).join("\n")
-        : payload.otherNeed }),
+      body: sheetBody,
       cache: "no-store",
       signal: AbortSignal.timeout(50000),
     });
@@ -91,8 +110,19 @@ export async function POST(request: Request) {
       : result.version === 2 && result.saved === true && result.requestId === payload.requestId);
     if (!confirmed) throw new Error("Save unconfirmed");
     if (result.notification === "failed") console.error("Store check saved; notification failed");
+    if (savedHqId && intake) {
+      const marked = await intake.markConsultationDelivery(savedHqId, "CONFIRMED");
+      return reply({ ok: true, saved: true, requestId: payload.requestId, hqSaved: true,
+        sheetStatus: marked ? "CONFIRMED" : "UNKNOWN" });
+    }
     return reply({ ok: true, saved: true, requestId: payload.requestId });
-  } catch {
+  } catch (error) {
+    if (intake && error instanceof intake.ConsultationRequestConflictError)
+      return reply({ ok: false, code: "REQUEST_CONFLICT" }, 409);
+    if (savedHqId && intake) {
+      try { await intake.markConsultationDelivery(savedHqId, "UNKNOWN"); } catch { /* Do not undo durable HQ receipt. */ }
+      return reply({ ok: true, saved: true, requestId: payload.requestId, hqSaved: true, sheetStatus: "UNKNOWN" });
+    }
     // Never leak upstream errors or claim that the record was not saved.
     return reply({ ok: false, code: "SAVE_UNCONFIRMED" }, 502);
   }

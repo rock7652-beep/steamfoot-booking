@@ -3189,8 +3189,56 @@ model TrialApplication {
   revision           Int      @default(1)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  consultationLeads  ConsultationLead[]
 
   @@index([status, createdAt])
+}
+
+// Stage 1 consultation/interest, separate from stage 2 account/setup intake.
+// Deploy the reviewed additive SQL manually before enabling CONSULTATION_HQ_ENABLED.
+model ConsultationLead {
+  id                 String   @id @default(uuid())
+  requestId          String   @unique
+  payloadHash        String
+  originalPayload    Json
+  storeName          String
+  contactName        String?
+  industry           String
+  phone              String?
+  lineId             String?
+  contactWay         String?
+  websiteUrl         String?
+  facebookUrl        String?
+  instagramUrl       String?
+  status             String   @default("NEW")
+  revision           Int      @default(1)
+  sheetStatus        String   @default("PENDING") // PENDING / SENDING / CONFIRMED / UNKNOWN / NOT_SENT_PREVIEW
+  sheetAttemptedAt   DateTime?
+  sheetConfirmedAt   DateTime?
+  trialApplicationId String?
+  trialLinkedAt      DateTime?
+  trialLinkedBy      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  trialApplication   TrialApplication? @relation(fields: [trialApplicationId], references: [id], onDelete: Restrict)
+  activities         ConsultationLeadActivity[]
+
+  @@index([status, createdAt])
+  @@index([sheetStatus, createdAt])
+  @@index([trialApplicationId])
+}
+
+// Append-only contact notes/status/link history, authored by an authenticated HQ admin.
+model ConsultationLeadActivity {
+  id        String   @id @default(uuid())
+  leadId    String
+  actorId   String
+  type      String
+  note      String
+  createdAt DateTime @default(now())
+  lead      ConsultationLead @relation(fields: [leadId], references: [id], onDelete: Restrict)
+
+  @@index([leadId, createdAt])
 }
 
 // Shared single-store inventory. Client roles have no direct table grants.
