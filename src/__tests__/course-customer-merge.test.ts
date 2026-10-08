@@ -10,22 +10,22 @@ const tx = {
 };
 const run = () => moveCourseCustomerRelations(tx as unknown as Prisma.TransactionClient, "own", "source", "target");
 beforeEach(() => {
-  vi.resetAllMocks(); tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValue([{ available: true }]); tx.$executeRaw.mockResolvedValue(1);
+  vi.resetAllMocks(); tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValue([{ available: true }]); tx.$executeRaw.mockResolvedValue(1);
   tx.lineRebindRequest.count.mockResolvedValue(0); tx.centralMemberLinkReviewRequest.count.mockResolvedValue(0);
   tx.messageLog.count.mockResolvedValue(0);
   tx.customerHealthRecord.updateMany.mockResolvedValue({ count: 2 }); tx.customerHealthHistoryGrant.updateMany.mockResolvedValue({ count: 1 });
 });
 it("blocks duplicate non-cancelled class participation before any write", async () => {
-  tx.$queryRaw.mockReset().mockResolvedValue([{ name: "核心", startsAt: new Date() }]);
+  tx.$queryRaw.mockReset().mockResolvedValueOnce([]).mockResolvedValue([{ name: "核心", startsAt: new Date() }]);
   await expect(run()).rejects.toThrow("都有未取消紀錄");
   expect(tx.$executeRaw).not.toHaveBeenCalled();
   expect(tx.customerHealthRecord.updateMany).not.toHaveBeenCalled();
 });
 it("records an unprovisioned optional health-history feature without hiding existing-table errors", async () => {
-  tx.$queryRaw.mockReset().mockResolvedValueOnce([]).mockResolvedValueOnce([{ available: false }]);
+  tx.$queryRaw.mockReset().mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ available: false }]);
   expect(await run()).toMatchObject({ healthRecords: 2, healthGrants: 0, healthHistoryGrantTableAvailable: false });
   expect(tx.customerHealthHistoryGrant.updateMany).not.toHaveBeenCalled();
-  tx.$queryRaw.mockReset().mockResolvedValueOnce([]).mockResolvedValueOnce([{ available: true }]);
+  tx.$queryRaw.mockReset().mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ available: true }]);
   tx.customerHealthHistoryGrant.updateMany.mockRejectedValueOnce(new Error("grant write failed"));
   await expect(run()).rejects.toThrow("grant write failed");
 });
@@ -42,4 +42,11 @@ it("moves scoped relationships without changing financial rows, quota or name sn
   for (const call of tx.$executeRaw.mock.calls) expect(call.slice(1)).toContain("own");
   expect(tx.customerHealthRecord.updateMany).toHaveBeenCalledWith({ where: { storeId: "own", customerId: "source" }, data: { customerId: "target" } });
   expect(sql.at(-1)).toContain('COALESCE("CourseBalanceReminderPreference"."stoppedAt",EXCLUDED."stoppedAt")');
+});
+
+it("blocks immutable opening rights before moving any customer binding",async()=>{
+ tx.$queryRaw.mockReset().mockResolvedValueOnce([{id:"opening-right"}]);
+ await expect(run()).rejects.toThrow("期初補課");
+ expect(tx.$executeRaw).not.toHaveBeenCalled();expect(tx.customerHealthRecord.updateMany).not.toHaveBeenCalled();
+ expect(tx.$queryRaw.mock.calls[0].slice(1)).toEqual(["own","source","target"]);
 });

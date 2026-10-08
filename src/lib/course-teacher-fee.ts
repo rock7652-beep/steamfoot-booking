@@ -1,3 +1,4 @@
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_FEE_ISSUE } from "./music-opening-runtime";
 import { compensationRule } from "./course-compensation";
 
 export type TeacherFeeSeat = {
@@ -7,6 +8,10 @@ export type TeacherFeeSeat = {
   bookingKind: string;
   absenceKind: string | null;
   originalUnitPrice: number | null;
+  openingPriceSource?: boolean;
+  openingMakeupSource?: boolean;
+  musicOpeningMakeupEntitlementId?: string | null;
+  openingIssue?: string | null;
 };
 export type TeacherFeeDetail = { id: string; name: string; base: number | null; amount: number | null; reason: string };
 export type TeacherFeeResult = { amount: number | null; issue: string | null; details: TeacherFeeDetail[] };
@@ -26,6 +31,7 @@ export function calculateTeacherFee(input: {
   trialMode?: string | null; trialBase?: number | null; seats: TeacherFeeSeat[];
 }): TeacherFeeResult {
   const result = (amount: number | null, issue: string | null = null, details: TeacherFeeDetail[] = []): TeacherFeeResult => ({ amount, issue, details });
+  if (input.seats.some(isMusicOpeningMakeupBooking)) return result(null, MUSIC_OPENING_MAKEUP_FEE_ISSUE);
   if (input.cancelled || input.teacherAttendance === "LEAVE" || input.teacherAttendance === "NO_SHOW") return result(0);
   const parsed = compensationRule.safeParse(input.rule);
   if (!parsed.success || parsed.data.mode === "HOUR") return result(null, "授課費率待核對");

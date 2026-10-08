@@ -1,4 +1,5 @@
 "use server";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
 import { z } from "zod";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
 import { assertCourseSelfBookingEnabled } from "@/server/services/course-self-booking";
@@ -15,8 +16,9 @@ import type { Prisma } from "../../../generated/course-client";
 
 const id = z.string().min(1).max(100);
 async function ownedBooking(tx: Prisma.TransactionClient, storeId: string, customerId: string, bookingId: string) {
-  const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:true,card:{include:{members:true}}}});
+  const booking = await tx.courseBooking.findFirst({where:{id:bookingId,storeId},include:{session:true,card:{include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}}}});
   if (!booking || !(booking.customerId === customerId || booking.reserverCustomerId === customerId || booking.card?.members.some(m=>m.customerId===customerId))) throw new AppError("FORBIDDEN", "無權操作此預約");
+  if (isMusicOpeningMakeupBooking(booking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   return booking;
 }
 export async function loadCourseBookingNotification(bookingId: string) {
@@ -29,7 +31,7 @@ export async function loadCourseBookingNotification(bookingId: string) {
     ]);
     const now=new Date(),window=resolveCustomerBookingWindow(config,now);
     const selfBookingEnabled = courseSelfBookingEnabled(rule);
-    const sessions=selfBookingEnabled && booking.status === "RESERVED" && !booking.session.cancelledAt ? await coursePrisma.courseSession.findMany({
+    const sessions=selfBookingEnabled && booking.status === "RESERVED" && !booking.session.cancelledAt && !booking.card?.musicOpeningStateRequired && !booking.card?.musicOpeningState ? await coursePrisma.courseSession.findMany({
       where:{storeId,id:{not:booking.sessionId},templateId:booking.session.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:["LEAVE","NO_SHOW"]},template:{isActive:true,visibility:"PUBLIC"},startsAt:{gt:new Date(Math.max(now.getTime()+(rule?.bookingLeadMinutes??0)*60000,window.opensAt?.getTime()??0)),lte:window.closesAt}},
       include:{room:{select:{name:true}},_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"},take:100,
     }) : [];
@@ -56,6 +58,8 @@ export async function rescheduleMemberCourseBooking(input: unknown) {
     const limits=await getStoreLimitsByStoreId(storeId);
     const result=await courseTransaction(storeId,async tx=>{
       const old=await ownedBooking(tx,storeId,customer.id,data.bookingId);
+      if (old.card?.musicOpeningStateRequired || old.card?.musicOpeningState || old.musicOpeningSourceLessonKey)
+        throw new AppError("VALIDATION","期初方案改期須保留來源堂次，目前請由店家核對");
       const requestKey=`course-reschedule:${old.id}:${data.sessionId}`;
       const prior=await tx.courseBooking.findUnique({where:{storeId_requestKey:{storeId,requestKey}}});
       if(prior && prior.operatorUserId===user.id && old.status==="CANCELLED" && prior.status==="RESERVED")return {bookingId:prior.id,oldSessionId:old.sessionId};

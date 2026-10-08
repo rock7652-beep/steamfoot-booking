@@ -24,6 +24,21 @@ export function resolveBookingConcurrencyTestDatabaseUrl(
   if (!LOOPBACK_HOSTS.has(url.hostname)) {
     throw new Error("Unsafe booking concurrency test database URL: loopback host is required");
   }
+  // Prisma accepts connection overrides in the query string. A loopback URL
+  // must not be able to redirect a destructive disposable-schema test.
+  const allowedOptions = new Set(["schema", "connection_limit", "pool_timeout", "connect_timeout", "sslmode"]);
+  const seenOptions = new Set<string>();
+  if (url.hash) throw new Error("Unsafe booking concurrency test database URL: fragment is forbidden");
+  for (const [name, option] of url.searchParams) {
+    if (!allowedOptions.has(name) || seenOptions.has(name)) {
+      throw new Error("Unsafe booking concurrency test database URL: connection override or duplicate option");
+    }
+    seenOptions.add(name);
+    const valid = name === "schema" ? /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(option)
+      : name === "sslmode" ? ["disable", "prefer", "require"].includes(option)
+      : /^\d{1,5}$/.test(option);
+    if (!valid) throw new Error("Unsafe booking concurrency test database URL: invalid connection option");
+  }
 
   const encodedDatabaseName = url.pathname.startsWith("/")
     ? url.pathname.slice(1)

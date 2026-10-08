@@ -94,3 +94,11 @@ it("trial reminders offer confirmation and store-owned action URLs without Steam
   expect(message).toContain("確認會到");expect(message).toContain("需要改期");expect(message).toContain("取消預約");
   expect(message).toContain("bookingId=trial");expect(message).toContain("action=reschedule");expect(message).not.toContain("/trial-booking/manage");
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{bookingKind:"TRIAL",musicOpeningMakeupEntitlementId:"right"}])("never queues or sends generic reminders for opening makeup: %j",async marker=>{
+ m.bookings.mockResolvedValue([{id:"opening",customerId:"B",...marker,session:{startsAt:new Date("2026-09-18T02:00:00Z"),endsAt:new Date("2026-09-18T03:00:00Z"),nameSnapshot:"期初補課"}}]);
+ expect(await getCourseReminderCandidates("s",now)).toEqual([]);
+ expect(await runCourseReminders(now,"s")).toMatchObject({total:0,sent:0,failed:0});
+ expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null})}));
+ for(const effect of [m.upsert,m.update,m.push,m.central])expect(effect).not.toHaveBeenCalled();
+});

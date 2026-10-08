@@ -1,4 +1,5 @@
 import "server-only";
+import { isMusicOpeningMakeupBooking } from "@/lib/music-opening-runtime";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { prisma } from "@/lib/db";
@@ -12,8 +13,9 @@ export async function notifyCourseBookingManagers(storeId:string, bookingIds:str
   try {
     const store=await prisma.store.findFirst({where:{id:storeId,industryModule:"COURSE"},select:{slug:true,name:true}});
     if(!store || !(await hasStoreFeature(storeId,FEATURES.LINE_REMINDER))) return;
-    const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,id:{in:bookingIds},status:"RESERVED",operatorCustomerId:{not:null},session:{storeId,cancelledAt:null}},include:{session:true}});
+    const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,id:{in:bookingIds},status:"RESERVED",bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,operatorCustomerId:{not:null},session:{storeId,cancelledAt:null}},include:{session:true}});
     for(const booking of bookings) {
+      if(isMusicOpeningMakeupBooking(booking))continue;
       const date=toLocalDateStr(booking.session.startsAt);
       if(date!==toLocalDateStr() || date!==toLocalDateStr(booking.createdAt)) continue;
       const url=new URL(`/s/${encodeURIComponent(store.slug)}/admin/dashboard/courses`,deriveBaseUrl());url.searchParams.set("date",date);

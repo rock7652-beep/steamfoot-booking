@@ -1,3 +1,4 @@
+import { DashboardLink } from "@/components/dashboard-link";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { EMPTY_LABELS } from "@/lib/customer-labels";
@@ -339,6 +340,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
+      {businessProfile === "MUSIC" && <DashboardLink href="/dashboard/courses/opening-makeups" className="inline-flex min-h-11 items-center self-start rounded border px-3 text-sm">期初補課權益</DashboardLink>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         key={`${storeId}:${view}`}
         view={view}

@@ -1,8 +1,11 @@
+import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
 import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
+
+assertMusicOpeningRuntimeIsolation();
 
 const globalForCourse = globalThis as unknown as {
   coursePrisma?: PrismaClient;

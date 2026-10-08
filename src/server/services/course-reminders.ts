@@ -1,5 +1,6 @@
 import { currentPreviewLineAcceptance, withAcceptanceRetryKey } from "@/lib/preview-line-acceptance";
 import "server-only";
+import { isMusicOpeningMakeupBooking } from "@/lib/music-opening-runtime";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
@@ -22,9 +23,9 @@ export async function getCourseReminderCandidates(storeId:string,now=new Date())
  const store=await prisma.store.findFirst({where:{id:storeId,industryModule:"COURSE"},select:{id:true,name:true,slug:true}});
  if(!store) throw new Error("此提醒僅適用本店課程");
  const date=addTaiwanDuration(toLocalDateStr(now),1,"DAY"),range=dayRange(date);
- const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,status:"RESERVED",session:{storeId,cancelledAt:null,startsAt:{gte:range.start,lte:range.end}}},include:{session:true}});
+ const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,status:"RESERVED",bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,session:{storeId,cancelledAt:null,startsAt:{gte:range.start,lte:range.end}}},include:{session:true}});
  const customers=await prisma.customer.findMany({where:{storeId,id:{in:bookings.map(b=>b.customerId ?? b.reserverCustomerId).filter((id): id is string => !!id)},mergedIntoCustomerId:null},select:{id:true,name:true,lineUserId:true}});
- return bookings.flatMap(booking=>{const customer=customers.find(c=>c.id===(booking.customerId ?? booking.reserverCustomerId));return customer?[{booking,customer,store,date}]:[];});
+ return bookings.filter(booking=>!isMusicOpeningMakeupBooking(booking)).flatMap(booking=>{const customer=customers.find(c=>c.id===(booking.customerId ?? booking.reserverCustomerId));return customer?[{booking,customer,store,date}]:[];});
 }
 function retryKey(id:string) {
  const hex=createHash("sha256").update(id).digest("hex");
@@ -56,7 +57,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      const existing=await tx.messageLog.findUnique({where:{id}});
      if(existing?.status==="SENT") return "SKIPPED" as const;
      // Recheck cancellation after taking the store lock used by course mutations.
-     const active=await tx.$queryRaw<Array<{id:string}>>`SELECT b.id FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b.id=${booking.id} AND b."storeId"=${store.id} AND b.status::text='RESERVED' AND s."cancelledAt" IS NULL AND s."startsAt"=${booking.session.startsAt}`;
+     const active=await tx.$queryRaw<Array<{id:string}>>`SELECT b.id FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b.id=${booking.id} AND b."storeId"=${store.id} AND b.status::text='RESERVED' AND b."bookingKind"<>'OPENING_MAKEUP' AND b."musicOpeningMakeupEntitlementId" IS NULL AND s."cancelledAt" IS NULL AND s."startsAt"=${booking.session.startsAt}`;
      if(!active.length) return "SKIPPED" as const;
      await tx.messageLog.upsert({where:{id},create:{id,ruleId:rule.id,templateId:rule.templateId,customerId:customer.id,storeId:store.id,courseBookingId:booking.id,triggerAt,channel:"LINE",status:"PENDING",renderedBody:body},update:{status:"PENDING",errorMessage:null,renderedBody:body}});
      const skip=async(reason:string)=>{await tx.messageLog.update({where:{id},data:{status:"SKIPPED",errorMessage:reason}});return "SKIPPED" as const;};

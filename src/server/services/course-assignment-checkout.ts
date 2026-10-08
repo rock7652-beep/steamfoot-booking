@@ -14,6 +14,8 @@ export async function lockCourseCashDay(tx:Prisma.TransactionClient,storeId:stri
 /** Caller checks wallet.create, transaction.create and discount permission, and holds the store lock. */
 export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor:{storeId:string;userId:string;music?:boolean},data:CourseCheckoutInput & {planId:string;customerId:string;expiresDate:string;requestKey:string}) {
   const {storeId,userId}=actor;
+  if ("musicOpeningState" in data || "musicOpeningStateRequired" in data || "sourceKey" in data || "openingBalance" in data)
+    throw new AppError("VALIDATION","期初資料不可經新增購買或收款流程建立");
   const revenueStaffId = actor.music ? null : data.revenueStaffId || null;
   const total=calculateCourseCheckout(data.expectedListPrice,data.discountKind,data.discountValue);
   const method=total.paid===0?"DISCOUNT":data.paymentMethod;
@@ -22,6 +24,7 @@ export async function assignCourseWithCheckout(tx:Prisma.TransactionClient,actor
   const previous=await tx.coursePurchase.findUnique({where:{storeId_requestKey:{storeId,requestKey:data.requestKey}}});
   if(previous){
     const card=previous.cardId?await tx.coursePointCard.findFirst({where:{id:previous.cardId,storeId}}):null;
+    if (card?.musicOpeningStateRequired) throw new AppError("CONFLICT","期初方案不可重走結帳收款");
     if((data.musicPurchaseTerms!==undefined && previous.musicTermSizes.length!==data.musicPurchaseTerms)||(data.musicValidityDays!==undefined && previous.validDays!==data.musicValidityDays)||(previous.musicManualBonus??0)!==(data.musicManualBonus??0)||(previous.musicJoinSessionId??null)!==(data.musicJoinSessionId??null)||previous.revenueStaffId!==revenueStaffId||previous.customerId!==data.customerId||previous.planId!==data.planId||previous.listPrice!==data.expectedListPrice||previous.discountKind!==data.discountKind||Number(previous.discountValue)!==data.discountValue||previous.price!==total.paid||previous.paymentMethod!==method||previous.transferLastFour!==lastFour||(!card?.musicValidityDays && card?.expiresAt.getTime()!==dayRange(data.expiresDate).end.getTime())) throw new AppError("CONFLICT","結帳請求已使用，請重新核對");
     return previous;
   }

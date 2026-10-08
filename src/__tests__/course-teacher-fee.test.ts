@@ -28,3 +28,19 @@ it("keeps zero, fixed amount and unset fee distinct in a settlement snapshot",()
  expect(capturedTeacherFee({rule:{mode:"CLASS",value:500},revision:1},attended)).toMatchObject({amount:500,issue:null});
  expect(capturedTeacherFee({rule:null,revision:1},attended).amount).toBeNull();
 });
+
+it.each([
+ {bookingKind:"OPENING_MAKEUP"},
+ {musicOpeningMakeupEntitlementId:"opening-right"},
+ {openingMakeupSource:true},
+])("keeps opening makeup UNVERIFIED across fixed/share/legacy and zero shortcuts: %j", marker=>{
+ const seats=[{...seat,...marker}];
+ for(const mode of ["CLASS","SHARE"]){
+  for(const teacherAttendance of ["SCHEDULED","LEAVE","NO_SHOW"]){
+   expect(calculateTeacherFee({rule:{mode,value:60},teacherAttendance,seats})).toMatchObject({amount:null,issue:expect.stringContaining("UNVERIFIED")});
+   for(const calculationVersion of [undefined,2])expect(capturedTeacherFee({rule:{mode,value:60,calculationVersion},revision:1,teacherAttendance,musicPricePerLesson:800},seats)).toMatchObject({amount:null,issue:expect.stringContaining("UNVERIFIED")});
+  }
+ }
+ expect(calculateTeacherFee({rule:{mode:"CLASS",value:0},cancelled:true,seats}).amount).toBeNull();
+ expect(capturedTeacherFee({rule:{mode:"CLASS",value:0},revision:0,cancelledAt:new Date()},seats).amount).toBeNull();
+});

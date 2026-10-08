@@ -1,4 +1,5 @@
 "use server";
+import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
@@ -122,6 +123,11 @@ export async function saveCourseStaff(input: unknown) {
         });
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
+        if (existing) await assertMusicSourceTeacherDraftEditable(tx, existing, storeId);
+        if (d.linkedStaffId) {
+          const linked = await tx.staff.findFirst({ where: { id: d.linkedStaffId, storeId }, select: { id: true, userId: true } });
+          if (linked) await assertMusicSourceTeacherDraftEditable(tx, linked, storeId);
+        }
         if (!d.id && existing) return;
         if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(getEffectiveActorRole(user), existing.user.role))
           throw new AppError("FORBIDDEN", "店長只能管理門市人員");

@@ -1,5 +1,7 @@
 "use server";
 
+import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
+
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
@@ -278,6 +280,7 @@ export async function updateStaff(
     await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      await assertMusicSourceTeacherDraftEditable(tx, current, writeStoreId);
       const storedPermissions = (await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission).sort();
       const actorGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       if (current.userId === sessionUser.id || !canManageStaffRole(getEffectiveActorRole(sessionUser), current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
@@ -362,6 +365,7 @@ export async function deactivateStaff(staffId: string): Promise<ActionResult<voi
     await prisma.$transaction(async tx => {
       await assertStoreRetainsOwner(tx, writeStoreId, staffId);
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      await assertMusicSourceTeacherDraftEditable(tx, current, writeStoreId);
       await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       if (current.userId === sessionUser.id || !canManageStaffRole(getEffectiveActorRole(sessionUser), current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
       await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "INACTIVE" } });
@@ -408,6 +412,7 @@ export async function resetStaffPasswordAction(
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
       await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       const current = await tx.staff.findUniqueOrThrow({ where: { id: targetStaff.id }, include: { user: true } });
+      await assertMusicSourceTeacherDraftEditable(tx, current, writeStoreId);
       if (!canManageStaffRole(getEffectiveActorRole(sessionUser), current.user.role) || current.user.role === "ADMIN") throw new AppError("FORBIDDEN", "無權管理此帳號");
       await tx.user.update({ where: { id: data.userId }, data: { passwordHash } });
       await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
@@ -451,6 +456,7 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
       await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       const target = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      await assertMusicSourceTeacherDraftEditable(tx, target, writeStoreId);
       if (!canManageStaffRole(getEffectiveActorRole(sessionUser), target.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId } });
@@ -507,6 +513,7 @@ export async function updateStaffPermissionsAction(
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
       const actorGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      await assertMusicSourceTeacherDraftEditable(tx, current, writeStoreId);
       if (current.userId === sessionUser.id || !canManageStaffRole(getEffectiveActorRole(sessionUser), current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
       if (current.user.role === "OWNER" || current.user.role === "ADMIN") throw new AppError("FORBIDDEN", "老闆權限全開放，請以角色調整管理帳號");
       const before = new Set((await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission));

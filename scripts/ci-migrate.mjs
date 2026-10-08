@@ -36,6 +36,12 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "music-opening-preview") {
+  // Opening schema is separately approved and checked by the read-only preflight.
+  // Never apply unrelated pending migrations in this isolated Preview.
+  console.info("[music-opening-preview-preflight] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "course-self-booking-preview") {
   const { verifyCourseSelfBookingPreviewReadiness } = await import("./course-self-booking-preview-scope.mjs");
   await verifyCourseSelfBookingPreviewReadiness(process.env);

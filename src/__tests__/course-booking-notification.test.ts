@@ -40,6 +40,13 @@ it("does not release a booking when the cancellation deadline fails",async()=>{
  expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false});expect(m.reserve).not.toHaveBeenCalled();
 });
 
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("blocks customer trial confirmation and rescheduling for either opening marker: %j",async marker=>{
+ m.booking.mockResolvedValue({...original(),...marker});
+ expect(await confirmMemberCourseTrial("old")).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ for(const write of [m.exec,m.reserve,m.settle,m.payments])expect(write).not.toHaveBeenCalled();
+});
+
 it.each(["TRIAL", "CARD"])("blocks %s rescheduling before cancelling when student self-booking is off", async bookingKind => {
  m.booking.mockResolvedValue({...original(),bookingKind,...(bookingKind === "CARD" ? {cardId:"card",card:{termSessionIds:[],members:[{customerId:"member"}]}} : {})});
  m.rules.mockResolvedValue({selfBookingEnabled:false});
@@ -72,4 +79,18 @@ it("loads available rescheduling sessions for legacy enabled stores", async()=>{
  m.config.mockResolvedValue({bookableUntilDate:new Date("2099-12-31"),bookingWindowDays:14});
  expect(await loadCourseBookingNotification("old")).toMatchObject({success:true,selfBookingEnabled:true});
  expect(m.sessions).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"s",templateId:"t"})}));
+});
+
+// Merge contract: disabling student self-booking must never reopen imported
+// lesson routes, and enabling it must not bypass their source-binding safeguards.
+it.each([true, false])("keeps opening-state reschedule candidates hidden with self-booking=%s", async selfBookingEnabled => {
+ for (const marker of [{musicOpeningStateRequired:true}, {musicOpeningState:{id:"synthetic-opening"}}]) {
+  m.booking.mockResolvedValue({...original(),bookingKind:"CARD",cardId:"card",card:{termSessionIds:[],members:[{customerId:"member"}],...marker}});
+  m.rules.mockResolvedValue({selfBookingEnabled});
+  m.config.mockResolvedValue({bookableUntilDate:new Date("2099-12-31"),bookingWindowDays:14});
+  expect(await loadCourseBookingNotification("old")).toMatchObject({success:true,selfBookingEnabled,sessions:[]});
+  expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:expect.stringContaining("期初方案改期")});
+  expect(m.sessions).not.toHaveBeenCalled();expect(m.target).not.toHaveBeenCalled();
+  for (const write of [m.exec,m.reserve,m.settle,m.payments]) expect(write).not.toHaveBeenCalled();
+ }
 });

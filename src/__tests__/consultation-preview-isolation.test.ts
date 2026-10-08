@@ -147,7 +147,7 @@ describe("release-bound consultation Preview preflight", () => {
   });
 
   it("keeps the build command and preflights before every migration and Next config path", () => {
-    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/ci-migrate.mjs && npm run generate:clients && next build");
+    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/music-opening-preflight.mjs && node scripts/ci-migrate.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const check = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(check).toBeGreaterThan(-1);

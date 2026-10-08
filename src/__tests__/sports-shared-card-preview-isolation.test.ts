@@ -1,3 +1,4 @@
+// Synthetic URL-only fixtures. No password, network connection or live credentials.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -9,9 +10,9 @@ import {
   isSportsSharedCardProductionRelease,
 } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
-const direct = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
-const pooled = "postgresql://postgres.ttworfzgwejdeolegkxl:fixture@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
-const production = "postgresql://postgres:fixture@db.qijlnhtpbintanzpxkvf.supabase.co/postgres";
+const direct = "postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
+const pooled = "postgresql://postgres.ttworfzgwejdeolegkxl@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
+const production = "postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres";
 const valid = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: SPORTS_SHARED_CARD_PREVIEW_BRANCH, VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", DATABASE_URL: pooled, DIRECT_URL: direct };
 const invalidConnections = [
   undefined, "", "invalid", production,
@@ -20,7 +21,7 @@ const invalidConnections = [
   direct.replace(".supabase.co", ".supabase.co.attacker.invalid"),
   pooled.replace("aws-0-ap-northeast-1.pooler.supabase.com", "unverified.invalid"),
   direct.replace("/postgres", "/other"),
-  direct.replace("postgres:fixture", "other:fixture"),
+  direct.replace("postgres@", "other@"),
   direct.replace(".co/postgres", ".co:6543/postgres"),
   pooled.replace(":6543/", ":5433/"),
   ...[
@@ -115,7 +116,7 @@ describe("sports shared-card Preview preflight", () => {
 
   it("keeps the build chain intact and places preflight before all migration bodies", () => {
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
-    expect(scripts.build).toBe("node scripts/ci-migrate.mjs && npm run generate:clients && next build");
+    expect(scripts.build).toBe("node scripts/music-opening-preflight.mjs && node scripts/ci-migrate.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const preflight = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(preflight).toBeGreaterThan(-1);

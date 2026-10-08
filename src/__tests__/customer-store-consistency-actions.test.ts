@@ -105,6 +105,22 @@ beforeEach(() => {
 });
 
 describe("customer actions — store consistency", () => {
+  it("checks the resolved write-store quota rather than borrowing the account's read-store quota", async () => {
+    h.requireWritablePermission.mockResolvedValueOnce({ id: USER_ID, role: "OWNER", storeId: "store-lubymusic", staffId: STAFF_TAICHUNG });
+    h.resolveWriteStoreId.mockResolvedValueOnce("store-taichung");
+    h.customerCount.mockResolvedValueOnce(100);
+    h.checkCustomerLimitOrThrow.mockImplementationOnce(async (_count: number, storeId?: string) => {
+      if (storeId === "store-taichung") throw new Error("Native customer quota reached");
+    });
+    const { createCustomer } = await import("@/server/actions/customer");
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await createCustomer({ name: "Synthetic customer", phone: "0900000000" });
+    error.mockRestore();
+    expect(result.success).toBe(false);
+    expect(h.checkCustomerLimitOrThrow).toHaveBeenCalledWith(100, "store-taichung");
+    expect(h.customerCreate).not.toHaveBeenCalled();
+  });
+
   it("allows same-store createCustomer with an active assigned staff", async () => {
     const { createCustomer } = await import("@/server/actions/customer");
     const result = await createCustomer({

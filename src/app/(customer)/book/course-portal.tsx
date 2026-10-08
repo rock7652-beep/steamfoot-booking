@@ -1,3 +1,4 @@
+import { isMusicOpeningMakeupBooking } from "@/lib/music-opening-runtime";
 import { courseCardPublicMembers } from "@/lib/course-card-public-members";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { authorizeFrontendPreview, resolveCoursePreviewIdentity, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
@@ -93,6 +94,28 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
+  // Independent opening rights are visible only to their own learner. Shared
+  // cards/reserver identity never grant access to another learner's entitlement.
+  const memberBookingAccess = {
+    OR: [
+      {
+        bookingKind: { not: "OPENING_MAKEUP" },
+        musicOpeningMakeupEntitlementId: null,
+        OR: [
+          { cardId: { in: cards.map(card => card.id) } },
+          { bookingKind: "TRIAL", customerId: customer.id },
+          { reserverCustomerId: customer.id },
+        ],
+      },
+      {
+        bookingKind: "OPENING_MAKEUP", customerId: customer.id,
+        cardId: null, pointCost: 0, makeupForBookingId: null,
+        musicOpeningMakeupEntitlement: { is: { storeId, customerId: customer.id } },
+      },
+    ],
+  };
+  const cardProjectionById = new Map(cards.map(card=>[card.id,card]));
+  const projectedExpiry = (cardId:string|null,fallback:Date|null|undefined) => { const card=cardProjectionById.get(cardId??"");return card?card.expiresAt:fallback?.toISOString()??null; };
   const sessionInclude = {
     room: { select: { name: true } },
     template: { select: { precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
@@ -139,7 +162,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findMany({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
+            ...memberBookingAccess,
             session: { startsAt: { gte: range.start, lte: range.end } },
           },
           include: {
@@ -208,7 +231,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findFirst({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
+            ...memberBookingAccess,
             status: "RESERVED",
             session: { cancelledAt: null, startsAt: { gte: now } },
           },
@@ -286,11 +309,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             storeId,
             sessionId: nextBooking.sessionId,
             status: "RESERVED",
-            OR: [
-              { cardId: { in: cards.map((card) => card.id) } },
-              { bookingKind: "TRIAL", customerId: customer.id },
-              { reserverCustomerId: customer.id },
-            ],
+            ...memberBookingAccess,
           },
           select: { id: true, customerId: true, customerName: true },
           orderBy: { createdAt: "asc" },
@@ -339,6 +358,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     })),
     nextBooking: nextBooking
       ? {
+          openingMakeup: isMusicOpeningMakeupBooking(nextBooking),
           name: nextBooking.session.nameSnapshot,
           startsAt: nextBooking.session.startsAt.toISOString(),
           coach: coachNames.get(nextBooking.session.coachId) ?? "教練待確認",
@@ -375,6 +395,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     })),
     bookings: bookings.map((b) => ({
       id: b.id,
+      openingMakeup: isMusicOpeningMakeupBooking(b),
       sessionId: b.sessionId,
       name: b.session.nameSnapshot,
       startsAt: b.session.startsAt.toISOString(),
@@ -389,9 +410,9 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       cost: b.pointCost,
       trialPaid: b.trialPayments.at(0)?.amount ?? null,
       trialPrice: b.trialPrice,
-      unit: b.card?.unit ?? "TRIAL",
-      planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
-      expiresAt: b.card?.expiresAt.toISOString() ?? null,
+      unit: isMusicOpeningMakeupBooking(b) ? "SESSION" : b.card?.unit ?? "TRIAL",
+      planName: isMusicOpeningMakeupBooking(b) ? "期初補課（獨立權益，請由店家處理）" : b.card?.nameSnapshot ?? "體驗（不使用方案）",
+      expiresAt: projectedExpiry(b.cardId,b.card?.expiresAt),
     })),
     work: work.map((s) => ({
       id: s.id,
@@ -406,18 +427,18 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         cardId: b.cardId,
         companionIndex: b.companionIndex,
         reserverName: b.reserverName,
-        canAddCompanion: sharedCardState === "ENABLED" && !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
+        canAddCompanion: !isMusicOpeningMakeupBooking(b) && sharedCardState === "ENABLED" && !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
         customerName: b.customerName,
         status: b.status,
         checkedIn: !!b.checkedInAt,
         updatedAt: b.updatedAt.toISOString(),
         notes: b.notes,
         serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
-        available: b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null,
+        available: cardProjectionById.get(b.cardId??"")?.available ?? (b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null),
         cost: b.pointCost,
-        unit: b.card?.unit ?? "TRIAL",
-        planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
-        expiresAt: b.card?.expiresAt.toISOString() ?? null,
+        unit: isMusicOpeningMakeupBooking(b) ? "SESSION" : b.card?.unit ?? "TRIAL",
+        planName: isMusicOpeningMakeupBooking(b) ? "期初補課（獨立權益，請由店家處理）" : b.card?.nameSnapshot ?? "體驗（不使用方案）",
+        expiresAt: projectedExpiry(b.cardId,b.card?.expiresAt),
       })),
     })),
     orders: orders.map((o) => ({

@@ -1,4 +1,5 @@
 "use server";
+import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -28,8 +29,9 @@ export async function scheduleTeacherMakeup(input: unknown) {
     const startsAt=parseTaipeiDateTime(data.date,data.time);
     if(!startsAt || startsAt <= new Date())throw new AppError("VALIDATION","請選擇未來的補課時段");
     const created=await courseTransaction(storeId,async(tx)=>{
-      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:"TEACHER_ABSENT"}]}}}});
+      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:"TEACHER_ABSENT"},{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:{not:null}}]}}}});
       if(!source || source.teacherAttendance!=="NO_SHOW")throw new AppError("VALIDATION","請先記錄老師曠課");
+      if(source.bookings.some(isMusicOpeningMakeupBooking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if(!source.bookings.length)throw new AppError("VALIDATION","這堂沒有需要補課的學員");
       if(source.bookings.some(booking=>booking.status==="ATTENDED"))throw new AppError("CONFLICT","這堂已有出席紀錄，請先核對再安排免費補課");
       if(await tx.courseSession.findFirst({where:{storeId,teacherMakeupForSessionId:source.id,cancelledAt:null}}))throw new AppError("CONFLICT","這堂已安排免費補課");
@@ -248,10 +250,14 @@ export async function updateCourseSession(input: unknown) {
           where: {
             storeId,
             sessionId: session.id,
-            status: { not: "CANCELLED" },
+            ...MUSIC_OPENING_CALENDAR_BOOKINGS,
           },
-          include: { card: { select: { expiresAt: true } } },
+          include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
         });
+        for (const booking of bookings) {
+          const issue = musicOpeningSessionChangeIssue(storeId, {...booking,session:{startsAt:session.startsAt}}, range.startsAt);
+          if (issue) throw new AppError("VALIDATION",issue);
+        }
         if (bookings.some((b) => b.status === "ATTENDED"))
           throw new AppError(
             "CONFLICT",
@@ -262,7 +268,7 @@ export async function updateCourseSession(input: unknown) {
             "CONFLICT",
             "新日期超過已預約方案期限，尚未修改排課",
           );
-        if (data.capacity < bookings.length)
+        if (data.capacity < bookings.filter(booking=>booking.status!=="CANCELLED").length)
           throw new AppError("CONFLICT", "人數上限不能少於已預約人數");
         if (bookings.length && (data.pointCost !== session.pointCost || (data.templateId && data.templateId !== session.templateId)))
           throw new AppError(
@@ -568,8 +574,8 @@ export async function moveCourseSessions(input: unknown) {
         where: { id: d.id, storeId, cancelledAt: null },
         include: {
           bookings: {
-            where: { status: { not: "CANCELLED" } },
-            include: { card: { select: { expiresAt: true } } },
+            where: MUSIC_OPENING_CALENDAR_BOOKINGS,
+            include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
           },
         },
       });
@@ -599,8 +605,8 @@ export async function moveCourseSessions(input: unknown) {
             },
             include: {
               bookings: {
-                where: { status: { not: "CANCELLED" } },
-                include: { card: { select: { expiresAt: true } } },
+                where: MUSIC_OPENING_CALENDAR_BOOKINGS,
+                include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
               },
             },
             orderBy: { startsAt: "asc" },
@@ -641,6 +647,10 @@ export async function moveCourseSessions(input: unknown) {
           },
           change.session,
         );
+        for (const booking of change.session.bookings) {
+          const issue = musicOpeningSessionChangeIssue(storeId,{...booking,session:{startsAt:change.session.startsAt}},change.startsAt);
+          if (issue) throw new AppError("VALIDATION",issue);
+        }
         if (change.session.bookings.some((booking) => booking.status === "ATTENDED"))
           throw new AppError("CONFLICT", "已完成的課程不可調整");
         if (change.session.bookings.some((booking) => booking.card && booking.card.expiresAt < change.startsAt))
@@ -892,8 +902,8 @@ export async function updateCourseSeries(input: unknown) {
           },
           include: {
             bookings: {
-              where: { status: { not: "CANCELLED" } },
-              include: { card: { select: { expiresAt: true } } },
+              where: MUSIC_OPENING_CALENDAR_BOOKINGS,
+              include: { card: { select: MUSIC_OPENING_CARD_SELECT } },
             },
           },
           orderBy: { startsAt: "asc" },
@@ -911,6 +921,10 @@ export async function updateCourseSeries(input: unknown) {
       }));
       for (const change of changes) {
         await assertCourseResources(tx,storeId,{...d,templateId:d.templateId ?? change.session.templateId},change.session);
+        for (const booking of change.session.bookings) {
+          const issue = musicOpeningSessionChangeIssue(storeId,{...booking,session:{startsAt:change.session.startsAt}},change.startsAt);
+          if (issue) throw new AppError("VALIDATION",issue);
+        }
         if (change.session.bookings.some((b) => b.status === "ATTENDED"))
           throw new AppError("CONFLICT", "包含已完成點名的課程，整批尚未修改");
         if (
@@ -923,7 +937,7 @@ export async function updateCourseSeries(input: unknown) {
             "新日期超過已預約方案期限，整批尚未修改",
           );
         if (
-          change.session.bookings.length > d.capacity ||
+          change.session.bookings.filter(booking=>booking.status!=="CANCELLED").length > d.capacity ||
           (change.session.bookings.length &&
             (change.session.pointCost !== d.pointCost || (d.templateId && d.templateId !== change.session.templateId)))
         )
