@@ -74,7 +74,7 @@ export async function createCustomer(
     const currentCustomerCount = await prisma.customer.count({
       where: { storeId },
     });
-    await checkCustomerLimitOrThrow(currentCustomerCount);
+    await checkCustomerLimitOrThrow(currentCustomerCount, storeId);
 
     // assignedStaffId 現在是選填
     let assignedStaffId: string | undefined;

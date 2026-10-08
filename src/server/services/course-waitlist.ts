@@ -1,3 +1,5 @@
+import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
+import { assertCourseSelfBookingEnabled } from "./course-self-booking";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
 import "server-only";
 
@@ -89,6 +91,7 @@ export async function joinCourseWaitlist(
       `,
       tx.courseBookingRule.findUnique({ where: { storeId: actor.storeId } }),
     ]);
+    if (actor.customerId) assertCourseSelfBookingEnabled(rule);
     if (!session) fail("找不到本店有效課程");
     if (!card) fail("找不到本店有效方案");
     const activeSession = session!;
@@ -234,8 +237,12 @@ export async function promoteCourseWaitlistForSession(
   tx: Prisma.TransactionClient,
   storeId: string,
   sessionId: string,
-  options: { ignoreCutoff?: boolean } = {},
+  options: { ignoreCutoff?: boolean; manual?: boolean } = {},
 ): Promise<PromotedWaitlistBooking[]> {
+  // All callers hold the same store lock as settings writes. Pause before any
+  // per-entry processing: disabled self-booking must never turn WAITING into SKIPPED.
+  const rule = await tx.courseBookingRule.findUnique({ where: { storeId } });
+  if (!options.manual && !courseSelfBookingEnabled(rule)) return [];
   const settings = await getCourseWaitlistSettings(storeId, tx);
   if (!settings.featureAvailable || !settings.enabled) return [];
   const session = await tx.courseSession.findFirst({
@@ -287,7 +294,7 @@ export async function promoteCourseWaitlistForSession(
             requestKey: `waitlist-promote:${entry.id}`,
           },
           limits.maxMonthlyBookings,
-          { existingWaitlistEntryId: entry.id },
+          { existingWaitlistEntryId: entry.id, ...(options.manual ? { manualWaitlistPromotion: true } : {}) },
         );
         groupBookings.push({ entry, booking });
       }

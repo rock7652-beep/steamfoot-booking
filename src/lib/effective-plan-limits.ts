@@ -29,7 +29,7 @@ export function getEffectivePlanLimits(
   assertMusicOpeningPreviewEnvironment(env);
   if (store.id !== MUSIC_OPENING_STORE) return baseline;
 
-  // These two subscription quotas are the entire exception. Class capacity,
+  // These three subscription quotas are the entire exception. Class capacity,
   // conflicts, card balance, deductions, permissions and other quotas stay native.
-  return { ...baseline, maxStaff: null, maxMonthlyBookings: null };
+  return { ...baseline, maxStaff: null, maxCustomers: null, maxMonthlyBookings: null };
 }

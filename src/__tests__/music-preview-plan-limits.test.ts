@@ -22,11 +22,11 @@ beforeEach(() => { for (const [key, value] of Object.entries(safe)) vi.stubEnv(k
 afterEach(() => vi.unstubAllEnvs());
 
 describe("server-only exact music Preview subscription quotas", () => {
-  it("changes exactly staff and monthly bookings, leaving the isomorphic plan and stored inputs untouched", () => {
+  it("changes exactly staff, customers and monthly bookings, leaving the isomorphic plan and stored inputs untouched", () => {
     const before = structuredClone(store), plans = structuredClone(PLAN_LIMITS), features = getPlanFeatures(store.plan);
     const baseline = getPlanLimits(store);
-    expect(baseline.maxStaff).toBe(3); expect(baseline.maxMonthlyBookings).toBe(100);
-    expect(getEffectivePlanLimits(store)).toEqual({ ...baseline, maxStaff: null, maxMonthlyBookings: null });
+    expect(baseline.maxStaff).toBe(3); expect(baseline.maxCustomers).toBe(100); expect(baseline.maxMonthlyBookings).toBe(100);
+    expect(getEffectivePlanLimits(store)).toEqual({ ...baseline, maxStaff: null, maxCustomers: null, maxMonthlyBookings: null });
     expect(store).toEqual(before); expect(PLAN_LIMITS).toEqual(plans);
     expect(getPlanLimits(store)).toEqual(baseline); expect(getPlanFeatures(store.plan)).toEqual(features);
   });
@@ -34,7 +34,7 @@ describe("server-only exact music Preview subscription quotas", () => {
     for (const candidate of [
       { ...store, maxStaffOverride: 7, maxMonthlyBookingsOverride: 8, maxCustomersOverride: 9, maxMonthlyReportsOverride: 10, maxReminderSendsOverride: 11, maxStoresOverride: 12 },
       { ...store, planStatus: "TRIAL", planEffectiveAt: new Date("2026-10-01"), planExpiresAt: new Date("2026-10-30") },
-    ]) expect(getEffectivePlanLimits(candidate)).toEqual({ ...getPlanLimits(candidate), maxStaff: null, maxMonthlyBookings: null });
+    ]) expect(getEffectivePlanLimits(candidate)).toEqual({ ...getPlanLimits(candidate), maxStaff: null, maxCustomers: null, maxMonthlyBookings: null });
   });
   it.each(["store-other-music", "store-lubymusic-copy", "store-zhubei", "__all__", ""])("retains the native quotas for %s", id => {
     const candidate = { ...store, id };
@@ -88,7 +88,7 @@ describe("server-only exact music Preview subscription quotas", () => {
   });
   it("does not grant a unit-test bypass and preserves explicit legacy baselines", () => {
     const legacy = { ...PLAN_LIMITS.EXPERIENCE, maxStaff: 17, maxCustomers: 29 };
-    expect(getEffectivePlanLimits(store, legacy)).toEqual({ ...legacy, maxStaff: null, maxMonthlyBookings: null });
+    expect(getEffectivePlanLimits(store, legacy)).toEqual({ ...legacy, maxStaff: null, maxCustomers: null, maxMonthlyBookings: null });
     vi.stubEnv("NODE_ENV", "test"); vi.stubEnv("VERCEL", undefined);
     expect(() => getEffectivePlanLimits(store)).toThrow();
   });

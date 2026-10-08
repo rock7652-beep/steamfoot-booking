@@ -304,6 +304,8 @@ model CoursePointEntry {
 
 model CourseBookingRule {
   storeId String @id
+  selfBookingEnabled Boolean @default(true)
+  selfBookingRevision Int @default(0)
   bookingLeadMinutes Int @default(0)
   cancellationLeadMinutes Int @default(0)
   @@map("CourseBookingRule")

@@ -366,7 +366,7 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
   }
 
   const limits = getEffectivePlanLimits(trialStore, PLAN_LIMITS.EXPERIENCE);
-  const maxCustomers = limits.maxCustomers ?? 100;
+  const maxCustomers = limits.maxCustomers ?? Infinity;
   const maxBookings = limits.maxMonthlyBookings ?? Infinity;
 
   // 取 ShopConfig.createdAt 作為 trial 起算日（建店日期）
@@ -430,8 +430,8 @@ export async function checkCustomerLimit(storeId: string): Promise<{ allowed: bo
   const plan = await getStorePlan(storeId);
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 
-  const limits = PLAN_LIMITS.EXPERIENCE;
-  const maxCustomers = limits.maxCustomers ?? 100;
+  const limits = getEffectivePlanLimits(trialStore, PLAN_LIMITS.EXPERIENCE);
+  const maxCustomers = limits.maxCustomers ?? Infinity;
 
   const config = await getShopConfig(storeId);
   const trialExpired = isTrialExpired(config.createdAt);

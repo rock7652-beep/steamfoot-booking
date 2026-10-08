@@ -92,9 +92,9 @@ it("guards run before the reviewed migration runner and next build",()=>{
  expect(build.startsWith("node scripts/music-opening-preflight.mjs && node scripts/ci-migrate.mjs &&")).toBe(true);
  expect(readFileSync("scripts/music-opening-preflight.mjs","utf8")).toContain("await runMusicOpeningSchemaPreflight()");
  expect(build).toContain("npm run generate:clients && next build");
- // Retain current public main ef25 deployment settings byte-for-byte; isolation is in the program guards.
+ // Retain current public main 1e57 deployment settings byte-for-byte; isolation is in the program guards.
  const config=readFileSync("vercel.json","utf8");
- expect(createHash("sha1").update(`blob ${Buffer.byteLength(config)}\0`).update(config).digest("hex")).toBe("0531e4780c87e6c5951b9b9b8569a4f1c3b48487");
+ expect(createHash("sha1").update(`blob ${Buffer.byteLength(config)}\0`).update(config).digest("hex")).toBe("97a63c00350cd2be2faae487d2386d2ce311651b");
  const startup=readFileSync("src/instrumentation.ts","utf8");expect(startup).toContain("await runMusicOpeningSchemaPreflight()");
  for(const file of ["src/lib/db.ts","src/lib/course-db.ts","src/lib/spa-db.ts"]) {
   const code=readFileSync(file,"utf8");expect(code.indexOf("assertMusicOpeningRuntimeIsolation();")).toBeLessThan(code.indexOf("new PrismaClient"));

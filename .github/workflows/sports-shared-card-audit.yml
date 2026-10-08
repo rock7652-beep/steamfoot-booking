@@ -11,6 +11,7 @@ on:
       - 'src/lib/feature-gate.ts'
       - 'src/lib/store-feature-*.ts'
       - 'src/__tests__/course-companions.pg.test.ts'
+      - 'src/__tests__/course-booking-notification.pg.test.ts'
       - 'src/__tests__/helpers/booking-concurrency-test-db.ts'
       - 'course-prisma/**'
       - 'supabase/migrations/*course_companion_booking.sql'
@@ -61,17 +62,29 @@ jobs:
         run: >-
           npx vitest run src/__tests__/course-companions.pg.test.ts
           --reporter=default --reporter=json --outputFile=sports-shared-card-pg-results.json
-      - name: Require all seven PostgreSQL scenarios without skips
+      - name: Require all fourteen PostgreSQL scenarios without skips
         run: |
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("sports-shared-card-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 7 || r.numPassedTests !== 7 || r.numPendingTests !== 0)
-              throw new Error("All seven sports shared-card PostgreSQL scenarios must pass without skips");
+            if (!r.success || r.numTotalTests !== 14 || r.numPassedTests !== 14 || r.numPendingTests !== 0)
+              throw new Error("All fourteen sports shared-card PostgreSQL scenarios must pass without skips");
+          '
+      - name: Exercise notification rescheduling and disabled student-booking rollback against PostgreSQL
+        run: npx vitest run src/__tests__/course-booking-notification.pg.test.ts --reporter=default --reporter=json --outputFile=course-notification-pg-results.json
+      - name: Require all six notification database scenarios without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-notification-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 6 || r.numPassedTests !== 6 || r.numPendingTests !== 0)
+              throw new Error("All six notification PostgreSQL scenarios must pass without skips");
           '
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sports-shared-card-pg-results
-          path: sports-shared-card-pg-results.json
+          path: |
+            sports-shared-card-pg-results.json
+            course-notification-pg-results.json
           retention-days: 7

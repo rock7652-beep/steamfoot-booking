@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn() }));
+const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn() }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not found"); }, redirect: () => { throw new Error("redirect"); } }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", staffId: "staff" }) }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true }));
@@ -7,7 +7,7 @@ vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "a" }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "course" }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async()=>null }, store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: async () => null }, courseWaitlistSetting: { findUnique: async () => null } } }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: m.rule }, courseWaitlistSetting: { findUnique: async () => null } } }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: m.usage }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
 vi.mock("@/lib/shop-config", () => ({ DEFAULT_BOOKABLE_DAYS_AHEAD: 14, TRIAL_DEFAULTS: { trialEnabled: true, trialDefaultPrice: 499 } }));
@@ -36,4 +36,15 @@ describe("course settings server summaries", () => {
     m.feature.mockResolvedValue(true); m.view.mockResolvedValue({ isViewMode: true });
     const p = await props(); for (const key of ["canEdit", "canPayment", "canTrial", "canDutyManage", "canDigitalButler", "canReferralShare", "canReminders"]) expect(p[key], key).toBe(false);
   });
+});
+
+it("passes the self-booking flag and revision through both editable and read-only settings",async()=>{
+  m.rule.mockResolvedValue({selfBookingEnabled:false,selfBookingRevision:7});
+  expect(await props()).toMatchObject({selfBookingEnabled:false,selfBookingRevision:7});
+  m.view.mockResolvedValue({isViewMode:true});
+  expect(await props()).toMatchObject({selfBookingEnabled:false,selfBookingRevision:7,canEdit:false});
+});
+it("defaults older stores to enabled revision zero",async()=>{
+  m.rule.mockResolvedValue(null);
+  expect(await props()).toMatchObject({selfBookingEnabled:true,selfBookingRevision:0});
 });
