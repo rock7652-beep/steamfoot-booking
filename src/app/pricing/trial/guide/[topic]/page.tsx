@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MarketingBrand } from "@/components/marketing-brand";
 import { trialGuides } from "@/lib/trial-guides";
 import { GuideCards } from "./guide-cards";
@@ -12,6 +12,8 @@ export default async function Page({
   params: Promise<{ topic: string }>;
 }) {
   const { topic } = await params;
+  // Preserve old help links without asking applicants for Developers access.
+  if (topic === "developers") redirect("/pricing/trial/guide/oa-admin");
   const guide = trialGuides[topic];
   if (!guide) notFound();
   return (

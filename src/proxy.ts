@@ -1,4 +1,4 @@
-import { isGuideUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isGuideUiPreview, isTrialUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -654,6 +654,13 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     if (req.method !== "GET" && req.method !== "HEAD")
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
+    if (isTrialUiPreview()) {
+      const pages = ["/pricing/trial", "/pricing/trial/review", "/pricing/trial/guide/oa-admin", "/pricing/trial/guide/line-id", "/pricing/trial/guide/friend", "/pricing/trial/guide/create", "/pricing/trial/guide/maps", "/pricing/trial/guide/developers"];
+      const assets = ["/favicon.ico", "/pricing/brand/steam-butler-logo.png", "/pricing/trial-guides/oa-permissions.png", "/pricing/trial-guides/oa-invite.png", "/pricing/trial-guides/friend.png", "/pricing/trial-guides/create-entry.jpg"];
+      return pages.includes(path) || assets.includes(path) || path.startsWith("/_next/static/")
+        ? NextResponse.next({ headers })
+        : new NextResponse("Not available in trial preview", { status: 404, headers });
+    }
     // No optimizer, API, auth, store, admin, arbitrary files, or external URLs.
     if (path.startsWith("/_next/static/") || ["/favicon.ico", "/pricing/brand/steam-butler-logo.png", "/robots.txt", "/sitemap.xml"].includes(path))
       return NextResponse.next({ headers });
