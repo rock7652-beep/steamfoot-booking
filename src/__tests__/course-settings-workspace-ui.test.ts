@@ -4,9 +4,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 vi.mock("@/components/customer-labels", () => ({ CustomerLabelsSettings: () => createElement("section", {"aria-label":"顧客標籤設定"}, "顧客標籤") }));
 vi.mock("@/app/(dashboard)/dashboard/courses/course-waitlist-settings", () => ({ CourseWaitlistSettings: () => null }));
-const m = vi.hoisted(() => ({ save: vi.fn(), windowSave: vi.fn(), trialSave: vi.fn(), refresh: vi.fn() }));
+const m = vi.hoisted(() => ({ save: vi.fn(), selfBookingSave: vi.fn(), windowSave: vi.fn(), trialSave: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, push: vi.fn() }), usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
-vi.mock("@/server/actions/course-settings", () => ({ saveCourseSettingsSection: m.save }));
+vi.mock("@/server/actions/course-settings", () => ({ saveCourseSettingsSection: m.save, saveCourseSelfBookingSettings: m.selfBookingSave }));
 vi.mock("@/components/app-link", () => ({ AppLink: ({ children, ...props }: ComponentProps<"a">) => createElement("a", props, children) }));
 vi.mock("@/components/desktop", () => ({ InfoList: ({ items }: { items: { label: string; value: ReactNode }[] }) => createElement("dl", null, items.map(item => createElement("div", { key: item.label }, item.label, item.value))) }));
 vi.mock("@/server/actions/shop", () => ({ updateTrialSettings: vi.fn(), updateDutyScheduling: vi.fn(), updateBookableUntilDate: vi.fn(), updateCustomerBookingWindow: vi.fn() }));
@@ -101,12 +101,14 @@ describe("five-section course settings", () => {
 
 it("edits the booking window directly and guards its draft when leaving", async () => {
  await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); await click("營業與預約"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14});
- const windowRow=[...host.querySelectorAll("section")].find(el=>el.querySelector("h2")?.textContent?.includes("預約開放期限"));
- await act(async()=>windowRow!.querySelector("button")!.click());
- const days=host.querySelector('select[aria-label="自動開放天數"]')!;
+ const windowRow=[...host.querySelectorAll("h2")].find(heading=>heading.textContent==="預約開放期限")?.closest("section");
+ expect(windowRow).toBeTruthy();
+ const modify=[...windowRow!.querySelectorAll("button")].find(button=>button.textContent==="修改");
+ expect(modify).toBeTruthy(); await act(async()=>modify!.click());
+ const days=windowRow!.querySelector('select[aria-label="自動開放天數"]')!;
  await act(async()=>{(days as HTMLSelectElement).value="30";days.dispatchEvent(new Event("change",{bubbles:true}));});
  await click("店家資料"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); const before=new Event("beforeunload",{cancelable:true}); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(true);
- await click("營業與預約未儲存"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); expect((days as HTMLSelectElement).value).toBe("30"); m.windowSave.mockResolvedValueOnce({success:true}); await click("儲存設定"); expect(m.windowSave).toHaveBeenCalledExactlyOnceWith({mode:"rolling",days:30});
+ await click("營業與預約未儲存"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); expect((days as HTMLSelectElement).value).toBe("30"); m.windowSave.mockResolvedValueOnce({success:true}); await click("儲存設定"); expect(m.windowSave).toHaveBeenCalledExactlyOnceWith({mode:"rolling",days:30}); expect(m.selfBookingSave).not.toHaveBeenCalled();
 });
 it("edits trial price directly, keeps failed drafts and restores without losing bank edits", async()=>{
  const props={...defaults,trialSettings:{trialEnabled:true,trialDefaultPrice:350,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000}};

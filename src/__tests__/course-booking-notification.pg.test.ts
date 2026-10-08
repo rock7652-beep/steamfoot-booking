@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { PrismaClient, type Prisma, type CourseSession } from "../../generated/course-client";
+import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 
 const mocks = vi.hoisted(() => ({ member: vi.fn(), transaction: vi.fn(), limits: vi.fn() }));
@@ -29,7 +30,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
   beforeAll(async () => {
     await db!.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
     created = true;
-  await installAuditOutboxTestSchema(databaseUrl!, db!);
+    await installAuditOutboxTestSchema(databaseUrl!, db!);
     const ddl = execFileSync("node_modules/.bin/prisma", ["migrate", "diff", "--from-empty", "--to-schema-datamodel", "course-prisma/schema.prisma", "--script"], { encoding: "utf8" });
     for (const sql of ddl.split(";").map(s => s.trim()).filter(Boolean)) await db!.$executeRawUnsafe(sql);
     for (const sql of [
@@ -120,4 +121,45 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     const confirmations = await db!.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM "AuditLog" WHERE "storeId"=${f.storeId} AND action='COURSE_TRIAL_CONFIRM'`;
     expect(Number(confirmations[0].count)).toBe(1);
   });
+  it.each([false, true])("disabled self-booking preserves every original reservation and payment row before card/trial reschedule (trial=%s)", async trial => {
+    const f = await fixture(trial);
+    if (trial) await db!.courseTrialPayment.create({data: {storeId: f.storeId, bookingId: f.original.id, amount: 350, paymentMethod: "CASH", requestKey: randomUUID(), actorUserId: f.userId}});
+    await db!.$transaction(async tx => {
+      await lockCourseStore(tx, f.storeId);
+      await tx.courseBookingRule.create({data: {storeId: f.storeId, selfBookingEnabled: false, selfBookingRevision: 1}});
+    });
+    const before = {
+      bookings: await db!.courseBooking.findMany({where: {storeId: f.storeId}}),
+      ledger: await db!.coursePointEntry.findMany({where: {storeId: f.storeId}}),
+      receipts: await db!.courseTrialPayment.findMany({where: {storeId: f.storeId}}),
+      card: await db!.coursePointCard.findUniqueOrThrow({where: {id: f.card.id}}),
+    };
+    const input = {bookingId: f.original.id, sessionId: f.sessions[1].id};
+    expect(await rescheduleMemberCourseBooking(input)).toMatchObject({success: false, error: COURSE_SELF_BOOKING_DISABLED_MESSAGE});
+    expect(await rescheduleMemberCourseBooking(input)).toMatchObject({success: false, error: COURSE_SELF_BOOKING_DISABLED_MESSAGE});
+    expect(await db!.courseBooking.findMany({where: {storeId: f.storeId}})).toEqual(before.bookings);
+    expect(await db!.coursePointEntry.findMany({where: {storeId: f.storeId}})).toEqual(before.ledger);
+    expect(await db!.courseTrialPayment.findMany({where: {storeId: f.storeId}})).toEqual(before.receipts);
+    expect(await db!.coursePointCard.findUniqueOrThrow({where: {id: f.card.id}})).toEqual(before.card);
+    const audit = await db!.$queryRaw<Array<{count: bigint}>>`SELECT count(*) FROM "AuditLog" WHERE "storeId"=${f.storeId} AND action='COURSE_MEMBER_RESCHEDULE'`;
+    expect(Number(audit[0].count)).toBe(0);
+    expect(await held(f.card.id)).toBe(trial ? 0 : 1);
+    if (trial) expect(await confirmMemberCourseTrial(f.original.id)).toMatchObject({success: true});
+    await db!.$transaction(async tx => {
+      await lockCourseStore(tx, f.storeId);
+      await tx.courseBookingRule.update({where: {storeId: f.storeId}, data: {selfBookingEnabled: true, selfBookingRevision: {increment: 1}}});
+    });
+    const resumed = await rescheduleMemberCourseBooking(input);
+    expect(resumed).toMatchObject({success: true});
+    if (!resumed.success || !("bookingId" in resumed)) throw new Error("Re-enabled reschedule did not create a replacement");
+    expect(await rescheduleMemberCourseBooking(input)).toEqual(resumed);
+    expect(await db!.courseBooking.findUnique({where: {id: f.original.id}})).toMatchObject({status: "CANCELLED"});
+    expect(await db!.courseBooking.findUnique({where: {id: resumed.bookingId}})).toMatchObject({status: "RESERVED", sessionId: f.sessions[1].id, bookingKind: trial ? "TRIAL" : f.original.bookingKind});
+    expect(await db!.courseBooking.count({where: {storeId: f.storeId, status: "RESERVED"}})).toBe(1);
+    expect(await db!.coursePointCard.findUniqueOrThrow({where: {id: f.card.id}})).toEqual(before.card);
+    expect(await held(f.card.id)).toBe(trial ? 0 : 1);
+    expect(await db!.coursePointEntry.count({where: {storeId: f.storeId, kind: {in: ["DEBIT", "REFUND"]}}})).toBe(0);
+    expect(await db!.courseTrialPayment.findMany({where: {storeId: f.storeId}})).toEqual(before.receipts.map(receipt => ({...receipt, bookingId: resumed.bookingId})));
+  });
+
 });

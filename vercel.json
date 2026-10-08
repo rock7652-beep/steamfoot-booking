@@ -55,7 +55,8 @@
       "fix/simplify-trial-line-fields-20261008": false,
       "fix/course-roster-density-20261008": false,
       "fix/course-roster-two-line-20261008": false,
-      "content/yoga-waitlist-management": false
+      "content/yoga-waitlist-management": false,
+      "codex/course-student-self-booking-switch": false
     }
   }
 }
