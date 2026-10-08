@@ -1,3 +1,8 @@
+// Public article review must not trigger a preview build or database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
+  throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
+}
+
 // Store-view verification must never migrate or query the live database.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-real-view-20261007") {
   if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
