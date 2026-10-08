@@ -1,15 +1,8 @@
-import { assertConsultationPreviewEnvironment, isConsultationMockedUnitTest } from "../../scripts/consultation-preview-scope.mjs";
-
-// Validate before build/config work, cached client access, or construction.
-// Only nondeployed mocked tests may retain legacy guide/production fixtures.
-if (!isConsultationMockedUnitTest(process.env)) {
-  assertConsultationPreviewEnvironment(process.env);
-}
-
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import { PrismaClient } from "@prisma/client";
 import { buildDatabaseUrl } from "@/lib/database-url";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -32,13 +25,15 @@ const globalForPrisma = globalThis as unknown as {
  */
 export const prisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
-  : (isConsultationMockedUnitTest(process.env) ? globalForPrisma.prisma : undefined) ??
-  withAuditDatabaseContext(new PrismaClient({
+  : guardedSportsSharedCardPreviewClient(
+  () => globalForPrisma.prisma,
+  () => withAuditDatabaseContext(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  }), true);
+  }), true),
+);
 
 if (!isGuideUiPreview() && (
   process.env.NODE_ENV !== "production" ||

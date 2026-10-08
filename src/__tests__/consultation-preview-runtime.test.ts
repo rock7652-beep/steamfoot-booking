@@ -41,6 +41,7 @@ const invalidSettings = [
   ["VERCEL_GIT_REPO_SLUG", undefined], ["VERCEL_GIT_REPO_SLUG", "wrong"],
   ["CONSULTATION_HQ_ENABLED", undefined], ["CONSULTATION_HQ_ENABLED", "false"],
   ["CONSULTATION_PREVIEW_INTAKE_ENABLED", undefined], ["CONSULTATION_PREVIEW_INTAKE_ENABLED", "TRUE"],
+  ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "main"],
 ] as const;
 
 beforeEach(() => {
@@ -64,7 +65,7 @@ describe.each(clients)("$name consultation release-bound client", ({ name, key, 
       vi.resetModules();
       const previous = process.env[setting];
       vi.stubEnv(setting, value);
-      await expect(load()).rejects.toThrow("Consultation");
+      await expect(load()).rejects.toThrow(/Consultation|Sports shared-card/);
       vi.stubEnv(setting, previous);
       expect(mocks.construct).not.toHaveBeenCalled();
       expect(mocks.audit).not.toHaveBeenCalled();
@@ -113,14 +114,27 @@ describe.each(clients)("$name consultation release-bound client", ({ name, key, 
     expect(mocks.query).not.toHaveBeenCalled();
   });
 
-  it("cannot use the guide fixture to bypass deployment validation", async () => {
+  it("rejects production Preview-flag contamination before reading even a cached global", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    const read = vi.fn(() => ({ $queryRaw: mocks.query }));
+    Object.defineProperty(globalThis, key, { configurable: true, get: read });
+    await expect(load()).rejects.toThrow("Preview intake flag must be disabled on production main");
+    expect(read).not.toHaveBeenCalled();
+    expect(mocks.construct).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it("retains the exact guide sandbox without constructing or reading a DB client", async () => {
     vi.stubEnv("GUIDE_UI_PREVIEW", "1");
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", "feat/public-guide-articles-20261007");
     const synthetic = "postgresql://guide-ui:guide-ui@127.0.0.1:9/guide_ui_preview";
     vi.stubEnv("DATABASE_URL", synthetic);
     vi.stubEnv("DIRECT_URL", synthetic);
-    await expect(load()).rejects.toThrow("exact authorized Preview branch and repository metadata");
+    const client = await load();
+    expect(() => client.$queryRaw).toThrow("no database access");
     expect(mocks.construct).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
   });
 });
 
@@ -134,10 +148,51 @@ describe("consultation provider build-command override defense", () => {
       vi.resetModules();
       const previous = process.env[setting];
       vi.stubEnv(setting, value);
-      await expect(import("../../next.config")).rejects.toThrow("Consultation");
+      await expect(import("../../next.config")).rejects.toThrow(/Consultation|Sports shared-card/);
       vi.stubEnv(setting, previous);
     }
     expect(mocks.construct).not.toHaveBeenCalled();
     expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it("rejects production Preview-flag contamination before Next config work", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    await expect(import("../../next.config")).rejects.toThrow("Preview intake flag must be disabled on production main");
+    expect(mocks.construct).not.toHaveBeenCalled();
+  });
+});
+
+describe("production consultation rollout defaults", () => {
+  it.each([undefined, "false"])("keeps HQ receipt disabled for flag %s and preserves the existing Sheet-only path", async (flag) => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    vi.stubEnv("CONSULTATION_HQ_ENABLED", flag);
+    vi.stubEnv("CONSULTATION_PREVIEW_INTAKE_ENABLED", undefined);
+    const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetch);
+    const { POST } = await import("@/app/pricing/submit/route");
+    const payload = {
+      requestId: "f2170225-17f8-4ad7-8031-f305afba256f", storeName: "Synthetic release check",
+      contactName: "Synthetic", industry: "服務", lineId: "TEST-NOT-A-CONTACT", needs: ["預約"], replaceReason: [],
+    };
+    const response = await POST(new Request("https://example.test/pricing/submit", {
+      method: "POST", headers: { origin: "https://example.test" }, body: JSON.stringify(payload),
+    }));
+    expect(await response.json()).toEqual({ ok: true, saved: true, requestId: payload.requestId });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(mocks.construct).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(process.env.CONSULTATION_HQ_ENABLED).toBe(flag);
+  });
+});
+
+describe("consultation outbound release boundary", () => {
+  it.each(["preview", "production", "development", undefined])("blocks consultation-branch outbound integrations even with environment %s", async (environment) => {
+    vi.stubEnv("VERCEL_ENV", environment);
+    const { isPreviewExternalIntegrationBlocked } = await import("@/lib/runtime-env");
+    const { readPreviewLineAcceptance } = await import("@/lib/preview-line-acceptance");
+    expect(isPreviewExternalIntegrationBlocked()).toBe(true);
+    expect(readPreviewLineAcceptance()).toBeNull();
   });
 });

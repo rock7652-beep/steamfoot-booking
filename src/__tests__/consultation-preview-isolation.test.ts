@@ -3,10 +3,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   assertConsultationPreviewEnvironment,
+  assertReviewedReleaseEnvironment,
   CONSULTATION_PREVIEW_BRANCH,
   isConsultationMockedUnitTest,
   isIsolatedConsultationDatabaseUrl,
 } from "../../scripts/consultation-preview-scope.mjs";
+import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
@@ -114,6 +116,14 @@ describe("release-bound consultation Preview preflight", () => {
     }
   });
 
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects conflicting consultation provider metadata in %s", (key) => {
+    expect(() => assertConsultationPreviewEnvironment({ ...valid, [key]: "main" })).toThrow("exact authorized Preview branch and repository metadata");
+    const result = run({ [key]: "main" });
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("exact authorized Preview branch and repository metadata");
+    expect(result.output).not.toContain("migrations_skipped=true");
+  });
+
   it("limits the legacy test exception to nondeployed mocked Vitest workers", () => {
     const mocked = { NODE_ENV: "test", VITEST: "true", VITEST_WORKER_ID: "1" };
     expect(isConsultationMockedUnitTest(mocked)).toBe(true);
@@ -125,25 +135,78 @@ describe("release-bound consultation Preview preflight", () => {
     expect(result.output).toContain("exact authorized Preview branch and repository metadata");
   });
 
-  it("does not allow a deployed guide fixture to bypass this checkout's release boundary", () => {
+  it("preserves the exact no-database guide sandbox before the release dispatcher", () => {
     const result = run({
       GUIDE_UI_PREVIEW: "1", VERCEL_GIT_COMMIT_REF: "feat/public-guide-articles-20261007",
       DATABASE_URL: "postgresql://guide-ui:guide-ui@127.0.0.1:9/guide_ui_preview",
       DIRECT_URL: "postgresql://guide-ui:guide-ui@127.0.0.1:9/guide_ui_preview",
     });
-    expect(result.status).not.toBe(0);
-    expect(result.output).toContain("exact authorized Preview branch and repository metadata");
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.output).not.toContain("isolated_database=true");
   });
 
   it("keeps the build command and preflights before every migration and Next config path", () => {
     expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/ci-migrate.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
-    const check = source.indexOf("assertConsultationPreviewEnvironment(process.env)");
+    const check = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(check).toBeGreaterThan(-1);
     expect(check).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     expect(check).toBeLessThan(source.indexOf("new PrismaClient("));
     expect(source.indexOf("process.exit(0)", check)).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     const config = readFileSync("next.config.ts", "utf8");
-    expect(config.indexOf("assertConsultationPreviewEnvironment(process.env)")).toBeLessThan(config.indexOf("isGuideUiPreview();"));
+    expect(config.indexOf("isGuideUiPreview();")).toBeLessThan(config.indexOf("assertReviewedReleaseEnvironment(process.env)"));
+    expect(config.indexOf("assertReviewedReleaseEnvironment(process.env)")).toBeLessThan(config.indexOf("const nextConfig:"));
+  });
+});
+
+describe("composed consultation and shared-card release modes", () => {
+  const production = {
+    VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main",
+    CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined,
+    PRODUCTION_MIGRATION_TARGET: undefined,
+  };
+
+  it("retains each exact Preview's own parser and feature requirements", () => {
+    const consultation = { ...valid, DIRECT_URL: direct + "?sslmode=verify-full&sslaccept=strict" };
+    expect(assertReviewedReleaseEnvironment(consultation)).toBe("consultation-preview");
+    expect(run({ DIRECT_URL: consultation.DIRECT_URL }).status).toBe(0);
+    const card = {
+      ...valid, VERCEL_GIT_COMMIT_REF: SPORTS_SHARED_CARD_PREVIEW_BRANCH,
+      CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined,
+    };
+    expect(assertReviewedReleaseEnvironment(card)).toBe("sports-shared-card-preview");
+    const result = run(card);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("[sports-shared-card-preview-preflight]");
+    expect(result.output).toContain("recovery_skipped_outside_production");
+    expect(result.output).not.toContain("[consultation-preview-preflight]");
+  });
+
+  it.each([undefined, "false", "true"])("allows verified production main without changing HQ rollout flag %s", (flag) => {
+    const env = { ...valid, ...production, CONSULTATION_HQ_ENABLED: flag };
+    expect(assertReviewedReleaseEnvironment(env)).toBe("production");
+    expect(env.CONSULTATION_HQ_ENABLED).toBe(flag);
+    expect(env.CONSULTATION_PREVIEW_INTAKE_ENABLED).toBeUndefined();
+    const result = run({ ...production, CONSULTATION_HQ_ENABLED: flag });
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("migration_skipped_no_target");
+    expect(result.output).not.toContain("isolated_database=true");
+  });
+
+  it("rejects a leaked Preview-only intake flag before any production migration path", () => {
+    const env = { ...valid, ...production, CONSULTATION_PREVIEW_INTAKE_ENABLED: "true" };
+    expect(() => assertReviewedReleaseEnvironment(env)).toThrow("Preview intake flag must be disabled on production main");
+    const result = run(env);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("Preview intake flag must be disabled on production main");
+    expect(result.output).not.toContain("migration_skipped_no_target");
+  });
+
+  it("keeps automatic deployment disabled for both exact Preview branches", () => {
+    const enabled = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
+    expect(enabled[CONSULTATION_PREVIEW_BRANCH]).toBe(false);
+    expect(enabled[SPORTS_SHARED_CARD_PREVIEW_BRANCH]).toBe(false);
+    expect(enabled.main).not.toBe(false);
   });
 });

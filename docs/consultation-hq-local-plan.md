@@ -1,5 +1,7 @@
 # 諮詢與體驗版開通：本機候選方案
 
+> 以下保留初版候選與隔離執行歷程。已完成的 f9c81ec UI 驗收、後續雙 Preview／正式 main guard 組合，以及仍待批准的正式步驟，請以 [發布計畫](consultation-release-plan.md) 為準。
+
 基線 main `51cab4ff29d858c9997b1ef7077112c1e47e11b0`。本稿不代表發布或已啟用。
 
 ## 保留兩階段

@@ -110,6 +110,35 @@ describe("manual additive consultation SQL in isolated PostgreSQL", () => {
     expect((await db.query('SELECT note FROM "ConsultationLeadActivity" WHERE id=\'activity-synthetic\'')).rows).toEqual([{ note: "Synthetic contact note" }]);
   });
 
+  it("pins both invoker trigger functions to an empty search path", async () => {
+    const functions = (await db.query<{ proname: string; prosecdef: boolean; proconfig: string[] }>(
+      `SELECT proname, prosecdef, proconfig FROM pg_proc
+       WHERE proname IN ('guard_consultation_lead_update', 'guard_consultation_activity_append_only')
+       ORDER BY proname`,
+    )).rows;
+    expect(functions).toHaveLength(2);
+    for (const fn of functions) {
+      expect(fn.prosecdef).toBe(false);
+      expect(fn.proconfig).toEqual(['search_path=""']);
+    }
+  });
+
+  it("enforces trigger protections even with a different caller search path", async () => {
+    await addLead("lead-caller-path");
+    await db.exec("SET search_path = pg_temp");
+    try {
+      await db.exec(`UPDATE public."ConsultationLead" SET status='FOLLOW_UP', revision=revision+1 WHERE id='lead-caller-path'`);
+      await expect(db.exec(`UPDATE public."ConsultationLead" SET "requestId"='changed' WHERE id='lead-caller-path'`))
+        .rejects.toThrow("CONSULTATION_ORIGINAL_IMMUTABLE");
+      await db.exec(`INSERT INTO public."ConsultationLeadActivity" (id,"leadId","actorId",type,note)
+        VALUES ('activity-caller-path','lead-caller-path','admin-synthetic','NOTE','Synthetic path check')`);
+      await expect(db.exec(`DELETE FROM public."ConsultationLeadActivity" WHERE id='activity-caller-path'`))
+        .rejects.toThrow("CONSULTATION_ACTIVITY_APPEND_ONLY");
+    } finally {
+      await db.exec("RESET search_path");
+    }
+  });
+
   it("enables RLS and grants no browser-role access to either table", async () => {
     const tables = (await db.query<{ relname: string; relrowsecurity: boolean }>(`SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('ConsultationLead','ConsultationLeadActivity') ORDER BY relname`)).rows;
     expect(tables).toHaveLength(2);

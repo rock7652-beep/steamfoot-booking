@@ -1,3 +1,8 @@
+import {
+  assertSportsSharedCardPreviewEnvironment,
+  isSportsSharedCardProductionRelease,
+} from "./sports-shared-card-preview-scope.mjs";
+
 const PREVIEW_PROJECT = "ttworfzgwejdeolegkxl";
 const PREVIEW_POOLER_HOSTS = new Set([
   "aws-0-ap-northeast-1.pooler.supabase.com",
@@ -62,10 +67,9 @@ export function isConsultationMockedUnitTest(env) {
 }
 
 /**
- * Temporary release-bound preflight for this entire unmerged checkout.
- * Missing metadata, production, or another branch must fail closed before any
- * build migration, DB construction, or HQ auth query. A production release
- * requires a separately reviewed conversion. Never expose connection values.
+ * Strict consultation Preview gate, retained alongside the reviewed shared-card
+ * Preview and positively identified production main. Never expose connections.
+ * The release dispatcher below must run before build or database work.
  * @param {Readonly<Record<string, string | undefined>>} env
  */
 export function assertConsultationPreviewEnvironment(env) {
@@ -73,7 +77,8 @@ export function assertConsultationPreviewEnvironment(env) {
     throw new Error("Consultation checkout requires VERCEL_ENV=preview with outbound notifications blocked.");
   }
   if (env.VERCEL_GIT_COMMIT_REF !== CONSULTATION_PREVIEW_BRANCH ||
-      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking") {
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Consultation checkout requires its exact authorized Preview branch and repository metadata.");
   }
   if (env.CONSULTATION_HQ_ENABLED !== "true" || env.CONSULTATION_PREVIEW_INTAKE_ENABLED !== "true") {
@@ -82,4 +87,28 @@ export function assertConsultationPreviewEnvironment(env) {
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
     throw new Error("Consultation Preview requires the existing isolated database for both connections.");
   }
+}
+
+/**
+ * Compose the two exact Preview gates without allowing either to become a
+ * fallback for malformed metadata. Production requires the reviewed full
+ * provider provenance; the Preview-only intake flag must never leak there.
+ * The existing no-database guide sandbox is handled before this dispatcher.
+ * @param {Readonly<Record<string, string | undefined>>} env
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview"}
+ */
+export function assertReviewedReleaseEnvironment(env) {
+  if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
+  if (isSportsSharedCardProductionRelease(env)) {
+    if (env.CONSULTATION_PREVIEW_INTAKE_ENABLED === "true") {
+      throw new Error("Consultation Preview intake flag must be disabled on production main.");
+    }
+    return "production";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === CONSULTATION_PREVIEW_BRANCH) {
+    assertConsultationPreviewEnvironment(env);
+    return "consultation-preview";
+  }
+  assertSportsSharedCardPreviewEnvironment(env);
+  return "sports-shared-card-preview";
 }

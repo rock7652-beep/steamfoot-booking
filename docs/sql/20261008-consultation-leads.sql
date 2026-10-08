@@ -81,7 +81,7 @@ CREATE INDEX "ConsultationLeadActivity_leadId_createdAt_idx" ON "ConsultationLea
 -- Original submission identity and content cannot be rewritten by HQ edits.
 -- A claimed Sheet attempt is never automatically eligible for a second POST.
 CREATE FUNCTION "guard_consultation_lead_update"() RETURNS trigger
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   IF NEW."id" IS DISTINCT FROM OLD."id"
     OR NEW."requestId" IS DISTINCT FROM OLD."requestId"
@@ -114,7 +114,7 @@ BEFORE UPDATE ON "ConsultationLead"
 FOR EACH ROW EXECUTE FUNCTION "guard_consultation_lead_update"();
 
 CREATE FUNCTION "guard_consultation_activity_append_only"() RETURNS trigger
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   RAISE EXCEPTION 'CONSULTATION_ACTIVITY_APPEND_ONLY';
 END;

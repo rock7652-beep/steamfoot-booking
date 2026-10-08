@@ -111,10 +111,17 @@ export const operationGuides: OperationGuide[] = [
   ...dailyOperationGuides20261007,
 ];
 export function availableGuides(access: GuideAccess) {
+  const sharingRestricted = access.module === "course" && access.sharedCardState !== undefined && access.sharedCardState !== "ENABLED";
   return operationGuides.filter(g => g.modules.includes(access.module) &&
     (!g.permission || access.permissions.includes(g.permission)) &&
     (!g.additionalPermissions || g.additionalPermissions.every(p => access.permissions.includes(p))) &&
-    (!g.feature || access.features[g.feature] === true));
+    (!g.feature || access.features[g.feature] === true) &&
+    !(sharingRestricted && ["C101", "C118"].includes(g.id)))
+    .map(g => sharingRestricted && g.id === "C111" ? {...g,
+      keywords: g.keywords.replace(" 允許共卡", ""),
+      steps: [g.steps[0], "選適用課程及「顧客可購買／僅後台指派」；固定期課需連結與堂數相同的未開始課次。", g.steps[2]],
+      details: [g.details[0], "堂數卡不使用課程點數，固定期課另受指定課次限制；修改其他欄位會保留既有使用授權。"],
+    } : g);
 }
 export function guideCategoryForPath(pathname: string) {
   const [path, query = ""] = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "").split("?");

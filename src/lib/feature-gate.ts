@@ -73,6 +73,11 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
+  // Sports-only eligibility and explicit controls precede demo/trial shortcuts.
+  if (feature === FEATURES.SHARED_CARD) {
+    const { getCourseSharedCardState } = await import("@/server/services/course-shared-card");
+    return await getCourseSharedCardState(storeId) === "ENABLED";
+  }
   if (feature === FEATURES.WORK_ORDERS) {
     const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
     return resolveEffectiveEntitlement(hasFeature(store.plan, feature), grant).enabled;
@@ -114,6 +119,7 @@ export async function requireStoreFeature(
 /** 檢查當前 store 是否有某功能，不通過則 throw */
 export async function checkCurrentStoreFeature(feature: FeatureKey): Promise<StorePlanFields> {
   const store = await getCurrentStoreForPlan();
+  if (store.id === "__all__" && feature === FEATURES.SHARED_CARD) throw new AppError("FORBIDDEN", "請先選擇運動門市");
   if (store.id !== "__all__") await requireStoreFeature(store.id, feature);
   return store;
 }
@@ -138,12 +144,16 @@ export async function getStoreLimitsByStoreId(storeId: string): Promise<PlanLimi
 
 export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boolean> {
   const store = await getCurrentStoreForPlan();
-  return store.id === "__all__" || hasStoreFeature(store.id, feature);
+  return store.id === "__all__" ? feature !== FEATURES.SHARED_CARD : hasStoreFeature(store.id, feature);
 }
 
 /** Shares the same entitlement dates and effective authorization as server actions. */
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
+  if (feature === FEATURES.SHARED_CARD) {
+    const { getCourseSharedCardState } = await import("@/server/services/course-shared-card");
+    return getCourseSharedCardState(storeId);
+  }
   if(feature===FEATURES.WORK_ORDERS){
     const [store,grant]=await Promise.all([getStoreForPlanByStoreId(storeId),getActiveStoreFeatureEntitlement(storeId,feature)]);
     const resolution=resolveEffectiveEntitlement(hasFeature(store.plan,feature),grant);

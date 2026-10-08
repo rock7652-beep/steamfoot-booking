@@ -11,7 +11,7 @@ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{sessionStorage.clear();vi.resetAllMocks();m.save.mockResolvedValue({success:false,error:"保留輸入"});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function mount(){await act(async()=>root.render(React.createElement(OperationScope,{scope:"user:fitness"},React.createElement(CoursePlanDraftForm,{plan:null,templates:[{id:"t",name:"瑜珈",category:"",isActive:true}],termSessions:[{id:"s",name:"瑜珈",startsAt:"2026-10-02T01:00:00Z"}],profitEnabled:true,onPending:()=>{},onSaved:()=>{}}))));}
+async function mount(overrides: Partial<React.ComponentProps<typeof CoursePlanDraftForm>> = {}){await act(async()=>root.render(React.createElement(OperationScope,{scope:"user:fitness"},React.createElement(CoursePlanDraftForm,{plan:null,templates:[{id:"t",name:"瑜珈",category:"",isActive:true}],termSessions:[{id:"s",name:"瑜珈",startsAt:"2026-10-02T01:00:00Z"}],profitEnabled:true,onPending:()=>{},onSaved:()=>{},...overrides}))));}
 async function select(label:string,value:string){const el=Array.from(host.querySelectorAll("label")).find(l=>l.firstChild?.textContent===label)!.querySelector("select")!;await act(async()=>{el.value=value;el.dispatchEvent(new Event("change",{bubbles:true}));});}
 async function submit(){await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
 it("basic fields precede course selection, all courses has an explicit empty-id payload",async()=>{
@@ -27,4 +27,26 @@ it("term mode requires matching dates and a session unit, hides sharing",async()
  const points=host.querySelector<HTMLInputElement>('input[name="points"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(points,"1");points.dispatchEvent(new Event("input",{bubbles:true}));host.querySelector<HTMLInputElement>('input[value="s"]')!.click();});
  await submit();expect(m.save.mock.calls[0][0]).toMatchObject({unit:"SESSION",points:1,termSessionIds:["s"],allowShared:false});
  await select("計費方式","POINT");await submit();expect(m.save.mock.calls[1][0].termSessionIds).toEqual([]);
+});
+
+const sharedPlan = {id:"shared-plan",name:"已有共卡設定的長名稱方案",points:10,price:2000,validDays:90,isActive:true,unit:"POINT",templateIds:[],allowShared:true};
+it.each(["LOCKED","HIDDEN"] as const)("preserves saved sharing when editing an unrelated field while %s", async(sharedCardState)=>{
+ await mount({plan:sharedPlan,sharedCardState});
+ const control=host.querySelector<HTMLInputElement>('input[name="allowShared"]');
+ if(sharedCardState==="HIDDEN") {expect(control).toBeNull();expect(host.textContent).not.toContain("購買方式與共卡");}
+ else {expect(control?.disabled).toBe(true);expect(control?.checked).toBe(true);expect(host.textContent).toContain("功能未開通");}
+ const price=host.querySelector<HTMLInputElement>('input[name="price"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(price,"2300");price.dispatchEvent(new Event("input",{bubbles:true}));});
+ await submit();expect(m.save.mock.calls[0][0]).toMatchObject({id:"shared-plan",price:2300,allowShared:true});
+});
+it.each(["LOCKED","HIDDEN"] as const)("cannot create new sharing while %s",async(sharedCardState)=>{
+ await mount({sharedCardState});await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(false);
+});
+it("does not submit an unsaved sharing addition after the gate changes",async()=>{
+ const plan={...sharedPlan,allowShared:false};await mount({plan});
+ await act(async()=>host.querySelector<HTMLInputElement>('input[name="allowShared"]')!.click());
+ await mount({plan,sharedCardState:"HIDDEN"});await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(false);
+});
+it("keeps music sharing control independent of this sports gate",async()=>{
+ await mount({music:true,sharedCardState:"HIDDEN"});expect(host.querySelector('input[name="allowShared"]')).not.toBeNull();
 });
