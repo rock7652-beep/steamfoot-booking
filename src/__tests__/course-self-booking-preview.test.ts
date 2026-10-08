@@ -12,7 +12,7 @@ function run(overrides:Record<string,string|undefined>={},schema=snapshot){
  const stub=`export class PrismaClient { async $queryRaw(){return [${JSON.stringify(schema)}];} async $disconnect(){} }`;
  const trap='SELF_BOOKING_UNAUTHORIZED_SUBPROCESS';
  const hook=`import {registerHooks} from 'node:module'; registerHooks({resolve(s,c,n){const code=s==='@prisma/client'?${JSON.stringify(stub)}:s==='node:child_process'?${JSON.stringify(`export function execFileSync(){throw new Error('${trap}');}`)}:null;return code?{url:'data:text/javascript,'+encodeURIComponent(code),shortCircuit:true}:n(s,c);}});`;
- const env={...process.env,...valid,NODE_ENV:'production',GUIDE_UI_PREVIEW:'',WORKERS_CI_BRANCH:'',CF_PAGES_BRANCH:'',CONSULTATION_PREVIEW_INTAKE_ENABLED:'',PRODUCTION_MIGRATION_TARGET:'unrelated-migration',...overrides};
+ const env:NodeJS.ProcessEnv={...process.env,...valid,NODE_ENV:'production',GUIDE_UI_PREVIEW:'',WORKERS_CI_BRANCH:'',CF_PAGES_BRANCH:'',CONSULTATION_PREVIEW_INTAKE_ENABLED:'',PRODUCTION_MIGRATION_TARGET:'unrelated-migration',...overrides};
  const r=spawnSync(process.execPath,['--import',`data:text/javascript,${encodeURIComponent(hook)}`,'scripts/ci-migrate.mjs'],{env,encoding:'utf8',timeout:10000});
  const output=r.stdout+r.stderr;expect(r.error).toBeUndefined();expect(output).not.toContain(trap);for(const url of [env.DATABASE_URL,env.DIRECT_URL])if(url)expect(output).not.toContain(url);return {status:r.status,output};
 }

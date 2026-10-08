@@ -27,7 +27,7 @@
 
 ## 發布及回復
 
-本次只提供本機程式／migration source，沒有執行真 DB DDL、切換實際店家、推送、合併或部署。
+初版僅完成本機程式／migration source；後續經核准進入隔離發布階段，最新進度見下節。正式店家尚未切換或部署。
 
 正式發布前須另行完成：
 1. 依既有核准流程套 additive migration `20261008054000_course_student_self_booking`，再生成 course Prisma client 及發布依賴新欄位的程式。
@@ -58,3 +58,10 @@
 - 隔離 DDL 已完成：Supabase migration `20261008062907` / `course_student_self_booking_20261008`。實際只新增已核准兩欄，原 3 筆規則全為 enabled=true/revision=0；RLS 仍啟用、無 client grants/policies；沒有套用其他 pending migrations。
 - 運動測試店固定 `store-course-start-0918-a` / `course-start-0918-a`。只使用已證明虛構的 fixture／既有測試身份，不廣列顧客身份、不建立登入憑證、不用真實學員。
 - 正式 DDL、merge/deploy 尚未執行；需 exact-head CI、真 DB／併發與授權的 UI 驗收通過，且與其他發布協調完畢。
+
+## 隔離發布與實際 PostgreSQL 驗證
+
+- Draft PR #1257：https://github.com/rock7652-beep/steamfoot-booking/pull/1257 。已整合 main `3458324057bf79a3eb91ce61271f72bd9f0d13d2` 的五個發布檔案，保留原有無 DB 指南預覽模式。
+- `8240e4cc8b21f0643977216614a06ce3c3f42102` Preview 已 READY；build 確認 isolated_database、schema_ready、test_store_ready、notifications_blocked、migrations_skipped 全為 true。該版完整 Vitest、targeted tests、ESLint、既有 sports/music PG audits 通過；Typecheck 發現新 Preview 測試 env 型別過寬，已明確標註 NodeJS.ProcessEnv，仍須在更新版本重跑。
+- 新增 disposable loopback PostgreSQL 驗證：預約／候補 14 案、通知改期 6 案，Sports CI 強制全部通過且零 skip。包含真實兩個獨立 backend PID 的 Store 鎖阻塞觀察，切換提交後新增預約拒絕、自動候補原列與順位完整保留；人工遞補精確紀錄驗證、重新開啟、取消及 card/trial 原預約與付款保留。這些案例不使用 Supabase 或真實客戶資料。
+- 已登入的合成學員 UI 尚未驗證：未找到經確認的測試學員登入身份，禁止改用真實學員或新增持久憑證。瀏覽器驗收與正式發布仍為未完成項目。
