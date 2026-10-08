@@ -14,7 +14,7 @@ describe("public usage statistics", () => {
     expect(html).not.toContain("使用門市");
     expect(html).toContain("grid-cols-2");
     expect(html).toContain("md:grid-cols-4");
-    expect(html).toContain("自動提醒依已記錄成功發送統計");
+    expect(html).not.toContain("依已記錄成功發送統計");
   });
   it("formats the persisted snapshot date without relabeling it as today", () => {
     vi.useFakeTimers();

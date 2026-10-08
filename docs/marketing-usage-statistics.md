@@ -26,7 +26,7 @@ CUSTOM is the existing relative appointment-rule type, not an unrestricted custo
 
 The producer allowlist excludes manual sends, template/smoke/booking tests, staff/manager notices, TrialCare return-marketing journeys and failed/skipped/pending/unknown delivery states. TrialCare, course coach and monthly staff notices can be mirrored into MessageLog, so they must not be summed as separate sources. SPA's demo-only notification producers are excluded; no production SPA reminder source is invented.
 
-Coverage is deliberately limited to identifiable successful records. Earlier booking logs without triggerAt, deleted classification links, sends whose result was not persisted and waitlist notifications without a durable delivery log cannot be reconstructed reliably. MessageLog has no immutable historical test/environment marker: designated demo/test stores and marked test customers/bookings are filtered, and explicit test producer shapes are excluded. The public note says `自動提醒依已記錄成功發送統計`; it does not claim a complete lifetime message total.
+Coverage is deliberately limited to identifiable successful records. Earlier booking logs without triggerAt, deleted classification links, sends whose result was not persisted and waitlist notifications without a durable delivery log cannot be reconstructed reliably. MessageLog has no immutable historical test/environment marker: designated demo/test stores and marked test customers/bookings are filtered, and explicit test producer shapes are excluded. The public explanatory line was removed at the owner's request on 2026-10-08. The approved `自動提醒` metric and this documented limited-coverage methodology are unchanged; the UI does not add a replacement tooltip or explanation.
 
 ## Verified historical fallback
 
