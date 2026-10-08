@@ -126,22 +126,24 @@ export const dailyOperationGuides20261004: OperationGuide[] = [
     "id": "I18",
     "category": "settings",
     "title": "HQ 如何切店、返回總部及閱讀品牌總覽？",
-    "summary": "HQ 全部分店首頁是品牌總覽；選定門市後改用該模組選單，返回 HQ 會清除單店視角。",
-    "answer": "使用門市、顧客名單與完成服務人次是不同指標；總覽不是跨店唯一顧客人數或店內收款報表。",
+    "summary": "HQ 全部分店首頁是品牌總覽；選店後依該店實際開通功能與權限工作，返回 HQ 會清除單店視角。",
+    "answer": "HQ 選店不會冒用店員身分；門市資料與操作限於目前選店，總部專用工具要返回 HQ 使用。",
     "path": "HQ → 品牌總覽／店舖管理／系統工具 → 選店／返回 HQ 總部",
-    "keywords": "HQ 總部 品牌總覽 側欄 切店 返回總部 使用門市 顧客名單 服務人次 縣市 行政區 統計日期",
+    "keywords": "HQ 總部 品牌總覽 側欄 切店 返回總部 實際權限 OWNER 不冒用店員 HIDDEN LOCKED 使用門市 顧客名單 服務人次 縣市 行政區 統計日期",
     "steps": [
-      "在全部分店看品牌總覽、店舖管理及系統工具，需要操作門市時選正確店家。",
-      "切店成功會進該店首頁，再用模組選單；平台管理頁仍保留 HQ 外框。",
-      "點返回 HQ 總部回品牌首頁；閱讀數字先核對截至日期，再展開縣市／行政區看店家分布。"
+      "在全部分店看品牌總覽、店舖管理及系統工具；需要處理門市工作時，先選正確店家。",
+      "切店成功後，以該店實際訂閱、功能狀態與可用權限顯示模組；讀取、寫入與匯出都只限目前選店。",
+      "需要跨店稽核、修復或其他 HQ 專用工具時，點「返回 HQ 總部」回品牌首頁並清除單店選取。",
+      "閱讀品牌數字先核對截至日期，再展開縣市／行政區查看店家分布。"
     ],
-    "important": "切店不授予原本沒有的存取或寫入權限；返回失敗保留目前店，不能把畫面切換當成權限變更。",
-    "success": "能辨識總部與門市視角，返回成功後清除單店選取，統計口徑與日期清楚。",
+    "important": "HQ 選店不是角色模擬：HIDDEN 功能不顯示、LOCKED 功能不可用；需要真實店員身分的工作仍由店員處理。",
+    "success": "能辨識總部與門市視角；選店後只操作該店允許功能，返回成功後清除單店選取。",
     "details": [
       "顧客是各已服務門市名單筆數，不是跨店唯一人數；完成服務人次也不等於獨立來客。",
       "統計截至台灣前一日，更新失敗保留原數字與日期；店家分布讀取當前合格店家，地址不足顯示待補／未分類。",
-      "測試預覽上方可能沿用正式摘要、下方顯示預覽店家，依畫面說明分開核對。",
-      "四模組門市側欄統一分成日常工作／店務管理；前台與裝置預覽改在上方工具，HQ 隱藏／未開通項目保留狀態但不可點。",
+      "HQ 選店後保留真實 HQ 操作者、使用者 ID 與稽核來源，再以該店 OWNER 可用能力決定門市畫面，不會假扮該店 Staff。",
+      "HIDDEN 功能完全不顯示，也不掛載資料讀取；LOCKED 功能維持未開通／不可用呈現，後端仍會拒絕動作。",
+      "個人名下現金簿編輯等需要真實 Staff 身分的工作不會放寬；返回 HQ 後才恢復總部稽核與跨店工具。",
       "窄畫面用選單抽屜；這些導覽不替代各店業務驗收。"
     ],
     "modules": [
@@ -152,7 +154,11 @@ export const dailyOperationGuides20261004: OperationGuide[] = [
     "permission": "staff.manage",
     "sources": [
       "docs/hq-navigation-continuity.md",
+      "docs/hq-store-real-view-acceptance.md",
       "src/components/dashboard-layout.tsx",
+      "src/lib/hq-store-view.ts",
+      "src/lib/hq-store-view-context.ts",
+      "src/lib/core-feature-permissions.ts",
       "src/components/hq-brand-overview.tsx",
       "src/lib/marketing-usage-server.ts"
     ]

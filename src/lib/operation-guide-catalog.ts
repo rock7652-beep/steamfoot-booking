@@ -1706,21 +1706,22 @@ export const additionalGuides: OperationGuide[] = [
     "id": "I05",
     "category": "settings",
     "title": "切換分店後，為什麼只能查看？",
-    "summary": "切換分店是查看模式；總部或母店可閱讀授權資料，但新增、編輯、預約、收款、扣次與退款仍由該店操作。",
-    "path": "頂欄門市切換 → 查看分店",
+    "summary": "母店／分店的多店查看仍是唯讀；HQ 選店則依該店實際開通功能與權限顯示可做的工作，不會借用店員身分。",
+    "path": "頂欄門市切換 → 查看分店／HQ 選店",
     "steps": [
-      "核對頂欄目前正在查看的門市與「查看模式」提示。",
-      "可閱讀清單與有權限的明細；SPA 顧客可查看概況、服務歷程及可讀的方案／儲值與帳務分頁。",
-      "需要新增、修改、預約、購買／加值、收款或退款時，切回「我的店」或請該店有權限的帳號處理。"
+      "先核對頂欄目前門市，以及自己是母店跨店查看或 HQ 選店。",
+      "母店跨店查看可閱讀授權資料，但新增、編輯、預約、收款、扣次與退款仍由實際店家處理。",
+      "HQ 選店後只使用畫面實際顯示且未鎖定的功能；需要員工本人身分的工作（例如個人名下現金簿編輯）仍須由該店人員處理。"
     ],
-    "important": "",
-    "success": "",
-    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 SPA 顧客 概況 服務歷程 方案 儲值 不可編輯 不可預約 不可購買 不可退款",
+    "important": "HQ 選店不是模擬店員身分；門市畫面不會因此取得總部稽核等 HQ 專用權限，需要時先返回 HQ。",
+    "success": "能分辨母店唯讀查看與 HQ 門市視角，且操作、匯出與資料都限制在目前選定門市。",
+    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 實際權限 OWNER 功能隱藏 功能鎖定 HIDDEN LOCKED 不冒用 店員 現金簿 返回總部",
     "details": [
-      "母店店主也只能查看下層店；查看模式不會把本店 OWNER／MANAGER 的寫入權限延伸到其他店。",
-      "跨店查看不能新增或編輯顧客，也不提供預約、購買方案、加值、收款、扣次或退款按鈕；能看見資料不等於取得寫入權限。",
-      "實際店家 OWNER／MANAGER 仍依原本權限顯示操作；總部角色不會因可選店就繞過門市寫入範圍。",
-      "切入下層店時頂欄會保留查看狀態；回到「我的店」才恢復自己店內原有寫入權限。跨店查看會留下唯讀操作紀錄。"
+      "母店店主查看下層店時仍是唯讀，不會把本店 OWNER／MANAGER 的寫入權限延伸到其他店。",
+      "HQ 選店後，系統保留真實 HQ 操作者與稽核來源，再依該店 OWNER 可用能力、訂閱方案及功能狀態決定畫面；不是切換成該店員工。",
+      "HIDDEN 功能完全不顯示，也不掛載資料讀取；LOCKED 功能以未開通／不可用狀態呈現，後端同樣拒絕動作。",
+      "HQ 門市視角的讀取、寫入與匯出都限定目前選店；跨店稽核、修復與總部工具要返回 HQ 使用。",
+      "需要真實 Staff 身分或個人歸屬的操作不會因 HQ 選店而放寬，例如個人名下現金簿編輯。"
     ],
     "modules": [
       "steamfoot",
@@ -1732,14 +1733,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/components/store-view-mode-switcher.tsx",
       "src/server/actions/store-view-mode.ts",
-      "src/app/(dashboard)/dashboard/customers/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
-      "src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx"
+      "src/lib/hq-store-view.ts",
+      "src/lib/hq-store-view-context.ts",
+      "src/lib/core-feature-permissions.ts",
+      "src/components/dashboard-layout.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "explanation",
-    "answer": "切換分店是查看模式；總部或母店可閱讀授權資料，但新增、編輯、預約、收款、扣次與退款仍由該店操作。"
-  },
+    "answer": "母店跨店查看仍是唯讀；HQ 選店則依該店實際功能與權限工作，但不會冒用店員身分。"
+  }
   {
     "id": "I09",
     "category": "settings",

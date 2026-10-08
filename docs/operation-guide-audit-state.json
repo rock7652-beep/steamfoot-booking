@@ -1,92 +1,21 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-07",
+  "auditDateTaipei": "2026-10-08",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "cd6d80f85c12c2870d16614d696ecc13e563106d",
-  "previousSuccessfulAuditCommit": "b665404e4423ff7de9b6147b26e380378760754e",
-  "mode": "scoped-current-source-correction",
-  "branch": "docs/operation-guide-audit-20261004",
-  "newGuideIds": [
-    "O09",
-    "O10"
-  ],
+  "lastInventoriedMainCommit": "51cab4ff29d858c9997b1ef7077112c1e47e11b0",
+  "previousSuccessfulAuditCommit": "a404b4715a587090dc099da495413ca5f6d6a157",
+  "mode": "incremental-main-diff",
+  "branch": "docs/operation-guide-audit-20261008",
+  "newGuideIds": [],
   "updatedGuideIds": [
-    "E08",
-    "F01",
-    "F03",
-    "F04",
-    "C123",
-    "I11",
-    "I12",
-    "G05",
-    "O01",
-    "O04",
-    "O05",
-    "O07",
-    "O08",
-    "I08"
-  ],
-  "cumulativeDraftNewGuideIds": [
-    "C166",
-    "I16",
-    "I17",
-    "I18",
-    "A13",
-    "G05",
-    "O01",
-    "O02",
-    "O03",
-    "O04",
-    "O05",
-    "O06",
-    "O07",
-    "O08",
-    "O09",
-    "O10",
-    "W01",
-    "W02",
-    "W03",
-    "W04",
-    "W05",
-    "C167"
-  ],
-  "cumulativeDraftUpdatedGuideIds": [
-    "A04",
-    "A05",
-    "A06",
-    "C03",
-    "E08",
-    "E09",
-    "F01",
-    "F03",
-    "F04",
-    "F06",
-    "F08",
-    "F10",
-    "G01",
-    "G03",
-    "G04",
     "I05",
-    "I08",
-    "C101",
-    "C106",
-    "C120",
-    "C123",
-    "C130",
-    "C134",
-    "S04",
-    "I11",
-    "I12",
-    "C160",
-    "I15",
-    "CP20",
-    "CP21",
-    "CP01",
-    "CP02",
-    "CP03",
-    "CP11",
-    "CP14"
+    "I18"
+  ],
+  "cumulativeDraftNewGuideIds": [],
+  "cumulativeDraftUpdatedGuideIds": [
+    "I05",
+    "I18"
   ],
   "interactionPendingGuideIds": [
     "D12",
@@ -424,12 +353,16 @@
     1241,
     1240,
     1242,
-    1243
+    1243,
+    1246,
+    1247,
+    1248,
+    1244
   ],
   "interactionStatus": "partial-isolated-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "Continue existing draft PR #1184. Deployed isolated database guard, HQ ADMIN and user-selected existing course STAFF sessions verified. Actual HQ crosslinks, guide filtering/device layouts, manager preview samples and one explicitly authorized synthetic inventory transaction sequence have scoped evidence in the QA report. Source-backed I08/C123/O01/O08 wording corrections do not change business components. Preserve174 broad pending IDs and all source-reviewed labels; final-head CI/Preview results belong in the PR. User approval is still required before production merge.",
+  "continuation": "PR #1184 已合併。2026-10-08 自動盤點從其 merge commit a404b471 起比對至 main 51cab4ff，共 15 筆 commit；公開經營指南／SEO 變更不計入登入後操作指南題數。依 PR #1244 的 HQ 門市實際權限規則修正 I05、I18；後台 201 題、前台 21 題與 16 類均不變。I05、I18 原已在歷史待驗收清單，因此總待驗收仍為 174。今日尚未取得確認隔離且已登入的工作階段，實際操作驗收未完成；草稿 PR 與 Preview 通過後仍須使用者確認，未授權自動合併。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -485,7 +418,7 @@
   "frontendArticleCount": 21,
   "backendInteractionPendingCount": 153,
   "totalInteractionPendingCount": 174,
-  "reviewedMainCommitCount": 103,
+  "reviewedMainCommitCount": 118,
   "reviewedStandaloneCommits": [
     "1e133b93",
     "e4b44f8c",
@@ -501,7 +434,8 @@
     1094,
     1098,
     1106,
-    1125
+    1125,
+    1184
   ],
   "frontendNewGuideIds": [],
   "sourceAddedFrontendGuideIds": [
@@ -580,28 +514,24 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "0980ace2f11faa22f89d92727cc1467681ee7670",
-    "report": "docs/qa/operation-guide-1184-20261007.md",
-    "isolation": "deployed branch guard verified both existing isolated database connections",
-    "externalNotifications": "Preview source guards and regression tests verified; no real delivery",
-    "status": "partial",
+    "sourceCommit": "51cab4ff29d858c9997b1ef7077112c1e47e11b0",
+    "report": "docs/hq-store-real-view-acceptance.md",
+    "isolation": "今日未取得可確認資料隔離與通知封鎖的已登入工作階段",
+    "externalNotifications": "未發送實際通知，未新增或修改營運資料",
+    "status": "blocked",
     "guideIdsCleared": [],
     "additionalCorrectionIds": [
-      "I08",
-      "C123",
-      "O01",
-      "O08"
+      "I05",
+      "I18"
     ],
-    "note": "Actual UI showed four device presets including tabletPortrait; corrected the older three-preset claim. Scenario-level tests do not certify every case of a guide.",
-    "blockers": [],
+    "note": "程式、測試與 HTTP/部署狀態只供來源核對，不替代登入後實際操作驗收。",
+    "blockers": [
+      "缺少已登入且確認資料隔離、通知封鎖的測試工作階段"
+    ],
     "nonBlockingFollowups": [
-      "Course manager preview seven choices and first card observed; full switch iteration denied by tool twice and not bypassed. Shared preview component and sample data covered separately.",
-      "Broader historical174 article acceptance and remaining scenario combinations stay unverified."
+      "使用隔離測試帳號逐步驗收 HQ 選店、HIDDEN/LOCKED、返回 HQ 與 Staff 專屬限制。"
     ],
-    "rolesVerified": [
-      "HQ ADMIN",
-      "existing course STAFF"
-    ],
-    "mergeReadiness": "Scoped guide update is ready for user merge approval after final-head CI and Preview pass; no production merge authorized."
+    "rolesVerified": [],
+    "mergeReadiness": "草稿內容與 Preview 可供確認；正式站未授權自動合併。"
   }
 }
