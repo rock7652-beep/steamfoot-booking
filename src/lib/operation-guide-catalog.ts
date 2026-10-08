@@ -1741,7 +1741,7 @@ export const additionalGuides: OperationGuide[] = [
     "verification": "source-reviewed",
     "kind": "explanation",
     "answer": "母店跨店查看仍是唯讀；HQ 選店則依該店實際功能與權限工作，但不會冒用店員身分。"
-  }
+  },
   {
     "id": "I09",
     "category": "settings",
