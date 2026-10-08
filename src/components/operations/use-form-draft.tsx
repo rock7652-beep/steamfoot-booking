@@ -41,7 +41,11 @@ export function useFormDraft<T extends Fields>(key: string, initial: T, revision
     return true;
   }
   return { values, set, setMany, dirty: !!draft, expectedRevision: draft?.revision ?? revision,
-    stale: !!draft && draft.revision !== revision, clear: () => setDraft(null), discard, busy, mounted };
+    stale: !!draft && draft.revision !== revision, clear: () => setDraft(null),
+    // A save may finish while its row is filtered out. Clear only the exact
+    // submitted draft in this scope; a subsequent edit creates a new object.
+    clearSubmitted: () => setDraft(current => current === draft ? null : current),
+    discard, busy, mounted };
 }
 export function FormDraftNotice({ dirty, stale, onDiscard }: { dirty: boolean; stale: boolean; onDiscard: () => void }) {
   if (!dirty) return null;

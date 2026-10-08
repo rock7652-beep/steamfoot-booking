@@ -21,10 +21,14 @@ describe("two-stage consultation intake", () => {
   it("confirms HQ first and exactly one Sheet post with supplied links kept in old notes", async () => {
     const fetch = vi.fn().mockImplementation(async () => { expect(m.save).toHaveBeenCalledOnce(); expect(m.claim).toHaveBeenCalledOnce(); return Response.json({version: 2, ok: true, saved: true, requestId: data.requestId}); });
     vi.stubGlobal("fetch", fetch);
-    const response = await POST(req({...data, websiteUrl: "https://example.com/shop", facebookUrl: "https://www.facebook.com/example", instagramUrl: "https://www.instagram.com/example"} as typeof data));
+    const links = { websiteUrl: "https://example.com/shop", facebookUrl: "https://www.facebook.com/example", instagramUrl: "https://www.instagram.com/example" };
+    const response = await POST(req({...data, ...links, otherNeed: "原始需求"} as typeof data));
     expect(await response.json()).toMatchObject({ saved: true, hqSaved: true, sheetStatus: "CONFIRMED" });
     expect(fetch).toHaveBeenCalledOnce();
-    expect(JSON.parse(fetch.mock.calls[0][1].body).otherNeed).toContain("店家官網：https://example.com/shop");
+    expect(m.save).toHaveBeenCalledWith(expect.objectContaining({ ...links, otherNeed: "原始需求" }), undefined);
+    const sheetPayload = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(sheetPayload.otherNeed).toBe("店家官網：https://example.com/shop\nFacebook：https://www.facebook.com/example\nInstagram：https://www.instagram.com/example\n原始需求");
+    for (const name of Object.keys(links)) expect(sheetPayload).not.toHaveProperty(name);
     expect(m.mark).toHaveBeenCalledWith("lead-test", "CONFIRMED");
   });
   it("keeps a durable HQ receipt when Sheet result is uncertain without retry", async () => {

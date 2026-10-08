@@ -6,7 +6,7 @@ vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/hq-store-view", () => ({ isHqStoreView: m.storeView }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/server/services/trial-application-access", () => ({ trialApplicationDatabaseAllowed: m.allowed }));
-vi.mock("next/navigation", () => ({ redirect: (href: string) => { throw new Error(`redirect:${href}`); } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }), redirect: (href: string) => { throw new Error(`redirect:${href}`); } }));
 vi.mock("next/link", () => ({ default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as never) }));
 vi.mock("@/app/hq/dashboard/trial-applications/consultation-list", () => ({ ConsultationLeadList: (props: unknown) => { m.leads(props); return createElement("p", {}, "lead-list"); } }));
 vi.mock("@/app/hq/dashboard/trial-applications/trial-application-list", () => ({ TrialApplicationsList: (props: unknown) => { m.applications(props); return createElement("p", {}, "formal-list"); } }));
