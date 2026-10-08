@@ -22,7 +22,7 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
@@ -50,6 +50,7 @@ import { joinManagerCourseWaitlist, promoteCourseWaitlistManually } from "@/serv
 
 const button =
   "min-h-10 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-sm disabled:opacity-50";
+const reminderButton = button.replace("min-h-10", "min-h-11");
 const primaryButton =
   "min-h-10 rounded-lg border border-primary-700 bg-primary-700 px-3 py-1.5 text-sm text-white disabled:opacity-50";
 const field =
@@ -127,6 +128,7 @@ export function CourseRoster({
   initialAssignedCoach?: string;
 }) {
   const router = useRouter();
+  const noteEditorTitleId = useId();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const readVersion = useRef(0);
   const mutationLock = useRef(false);
@@ -1264,17 +1266,17 @@ export function CourseRoster({
 
       {infoBookingId && (()=>{const booking=roster.find(row=>row.id===infoBookingId);if(!booking)return null;
         if(!musicLayout) return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="course-roster-info-title" width={512}>
-          <header className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-2"><h3 id="course-roster-info-title" className="min-w-0 break-words font-semibold">{booking.customerName} · 預約詳情</h3><button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></header>
+          <header className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-2"><h3 id="course-roster-info-title" className="min-w-0 break-words font-semibold">{booking.customerName} · 預約詳情</h3><button type="button" className={reminderButton} onClick={()=>setInfoBookingId(null)}>關閉</button></header>
           <div className="min-h-0 space-y-4 overflow-y-auto p-4 text-sm">
             <div><h4 className="text-earth-500">使用方案</h4><p className="break-words">{booking.planName}</p>{booking.sharedCard && <p>共卡：此方案由既有授權成員共用餘額。</p>}</div>
             <div><h4 className="text-earth-500">預約來源</h4><p className="break-words">{booking.bookingSource}</p>{!!booking.operatorCustomerId && booking.operatorCustomerId!==booking.customerId && !booking.companionIndex && <p>代約：由 {booking.operatorName || "已授權成員"} 協助預約，上課人為 {booking.customerName}；不會新增共卡授權。</p>}<p>{formatTWDateTime(new Date(booking.createdAt))}</p></div>
             {booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit}/>}
             <div><h4 className="text-earth-500">店內備註</h4><p className="whitespace-pre-wrap break-words">{booking.serviceNote?.trim() || "尚無備註"}</p></div>
             <div><h4 className="text-earth-500">本次備註</h4><p className="whitespace-pre-wrap break-words">{booking.notes?.trim() || "尚無備註"}</p></div>
-            {canEdit && booking.status!=="CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}
+            {canEdit && booking.status!=="CANCELLED" && <button type="button" className={reminderButton} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}
           </div>
         </ModalPanel>;
-        return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="music-roster-info-title" width={512}><div className="min-h-0 w-full space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 id="music-roster-info-title" className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-sm text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-sm text-earth-500">店內備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-sm text-earth-500">本次備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={button} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}<button type="button" className={button} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></ModalPanel>;})()}
+        return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="music-roster-info-title" width={512}><div className="min-h-0 w-full space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 id="music-roster-info-title" className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-sm text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-sm text-earth-500">店內備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-sm text-earth-500">本次備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={reminderButton} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}<button type="button" className={reminderButton} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></ModalPanel>;})()}
 
       {paymentMenu && (() => {
         const booking = roster.find(row => row.id === paymentMenu);
@@ -1431,13 +1433,13 @@ export function CourseRoster({
         </div>
       )}
 
-      {editingNote && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label={`${editingNote.name}${editingNote.bookingId ? "本次備註" : "教師備註"}`}>
-        <form className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft}),"備註已儲存");setEditingNote(null);}}>
-          <h3 className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : "教師備註"}</h3>
-          <textarea autoFocus className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
-          <div className="mt-4 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton} disabled={pending}>儲存</button></div>
+      {editingNote && <ModalPanel open onClose={() => setEditingNote(null)} labelledById={noteEditorTitleId} width={512}>
+        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft}),"備註已儲存");setEditingNote(null);}}>
+          <h3 id={noteEditorTitleId} className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : "教師備註"}</h3>
+          <textarea className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
+          <div className="mt-4 flex justify-end gap-2"><button type="button" className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
         </form>
-      </div>}
+      </ModalPanel>}
       {purchaseFor && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label="學員繳費">
         <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-earth-200 p-4"><div><h3 className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3><p className="text-sm text-earth-600">完成後保留在這堂課的名單</p></div><button type="button" className={button} disabled={purchasePending} onClick={() => {setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>

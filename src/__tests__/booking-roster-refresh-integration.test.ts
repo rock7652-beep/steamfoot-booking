@@ -9,12 +9,13 @@ vi.mock("@/lib/booking-month-read", () => ({ readBookingMonth: mocks.month }));
 vi.mock("@/lib/booking-client-transport", () => ({ readBookingSlots: mocks.slots, readBookingDetail: mocks.detail, updateBookingStatus: mocks.write }));
 vi.mock("@/server/actions/booking", () => ({ markCompletedBatch: mocks.write }));
 vi.mock("@/server/actions/customer-labels", () => ({ loadCustomerLabels: mocks.labels, setCustomerLabel: mocks.write, manageCustomerLabels: mocks.write }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/s/staging/admin/dashboard/bookings", useSearchParams: () => new URLSearchParams(), useRouter: () => ({ replace: vi.fn() }) }));
-vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, scroll: _scroll, onNavigate: _onNavigate, ...props }: { href: string; children: React.ReactNode; prefetch?: boolean; scroll?: boolean; onNavigate?: unknown }) => { void _prefetch; void _scroll; void _onNavigate; return React.createElement("a", { href, ...props }, children); }, useLinkStatus: () => ({ pending: false }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/s/staging/admin/dashboard/bookings", useSearchParams: () => new URLSearchParams(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, scroll: _scroll, onNavigate: _onNavigate, ...props }: { href: string; children: React.ReactNode; prefetch?: boolean; scroll?: boolean; onNavigate?: (event: { preventDefault: () => void }) => void }) => { void _prefetch; void _scroll; return React.createElement("a", { href, ...props, onClick: (event: React.MouseEvent) => { event.preventDefault(); _onNavigate?.({ preventDefault() {} }); } }, children); }, useLinkStatus: () => ({ pending: false }) }));
 vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({ TrialBookingDrawer: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/steam-booking-drawer", () => ({ SteamBookingDrawer: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/booking-detail-drawer", () => ({ BookingDetailDrawer: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/day-slot-manager", () => ({ DaySlotManager: () => null }));
+import { OperationScope } from "@/components/operations/operation-scope";
 import { CustomerLabelsProvider } from "@/components/customer-labels";
 import { BookingMonthWorkspace } from "@/app/(dashboard)/dashboard/bookings/booking-month-workspace";
 import type { BookingsManagerProps } from "@/app/(dashboard)/dashboard/bookings/bookings-manager";
@@ -35,6 +36,8 @@ let host: HTMLDivElement, root: Root;
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   caught.length = 0;
+  window.history.replaceState(null, "", "/s/staging/admin/dashboard/bookings?year=2026&month=9");
+  sessionStorage.clear();
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-08T00:00:00Z"));
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
@@ -46,7 +49,7 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 async function openDay(rows = monthData()) {
-  await act(async () => root.render(jsx(TestBoundary, { children: jsx(CustomerLabelsProvider, { initial: { ...labels, assignments: {} }, children: jsx(BookingMonthWorkspace, { year: 2026, month: 9, storeId: "staging-store", monthData: rows, monthSchedule: {}, customerLabels: labels, servicePlans: [] }) }) })));
+  await act(async () => root.render(jsx(TestBoundary, { children: jsx(OperationScope, { scope: "synthetic-matrix", children: jsx(CustomerLabelsProvider, { initial: { ...labels, assignments: {} }, children: jsx(BookingMonthWorkspace, { year: 2026, month: 9, storeId: "staging-store", monthData: rows, monthSchedule: {}, customerLabels: labels, servicePlans: [] }) }) }) })));
   const day = host.querySelector<HTMLElement>(`[role="button"][aria-label="${date} 的預約"]`)!;
   expect(day).not.toBeNull();
   await act(async () => day.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
@@ -171,4 +174,20 @@ it("does not let an old day's failure erase the current day's retry state", asyn
   expect(host.textContent).toContain("時段載入失敗，已保留預約名單");
   expect(host.textContent).toContain("目前無法確認可預約時段");
   expect(caught).toEqual([]);
+});
+
+it("restores the retained day roster after a synthetic history Back between months without a write", async () => {
+  await openDay();
+  const pop = vi.fn(); window.addEventListener("popstate", pop);
+  try {
+    await act(async () => host.querySelector<HTMLAnchorElement>('a[aria-label="下個月"]')!.click());
+    expect(window.location.search).toBe("?year=2026&month=10");
+    expect(host.textContent).toContain("2026 年 10 月");
+    await act(async () => { window.history.back(); await vi.advanceTimersByTimeAsync(50); });
+    expect(pop).toHaveBeenCalled();
+    expect(window.location.search).toBe("?year=2026&month=9");
+    expect(host.textContent).toContain("9/24（週四） 當日預約");
+    expect(host.querySelectorAll("[data-batch]")).toHaveLength(5);
+    expect(caught).toEqual([]); expect(mocks.write).not.toHaveBeenCalled();
+  } finally { window.removeEventListener("popstate", pop); }
 });

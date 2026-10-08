@@ -84,7 +84,7 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="標籤與備註")!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="編輯本次備註")!.click());
-  const save=[...host.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
+  const save=[...document.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
@@ -349,6 +349,7 @@ it('groups trial payment with identity and separates full usual and class notes'
 
 it.each([false,true])("keeps direct note add/edit and full notes available in the compact roster (music=%s)",async(musicLayout)=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const visibleRect=vi.spyOn(HTMLElement.prototype,"getClientRects").mockImplementation(()=>[{width:100,height:44}] as unknown as DOMRectList);
  const base={customerPhone:"0900000000",status:"RESERVED",bookingKind:"CARD",trialPayments:[],pointCost:2,cardId:"plan",cardRemaining:12,serviceNote:"店內完整提醒",termLessons:[],termPrivateLeaves:[],absenceHistory:[],createdAt:"2026-10-01T02:00:00Z"};
  const roster=[{...base,id:"empty-note",customerId:"empty",customerName:"無備註學員",notes:""},{...base,id:"saved-note",customerId:"saved",customerName:"有備註學員",notes:"保留完整本次備註\n第二行"}];
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-01T02:00:00Z",pointCost:2},roster,cards:[],trial:null}});
@@ -359,7 +360,7 @@ it.each([false,true])("keeps direct note add/edit and full notes available in th
    const trigger=host.querySelector<HTMLButtonElement>(`button[aria-label="${booking.customerName} 本次備註"]`)!;
    expect(trigger.textContent).toBe(booking.notes ? "編輯本次備註" : "＋本次備註");
    await act(async()=>trigger.click());
-   const dialog=document.querySelector(`[role="dialog"][aria-label="${booking.customerName}本次備註"]`)!;
+   const dialog=document.querySelector("textarea")!.closest('[role="dialog"]')!;
    expect(dialog.querySelector("textarea")?.value).toBe(booking.notes);
    expect(document.activeElement).toBe(dialog.querySelector("textarea"));
    await act(async()=>[...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="取消")!.click());
@@ -372,7 +373,7 @@ it.each([false,true])("keeps direct note add/edit and full notes available in th
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:false,musicLayout})));
   expect(host.querySelector('button[aria-label="有備註學員 本次備註"]')).toBeNull();
   expect(host.querySelector('button[aria-label="有備註學員 標籤與備註"]')).toBeTruthy();
- }finally{await act(async()=>root.unmount());host.remove();}
+ }finally{await act(async()=>root.unmount());host.remove();visibleRect.mockRestore();}
 });
 
 it("scopes ownership counts and retains a row after quick pending attendance", async () => {

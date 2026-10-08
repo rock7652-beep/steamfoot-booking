@@ -83,3 +83,41 @@ Git 自動部署仍 disabled；隔離 Preview 由明確 Git deployment 啟動，
 此修正本機驗證：22 focused suites／257 tests passed；changed-source ESLint 與 diff --check 通過。含既有 customer-facing slots／duty／店別規則回歸。完整 TypeScript 與 full Vitest 待同 PR 遠端 CI，未重跑資源不足的本機全量檢查。
 
 已在本支線整合正式 main 3248c08a（既有 robots 與官網數據修正），無衝突。本輪 4 個新增 suites 與 3 個官網 suites 在整合後共 97 項通過；marketing-usage-sql 的 worker 異常退出／終止逾時，該次 16 項未完成，整合後這次 8-suite run 不算全過。該 SQL suite 交遠端 CI，未用資源不足的結果宣稱通過。
+
+## 四模組合成驗收矩陣（真元件，非像素驗收）
+
+`four-module-reminders-matrix.test.ts` 掛載真 DayDetailPanel、SpaBookingRoster、CourseRoster（運動／音樂）與 CustomerLabelsProvider。只替換 server reads/writes 與未開啟的外部 editor 邊界；沒有真資料或網路寫入。
+
+| 項目 | 蒸足 | SPA | 運動 | 音樂 |
+| --- | --- | --- | --- | --- |
+| 空名單、空備註骨架 | 通過 | 通過 | 通過 | 通過 |
+| 0／1／8 標籤；兩行摘要；沒有巢狀 button | 通過 | 通過 | 通過 | 通過 |
+| 長換行備註、全文結尾可讀、來源分開 | 通過 | 通過 | 通過 | 通過 |
+| 唯讀、標籤停用、不多發寫入 | 通過 | 通過 | 通過 | 通過 |
+| 重複開全文、Escape 關閉、回到原 trigger | 通過 | 通過 | 通過 | 通過 |
+| 本次編輯：取消草稿／重新開啟原內容 | 既有 detail editor 邊界待端到端 | 既有 schedule editor 邊界待端到端 | 通過 | 通過 |
+| 本次編輯：Escape、Tab 循環、關閉回焦點 | 待端到端 | 待端到端 | 通過 | 通過 |
+| 本次編輯：一次 submit 維持原 action contract | 本輪不做實際寫入 | 本輪不做實際寫入 | 合成 action 通過 | 合成 action 通過 |
+| 確認視窗「返回」零寫入 | 既有批次選取測試 | 待端到端 | 通過 | 通過 |
+| 本期／下期付款、堂數、請假／曠課與未來日期 | 不適用 | 收據既有測試通過 | 既有欄位保留測試 | 多期完整內容通過 |
+| 合成 history Back 返回原月份／日期 | 真 workspace 合成測試通過 | 頁面整合待驗 | 頁面整合待驗 | 頁面整合待驗 |
+
+追加 keyboard 測試實證：原運動／音樂備註編輯器沒有 Escape handler。已只將共用備註 editor 接到既有 ModalPanel 的鍵盤／焦點堆疊，保留原 cancel/save action；備註視窗按鈕統一 44px。沒有改動缺課、扣堂、付款或其餘確認視窗的業務規則。
+
+`roster-reminders-css-contract.test.ts` 的 6 項解析檢查確認：14px、20+4+20px、獨立 44px controls、三種 roster 的 container query、56px minimum row 及窄／低螢幕 modal 滾動規則。jsdom 的可見尺寸只用於鍵盤 focus test，不能當真實量測；CSS 解析不能證明實際折行、sticky 或無溢出。
+
+現有本機合成 Vite harness 已以目前真元件重新 bundle，包含四模組及 30 筆合成資料。此為編譯檢查；沒有透過其他瀏覽器或低階介面擷取畫面，不把 build、DOM 或 CSS 契約當成截圖驗收。
+
+### 明確仍待瀏覽器完成
+
+每個模組都要在 1366×900、寬螢幕、1024×768、768×1024、560px 窄容器、390／360px 檢查：
+
+1. 實際兩行密度、長姓名／標籤／備註折行、14px/44px量測、內部捲動、sticky header 與整頁水平溢出。
+2. 全文與筆記入口、取消／返回、焦點可見及原名單位置；蒸足／SPA 須穿過各自原有 editor。
+3. 真正 Back/Forward、重新進入／刷新、連續開關與行動裝置虛擬鍵盤遮擋。真 iPad Safari／touch 並未驗證。
+4. 蒸足修後保持名單至少兩輪自動刷新；API失敗／scope反向案例已合成測試，live只讀驗收不能據此宣稱已完成。
+5. 音樂個別與團體名單的期數、兩期付款、歷史展開在窄畫面仍可完整取回。
+
+恢復條件是正常可用、經授權的 QA 瀏覽器會話；頁面讀取與互動可用後，沿同一隔離 Preview 執行以上矩陣。若登入已過期，依既有安全登入流程恢復。使用者截圖不是唯一驗收方式；正式合併仍須完整畫面證據與另外授權。
+
+本輪追加矩陣與既有回歸合跑：25 suites／299 tests passed；changed-source ESLint、diff --check 通過；合成 Vite bundle build 通過。新的 keyboard editor runtime 與新增測試待此 head 的遠端 CI／隔離 Preview，先前 0fb236ca READY 不能當作本輪 editor 修正的畫面驗收。
