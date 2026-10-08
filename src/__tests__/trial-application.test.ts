@@ -74,9 +74,12 @@ describe("trial application input", () => {
     ).toBe(true));
   it("allows submitting basic information before LINE authorization", () => {
     expect(trialApplicationSchema.safeParse(data).success).toBe(true);
-    expect(
-      trialChecklist(data).find((x) => x.label === "Provider Admin")?.state,
-    ).toBe("待補充");
+    for (const key of ["developers", "providerAdmin", "messagingAdmin", "loginAdmin"]) {
+      expect(trialApplicationSchema.parse(data)).not.toHaveProperty(key);
+    }
+    expect(trialChecklist(data).map((item) => item.label).join(" ")).not.toMatch(
+      /Developers|Provider|Messaging API|LINE Login/,
+    );
   });
   it.each([
     "javascript:alert(1)",
@@ -88,12 +91,20 @@ describe("trial application input", () => {
       trialApplicationSchema.safeParse({ ...data, inviteUrl }).success,
     ).toBe(false);
   });
-  it("marks invitation supplied separately from verified access", () =>
+  it("marks the official account invitation separately from verified access", () =>
     expect(
-      trialChecklist({ ...data, developers: "invited" }).find((x) =>
-        x.label.includes("Developers"),
+      trialChecklist({ ...data, inviteUrl: "https://manager.line.biz/invite/example" }).find((x) =>
+        x.label === "官方 LINE 管理員邀請",
       )?.state,
-    ).toBe("已邀請，待確認"));
+    ).toBe("已提供，待確認"));
+  it("preserves legacy draft progress without adding application requirements", () => {
+    const legacy = { ...data, developers: "invited", providerAdmin: "invited", messagingAdmin: "absent", loginAdmin: "help" };
+    expect(trialDraftSchema.parse(legacy)).toEqual(legacy);
+    const parsed = trialApplicationSchema.parse(legacy);
+    expect(parsed).toEqual(legacy);
+    expect(trialChecklist(parsed)).toEqual(trialChecklist(data));
+    expect(trialNotificationSummary(parsed)).not.toMatch(/Developers|Provider|Messaging API|LINE Login/);
+  });
 });
 describe("receipt boundary", () => {
   it("blocks requests from another origin before database access", async () => {
@@ -123,6 +134,26 @@ describe("receipt boundary", () => {
     );
     expect(res.status).toBe(403);
     expect(await res.json()).not.toHaveProperty("data");
+  });
+  it("reads an old receipt with historical authorization values intact", async () => {
+    const legacy = { ...data, developers: "invited", providerAdmin: "invited", messagingAdmin: "absent", loginAdmin: "help" };
+    mocks.findUnique.mockResolvedValue({ ...record, payload: legacy });
+    const res = await POST(request({ requestId, token, action: "read" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ data: legacy, revision: 1 });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+  it("supplements a legacy receipt while retaining hidden historical values", async () => {
+    const legacy = { ...data, developers: "help", providerAdmin: "invited", messagingAdmin: "absent", loginAdmin: "help" };
+    mocks.findUnique.mockResolvedValue({ ...record, payload: legacy, status: "CONFIGURING" });
+    mocks.findUniqueOrThrow.mockResolvedValue({ ...record, payload: legacy, revision: 2, status: "CONFIGURING" });
+    const supplement = { ...legacy, friendUrl: "https://lin.ee/example" };
+    const res = await POST(request({ requestId, token, action: "save", revision: 1, data: supplement }));
+    expect(res.status).toBe(200);
+    expect(mocks.updateMany.mock.calls[0][0].data.payload).toEqual(supplement);
+    expect(mocks.updateMany.mock.calls[0][0].data).not.toHaveProperty("status");
+    expect(await res.json()).toMatchObject({ revision: 2, status: "CONFIGURING" });
   });
   it("persists only a token hash and returns receipt despite failed mail", async () => {
     mocks.notify.mockResolvedValue("FAILED");
@@ -222,7 +253,8 @@ describe("complete per-store intake", () => {
       integrationName: "",
     };
     expect(trialApplicationSchema.parse(legacy).attachments).toEqual([]);
-    expect(trialApplicationSchema.parse(legacy).providerAdmin).toBe("pending");
+    expect(trialApplicationSchema.parse(legacy).developers).toBe("pending");
+    expect(trialApplicationSchema.parse(legacy)).not.toHaveProperty("providerAdmin");
   });
   it.each(["UFUN", "a b", "-butler", "admin/path"])(
     "rejects invalid slug %s",
@@ -231,7 +263,7 @@ describe("complete per-store intake", () => {
         false,
       ),
   );
-  it("allows requested but unallocated slug and independent admin progress", () => {
+  it("preserves requested slug and old admin progress without requesting it again", () => {
     const d = trialApplicationSchema.parse({
       ...data,
       slug: "butler",
@@ -239,13 +271,8 @@ describe("complete per-store intake", () => {
       messagingAdmin: "absent",
       loginAdmin: "help",
     });
-    expect(trialChecklist(d)).toContainEqual({
-      label: "Provider Admin",
-      state: "已邀請，待確認 Admin",
-    });
-    expect(trialNotificationSummary(d)).toContain(
-      "Messaging API Admin：尚未建立",
-    );
+    expect(d).toMatchObject({ providerAdmin: "invited", messagingAdmin: "absent", loginAdmin: "help" });
+    expect(trialNotificationSummary(d)).not.toMatch(/Provider|Messaging API|LINE Login/);
     expect(trialNotificationSummary(d)).toContain("希望網址：butler（待確認）");
   });
   it("rejects fabricated file bytes and oversized aggregate without throwing", () => {

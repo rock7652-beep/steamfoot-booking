@@ -223,8 +223,8 @@ it("existing deployed receiver retains new configuration in the same row and mai
   });
   expect(f.rows[1][11]).toContain("多店品牌");
   expect(f.rows[1][11]).toContain("10堂方案");
-  expect(f.send.mock.calls[0][0].body).toContain(
-    "Provider Admin：已邀請，待確認",
+  expect(f.send.mock.calls[0][0].body).not.toMatch(
+    /Developers|Provider Admin|Messaging API Admin|LINE Login Admin/,
   );
   expect(f.send.mock.calls[0][0].body).toContain("希望網址：butler");
 });
