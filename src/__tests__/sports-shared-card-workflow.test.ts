@@ -15,6 +15,13 @@ describe("sports shared-card stacked PR checks", () => {
     const source = readFileSync(".github/workflows/sports-shared-card-audit.yml", "utf8");
     expect(source).toContain("branches: [main, feat/hq-store-real-view-20261007]");
     expect(source).toContain("postgres:17.6");
+    expect(source).toContain('CHECKOUT_SHA: ${{ github.sha }}');
+    expect(source).toContain('[[ "$CHECKOUT_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1');
+    expect(source).toContain('git -c credential.helper= fetch --no-tags --depth=1 origin "$CHECKOUT_SHA"');
+    expect(source).toContain('test "$(git rev-parse HEAD)" = "$CHECKOUT_SHA"');
+    expect(source).not.toContain("persist-credentials: true");
+    expect(source).not.toContain("github.token");
+
     for (const key of ["DATABASE_URL", "DIRECT_URL", "BOOKING_CONCURRENCY_TEST_DATABASE_URL"]) {
       expect(source).toContain(`${key}: postgresql://postgres:disposable-test-only@127.0.0.1:5432/sports_shared_card_test`);
     }
