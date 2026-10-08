@@ -347,6 +347,34 @@ it('groups trial payment with identity and separates full usual and class notes'
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
+it.each([false,true])("keeps direct note add/edit and full notes available in the compact roster (music=%s)",async(musicLayout)=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const base={customerPhone:"0900000000",status:"RESERVED",bookingKind:"CARD",trialPayments:[],pointCost:2,cardId:"plan",cardRemaining:12,serviceNote:"店內完整提醒",termLessons:[],termPrivateLeaves:[],absenceHistory:[],createdAt:"2026-10-01T02:00:00Z"};
+ const roster=[{...base,id:"empty-note",customerId:"empty",customerName:"無備註學員",notes:""},{...base,id:"saved-note",customerId:"saved",customerName:"有備註學員",notes:"保留完整本次備註\n第二行"}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-01T02:00:00Z",pointCost:2},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:true,musicLayout})));
+  for(const booking of roster){
+   const trigger=host.querySelector<HTMLButtonElement>(`button[aria-label="${booking.customerName} 本次備註"]`)!;
+   expect(trigger.textContent).toBe(booking.notes ? "編輯本次備註" : "＋本次備註");
+   await act(async()=>trigger.click());
+   const dialog=document.querySelector(`[role="dialog"][aria-label="${booking.customerName}本次備註"]`)!;
+   expect(dialog.querySelector("textarea")?.value).toBe(booking.notes);
+   expect(document.activeElement).toBe(dialog.querySelector("textarea"));
+   await act(async()=>[...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="取消")!.click());
+   expect(document.querySelector('[role="dialog"]')).toBeNull();
+  }
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="有備註學員 標籤與備註"]')!.click());
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("店內完整提醒");
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("保留完整本次備註\n第二行");
+  await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:false,musicLayout})));
+  expect(host.querySelector('button[aria-label="有備註學員 本次備註"]')).toBeNull();
+  expect(host.querySelector('button[aria-label="有備註學員 標籤與備註"]')).toBeTruthy();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
 it("scopes ownership counts and retains a row after quick pending attendance", async () => {
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const base={customerPhone:"0900000000",bookingKind:"CARD",status:"RESERVED",checkedInAt:null,trialPayments:[],pointCost:2,cardId:null,cardRemaining:null,notes:"",serviceNote:"",assignedCoachName:"林教練",assignedCoachId:"coach-a"};

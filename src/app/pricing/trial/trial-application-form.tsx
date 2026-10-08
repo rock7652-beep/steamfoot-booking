@@ -7,7 +7,6 @@ import {
   trialApplicationSchema,
   trialDraftSchema,
   trialChecklist,
-  TRIAL_CONTACT_EMAIL,
   setupSections,
   attachmentSchema,
   type TrialApplicationData,
@@ -399,48 +398,9 @@ export function TrialApplicationForm() {
           {data.sharedLine === "yes" &&
             field("sharedLineStores", "共用 LINE 的門市名稱")}
         </div>
-        <StageList items={trialChecklist(data).slice(2, 4)} />
-      </section>
-      <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
-        <div className="mb-5 flex flex-wrap gap-3">
-          <h2 className="text-xl font-semibold">3 · LINE 串接協助</h2>
-          <Guide topic="developers" label="邀請管理員圖解" />
-        </div>
-        <p className="mb-4 text-sm">
-          LINE
-          串接由我們協助，請依教學邀請下方帳號為管理員；不需要提供帳號密碼。
-          邀請對象：
-          <strong className="select-all">{TRIAL_CONTACT_EMAIL}</strong>
+        <p className="mt-4 text-sm text-[#64736b]">
+          LINE 串接由我們協助；需要補充資料時會再聯絡，不需提供帳號密碼。
         </p>
-        <details className="mt-4 rounded-lg border border-[#dce3dc] p-3">
-          <summary className="cursor-pointer font-medium">
-            已操作授權？填寫進度（選填）
-          </summary>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {(
-              [
-                ["providerAdmin", "Provider Admin"],
-                ["messagingAdmin", "Messaging API Channel Admin"],
-                ["loginAdmin", "LINE Login Channel Admin"],
-              ] as const
-            ).map(([key, label]) => (
-              <div key={key}>
-                {select(key, label, [
-                  ["pending", "尚未邀請"],
-                  ["invited", "已邀請 Admin，待蒸管家確認"],
-                  ["absent", "尚未建立，需要協助"],
-                  ["help", "找不到／不確定，需要協助"],
-                ])}
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-sm text-[#64736b]">
-            官方 LINE 與 Developers 是兩個後台。Provider 與 Channel 權限分別選
-            Admin，並按 Send invitation 寄給
-            rock7652@gmail.com。已邀請不代表已取得權限；由蒸管家接受並核對。沒有
-            Channel 時不用自行重建。
-          </p>
-        </details>
         <div className="mt-5 grid gap-5">
           {select("integration", "官方 LINE 有接其他系統嗎？", [
             ["unknown", "不確定，請協助確認"],
@@ -450,9 +410,10 @@ export function TrialApplicationForm() {
           {data.integration === "existing" &&
             field("integrationName", "目前使用的系統")}
         </div>
+        <StageList items={trialChecklist(data).slice(2, 4)} />
       </section>
       <section className="rounded-2xl border border-[#dce3dc] bg-white p-5 sm:p-6">
-        <h2 className="text-xl font-semibold">4 · 視訊操作教學</h2>
+        <h2 className="text-xl font-semibold">3 · 視訊操作教學</h2>
         <p className="mt-2 text-sm text-[#64736b]">
           我們會帶您排好第一堂課，實際完成預約與報到。無須事先準備完整課表或方案，有現成資料也歡迎提供。
         </p>
