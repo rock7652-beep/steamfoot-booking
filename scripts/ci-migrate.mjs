@@ -21,6 +21,16 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
     throw new Error("Store archive Preview requires the isolated preview database.");
 }
 
+import { assertConsultationPreviewEnvironment, isConsultationMockedUnitTest } from "./consultation-preview-scope.mjs";
+
+// This candidate uses only its separately approved two-table DDL. Never run
+// unrelated pending migrations, even if the provider overrides build settings.
+if (!isConsultationMockedUnitTest(process.env)) {
+  assertConsultationPreviewEnvironment(process.env);
+  console.info("[consultation-preview-preflight] isolated_database=true notifications_blocked=true flags_enabled=true migrations_skipped=true");
+  process.exit(0);
+}
+
 import { isGuideUiPreview } from "./guide-ui-preview-scope.mjs";
 if (isGuideUiPreview()) {
   console.info("[guide-ui-preview] database_disabled=true migrations_skipped=true");

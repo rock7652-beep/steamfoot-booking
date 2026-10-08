@@ -1,3 +1,11 @@
+import { assertConsultationPreviewEnvironment, isConsultationMockedUnitTest } from "../../scripts/consultation-preview-scope.mjs";
+
+// Validate before build/config work, cached client access, or construction.
+// Only nondeployed mocked tests may retain legacy guide/production fixtures.
+if (!isConsultationMockedUnitTest(process.env)) {
+  assertConsultationPreviewEnvironment(process.env);
+}
+
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";
@@ -18,7 +26,7 @@ function databaseUrl() {
 }
 export const coursePrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
-  : globalForCourse.coursePrisma ??
+  : (isConsultationMockedUnitTest(process.env) ? globalForCourse.coursePrisma : undefined) ??
   withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],

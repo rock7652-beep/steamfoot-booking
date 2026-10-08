@@ -23,9 +23,9 @@
 
 ## 權限與資料邊界
 
-- 新諮詢資料讀寫要求 ADMIN + staff.manage、功能旗標與嚴格 Preview 連線檢查。既有 HQ auth/layout 會在頁面層檢查之前存取設定中的 DB（可能更新登入時間），因此本功能不宣稱整個錯配 Preview 都無 DB 副作用。隔離驗收前必須先確認實際兩條連線都指向核准 preview，才可開啟 HQ。公開諮詢 Preview 路由則在 auth 前先檢查隔離設定。
+- 新諮詢資料讀寫要求 ADMIN + staff.manage、功能旗標與嚴格 Preview 連線檢查。原先 HQ auth/layout 可先於頁面層檢查存取 DB；本次受控部署補上 release-bound preflight，在 build、Next config 與三個 DB client 建構／快取使用前驗證精確分支、倉庫、Preview、兩旗標與兩條隔離連線。錯配即停止。公開諮詢 Preview 路由仍在 auth 前檢查隔離設定。開啟 HQ 前先核實實際 build 的安全布林紀錄。
 - Preview 一律禁止 Apps Script GET/POST 與所有通知；僅在 CONSULTATION_HQ_ENABLED 與 CONSULTATION_PREVIEW_INTAKE_ENABLED 都為 true、DATABASE_URL/DIRECT_URL 精確指向既有隔離项目且無 override、HQ ADMIN + staff.manage 驗證通過、店名以「【HQ測試】」標記時，才允許合成諮詢寫入隔離 HQ。固定狀態 NOT_SENT_PREVIEW（測試未送），無法領取 Sheet 發送；未登入與未標記資料不能注入。
-- 新表 additive SQL 保存在 docs/sql，未放自動 migrations，未套用任一資料庫。
+- 新表 additive SQL 保存在 docs/sql，未放自動 migrations；只經批准套用既有隔離資料庫，未套正式。
 - 外部網址 HTTPS、拒絕 credentials／IP／本機位址；社群官方 hostname allowlist。絕不在伺服器抓取申請者提供的網址。
 - LINE ID 不是已驗證的使用者連結，不從暱稱或 ID 拼造聊天網址。
 - 狀態／關聯更動檢查 revision，聯繫紀錄追加寫入；操作與稽核同一交易。
@@ -41,5 +41,15 @@
 - 完整測試、typecheck、lint、獨立審閱。
 - 經核准在隔離 DB 套用 additive SQL，再啟用上述兩個限定 Preview 旗標；以 HQ 登入和合成資料驗證表單→HQ（無外部發送）。真 PostgreSQL 冪等／併發／FK／revision驗收。
 - 隔離桌機1366／寬螢幕、iPad1024×768/768×1024、360/390手機及窄內容區的視覺與實際操作驗收。DOM/mock 測試不等於實際驗收。
-- 明確批准分支公開、Draft PR、隔離 Preview。未批准不能推送。首次 push 前須選定精確分支並加入該支線的自動 Preview 停用設定，避免公開分支觸發未驗證部署；本候選尚未選定遠端分支，也未更動 Vercel 設定。
-- 正式資料庫 schema、功能旗標、正式發布、Apps Script 更新和歷史匯入各依實際授權執行；本機 patch 不含任一項的執行。
+- 明確批准分支公開、Draft PR、隔離 Preview。未批准不能推送。首次 push 已包含精確分支 feat/hq-consultation-intake-20261008 的自動 Preview 停用設定，避免公開分支觸發未驗證部署。
+- 正式資料庫 schema、功能旗標、正式發布、Apps Script 更新和歷史匯入各依實際授權執行；本候選未執行正式資料庫／正式發布、Apps Script 更新或歷史匯入；隔離執行情況見下方。
+
+## 受控預覽進度（2026-10-08）
+
+- 使用者已批准公開原倉庫的 Draft PR 與既有隔離資料庫測試；PR #1251，首版 head 993b4c28562e943b8a99b616d5f72a048c45fb6b。精確分支 feat/hq-consultation-intake-20261008 的自動 Preview 停用。
+- 隔離 migration 20261008011222 已套用兩表 SQL，僅追加 transaction-local lock_timeout=5s、statement_timeout=30s。七組真 PostgreSQL 合成驗收通過並全回滾，兩表均0列；無正式資料或真實名單匯入。
+- 兩旗標只設定在該分支的 Preview，未設 production。未讀取或重設資料庫憑證。
+- 受控部署所需的 release-bound preflight 會在 migration runner 驗證後直接退出，完全跳過自動 migration。不能把本未合併候選直接部署正式；正式釋出須另審閱轉換。
+- 初版遠端四項核心 CI 與工單 PostgreSQL 成功；後續 guard 提交與其 Preview／CI 結果以 PR 最新證據為準。
+- 本機視覺驗收仍不列通過。尚待受控 Preview 的 HQ 登入與實際 UI 驗收。
+- Supabase 對兩個只檢查 NEW/OLD 的 SECURITY INVOKER trigger functions 提示 mutable search_path；未超出批准 SQL 擅自調整。無 client policies 為刻意的 server-only 設計。

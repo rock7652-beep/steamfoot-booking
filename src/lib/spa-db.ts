@@ -1,3 +1,11 @@
+import { assertConsultationPreviewEnvironment, isConsultationMockedUnitTest } from "../../scripts/consultation-preview-scope.mjs";
+
+// Validate before build/config work, cached client access, or construction.
+// Only nondeployed mocked tests may retain legacy guide/production fixtures.
+if (!isConsultationMockedUnitTest(process.env)) {
+  assertConsultationPreviewEnvironment(process.env);
+}
+
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { configureSpaPreviewPool } from "./spa-preview-pool";
@@ -25,7 +33,7 @@ const globalForSpaPrisma = globalThis as unknown as {
 /** Dedicated SPA client: it intentionally cannot address Steamfoot Booking or Transaction. */
 export const spaPrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
-  : globalForSpaPrisma.spaPrisma ??
+  : (isConsultationMockedUnitTest(process.env) ? globalForSpaPrisma.spaPrisma : undefined) ??
   withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: buildSpaDatabaseUrl() } },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],

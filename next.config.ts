@@ -3,6 +3,14 @@ if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.e
   throw new Error("SEO review branch deployment is disabled; use local verification.");
 }
 
+import { assertConsultationPreviewEnvironment, isConsultationMockedUnitTest } from "./scripts/consultation-preview-scope.mjs";
+
+// Validate before build/config work, cached client access, or construction.
+// Only nondeployed mocked tests may retain legacy guide/production fixtures.
+if (!isConsultationMockedUnitTest(process.env)) {
+  assertConsultationPreviewEnvironment(process.env);
+}
+
 import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
 isGuideUiPreview(); // Validate the isolated mode before Next build work.
 
