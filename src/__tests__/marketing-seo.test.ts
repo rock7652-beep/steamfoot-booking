@@ -39,6 +39,35 @@ describe("public crawler documents", () => {
     for (const asset of ["/_next/static/", "/_next/image", "/pricing/business-assets/", "/pricing/brand/"]) expect(text).toContain(`Allow: ${asset}\n`);
     expect(text).toContain(`Sitemap: ${MARKETING_ORIGIN}/sitemap.xml`);
   });
+  it("allows only the exact sitemap URL while keeping private and lookalike paths blocked", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const text = await robots(request("/robots.txt")).text();
+    expect(text.match(/^User-agent: .+$/gm)).toEqual(["User-agent: *"]);
+    expect(text.split("\n").filter(line => line.startsWith("Disallow:"))).toEqual(["Disallow: /"]);
+    expect(text.split("\n").filter(line => line.startsWith("Allow:"))).toEqual([
+      "Allow: /sitemap.xml$",
+      ...[...MARKETING_SITEMAP_PATHS, ...MARKETING_LEGACY_PATHS].map(path => `Allow: ${path}$`),
+      "Allow: /_next/static/", "Allow: /_next/image", "Allow: /pricing/business-assets/", "Allow: /pricing/brand/",
+    ]);
+    // Evaluate only the literal-prefix / end-anchor grammar emitted above.
+    // The longest matching rule wins; Allow wins an equal-length tie.
+    const allowed = (path: string) => {
+      const matches = text.split("\n").flatMap(line => {
+        const rule = /^(Allow|Disallow): (.+)$/.exec(line);
+        if (!rule) return [];
+        const exact = rule[2].endsWith("$");
+        const prefix = exact ? rule[2].slice(0, -1) : rule[2];
+        return (exact ? path === prefix : path.startsWith(prefix))
+          ? [{ allow: rule[1] === "Allow", length: prefix.length }] : [];
+      }).sort((a, b) => b.length - a.length || Number(b.allow) - Number(a.allow));
+      return matches[0]?.allow ?? true;
+    };
+    expect(allowed("/sitemap.xml")).toBe(true);
+    for (const path of [...MARKETING_SITEMAP_PATHS, ...MARKETING_LEGACY_PATHS]) expect(allowed(path), path).toBe(true);
+    for (const path of ["/sitemap.xml/evil", "/sitemap.xmlx", "/sitemap.xml?x=1", "/Sitemap.xml", "/hq/dashboard", "/api/auth/session", "/api/bookings", "/s/zhubei/admin/dashboard", "/liff", "/line-oauth/complete"]) {
+      expect(allowed(path), path).toBe(false);
+    }
+  });
   it("uses the real request Host even when Next supplies an internal origin", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const req = new Request("http://localhost:3000/sitemap.xml", { headers: { host: "www.steamfoot.com" } });
@@ -80,7 +109,7 @@ describe("public crawler documents", () => {
   });
   it.each(["steamfoot-zhubei.com", "www.steamfoot-zhubei.com", "example.vercel.app", "attacker.example", "steamfoot.com", "www.steamfoot.com:3000", "www.steamfoot.com.attacker.example"])("never advertises marketing sitemap on %s", async host => {
     vi.stubEnv("VERCEL_ENV", "production");
-    expect(await robots(request("/robots.txt", host)).text()).not.toContain("Sitemap:");
+    expect(await robots(request("/robots.txt", host)).text()).toBe("User-agent: *\nDisallow: /\n");
     expect(await sitemap(request("/sitemap.xml", host)).text()).not.toContain("<loc>");
     expect(route("/guides", host).headers.get("x-robots-tag")).toBe("noindex, nofollow");
     expect(route("/pricing/features", host).headers.get("x-robots-tag")).toBe("noindex, nofollow");
