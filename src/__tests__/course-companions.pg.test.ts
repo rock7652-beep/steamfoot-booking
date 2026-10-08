@@ -1,3 +1,4 @@
+import { installAuditOutboxTestSchema } from "./helpers/audit-outbox-test-schema";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -17,6 +18,8 @@ import { changeCompanionUsage } from "@/server/services/course-companions";
 import { joinCourseWaitlist, promoteCourseWaitlistForSession } from "@/server/services/course-waitlist";
 
 const url = resolveBookingConcurrencyTestDatabaseUrl(process.env);
+const fixtureStoreIds = new Set<string>();
+let auditSchemaInstalled = false;
 const schema = `companion_${randomUUID().replaceAll("-", "")}`;
 const scopedUrl = url ? new URL(url) : null;
 scopedUrl?.searchParams.set("schema", schema);
@@ -28,6 +31,8 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
 (url ? describe : describe.skip)("free-class companions — PostgreSQL", () => {
   beforeAll(async () => {
     await database().$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+    await installAuditOutboxTestSchema(url!, database());
+    auditSchemaInstalled = true;
     await database().$executeRawUnsafe(`SET search_path TO "${schema}"`);
     const ddl = execFileSync("node_modules/.bin/prisma", ["migrate", "diff", "--from-empty", "--to-schema-datamodel", "course-prisma/schema.prisma", "--script"], {encoding: "utf8"});
     for (const sql of ddl.split(";").map(s => s.trim()).filter(Boolean)) await database().$executeRawUnsafe(sql);
@@ -53,10 +58,19 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     mocks.db.$transaction = database().$transaction.bind(database());
     for (const key of ["courseWaitlistSetting", "courseSession", "courseWaitlistEntry"] as const) mocks.db[key] = database()[key];
   }, 30000);
-  afterAll(async () => {if (db) {await db.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`); await db.$disconnect();}});
+  afterAll(async () => {
+    if (db) {
+      if (auditSchemaInstalled) for (const storeId of fixtureStoreIds) {
+        await db.$executeRaw`DELETE FROM public."OperationAuditOutbox" WHERE payload->>'storeId'=${storeId}`;
+      }
+      await db.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
+      await db.$disconnect();
+    }
+  });
 
   async function fixture(capacity = 3, shared = true, sharedCardEnabled = true) {
     const storeId = randomUUID(), customerId = randomUUID(), bId = randomUUID();
+    fixtureStoreIds.add(storeId);
     await database().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
     if (sharedCardEnabled) await database().$executeRaw`INSERT INTO "StoreFeatureEntitlement" ("storeId", "featureKey", status) VALUES (${storeId},'shared_card','ENABLED')`;
     await database().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'A',NULL),(${bId},${storeId},'B',NULL)`;
@@ -76,6 +90,8 @@ const transaction = <T>(storeId: string, work: (tx: Prisma.TransactionClient) =>
     expect(rows.map(b => b.customerName)).toEqual(["A", "同行者 1", "朋友"]);
     expect(rows.map(b => b.customerId)).toEqual([f.customerId, null, null]);
     expect((await reserveCourseMembers(f.actor, f.input)).map(b => b.id)).toEqual(rows.map(b => b.id));
+    const evidence = await database().$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM public."OperationAuditOutbox" WHERE payload->>'storeId'=${f.storeId} AND payload->>'targetId'=${rows[0].id}`;
+    expect(Number(evidence[0].count)).toBe(1);
     expect(await database().courseBooking.count({where: {storeId: f.storeId}})).toBe(3);
     expect((await database().coursePointCard.findUniqueOrThrow({where: {id: f.card.id}})).remaining).toBe(10);
     expect((await database().courseBooking.aggregate({where: {cardId: f.card.id, status: "RESERVED"}, _sum: {pointCost: true}}))._sum.pointCost).toBe(6);
