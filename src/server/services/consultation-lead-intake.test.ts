@@ -37,6 +37,22 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("durable original consultation intake", () => {
+  it("persists all supplied public links in HQ columns and the immutable original payload", async () => {
+    mocks.create.mockImplementation(async ({ data }) => ({ id: "lead-synthetic", ...data }));
+    const links = {
+      websiteUrl: "https://studio.example.com/about",
+      facebookUrl: "https://www.facebook.com/synthetic-studio",
+      instagramUrl: "https://www.instagram.com/synthetic-studio",
+    };
+    const result = await saveConsultationLead({ ...payload, ...links, pageUrl: "https://www.steamfoot.com/apply" });
+    expect(mocks.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      ...links, originalPayload: expect.objectContaining(links),
+    }) });
+    expect(result.lead).toMatchObject(links);
+    expect(result.lead.originalPayload).toMatchObject({ ...links, pageUrl: "https://www.steamfoot.com/apply" });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
   it("saves normalized display columns and a snapshot without any fabricated email/link", async () => {
     mocks.create.mockImplementation(async ({ data }) => ({ id: "lead-synthetic", sheetStatus: "PENDING", ...data }));
     const result = await saveConsultationLead({ ...payload, storeName: " Synthetic studio ", pageUrl: "https://intake.example.com/apply", websiteUrl: "https://studio.example.com" });

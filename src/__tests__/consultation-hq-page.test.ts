@@ -6,7 +6,7 @@ vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/hq-store-view", () => ({ isHqStoreView: m.storeView }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/server/services/trial-application-access", () => ({ trialApplicationDatabaseAllowed: m.allowed }));
-vi.mock("next/navigation", () => ({ redirect: (href: string) => { throw new Error(`redirect:${href}`); } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }), redirect: (href: string) => { throw new Error(`redirect:${href}`); } }));
 vi.mock("next/link", () => ({ default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as never) }));
 vi.mock("@/app/hq/dashboard/trial-applications/consultation-list", () => ({ ConsultationLeadList: (props: unknown) => { m.leads(props); return createElement("p", {}, "lead-list"); } }));
 vi.mock("@/app/hq/dashboard/trial-applications/trial-application-list", () => ({ TrialApplicationsList: (props: unknown) => { m.applications(props); return createElement("p", {}, "formal-list"); } }));
@@ -31,7 +31,7 @@ describe("HQ unified consultation page", () => {
   });
   it("shows truthful disabled collection and historical Sheet notices without reading new tables", async () => {
     vi.stubEnv("CONSULTATION_HQ_ENABLED", "false"); const html = await render();
-    expect(html).toContain("HQ 需求諮詢尚未啟用"); expect(html).toContain("歷史 Sheet 資料尚未匯入 HQ"); expect(html).toContain("1VHUCglOH0jRpWbdVAnIw39UVe7ULbag33JHs1Bw7oG4"); expect(m.leads).not.toHaveBeenCalled();
+    expect(html).toContain("HQ 需求諮詢尚未啟用"); expect(html).toContain("歷史 Sheet 尚未匯入 HQ"); expect(html).toContain("1VHUCglOH0jRpWbdVAnIw39UVe7ULbag33JHs1Bw7oG4"); expect(m.leads).not.toHaveBeenCalled();
     await render({ stage: "applications" }); expect(m.applications).toHaveBeenCalledOnce();
   });
   it("retains old ?application deep links and shares the bounded query across stages", async () => {

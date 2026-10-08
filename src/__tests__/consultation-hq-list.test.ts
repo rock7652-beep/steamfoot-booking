@@ -16,12 +16,20 @@ describe("consultation HQ lead details", () => {
   it("renders original needs, exact contact and separate HQ/Sheet statuses", async () => {
     const html = await render();
     for (const text of ["原始需求A", "原始補充", "原留聯絡人", "HQ 已收件", "Sheet 結果不明，請先查核，勿重送", "admin-123", "既有聯繫紀錄", "2026/10/8", "修訂 3"]) expect(html).toContain(text);
+    expect(html).not.toContain("第一階段 · 需求與聯繫紀錄");
     expect(html).toContain('href="tel:0912345678"'); expect(html).toContain("複製 LINE ID @actual-id"); expect(html).not.toContain("line.me/"); expect(html).not.toContain('href="javascript:');
     expect(html).toContain("stage=applications&amp;application=formal-id"); expect(html).toContain("下一頁"); expect(html).toContain("查看全部紀錄");
   });
   it("suppresses all contact controls for no-contact fitness leads, even if old bad data retains contacts", async () => {
     const item = lead(); item.originalPayload = { ...item.originalPayload, ...{ formVersion: "fitness-v2", source: "fitness-intake", contactWay: "目前暫不考慮" } }; m.find.mockResolvedValue([item]);
     const html = await render(); expect(html).toContain("請勿主動聯繫"); expect(html).not.toContain('href="tel:'); expect(html).not.toContain("複製 LINE ID"); expect(html).not.toContain("原留聯絡人");
+  });
+  it("marks existing HQ test fixtures and never suggests contacting them", async () => {
+    m.find.mockResolvedValue([{ ...lead(), storeName: "【HQ測試】合成網址驗收", lineId: "QA_URL_ONLY_20990101" }]);
+    const html = await render();
+    expect(html).toContain("測試紀錄 · 請勿聯繫"); expect(html).toContain("保留查核，請勿聯繫");
+    expect(html).not.toContain('href="tel:'); expect(html).not.toContain("複製 LINE ID");
+    expect(html).not.toContain("依原留方式聯繫");
   });
   it("uses only supplied LINE links", async () => {
     m.find.mockResolvedValue([{ ...lead(), lineId: "https://lin.ee/original" }]); const html = await render(); expect(html).toContain('href="https://lin.ee/original"'); expect(html).not.toContain("複製 LINE ID");

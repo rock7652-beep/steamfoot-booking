@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { formatTWTime } from "@/lib/date-utils";
 import {
   applicationStatuses,
   trialApplicationSchema,
   trialChecklist,
   trialSetupSummary,
 } from "@/lib/trial-application";
-import { updateApplication, retryApplicationNotification } from "./actions";
+import { retryApplicationNotification } from "./actions";
+import { TrialApplicationStatusForm } from "./formal-status-form";
+import { IntakeList, IntakeListRow } from "./intake-list-row";
+import { applicationNextStep, intakeTestMarker } from "./intake-summary";
 import { consultationHref, suppliedPhoneHref, suppliedEmailHref, type ConsultationSearch } from "./consultation-view";
 
 /** Called only after the page's HQ permission and database checks. */
@@ -28,7 +31,7 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
   const [items, total] = await Promise.all([
     prisma.trialApplication.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * 20,
       take: 20,
     }),
@@ -37,35 +40,24 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
   const pageLink = (p: number) =>
     `?${new URLSearchParams({ stage: "applications", q, status: status ?? "", page: String(p), ...(params.application ? { application: params.application } : {}) })}`;
   return (
-    <section aria-label="體驗版開通資料" className="space-y-4">
-      <p className="text-sm text-earth-600">第二階段：店家填寫正式開通資料後，才會出現在這裡。提供資料不代表已取得權限。</p>
+    <section aria-label="體驗版開通資料" className="space-y-3">
+      <p className="text-sm text-earth-600">第二階段 · 已提交的開通資料；完成核對後才另外開通權限。</p>
       <p className="text-sm">
         共 {total} 件 · 第 {page} 頁
       </p>
-      {items.map((item) => {
+      {items.length > 0 && <IntakeList>{items.map((item) => {
         const parsed = trialApplicationSchema.safeParse(item.payload);
         const phoneHref = parsed.success ? suppliedPhoneHref(parsed.data.phone) : null;
         const emailHref = parsed.success ? suppliedEmailHref(parsed.data.email) : null;
+        const test = intakeTestMarker(item.storeName, parsed.success ? parsed.data.contactName : "");
         return (
-          <details
-            key={item.id}
-            open={params.application === item.id}
-            className="min-w-0 rounded-xl border bg-white p-4 [overflow-wrap:anywhere] sm:p-5"
-          >
-            <summary className="min-h-11 cursor-pointer leading-7">
-              <span className="font-semibold">{item.storeName}</span>
-              <span className="ml-3 text-sm text-amber-800">
-                {
-                  applicationStatuses[
-                    item.status as keyof typeof applicationStatuses
-                  ]
-                }
-              </span>
-              <span className="ml-3 text-sm text-earth-500">
-                {toLocalDateStr(item.createdAt)} · {item.contactEmail}
-              </span>
-            </summary>
-            <div className="mt-5 space-y-5">
+          <IntakeListRow key={item.id} open={params.application === item.id}
+            store={<>{item.storeName}{test && <span className="block text-amber-900">測試紀錄 · 請勿聯繫</span>}</>}
+            contact={<>{parsed.success ? parsed.data.contactName || "尚未提供" : "資料格式待核對"}<span className="block text-earth-600">{item.contactEmail}</span></>}
+            demand={<>{parsed.success ? parsed.data.industry || "類型待核對" : "資料格式待核對"}<span className="block text-earth-600">體驗版開通設定</span></>}
+            status={<span className={item.status === "CLOSED" ? "text-earth-600" : "text-primary-800"}>{applicationStatuses[item.status as keyof typeof applicationStatuses] ?? item.status}</span>}
+            next={<span className={test ? "text-amber-900" : "text-earth-700"}>{test ? "保留查核，請勿聯繫" : applicationNextStep(item.status)}</span>}
+            submitted={formatTWTime(item.createdAt)}>
               <p className="text-sm">
                 編號：{item.id} · 修訂 {item.revision}
               </p>
@@ -102,8 +94,8 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
                     ))}
                   </dl>
                   <div className="flex flex-wrap gap-3 text-sm">
-                    {phoneHref && <a href={phoneHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-700">撥打原留電話</a>}
-                    {emailHref && <a href={emailHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-700">寄信至原留 Email</a>}
+                    {!test && phoneHref && <a href={phoneHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-700">撥打原留電話</a>}
+                    {!test && emailHref && <a href={emailHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-700">寄信至原留 Email</a>}
                     {Object.entries({
                       地圖: parsed.data.mapsUrl,
                       加好友連結: parsed.data.friendUrl,
@@ -145,28 +137,7 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
                   </ul>
                 </>
               )}
-              <form
-                key={item.status}
-                action={updateApplication}
-                className="flex flex-wrap gap-3"
-              >
-                <input type="hidden" name="id" value={item.id} />
-                <select
-                  name="status"
-                  aria-label={`${item.storeName}處理狀態`}
-                  defaultValue={item.status}
-                  className="min-h-11 max-w-full rounded-lg border px-3 py-2"
-                >
-                  {Object.entries(applicationStatuses).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-                <button className="min-h-11 rounded-lg bg-primary-600 px-4 py-2 text-white">
-                  更新進度
-                </button>
-              </form>
+              <TrialApplicationStatusForm id={item.id} name={item.storeName} status={item.status} />
               <form
                 action={retryApplicationNotification}
                 className="flex flex-wrap items-center gap-3 text-sm"
@@ -190,18 +161,17 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
                   </button>
                 )}
               </form>
-            </div>
-          </details>
+          </IntakeListRow>
         );
-      })}
-      {!items.length && (
-        <p className="rounded-xl border bg-white p-8 text-center text-earth-500">
-          目前沒有符合的申請
-        </p>
-      )}
+      })}</IntakeList>}
+      {!items.length && <div className="rounded-lg border bg-white px-4 py-6 text-sm">
+        <p className="font-medium">{q || status || application || page > 1 ? "沒有符合條件的開通資料" : "尚無體驗版開通資料"}</p>
+        <p className="mt-1 text-earth-600">需求諮詢請切換上方分頁；店家提交開通資料後才會出現在此處。</p>
+        {(q || status || application || page > 1) && <Link className="inline-flex min-h-11 items-center text-primary-800 underline" href={consultationHref({ stage: "applications" })}>清除條件，返回全部開通資料</Link>}
+      </div>}
       <div className="flex justify-between text-sm">
-        {page > 1 ? <Link href={pageLink(page - 1)}>上一頁</Link> : <span />}
-        {page * 20 < total && <Link href={pageLink(page + 1)}>下一頁</Link>}
+        {page > 1 ? <Link className="inline-flex min-h-11 items-center underline" href={pageLink(page - 1)}>上一頁</Link> : <span />}
+        {page * 20 < total && <Link className="inline-flex min-h-11 items-center underline" href={pageLink(page + 1)}>下一頁</Link>}
       </div>
     </section>
   );
