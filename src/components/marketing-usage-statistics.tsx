@@ -66,7 +66,6 @@ export function MarketingUsageStatistics({ snapshot }: { snapshot: MarketingUsag
         </div>)}
       </dl>
       <p className="mt-5 text-sm leading-6 text-[#4C6259]">每日更新｜資料更新至 {snapshot.asOf.replaceAll("-", "/")}</p>
-      <p className="mt-1 text-sm leading-6 text-[#4C6259]">自動提醒依已記錄成功發送統計</p>
     </div>
   </section>;
 }
