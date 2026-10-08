@@ -20,9 +20,26 @@ export function isTrialUiPreview(env = process.env) {
   return true;
 }
 
+// The publication preview is a read-only editorial projection. Exact Vercel
+// provenance selects the existing disabled clients, write gate and sender blocks;
+// inherited project credentials are never read or used by those clients.
+/** @param {Record<string, string | undefined>} env */
+function isWaitlistUiPreview(env) {
+  const branch = "content/yoga-waitlist-management";
+  const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
+  if (!branches.includes(branch)) return false;
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== branch ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
+    throw new Error("Waitlist UI preview isolation rejected: exact Vercel Preview branch and repository required");
+  }
+  return true;
+}
+
 /** @param {Record<string, string | undefined>} [env] */
 export function isGuideUiPreview(env = process.env) {
-  if (isTrialUiPreview(env)) return true;
+  if (isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
   const requested = branches.includes(GUIDE_UI_PREVIEW_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW);
   if (!requested) return false;
