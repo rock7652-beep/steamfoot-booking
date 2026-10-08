@@ -11,7 +11,8 @@ import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { AppError } from "@/lib/errors";
 import { resolveEffectiveEntitlement, type FeaturePresentationState } from "@/lib/effective-entitlement";
-import { getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
+import { hasFeature, FEATURES } from "@/lib/feature-flags";
+import { getEffectivePlanLimits } from "@/lib/effective-plan-limits";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
 import type { StorePlanFields } from "@/lib/store-plan";
@@ -127,7 +128,7 @@ export async function checkCurrentStoreFeature(feature: FeatureKey): Promise<Sto
 /** 取得當前 store 的有效用量限制 */
 export async function getCurrentStoreLimits(): Promise<PlanLimits> {
   const store = await getCurrentStoreForPlan();
-  return getPlanLimits(store);
+  return getEffectivePlanLimits(store);
 }
 
 /**
@@ -139,7 +140,7 @@ export async function getCurrentStoreLimits(): Promise<PlanLimits> {
  */
 export async function getStoreLimitsByStoreId(storeId: string): Promise<PlanLimits> {
   const store = await getStoreForPlanByStoreId(storeId);
-  return getPlanLimits(store);
+  return getEffectivePlanLimits(store);
 }
 
 export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boolean> {
