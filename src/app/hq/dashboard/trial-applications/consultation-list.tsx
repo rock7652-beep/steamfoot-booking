@@ -28,7 +28,6 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
     prisma.consultationLead.count({ where }),
   ]);
   return <section aria-label="需求諮詢" className="space-y-3">
-    <p className="text-sm text-earth-600">第一階段 · 需求與聯繫紀錄；開通資料請切換上方分頁。</p>
     <p className="text-sm">共 {total} 件 · 第 {page} 頁{(lead || search.application) && <> · <Link href={consultationHref({ stage: "consultations", q })} className="underline">返回諮詢清單</Link></>}</p>
     {items.length > 0 && <IntakeList>{items.map(item => {
       const original = originalFields(item.originalPayload);

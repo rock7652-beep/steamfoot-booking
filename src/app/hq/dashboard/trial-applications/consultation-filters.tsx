@@ -136,7 +136,7 @@ export function ConsultationFilters({ search }: { search: ConsultationSearch }) 
         {hasFilters && <button type="button" className="min-h-11 min-w-11 px-2 text-sm text-primary-800 underline" onClick={() => {
           composing.current = false; update({ q: "", status: undefined }, true);
         }}>清除篩選</button>}
-        <span id="intake-filter-state" role="status" className="text-sm text-earth-600">{updating ? "更新中…" : "即時篩選全部資料"}</span>
+        <span id="intake-filter-state" role="status" className={updating ? "text-sm text-earth-600" : "sr-only"}>{updating ? "更新中…" : "即時篩選全部資料"}</span>
       </RosterToolbar>
     </form>
     {notice && <p role="status" className="text-sm text-amber-900">{notice}</p>}

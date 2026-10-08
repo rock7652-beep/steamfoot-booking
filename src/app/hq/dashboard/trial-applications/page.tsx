@@ -28,9 +28,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Con
         <Link href="/hq/dashboard/stores" className="flex min-h-11 items-center text-sm underline">返回店舖管理</Link>
       </header>
       <ConsultationFilters search={search} />
-      <p className="flex flex-wrap items-center gap-x-2 text-sm text-earth-600">
-        <span>歷史 Sheet 資料尚未匯入 HQ。</span>
-        <a href={LEGACY_CONSULTATION_SHEET} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-primary-800 underline">查看原有需求諮詢 Sheet ↗</a>
+      <p className="text-sm leading-6 text-earth-600">
+        歷史 Sheet 尚未匯入 HQ。{" "}
+        <a href={LEGACY_CONSULTATION_SHEET} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center align-middle text-primary-800 underline">查看原有 Sheet ↗</a>
       </p>
       {isConsultations ? enabled ? <ConsultationLeadList {...search} /> : (
         <section className="rounded-xl border bg-white p-5" aria-label="需求諮詢尚未啟用">

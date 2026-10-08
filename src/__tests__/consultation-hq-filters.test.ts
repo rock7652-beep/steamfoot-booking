@@ -30,6 +30,12 @@ beforeEach(async () => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); });
 describe("HQ live filters", () => {
+  it("keeps whole-dataset guidance accessible without a permanent visual instruction", () => {
+    const state = host.querySelector("#intake-filter-state")!;
+    expect(state.classList.contains("sr-only")).toBe(true);
+    expect(state.textContent).toBe("即時篩選全部資料");
+    expect(host.querySelector('[name="q"]')!.getAttribute("aria-describedby")).toBe("intake-filter-state");
+  });
   it("debounces keywords, queries the server, and clears all detail/paging keys", async () => {
     await render({ lead: "lead", application: "app", page: "4", activityPage: "3", stage: "consultations" });
     await change("q", "瑜"); await change("q", "瑜伽");
