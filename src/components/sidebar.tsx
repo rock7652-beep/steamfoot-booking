@@ -611,7 +611,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: "core", label: "", icon: <></>, defaultOpen: true, items: [hqItem("/dashboard", "品牌總覽")] },
   { id: "stores", label: "店舖管理", icon: storeIcon, defaultOpen: true, items: [
     hqItem("/dashboard/stores", "店舖清單"),
-    hqExtra("/dashboard/trial-applications", "體驗申請"),
+    hqExtra("/dashboard/trial-applications", "諮詢與體驗申請"),
     hqExtra("/dashboard/stores/subscriptions", "訂閱管理"),
     hqExtra("/dashboard/stores/organization", "店舖組織"),
   ] },

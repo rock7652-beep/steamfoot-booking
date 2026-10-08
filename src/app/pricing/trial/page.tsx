@@ -1,7 +1,7 @@
 import { MarketingBrand } from "@/components/marketing-brand";
 import { TrialApplicationForm } from "./trial-application-form";
 export const metadata = {
-  title: "申請體驗版｜蒸管家",
+  title: "體驗版開通資料｜蒸管家",
   robots: { index: false, follow: false },
 };
 export default function Page() {
@@ -10,8 +10,8 @@ export default function Page() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <MarketingBrand />
         <header className="my-8">
-          <p className="mb-2 text-sm text-[#967039]">蒸管家 · 店家體驗申請</p>
-          <h1 className="text-3xl font-semibold">開始你的 30 天體驗</h1>
+          <p className="mb-2 text-sm text-[#967039]">蒸管家 · 體驗版開通資料</p>
+          <h1 className="text-3xl font-semibold">準備你的體驗版開通資料</h1>
           <p className="mt-3">
             先填基本資料，我們會協助 LINE 串接，再安排視訊帶您完成第一筆預約。
           </p>

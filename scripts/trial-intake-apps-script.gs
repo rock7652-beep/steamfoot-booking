@@ -61,7 +61,7 @@ function doPost(e) {
       MailApp.sendEmail({
         to: INTAKE_RECIPIENT,
         name: '蒸管家',
-        subject: '蒸管家｜' + (a.revision > 1 ? '補件通知' : '新的體驗版申請') + '｜' + a.storeName.replace(/[\r\n]/g,' '),
+        subject: '蒸管家｜' + (a.revision > 1 ? '補件通知' : '新的體驗版開通資料') + '｜' + a.storeName.replace(/[\r\n]/g,' '),
         body: '店家：' + a.storeName + '\n類型：' + a.industry + '\n聯絡人：' + a.contactName + '\n電話：' + a.phone + '\nEmail：' + a.email + '\n\n待補資料：\n' + (a.missing || '已提供申請所需資料，待人工確認授權') + '\n\n申請總表：https://docs.google.com/spreadsheets/d/' + INTAKE_SHEET_ID + '/edit\n總部資料：' + input.hqUrl,
       });
       sheet.getRange(rowNumber,16).setValue(a.revision);
