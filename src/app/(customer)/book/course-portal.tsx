@@ -94,6 +94,26 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
+  // Independent opening rights are visible only to their own learner. Shared
+  // cards/reserver identity never grant access to another learner's entitlement.
+  const memberBookingAccess = {
+    OR: [
+      {
+        bookingKind: { not: "OPENING_MAKEUP" },
+        musicOpeningMakeupEntitlementId: null,
+        OR: [
+          { cardId: { in: cards.map(card => card.id) } },
+          { bookingKind: "TRIAL", customerId: customer.id },
+          { reserverCustomerId: customer.id },
+        ],
+      },
+      {
+        bookingKind: "OPENING_MAKEUP", customerId: customer.id,
+        cardId: null, pointCost: 0, makeupForBookingId: null,
+        musicOpeningMakeupEntitlement: { is: { storeId, customerId: customer.id } },
+      },
+    ],
+  };
   const cardProjectionById = new Map(cards.map(card=>[card.id,card]));
   const projectedExpiry = (cardId:string|null,fallback:Date|null|undefined) => { const card=cardProjectionById.get(cardId??"");return card?card.expiresAt:fallback?.toISOString()??null; };
   const sessionInclude = {
@@ -142,7 +162,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findMany({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
+            ...memberBookingAccess,
             session: { startsAt: { gte: range.start, lte: range.end } },
           },
           include: {
@@ -211,7 +231,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       ? coursePrisma.courseBooking.findFirst({
           where: {
             storeId,
-            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id},{reserverCustomerId:customer.id}],
+            ...memberBookingAccess,
             status: "RESERVED",
             session: { cancelledAt: null, startsAt: { gte: now } },
           },
@@ -289,11 +309,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             storeId,
             sessionId: nextBooking.sessionId,
             status: "RESERVED",
-            OR: [
-              { cardId: { in: cards.map((card) => card.id) } },
-              { bookingKind: "TRIAL", customerId: customer.id },
-              { reserverCustomerId: customer.id },
-            ],
+            ...memberBookingAccess,
           },
           select: { id: true, customerId: true, customerName: true },
           orderBy: { createdAt: "asc" },
@@ -342,6 +358,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     })),
     nextBooking: nextBooking
       ? {
+          openingMakeup: isMusicOpeningMakeupBooking(nextBooking),
           name: nextBooking.session.nameSnapshot,
           startsAt: nextBooking.session.startsAt.toISOString(),
           coach: coachNames.get(nextBooking.session.coachId) ?? "教練待確認",
@@ -378,6 +395,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     })),
     bookings: bookings.map((b) => ({
       id: b.id,
+      openingMakeup: isMusicOpeningMakeupBooking(b),
       sessionId: b.sessionId,
       name: b.session.nameSnapshot,
       startsAt: b.session.startsAt.toISOString(),

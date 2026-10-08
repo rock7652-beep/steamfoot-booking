@@ -867,6 +867,17 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     participant.id === p.customerId ? "本人" : participant.name,
   ) ?? [];
   const cancelBooking = p.bookings.find((booking) => booking.id === cancelId);
+  const openingOperation = p.bookings.find(booking => booking.openingMakeup &&
+    (booking.id === cancelId || booking.id === notification?.bookingId));
+  function closeOpeningOperation() {
+    setCancelId(null);
+    setNotification(null);
+    if (notification) {
+      const query = new URLSearchParams(params.toString());
+      query.delete("action"); query.delete("bookingId");
+      router.replace(`${pathname}?${query}`, { scroll: false });
+    }
+  }
   const sharedCards = p.cards.filter((candidate) => candidate.members.length > 1);
   const guides = findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled, sharedCardState);
   const shop = p.plans.filter(
@@ -944,6 +955,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   </strong>
                   <p>{coach ? p.nextWork?.room : p.nextBooking ? `${p.nextBooking.coach} · ${p.nextBooking.room}` : "選擇日期查看課程"}</p>
                   {!coach && p.nextBooking && <small>{nextParticipants.join("＋")} · 共 {nextParticipants.length} 位</small>}
+                  {!coach && p.nextBooking?.openingMakeup && <small>期初補課・請由店家處理</small>}
                 </div>
                 <button
                   className="primary"
@@ -1061,9 +1073,10 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           <span className="cp-badge" data-status={b.status}>
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
-                          {selfBookingEnabled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
-                          {b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
-                          {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
+                          {b.openingMakeup && <span className="cp-muted">期初補課・請由店家處理</span>}
+                          {!b.openingMakeup && selfBookingEnabled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
+                          {!b.openingMakeup && b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
+                          {!b.openingMakeup && b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
                               disabled={pending}
                               onClick={() => {
@@ -1074,7 +1087,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                               取消
                             </button>
                           )}
-                        {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
+                        {!b.openingMakeup && b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
                           <div className="cp-late-cancel">
                             <span className="cp-muted">已超過取消期限</span>
                             {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? (
@@ -1088,17 +1101,17 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             {b.unit === "TRIAL" ? `體驗 NT$ ${b.trialPrice} · ${b.trialPaid === null ? "尚未收款" : `已收款 NT$ ${b.trialPaid}`}` : b.planName}{b.expiresAt ? ` · ${courseDate(b.expiresAt)} 到期` : ""}
                           </p>
                           <p>
-                            {b.unit === "TRIAL" ? "" : b.status === "ATTENDED"
+                            {b.openingMakeup ? "獨立補課權益，不使用方案額度；請由店家處理" : <>{b.unit === "TRIAL" ? "" : b.status === "ATTENDED"
                               ? "已扣除"
                               : b.status === "RESERVED"
                                 ? "本次使用"
                                 : b.status === "NO_SHOW" ? "本次額度" : "已釋放"}{" "}
-                            {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}
+                            {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</>}
                           </p>
                           {b.customerId !== p.customerId && (
                             <p>預約人：{b.operatorName}</p>
                           )}
-                          {b.status === "RESERVED" && <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>}
+                          {!b.openingMakeup && b.status === "RESERVED" && <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>}
                           {b.notes && <p>備註：{b.notes}</p>}
                         </div>}
                       </div>
@@ -1425,7 +1438,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                               const ids = new Set(previous.map(row => row.booking.id));
                               return [...previous, ...result.bookingUpdates!.filter(b => !ids.has(b.id)).map(b => ({cardId: b.cardId, confirmedAt: b.confirmedAt, booking: {
                                 ...b, name: session.name, startsAt: session.startsAt, coach: session.coach, room: session.room,
-                                notes: "", trialPaid: null, trialPrice: null, unit: card.unit, planName: card.name, expiresAt: card.expiresAt,
+                                openingMakeup: false, notes: "", trialPaid: null, trialPrice: null, unit: card.unit, planName: card.name, expiresAt: card.expiresAt,
                               }}))];
                             });
                             setSession(null);
@@ -1549,8 +1562,14 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           )}
         </Sheet>
       )}
-      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
-      {cancelId && (
+      {openingOperation && <Sheet title="期初補課" busy={false} close={closeOpeningOperation}
+        footer={<button onClick={closeOpeningOperation}>返回</button>}>
+        <p>{openingOperation.customerName} · {openingOperation.name}</p>
+        <p>{formatTWDateTime(new Date(openingOperation.startsAt))}</p>
+        <p>獨立補課權益，不使用方案額度；如需調整，請聯繫店家。</p>
+      </Sheet>}
+      {notification && !openingOperation && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
+      {cancelId && !openingOperation && (
         <Sheet
           title="取消預約"
           busy={pending}
