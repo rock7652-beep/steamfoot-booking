@@ -77,7 +77,7 @@ it("defaults to no diagnostic when no provider exists", async () => {
   expect(host.textContent).not.toContain("隔離名單驗收碼");
 });
 it("does not let a segment boundary catch an ancestor-layout exception", async () => {
-  function BrokenLayout({ children }: { children?: ReactNode }) {
+  function BrokenLayout({ children }: { children?: ReactNode }): never {
     void children;
     throw new Error("synthetic layout-level failure");
   }
