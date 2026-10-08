@@ -20,7 +20,7 @@ export async function notifyTrialApplication(
     });
     const data = trialApplicationSchema.parse(record.payload);
     const intakeSummary = trialNotificationSummary(data);
-    const subject = `蒸管家｜${record.revision > 1 ? "補件通知" : "新的體驗版申請"}｜${data.storeName}`;
+    const subject = `蒸管家｜${record.revision > 1 ? "補件通知" : "新的體驗版開通資料"}｜${data.storeName}`;
     const hqUrl = `${deriveBaseUrl()}/hq/dashboard/trial-applications?application=${id}`;
     // Invitation credentials and resume tokens stay in the protected HQ record.
     const summary = {

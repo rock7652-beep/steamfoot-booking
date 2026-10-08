@@ -1,16 +1,11 @@
 import "server-only";
-import {
-  assertSportsSharedCardPreviewEnvironment,
-  isSportsSharedCardMockedUnitTest,
-  isSportsSharedCardProductionRelease,
-} from "../../scripts/sports-shared-card-preview-scope.mjs";
+import { assertReviewedReleaseEnvironment } from "../../scripts/consultation-preview-scope.mjs";
 
-/** Validate before either constructing a client or reusing a global singleton. */
-export function guardedSportsSharedCardPreviewClient<T>(cached: T | undefined, create: () => T): T {
-  if (isSportsSharedCardMockedUnitTest(process.env) || isSportsSharedCardProductionRelease(process.env)) return cached ?? create();
-  assertSportsSharedCardPreviewEnvironment(process.env);
-  // A cached client may have been initialized before these branch overrides.
-  // Preview never trusts globals from another environment. Only the positively
-  // identified production main path above restores ordinary singleton reuse.
+/** Validate before even reading a cached global, or constructing a client. */
+export function guardedSportsSharedCardPreviewClient<T>(readCached: () => T | undefined, create: () => T): T {
+  const releaseMode = assertReviewedReleaseEnvironment(process.env);
+  if (releaseMode === "mocked-unit-test" || releaseMode === "production") return readCached() ?? create();
+  // Neither Preview may trust a client created before its isolated overrides.
+  // Only positively identified production main restores ordinary cache reuse.
   return create();
 }

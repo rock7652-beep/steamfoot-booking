@@ -27,7 +27,7 @@ const globalForSpaPrisma = globalThis as unknown as {
 export const spaPrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
-  globalForSpaPrisma.spaPrisma,
+  () => globalForSpaPrisma.spaPrisma,
   () => withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: buildSpaDatabaseUrl() } },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],

@@ -117,11 +117,11 @@ describe("sports shared-card Preview preflight", () => {
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
     expect(scripts.build).toBe("node scripts/ci-migrate.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
-    const preflight = source.indexOf("assertSportsSharedCardPreviewEnvironment(process.env)");
+    const preflight = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(preflight).toBeGreaterThan(-1);
     expect(preflight).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     expect(preflight).toBeLessThan(source.indexOf("new PrismaClient("));
-    expect(readFileSync("next.config.ts", "utf8")).toContain("assertSportsSharedCardPreviewEnvironment(process.env)");
+    expect(readFileSync("next.config.ts", "utf8")).toContain("assertReviewedReleaseEnvironment(process.env)");
   });
 });
 

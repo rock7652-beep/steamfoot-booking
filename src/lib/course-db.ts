@@ -20,7 +20,7 @@ function databaseUrl() {
 export const coursePrisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
-  globalForCourse.coursePrisma,
+  () => globalForCourse.coursePrisma,
   () => withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],

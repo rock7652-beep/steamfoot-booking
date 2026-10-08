@@ -23,7 +23,7 @@ function buildNotification(data) {
     || /\/pricing\/fitness[.]html(?:[?#]|$)/.test(String(data.pageUrl || ''))
     || String(data.otherNeed || '').includes('【運動教室需求與體驗意願】');
   const trial = data.contactWay === '申請體驗帳號';
-  const title = fitness ? '課程教室需求與體驗' : trial ? '一般店家體驗申請' : '新的門市健檢';
+  const title = fitness ? '課程教室需求與體驗' : trial ? '店家需求諮詢／體驗意願' : '新的門市健檢';
   const sheetId = fitness ? '2026091502' : trial ? '2026091501' : '1690370556';
   const noContact = isNoContact(data);
   const fields = [

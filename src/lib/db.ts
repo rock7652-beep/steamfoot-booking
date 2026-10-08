@@ -26,7 +26,7 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
   : guardedSportsSharedCardPreviewClient(
-  globalForPrisma.prisma,
+  () => globalForPrisma.prisma,
   () => withAuditDatabaseContext(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },

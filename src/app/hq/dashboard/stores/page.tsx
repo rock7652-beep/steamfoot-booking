@@ -42,7 +42,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
           <p className="mt-1 text-sm text-earth-500">顯示 {stores.length} 間・已封存 {archivedCount} 間</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/hq/dashboard/trial-applications" className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700">體驗申請</Link>
+          <Link href="/hq/dashboard/trial-applications" className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700">諮詢與體驗申請</Link>
           <Link
             href="/hq/dashboard/stores/organization"
             className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"

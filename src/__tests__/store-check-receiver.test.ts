@@ -79,7 +79,7 @@ describe("prepared Apps Script receiver", () => {
   it("escapes user HTML and uses trial-specific subject, stacked fields and a fixed recipient", () => {
     const r = receiver();
     const n = r.notification({ ...data, storeName: '<img src=x onerror="bad">' });
-    expect(n.subject).toContain("一般店家體驗申請｜");
+    expect(n.subject).toContain("店家需求諮詢／體驗意願｜");
     expect(n.body).toContain("#gid=2026091501");
     expect(n.htmlBody).toContain("&lt;img"); expect(n.htmlBody).not.toContain("<img");
     expect(n.htmlBody.indexOf("LINE ID")).toBeLessThan(n.htmlBody.indexOf("主要需求"));
