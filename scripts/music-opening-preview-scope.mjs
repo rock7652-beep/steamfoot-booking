@@ -1,9 +1,12 @@
+import { isSportsSharedCardIsolatedConnection } from "./sports-shared-card-preview-scope.mjs";
+
 /** Exact scope of this unmerged music-opening Preview. Never expands access. */
 export const MUSIC_OPENING_BRANCH = "feat/music-opening-state-20261007";
 export const MUSIC_OPENING_PROJECT_REF = "ttworfzgwejdeolegkxl";
 export const MUSIC_OPENING_STORE = "store-lubymusic";
 
 export function isMusicOpeningDatabase(value) {
+  if (!isSportsSharedCardIsolatedConnection(value)) return false;
   try {
     const url = new URL(value ?? "");
     // Prisma accepts query-level host/schema overrides. Reject unknown or duplicate
@@ -24,7 +27,8 @@ export function isMusicOpeningDatabase(value) {
 /** Must execute before creating any DB client; never prints supplied values. */
 export function assertMusicOpeningPreviewEnvironment(env) {
   if (env.VERCEL_ENV !== "preview" || env.VERCEL_GIT_COMMIT_REF !== MUSIC_OPENING_BRANCH ||
-      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking") {
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Music opening build/runtime requires its exact authorized Preview branch and repository.");
   }
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isMusicOpeningDatabase)) {

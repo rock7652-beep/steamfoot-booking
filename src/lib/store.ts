@@ -4,6 +4,7 @@ import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { ACCESSIBLE_STORE_OPERATING_STATUSES } from "@/lib/store-operating-status";
+import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 
 type SessionLike = { role: string; storeId?: string | null };
 
@@ -106,6 +107,10 @@ export async function validateStoreAccess(
   requestedStoreId: string,
   mode: StoreAccessMode,
 ): Promise<string | null> {
+  const hqStoreView = getHqStoreViewContext(user);
+  if (hqStoreView && mode !== "switch" && requestedStoreId !== hqStoreView.storeId) {
+    throw new AppError("FORBIDDEN", "店家檢視中無權存取其他店舖的資料");
+  }
   if (requestedStoreId === ALL_STORES_ID) {
     if (mode === "write") {
       throw new AppError("VALIDATION", "請先在上方切換到指定分店，再執行此操作");
@@ -226,6 +231,8 @@ export const DEFAULT_STORE_ID = "default-store";
  * 使用經驗證的 active store，非 ADMIN 則固定使用 session store。
  */
 export function currentStoreId(user: SessionLike): string {
+  const view = getHqStoreViewContext(user);
+  if (view) return view.storeId;
   if (user.storeId) return user.storeId;
   throw new AppError(
     "UNAUTHORIZED",
@@ -240,12 +247,14 @@ export function currentStoreId(user: SessionLike): string {
  *   沒選定分店 → 拒絕寫入，回傳明確錯誤
  */
 export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
+  const { isHqStoreView } = await import("@/lib/hq-store-view");
+  const enforceStorePolicy = user.role !== "ADMIN" || await isHqStoreView(user);
   if (user.role !== "ADMIN" && !user.storeId) {
     throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
   }
   const routeStore = await resolveAuthorizedRouteStore(user, "write");
   if (routeStore) {
-    if (user.role !== "ADMIN") {
+    if (enforceStorePolicy) {
       const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
       await assertStoreSubscriptionWritable(routeStore.id);
     }
@@ -263,7 +272,7 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
     throw new AppError("VALIDATION", "請先在上方切換到指定分店，再執行此操作");
   }
   const target = (await validateStoreAccess(user, cookieStoreId, "write"))!;
-  if (user.role !== "ADMIN") {
+  if (enforceStorePolicy) {
     const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
     await assertStoreSubscriptionWritable(target);
   }

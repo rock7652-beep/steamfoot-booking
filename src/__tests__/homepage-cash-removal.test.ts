@@ -2,6 +2,8 @@ import { createElement, type ReactNode, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ cash: vi.fn(), courseCash: vi.fn(), care: vi.fn(), permission: vi.fn(), blocked: vi.fn(), plans: vi.fn(), planStatus: false, customers: true, music: false }));
+vi.mock("@/lib/hq-store-view", () => ({getEffectiveStoreRole: async (user: {role:string}) => user.role}));
+vi.mock("@/lib/feature-gate", () => ({hasStoreFeature: async () => true, getStoreFeaturePresentation: async () => "ENABLED"}));
 vi.mock("@/lib/session", () => ({getCurrentUser: async () => ({id:"owner",role:"OWNER",storeId:"a",staffId:"staff"})}));
 vi.mock("@/lib/store", () => ({getActiveStoreForRead: async () => "a"}));
 vi.mock("@/lib/industry-module-server", () => ({getStoreIndustryModule: async () => "steamfoot"}));
@@ -48,7 +50,7 @@ describe("homepage daily work without duplicate cash drawer",()=>{
  it("preserves customer permission gating and subscription read-only actions",async()=>{
   m.permission.mockResolvedValue(false);m.blocked.mockResolvedValue(true);
   const html=renderToStaticMarkup(await DashboardHomePage());
-  expect(m.care).not.toHaveBeenCalled();expect(html).not.toContain("前往顧客工作台");expect(html).not.toContain('href="/dashboard/bookings/new"');expect(html).toContain("今天還沒有預約");
+  expect(m.care).not.toHaveBeenCalled();expect(html).not.toContain("前往顧客工作台");expect(html).not.toContain('href="/dashboard/bookings/new"');expect(html).not.toContain("今天還沒有預約");
  });
  it.each([false,true])("keeps receipt and customer sections without a cash region (music=%s)",async(music)=>{
   m.music=music;

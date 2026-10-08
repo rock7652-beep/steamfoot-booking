@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireSession } from "@/lib/session";
+import { assertStoreAccess } from "@/lib/manager-visibility";
 import {
   createReferralEvent,
   type CreateReferralEventInput,
@@ -80,7 +81,10 @@ async function assertActionCallerAccess(
   data: CreateReferralEventInput,
 ): Promise<void> {
   const user = await requireSession();
-  if (user.role === "ADMIN") return;
+  if (user.role === "ADMIN") {
+    assertStoreAccess(user, data.storeId);
+    return;
+  }
 
   if (user.role === "CUSTOMER") {
     const customer = await getActiveSessionCustomer(user);

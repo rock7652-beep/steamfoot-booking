@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { CACHE_INVENTORY, PAGE_HOTSPOTS } from "@/lib/cache-inventory";
@@ -22,7 +23,7 @@ const CACHE_LABEL: Record<string, string> = {
 
 export default async function PerfPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") {
+  if (!user || getEffectiveActorRole(user) !== "ADMIN") {
     redirect("/dashboard");
   }
 

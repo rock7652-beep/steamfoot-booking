@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
 
 import { OperationTiming } from "@/lib/operation-timing";
@@ -265,6 +266,7 @@ export async function createBooking(
     | null = null;
   try {
     const user = await requireSession();
+    if (user.role !== "CUSTOMER") await requireWritablePermission("booking.create");
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
@@ -631,7 +633,7 @@ export async function createBooking(
     }
 
     // ── 7.5 值班檢查：該時段須有值班人員（ADMIN 可略過）
-    const skipDutyCheck = data.skipDutyCheck === true && user.role === "ADMIN";
+    const skipDutyCheck = data.skipDutyCheck === true && getEffectiveActorRole(user) === "ADMIN";
     if (!skipDutyCheck) {
       const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
       // 必須帶 storeId，避免 fallback 至 DEFAULT_STORE_ID 設定

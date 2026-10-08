@@ -459,4 +459,80 @@ describe("simple companion booking", () => {
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     expect([...host.querySelectorAll<HTMLButtonElement>('.cp-headcount button')].map(button => button.disabled)).toEqual([false, true, true]);
   });
+  it("blocks new anonymous companions in LOCKED while keeping self booking", async()=>{
+    m.booking.mockResolvedValue({success:true});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...bookingProps(),sharedCardState:"LOCKED"})));
+    await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    expect([...host.querySelectorAll<HTMLButtonElement>(".cp-headcount button")].map(button=>button.disabled)).toEqual([false,true,true]);
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("功能未開通");
+    await click("確認預約");
+    expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({customerIds:["member"],companionNames:[]}));
+  });
+  it("removes anonymous controls and stale extra people when an open booking becomes HIDDEN", async()=>{
+    const data=bookingProps();m.booking.mockResolvedValue({success:true});
+    await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    await click("3 人");
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
+    expect(host.querySelector(".cp-headcount")).toBeNull();
+    expect(host.querySelector('[role="dialog"]')?.textContent).not.toContain("同行姓名");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("共 1 人，暫占 2 點額度");
+    await click("確認預約");
+    expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({customerIds:["member"],companionNames:[]}));
+  });
+  it.each(["LOCKED","HIDDEN"] as const)("keeps named-member proxy bookings in %s without creating anonymous companions",async(sharedCardState)=>{
+    const data=bookingProps();data.cards[0].members.push({id:"family",name:"已有授權且姓名很長的家庭成員"});
+    m.booking.mockResolvedValue({success:true});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState})));
+    await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    expect(host.querySelector(".cp-headcount")).toBeNull();
+    const choices=[...host.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')];
+    expect(choices).toHaveLength(2);
+    await act(async()=>{choices[0].click();choices[1].click();});
+    await click("下一步");await click("確認預約");
+    expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({customerIds:["family"],companionNames:undefined}));
+  });
+  it("drops removed named authorizations from an open booking instead of submitting stale ids",async()=>{
+    const data=bookingProps();data.cards[0].members.push({id:"family",name:"原授權成員"});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
+    await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    const choices=[...host.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')];
+    await act(async()=>{choices[0].click();choices[1].click();});
+    // Preserve named mode by keeping a different authorized family member in the latest snapshot.
+    const latest={...data,cards:[{...data.cards[0],members:[{id:"member",name:"本人"},{id:"other",name:"另一位授權成員"}]}],sharedCardState:"HIDDEN" as const};
+    await act(async()=>root.render(createElement(CoursePortalClient,latest)));
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("共 0 人");
+    const submit=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="下一步")!;
+    expect(submit.disabled).toBe(true);expect(m.booking).not.toHaveBeenCalled();
+  });
+  it("reopens a booking with a clean one-person selection",async()=>{
+    await act(async()=>root.render(createElement(CoursePortalClient,bookingProps())));
+    await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());await click("3 人");
+    await act(async()=>host.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="關閉"]')!.click());
+    await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
+    expect(host.querySelector('.cp-headcount button[aria-pressed="true"]')?.textContent).toBe("1 人");
+    expect(host.querySelector('[placeholder="姓名（選填）"]')).toBeNull();
+  });
+  it("hides shared navigation and new-sharing help but retains legacy card detail/history",async()=>{
+    const data=bookingProps();data.cards[0].members.push({id:"family",name:"已有授權成員"});data.cards[0].entries=[];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"home"})));
+    await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
+    await click("共卡成員");
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
+    expect(host.textContent).toContain("我的方案");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.textContent).toContain("使用紀錄");
+    await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent?.startsWith("共卡成員"))).toBe(false);
+    await click("首頁");await click("操作指南");
+    expect(host.textContent).not.toContain("如何預約 1–3 人同行");expect(host.textContent).not.toContain("如何替共卡成員預約");
+    expect(host.textContent).toContain("如何改期或取消預約");
+  });
+  it("keeps blue self and orange other attendees regardless of who operated the booking when HIDDEN",async()=>{
+    const data=memberProps();data.cancellationLeadMinutes=30;
+    data.bookings=[{...data.bookings[0],operatorName:"他人代約"},{...data.bookings[0],id:"other-booking",customerId:"family",customerName:"家人",operatorName:"會員本人"}];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"bookings",sharedCardState:"HIDDEN"})));
+    const names=[...host.querySelectorAll(".cp-booking-person-line strong")].map(node=>node.textContent);
+    expect(names).toEqual(["🔵 會員本人","🟠 家人"]);
+    expect([...host.querySelectorAll("button")].filter(button=>button.textContent==="取消")).toHaveLength(2);
+  });
+
 });

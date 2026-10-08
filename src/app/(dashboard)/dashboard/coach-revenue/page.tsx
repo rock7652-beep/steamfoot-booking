@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -9,7 +10,6 @@ import {
   hasDataExportFeature,
 } from "@/lib/data-export-gate";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
-import { isOwner } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -46,7 +46,7 @@ export default async function CoachRevenuePage() {
     );
   }
 
-  const admin = isOwner(user.role);
+  const admin = getEffectiveActorRole(user) === "ADMIN";
   const storeFilter = getStoreFilter(reportsUser, reportsStoreId);
 
   const [stores, staffList] = await Promise.all([

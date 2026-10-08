@@ -38,11 +38,13 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
     return fail("此學員已有本堂預約，請先處理重複紀錄");
   const cardId = input.mode === "TRIAL" ? null : input.mode === "RESERVER" ? booking.reserverCardId : input.cardId;
   if (input.mode === "MEMBER" && (!customerId || !cardId)) return fail("請選擇學員與本人方案");
-  const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true, plan: {select: {allowShared: true}}}}) : null;
+  const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true}}) : null;
   if (input.mode !== "TRIAL") {
     if (!card || card.closedAt || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length || (card.templateIds.length && !card.templateIds.includes(booking.session.templateId)))
       return fail("此方案無法使用本堂課");
-    if (input.mode === "RESERVER" ? !card.plan.allowShared || !card.members.some(m => m.customerId === booking.reserverCustomerId) : !card.members.some(m => m.customerId === customerId))
+    // This corrects an existing seat. Its original reserver authorization survives
+    // later changes to the shared-card feature or the plan's new-sharing setting.
+    if (input.mode === "RESERVER" ? !card.members.some(m => m.customerId === booking.reserverCustomerId) : !card.members.some(m => m.customerId === customerId))
       return fail("無權使用此方案");
   }
   const pointCost = card ? card.unit === "SESSION" ? 1 : booking.session.pointCost : 0;

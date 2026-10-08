@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { prisma } from "@/lib/db";
@@ -653,7 +654,7 @@ export async function setSelfBookingEnabled(
     assertStoreAccess(user, customer.storeId);
 
     // Only owner can manually toggle; manager can't disable once enabled
-    if (user.role !== "ADMIN") {
+    if (getEffectiveActorRole(user) !== "ADMIN") {
       throw new AppError("FORBIDDEN", "此功能僅限店主使用");
     }
 

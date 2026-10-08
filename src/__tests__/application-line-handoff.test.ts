@@ -27,7 +27,7 @@ describe('saved application LINE handoff', () => {
     const {doc, w} = setup(page, {requestId: 'test-receipt', contactWay: '申請體驗帳號', storeName});
     const href = doc.getElementById('lineHandoffLink').href;
     expect(href.split('?')[0]).toBe('https://line.me/R/oaMessage/%40329rmywc/');
-    expect(decodeURIComponent(href.split('?')[1])).toBe('我已申請體驗，店名：' + storeName);
+    expect(decodeURIComponent(href.split('?')[1])).toBe('我已填寫體驗諮詢，店名：' + storeName);
     expect(doc.getElementById('lineHandoffMessage').value).toContain(storeName);
     expect(doc.getElementById('lineHandoff').textContent).toContain('請再按「送出」');
     expect(w.fetch).not.toHaveBeenCalled();
@@ -51,7 +51,7 @@ describe('saved application LINE handoff', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(w.navigator, 'clipboard', {value: {writeText}});
     await doc.getElementById('lineHandoffCopy').onclick();
-    expect(writeText).toHaveBeenCalledWith('我已申請體驗，店名：測試店');
+    expect(writeText).toHaveBeenCalledWith('我已填寫體驗諮詢，店名：測試店');
     expect(doc.getElementById('lineHandoffCopyStatus').textContent).toContain('已複製');
     writeText.mockRejectedValueOnce(new Error('denied'));
     await doc.getElementById('lineHandoffCopy').onclick();

@@ -44,10 +44,17 @@
       "schedule": "40 17 * * *"
     }
   ],
-  "buildCommand": "npm run build",
   "git": {
     "deploymentEnabled": {
-      "feat/music-opening-state-20261007": false
+      "fix/public-seo-crawlers-20261007": false,
+      "feat/public-guide-articles-20261007": false,
+      "fix/publish-music-guide-20261008": false,
+      "feat/sports-shared-card-controls-20261007": false,
+      "feat/hq-consultation-intake-20261008": false,
+      "content/approved-business-guides-20261008": false,
+      "fix/simplify-trial-line-fields-20261008": false,
+      "fix/course-roster-density-20261008": false,
+      "content/yoga-waitlist-management": false
     }
   }
 }

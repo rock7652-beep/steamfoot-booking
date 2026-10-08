@@ -9,6 +9,7 @@ import {musicCourseExpiry} from "@/lib/music-course-products";
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
+import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
 import type { Prisma } from "../../../generated/course-client";
 
 export type CourseActor = {
@@ -169,6 +170,7 @@ export async function reserveCourseInTransaction(
     allowOverCapacity?: boolean;
   },
   maxMonthlyBookings: number | null,
+  options: { existingWaitlistEntryId?: string } = {},
 ) {
   const { storeId } = actor;
   const previous = await tx.courseBooking.findUnique({
@@ -227,9 +229,30 @@ export async function reserveCourseInTransaction(
   if ("musicOpeningTermKey" in input || "musicOpeningLessonOrdinal" in input || "musicOpeningSourceLessonKey" in input)
     return fail("一般預約入口不接受來源期初堂次");
   if (input.companionIndex) {
+    // Only a matching persisted queue entry can retain an already-authorized
+    // companion reservation after new sharing is disabled. Never accept a bare
+    // bypass boolean or a request-provided snapshot of that authorization.
+    const existingWaitlistEntry = options.existingWaitlistEntryId &&
+      input.requestKey === `waitlist-promote:${options.existingWaitlistEntryId}`
+      ? await tx.courseWaitlistEntry.findFirst({
+        where: {
+          id: options.existingWaitlistEntryId, storeId, status: "WAITING",
+          sessionId: input.sessionId, cardId: input.cardId ?? "", customerId: input.customerId,
+          customerName: input.customerName ?? "", companionIndex: input.companionIndex,
+          reserverCustomerId: input.reserverCustomerId ?? null,
+          reserverCardId: input.reserverCardId ?? null, reserverName: input.reserverName ?? null,
+          groupKey: input.groupKey ?? "", operatorUserId: actor.userId,
+          operatorCustomerId: actor.customerId ?? null, operatorName: actor.name,
+        },
+        select: { id: true },
+      }) : null;
+    if (options.existingWaitlistEntryId && !existingWaitlistEntry)
+      return fail("原同行候補紀錄已變更，請重新確認");
     const music = await tx.$queryRaw<Array<{featureKey: string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-    if (music.length || card?.termSessionIds.length || !card?.plan.allowShared || !input.reserverCustomerId || !card.members.some(m => m.customerId === input.reserverCustomerId))
+    if (music.length || !card || card.termSessionIds.length || (!existingWaitlistEntry && !card.plan.allowShared) || !input.reserverCustomerId || !card.members.some(m => m.customerId === input.reserverCustomerId))
       return fail("此方案未開放自由選課同行預約");
+    if (!existingWaitlistEntry && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
+      return fail("本店共卡功能尚未開通，不能新增同行預約");
     if (input.customerId || !Number.isInteger(input.companionIndex) || input.companionIndex < 1 || input.companionIndex > 2 || !input.customerName || input.customerName.length > 100 || (actor.customerId && actor.customerId !== input.reserverCustomerId))
       return fail("同行預約資料不正確");
   }

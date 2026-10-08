@@ -1,3 +1,5 @@
+import { readCourseSharedCardSnapshot } from "@/server/services/course-shared-card";
+import { resolveCourseSharedCardState } from "@/lib/course-shared-card-policy";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -60,9 +62,14 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
 
   if (!store) notFound();
 
+  const supportsSharedCard = store.industryModule === "COURSE" && !store.featureEntitlements.some(e => e.featureKey === "business.music" && e.status === "ENABLED");
+  const sharedCardSnapshot = supportsSharedCard ? await readCourseSharedCardSnapshot(prisma, store.id) : null;
+  const sharedCardState = resolveCourseSharedCardState(sharedCardSnapshot);
+  const manageableFeatures = MANAGEABLE_STORE_FEATURES.filter(feature => feature.key !== "shared_card" || supportsSharedCard);
+
   // Match the same gate used by the store dashboard, including the full single-store trial.
   const featureAccess = new Map(await Promise.all(
-    MANAGEABLE_STORE_FEATURES.map(async (feature) => [
+    manageableFeatures.map(async (feature) => [
       feature.key,
       await hasStoreFeature(store.id, feature.key),
     ] as const),
@@ -72,7 +79,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   const trialNotStarted = store.plan === "EXPERIENCE" && store.industryModule === "COURSE" &&
     !store.planEffectiveAt && !store.planExpiresAt;
   const availableCount = [...featureAccess.values()].filter(Boolean).length;
-  const singleStoreCount = MANAGEABLE_STORE_FEATURES.length;
+  const singleStoreCount = manageableFeatures.length;
 
   const entitlements = new Map(
     store.featureEntitlements.map((entitlement) => [
@@ -140,10 +147,10 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
         </div>
       )}
 
-      <FeatureEntitlementList storeId={store.id} categories={[...STORE_FEATURE_CATEGORIES]} rows={MANAGEABLE_STORE_FEATURES.map(feature => {
+      <FeatureEntitlementList storeId={store.id} categories={[...STORE_FEATURE_CATEGORIES]} rows={manageableFeatures.map(feature => {
                   const entitlement = entitlements.get(feature.key) ?? null;
-                  const trialAllowed = fullSingleStoreAccess;
-                  const baseAllowed = trialAllowed || hasFeature(store.plan, feature.key);
+                  const trialAllowed = fullSingleStoreAccess && feature.key !== "shared_card";
+                  const baseAllowed = feature.key === "shared_card" ? false : trialAllowed || hasFeature(store.plan, feature.key);
                   const ordinaryState = resolveStoreFeatureDisplayState(
                     store.plan,
                     feature.key,
@@ -151,7 +158,12 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   );
                   const explicitlyRestricted = (entitlement?.status === "HIDDEN" || entitlement?.status === "LOCKED") && (ordinaryState.statusLabel === "隱藏" || ordinaryState.statusLabel === "鎖定");
                   const explicitlyEnabled = entitlement?.status === "ENABLED" && ordinaryState.statusLabel === "啟用";
-                  const state = trialAllowed && !explicitlyRestricted && !explicitlyEnabled ? {
+                  const state = feature.key === "shared_card" ? {
+                    effectiveAllowed: sharedCardState === "ENABLED",
+                    statusLabel: sharedCardState === "ENABLED" ? "可用" : sharedCardState === "HIDDEN" ? "隱藏" : "鎖定",
+                    statusClass: sharedCardState === "ENABLED" ? "bg-green-50 text-green-700" : "bg-earth-100 text-earth-600",
+                    sourceLabel: entitlement ? "總部覆寫（保留既有權益）" : "需總部開通／舊店資格初始化",
+                  } : trialAllowed && !explicitlyRestricted && !explicitlyEnabled ? {
                     effectiveAllowed: featureAccess.get(feature.key) === true,
                     statusLabel: "試用授權",
                     statusClass: "bg-blue-50 text-blue-700",

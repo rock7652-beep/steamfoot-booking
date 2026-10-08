@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -13,6 +14,6 @@ export default async function DataExportPage() {
   if (!user || (!canCustomerExport && !canReportExport)) redirect("/dashboard");
   const activeStoreId = await getActiveStoreForRead(user);
   const courseMode = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
-  const stores = user.role === "ADMIN" ? await prisma.store.findMany({ where: { operatingStatus: "ACTIVE", ...(courseMode ? { industryModule: "COURSE" as const } : {}) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
-  return <DataExportClient courseMode={courseMode} isAdmin={user.role === "ADMIN"} stores={stores} activeStoreId={activeStoreId} canCustomerExport={canCustomerExport} canReportExport={canReportExport} />;
+  const stores = getEffectiveActorRole(user) === "ADMIN" ? await prisma.store.findMany({ where: { operatingStatus: "ACTIVE", ...(courseMode ? { industryModule: "COURSE" as const } : {}) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
+  return <DataExportClient courseMode={courseMode} isAdmin={getEffectiveActorRole(user) === "ADMIN"} stores={stores} activeStoreId={activeStoreId} canCustomerExport={canCustomerExport} canReportExport={canReportExport} />;
 }

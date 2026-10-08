@@ -1,27 +1,29 @@
+// Synthetic URL-only fixtures. No password, network connection or live credentials.
 import {readFileSync} from "node:fs";
+import {createHash} from "node:crypto";
 import {expect,it,vi} from "vitest";
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase,MUSIC_OPENING_BRANCH} from "../../scripts/music-opening-preview-scope.mjs";
 import {assertMusicOpeningSchema,checkMusicOpeningSchema,MUSIC_OPENING_SCHEMA_SQL,musicOpeningConnectionFailure,readMusicOpeningSchemaConnection} from "../../scripts/music-opening-schema-check.mjs";
-const direct="postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
-const pooled="postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
+const direct="postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
+const pooled="postgresql://postgres.ttworfzgwejdeolegkxl@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const env={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:MUSIC_OPENING_BRANCH,VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:pooled,DIRECT_URL:direct};
 const ready=()=>({columns_ready:true,native_default_ready:true,policy_default_ready:true,indexes_ready:true,fks_ready:true,rls_ready:true,client_access_blocked:true,no_client_policies:true,tenant_ready:true,checks:[
  "CHECK (musicOpeningTermKey IS NOT NULL AND musicOpeningSourceLessonKey IS NOT NULL AND musicOpeningLessonOrdinal IS NOT NULL AND musicOpeningLessonOrdinal >= 1 AND musicOpeningLessonOrdinal <= 100000 AND cardId IS NOT NULL AND customerId IS NOT NULL)",
  "CHECK (contentHash ~ '^[a-f0-9]{64}$')", "CHECK (jsonb_typeof(snapshot) = 'object')", "CHECK (teacherFeePolicy IN ('UNVERIFIED','MUSIC_V2_ORIGINAL_PRICE'))",
 ]});
 it("reports only safe connection categories, never driver URLs or credentials",()=>{
- const secret="postgresql://postgres:secret@private.invalid/postgres";
+ const secret="postgresql://redaction-marker@private.invalid/postgres";
  expect(musicOpeningConnectionFailure({errorCode:"P1001",message:secret},"direct").message).toContain("direct:P1001");
  expect(musicOpeningConnectionFailure({message:"Query engine could not locate "+secret},"pooled").message).toContain("pooled:ENGINE_UNAVAILABLE");
  expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).toContain("pooled:UNKNOWN");
- expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).not.toContain("secret");
+ expect(musicOpeningConnectionFailure({code:secret,message:secret},"pooled").message).not.toContain("redaction-marker");
 });
 it("accepts only the exact existing preview project and both connections",()=>{
  expect(isMusicOpeningDatabase(direct)).toBe(true);expect(isMusicOpeningDatabase(pooled)).toBe(true);
  expect(()=>assertMusicOpeningPreviewEnvironment(env)).not.toThrow();
 });
 it.each(["DATABASE_URL","DIRECT_URL"])("rejects missing, production and deceptive %s without any DB query",async key=>{
- for(const value of [undefined,"","postgresql://postgres:synthetic@db.qijlnhtpbintanzpxkvf.supabase.co/postgres",direct.replace(".co/",".co.attacker.invalid/"),direct.replace("/postgres","/other")]) {
+ for(const value of [undefined,"","postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres",direct.replace(".co/",".co.attacker.invalid/"),direct.replace("/postgres","/other")]) {
   const read=vi.fn();await expect(checkMusicOpeningSchema({...env,[key]:value},read)).rejects.toThrow();expect(read).not.toHaveBeenCalled();
  }
 });
@@ -82,12 +84,14 @@ it("schema query is read-only and never fetches learner records",()=>{
  expect(MUSIC_OPENING_SCHEMA_SQL).not.toMatch(/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\s+(INTO|TABLE|FROM|INDEX|public)/i);
  expect(MUSIC_OPENING_SCHEMA_SQL).not.toContain('FROM public."Customer"');
 });
-it("guards run before the untouched migration runner and next build",()=>{
+it("guards run before the reviewed migration runner and next build",()=>{
  const build=JSON.parse(readFileSync("package.json","utf8")).scripts.build as string;
  expect(build.startsWith("node scripts/music-opening-preflight.mjs && node scripts/ci-migrate.mjs &&")).toBe(true);
  expect(readFileSync("scripts/music-opening-preflight.mjs","utf8")).toContain("await runMusicOpeningSchemaPreflight()");
  expect(build).toContain("npm run generate:clients && next build");
- expect(JSON.parse(readFileSync("vercel.json","utf8")).git.deploymentEnabled).toEqual({[MUSIC_OPENING_BRANCH]:false});
+ // Retain current public main345 deployment settings byte-for-byte; isolation is in the program guards.
+ const config=readFileSync("vercel.json","utf8");
+ expect(createHash("sha1").update(`blob ${Buffer.byteLength(config)}\0`).update(config).digest("hex")).toBe("2919d3c41fcbebef78a253dd39d30c608af1bf1f");
  const startup=readFileSync("src/instrumentation.ts","utf8");expect(startup).toContain("await runMusicOpeningSchemaPreflight()");
  for(const file of ["src/lib/db.ts","src/lib/course-db.ts","src/lib/spa-db.ts"]) {
   const code=readFileSync(file,"utf8");expect(code.indexOf("assertMusicOpeningRuntimeIsolation();")).toBeLessThan(code.indexOf("new PrismaClient"));

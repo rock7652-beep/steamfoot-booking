@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { inventoryCashbookReadFilter, canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requirePermission, checkPermission, requireWritablePermission } from "@/lib/permissions";
@@ -59,7 +60,7 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
     }));
   }
   return { today, page: currentPage, total, canWrite, closedDates, canDrawer, balance, balanceLabel,
-    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: !e.id.startsWith("inventory:") && canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
+    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: !e.id.startsWith("inventory:") && canWrite && (getEffectiveActorRole(user) === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
   };
 }
 
@@ -110,7 +111,7 @@ export async function saveQuickCashbook(storeId: string, id: string | null, form
     if (id) {
       const entry = await prisma.cashbookEntry.findFirst({ where: { id, storeId } });
       if (entry && entry.entryDate.toISOString().slice(0, 10) !== toLocalDateStr()) throw new AppError("BUSINESS_RULE", "日期已變更，請到完整現金管理編輯原紀錄");
-      if (!entry || (user.role !== "ADMIN" && (!user.staffId || entry.staffId !== user.staffId))) throw new AppError("FORBIDDEN", "無法編輯這筆紀錄");
+      if (!entry || (getEffectiveActorRole(user) !== "ADMIN" && (!user.staffId || entry.staffId !== user.staffId))) throw new AppError("FORBIDDEN", "無法編輯這筆紀錄");
     }
     const type = form.get("type");
     if (type !== "INCOME" && type !== "EXPENSE") throw new AppError("VALIDATION", "請選擇收入或支出");
@@ -126,7 +127,7 @@ export async function deleteQuickCashbook(storeId: string, id: string) {
   try {
     const user = await context(storeId, true);
     const entry = await prisma.cashbookEntry.findFirst({ where: { id, storeId } });
-    if (!entry || (user.role !== "ADMIN" && (!user.staffId || entry.staffId !== user.staffId))) throw new AppError("FORBIDDEN", "無法刪除這筆紀錄");
+    if (!entry || (getEffectiveActorRole(user) !== "ADMIN" && (!user.staffId || entry.staffId !== user.staffId))) throw new AppError("FORBIDDEN", "無法刪除這筆紀錄");
     return await deleteCashbookEntry(id);
   } catch (e) { return handleActionError(e); }
 }

@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { Suspense } from "react";
 import { loadBookingRosterLabels } from "@/server/queries/booking-roster-labels";
 import { getMonthBookingSummary } from "@/server/queries/booking";
@@ -38,6 +39,7 @@ interface PageProps {
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
+  await requireDashboardCoreFeature("basic_booking");
   const timing = new OperationTiming("steamfoot.page.shell");
   try {
   const user = await timing.measure("session", () => getCurrentUser());

@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -10,7 +11,7 @@ import { CENTRAL_LINE_ACCEPTANCE_LABEL } from "@/server/services/central-line-ac
 
 export default async function CentralLineRecipientsPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") notFound();
+  if (!user || getEffectiveActorRole(user) !== "ADMIN") notFound();
   const audit = await getCentralLineRecipientAudit();
 
   return (

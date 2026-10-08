@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
@@ -59,6 +60,7 @@ interface PageProps {
 }
 
 export default async function BookingDetailPage({ params }: PageProps) {
+  await requireDashboardCoreFeature("basic_booking");
   const { id } = await params;
   const user = await requireStaffSession();
   if (!(await checkPermission(user.role, user.staffId, "booking.read"))) {

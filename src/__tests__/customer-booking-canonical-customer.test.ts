@@ -104,6 +104,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 }));
 
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: async () => { const user = await mockRequireSession(); if (user.role === "CUSTOMER") throw new Error("CUSTOMER must not hit staff permission guard"); return user; },
   requirePermission: vi.fn(async () => {
     throw new Error("CUSTOMER must not hit requirePermission");
   }),

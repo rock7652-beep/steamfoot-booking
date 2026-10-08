@@ -1,3 +1,4 @@
+import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -15,7 +16,9 @@ export default async function FrontendPreviewDashboard({ searchParams }: { searc
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) notFound();
   await requirePermission("customer.read");
   await requirePermission("booking.read");
-  const p = await searchParams, stores = await getAccessibleStores(user);
+  const p = await searchParams;
+  const view = getHqStoreViewContext(user);
+  const stores = (await getAccessibleStores(user)).filter(store => !view || store.id === view.storeId);
   const storeId = p.storeId ?? await getActiveStoreForRead(user) ?? stores[0]?.id;
   if (!storeId) return <p>請先選擇店家。</p>;
   try { await validateStoreAccess(user, storeId, "read"); } catch { notFound(); }

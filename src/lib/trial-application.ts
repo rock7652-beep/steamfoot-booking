@@ -83,7 +83,9 @@ const trialApplicationObject = z
     lineId: z.string().trim().max(100),
     friendUrl: link(["lin.ee", "line.me"]),
     inviteUrl: link(["manager.line.biz", "account.line.biz"]),
-    developers: z.enum(["invited", "help", "pending"]),
+    // Historical payloads and saved drafts retain these values for compatibility.
+    // New applications no longer collect Developers authorization progress.
+    developers: z.enum(["invited", "help", "pending"]).optional(),
     integration: z.enum(["none", "existing", "unknown"]),
     integrationName: text,
     brandName: text.default(""),
@@ -101,9 +103,9 @@ const trialApplicationObject = z
     sharedLine: z.enum(["no", "yes", "unknown"]).default("unknown"),
     sharedLineStores: text.default(""),
     lineManagerContact: text.default(""),
-    providerAdmin: authorizationProgress.default("pending"),
-    messagingAdmin: authorizationProgress.default("pending"),
-    loginAdmin: authorizationProgress.default("pending"),
+    providerAdmin: authorizationProgress.optional(),
+    messagingAdmin: authorizationProgress.optional(),
+    loginAdmin: authorizationProgress.optional(),
     staffProgress: setupProgress.default("pending"),
     roomProgress: setupProgress.default("pending"),
     scheduleProgress: setupProgress.default("pending"),
@@ -168,7 +170,6 @@ export const emptyTrialApplication: TrialApplicationData = {
   lineId: "",
   friendUrl: "",
   inviteUrl: "",
-  developers: "pending",
   integration: "unknown",
   integrationName: "",
   brandName: "",
@@ -178,9 +179,6 @@ export const emptyTrialApplication: TrialApplicationData = {
   sharedLine: "unknown",
   sharedLineStores: "",
   lineManagerContact: "",
-  providerAdmin: "pending",
-  messagingAdmin: "pending",
-  loginAdmin: "pending",
   staffProgress: "pending",
   roomProgress: "pending",
   scheduleProgress: "pending",
@@ -262,39 +260,6 @@ export function trialChecklist(d: TrialApplicationData) {
       label: "官方 LINE 管理員邀請",
       state: d.inviteUrl ? "已提供，待確認" : "待補充",
     },
-    ...(d.developers !== "pending" &&
-    [d.providerAdmin, d.messagingAdmin, d.loginAdmin].every(
-      (v) => v === "pending",
-    )
-      ? [
-          {
-            label: "LINE Developers 授權（原申請）",
-            state:
-              d.developers === "invited"
-                ? "已邀請，待確認"
-                : d.developers === "help"
-                  ? "需要協助"
-                  : "待補充",
-          },
-        ]
-      : []),
-    ...(
-      [
-        ["providerAdmin", "Provider Admin"],
-        ["messagingAdmin", "Messaging API Admin"],
-        ["loginAdmin", "LINE Login Admin"],
-      ] as const
-    ).map(([key, label]) => ({
-      label,
-      state:
-        d[key] === "invited"
-          ? "已邀請，待確認 Admin"
-          : d[key] === "help"
-            ? "需要協助"
-            : d[key] === "absent"
-              ? "尚未建立，需協助"
-              : "待補充",
-    })),
     {
       label: "網址英文名稱",
       state: d.slug ? "已提供，待確認可用" : "需要協助",

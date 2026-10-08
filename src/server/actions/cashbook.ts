@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -125,7 +126,7 @@ export async function createCashbookEntry(
 
     // 非 Owner 員工若未指定 staffId，自動綁定自己
     let staffId = data.staffId || null;
-    if (user.role !== "ADMIN") {
+    if (getEffectiveActorRole(user) !== "ADMIN") {
       // 非 Owner 員工只能建立歸屬於自己的現金帳紀錄
       staffId = user.staffId ?? null;
     }
@@ -228,7 +229,7 @@ export async function updateCashbookEntry(
     }
 
     // 非 Owner 員工只能修改自己的紀錄
-    if (user.role !== "ADMIN") {
+    if (getEffectiveActorRole(user) !== "ADMIN") {
       if (!user.staffId || entry.staffId !== user.staffId) {
         throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
       }
@@ -242,7 +243,7 @@ export async function updateCashbookEntry(
     if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
     if (data.staffId !== undefined) {
       // 非 Owner 員工不能改 staffId（鎖定自己），只有 Owner 可指派
-      if (user.role === "ADMIN") updateData.staffId = data.staffId;
+      if (getEffectiveActorRole(user) === "ADMIN") updateData.staffId = data.staffId;
     }
     if (data.customerId !== undefined) updateData.customerId = data.customerId;
     if (data.note !== undefined) updateData.note = data.note;

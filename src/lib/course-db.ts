@@ -1,7 +1,9 @@
 import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
+import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
 assertMusicOpeningRuntimeIsolation();
 
@@ -18,11 +20,14 @@ function databaseUrl() {
     url.searchParams.set("pool_timeout", "10");
   return url.toString();
 }
-export const coursePrisma =
-  globalForCourse.coursePrisma ??
-  withAuditDatabaseContext(new PrismaClient({
+export const coursePrisma: PrismaClient = isGuideUiPreview()
+  ? createGuideUiDisabledClient() as PrismaClient
+  : guardedSportsSharedCardPreviewClient(
+  () => globalForCourse.coursePrisma,
+  () => withAuditDatabaseContext(new PrismaClient({
     datasources: { db: { url: databaseUrl() } },
     log: ["error"],
-  }));
-if (process.env.NODE_ENV !== "production")
+  })),
+);
+if (!isGuideUiPreview() && process.env.NODE_ENV !== "production")
   globalForCourse.coursePrisma = coursePrisma;

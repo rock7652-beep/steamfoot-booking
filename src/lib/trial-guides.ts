@@ -78,33 +78,6 @@ export const trialGuides: Record<string, TrialGuide> = {
       },
     ],
   },
-  developers: {
-    title: "LINE Developers 管理員授權",
-    source:
-      "https://developers.line.biz/en/docs/line-developers-console/managing-roles/",
-    steps: [
-      {
-        title: "選擇店家的 Provider",
-        text: "開啟 Console，登入原本管理店家設定的帳號，選擇對應 Provider。找不到或沒有設定，回申請頁選「需要協助」。",
-        link: "https://developers.line.biz/console/",
-        linkLabel: "開啟 Developers Console",
-      },
-      {
-        title: "Provider → Roles → Invite by email",
-        text: "輸入 rock7652@gmail.com，角色選 Admin，按「Send invitation」。Provider 權限不會自動套用到既有 Channel。",
-      },
-      {
-        title: "既有 Channel 也需邀請",
-        text: "分別進入店家的 Messaging API 與 LINE Login Channel，點 Roles → Invite by email，輸入同一 Email、角色選 Admin，再按「Send invitation」。沒有 Channel 時交由蒸管家協助。",
-        image: "/pricing/trial-guides/developers-roles.webp",
-        highlight: [10, 2, 16, 8],
-      },
-      {
-        title: "回申請頁選已邀請",
-        text: "蒸管家會確認權限，再設定登入、LIFF 與通知。不要自行重建 Provider、換 Webhook 或解除既有串接。",
-      },
-    ],
-  },
   create: {
     title: "建立官方 LINE",
     source:

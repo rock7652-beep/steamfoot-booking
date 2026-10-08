@@ -2,6 +2,7 @@
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
@@ -90,7 +91,7 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
-    if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(user.role, d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
+    if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動教練才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
@@ -122,13 +123,13 @@ export async function saveCourseStaff(input: unknown) {
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
         if (!d.id && existing) return;
-        if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(user.role, existing.user.role))
+        if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(getEffectiveActorRole(user), existing.user.role))
           throw new AppError("FORBIDDEN", "店長只能管理門市人員");
         if (existing && !d.active) await assertStoreRetainsOwner(tx, storeId, existing.id);
         if (existing && d.backendRole && d.backendRole !== existing.user.role) {
           if (existing.user.role === "ADMIN") throw new AppError("FORBIDDEN", "系統管理者不能在店內改為其他角色");
           await readStaffManagerGrants(tx, user, storeId);
-          if (existing.userId === user.id || !canManageStaffRole(user.role, existing.user.role)) throw new AppError("FORBIDDEN", "不能調整自己或更高層級帳號");
+          if (existing.userId === user.id || !canManageStaffRole(getEffectiveActorRole(user), existing.user.role)) throw new AppError("FORBIDDEN", "不能調整自己或更高層級帳號");
           if (d.backendRole !== "OWNER") await assertStoreRetainsOwner(tx, storeId, existing.id);
           await tx.user.update({ where: { id: existing.userId }, data: { role: d.backendRole } });
           await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffRole',${staffId},'UPDATE',${JSON.stringify({role:existing.user.role})}::jsonb,${JSON.stringify({role:d.backendRole,storeId})}::jsonb,now())`;

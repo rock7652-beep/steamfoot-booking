@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { requireSteamfootStore } from "@/lib/industry-module-server";
 import { resolveWriteStoreId } from "@/lib/store";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { AppError, handleActionError } from "@/lib/errors";
 import { toLocalMonthStr } from "@/lib/date-utils";
 import { rentInput, shiftMonth, validateRentChange } from "@/lib/steamfoot-rent";
@@ -22,7 +23,7 @@ export async function saveSteamfootRent(input: unknown) {
       await tx.$queryRaw`SELECT id FROM "Staff" WHERE id=${data.staffId} AND "storeId"=${storeId} FOR UPDATE`;
       const staff = await tx.staff.findFirst({ where: { id: data.staffId, storeId }, include: { user: { select: { role: true } } } });
       if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
-      if (user.role !== "ADMIN" && (staff.isOwner || staff.user.role === "ADMIN")) throw new AppError("FORBIDDEN", "無權管理此人員的租金");
+      if (getEffectiveActorRole(user) !== "ADMIN" && (staff.isOwner || staff.user.role === "ADMIN")) throw new AppError("FORBIDDEN", "無權管理此人員的租金");
       const previous = (await readRentTerms(storeId, staff.id, tx))[0];
       const error = validateRentChange(previous, data, toLocalMonthStr());
       if (error) throw new AppError("VALIDATION", error);

@@ -9,17 +9,15 @@ import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import { requirePermission, type PermissionCode } from "@/lib/permissions";
 import { requireSpaStore } from "@/lib/industry-module-server";
-import { getStoreContext } from "@/lib/store-context";
 import { AppError, handleActionError } from "@/lib/errors";
-import { getActiveStoreForRead } from "@/lib/store";
+import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 
 export async function spaResourceStore(permission: PermissionCode) {
   const user = await requirePermission(permission);
-  const context = await getStoreContext();
-  if (!context) throw new AppError("FORBIDDEN", "請從店家後台開啟設定");
-  if (user.role !== "ADMIN" && !await prisma.staff.findFirst({where:{userId:user.id,storeId:context.storeId,status:"ACTIVE"},select:{id:true}})) throw new AppError("FORBIDDEN", "無權管理這家店");
-  await requireSpaStore(context.storeId);
-  return context.storeId;
+  const storeId = await resolveWriteStoreId(user);
+  if (user.role !== "ADMIN" && !await prisma.staff.findFirst({where:{userId:user.id,storeId:storeId,status:"ACTIVE"},select:{id:true}})) throw new AppError("FORBIDDEN", "無權管理這家店");
+  await requireSpaStore(storeId);
+  return storeId;
 }
 
 /** Read SPA resources, including an OWNER's authorized child-store view. */

@@ -4,7 +4,7 @@ import { OperationTiming } from "@/lib/operation-timing";
 
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
-import { requireStaffSession } from "@/lib/session";
+import { requirePermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import {
@@ -278,7 +278,7 @@ export async function fetchBookingDetail(
 async function fetchBookingDetailMeasured(
   bookingId: string, resolvedStoreId: string | undefined, timing: OperationTiming,
 ): Promise<BookingDrawerPayload> {
-  const user = await timing.measure("session", () => requireStaffSession());
+  const user = await timing.measure("session", () => requirePermission("booking.read", undefined, { storeId: resolvedStoreId }));
   // Explicit page scope is authoritative after authorization. Do not resolve
   // unused route/cookie scopes first (or let stale view cookies block it).
   const [activeStoreId, storeViewContext] = resolvedStoreId

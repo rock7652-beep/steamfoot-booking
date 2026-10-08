@@ -201,10 +201,10 @@
     const trial = data.contactWay === '申請體驗帳號';
     const phone = data.contactWay === '希望電話聯繫';
     const name = typeof data.storeName === 'string' ? data.storeName.trim() : '';
-    const message = (trial ? '我已申請體驗' : '我已填寫需求表單') + '，店名：' + (name || '（請填寫店名）');
+    const message = (trial ? '我已填寫體驗諮詢' : '我已填寫需求表單') + '，店名：' + (name || '（請填寫店名）');
     const link = document.getElementById('lineHandoffLink');
     link.href = 'https://line.me/R/oaMessage/%40329rmywc/?' + encodeURIComponent(message);
-    link.textContent = trial ? '回 LINE，確認體驗申請' : '回 LINE，接續聊需求';
+    link.textContent = trial ? '回 LINE，接續體驗諮詢' : '回 LINE，接續聊需求';
     document.getElementById('lineHandoffHint').textContent = phone
       ? '我們會依您留下的電話聯繫；若想先用 LINE 留言，也可以傳送店名，方便我們核對資料。'
       : '請回到官方 LINE 傳送店名，方便我們核對資料並接續協助，不用重新填表。';

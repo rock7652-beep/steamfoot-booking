@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
@@ -77,6 +78,7 @@ export default async function CustomerRecordsPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireDashboardCoreFeature("customer_management");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) redirect("/dashboard");
   const { id } = await params;

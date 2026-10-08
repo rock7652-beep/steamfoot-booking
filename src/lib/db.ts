@@ -1,7 +1,9 @@
 import { assertMusicOpeningRuntimeIsolation } from "@/lib/music-opening-preview-isolation";
+import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import { PrismaClient } from "@prisma/client";
 import { buildDatabaseUrl } from "@/lib/database-url";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
 assertMusicOpeningRuntimeIsolation();
 
@@ -24,18 +26,21 @@ const globalForPrisma = globalThis as unknown as {
  *
  * 參考：https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
  */
-export const prisma =
-  globalForPrisma.prisma ??
-  withAuditDatabaseContext(new PrismaClient({
+export const prisma: PrismaClient = isGuideUiPreview()
+  ? createGuideUiDisabledClient() as PrismaClient
+  : guardedSportsSharedCardPreviewClient(
+  () => globalForPrisma.prisma,
+  () => withAuditDatabaseContext(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  }), true);
+  }), true),
+);
 
-if (
+if (!isGuideUiPreview() && (
   process.env.NODE_ENV !== "production" ||
   (process.env.VERCEL_ENV === "preview" &&
     process.env.VERCEL_GIT_COMMIT_REF === "codex/hq-module-foundation")
-)
+))
   globalForPrisma.prisma = prisma;

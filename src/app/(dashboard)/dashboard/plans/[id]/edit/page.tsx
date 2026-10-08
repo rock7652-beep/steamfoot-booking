@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 import { getPlanDetail } from "@/server/queries/plan";
 import { updatePlan } from "@/server/actions/plan";
@@ -17,6 +18,7 @@ export default async function EditPlanPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireDashboardCoreFeature("plan_management");
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.create"))) {

@@ -5,6 +5,13 @@ import type { GuideAccess } from "../lib/operation-guide-types";
 
 vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
 vi.mock("next/cache", () => ({ unstable_cache: (fn: unknown) => fn }));
+const requestContext = vi.hoisted(() => ({ activeStoreId: "__all__" }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ "x-next-pathname": "/hq/dashboard" }),
+  cookies: async () => ({
+    get: (name: string) => name === "active-store-id" ? { value: requestContext.activeStoreId } : undefined,
+  }),
+}));
 const grants = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db", () => ({ prisma: { staffPermission: { findMany: grants } } }));
 import { checkPermission, getDefaultPermissionsForRole } from "../lib/permissions";
@@ -133,5 +140,11 @@ describe("inventory return and receipt-correction guide source review", () => {
       expect(await checkPermission(role, "legacy-audit-grant", "audit.read")).toBe(false);
     }
     expect(await checkPermission("ADMIN", null, "audit.read")).toBe(true);
+    requestContext.activeStoreId = "selected-store";
+    try {
+      expect(await checkPermission("ADMIN", null, "audit.read")).toBe(false);
+    } finally {
+      requestContext.activeStoreId = "__all__";
+    }
   });
 });

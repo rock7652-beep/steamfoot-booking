@@ -1,3 +1,6 @@
+import { isGuideUiPreview, isTrialUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { findPublicGuide, guidePath } from "@/lib/public-guides";
+import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
@@ -48,7 +51,7 @@ type SessionUser = {
 // ============================================================
 
 // Next.js 16: proxy.ts（前身為 middleware.ts）
-export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
+const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
   // Internal destination only; public requests must pass the scoped route guards.
   if (pathname === "/cash-drawer-panel" || pathname.startsWith("/cash-drawer-panel/")) {
@@ -67,7 +70,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     }
     const file = pathname.slice("/line-onboarding-preview/".length);
     return /^(index|store|coordinator)\.html$/.test(file) || /^step-[1-9]\.svg$/.test(file)
-      ? NextResponse.next()
+      ? routePassThrough(req)
       : new NextResponse(null, { status: 404 });
   }
   // Isolated, fake-data layout review. Never expose this preview in production
@@ -89,7 +92,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       "booking-confirm-390.png", "points-insufficient-390.png",
     ]);
     return reviewFiles.has(pathname.slice("/course-mobile-review/".length))
-      ? NextResponse.next()
+      ? routePassThrough(req)
       : new NextResponse(null, { status: 404 });
   }
   const session = req.auth;
@@ -116,25 +119,51 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // the original customer page internally without re-entering this proxy.
   const marketing = marketingRoute(pathname, Boolean(domainStoreId));
   if (marketing) {
+    // Resolve static editorial boundaries before Next starts streaming so an
+    // unknown/unpublished article is a real HTTP 404, not a soft-404 document.
+    if (marketing.kind === "not-found") {
+      return new NextResponse("找不到這篇經營指南", { status: 404, headers: { "X-Robots-Tag": "noindex, nofollow", "Content-Type": "text/plain; charset=utf-8" } });
+    }
     const url = req.nextUrl.clone();
+    if (marketing.kind === "rewrite" && marketing.destination === "/pricing/guides") {
+      const legacyIds = req.nextUrl.searchParams.getAll("guide");
+      const guide = legacyIds.length === 1 ? findPublicGuide(legacyIds[0]) : undefined;
+      if (guide) {
+        url.pathname = guidePath(guide);
+        url.search = "";
+        const response = NextResponse.redirect(url, 308);
+        if (!isCanonicalMarketingRequest(req)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+        return response;
+      }
+    }
     url.pathname = marketing.destination;
-    return marketing.kind === "redirect"
+    const response = marketing.kind === "redirect"
       ? NextResponse.redirect(url, 308)
-      : NextResponse.rewrite(url);
+      : NextResponse.rewrite(url, { request: { headers: nonStoreRequestHeaders(req) } });
+    if (!isCanonicalMarketingRequest(req)) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+
+  // Mark only existing public marketing documents on non-canonical hosts;
+  // this does not grant access or change any store/auth routing.
+  if (pathname !== "/" && (MARKETING_SITEMAP_PATHS as readonly string[]).includes(pathname) && !isCanonicalMarketingRequest(req)) {
+    const response = withDomainCookie(routePassThrough(req), domainStoreId);
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
   }
 
   // Exact public completion endpoint for Taiwan's server-coordinated LINE
   // login. Do not broaden this to /line-oauth/*: only this page needs to run
   // before an Auth.js session exists.
   if (pathname === "/line-oauth/complete") {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // The signed bridge, coordinator credentials sign-in, and completion route
   // are their own authenticated handoff. Never let a generic proxy redirect
   // replace their Set-Cookie / redirect response.
   if (pathname.startsWith("/api/line-oauth/taichung/")) {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // OAuth identity confirmation is part of the public LINE handoff. It must
@@ -142,13 +171,13 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // carries a stale session from another store. The signed temp session and
   // server actions enforce store/customer ownership inside these pages.
   if (pathname === "/oauth-confirm" || pathname.startsWith("/oauth-confirm/")) {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // Reminder links authenticate the exact booking/store with a signed token.
   // Allow both page loads and Server Action POSTs without a login session.
   if (pathname === "/trial-booking/manage") {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   if (pathname === "/store-select") {
@@ -163,7 +192,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
           : "/hq/login?error=missing-store";
       return NextResponse.redirect(new URL(destination, req.url));
     }
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   if (pathname === "/book/zhubei") {
@@ -318,7 +347,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname.startsWith("/hq")) {
     // 店長信箱重設需在未登入時可用；只開放這兩個明確頁面。
     if (pathname === "/hq/forgot-password" || pathname === "/hq/reset-password") {
-      return withDomainCookie(NextResponse.next(), domainStoreId);
+      return withDomainCookie(routePassThrough(req), domainStoreId);
     }
     // /hq/login → public
     if (pathname === "/hq/login" || pathname.startsWith("/hq/login/")) {
@@ -334,7 +363,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
           return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
         }
       }
-      const response = withDomainCookie(NextResponse.next(), domainStoreId);
+      const response = withDomainCookie(routePassThrough(req), domainStoreId);
       // 無 ?store= 參數 = HQ 專用登入入口 → 清除殘留 store context，避免
       // 舊店後台 session 的 store-slug/active-store-id 污染 HQ 登入流程。
       // 有 ?store=X 參數 = 店長登入入口（例如從 /s/X/ 點「後台登入」），
@@ -365,7 +394,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         pathname === "/hq/dashboard/trial-applications" ||
         pathname.startsWith("/hq/dashboard/trial-applications/")
       ) {
-        return withDomainCookie(NextResponse.next(), domainStoreId);
+        return withDomainCookie(routePassThrough(req), domainStoreId);
       }
       // Rewrite /hq/dashboard/... → /dashboard/...（共用 dashboard 頁面）
       const dashboardPath = pathname.slice("/hq".length);
@@ -379,14 +408,14 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     if (role !== "ADMIN") {
       return NextResponse.redirect(new URL("/hq/login?error=admin-required", req.url));
     }
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // ==========================================================
   // API routes — 不擋
   // ==========================================================
   if (pathname.startsWith("/api/")) {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // ==========================================================
@@ -449,18 +478,18 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // Public legal documents must remain accessible without a session so
   // platform reviewers and users can read them directly.
   if (pathname === "/privacy" || pathname.startsWith("/privacy/")) {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // SPA Demo has its own direct Preview entries. Do not let the generic
   // legacy fallback send these routes through the default Steamfoot store.
   if (pathname === "/spa-preview" || pathname.startsWith("/spa-preview/")) {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // /pricing → keep as-is (public)
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
-    return withDomainCookie(NextResponse.next(), domainStoreId);
+    return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
   // / → root redirect
@@ -490,12 +519,28 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL(`/s/${DEFAULT_STORE_SLUG}/`, req.url));
   }
-  return withDomainCookie(NextResponse.next(), domainStoreId);
+  return withDomainCookie(routePassThrough(req), domainStoreId);
 });
 
 // ============================================================
 // Helpers
 // ============================================================
+
+/**
+ * Every pass-through must replace client-provided route context, just like the
+ * scoped rewrite helpers. API handlers and Server Actions authorize against
+ * these request headers, never against a caller-supplied store/path hint.
+ */
+function nonStoreRequestHeaders(req: NextRequest): Headers {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-next-pathname", req.nextUrl.pathname);
+  requestHeaders.delete("x-store-slug");
+  return requestHeaders;
+}
+
+function routePassThrough(req: NextRequest): NextResponse {
+  return NextResponse.next({ request: { headers: nonStoreRequestHeaders(req) } });
+}
 
 /** 將 domain-store-id cookie 注入 response */
 function withDomainCookie(response: NextResponse, storeId: string | undefined): NextResponse {
@@ -578,9 +623,7 @@ function hqRewrite(
     ? "/cash-drawer-panel" : internalPath;
   const url = new URL(panelPath, req.url);
   url.search = req.nextUrl.search;
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-next-pathname", req.nextUrl.pathname);
-  requestHeaders.delete("x-store-slug");
+  const requestHeaders = nonStoreRequestHeaders(req);
   const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   response.cookies.set("store-slug", "__hq__", {
     path: "/",
@@ -601,8 +644,50 @@ function hqRewrite(
   return response;
 }
 
-export const config = {
-  matcher: [
-    "/((?!api/line/webhook|api/cron|_next/static|_next/image|favicon\\.ico).*)",
-  ],
-};
+// The outer boundary runs before auth callbacks, including routes previously
+// excluded from proxy. Normal deployments retain the old exclusions verbatim.
+const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
+export function proxy(...args: Parameters<typeof authenticatedProxy>) {
+  const [req] = args;
+  if (isGuideUiPreview()) {
+    const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
+    if (req.method !== "GET" && req.method !== "HEAD")
+      return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+    const path = req.nextUrl.pathname;
+    if (isTrialUiPreview()) {
+      const pages = ["/pricing/trial", "/pricing/trial/review", "/pricing/trial/guide/oa-admin", "/pricing/trial/guide/line-id", "/pricing/trial/guide/friend", "/pricing/trial/guide/create", "/pricing/trial/guide/maps", "/pricing/trial/guide/developers"];
+      const assets = ["/favicon.ico", "/pricing/brand/steam-butler-logo.png", "/pricing/trial-guides/oa-permissions.png", "/pricing/trial-guides/oa-invite.png", "/pricing/trial-guides/friend.png", "/pricing/trial-guides/create-entry.jpg"];
+      return pages.includes(path) || assets.includes(path) || path.startsWith("/_next/static/")
+        ? NextResponse.next({ headers })
+        : new NextResponse("Not available in trial preview", { status: 404, headers });
+    }
+    // No optimizer, API, auth, store, admin, arbitrary files, or external URLs.
+    if (path.startsWith("/_next/static/") || ["/favicon.ico", "/pricing/brand/steam-butler-logo.png", "/robots.txt", "/sitemap.xml"].includes(path))
+      return NextResponse.next({ headers });
+    if (!/^\/(?:pricing\/)?guides(?:\/[a-z0-9-]+)?\/?$/.test(path))
+      return new NextResponse("Not available in guide preview", { status: 404, headers });
+    const marketing = marketingRoute(path);
+    if (!marketing || marketing.kind === "not-found")
+      return new NextResponse("找不到這篇經營指南", { status: 404, headers });
+    const url = req.nextUrl.clone();
+    if (marketing.kind === "rewrite" && marketing.destination === "/pricing/guides") {
+      const ids = req.nextUrl.searchParams.getAll("guide");
+      const selected = ids.length === 1 ? findPublicGuide(ids[0]) : undefined;
+      if (selected) {
+        url.pathname = guidePath(selected);
+        url.search = "";
+        const response = NextResponse.redirect(url, 308);
+        Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+        return response;
+      }
+    }
+    url.pathname = marketing.destination;
+    const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
+    Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
+  }
+  if (legacyProxyExclusion.test(req.nextUrl.pathname)) return NextResponse.next();
+  return authenticatedProxy(...args);
+}
+
+export const config = { matcher: ["/:path*"] };

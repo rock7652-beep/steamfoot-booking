@@ -1,4 +1,22 @@
+// Public article review must not trigger a preview build or database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
+  throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
+}
+
+// This review branch must not deploy or access a database before separate approval.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/public-seo-crawlers-20261007")) {
+  throw new Error("SEO review branch deployment is disabled; use local verification.");
+}
+
+import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
+isGuideUiPreview(); // Validate the isolated mode before Next build work.
+
 import type { NextConfig } from "next";
+import { assertReviewedReleaseEnvironment } from "./scripts/consultation-preview-scope.mjs";
+
+// Provider build-command overrides cannot bypass either Preview gate or the
+// positively identified production main boundary. Guide mode has no DB access.
+if (!isGuideUiPreview()) assertReviewedReleaseEnvironment(process.env);
 
 // Vercel can override package.json's build command, so enforce isolation here too.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-organization-order") {
@@ -14,7 +32,11 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
-  images: {
+  images: isGuideUiPreview() ? {
+    unoptimized: true,
+    remotePatterns: [],
+    localPatterns: [{ pathname: "/pricing/brand/steam-butler-logo.png", search: "" }],
+  } : {
     remotePatterns: [{ protocol: "https", hostname: "profile.line-scdn.net" }],
   },
   env: {
@@ -40,7 +62,14 @@ const nextConfig: NextConfig = {
             ? "prod"
             : "dev",
   },
+  async headers() {
+    // Vercel marks Preview explicitly; production behavior is unchanged.
+    return process.env.VERCEL_ENV === "preview"
+      ? [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]
+      : [];
+  },
   async redirects() {
+    if (isGuideUiPreview()) return []; // No external redirects before the proxy guard.
     return [
       // 保底轉址：LINE 圖文選單 / 舊連結 / 外部分享連結
       // query string 自動保留（Next.js 預設行為）

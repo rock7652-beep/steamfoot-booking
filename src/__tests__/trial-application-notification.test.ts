@@ -47,7 +47,15 @@ describe("trial notification delivery boundary", () => {
     expect(message.text).toContain("test@example.invalid");
     expect(message.text).toContain(`https://www.steamfoot.com/hq/dashboard/trial-applications?application=${id}`);
     expect(message.text).toContain("待補資料");
+    expect(message.text).not.toMatch(/Developers|Provider Admin|Messaging API Admin|LINE Login Admin/);
     expect(message.text).not.toMatch(/token|secret|manager\.line\.biz/i);
+  });
+  it("does not turn historical authorization answers into missing requirements", async () => {
+    const record = await transport.find();
+    transport.find.mockResolvedValue({ ...record, payload: { ...record.payload, developers: "invited", providerAdmin: "invited", messagingAdmin: "absent", loginAdmin: "help" } });
+    expect(await notifyTrialApplication(id)).toBe("SENT");
+    expect(transport.send.mock.calls[0][0].text).not.toMatch(/Developers|Provider Admin|Messaging API Admin|LINE Login Admin/);
+    expect(transport.send.mock.calls[0][0].text).toContain("官方 LINE 管理員邀請：已提供，待確認");
   });
   it("records an API rejection as failed delivery", async () => {
     transport.send.mockResolvedValue({ data: null, error: { name: "validation_error" } });
@@ -74,6 +82,7 @@ describe("Google intake webhook", () => {
     expect(await notifyTrialApplication(id)).toBe("SENT");
     const body = JSON.parse(transport.fetch.mock.calls[0][1].body);
     expect(body.application.storeName).toBe("通知測試教室");
+    expect(body.application.missing).not.toMatch(/Developers|Provider Admin|Messaging API Admin|LINE Login Admin/);
     expect(body.application).not.toHaveProperty("inviteUrl");
     expect(body.application).not.toHaveProperty("resumeTokenHash");
     expect(transport.send).not.toHaveBeenCalled();

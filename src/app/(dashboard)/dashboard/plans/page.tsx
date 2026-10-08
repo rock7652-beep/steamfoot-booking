@@ -1,3 +1,4 @@
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import {SpaPackagesManager} from "./_components/spa-packages-manager";
 import { spaPrisma } from "@/lib/spa-db";
@@ -26,6 +27,7 @@ import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function PlansPage() {
+  await requireDashboardCoreFeature("plan_management");
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "wallet.read"))) {
     redirect("/dashboard");

@@ -33,6 +33,7 @@ import {
   type CourseActor,
 } from "@/server/services/course-booking";
 import { cancelCourseWaitlistForSession } from "@/server/services/course-waitlist";
+import { getCourseSharedCardState, getCourseSharedCardStateInTransaction } from "@/server/services/course-shared-card";
 
 const id = z.string().min(1).max(100);
 function refresh() {
@@ -162,7 +163,7 @@ export async function saveCoursePointPlan(input: unknown) {
         storeCost: z.number().int().min(0).max(10000000).default(0),
         termSessionIds:z.array(id).max(52).default([]),
         customerPurchasable: z.boolean().default(true),
-        allowShared: z.boolean().default(false),
+        allowShared: z.boolean().optional(),
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
@@ -172,7 +173,8 @@ export async function saveCoursePointPlan(input: unknown) {
         templateIds: z.array(id).max(200).default([]),
       })
 ;
-    const { id: planId, expectedSnapshot, musicSetup, ...data } = schema.parse(input);
+    const { id: planId, expectedSnapshot, musicSetup, allowShared, ...fields } = schema.parse(input);
+    const data = { ...fields, allowShared: allowShared ?? false };
     const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId } = await courseManager("plans.edit");
     const isMusic = await prisma.storeFeatureEntitlement.findFirst({
@@ -206,6 +208,19 @@ export async function saveCoursePointPlan(input: unknown) {
       if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
     }
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
+    // Hidden/locked controls may be omitted by a form. Preserve an existing choice.
+    if (previous && !isMusic && allowShared === undefined) data.allowShared = previous.allowShared;
+    if (data.allowShared && !previous?.allowShared) {
+      // A profile change while waiting for the Store lock must not turn the
+      // earlier music read into a bypass of the sports sharing authorization.
+      const currentMusic = await tx.$queryRaw<Array<{ featureKey: string }>>`
+        SELECT "featureKey" FROM "StoreFeatureEntitlement"
+        WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+      if (Boolean(isMusic) !== Boolean(currentMusic.length))
+        throw new AppError("CONFLICT", "店家課程類型已變更，請重新確認方案");
+      if (!currentMusic.length && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
+        throw new AppError("FORBIDDEN", "本店共卡功能尚未開通，不能新增共卡方案");
+    }
     const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
     if(previous?.termSessionIds.length&&!sameTerm&&await tx.coursePurchase.count({where:{storeId,planId}}))throw new AppError("CONFLICT","此期課已有購買紀錄，請新增下一期方案，保留原期別課次。");
     data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
@@ -315,11 +330,21 @@ export async function setCourseCardMembers(input: unknown) {
     await courseTransaction(storeId, async (tx) => {
       const card = await tx.coursePointCard.findFirst({
         where: { id: data.cardId, storeId },
-        include: { plan: { select: { allowShared: true } } },
+        include: { members: true, plan: { select: { allowShared: true } } },
       });
       if (!card) throw new AppError("NOT_FOUND", "找不到本店方案");
       if (card.musicOpeningStateRequired) throw new AppError("VALIDATION","期初方案的學員關聯須先核對，不能轉為共卡");
-      if (!card.plan.allowShared) throw new AppError("VALIDATION", "此方案未開放共卡");
+      const music = await tx.$queryRaw<Array<{ featureKey: string }>>`
+        SELECT "featureKey" FROM "StoreFeatureEntitlement"
+        WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+      const additions = data.customerIds.filter(customerId => !card.members.some(member => member.customerId === customerId));
+      // Keep music's existing membership rules; sports retains historical removal rights.
+      if ((music.length || additions.length) && !card.plan.allowShared)
+        throw new AppError("VALIDATION", "此方案未開放共卡");
+      if (additions.length) {
+        if (!music.length && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
+          throw new AppError("FORBIDDEN", "本店共卡功能尚未開通，不能新增共卡成員");
+      }
       if(card.termSessionIds.length)throw new AppError("VALIDATION","期課為指定學員，不開放共卡；請另購方案");
       for (const customerId of new Set(data.customerIds)) {
         const rows = await tx.$queryRaw<
@@ -679,6 +704,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       success: true as const,
       data: {
         roster,
+        sharedCardState: musicStore ? "ENABLED" as const : await getCourseSharedCardState(storeId),
         canPurchase,
         pendingMakeups,
         waitlist: waitlistRows.map((row, index, all) => {
@@ -738,7 +764,7 @@ export async function loadCourseRosterQuick(sessionId: string) {
     const groups=[...new Map(waitlistRows.map(item=>[item.groupKey,item.createdAt])).entries()].sort((a,b)=>a[1].getTime()-b[1].getTime()||a[0].localeCompare(b[0]));
     const waitlist=waitlistRows.map(row=>({id:row.id,customerId:row.customerId,customerName:row.customerName,groupKey:row.groupKey,position:groups.findIndex(([key])=>key===row.groupKey)+1,createdAt:row.createdAt.toISOString()}));
     console.info("[course-roster-read]", { outcome: "success", count: roster.length, waitlistCount: waitlist.length, authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
-    return {success:true as const, data:{roster,waitlist,teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason,waitlistStopMinutes:session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240}};
+    return {success:true as const, data:{roster,waitlist,sharedCardState: await getCourseSharedCardState(storeId),teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason,waitlistStopMinutes:session.template.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240}};
   } catch(error) {
     console.info("[course-roster-read]", { outcome: "error", authMs, sessionMs, rosterMs, totalMs: Date.now() - startedAt });
     return handleActionError(error);

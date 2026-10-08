@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { repairMessengerPageBinding } from "@/server/services/messenger-page-repair";
 
@@ -13,8 +13,7 @@ function respond(body: unknown, status = 200): Response {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const user = session?.user;
+  const user = await getCurrentUser();
   if (!user) return respond({ error: "unauthorized" }, 401);
   if (user.role !== "OWNER" && user.role !== "ADMIN") return respond({ error: "forbidden" }, 403);
   let storeId: string | null = null;

@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { canReadInventoryFinance } from "@/server/inventory-finance-access";
 import { CashbookEditor } from "./cashbook-editor";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -176,9 +177,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             listClosedBusinessDates(cashbookStoreId, fromDate.toISOString().slice(0, 10), today),
             listStaffSelectOptions(),
           ]);
-          const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
+          const canInit = !isViewMode && (getEffectiveActorRole(user) === "ADMIN" || user.role === "OWNER");
           const canReopen = canInit && canClose;
-          const canAssignStaff = !isViewMode && user.role === "ADMIN";
+          const canAssignStaff = !isViewMode && getEffectiveActorRole(user) === "ADMIN";
           return {
             locked: false as const,
             view,
@@ -204,7 +205,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const closedDates = useInlineEditor && cashbookStoreId && canManageCashbook
     ? await listClosedBusinessDates(cashbookStoreId, dateFrom < historyStartDate ? dateFrom : historyStartDate, dateTo > today ? dateTo : today)
     : [];
-  const editorProps = { storeId: cashbookStoreId ?? "", instantSearch: industryModule === "steamfoot", presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
+  const editorProps = { storeId: cashbookStoreId ?? "", instantSearch: industryModule === "steamfoot", presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: getEffectiveActorRole(user) === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 

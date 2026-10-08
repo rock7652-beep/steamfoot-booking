@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
+<head><link rel="canonical" href="https://www.steamfoot.com/apply">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>蒸管家｜店家需求了解</title>
@@ -53,6 +53,12 @@ nav.site-nav{flex-wrap:wrap;max-width:760px;margin:auto;padding:20px 16px 0;disp
 <div class="field"><label for="field-contactName">您的稱呼 <span class="req">*</span></label><input id="field-contactName" name="contactName" required></div>
 <div class="field"><label for="field-industry">產業類型 <span class="req">*</span></label><select id="field-industry" name="industry" required><option value="">請選擇</option><option>美容／美體／SPA</option><option>按摩／蒸足／健康服務</option><option>運動教室／健身／瑜伽</option><option>音樂／才藝／教育服務</option><option>寵物美容／寵物服務</option><option>顧問／教練／專業服務</option><option>其他服務型門市</option></select></div>
 
+<details class="field"><summary style="min-height:44px;cursor:pointer">店家網站／社群（選填）</summary>
+<p class="hint">方便我們先認識你的店。沒有也可以留空，請貼上公開的 HTTPS 連結。</p>
+<div class="field"><label for="field-websiteUrl">店家官網（選填）</label><input id="field-websiteUrl" name="websiteUrl" type="url" maxlength="2000" placeholder="https://…"></div>
+<div class="field"><label for="field-facebookUrl">Facebook 專頁（選填）</label><input id="field-facebookUrl" name="facebookUrl" type="url" maxlength="2000" placeholder="https://www.facebook.com/…"></div>
+<div class="field"><label for="field-instagramUrl">Instagram（選填）</label><input id="field-instagramUrl" name="instagramUrl" type="url" maxlength="2000" placeholder="https://www.instagram.com/…"></div>
+</details>
 <div class="section">目前經營規模</div>
 <div class="field"><label for="field-storeCount">目前門市數量（選填）</label><select id="field-storeCount" name="storeCount"><option value="">請選擇</option><option>籌備中，尚未開店</option><option>1 間</option><option>2～3 間</option><option>4～10 間</option><option>11 間以上</option></select></div>
 <div class="field"><label for="field-staffCount">需要使用系統的人數 <span class="req">*</span></label><p id="staffCountHint" class="entry-note">含自己、員工、老師／教練等需要使用系統的人員。</p><select id="field-staffCount" name="staffCount" required aria-describedby="staffCountHint"><option value="">請選擇</option><option>只有我</option><option>2～5 位</option><option>6～10 位</option><option>11 位以上</option></select></div>
@@ -129,7 +135,7 @@ nav.site-nav{flex-wrap:wrap;max-width:760px;margin:auto;padding:20px 16px 0;disp
 <p>蒸管家會依照你的需求，整理適合的功能與示範內容，再與你聯繫。</p>
 <div id="lineHandoff">
 <p id="lineHandoffHint">請回到官方 LINE 傳送店名，方便我們核對資料並接續協助，不用重新填表。</p>
-<a id="lineHandoffLink" href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" class="line-handoff-primary">回 LINE，確認體驗申請</a>
+<a id="lineHandoffLink" href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" class="line-handoff-primary">回 LINE，接續體驗諮詢</a>
 <p class="hint">開啟 LINE 後，請再按「送出」，我們才會收到訊息。</p>
 <details class="line-handoff-fallback"><summary>使用電腦，或訊息沒有自動帶入？</summary>
 <p>複製下方文字，開啟官方 LINE 後貼上並送出；也可以用手機加入官方帳號，直接傳送店名。</p>
@@ -179,10 +185,10 @@ function configureLineHandoff(data) {
   const trial = data.contactWay === '申請體驗帳號';
   const phone = data.contactWay === '希望電話聯繫';
   const name = typeof data.storeName === 'string' ? data.storeName.trim() : '';
-  const message = (trial ? '我已申請體驗' : '我已填寫需求表單') + '，店名：' + (name || '（請填寫店名）');
+  const message = (trial ? '我已填寫體驗諮詢' : '我已填寫需求表單') + '，店名：' + (name || '（請填寫店名）');
   const link = document.getElementById('lineHandoffLink');
   link.href = 'https://line.me/R/oaMessage/%40329rmywc/?' + encodeURIComponent(message);
-  link.textContent = trial ? '回 LINE，確認體驗申請' : '回 LINE，接續聊需求';
+  link.textContent = trial ? '回 LINE，接續體驗諮詢' : '回 LINE，接續聊需求';
   document.getElementById('lineHandoffHint').textContent = phone
     ? '我們會依您留下的電話聯繫；若想先用 LINE 留言，也可以傳送店名，方便我們核對資料。'
     : '我們會依您留下的聯絡方式接續協助。也可以加入官方 LINE 傳送店名，方便核對資料，不用重新填表。';
@@ -348,7 +354,7 @@ form.addEventListener('submit', async (e)=>{
       try { sessionStorage.removeItem(receiptKey); } catch {}
       receipt = null;
       document.getElementById('submitStatus').textContent = '';
-      errorBox.textContent = '請確認店名、稱呼、店家類型、聯絡方式與需求是否填寫完整，文字是否過長。';
+      errorBox.textContent = '請確認店名、稱呼、店家類型、聯絡方式與需求；網站請使用公開 HTTPS 連結，Facebook／Instagram 請貼上各自平台連結。';
       errorBox.classList.add('show');
       submitBtn.disabled = false;
       updateTrialChoice();

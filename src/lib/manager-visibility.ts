@@ -15,6 +15,7 @@
 
 import { isOwner, isNonOwnerStaff } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
+import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 
 export type VisibilityMode = "SELF_ONLY" | "STORE_SHARED";
 
@@ -48,6 +49,13 @@ export function getStoreFilter(
   user: SessionLike,
   activeStoreId?: string | null
 ): Record<string, unknown> {
+  const hqStoreView = getHqStoreViewContext(user);
+  if (hqStoreView) {
+    if (activeStoreId && activeStoreId !== hqStoreView.storeId) {
+      throw new AppError("FORBIDDEN", "店家檢視中無權存取其他店舖的資料");
+    }
+    return { storeId: hqStoreView.storeId };
+  }
   if (isOwner(user.role)) {
     // ADMIN: 若有指定 activeStoreId，則按店篩選；否則不篩選
     if (activeStoreId) return { storeId: activeStoreId };
@@ -65,6 +73,13 @@ export function assertStoreAccess(
   user: SessionLike,
   recordStoreId: string
 ): void {
+  const hqStoreView = getHqStoreViewContext(user);
+  if (hqStoreView) {
+    if (recordStoreId !== hqStoreView.storeId) {
+      throw new AppError("FORBIDDEN", "店家檢視中無權存取其他店舖的資料");
+    }
+    return;
+  }
   if (isOwner(user.role)) return;
   if (user.storeId !== recordStoreId) {
     throw new AppError("FORBIDDEN", "無權存取其他店舖的資料");

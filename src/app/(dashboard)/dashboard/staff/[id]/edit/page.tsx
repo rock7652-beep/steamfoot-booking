@@ -1,3 +1,4 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { StaffAccountRoute } from "../../staff-account-route";
 import { COURSE_PERMISSIONS, COURSE_PERMISSION_LABELS } from "@/lib/course-permissions";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -53,7 +54,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
   // Layer 1：是否可管理店員（ADMIN 由 checkPermission 自動 true；
   // 否則須具 staff.manage）。false → 頁面唯讀，不顯示變更用 UI。
-  const canManageStaff = staff.userId !== user.id && canManageStaffRole(user.role, staff.user.role) && await checkPermission(
+  const canManageStaff = staff.userId !== user.id && canManageStaffRole(getEffectiveActorRole(user), staff.user.role) && await checkPermission(
     user.role,
     user.staffId,
     "staff.manage",

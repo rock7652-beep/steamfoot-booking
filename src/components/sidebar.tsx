@@ -91,6 +91,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     href: "/dashboard/bookings",
     label: "預約管理",
     permission: "booking.read",
+    requiredFeature: FEATURES.BASIC_BOOKING,
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -101,6 +102,7 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     href: "/dashboard/customers",
     label: "顧客管理",
     permission: "customer.read",
+    requiredFeature: FEATURES.CUSTOMER_MANAGEMENT,
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -609,7 +611,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: "core", label: "", icon: <></>, defaultOpen: true, items: [hqItem("/dashboard", "品牌總覽")] },
   { id: "stores", label: "店舖管理", icon: storeIcon, defaultOpen: true, items: [
     hqItem("/dashboard/stores", "店舖清單"),
-    hqExtra("/dashboard/trial-applications", "體驗申請"),
+    hqExtra("/dashboard/trial-applications", "諮詢與體驗申請"),
     hqExtra("/dashboard/stores/subscriptions", "訂閱管理"),
     hqExtra("/dashboard/stores/organization", "店舖組織"),
   ] },
@@ -803,12 +805,12 @@ export default function DashboardShell({
       growthEntry,
       entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
-      { ...entry("/dashboard/revenue"), requiredFeature: course ? undefined : FEATURES.TRANSACTION_MANAGEMENT },
+      { ...entry("/dashboard/revenue"), requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
     const management: NavItem[] = [
       hqItem("/dashboard/operation-audits"),
-      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: course ? undefined : FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
     if (course) management.push(
@@ -838,7 +840,7 @@ export default function DashboardShell({
     return { enabled, state };
   };
   const accessFor = (item: NavItem) => resolveNavigationAccess({
-    hq: isHqPlatformView || isHqStoreView, owner: isOwner,
+    hq: isHqPlatformView, owner: isOwner,
     ownerOnly: item.ownerOnly, permission: item.permission, permissions,
     ...featureAccess(item),
   });
@@ -848,7 +850,7 @@ export default function DashboardShell({
       const categorizedItems = group.items
         .filter(
           (item) =>
-            (item.href !== "/dashboard/operation-audits" || canViewAudit) &&
+            (item.href !== "/dashboard/operation-audits" || (canViewAudit && isHqPlatformView)) &&
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
             !previewItems.some(preview => preview.href === item.href) &&
             !(isIframePreview && item.href === "/dashboard/device-preview"),
@@ -1113,7 +1115,7 @@ export default function DashboardShell({
   if (pathname === "/dashboard/cash-drawer" && searchParams.get("cashDrawerPanel") === "1") return <div className="min-h-dvh bg-earth-50">{children}</div>;
 
   return (
-    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
+    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures, sharedCardState: industryModule === "course" && !musicEnabled ? featureStates.shared_card ?? "HIDDEN" : undefined }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
@@ -1164,7 +1166,7 @@ export default function DashboardShell({
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
+        <div data-dashboard-navigation-overlay className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
           <div
             className="absolute inset-0 bg-earth-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}

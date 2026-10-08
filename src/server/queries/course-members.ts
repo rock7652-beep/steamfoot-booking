@@ -1,5 +1,6 @@
 import { MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue } from "@/lib/music-opening-runtime";
 import "server-only";
+import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -101,6 +102,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+  const canCreateShared = bookings.some(b => !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
+    && await getCourseSharedCardState(storeId) === "ENABLED";
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
@@ -221,7 +224,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     }),
     planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : "體驗（不使用方案）"),
     sharedCard: (card?.members.length ?? 0) > 1,
-    canAddCompanion: !b.companionIndex && !!b.customerId && !!card?.plan.allowShared && !card.termSessionIds.length,
+    canAddCompanion: canCreateShared && !b.companionIndex && !!b.customerId && !!card?.plan.allowShared && !card.termSessionIds.length,
     bookingSource: b.companionIndex ? `同行 · 預約人 ${b.reserverName ?? b.operatorName}` : b.operatorCustomerId
       ? b.operatorCustomerId === b.customerId
         ? "本人預約"

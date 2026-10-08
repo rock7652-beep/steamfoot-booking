@@ -1,5 +1,6 @@
 "use server";
 
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/permissions";
@@ -61,7 +62,7 @@ export async function upsertStoreSubscription(
   try {
     // 跨店訂閱管理為 HQ 專用 → 後端僅限 ADMIN（不只前端隱藏）
     const user = await requireStaffSession();
-    if (user.role !== "ADMIN") {
+    if (getEffectiveActorRole(user) !== "ADMIN") {
       throw new AppError("FORBIDDEN", "此功能僅限總部管理者");
     }
 
@@ -177,7 +178,7 @@ export async function createTrialSubscription(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await requireStaffSession();
-    if (user.role !== "ADMIN") {
+    if (getEffectiveActorRole(user) !== "ADMIN") {
       throw new AppError("FORBIDDEN", "此功能僅限總部管理者");
     }
 

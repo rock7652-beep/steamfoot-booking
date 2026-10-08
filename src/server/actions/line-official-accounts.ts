@@ -1,5 +1,6 @@
 "use server";
 
+import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -21,7 +22,7 @@ export type LineOfficialAccountStatus = {
 
 async function requireHeadquartersLineAccess() {
   const user = await requirePermission("business_hours.manage");
-  if (user.role !== "OWNER" && user.role !== "ADMIN") {
+  if (getHqStoreViewContext(user) || (user.role !== "OWNER" && user.role !== "ADMIN")) {
     throw new AppError("FORBIDDEN", "僅限 OWNER 或 ADMIN 可以執行此檢查");
   }
 }

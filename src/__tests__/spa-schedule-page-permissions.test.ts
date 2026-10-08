@@ -1,3 +1,4 @@
+vi.mock("@/lib/dashboard-core-feature", () => ({ requireDashboardCoreFeature: async () => {} }));
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), context: vi.fn(), view: vi.fn() }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
