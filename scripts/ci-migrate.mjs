@@ -36,6 +36,11 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "course-self-booking-preview") {
+  const { verifyCourseSelfBookingPreviewReadiness } = await import("./course-self-booking-preview-scope.mjs");
+  await verifyCourseSelfBookingPreviewReadiness(process.env);
+  process.exit(0); // Only the separately approved two-column DDL may run.
+}
 if (releaseMode === "consultation-preview") {
   // Consultation uses only its separately approved two-table DDL. Never run
   // unrelated pending migrations for this isolated candidate.

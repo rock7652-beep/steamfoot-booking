@@ -245,7 +245,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     memberEnabled
       ? coursePrisma.courseBookingRule.findUnique({
           where: { storeId },
-          select: { cancellationLeadMinutes: true },
+          select: { cancellationLeadMinutes: true, selfBookingEnabled: true },
         })
       : null,
   ]);
@@ -322,6 +322,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     incomeAvailable: !!incomeAccess,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
+    selfBookingEnabled: bookingRule?.selfBookingEnabled ?? true,
     waitlistEnabled,
     companionBookingEnabled: !musicStore,
     sharedCardState,

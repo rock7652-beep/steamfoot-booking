@@ -1,3 +1,4 @@
+import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
 import {
   assertSportsSharedCardPreviewEnvironment,
   isSportsSharedCardProductionRelease,
@@ -95,7 +96,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview"}
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "course-self-booking-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
@@ -108,6 +109,10 @@ export function assertReviewedReleaseEnvironment(env) {
   if (env.VERCEL_GIT_COMMIT_REF === CONSULTATION_PREVIEW_BRANCH) {
     assertConsultationPreviewEnvironment(env);
     return "consultation-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === COURSE_SELF_BOOKING_PREVIEW_BRANCH) {
+    assertCourseSelfBookingPreviewEnvironment(env);
+    return "course-self-booking-preview";
   }
   assertSportsSharedCardPreviewEnvironment(env);
   return "sports-shared-card-preview";

@@ -1,5 +1,7 @@
 "use server";
 import { z } from "zod";
+import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
+import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
 import { revalidatePath } from "next/cache";
 import { revalidateShopConfig } from "@/lib/revalidation";
 import {
@@ -10,6 +12,40 @@ import { updateShopBankInfo } from "./shop";
 import { handleActionError } from "@/lib/errors";
 import { courseSettingsSectionSchema } from "@/lib/course-settings-sections";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
+
+/** This setting writes only its own field and shares the course store mutation lock. */
+export async function saveCourseSelfBookingSettings(input: unknown) {
+  try {
+    const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(input);
+    const { user, storeId } = await courseManager("business_hours.manage");
+    await assertStoreSubscriptionWritable(storeId);
+    const saved = await courseTransaction(storeId, async tx => {
+      const before = await tx.courseBookingRule.findUnique({ where: { storeId } });
+      if (courseSelfBookingEnabled(before) === enabled) return { enabled, revision: before?.selfBookingRevision ?? 0 };
+      const updated = await tx.courseBookingRule.upsert({
+        where: { storeId },
+        create: { storeId, selfBookingEnabled: enabled, selfBookingRevision: 1 },
+        update: { selfBookingEnabled: enabled, selfBookingRevision: { increment: 1 } },
+        select: { selfBookingRevision: true },
+      });
+      await enqueueOperationAudit({
+        actorUserId: user.id, actorNameSnapshot: user.name, storeId, module: "COURSE",
+        targetType: "CourseBookingRule", targetId: storeId,
+        action: enabled ? "ENABLE_STUDENT_SELF_BOOKING" : "DISABLE_STUDENT_SELF_BOOKING",
+        summary: enabled ? "開啟學員自行預約" : "關閉學員自行預約，保留既有預約與候補順位",
+        before: { selfBookingEnabled: courseSelfBookingEnabled(before) },
+        after: { selfBookingEnabled: enabled },
+      }, tx);
+      return { enabled, revision: updated.selfBookingRevision };
+    });
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/book");
+    return { success: true as const, ...saved };
+  } catch (error) {
+    const result = handleActionError(error);
+    return { success: false as const, error: result.success ? "儲存失敗，請重試" : result.error };
+  }
+}
 
 /** Each editor writes only its own fields: stale drafts cannot overwrite another section. */
 export async function saveCourseSettingsSection(input: unknown) {
