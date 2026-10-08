@@ -26,9 +26,10 @@ export function SpaBookingRoster({ bookings, customers, staff, locations, canUpd
               <span className="block break-words">{booking.startTime}–{booking.endTime} · {booking.serviceName}</span>
               <span className="block break-words text-earth-500">{staff.find(person => person.id === booking.serviceStaffId)?.name ?? "服務人員"} · {locations.find(location => location.id === booking.serviceLocationId)?.name ?? "待安排位置"}</span>
             </button>
-            <div className="min-w-0"><CustomerListIdentity customerId={booking.customerId} name={name} phone={customer?.phone} showLabels={false} readOnly={!canUpdate} /></div>
+            <div className="min-w-0"><CustomerListIdentity customerId={booking.customerId} name={name} phone={customer?.phone} showLabels={false} /></div>
             <div className="min-w-0 break-words"><span>{statusNames[booking.status] ?? booking.status}</span>{booking.receipt && <span className="block text-earth-600">{spaReceiptStatus(booking.receipt)}</span>}</div>
-            <RosterReminders className={styles.reminders} customerId={booking.customerId} name={name} serviceNote={customer?.serviceNote} notes={booking.notes} canEdit={canUpdate}
+            {/* Labels retain their original customer.update/store scope from CustomerLabelsProvider. */}
+            <RosterReminders className={styles.reminders} customerId={booking.customerId} name={name} serviceNote={customer?.serviceNote} notes={booking.notes} canEdit
               canEditNote={canUpdate && ["PENDING", "CONFIRMED"].includes(booking.status)} onEdit={() => onOpen(booking)} />
           </li>;
         })}

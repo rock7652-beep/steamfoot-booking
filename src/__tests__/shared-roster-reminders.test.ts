@@ -11,6 +11,7 @@ vi.mock("@/components/dashboard-link", () => ({ DashboardLink: () => null }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 import { CustomerLabelsProvider } from "@/components/customer-labels";
 import { RosterReminders } from "@/components/admin/roster-reminders";
+import { SpaBookingRoster } from "@/app/(dashboard)/dashboard/spa-schedule/booking-roster";
 
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
@@ -105,4 +106,29 @@ it("opens complete multiline notes without a module callback and returns focus a
   await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true})));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(document.activeElement).toBe(overview);
+});
+
+it.each([
+  { canUpdateBooking: false, canUpdateCustomer: true },
+  { canUpdateBooking: true, canUpdateCustomer: false },
+])("keeps SPA customer-label permission separate from booking permission: %j", async ({ canUpdateBooking, canUpdateCustomer }) => {
+  const initial: LabelSnapshot = {
+    available: true, enabled: true, canEdit: canUpdateCustomer, canManage: false,
+    categories: [{ id: "cat", name: "服務偏好", number: 1, position: 0, active: true }],
+    labels: [{ id: "label-0", name: "合成標籤", categoryId: "cat", active: true }],
+    assignments: { customer: ["label-0"] },
+  };
+  m.load.mockResolvedValue(initial);
+  await act(async () => root.render(jsx(CustomerLabelsProvider, { initial, children: createElement(SpaBookingRoster, {
+    bookings: [{ id: "spa-booking", customerId: "customer", serviceStaffId: "staff", serviceLocationId: "room", serviceName: "合成服務", startTime: "10:00", endTime: "11:00", status: "CONFIRMED", totalPrice: 1200, notes: "本次備註", treatmentIds: [], updatedAt: "2026-10-08T02:00:00Z", receipt: null }],
+    customers: [{ id: "customer", name: "合成顧客", serviceNote: "店內備註" }], staff: [], locations: [], canUpdate: canUpdateBooking, onOpen: m.edit,
+  }) })));
+  expect(!!host.querySelector('button[aria-label="合成顧客 本次備註"]')).toBe(canUpdateBooking);
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="合成顧客 查看或修改標籤"]')!.click());
+  const option = document.querySelector<HTMLButtonElement>('[role="dialog"][aria-label="顧客標籤"] button[aria-pressed="true"]')!;
+  expect(option.disabled).toBe(!canUpdateCustomer);
+  await act(async () => option.click());
+  if (canUpdateCustomer) expect(m.save).toHaveBeenCalledExactlyOnceWith({ customerId: "customer", labelId: "label-0", selected: false });
+  else expect(m.save).not.toHaveBeenCalled();
+  expect(m.edit).not.toHaveBeenCalled();
 });

@@ -55,3 +55,12 @@
 - 雲端瀏覽器已恢復可用；新隔離網域需安全登入，四模組最終 UI 驗收仍在進行。
 
 Git 自動部署仍 disabled；隔離 Preview 由明確 Git deployment 啟動，沒有啟用正式發佈。
+
+
+## 待發新版：SPA 標籤權限回歸
+
+後續 source review 發現 SPA 名單的新 cell 曾額外使用 booking.update 限制標籤入口。現已移除這個額外條件，維持舊版由 CustomerLabelsProvider 的 customer.update／門市範圍與既有後端檢查决定；本次備註仍只依 booking.update 與原本可編輯狀態開放。
+
+新增相反權限組合測試：customer.update 允許、booking.update 不允許時，標籤可操作但本次備註不可編輯；反向時標籤不可操作但本次備註入口仍可用。沒有增加權限或真實資料操作。
+
+這項修正改變 SPA 的 runtime。e032 的舊 READY Preview 僅供歷史／初版記錄，不能當作此新版本已完成 UI 驗收；後續新版 Preview 部署與登入驗收另待確認。
