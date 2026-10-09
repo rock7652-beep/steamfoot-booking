@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { switchActiveStore } from "@/server/actions/store-switch";
 import { hqStoreSwitchDestination } from "@/lib/hq-navigation";
 import { toast } from "sonner";
+import { requestCourseDraftLeave } from "@/components/admin/use-course-draft-guard";
 
 interface StoreOption {
   id: string;
@@ -120,6 +121,7 @@ export default function StoreSwitcher({
       : (stores.find((s) => s.id === activeStoreId)?.name ?? "未知分店") + (stores.find(s => s.id === activeStoreId)?.isArchived ? "（已封存）" : "");
 
   function handleSelect(value: string) {
+    if(isPending || !requestCourseDraftLeave())return;
     setOpen(false);
     startTransition(async () => {
       const result = await switchActiveStore(value);

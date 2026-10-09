@@ -7,7 +7,7 @@ vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:m.slots
 vi.mock("@/server/actions/course",()=>({createCourseSchedule:m.create}));
 vi.mock("@/components/dashboard-link",()=>({DashboardLink:({children,...props}:Record<string,unknown>)=>createElement("a",props,children as never)}));
 import {MusicScheduleWizard} from "@/app/(dashboard)/dashboard/courses/music-schedule-wizard";
-import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
+import {useCourseDraftGuard,requestCourseDraftLeave} from "@/components/admin/use-course-draft-guard";
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{vi.resetAllMocks();host=document.createElement("div");document.body.append(host);root=createRoot(host);});
@@ -28,6 +28,8 @@ it("does not auto-select a fixed-origin pair that the user cannot select",async(
 it("offers the relevant repair in another tab and refreshes while keeping entered settings",async()=>{
  m.slots.mockResolvedValue({success:true,data:[],unavailable:[{time:"10:00",reason:"沒有符合這門課資格的老師",fixTarget:"teacher"}]});
  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+ expect(host.querySelector("details")?.open).toBe(false);
+ expect(host.querySelector('[aria-label="可排時段"] > p')?.textContent).toBe("沒有符合這門課資格的老師");
  const link=host.querySelector<HTMLAnchorElement>('a[href="/dashboard/teachers"]')!;expect(link.target).toBe("_blank");
  const capacity=host.querySelector<HTMLInputElement>('input[type="number"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(capacity,"2");capacity.dispatchEvent(new Event("input",{bubbles:true}));});
@@ -52,4 +54,21 @@ it("protects drafts when only duration or capacity changes",async()=>{
  const capacity=host.querySelector<HTMLInputElement>('input[type="number"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(capacity,"2");capacity.dispatchEvent(new Event("input",{bubbles:true}));});
  expect(guard).toHaveBeenLastCalledWith(true,false);
+});
+
+it("shows a day-wide blocker before detailed outside-hours reasons",async()=>{
+ m.slots.mockResolvedValue({success:true,data:[],unavailable:[{time:"09:00",reason:"非營業時段",fixTarget:"hours"}],blocker:{reason:"教師尚未勾選此班型的授課資格",fixTarget:"teacher"}});
+ await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+ expect(host.querySelector('[aria-label="可排時段"] > p')?.textContent).toContain("尚未勾選此班型");
+ expect(host.querySelector('a[href="/dashboard/teachers"]')).not.toBeNull();
+ expect(host.querySelector('a[href="/dashboard/courses/hours"]')).toBeNull();
+});
+it("guards store changes before mutations and blocks them during submission",async()=>{
+ function Fixture({pending=false}){useCourseDraftGuard(true,pending);return null;}
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
+ await act(async()=>root.render(createElement(Fixture)));
+ expect(requestCourseDraftLeave()).toBe(false);
+ confirm.mockReturnValue(true);expect(requestCourseDraftLeave()).toBe(true);
+ await act(async()=>root.render(createElement(Fixture,{pending:true})));
+ confirm.mockClear();expect(requestCourseDraftLeave()).toBe(false);expect(confirm).not.toHaveBeenCalled();
 });

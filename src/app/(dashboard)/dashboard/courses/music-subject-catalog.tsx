@@ -45,9 +45,10 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
 </div>
  <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{["教學項目名稱","分類","狀態","操作"].map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{activeRows.map(subjectRow)}{inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={4} className="px-4 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left text-sm font-medium text-earth-600 disabled:cursor-default" onClick={()=>setShowInactive(v=>!v)}><span>下架教學項目（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}{inactiveExpanded&&inactiveRows.map(subjectRow)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的教學項目</p>}</div>
  <RightSheet open={editing!==undefined} onClose={close} presentation="centered" width={560} fitContent labelledById="music-subject-title">
- <div className="flex items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯教學項目":"新增教學項目"}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></div>
- {editing!==undefined&&<form onChange={()=>setDirty(true)} className="grid gap-3 p-4 sm:grid-cols-2" onSubmit={e => {
+ <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯教學項目":"新增教學項目"}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
+ {editing!==undefined&&<form id="music-subject-form" onChange={()=>setDirty(true)} className="min-h-0 overflow-y-auto overscroll-contain p-4" onSubmit={e => {
    e.preventDefault();
+   if(pending)return;
    const d = new FormData(e.currentTarget);
    start(async () => {
      try {
@@ -82,11 +83,12 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
    });
  }}>
 
- <fieldset disabled={pending} className="contents"><label className="sm:col-span-2">教學項目名稱（必填）<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
+ <fieldset disabled={pending} className="grid gap-3 sm:grid-cols-2"><label className="sm:col-span-2">教學項目名稱（必填）<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
  <label>分類（選填）<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
  <label>狀態<select className={field} name="active" defaultValue={editing?.isActive===false?"no":"yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
  <details className="sm:col-span-2"><summary className="cursor-pointer py-2">教學項目介紹（選填）</summary><textarea aria-label="教學項目介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>
- {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}<button className="min-h-11 rounded-lg bg-primary-700 px-4 text-white sm:col-span-2" disabled={pending}>{pending?"儲存中…":"儲存"}</button></fieldset>
+ {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}</fieldset>
  </form>}
+ <footer className="sticky bottom-0 shrink-0 border-t border-earth-100 bg-white p-4"><button type="submit" form="music-subject-form" className="min-h-11 w-full rounded-lg bg-primary-700 px-4 text-white" disabled={pending}>{pending?"儲存中…":"儲存"}</button></footer>
  </RightSheet></>;
 }

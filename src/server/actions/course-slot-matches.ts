@@ -154,7 +154,16 @@ export async function getMusicSlotMatches(input: unknown) {
         : !qualified.length || !availableCoaches.length?"teacher":undefined;
       unavailable.push({time,reason,fixTarget});
     }
-    return { success: true as const, data: slots, unavailable };
+    // Prefer a day-wide blocker over outside-hours rows in the detailed timeline.
+    const blocker: Omit<MusicUnavailableSlot,"time"> | undefined = slots.length ? undefined
+      : store.status==="closed" ? {reason:"這天公休",fixTarget:"hours"}
+      : store.status==="training" ? {reason:"這天店內訓練，未開放上課",fixTarget:"hours"}
+      : !store.periods.length ? {reason:"這天尚未設定營業時間",fixTarget:"hours"}
+      : !suitableRooms.length ? {reason:"沒有啟用且符合人數的教室",fixTarget:"room"}
+      : !qualified.length ? {reason:"教師尚未勾選此班型的授課資格",fixTarget:"teacher"}
+      : !store.periods.some(p=>minuteOfDay(p.closeTime)-minuteOfDay(p.openTime)>=data.durationMinutes) ? {reason:"營業時段不足以容納這堂課的時長",fixTarget:"hours"}
+      : unavailable.find(slot=>periodContains(store.periods,slot.time,data.durationMinutes));
+    return { success: true as const, data: slots, unavailable, blocker };
   } catch (error) {
     return handleCourseActionError(error);
   }
