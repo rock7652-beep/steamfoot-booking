@@ -28,8 +28,8 @@ it("shows the actual six setup actions with store hours first and teachers in mu
  const counts={openDays:0,coaches:0,rooms:0,templates:0,plans:0,sessions:0,qualifiedCoaches:0};
  const transitions=[
   {change:{openDays:1},label:"新增空間"},
-  {change:{rooms:1},label:"建立課程"},
-  {change:{templates:1},label:"建立方案"},
+  {change:{rooms:1},label:"建立教學項目"},
+  {change:{templates:1},label:"設定班型與學費"},
   {change:{plans:1},label:"新增教師與授課課程"},
   {change:{coaches:1,qualifiedCoaches:1},label:"排第一堂課"},
  ];

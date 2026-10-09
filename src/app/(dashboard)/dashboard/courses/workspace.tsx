@@ -20,6 +20,7 @@ import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, u
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { DailyAttendanceList, type DailyAttendanceRow } from "./daily-attendance-list";
 import {
   CourseScheduleBoard,
@@ -321,6 +322,9 @@ export function CourseWorkspace({
     };
   }, [panel, router, view]);
   const [dirty, setDirty] = useState(false);
+  useCourseDraftGuard(dirty,!!panel&&pending);
+  const musicScheduleGuard=useRef({dirty:false,pending:false});
+  const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);
   const restoreScrollY = useRef<number | null>(null);
   useEffect(() => {
     if (restoreScrollY.current === null) return;
@@ -334,6 +338,8 @@ export function CourseWorkspace({
   const [roomRentalHistory,setRoomRentalHistory]=useState(false);
   function closeRentalDialog(){if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存修改，要關閉嗎？"))return;setCourseDialog(null);}
   function closePanel() {
+    if(musicScheduleGuard.current.pending)return;
+    if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
     if(rentalGuard.current.pending)return;
     if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
@@ -1961,6 +1967,8 @@ export function CourseWorkspace({
             {panel === "schedule" && businessProfile === "MUSIC" && (
               <MusicScheduleWizard
                 key={requestKey}
+                onGuard={updateMusicScheduleGuard}
+                onRefresh={()=>router.refresh()}
                 templates={templates}
                 rooms={rooms}
                 coaches={coaches}
@@ -1969,6 +1977,7 @@ export function CourseWorkspace({
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}
                 onCreated={(sessionId,date) => {
+                  setNotice("課程已建立，可在課程詳情加入學員");
                   setPanel(null);
                   go(date);
                   setCourseDialog({sessionId,kind:"roster"});

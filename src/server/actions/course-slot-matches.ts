@@ -11,7 +11,7 @@ import { dayRange, formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from 
 import { handleCourseActionError } from "@/server/services/course-resources";
 
 export type MusicSlotMatch = { time: string; roomId: string; coachIds: string[]; fixedOriginCoachIds?: string[] };
-export type MusicUnavailableSlot = {time:string;reason:string};
+export type MusicUnavailableSlot = {time:string;reason:string;fixTarget?:"hours"|"teacher"|"room"};
 
 /** One read for all slots on a day. The write actions still validate under the store lock. */
 export async function getMusicSlotMatches(input: unknown) {
@@ -131,7 +131,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const closing=store.periods.map(p=>minuteOfDay(p.closeTime));
     const firstMinute=Math.min(9*60,...opening);
     const lastMinute=Math.max(22*60,...closing);
-    const qualified=staff.filter(coach=>!coach.courseQualificationsConfirmed||coach.courseQualifiedTemplateIds.includes(data.templateId));
+    const qualified=staff.filter(coach=>coach.courseQualificationsConfirmed&&coach.courseQualifiedTemplateIds.includes(data.templateId));
     const suitableRooms=rooms.filter(room=>!!template.musicSubject||room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
     for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){
@@ -149,7 +149,10 @@ export async function getMusicSlotMatches(input: unknown) {
         : !freeCoaches.length?"合格老師已有課"
         : !freeRooms.length?"合適教室已有課"
         : "排班或後續課次無法完整排入";
-      unavailable.push({time,reason});
+      const fixTarget=!periodContains(store.periods,time,data.durationMinutes)?"hours"
+        : !suitableRooms.length?"room"
+        : !qualified.length || !availableCoaches.length?"teacher":undefined;
+      unavailable.push({time,reason,fixTarget});
     }
     return { success: true as const, data: slots, unavailable };
   } catch (error) {

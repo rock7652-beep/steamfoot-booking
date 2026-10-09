@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 
 import { readCourseStaffTeaching, saveCourseStaff } from "@/server/actions/course-staff";
 type Person = {
@@ -61,6 +62,7 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  initialCreate=false,
   previewStoreId,
   counterpartChoices=[],
   displayOrder,
@@ -79,6 +81,7 @@ export function CourseStaffWorkspace({
   permissionGroups,
   music = false,
 }: {
+  initialCreate?:boolean;
   previewStoreId?: string;
   counterpartChoices?:{id:string;name:string;phone:string;birthday:string;emergencyContactName:string;emergencyContactPhone:string;emergencyContactRelation:string;linked:boolean}[];
   financeScope?:string[]|null;
@@ -110,11 +113,11 @@ export function CourseStaffWorkspace({
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [role, setRole] = useState("all"),
-    [open, setOpen] = useState(false),
+    [open, setOpen] = useState(initialCreate&&canManage),
     [person, setPerson] = useState<Person | null>(null),
     [kind, setKind] = useState<"coach" | "manager">("coach"),
     [error, setError] = useState(""),
-    [key, setKey] = useState("");
+    [key, setKey] = useState(()=>initialCreate&&canManage?crypto.randomUUID():"");
   const feeEnabled=feeAccess&&(financeScope===null||!!person&&financeScope.includes(person.id));
   const canEditFees=editFeeAccess&&(financeScope===null||!!person&&financeScope.includes(person.id));
   const [financeTeacherIds,setFinanceTeacherIds]=useState<string[]|null>(null);
@@ -138,7 +141,7 @@ export function CourseStaffWorkspace({
   const [musicSettings,setMusicSettings]=useState<MusicTeacherSettings>({defaultRatio:null,subjectRules:{},revision:0});
   const [teachingVersion,setTeachingVersion]=useState<string>();
   const [defaultFeeDirty,setDefaultFeeDirty]=useState(false);
-  const [feesReady,setFeesReady]=useState(false);
+  const [feesReady,setFeesReady]=useState(initialCreate&&canManage);
   const [feesError,setFeesError]=useState("");
   const [reloadFees,setReloadFees]=useState(0);
   const [backendRole, setBackendRole] = useState("STAFF");
@@ -148,12 +151,7 @@ export function CourseStaffWorkspace({
   const [pending, start] = useTransition();
   const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
   const router = useRouter();
-  useEffect(() => {
-    if (!open || !dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [open, dirty]);
+  useCourseDraftGuard(open&&(dirty||availabilityGuard.dirty),open&&(pending||availabilityGuard.pending));
   useEffect(() => {
     if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
     let active = true;
@@ -333,6 +331,7 @@ export function CourseStaffWorkspace({
           <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work",music?"工作與授課安排":"工作帳號"],...(!music && !readOnly ? [["availability","可授課時間"],["assignments","已排課程"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
+            {!person && music && <p className="mb-3 text-sm text-earth-600">先填姓名與緊急聯絡人，再到「授課與拆帳」勾選可教授課程。會員／LINE 連結可稍後處理，不影響排課。</p>}
             <CourseConflicts items={conflicts}/>
             {error && (
               <p role="alert" className="mb-3 text-red-700">

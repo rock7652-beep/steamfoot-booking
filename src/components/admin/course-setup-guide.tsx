@@ -1,7 +1,8 @@
 "use client";
 import { useEffect,useRef,useState,useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { DashboardLink } from "@/components/dashboard-link";
+import { DashboardLink, resolveDashboardHref } from "@/components/dashboard-link";
+import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveCourseSetupReminder } from "@/server/actions/course-setup";
 import { setupReminderVisible } from "@/lib/course-setup-progress";
@@ -14,6 +15,19 @@ export function CourseSetupGuide({steps,preference,login,manual=false}:{steps:St
   const [open,setOpen]=useState(false),[error,setError]=useState("");
   const [pending,start]=useTransition();
   const next=steps.find(s=>!s.done);
+  const previousSteps=useRef(steps);
+  useEffect(()=>{
+    const previous=previousSteps.current;
+    previousSteps.current=steps;
+    if(manual || !visible)return;
+    const saved=steps.filter(step=>step.done && previous.some(old=>old.id===step.id&&!old.done));
+    if(!saved.length)return;
+    toast.success(completed?"設定完成，第一堂課已建立":`${saved.map(step=>step.label).join("、")} · 已完成`,{
+      description:next?`下一步：${next.label}`:"可查看課表，或在課程詳情加入學員。",
+      duration:10000,
+      action:{label:next?`下一步：${next.label}`:"查看課表",onClick:()=>router.push(resolveDashboardHref(next?.href??"/dashboard/courses",pathname))},
+    });
+  },[steps,manual,visible,completed,next,pathname,router]);
   function remind(mode:"show"|"later"|"never") {start(async()=>{const r=await saveCourseSetupReminder(mode);if(!r.success){setError(r.error);return;}setError("");setVisible(mode==="show");setOpen(false);});}
   return <>
     {manual?<button type="button" className="min-h-11 px-3 text-sm font-medium text-primary-800" onClick={()=>setOpen(true)}>開始設定 · {count}/{steps.length}</button>:visible&&!completed?<section aria-label="開始設定" className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-primary-50/50 px-4 py-2 text-sm"><strong className="text-primary-900">開始設定</strong><span className="text-earth-600">已完成 {count}/{steps.length}</span>{next&&<DashboardLink href={next.href} className="inline-flex min-h-11 items-center px-3 font-medium text-primary-800">下一步：{next.label} →</DashboardLink>}<button type="button" className="ml-auto min-h-11 px-3 font-medium text-primary-800" onClick={()=>setOpen(true)}>查看全部步驟 →</button><button type="button" disabled={pending} className="min-h-11 px-2 text-earth-600" onClick={()=>remind("later")}>稍後設定</button><button type="button" disabled={pending} className="min-h-11 px-2 text-earth-600" onClick={()=>remind("never")}>不再提醒</button></section>:null}

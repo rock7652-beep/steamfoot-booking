@@ -1,4 +1,6 @@
 "use client";
+import { DashboardLink } from "@/components/dashboard-link";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { courseDisplayText } from "@/lib/course-display-text";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseSharedCardIndicator } from "./course-shared-card-indicator";
@@ -184,7 +186,8 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  function finishDraftForm(){setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  useCourseDraftGuard(!!panel&&dirty,!!panel&&(pending||formPending));
+  function finishDraftForm(){if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
@@ -300,7 +303,7 @@ export function CourseMemberWorkspace({
               } else preparePlan(null);
             }}
           >
-            ＋新增{view === "customers" ? "顧客" : "方案"}
+            ＋新增{view === "customers" ? "顧客" : music ? "班型與學費" : "方案"}
           </button>
         )}
         {canAssign && (view === "customers" || planArea === "cards") && (
@@ -315,9 +318,10 @@ export function CourseMemberWorkspace({
       </div>
       {error && !panel && <p role="alert" className="mb-3 text-red-700">{error}</p>}
       {notice && (
-        <p role="status" className="mb-3 text-primary-700">
-          {notice}
-        </p>
+        <div role="status" className="mb-3 flex flex-wrap items-center gap-2 text-sm text-primary-700">
+          <span>{notice}</span>
+          {music&&notice==="班型與學費已儲存"&&<DashboardLink href="/dashboard/teachers" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定教師授課資格 →</DashboardLink>}
+        </div>
       )}
 <div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${!music && view === "plans" && planArea === "catalog" ? "min-h-11" : ""}`}>
       {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
@@ -392,7 +396,7 @@ export function CourseMemberWorkspace({
               {customerPanel ? person.name : panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
-                  ? planReadOnly&&plan ? plan.name : plan ? "編輯方案" : "新增方案"
+                  ? planReadOnly&&plan ? plan.name : plan ? music ? "編輯班型與學費" : "編輯方案" : music ? "新增班型與學費" : "新增方案"
                   : panel === "assign"
                     ? "購買方案"
                     : panel === "coach"

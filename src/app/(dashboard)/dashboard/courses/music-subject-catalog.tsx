@@ -10,18 +10,22 @@ import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveMusicSubject } from "@/server/actions/music-subject";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
+import { DashboardLink } from "@/components/dashboard-link";
 export type MusicSubjectView={id:string;name:string;category:string;description:string;isActive:boolean;updatedAt:string};
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 const button="min-h-10 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCreate,canEdit}:{displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean}){
+export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCreate,canEdit,initialCreate=false}:{displayOrder?:CourseOrderSnapshot;subjects:MusicSubjectView[];canCreate:boolean;canEdit:boolean;initialCreate?:boolean}){
  const [subjects,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceSubjects);
  const [hideTestData,setHideTestData]=useState(false);
  const [showInactive,setShowInactive]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[dirty,setDirty]=useState(false);
  const router=useRouter(),pathname=usePathname();
  const [search,setSearch]=useState(""),[category,setCategory]=useState(""),[status,setStatus]=useState("all");
- const [editing,setEditing]=useState<MusicSubjectView|null|undefined>(undefined),[error,setError]=useState("");
+ const [editing,setEditing]=useState<MusicSubjectView|null|undefined>(canCreate&&initialCreate?null:undefined),[error,setError]=useState("");
  const [pending,start]=useTransition();
+ const [created,setCreated]=useState(false);
+ useCourseDraftGuard(editing!==undefined&&dirty,pending);
  function close(){if(!pending&&(!dirty||window.confirm("尚有未儲存的修改，確定關閉？")))setEditing(undefined);}
  const order=useCourseDisplayOrder("subject",subjects,displayOrder,canEdit&&!search&&!category&&status==="all"&&!hideTestData&&!busyIds.length,s=>s.isActive);
  const categories=[...new Set(subjects.map(s=>s.category).filter(Boolean))].sort();
@@ -29,19 +33,19 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  const activeRows=rows.filter(s=>s.isActive),inactiveRows=rows.filter(s=>!s.isActive);
  const inactiveForced=status==="inactive"||!!search||!!category;
  const inactiveExpanded=inactiveForced||showInactive;
- const subjectRow=(s:MusicSubjectView)=><tr {...order.rowProps(s.id)} key={s.id} className={`border-t border-earth-100 ${s.isActive?"":"bg-earth-50/80 text-earth-400"}`}><td className="px-4 py-2 font-medium">{canEdit&&order.handle(s.id,s.name)}{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}</td><td className="px-4 py-2">{s.category||<span className={s.isActive?"rounded bg-amber-50 px-2 py-1 text-amber-800":""}>未分類</span>}</td><td className="px-4 py-2"><span className={s.isActive?"text-emerald-700":"rounded bg-earth-200 px-2 py-1 text-earth-600"}>{s.isActive?"上架":"下架"}</span></td><td className="flex gap-2 px-4 py-2">{canEdit&&<button className={`${button} bg-white text-earth-700`} disabled={busyIds.includes(s.id)} onClick={()=>{setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={`${button} bg-white text-earth-700`} onClick={()=>router.push(`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>收費方案</button></td></tr>;
- return <><div className="flex flex-wrap items-center gap-2">
- <input aria-label="搜尋課程" className={`${field} max-w-xs`} placeholder="搜尋課程名稱或分類" value={search} onChange={e=>{setSelected([]);setSearch(e.target.value);}}/>
+ const subjectRow=(s:MusicSubjectView)=><tr {...order.rowProps(s.id)} key={s.id} className={`border-t border-earth-100 ${s.isActive?"":"bg-earth-50/80 text-earth-400"}`}><td className="px-4 py-2 font-medium">{canEdit&&order.handle(s.id,s.name)}{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}</td><td className="px-4 py-2">{s.category||<span className={s.isActive?"rounded bg-amber-50 px-2 py-1 text-amber-800":""}>未分類</span>}</td><td className="px-4 py-2"><span className={s.isActive?"text-emerald-700":"rounded bg-earth-200 px-2 py-1 text-earth-600"}>{s.isActive?"上架":"下架"}</span></td><td className="flex gap-2 px-4 py-2">{canEdit&&<button className={`${button} bg-white text-earth-700`} disabled={busyIds.includes(s.id)} onClick={()=>{setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={`${button} bg-white text-earth-700`} onClick={()=>router.push(`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>班型與學費</button></td></tr>;
+ return <>{created&&<div role="status" className="flex flex-wrap items-center gap-2 text-sm text-primary-800"><span>教學項目已建立</span><DashboardLink href="/dashboard/courses?view=plans&action=create" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定班型與學費 →</DashboardLink></div>}<div className="flex flex-wrap items-center gap-2">
+ <input aria-label="搜尋教學項目" className={`${field} max-w-xs`} placeholder="搜尋教學項目名稱或分類" value={search} onChange={e=>{setSelected([]);setSearch(e.target.value);}}/>
  <select aria-label="分類篩選" className={button} value={category} onChange={e=>{setSelected([]);setCategory(e.target.value);}}><option value="">全部分類</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
  <select aria-label="狀態篩選" className={button} value={status} onChange={e=>{setSelected([]);setStatus(e.target.value);}}><option value="all">全部狀態</option><option value="active">上架</option><option value="inactive">下架</option></select>
- {canCreate&&<button className={`${button} ml-auto bg-primary-700 text-white`} onClick={()=>{setDirty(false);setError("");setEditing(null);}}>＋新增課程</button>}</div>
+ {canCreate&&<button className={`${button} ml-auto bg-primary-700 text-white`} onClick={()=>{setDirty(false);setError("");setEditing(null);}}>＋新增教學項目</button>}</div>
 <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
  <CourseTestDataFilter names={subjects.map(s=>s.name)} checked={hideTestData} onChange={v=>{setSelected([]);setHideTestData(v);}}/>
  {canEdit&&<CourseBatchBar key={`${hideTestData}:${search}:${category}:${status}`} kind="subject" blockedIds={busyIds} states={Object.fromEntries(rows.map(item=>[item.id,item.isActive]))} ids={rows.map(s=>s.id)} names={Object.fromEntries(rows.map(s=>[s.id,s.name]))} selected={selected} onChange={setSelected} onApplied={applyStatus} onPendingChange={setStatusBusy}/>}
 </div>
- <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{["課程名稱","分類","狀態","操作"].map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{activeRows.map(subjectRow)}{inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={4} className="px-4 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left text-sm font-medium text-earth-600 disabled:cursor-default" onClick={()=>setShowInactive(v=>!v)}><span>下架課程（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}{inactiveExpanded&&inactiveRows.map(subjectRow)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的課程</p>}</div>
+ <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{["教學項目名稱","分類","狀態","操作"].map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{activeRows.map(subjectRow)}{inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={4} className="px-4 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left text-sm font-medium text-earth-600 disabled:cursor-default" onClick={()=>setShowInactive(v=>!v)}><span>下架教學項目（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}{inactiveExpanded&&inactiveRows.map(subjectRow)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的教學項目</p>}</div>
  <RightSheet open={editing!==undefined} onClose={close} presentation="centered" width={560} fitContent labelledById="music-subject-title">
- <div className="flex items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯課程":"新增課程"}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></div>
+ <div className="flex items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯教學項目":"新增教學項目"}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></div>
  {editing!==undefined&&<form onChange={()=>setDirty(true)} className="grid gap-3 p-4 sm:grid-cols-2" onSubmit={e => {
    e.preventDefault();
    const d = new FormData(e.currentTarget);
@@ -68,6 +72,8 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
          setError(result.error);
          return;
        }
+       setDirty(false);
+       setCreated(!editing&&d.get("active")==="yes");
        setEditing(undefined);
        router.refresh();
      } catch {
@@ -76,10 +82,10 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
    });
  }}>
 
- <fieldset disabled={pending} className="contents"><label className="sm:col-span-2">課程名稱<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
- <label>分類<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
+ <fieldset disabled={pending} className="contents"><label className="sm:col-span-2">教學項目名稱（必填）<input autoFocus className={field} name="name" required maxLength={80} defaultValue={editing?.name??""}/></label>
+ <label>分類（選填）<input className={field} name="category" list="music-subject-categories" maxLength={40} defaultValue={editing?.category??""}/><datalist id="music-subject-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist></label>
  <label>狀態<select className={field} name="active" defaultValue={editing?.isActive===false?"no":"yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
- <details className="sm:col-span-2"><summary className="cursor-pointer py-2">課程介紹（選填）</summary><textarea aria-label="課程介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>
+ <details className="sm:col-span-2"><summary className="cursor-pointer py-2">教學項目介紹（選填）</summary><textarea aria-label="教學項目介紹" className={field} name="description" rows={3} maxLength={5000} defaultValue={editing?.description??""}/></details>
  {error&&<p role="alert" className="sm:col-span-2 text-red-700">{error}</p>}<button className="min-h-11 rounded-lg bg-primary-700 px-4 text-white sm:col-span-2" disabled={pending}>{pending?"儲存中…":"儲存"}</button></fieldset>
  </form>}
  </RightSheet></>;
