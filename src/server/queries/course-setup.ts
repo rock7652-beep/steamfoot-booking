@@ -21,11 +21,12 @@ export async function getCourseSetup(storeId:string,userId:string) {
     prisma.shopConfig.findUnique({where:{storeId},select:{dutySchedulingEnabled:true}}),
   ]);
   const openDays=hours.filter(h=>h.isOpen && parseBusinessPeriods(h.segments,h).some(p=>p.openTime<p.closeTime)).length;
+  const subjects=music ? await coursePrisma.musicSubject.count({where:{storeId,isActive:true}}) : undefined;
   const activeTemplates=await coursePrisma.courseTemplate.findMany({where:{storeId,isActive:true,visibility:{not:"OFF"}},select:{id:true}});
   const ids=new Set(activeTemplates.map(t=>t.id));
   const qualifiedCoaches=staff.filter(s=>s.courseQualifiedTemplateIds.some(id=>ids.has(id))).length;
   const jar=await cookies();
   let preference:{mode:"show"|"later"|"never";login?:string}={mode:"show"};
   try { const parsed=JSON.parse(jar.get(courseSetupCookieName(storeId,userId))?.value??"{}");if(["show","later","never"].includes(parsed.mode))preference=parsed; } catch { /* Invalid preferences use the default reminder. */ }
-  return {steps:courseSetupSteps({coaches,rooms,templates,plans,sessions,qualifiedCoaches,openDays,dutyEnabled:config?.dutySchedulingEnabled ?? false}, !!music),preference,login:jar.get("course-setup-login-v1")?.value??"existing-session"};
+  return {steps:courseSetupSteps({coaches,rooms,templates,subjects,plans,sessions,qualifiedCoaches,openDays,dutyEnabled:config?.dutySchedulingEnabled ?? false}, !!music),preference,login:jar.get("course-setup-login-v1")?.value??"existing-session"};
 }

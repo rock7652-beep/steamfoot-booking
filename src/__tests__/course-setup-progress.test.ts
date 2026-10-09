@@ -12,6 +12,12 @@ it("does not mark a store ready merely because resources and an old session exis
  expect(courseSetupSteps(counts).find(s=>!s.done)?.id).toBe("hours");
  expect(courseSetupSteps({...counts,openDays:1}).every(s=>s.done)).toBe(true);
 });
+it("advances music teaching subjects to plans before a plan generates its class template",()=>{
+ const counts={...empty,openDays:6,rooms:1,subjects:1};
+ expect(courseSetupSteps(counts,true).find(s=>!s.done)?.id).toBe("plan");
+ expect(courseSetupSteps({...counts,subjects:0,templates:1},true).find(s=>!s.done)?.id).toBe("course");
+ expect(courseSetupSteps({...counts,subjects:1},false).find(s=>!s.done)?.id).toBe("course");
+});
 it("keeps existing completion counts while changing presentation order",()=>{
  const steps=courseSetupSteps({...empty,openDays:1,templates:1,coaches:1,qualifiedCoaches:1,plans:1});
  expect(steps.find(s=>!s.done)?.id).toBe("room");
