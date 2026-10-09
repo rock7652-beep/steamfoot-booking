@@ -242,7 +242,7 @@ export async function updateCourseSession(input: unknown) {
           >`SELECT id FROM "Staff" WHERE id = ${data.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
         ]);
         if (!session || !room || !coaches.length)
-          throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與教練");
+          throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與授課人員");
         await assertCourseResources(tx,storeId,{...data,templateId:data.templateId ?? session.templateId},session);
         const bookings = await tx.courseBooking.findMany({
           where: {
@@ -284,7 +284,7 @@ export async function updateCourseSession(input: unknown) {
         if (conflict)
           throw new AppError(
             "CONFLICT",
-            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
+            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "授課人員"}已有課程，尚未儲存修改`,
           );
         await assertCourseSessionsFitHours(tx,storeId,[range]);
         if(session.coachId!==data.coachId || +session.startsAt!==+range.startsAt || +session.endsAt!==+range.endsAt)
@@ -445,7 +445,7 @@ export async function createCourseSchedule(input: unknown) {
           >`SELECT id FROM "Staff" WHERE id = ${data.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
         ]);
         if (!template || !room || !coaches.length)
-          throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與教練");
+          throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         await assertCourseResources(tx,storeId,data);
         const conflict = await tx.courseSession.findFirst({
           where: {
@@ -467,7 +467,7 @@ export async function createCourseSchedule(input: unknown) {
         if (conflict)
           throw new AppError(
             "CONFLICT",
-            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
+            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "授課人員"}已有課程，整批尚未建立`,
           );
         // A moved fixed lesson still owns its original recurring slot. A one-off
         // lesson may use the released occurrence, but a new fixed series may not.
@@ -837,7 +837,7 @@ export async function previewCourseSchedule(input: unknown) {
             name: c.nameSnapshot,
             startsAt: c.startsAt.toISOString(),
             endsAt: c.endsAt.toISOString(),
-            resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "教練" : ""].filter(Boolean).join("及"),
+            resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "授課人員" : ""].filter(Boolean).join("及"),
           })),
         })),
         capacityWarning:
@@ -900,7 +900,7 @@ export async function updateCourseSeries(input: unknown) {
         }),
       ]);
       if (!room || !coaches.length)
-        throw new AppError("VALIDATION", "請選擇本店啟用的教室與教練");
+        throw new AppError("VALIDATION", "請選擇本店啟用的教室與授課人員");
       const shift = range.startsAt.getTime() - source.startsAt.getTime();
       const changes = sessions.map((s) => ({
         session: s,

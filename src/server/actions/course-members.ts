@@ -841,7 +841,7 @@ export async function markCourseCoachAttendance(input: unknown) {
         throw new AppError("FORBIDDEN", "只能點名自己被授權的課程");
       return settleCourseBooking(
         tx,
-        { storeId, userId: user.id, name: user.name ?? "教練" },
+        { storeId, userId: user.id, name: user.name ?? "授課人員" },
         bookingId,
         status,
       );

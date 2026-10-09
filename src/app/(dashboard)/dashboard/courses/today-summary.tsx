@@ -18,6 +18,7 @@ export async function CourseTodaySummary() {
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     return null;
+  const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}});
   const { start, end, dateStr } = todayRange();
   const sessions = await coursePrisma.courseSession.findMany({
     where: { storeId, cancelledAt: null, startsAt: { gte: start, lte: end } },
@@ -68,7 +69,7 @@ export async function CourseTodaySummary() {
         </Link>
       </div>
       {pendingPurchases > 0 && <div className="border-b border-earth-200 bg-secondary-50 px-4 py-2 text-sm"><Link href="/dashboard/revenue?status=PENDING" className="inline-flex min-h-11 items-center font-medium text-primary-800">待處理：{pendingPurchases} 筆方案待核帳 →</Link></div>}
-      <CourseTodayList
+      <CourseTodayList music={music}
         canCreate={canCreate}
         canEdit={canEdit}
         sessions={sessions.map((s) => ({

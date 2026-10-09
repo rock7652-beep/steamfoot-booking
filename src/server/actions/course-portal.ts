@@ -78,8 +78,8 @@ export async function saveCourseAttendance(input: unknown) {
           continue;
         }
         const saved = data.target === "CHECKED_IN"
-          ? await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, "CHECKED_IN")
-          : await correctCourseAttendance(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, data.target, b.status);
+          ? await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "授課人員" }, b.id, "CHECKED_IN")
+          : await correctCourseAttendance(tx, { storeId, userId: user.id, name: user.name ?? "授課人員" }, b.id, data.target, b.status);
         updates.push({ id: saved.id, status: saved.status, checkedIn: !!saved.checkedInAt, updatedAt: saved.updatedAt.toISOString() });
       }
       return updates;

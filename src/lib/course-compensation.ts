@@ -3,7 +3,7 @@ export const compensationRule=z.object({mode:z.enum(["CLASS","HOUR","SHARE"]),va
 export const compensationRules=z.array(compensationRule).max(3).refine(r=>new Set(r.map(v=>v.mode)).size===r.length,"計酬方式不可重複");
 export type CompensationRule=z.infer<typeof compensationRule>;
 export const COMPENSATION_LABELS={CLASS:"每堂固定",HOUR:"按時長計算",SHARE:"按比例拆帳"};
-export const COMPENSATION_UNITS={CLASS:"元／堂",HOUR:"元／小時",SHARE:"%（教練分得）"};
+export const COMPENSATION_UNITS={CLASS:"元／堂",HOUR:"元／小時",SHARE:"%（授課人員分得）"};
 /** Returns the unrounded amount in currency units: callers must not silently round each pupil independently. */
 export function compensationAmount(rule:CompensationRule,minutes:number,receipts:{paid:number;totalUnits:number;usedUnits:number}[]) {
  compensationRule.parse(rule);

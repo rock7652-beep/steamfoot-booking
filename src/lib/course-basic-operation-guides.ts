@@ -4,11 +4,11 @@ import type { OperationGuide } from "./operation-guide-types";
 export const courseBasicOperationGuides: OperationGuide[] = [
   {
     id: "C126", category: "start", title: "第一次使用課程系統，設定順序是什麼？",
-    summary: "依畫面的四步進度準備店家、教室／教練、課程／方案與實際課表。", answer: "課程範本、販售方案、實際課次與學員持有方案是不同資料；設定引導可稍後提醒，但不會替你自動完成。",
+    summary: "依六步進度設定營業與公休，建立空間、課程、方案、教練授課資格與第一堂課。", answer: "課程範本、販售方案、實際課次與學員持有方案是不同資料；設定引導可稍後提醒，但不會替你自動完成。",
     path: "設定 → 店務設定 → 課表排程", keywords: "首次使用 新手 開店 設定順序 開始使用",
-    steps: ["先核對店家資料、營業與公休、預約開放及取消截止設定。", "建立教室與教練，設定可教授課程；建立課程範本與適用方案。", "排出實際課次，再從學員的「購買方案」完成結帳或安排體驗；核對日期、教練、名額與會員入口。"],
+    steps: ["先核對店家資料、營業與公休、預約開放及取消截止設定。", "依序建立空間、課程與方案，再新增教練並一次設定可教授課程。", "排出實際課次，再從學員的「購買方案」完成結帳或安排體驗；核對日期、教練、名額與會員入口。"],
     important: "建立課程範本不代表已排課，建立販售方案也不代表學員已持有方案。",
-    details: ["四步設定卡可稍後提醒或選擇不再顯示；這只影響引導顯示，不會刪除或改變店家資料。", "需要轉帳購買時先設定銀行資料；需要通知時另確認提醒設定與 LINE 連結。", "每個設定需具備對應權限；本題是操作順序，詳細步驟可搜尋教室、教練、排課或購買方案（原指派方案）。"],
+    details: ["六步設定卡可稍後提醒或選擇不再顯示；這只影響引導顯示，不會刪除或改變店家資料。", "需要轉帳購買時先設定銀行資料；需要通知時另確認提醒設定與 LINE 連結。", "每個設定需具備對應權限；本題是操作順序，詳細步驟可搜尋教室、教練、排課或購買方案（原指派方案）。"],
     success: "課表有正確課次，學員能在本店入口看到可預約課程與自己的方案。",
     permission: "booking.read", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx"],

@@ -1,4 +1,5 @@
 "use client";
+import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
 import scheduleControls from "@/components/admin/schedule-controls.module.css";
 import {fitnessEditorFooter, fitnessEditorSave} from "@/components/admin/course-editor-styles";
@@ -829,15 +830,15 @@ export function CourseWorkspace({
           </div>
 
           {<div className="relative z-10 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-primary-100 bg-primary-50/50 px-2 py-1">
-            <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : "授課教練"}
+            <label className="flex items-center gap-2 text-xs font-medium text-earth-700" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "授課老師" : courseDisplayText("授課教練", businessProfile)}
             <select
               id="course-coach-filter"
-              aria-label="教練篩選"
+              aria-label={courseDisplayText("教練篩選", businessProfile)}
               className={`${button} min-h-11 bg-white py-1 ${coachFilter !== "all" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">{businessProfile === "MUSIC" ? "全部授課老師" : "全部授課教練"}</option>
+              <option value="all">{businessProfile === "MUSIC" ? "全部授課老師" : courseDisplayText("全部授課教練", businessProfile)}</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
@@ -1425,7 +1426,7 @@ export function CourseWorkspace({
                             {!rental && (attendance.total > 0 || attendance.teacherAbsent) && <span title="點名完成度" className={`text-sm tabular-nums ${attendance.complete ? "text-emerald-700" : attendance.processed > 0 ? "text-amber-700" : "text-earth-500"}`}>{attendance.teacherAbsent ? "免點名" : `${attendance.complete ? "✓ " : ""}${attendance.processed}/${attendance.total}`}</span>}
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定教練"}{" · "}</>}
+                            {!rental && <>{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? courseDisplayText("未指定教練", businessProfile)}{" · "}</>}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
                             {["upcoming", "ongoing", "ended"].includes(sessionState.kind) && <span>{" · "}{sessionState.label}</span>}
@@ -1742,8 +1743,7 @@ export function CourseWorkspace({
                       : businessProfile === "MUSIC" ? "名稱會同步顯示於使用此教室的課程。" : "名稱會同步顯示於使用此空間的課程。"}
                 </p>
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  本堂已有 {editing.value.bookings.length} 人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。
-                  <p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
+                  本堂已有 {editing.value.bookings.length}{courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", businessProfile)}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
@@ -1817,9 +1817,7 @@ export function CourseWorkspace({
                         ).slice(11)}
                       />
                     </label>
-                    <label className="col-span-full">
-                      教練
-                      <select
+                    <label className="col-span-full">{courseDisplayText("教練", businessProfile)}<select
                         className={field}
                         name="coachId"
                         required
@@ -1833,8 +1831,7 @@ export function CourseWorkspace({
                           )
                           .map((c) => (
                             <option key={c.id} value={c.id} disabled>
-                              {c.displayName}（已停用，請另選教練）
-                            </option>
+                              {c.displayName}{courseDisplayText("（已停用，請另選教練）", businessProfile)}</option>
                           ))}
                         {coaches.filter(c=>(c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(editTemplateId || editing.value.templateId)) || (c.id===editing.value.coachId && !c.courseQualificationsConfirmed && (!editTemplateId || editTemplateId===editing.value.templateId))).map((c) => (
                           <option key={c.id} value={c.id}>
@@ -2003,7 +2000,7 @@ export function CourseWorkspace({
                     </button>
                   </>
                 ) : !coaches.length ? (
-                  <p>本店尚無可排課的教練，請先完成人員建檔。</p>
+                  <p>{courseDisplayText("本店尚無可排課的教練，請先完成人員建檔。", businessProfile)}</p>
                 ) : !rooms.length ? (
                   <p>
                     目前沒有可使用的教室，請至左側「空間管理」新增或恢復使用後再排課。
@@ -2053,9 +2050,7 @@ export function CourseWorkspace({
                         </select>
                       </label>
                     )}
-                    <label className="min-[500px]:col-span-3">
-                      授課教練
-                      <select
+                    <label className="min-[500px]:col-span-3">{courseDisplayText("授課教練", businessProfile)}<select
                         className={`${field} min-h-11`}
                         name="coachId"
                         required
@@ -2067,7 +2062,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">開啟教練管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">{courseDisplayText("本課程尚無具授課資格的啟用教練，請先至教練管理設定資格。", businessProfile)}<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/teachers")} target="_blank" rel="noopener noreferrer">{courseDisplayText("開啟教練管理（保留此排課草稿）", businessProfile)}</a><button type="button" className={button} onClick={()=>router.refresh()}>{courseDisplayText("已設定，更新教練名單", businessProfile)}</button></span>}
                     </label>
                     <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600"><span>點數卡 {template?.pointCost} 點／堂數卡 1 堂</span><details name="course-workspace-details"><summary aria-label="扣抵說明" className="min-h-11 cursor-pointer inline-flex items-center px-2">ⓘ</summary><p>依學員方案扣抵，不會同時扣兩種額度。預約先占用，出席才正式扣抵。</p></details></div>
                     <label className="min-[500px]:col-span-2">
@@ -2179,7 +2174,7 @@ export function CourseWorkspace({
                           }}
                         />
                         {extraDateKeys.map(date => <input key={date} type="hidden" name="additionalDates" value={date} />)}
-                        <p className="text-xs text-earth-500">同時間、教練與空間；如有撞期，整批不會建立。</p>
+                        <p className="text-xs text-earth-500">{courseDisplayText("同時間、教練與空間；如有撞期，整批不會建立。", businessProfile)}</p>
                       </div>
                     )}
                     {repeat && <WeeklyRepeatFields repeatControl={repeatControl} date={scheduleDate} disabled={pending} onChange={(weeks, weekdays) => {

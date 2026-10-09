@@ -1,16 +1,25 @@
 import { expect,it } from "vitest";
 import { courseSetupSteps,setupReminderVisible } from "@/lib/course-setup-progress";
-const empty={coaches:0,rooms:0,templates:0,plans:0,sessions:0,qualifiedCoaches:0};
-it("creates courses before coaches so qualifications can be configured in one visit",()=>{
- expect(courseSetupSteps(empty)[0].id).toBe("course");
- const steps=courseSetupSteps({...empty,templates:1,coaches:1});
+const empty={coaches:0,rooms:0,templates:0,plans:0,sessions:0,qualifiedCoaches:0,openDays:0};
+it("guides store hours before resources, products, teaching qualifications and scheduling",()=>{
+ expect(courseSetupSteps(empty).map(s=>s.id)).toEqual(["hours","room","course","plan","coach","schedule"]);
+ const steps=courseSetupSteps({...empty,openDays:1,rooms:1,templates:1,plans:1,coaches:1},true);
  expect(steps.find(s=>!s.done)?.id).toBe("coach");
- expect(steps.find(s=>s.id==="coach")?.label).toBe("設定授課課程");
+ expect(steps.find(s=>s.id==="coach")?.label).toBe("設定教師授課資格");
 });
-it("keeps rooms explicit and advances to scheduling only after prerequisites",()=>{
- const steps=courseSetupSteps({...empty,templates:1,coaches:1,qualifiedCoaches:1,plans:1});
+it("does not mark a store ready merely because resources and an old session exist",()=>{
+ const counts={...empty,templates:1,coaches:1,qualifiedCoaches:1,plans:1,rooms:1,sessions:1};
+ expect(courseSetupSteps(counts).find(s=>!s.done)?.id).toBe("hours");
+ expect(courseSetupSteps({...counts,openDays:1}).every(s=>s.done)).toBe(true);
+});
+it("keeps existing completion counts while changing presentation order",()=>{
+ const steps=courseSetupSteps({...empty,openDays:1,templates:1,coaches:1,qualifiedCoaches:1,plans:1});
  expect(steps.find(s=>!s.done)?.id).toBe("room");
- expect(courseSetupSteps({...empty,templates:1,coaches:1,qualifiedCoaches:1,plans:1,rooms:1}).find(s=>!s.done)?.href).toBe("/dashboard/courses?action=schedule");
+ expect(courseSetupSteps({...empty,openDays:1,templates:1,coaches:1,qualifiedCoaches:1,plans:1,rooms:1}).find(s=>!s.done)?.href).toBe("/dashboard/courses?action=schedule");
+});
+it("explains conditional duty coverage without imposing it on stores that disabled linkage",()=>{
+ expect(courseSetupSteps({...empty,dutyEnabled:true},true).find(s=>s.id==="coach")?.hint).toContain("涵蓋整堂課");
+ expect(courseSetupSteps(empty,true).find(s=>s.id==="coach")?.hint).not.toContain("已啟用值班聯動");
 });
 it("later applies to this login, never persists, and completed stores collapse",()=>{
  expect(setupReminderVisible("show",undefined,"a",false)).toBe(true);

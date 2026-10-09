@@ -204,7 +204,7 @@ export default async function DutySettingsPage() {
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-earth-900">功能說明</h2>
           <p className="mt-1 text-[11px] text-earth-500">
-            {course ? "新增／修改排課需由授課教練的值班涵蓋完整課程時段" : "開啟後，僅安排值班人員的時段才會出現在顧客預約頁"}
+            {course ? "新增／修改排課需由授課人員的值班涵蓋完整課程時段" : "開啟後，僅安排值班人員的時段才會出現在顧客預約頁"}
           </p>
 
           <ul className="mt-4 space-y-3 text-[13px] leading-relaxed text-earth-700">
@@ -219,7 +219,7 @@ export default async function DutySettingsPage() {
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
               <span>
                 <span className="font-medium text-earth-800">開啟狀態：</span>
-                {course ? "教練值班須涵蓋完整課程；教室與教練撞期檢查仍有效" : "只有安排了值班人員的時段才會出現在預約頁面"}
+                {course ? "授課人員值班須涵蓋完整課程；教室與授課人員撞期檢查仍有效" : "只有安排了值班人員的時段才會出現在預約頁面"}
               </span>
             </li>
             <li className="flex gap-2">
@@ -295,7 +295,7 @@ export default async function DutySettingsPage() {
                 未排班日期：{weekInfo.unscheduledDates.map(formatDateShort).join("、")}
               </p>
               <p className="mt-1 text-[11px] text-amber-600">
-                {course ? "這些日期尚未安排值班；啟用聯動後排課須符合教練值班。" : "這些日期的所有時段目前對客戶不可見"}
+                {course ? "這些日期尚未安排值班；啟用聯動後排課須符合授課人員值班。" : "這些日期的所有時段目前對客戶不可見"}
               </p>
             </div>
           )}

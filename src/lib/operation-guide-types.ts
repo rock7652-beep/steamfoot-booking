@@ -4,6 +4,7 @@ import type { PermissionCode } from "./permissions";
 
 export interface GuideAccess {
   module: "steamfoot" | "spa" | "course";
+  music?: boolean;
   /** Sports presentation only; omitted for music and other module guides. */
   sharedCardState?: FeaturePresentationState;
   permissions: readonly string[];

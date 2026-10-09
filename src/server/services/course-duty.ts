@@ -32,6 +32,6 @@ export async function assertCourseDutyCoverage(tx: Reader, storeId: string, sess
       assignments.filter(a=>a.staffId===session.coachId && a.date.toISOString().slice(0,10)===date).map(a=>a.slotTime),
     );
   });
-  if (conflicts.length) throw new AppError("VALIDATION", `教練值班未涵蓋完整課程時段：${conflicts.map(s=>`${formatTWDateTime(s.startsAt)}–${formatTWDateTime(s.endsAt).slice(11)} ${s.nameSnapshot??"課程"}`).join("；")}。本批尚未儲存，請先調整值班或排課。`);
+  if (conflicts.length) throw new AppError("VALIDATION", `授課人員值班未涵蓋完整課程時段：${conflicts.map(s=>`${formatTWDateTime(s.startsAt)}–${formatTWDateTime(s.endsAt).slice(11)} ${s.nameSnapshot??"課程"}`).join("；")}。本批尚未儲存，請先調整值班或排課。`);
 }
 

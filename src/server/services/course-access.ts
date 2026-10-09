@@ -110,7 +110,7 @@ export async function courseMember(options: { write?: boolean } = {}) {
   if (link?.courseMemberEnabled === false)
     throw new AppError(
       "FORBIDDEN",
-      "此帳號目前僅開放教練工作，會員操作請聯絡店家啟用",
+      "此帳號目前僅開放授課人員工作，會員操作請聯絡店家啟用",
     );
   return actor;
 }
