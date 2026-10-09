@@ -247,7 +247,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     [headcount, setHeadcount] = useState(1),
     [companionNames, setCompanionNames] = useState(["", ""]),
     [notes, setNotes] = useState(""),
-    [confirm, setConfirm] = useState(false),
     [key, setKey] = useState(""),
     [cancelId, setCancelId] = useState<string | null>(null),
     [attendance, setAttendance] = useState<{
@@ -500,7 +499,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     setHeadcount(1);
     setCompanionNames(["", ""]);
     setNotes("");
-    setConfirm(false);
     setKey(crypto.randomUUID());
     setError("");
   }
@@ -1374,14 +1372,14 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
       {companionEditor && (!companionEditor.add || sharingEnabled) && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={receipt => { if (receipt) { setCompanionReceipts(previous => [...previous.filter(row => row.booking.id !== receipt.booking.id), receipt]); setMessage(receipt.returned ? `已返還 ${receipt.returned.amount} ${unit(receipt.returned.unit)}` : "使用方式已更新"); } else setMessage("同行已新增"); start(() => router.refresh()); }} />}
       {session && !buy && (
         <Sheet
-          title={waitlistAlready ? "候補狀態" : !selfBookingEnabled ? "查看課程" : waitlistMode ? (confirm ? "確認候補" : companionMode ? "預約人數" : "選擇候補人") : (confirm ? "確認預約" : companionMode ? "預約人數" : "選擇上課人")}
+          title={waitlistAlready ? "候補狀態" : !selfBookingEnabled ? "查看課程" : waitlistMode ? "確認候補" : "確認預約"}
           busy={pending}
           close={() => setSession(null)}
           footer={
             <>
               <button
                 disabled={pending}
-                onClick={() => (confirm ? setConfirm(false) : setSession(null))}
+                onClick={() => setSession(null)}
               >
                 返回
               </button>
@@ -1408,8 +1406,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   }
                   onClick={() => {
                     if (!selfBookingEnabled) return;
-                    return (companionMode || confirm)
-                      ? run(
+                    return run(
                           () => waitlistMode
                             ? joinMemberCourseWaitlist({
                                 sessionId: session.id,
@@ -1439,10 +1436,10 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           },
                           waitlistMode ? "已加入候補" : "預約成功",
                         )
-                      : setConfirm(true);
+                      ;
                   }}
                 >
-                  {pending ? (waitlistMode ? "候補中…" : "預約中…") : (companionMode || confirm) ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
+                  {pending ? (waitlistMode ? "候補中…" : "預約中…") : waitlistMode ? "確認候補" : "確認預約"}
                 </button>
               ) : null}
             </>
@@ -1477,7 +1474,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 使用方案
                 <select
                   value={cardId}
-                  disabled={confirm || pending}
+                  disabled={pending}
                   onChange={(e) => {
                     setCardId(e.target.value);
                     setLearners([p.customerId]);
@@ -1494,7 +1491,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               </label>
               {card && (
                 <>
-                  {companionMode ? sharingVisible ? <fieldset disabled={confirm || pending}>
+                  {companionMode ? sharingVisible ? <fieldset disabled={pending}>
                     <legend>預約人數（含本人）</legend>
                     <div className="cp-headcount" role="group" aria-label="預約人數">
                       {[1, 2, 3].map(count => <button key={count} type="button" aria-pressed={companionHeadcount === count} disabled={(count > 1 && (!sharingEnabled || !card.allowShared)) || (!session.waitlistAllowed && count > session.capacity - session.occupied)} onClick={() => setHeadcount(count)}>{count} 人</button>)}
@@ -1504,7 +1501,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                       {Array.from({length: companionHeadcount - 1}, (_, index) => <label key={index}>同行者 {index + 1}<input maxLength={100} value={companionNames[index]} placeholder="姓名（選填）" onChange={event => setCompanionNames(names => names.map((name, i) => i === index ? event.target.value : name))} /></label>)}
                     </details>}
                   </fieldset> : <p>上課人：本人</p> : (
-                  <fieldset disabled={confirm || pending}>
+                  <fieldset disabled={pending}>
                     <legend>實際上課人</legend>
                     {sharedCardState === "LOCKED" && p.companionBookingEnabled && <p>同行預約功能未開通，可選既有授權成員。</p>}
                     {card.members.map((m) => (
@@ -1526,9 +1523,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     ))}
                   </fieldset>
                   )}
-                  <p>
-                    共 {participantCount} 人，暫占 {amount(session, card) * participantCount} {unit(card.unit)}額度
-                  </p>
+                  <ul aria-label="本次預約摘要">
+                    <li>方案：{card.name}</li>
+                    <li>上課人：{companionMode ? [p.customerName, ...companionNames.slice(0, companionHeadcount - 1).map((name, index) => name.trim() || `同行者 ${index + 1}`)].join("、") : card.members.filter(member => authorizedLearners.includes(member.id)).map(member => member.name).join("、") || "請選擇上課人"}</li>
+                    <li>人數：{participantCount} 人</li>
+                    <li>本次保留：{amount(session, card) * participantCount} {unit(card.unit)}</li>
+                    <li>方案到期日：{courseDate(card.expiresAt)}</li>
+                  </ul>
                   {card.available <
                     amount(session, card) * Math.max(participantCount, 1) && (
                     <p className="cp-error">可用額度不足</p>
@@ -1544,7 +1545,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             <textarea
               maxLength={1000}
               value={notes}
-              disabled={confirm || pending}
+              disabled={pending}
               onChange={(e) => setNotes(e.target.value)}
             />
           </label></details>}
