@@ -10,6 +10,6 @@ describe("public shared-card member privacy", () => {
   });
   it("applies the allowlist at the server-to-client portal boundary", () => {
     const source = readFileSync("src/app/(customer)/book/course-portal.tsx", "utf8");
-    expect(source).toContain("cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members) }))");
+    expect(source).toMatch(/cards: cards\.map\(card => \(\{[\s\S]*?members: courseCardPublicMembers\(card\.members\)/);
   });
 });
