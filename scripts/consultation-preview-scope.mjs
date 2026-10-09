@@ -59,6 +59,7 @@ export const CONSULTATION_PREVIEW_BRANCH = "feat/hq-consultation-intake-20261008
 export const HQ_INTAKE_LIST_PREVIEW_BRANCH = "feat/hq-intake-list-live-filter-20261008";
 export const HQ_LEGACY_IMPORT_PREVIEW_BRANCH = "feat/hq-legacy-consultation-import-20261009";
 export const SPORTS_ROSTER_PREVIEW_BRANCH = "fix/course-roster-two-line-20261008";
+export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
 
 /** Read existing isolated intake rows; no synthetic intake or migrations.
  * @param {Readonly<Record<string, string | undefined>>} env
@@ -110,6 +111,21 @@ export function assertSportsRosterPreviewEnvironment(env) {
   }
 }
 
+/** Four-module UI review reuses the same isolated data and blocks migrations.
+ * @param {Readonly<Record<string, string | undefined>>} env
+ */
+export function assertModuleRosterPreviewEnvironment(env) {
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== MODULE_ROSTER_PREVIEW_BRANCH ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
+    throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
+  }
+  if (![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
+    throw new Error("Module roster Preview requires the existing isolated database for both connections.");
+  }
+}
+
 /**
  * Existing unit tests mock the migration runner and business clients. This
  * narrowly scoped exception is never available on a deployed Vercel runtime.
@@ -149,7 +165,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview"}
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
@@ -158,6 +174,10 @@ export function assertReviewedReleaseEnvironment(env) {
       throw new Error("Consultation Preview intake flag must be disabled on production main.");
     }
     return "production";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === MODULE_ROSTER_PREVIEW_BRANCH) {
+    assertModuleRosterPreviewEnvironment(env);
+    return "module-roster-preview";
   }
   if (env.VERCEL_GIT_COMMIT_REF === HQ_INTAKE_LIST_PREVIEW_BRANCH) {
     assertHqIntakeListPreviewEnvironment(env);

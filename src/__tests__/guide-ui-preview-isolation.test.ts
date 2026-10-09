@@ -15,6 +15,11 @@ vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor() { spies.p
 vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor() { spies.spa(); } } }));
 vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor() { spies.course(); } } }));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: (client: unknown) => client }));
+// This test proves real outbound boundaries, not Next request-cache internals.
+// A reused Vitest worker may have initialized Next's external CJS cache module
+// before the per-file AsyncLocalStorage bootstrap; keep that unrelated cache
+// wrapper deterministic while preserving all actual sender implementations.
+vi.mock("next/cache", () => ({ unstable_cache: (fn: (...args: unknown[]) => unknown) => fn, revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: spies.send }; } }));
 import { config, proxy } from "@/proxy";
@@ -47,7 +52,7 @@ function route(path: string, method = "GET") {
   return (proxy as unknown as (req: NextRequest) => Response)(req);
 }
 beforeEach(() => { vi.clearAllMocks(); });
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); Object.assign(normalGlobals, priorCache); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); Object.assign(normalGlobals, priorCache); });
 
 describe("exact guide UI preview scope", () => {
   it("accepts only the complete approved tuple and preserves ordinary environments", () => {
@@ -138,6 +143,10 @@ describe.each(previewModes)("$name database and outbound isolation", ({ enable: 
     expect(normalGlobals.prisma).toBe(cached);
   });
   it("blocks actual LINE, Messenger, email and HealthFlow sender calls before network", async () => {
+    // Next's testing helpers patch console.info to exit request AsyncLocalStorage.
+    // If next/server was loaded by an earlier test, that CJS storage can predate
+    // our bootstrap. Capture the log boundary without replacing any real sender.
+    const infoMock = vi.spyOn(console, "info").mockImplementation(() => {});
     const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
     vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN", "synthetic-only-token");
     vi.stubEnv("RESEND_API_KEY", "synthetic-only-key");
@@ -149,6 +158,7 @@ describe.each(previewModes)("$name database and outbound isolation", ({ enable: 
     await expect(sendMessengerMessages({ pageId: "synthetic", pageAccessToken: "synthetic", recipientId: "synthetic", messages: [{ text: "test" }] })).resolves.toMatchObject({ success: false });
     await sendPasswordResetEmail("test@example.invalid", "synthetic", "QA");
     await expect(lookupHealthProfile(undefined, "0000000000")).rejects.toThrow("Preview HealthFlow lookup is blocked");
+    expect(infoMock).toHaveBeenCalledExactlyOnceWith("[Email] Preview outbound delivery blocked");
     expect(fetchMock).not.toHaveBeenCalled(); expect(spies.send).not.toHaveBeenCalled();
   });
   it("keeps automatic deployment disabled and removes auth polling only in this mode", () => {

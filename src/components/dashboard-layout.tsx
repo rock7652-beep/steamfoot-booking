@@ -1,3 +1,5 @@
+import { RosterPreviewDiagnosticsProvider } from "@/components/admin/roster-preview-diagnostics";
+import { allowModuleRosterPreviewDiagnostics } from "@/lib/module-roster-preview-diagnostics";
 import { coreFeatureForDashboardPath } from "@/lib/core-feature-permissions";
 import { Suspense } from "react";
 import { ReturnToHqButton } from "@/components/return-to-hq-button";
@@ -271,7 +273,7 @@ export default async function DashboardLayout({
     >
       <PreviewNavigationReporter />
       <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
-      {children}</CustomerLabelsProvider>
+      <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
     </OperationAuditAccessProvider>
     </FeaturePresentationProvider>

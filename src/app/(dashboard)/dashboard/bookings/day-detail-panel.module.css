@@ -1,3 +1,5 @@
+.rosterContainer { container: booking-roster / inline-size; }
+.rosterRow { min-height: 56px; padding-block: 5px; }
 .rowBody {
   display: grid;
   min-width: 0;
@@ -8,13 +10,13 @@
 .timeCell { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; grid-row: 1 / 3; align-self: start; padding-top: 0.5rem; }
 .identityCell { min-width: 0; grid-column: 2 / 4; }
 .statusCell { grid-column: 2; min-width: 0; }
-.noteCell { grid-column: 3; min-width: 0; grid-row: 2; }
+.noteCell { grid-column: 2 / 4; min-width: 0; grid-row: 3; }
 .staffCell { display: none; min-width: 0; }
 .inlineStaff { display: inline; }
 .planCell { flex-basis: 100%; min-width: 0; }
 .columnHeader { display: none; }
-@media (min-width: 1000px) {
-  .rowBody { grid-template-columns: 70px minmax(0, 1.7fr) 104px minmax(0, 1.2fr) minmax(0, 1.5fr); }
+@container booking-roster (min-width: 1000px) {
+  .rowBody { grid-template-columns: 70px minmax(300px, 1.5fr) 88px minmax(110px, 0.8fr) minmax(250px, 1.4fr); }
   .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
   .identityCell { grid-column: 2; }
   .staffCell { display: block; grid-column: 3; grid-row: 1; overflow-wrap: anywhere; padding-inline-end: 0.5rem; }
@@ -38,7 +40,7 @@
 }
 .identityCell .identityLayout > a { justify-self: start; padding-inline: 0; }
 .statusCell { align-content: center; }
-@media (max-width: 639px) {
+@container booking-roster (max-width: 639px) {
   .rosterRow { position: relative; align-items: start; gap: 0.25rem; padding: 0.25rem 0.5rem; }
   .rosterRow > :first-child, .rosterRow > :last-child { align-self: start; }
   .rowBody { grid-template-columns: 52px minmax(0, 1fr); gap: 0 0.25rem; }
@@ -51,4 +53,10 @@
   .statusCell { gap: 0.125rem 0.5rem; }
   .planCell { flex-basis: auto; width: auto; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
   .planCell > span { width: auto; }
+}
+
+@container booking-roster (min-width: 640px) and (max-width: 999px) {
+  .statusCell { grid-column: 2 / 4; }
+  .timeCell { grid-row: 1 / 4; }
+  .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr) 148px; }
 }

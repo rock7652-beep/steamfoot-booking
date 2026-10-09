@@ -29,7 +29,7 @@ describe("booking refresh read boundary", () => {
   it("requires booking.read before querying customer data", async () => {
     m.permission.mockRejectedValue(new Error("denied"));
     await expect(refreshBookingManagement(input)).rejects.toThrow("denied");
-    expect(m.permission).toHaveBeenCalledWith("booking.read");
+    expect(m.permission).toHaveBeenCalledWith("booking.read", undefined, { storeId: "store-a" });
     expect(m.bookings).not.toHaveBeenCalled();
   });
   it("rejects an unauthorized explicit store", async () => {
@@ -55,12 +55,13 @@ describe("booking refresh read boundary", () => {
     expect(result.monthData).toEqual(await m.bookings.mock.results[0].value);
     expect(m.bookings).toHaveBeenCalledWith(2026, 9, "store-a");
   });
-  it("never attaches slots from another active store to a deep-linked store", async () => {
+  it("reauthorizes the explicit roster store for slots instead of reading another active cookie store", async () => {
     m.active.mockResolvedValue("store-b");
     const result = await refreshBookingManagement(input);
     expect(m.bookings).toHaveBeenCalledWith(2026, 9, "store-a");
-    expect(m.slots).not.toHaveBeenCalled();
-    expect(result.slots).toBeNull();
+    expect(m.slots).toHaveBeenCalledExactlyOnceWith(input.date, "store-a");
+    expect(m.active).not.toHaveBeenCalled();
+    expect(result.slots).toEqual([]);
   });
   it("does not use the steamfoot refresh for a SPA store", async () => {
     m.module.mockResolvedValue("spa");
