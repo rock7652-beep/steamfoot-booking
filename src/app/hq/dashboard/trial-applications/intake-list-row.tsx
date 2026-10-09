@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { IntakeDisclosure } from "./intake-disclosure";
 import styles from "./intake-list.module.css";
 
 const columns = ["店家", "聯絡人", "需求", "跟進狀態", "下一步", "原提交時間"];
@@ -14,7 +15,7 @@ export function IntakeListRow({ store, contact, demand, status, next, submitted,
   open?: boolean; children: ReactNode;
 }) {
   const values = [store, contact, demand, status, next, submitted];
-  return <details name="hq-intake-record" className={styles.row} open={open || undefined}>
+  return <IntakeDisclosure name="hq-intake-record" className={styles.row} open={open || undefined}>
     <summary className={styles.summary}>
       {values.map((value, index) => <span key={columns[index]} className={index === 0 ? styles.store : index === 2 ? styles.demand : undefined}>
         {index === 0 && <span className={styles.compactMore} aria-hidden="true">詳情 <span className={styles.chevron}>›</span></span>}
@@ -22,6 +23,6 @@ export function IntakeListRow({ store, contact, demand, status, next, submitted,
       </span>)}
       <span className={styles.more}><span>詳情</span><span className={styles.chevron} aria-hidden="true">›</span></span>
     </summary>
-    <div className={`${styles.details} space-y-5`}>{children}</div>
-  </details>;
+    <div className={`${styles.details} space-y-3`}>{children}</div>
+  </IntakeDisclosure>;
 }

@@ -58,7 +58,8 @@
       "content/yoga-waitlist-management": false,
       "codex/course-student-self-booking-switch": false,
       "feat/hq-intake-list-live-filter-20261008": false,
-      "feat/hq-legacy-consultation-import-20261009": false
+      "feat/hq-legacy-consultation-import-20261009": false,
+      "fix/hq-intake-compact-details-20261009": false
     }
   }
 }

@@ -13,6 +13,18 @@ const lead = () => ({ id: "lead-id", requestId: "request-id", revision: 3, store
 const render = async (params: Record<string, string> = {}) => renderToStaticMarkup(await ConsultationLeadList(parseConsultationSearch(params)));
 beforeEach(() => { vi.resetAllMocks(); m.find.mockResolvedValue([lead()]); m.count.mockResolvedValue(21); });
 describe("consultation HQ lead details", () => {
+  it("shows answers once, hides missing details, and keeps identifiers in one secondary disclosure", async () => {
+    const item = lead();
+    m.find.mockResolvedValue([{ ...item, originalPayload: { ...item.originalPayload, courseFormat: " ", time: null, storeCount: 0, hasSystem: false } }]);
+    const html = await render();
+    expect(html.match(/原留聯絡人/g)).toHaveLength(1);
+    expect(html.match(/原始需求A/g)).toHaveLength(1);
+    expect(html).not.toContain("授課型態"); expect(html).not.toContain("可聯絡時間");
+    expect(html).not.toContain("尚未提供");
+    expect(html).toContain(">0</dd>"); expect(html).toContain(">否</dd>");
+    expect(html).toMatch(/<summary[^>]*>來源與編號<\/summary>[\s\S]*諮詢編號：lead-id/);
+    expect(html.indexOf("status-form")).toBeLessThan(html.indexOf("諮詢編號："));
+  });
   it("distinguishes legacy source time from import time and flags unverified numeric phones", async () => {
     const item = { ...lead(), phone: "900000001", sheetStatus: "LEGACY_IMPORTED",
       legacyImport: { phoneNeedsReview: true, importedAt: "2026-10-08T16:00:00.000Z" },
