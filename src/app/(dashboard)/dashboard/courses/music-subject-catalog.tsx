@@ -1,4 +1,5 @@
 "use client";
+import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
 
@@ -45,7 +46,7 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
 </div>
  <div className="overflow-x-auto rounded-xl border border-earth-200"><table className="w-full text-left text-sm"><thead className="bg-primary-50 text-primary-900"><tr>{["教學項目名稱","分類","狀態","操作"].map(t=><th key={t} className="px-4 py-3">{t}</th>)}</tr></thead><tbody>{activeRows.map(subjectRow)}{inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={4} className="px-4 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left text-sm font-medium text-earth-600 disabled:cursor-default" onClick={()=>setShowInactive(v=>!v)}><span>下架教學項目（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}{inactiveExpanded&&inactiveRows.map(subjectRow)}</tbody></table>{!rows.length&&<p className="p-6 text-center text-earth-500">尚無符合的教學項目</p>}</div>
  <RightSheet open={editing!==undefined} onClose={close} presentation="centered" width={560} fitContent labelledById="music-subject-title">
- <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯教學項目":"新增教學項目"}</h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
+ <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯教學項目":"新增教學項目"}<CourseSetupStepBadge step="course" /></h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
  {editing!==undefined&&<form id="music-subject-form" onChange={()=>setDirty(true)} className="min-h-0 overflow-y-auto overscroll-contain p-4" onSubmit={e => {
    e.preventDefault();
    if(pending)return;

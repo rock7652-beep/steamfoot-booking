@@ -1,4 +1,5 @@
 "use client";
+import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import { DashboardLink } from "@/components/dashboard-link";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { courseDisplayText } from "@/lib/course-display-text";
@@ -402,6 +403,7 @@ export function CourseMemberWorkspace({
                     : panel === "coach"
                       ? courseDisplayText("加入為教練", music)
                       : sharingVisible ? "方案與共卡" : "方案詳情"}
+              {panel === "plan" && <CourseSetupStepBadge step="plan" />}
             </h2>
             <div className="flex shrink-0 items-center gap-2">
               {person && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} />}

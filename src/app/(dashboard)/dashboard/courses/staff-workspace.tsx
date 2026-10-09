@@ -1,4 +1,5 @@
 "use client";
+import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { createPortal } from "react-dom";
 import styles from "@/components/admin/management-layout.module.css";
@@ -318,6 +319,7 @@ export function CourseStaffWorkspace({
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-earth-200 bg-primary-50/60 px-4 py-2">
             <h2 id="course-staff-title" className="font-semibold">
               {person ? (readOnly ? (accountKind==="coach" ? (music?"查看教師":courseDisplayText("查看教練", music)):"查看人員"):(accountKind==="coach" ? (music?"編輯教師":courseDisplayText("編輯教練", music)):"編輯人員")) : (accountKind==="coach" ? (music?"新增教師":courseDisplayText("新增教練", music)):"新增人員")}
+              {accountKind === "coach" && <CourseSetupStepBadge step="coach" />}
             </h2>
             {person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" />}
             <button
