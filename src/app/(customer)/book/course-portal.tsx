@@ -362,6 +362,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       templateId: s.templateId,
       name: s.nameSnapshot,
       startsAt: s.startsAt.toISOString(),
+      coachId: s.coachId,
       coach: coachNames.get(s.coachId) ?? "教練待確認",
       room: s.room.name,
       cost: s.pointCost,

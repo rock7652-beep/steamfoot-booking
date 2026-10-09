@@ -229,6 +229,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     [now, setNow] = useState(p.serverNow),
     [courseFilter, setCourseFilter] = useState(""),
     [teacherFilter, setTeacherFilter] = useState(""),
+    [courseFilterLabel, setCourseFilterLabel] = useState(""),
+    [teacherFilterLabel, setTeacherFilterLabel] = useState(""),
     [history, setHistory] = useState(false),
     [bookingDetails, setBookingDetails] = useState<Record<string, boolean>>({}),
     [cardHistory, setCardHistory] = useState(false),
@@ -418,9 +420,16 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     setPage(prev?.page ?? "account");
     requestAnimationFrame(() => window.scrollTo(0, prev?.y ?? 0));
   }
-  function month(next: string) {
+  function month(next: string, targetDate?: string) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(next)) return;
     const q = new URLSearchParams(params.toString());
     q.set("month", next);
+    if (!coach) {
+      const dates = courseMonthDays(next).dates;
+      const nextDate = targetDate && dates.includes(targetDate) ? targetDate : dates[Math.min(Number(selected.slice(-2)), dates.length) - 1];
+      setDate(nextDate);
+      q.set("date", nextDate);
+    }
     start(() => router.replace(`${pathname}?${q}`, { scroll: false }));
   }
   function run(
@@ -562,7 +571,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           onClick={() => {
             if (!leaveNote()) return;
             setDate(today);
-            if (!today.startsWith(p.month)) month(today.slice(0, 7));
+            if (!today.startsWith(p.month)) month(today.slice(0, 7), today);
           }}
         >
           今天
@@ -951,7 +960,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   <p>{coach ? p.nextWork?.room : p.nextBooking ? `${p.nextBooking.coach} · ${p.nextBooking.room}` : "選擇日期查看課程"}</p>
                   {!coach && p.nextBooking && <small>{nextParticipants.join("＋")} · 共 {nextParticipants.length} 位</small>}
                 </div>
-                <button
+                {p.nextBooking && <button
                   className="primary"
                   onClick={() => {
                     go(coach || !p.nextBooking ? "schedule" : "bookings");
@@ -959,13 +968,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     if (next) {
                       setDate(courseDate(next.startsAt));
                       if (!courseDate(next.startsAt).startsWith(p.month))
-                        month(courseDate(next.startsAt).slice(0, 7));
+                        month(courseDate(next.startsAt).slice(0, 7), courseDate(next.startsAt));
                       if (coach && p.nextWork) setRoster(p.nextWork.id);
                     }
                   }}
                 >
                   {!coach && !p.nextBooking ? selfBookingEnabled ? "預約課程" : "查看課表" : "查看"}
-                </button>
+                </button>}
               </section>}
               {coach ? (
                 <>
@@ -1001,13 +1010,15 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 </> : calendar}
                 {!coach && <section className="cp-card cp-pad" aria-label="課表篩選">
                   <p>篩選 {p.month} 課表；下方顯示所選日期的結果。</p>
-                  <label>課程<select value={courseFilter} onChange={event => setCourseFilter(event.target.value)}>
+                  <label>課程<select value={courseFilter} onChange={event => { setCourseFilter(event.target.value); setCourseFilterLabel(event.target.selectedOptions[0].text); }}>
                     <option value="">全部課程</option>
+                    {courseFilter && !p.sessions.some(s => s.templateId === courseFilter) && <option value={courseFilter}>{courseFilterLabel}（本月無課）</option>}
                     {Array.from(new Map(p.sessions.map(s => [s.templateId, s.name])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                   </select></label>
-                  <label>教師／教練<select value={teacherFilter} onChange={event => setTeacherFilter(event.target.value)}>
+                  <label>教師／教練<select value={teacherFilter} onChange={event => { setTeacherFilter(event.target.value); setTeacherFilterLabel(event.target.selectedOptions[0].text); }}>
                     <option value="">全部教師／教練</option>
-                    {Array.from(new Set(p.sessions.map(s => s.coach))).map(name => <option key={name} value={name}>{name}</option>)}
+                    {teacherFilter && !p.sessions.some(s => (s.coachId ?? s.coach) === teacherFilter) && <option value={teacherFilter}>{teacherFilterLabel}（本月無課）</option>}
+                    {Array.from(new Map(p.sessions.map(s => [s.coachId ?? s.coach, s.coach])).entries()).map(([id, name], index, options) => <option key={id} value={id}>{options.filter(([, label]) => label === name).length > 1 ? `${name}（同名教師 ${options.filter(([, label], i) => label === name && i <= index).length}）` : name}</option>)}
                   </select></label>
                   {(courseFilter || teacherFilter) && <button onClick={() => { setCourseFilter(""); setTeacherFilter(""); }}>清除篩選</button>}
                 </section>}
@@ -1024,7 +1035,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                       )
                     : lessonRows(
                         p.sessions.filter(
-                          (s) => courseDate(s.startsAt) === selected && (!courseFilter || s.templateId === courseFilter) && (!teacherFilter || s.coach === teacherFilter),
+                          (s) => courseDate(s.startsAt) === selected && (!courseFilter || s.templateId === courseFilter) && (!teacherFilter || (s.coachId ?? s.coach) === teacherFilter),
                         ),
                       )}
                 </section>

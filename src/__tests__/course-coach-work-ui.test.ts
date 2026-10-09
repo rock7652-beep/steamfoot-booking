@@ -274,6 +274,33 @@ describe("coach daily work interactions", () => {
 });
 
 describe("member plan and purchase navigation", () => {
+  it("shows only one booking action on an empty member homepage", async () => {
+    await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),nextBooking:null})));
+    expect(host.querySelector('.cp-next button')).toBeNull();
+    expect([...host.querySelectorAll('button')].filter(button=>button.textContent==='立即預約')).toHaveLength(1);
+  });
+  it("distinguishes same-name teachers and keeps date/filter when returning across months", async () => {
+    const data={...memberProps(),initialView:'schedule' as const,initialDate:'2026-09-21',sessions:[
+      {...memberProps().sessions[0],id:'one',coachId:'teacher-one',name:'課程一'},
+      {...memberProps().sessions[0],id:'two',coachId:'teacher-two',name:'課程二'},
+    ]};
+    await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    const select=host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1];
+    expect([...select.options].map(option=>option.text)).toEqual(['全部教師／教練','林教練（同名教師 1）','林教練（同名教師 2）']);
+    await act(async()=>{select.value='teacher-two';select.dispatchEvent(new Event('change',{bubbles:true}));});
+    expect(host.querySelector('.cp-daily')?.textContent).toContain('課程二');
+    expect(host.querySelector('.cp-daily')?.textContent).not.toContain('課程一');
+    await act(async()=>(host.querySelector('.cp-month button:last-child') as HTMLButtonElement).click());
+    expect(m.replace).toHaveBeenCalledWith('/s/a/book?month=2026-10&date=2026-10-21',{scroll:false});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,month:'2026-10',sessions:[]})));
+    expect(host.querySelector('.cp-daily')?.textContent).toContain('2026-10-21');
+    expect(host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1].value).toBe('teacher-two');
+    expect(host.textContent).toContain('本月無課');
+    await click('我的預約');await click('預約');
+    expect(host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1].value).toBe('teacher-two');
+    await click('清除篩選');
+    expect(host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1].value).toBe('');
+  });
   it("shows the simplified member home, merged participants, direct role buttons and line icons", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
