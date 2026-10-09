@@ -86,6 +86,13 @@ describe("exact HQ usage UI-only preview", () => {
     expect(await notifyTrialApplication("synthetic")).toBe("DISABLED");
     expect(fetchMock).not.toHaveBeenCalled(); expect(spies.send).not.toHaveBeenCalled();
   });
+  it.each(["GET", "HEAD", "POST"])("blocks production synthetic %s requests before authentication", method => {
+    vi.stubEnv("VERCEL_ENV", "production"); vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    vi.stubEnv("WORKERS_CI_BRANCH", ""); vi.stubEnv("CF_PAGES_BRANCH", "");
+    expect(route("/hq-usage-preview", method).status).toBe(404);
+    expect(route("/hq-usage-preview?frame=1", method).status).toBe(404);
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
   it("keeps production main on its existing release mode and hides the synthetic route", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
