@@ -9,6 +9,7 @@ import { resolveCustomerBookingWindow } from "@/lib/shop-config";
 import { courseAccount } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
+import { getCoursePlanHistory } from "@/server/queries/course-plan-history";
 import { CoursePortalClient } from "./course-portal-client";
 import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -93,6 +94,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await getCourseCards(storeId, customer.id)).filter(card => !musicStore || card.unit === "SESSION") : [];
+  const planHistory = await getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now);
   const sessionInclude = {
     room: { select: { name: true } },
     template: { select: { precautions: true, waitlistEnabled: true, waitlistLimit: true, waitlistStopMinutes: true } },
@@ -329,7 +331,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     sharedCardState,
     config,
     // Shared membership grants names and shared balance, never another member's contact/profile fields.
-    cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members) })),
+    cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members), history: planHistory.find(history => history.cardId === card.id) ?? { count: 0, lessons: [] } })),
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
     plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
     templates,

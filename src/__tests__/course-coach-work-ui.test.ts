@@ -316,7 +316,7 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
     expect(host.textContent).toContain("本人＋家人 · 共 2 位");
-    for (const label of ["立即預約","我的預約","查看各方案與期限","健康追蹤"]) expect(host.textContent).toContain(label);
+    for (const label of ["立即預約","我的預約","我的方案","健康追蹤"]) expect(host.textContent).toContain(label);
     expect(host.querySelector('[aria-label="身分"]')).toBeNull();
     expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
     expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(4);
@@ -426,17 +426,34 @@ describe("member plan and purchase navigation", () => {
     await click("收起已到期");
     expect(host.textContent).not.toContain("過期點數方案");
   });
+  it("lists actual lesson dates and times inside each plan, separately from ledger timestamps", async () => {
+    const data = memberProps();
+    data.cards = [{id:"card",name:"十點方案",unit:"POINT",available:8,remaining:8,held:0,expiresAt:"2026-10-20",expired:false,closed:false,members:[{id:"member",name:"本人"},{id:"family",name:"家人"}],templateIds:[],entries:[{id:"entry",kind:"DEBIT",points:2,createdAt:"2026-10-06T08:21:00Z"}],history:{count:2,lessons:[{id:"lesson",name:"基礎伸展",startsAt:"2026-09-18T04:00:00Z",customerName:"家人",status:"已出席",used:2},{id:"cancelled",name:"瑜珈",startsAt:"2026-09-17T02:00:00Z",customerName:"本人",status:"已取消",used:0}]}}] as unknown as CoursePortalData["cards"];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
+    const history = host.querySelector<HTMLElement>(".cp-plan-history summary")!;
+    await act(async()=>history.click());
+    const rows = [...host.querySelectorAll(".cp-history-list li")];
+    expect(rows[0].textContent).toContain("2026-09-18"); expect(rows[0].textContent).toContain("12:00");
+    expect(rows[0].textContent).toContain("基礎伸展"); expect(rows[0].textContent).toContain("已出席 · 家人"); expect(rows[0].textContent).toContain("扣 2 點");
+    expect(rows[1].textContent).toContain("未扣抵");
+    expect(host.querySelector(".cp-history-list")?.textContent).not.toContain("2026-10-06");
+    expect(host.querySelector(".cp-ledger-list")?.textContent).toContain("2026-10-06 16:21");
+    expect(host.querySelector("[role=dialog]")).toBeNull();
+  });
   it("shows pending orders first and exposes completed orders only in history", async () => {
     const order=(id:string,status:string)=>({id,name:id,status,price:500,listPrice:null,points:4,unit:"SESSION",termSizes:[],bonus:0,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
     await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialRole:"member",initialView:"plans",orders:[order("等待確認購買","PENDING"),order("先前核帳購買","CONFIRMED")] as unknown as CoursePortalData["orders"]})));
-    await click("購買方案"); await click("查看購買進度");
+    await click("購買方案");
+    await act(async()=>host.querySelector<HTMLElement>(".cp-purchase-history summary")!.click());
+    expect(host.querySelector(".cp-purchase-history")?.hasAttribute("open")).toBe(true);
+    expect(host.querySelector("[role=dialog]")).toBeNull();
     expect(host.textContent).toContain("等待確認購買");
     expect(host.textContent).not.toContain("先前核帳購買");
     await click("歷史紀錄");
     expect(host.textContent).toContain("先前核帳購買");
     expect(host.textContent).not.toContain("等待確認購買");
-    await click("我的方案");
-    expect(host.textContent).toContain("各方案期限與適用課程分開計算");
+    await act(async()=>host.querySelector<HTMLButtonElement>(".cp-nav button:last-child")!.click()); await click("我的方案");
+    expect(host.textContent).not.toContain("各方案期限與適用課程分開計算");
   });
 });
 
@@ -563,7 +580,7 @@ describe("simple companion booking", () => {
     const data=bookingProps();data.cards[0].members.push({id:"family",name:"已有授權成員"});data.cards[0].entries=[];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"home"})));
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
-    await click("共卡成員");
+    await click("我的方案");
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
     expect(host.textContent).toContain("我的方案");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.textContent).toContain("使用紀錄");
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());

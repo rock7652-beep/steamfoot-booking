@@ -892,8 +892,24 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
       !plan.templateIds.length ||
       plan.templateIds.includes(session.templateId),
   );
+  const storeInfo = (<>
+              <section className="cp-card cp-pad cp-store-info">
+                <p className="cp-store-address">{p.config?.address?.trim() || "地址尚未提供"}</p>
+                <div className="cp-store-actions">
+                  {p.config?.mapUrl && /^https:\/\//.test(p.config.mapUrl) && <a className="cp-btn" href={p.config.mapUrl} target="_blank" rel="noreferrer">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                    開啟地圖
+                  </a>}
+                  {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn primary" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 11.5a9 9 0 0 1-9 8.5H5l-3 2v-10A9 9 0 0 1 21 11.5Z"/><path d="M7 9h10M7 13h7"/></svg>
+                    LINE 聯絡
+                  </a>}
+                </div>
+              </section>
+              {p.referralShare && <details className="cp-card cp-pad"><summary>推薦給朋友</summary><div className="mt-3"><ShareReferral storeName={p.storeName} referralUrl={p.referralShare.referralUrl} shareTemplate={p.referralShare.shareTemplate} source="course-member" trackAction={trackCourseShare}/></div></details>}
+  </>);
   const purchaseHistory = (<>
-              <p>核帳完成後，額度會出現在「我的方案」。請勿為了查詢進度重複送出。</p>
+
               <div className="cp-actions"><button aria-pressed={!orderHistory} className={!orderHistory ? "primary" : ""} onClick={()=>{setOrderHistory(false);setLimit(20);}}>待核帳（{p.orders.filter(o=>o.status === "PENDING").length}）</button><button aria-pressed={orderHistory} className={orderHistory ? "primary" : ""} onClick={()=>{setOrderHistory(true);setLimit(20);}}>歷史紀錄</button></div>
               {p.orders.filter(o=>orderHistory ? o.status !== "PENDING" : o.status === "PENDING").slice(0, limit).map((o) => (
                 <article className="cp-card cp-pad" key={o.id}>
@@ -904,8 +920,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   </p>
                   <p>
                     {o.status === "CONFIRMED"
-                      ? "已核帳並啟用"
-                      : o.status === "VOIDED" ? "已作廢，額度已收回" : o.status === "REFUNDED" ? "已登錄退款，卡片已停用" : "待店家核帳，尚未取得額度"}
+                      ? "已啟用"
+                      : o.status === "VOIDED" ? "已作廢" : o.status === "REFUNDED" ? "已退款登記" : "待核帳"}
                   </p>
                   <p>{o.paymentMethod==="CASH"?"現金":o.paymentMethod==="BANK_TRANSFER"?"轉帳":o.paymentMethod==="DISCOUNT"?"全額折抵":o.paymentMethod==="OTHER"?"其他付款":"付款方式待核對"}{(o.transferLastFour||o.transferLastFive)&&` · 後四碼 ${o.transferLastFour||o.transferLastFive}`}</p>
                   <details><summary>繳費明細</summary><p>{o.termSizes.length?`${o.termSizes.length} 期 · 各期 ${o.termSizes.join("／")} 堂`:`${o.points} ${o.unit==="SESSION"?"堂":"點"}`}{o.bonus>0?`（含贈送 ${o.bonus} 堂）`:""}</p><p>原價 {o.listPrice===null?"待核對":`NT$ ${o.listPrice.toLocaleString()}`} · 優惠 {o.listPrice===null?"待核對":`NT$ ${(o.listPrice-o.price).toLocaleString()}`} · {o.status==="PENDING"?"應繳":"原登錄實收"} NT$ {o.price.toLocaleString()}</p>{o.confirmedAt&&<p>核帳日期：{formatTWDateTime(new Date(o.confirmedAt))}</p>}<p className="cp-meta">單號：{o.id}</p>{o.voidReason&&<p>作廢原因：{o.voidReason}</p>}</details>
@@ -975,7 +991,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                         ? `${formatTWDateTime(new Date(p.nextBooking.startsAt))} · ${p.nextBooking.name}`
                         : "尚無預約"}
                   </strong>
-                  <p>{coach ? p.nextWork?.room : p.nextBooking ? `${p.nextBooking.coach} · ${p.nextBooking.room}` : "選擇日期查看課程"}</p>
+                  <p>{coach ? p.nextWork?.room : p.nextBooking ? `${p.nextBooking.coach} · ${p.nextBooking.room}` : ""}</p>
                   {!coach && p.nextBooking && <small>{nextParticipants.join("＋")} · 共 {nextParticipants.length} 位</small>}
                 </div>
                 {p.nextBooking && <button
@@ -1005,9 +1021,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               ) : (
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
-                  <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>｜已預約 {total.held} {unit(total.unit)}<span>總剩餘 {total.remaining} {unit(total.unit)}</span></p>)}</div><button onClick={()=>go("plans")}>查看各方案與期限</button></section>
+                  <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>｜已預約 {total.held} {unit(total.unit)}</p>)}</div><button onClick={()=>go("plans")}>我的方案</button></section>
                   {p.healthEnabled && <section className="cp-card">
-                    {menu("健康追蹤", "health", "查看身體數據與趨勢")}
+                    {menu("健康追蹤", "health")}
                   </section>}
                 </>
               )}
@@ -1169,84 +1185,63 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             <>
               {heading("我的", p.customerName)}
               <section className="cp-card">
-                {menu("我的方案", "plans", "額度與到期日")}
-                {menu("購買方案", "shop")}
-                {sharingVisible && menu("共卡成員", "shared", sharingEnabled ? undefined : "功能未開通，既有授權仍可使用")}
+                {menu("我的方案", "plans")}
                 {p.healthEnabled && menu("健康追蹤", "health")}
               </section>
-              <h2>帳戶與店家</h2>
+
               <section className="cp-card">
                 <details className="cp-profile">
-                  <summary>個人資料</summary>
-                  <a className="cp-menu" href={`${p.prefix}/profile`}>個人資料與登入 ›</a>
+                  <summary>個人資料與登入</summary>
+                  <a className="cp-menu" href={`${p.prefix}/profile`}>修改資料 ›</a>
                   {p.emergencyContact && <CourseMemberContactForm initial={p.emergencyContact} readOnly={p.readOnly} />}
                 </details>
-                {menu("店家資訊", "store")}
+                <details className="cp-profile"><summary>店家資訊</summary>{storeInfo}</details>
               </section>
             </>
           )}
           {page === "plans" && (
             <>
               {heading("我的方案")}
-              <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計 · {balanceTotals.reduce((sum,total)=>sum+total.count,0)} 個</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>｜已預約 {total.held} {unit(total.unit)}<span>總剩餘 {total.remaining} {unit(total.unit)}</span></p>)}</div><p>{sharingVisible && "共卡為共同餘額；"}各方案期限與適用課程分開計算。</p></section>
+              <section className="cp-card cp-pad cp-plan-overview" aria-label="有效方案合計">
+                <div className="cp-line"><h2>我的方案</h2><button className="primary" onClick={() => go("shop")}>購買方案</button></div>
+                <div className="cp-balances">{!balanceTotals.length && <p>尚無有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>｜已預約 {total.held} {unit(total.unit)}</p>)}</div>
+                <details className="cp-purchase-history"><summary>購買紀錄{p.orders.some(o => o.status === "PENDING") ? ` · ${p.orders.filter(o => o.status === "PENDING").length} 筆待核帳` : ""}</summary>{purchaseHistory}</details>
+              </section>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
-              <a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a>
               {p.cards.filter(c=>cardHistory || (!c.expired && !c.closed)).map((c) => (
-                <article className="cp-card cp-pad" key={c.id}>
-                  <div className="cp-line">
-                    <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
-                    <strong>
-                      {c.available} {unit(c.unit)}可用
-                    </strong>
-                  </div>
-                  <ul>
-                    <li>到期日：{courseDate(c.expiresAt)}{c.expired ? " · 已到期" : ""}</li>
-                    <li>剩餘：{c.remaining} {unit(c.unit)}</li>
-                    <li>預約保留：{c.held} {unit(c.unit)}</li>
-                    <li>適用課程：
-                      {c.templateIds.length
-                        ? p.templates
-                            .filter((t) => c.templateIds.includes(t.id))
-                            .map((t) => t.name)
-                            .join("、")
-                        : "本店所有課程"}
-                    </li>
-                  </ul>
-                    {c.members.length > 1 && <><p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p><p>以上成員共用此方案餘額；代約僅代表協助預約，不會新增授權。</p></>}
-                  <details>
-                    <summary>使用紀錄（最近 100 筆）</summary>
-                    {c.entries.map((e) => (
-                      <p key={e.id}>
-                        {formatTWDateTime(new Date(e.createdAt))} ·{" "}
-                        {e.kind.startsWith("CORRECT")
-                          ? `點名更正：${statusName(e.kind.split(":")[1])} → ${statusName(e.kind.split(":")[2])}`
-                          : ({
-                              GRANT: "取得額度",
-    REFUND: "退款收回額度",
-    VOID: "誤建作廢收回額度",
-                              RESERVE: "預約保留",
-                              DEBIT: "出席使用",
-                              RELEASE: "釋放保留",
-                            }[e.kind.split(":")[0]] ?? "額度異動")}{" "}
-                        · {e.points}
-                        {unit(c.unit)}
-                      </p>
-                    ))}
+                <article className="cp-card cp-pad cp-plan" key={c.id}>
+                  <div className="cp-line"><h2>{c.name}</h2><strong>{c.available} {unit(c.unit)}可用</strong></div>
+                  <p className="cp-plan-expiry">{courseDate(c.expiresAt)} 到期{c.closed ? " · 已停用" : c.expired ? " · 已到期" : ""}</p>
+                  <p>剩餘 {c.remaining} {unit(c.unit)}｜已預約 {c.held} {unit(c.unit)}</p>
+                  <details className="cp-plan-history">
+                    <summary>使用紀錄{c.history?.count ? ` · ${c.history.count} 筆` : ""}</summary>
+                    <ul className="cp-history-list" aria-label={`${c.name}上課紀錄`}>
+                      {(c.history?.lessons ?? []).map(lesson => <li key={lesson.id}>
+                        <div className="cp-history-date"><time dateTime={lesson.startsAt}>{courseDate(lesson.startsAt)}</time><strong>{time(lesson.startsAt)}</strong></div>
+                        <div className="cp-history-course"><strong>{lesson.name}</strong><span>{lesson.status}{c.members.length > 1 ? ` · ${lesson.customerName}` : ""}</span></div>
+                        <strong className="cp-history-usage">{lesson.used ? `扣 ${lesson.used} ${unit(c.unit)}` : "未扣抵"}</strong>
+                      </li>)}
+                    </ul>
+                    {!c.history?.lessons.length && <p>尚無上課紀錄</p>}
+                    {(c.history?.count ?? 0) > 100 && <p>顯示最近 100 筆</p>}
+                    <details className="cp-ledger"><summary>額度異動</summary><ul className="cp-ledger-list">
+                      {c.entries.map(e => <li key={e.id}><time dateTime={e.createdAt}>{formatTWDateTime(new Date(e.createdAt))}</time><span>{e.kind.startsWith("CORRECT") ? `點名更正：${statusName(e.kind.split(":")[1])} → ${statusName(e.kind.split(":")[2])}` : ({GRANT:"取得額度",REFUND:"退款收回",VOID:"作廢收回",RESERVE:"預約保留",DEBIT:"扣抵",RELEASE:"取消保留"}[e.kind.split(":")[0]] ?? "額度異動")}</span><strong>{e.points} {unit(c.unit)}</strong></li>)}
+                    </ul>{!c.entries.length && <p>尚無額度異動</p>}</details>
+                  </details>
+                  <details className="cp-plan-content"><summary>方案內容{c.members.length > 1 ? "與共卡成員" : ""}</summary>
+                    <p>適用：{c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
+                    {c.members.length > 1 && <p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p>}
                   </details>
                 </article>
               ))}
-              {!p.cards.some(c=>cardHistory || (!c.expired && !c.closed)) && <p>目前沒有有效方案，可查看歷史或購買新方案。</p>}
-              <details className="cp-card cp-pad cp-purchase-history"><summary>購買紀錄{p.orders.some(o => o.status === "PENDING") ? ` · ${p.orders.filter(o => o.status === "PENDING").length} 筆待核帳` : ""}</summary>{purchaseHistory}</details>
-              <button className="primary" onClick={() => go("shop")}>
-                購買方案
-              </button>
+              {!p.cards.some(c=>cardHistory || (!c.expired && !c.closed)) && <p>尚無有效方案</p>}
+              <details className="cp-card cp-pad cp-profile"><summary>提醒設定</summary><a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a></details>
             </>
           )}
           {page === "shop" && (
             <>
               {heading("購買方案")}
-              <p>選擇方案 → 依銀行資訊匯款 → 填寫轉出帳號後四碼 → 等待店家核帳啟用。</p>
-              <button onClick={()=>go("orders")}>查看購買進度{p.orders.some(o=>o.status === "PENDING") ? `（${p.orders.filter(o=>o.status === "PENDING").length} 筆待核帳）` : ""}</button>
+              <details className="cp-card cp-pad cp-purchase-history"><summary>查看購買進度{p.orders.some(o=>o.status === "PENDING") ? ` · ${p.orders.filter(o=>o.status === "PENDING").length} 筆待核帳` : ""}</summary>{purchaseHistory}</details>
               {shop.map((plan) => (
                 <article className="cp-card cp-pad" key={plan.id}>
                   <h2>{plan.name}</h2>
@@ -1254,7 +1249,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     {plan.points} {unit(plan.unit)} · NT${" "}
                     {plan.price.toLocaleString()}
                   </p>
-                  <p>核帳啟用後 {plan.validDays} 天有效</p>
+                  <p>{plan.validDays} 天有效 · 核帳後啟用</p>
                   <p>
                     適用：
                     {plan.templateIds.length
@@ -1313,21 +1308,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           {page === "store" && (
             <>
               {heading(p.storeName)}
-              <section className="cp-card cp-pad cp-store-info">
-                <p className="cp-store-address">{p.config?.address?.trim() || "地址尚未提供"}</p>
-                <div className="cp-store-actions">
-                  {p.config?.mapUrl && /^https:\/\//.test(p.config.mapUrl) && <a className="cp-btn" href={p.config.mapUrl} target="_blank" rel="noreferrer">
-                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                    開啟地圖
-                  </a>}
-                  {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn primary" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">
-                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 11.5a9 9 0 0 1-9 8.5H5l-3 2v-10A9 9 0 0 1 21 11.5Z"/><path d="M7 9h10M7 13h7"/></svg>
-                    LINE 聯絡
-                  </a>}
-                </div>
-                <p className="cp-store-hint">請依預約時間到店。</p>
-              </section>
-              {p.referralShare && <details className="cp-card cp-pad"><summary>推薦給朋友</summary><div className="mt-3"><ShareReferral storeName={p.storeName} referralUrl={p.referralShare.referralUrl} shareTemplate={p.referralShare.shareTemplate} source="course-member" trackAction={trackCourseShare}/></div></details>}
+              {storeInfo}
             </>
           )}
           {page === "records" && (
@@ -1493,7 +1474,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     {companionHeadcount > 1 && <details><summary>同行姓名（選填）</summary>
                       {Array.from({length: companionHeadcount - 1}, (_, index) => <label key={index}>同行者 {index + 1}<input maxLength={100} value={companionNames[index]} placeholder="姓名（選填）" onChange={event => setCompanionNames(names => names.map((name, i) => i === index ? event.target.value : name))} /></label>)}
                     </details>}
-                  </fieldset> : <p>上課人：本人</p> : (
+                  </fieldset> : <p>上課人：{p.customerName}（本人）</p> : (
                   <fieldset disabled={pending}>
                     <legend>實際上課人</legend>
                     {sharedCardState === "LOCKED" && p.companionBookingEnabled && <p>同行預約功能未開通，可選既有授權成員。</p>}
@@ -1517,11 +1498,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   </fieldset>
                   )}
                   <ul aria-label="本次預約摘要">
-                    <li>方案：{card.name}</li>
-                    <li>上課人：{companionMode ? [p.customerName, ...companionNames.slice(0, companionHeadcount - 1).map((name, index) => name.trim() || `同行者 ${index + 1}`)].join("、") : card.members.filter(member => authorizedLearners.includes(member.id)).map(member => member.name).join("、") || "請選擇上課人"}</li>
                     <li>人數：{participantCount} 人</li>
                     <li>本次保留：{participantCount} 人 × {amount(session, card)} {unit(card.unit)}＝{amount(session, card) * participantCount} {unit(card.unit)}</li>
-                    <li>方案到期日：{courseDate(card.expiresAt)}</li>
                   </ul>
                   {card.available <
                     amount(session, card) * Math.max(participantCount, 1) && (
