@@ -83,7 +83,9 @@ export function SpaScheduleWorkspace(props: Props) {
     const saved = savedNotes[booking.id];
     // A stale server render cannot undo a completed save. A newer revision
     // remains authoritative, including subsequent edits in the detail panel.
-    return saved?.scope === noteScope && saved.updatedAt >= booking.updatedAt
+    // Equal millisecond revisions mean the server has caught up. Prefer its
+    // complete row, including a later note written within that same millisecond.
+    return saved?.scope === noteScope && saved.updatedAt > booking.updatedAt
       ? {
           ...booking, notes: saved.notes,
           // Do not bless stale service/status fields with the note revision.

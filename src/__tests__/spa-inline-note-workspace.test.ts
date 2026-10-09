@@ -60,3 +60,15 @@ it("patches notes without making stale service fields eligible for a full-detail
     expect(m.props!.bookings[0]).toMatchObject({ serviceName: "剛修改的服務", notes: "新備註", updatedAt: savedAt });
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
+
+it("prefers authoritative server notes when a later detail edit shares the inline millisecond revision", async () => {
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(createElement(SpaScheduleWorkspace, input)));
+    await act(async () => m.props!.onNotesSaved("booking", "inline note", savedAt, booking.updatedAt));
+    expect(m.props!.bookings[0].notes).toBe("inline note");
+    const authoritative = { ...booking, notes: "later detail note", serviceName: "updated service", updatedAt: savedAt };
+    await act(async () => root.render(createElement(SpaScheduleWorkspace, { ...input, bookings: [authoritative] })));
+    expect(m.props!.bookings[0]).toEqual(authoritative);
+  } finally { await act(async () => root.unmount()); host.remove(); }
+});
