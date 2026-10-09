@@ -72,3 +72,14 @@ it("guards store changes before mutations and blocks them during submission",asy
  await act(async()=>root.render(createElement(Fixture,{pending:true})));
  confirm.mockClear();expect(requestCourseDraftLeave()).toBe(false);expect(confirm).not.toHaveBeenCalled();
 });
+
+it("announces recovered slots after repair and retains the scheduling draft",async()=>{
+ m.slots.mockResolvedValueOnce({success:true,data:[],blocker:{reason:"這天公休",fixTarget:"hours"},unavailable:[]})
+  .mockResolvedValue({success:true,data:[{time:"10:00",roomId:"room",coachIds:["teacher"]}],unavailable:[]});
+ await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+ expect(host.textContent).toContain("這天公休");
+ await click("已修正");
+ expect(host.textContent).toContain("已找到可排時段");expect(host.textContent).not.toContain("這天公休");
+ expect(host.querySelector<HTMLInputElement>('input[type="date"]')?.value).toBe(props.initialDate);
+ expect(m.create).not.toHaveBeenCalled();
+});

@@ -320,7 +320,7 @@ export function CourseMemberWorkspace({
       {notice && (
         <div role="status" className="mb-3 flex flex-wrap items-center gap-2 text-sm text-primary-700">
           <span>{notice}</span>
-          {music&&notice==="班型與學費已儲存"&&<DashboardLink href="/dashboard/teachers" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定教師授課資格 →</DashboardLink>}
+          {music&&!params.get("setupStep")&&notice==="班型與學費已儲存"&&<DashboardLink href="/dashboard/teachers" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定教師授課資格 →</DashboardLink>}
         </div>
       )}
 <div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${!music && view === "plans" && planArea === "catalog" ? "min-h-11" : ""}`}>

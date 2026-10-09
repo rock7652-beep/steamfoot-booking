@@ -38,13 +38,14 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const [repeat,setRepeat]=useState(false);
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
+  const [checkedAgain,setCheckedAgain]=useState(false);
   const [reload,setReload]=useState(0);
   const initialTemplate=templates.find(t=>t.id===(initialTemplateId??templates[0]?.id));
   const initialDuration=([30,60,90,120] as number[]).includes(initialTemplate?.durationMinutes??60)?initialTemplate?.durationMinutes??60:60;
   const dirty=!!time || date!==initialDate || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending);return()=>onGuard?.(false,false);},[dirty,pending,onGuard]);
-  function resetSlot(){setSlots(null);setBlocker(undefined);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}
+  function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}
   useEffect(()=>{
     if(!templateId || !date) return;
     let active=true;
@@ -55,7 +56,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     }).catch(()=>{if(active)setError("空位讀取失敗，請重新選擇日期");});
     return()=>{active=false;};
   },[date,templateId,duration,reload]);
-  function refresh(){resetSlot();setReload(value=>value+1);onRefresh?.();}
+  function refresh(){resetSlot();setCheckedAgain(true);setReload(value=>value+1);onRefresh?.();}
   const repairTargets=blocker ? [blocker.fixTarget].filter(Boolean) : [...new Set(unavailable.map(slot=>slot.fixTarget).filter(Boolean))];
   const noSlotReason=blocker?.reason??unavailable.find(slot=>slot.fixTarget!=="hours")?.reason??unavailable[0]?.reason;
   const repairLinks={hours:{href:"/dashboard/courses/hours",label:"設定營業時間與公休"},teacher:{href:"/dashboard/teachers",label:"設定教師授課資格與時間"},room:{href:"/dashboard/courses?view=rooms",label:"設定教室與容量"}};
@@ -97,6 +98,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     </label>
     <div aria-label="可排時段" className="space-y-2">
       <strong>可排時段</strong>
+      {checkedAgain&&!!slots?.length&&<p role="status" className="text-primary-800">已找到可排時段，請選擇上課時間。</p>}
       {!slots && !error && !!templateId && <p role="status" className="text-earth-600">正在核對老師、教室與營業時間…</p>}
       {(slots?.length===0 || !templateId) && <p className="rounded-xl bg-earth-50 px-3 py-4 text-earth-700">{!templateId?"尚未建立可排課的班型。":noSlotReason??"這天沒有合適空位，請換日期或時長。"}</p>}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">

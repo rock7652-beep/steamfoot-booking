@@ -53,7 +53,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const lastDate = projectedDates.reduce((a, b) => a > b ? a : b, data.date);
     const [rooms, staff, hours, specials, weekly, exceptions, dutyConfig, assignments, occupied] = await Promise.all([
       coursePrisma.courseRoom.findMany({ where: { storeId, isActive: true }, select: { id: true, capacity: true } }),
-      prisma.staff.findMany({ where: { storeId, status: "ACTIVE", courseCoachEnabled: true }, select: { id: true, courseQualificationsConfirmed: true, courseQualifiedTemplateIds: true } }),
+      prisma.staff.findMany({ where: { storeId, status: "ACTIVE", courseCoachEnabled: true }, select: { id: true, displayName:true, courseQualificationsConfirmed: true, courseQualifiedTemplateIds: true } }),
       prisma.$queryRaw<Hour[]>`SELECT * FROM "BusinessHours" WHERE "storeId"=${storeId}`,
       prisma.$queryRaw<Special[]>`SELECT * FROM "SpecialBusinessDay" WHERE "storeId"=${storeId}`,
       prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
@@ -160,7 +160,7 @@ export async function getMusicSlotMatches(input: unknown) {
       : store.status==="training" ? {reason:"這天店內訓練，未開放上課",fixTarget:"hours"}
       : !store.periods.length ? {reason:"這天尚未設定營業時間",fixTarget:"hours"}
       : !suitableRooms.length ? {reason:"沒有啟用且符合人數的教室",fixTarget:"room"}
-      : !qualified.length ? {reason:"教師尚未勾選此班型的授課資格",fixTarget:"teacher"}
+      : !qualified.length ? {reason:staff.length===1?`${staff[0].displayName}尚未確認「${template.name}」的授課資格`: `尚無教師具備「${template.name}」的授課資格`,fixTarget:"teacher"}
       : !store.periods.some(p=>minuteOfDay(p.closeTime)-minuteOfDay(p.openTime)>=data.durationMinutes) ? {reason:"營業時段不足以容納這堂課的時長",fixTarget:"hours"}
       : unavailable.find(slot=>periodContains(store.periods,slot.time,data.durationMinutes));
     return { success: true as const, data: slots, unavailable, blocker };

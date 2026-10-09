@@ -7,7 +7,7 @@ import {courseStatusImpact} from "@/server/actions/course-batch";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {useCourseStatusRows} from "@/components/admin/course-status-button";
 import { useState, useTransition } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveMusicSubject } from "@/server/actions/music-subject";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
@@ -20,7 +20,7 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  const [hideTestData,setHideTestData]=useState(false);
  const [showInactive,setShowInactive]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[dirty,setDirty]=useState(false);
- const router=useRouter(),pathname=usePathname();
+ const router=useRouter(),pathname=usePathname(),guided=!!useSearchParams().get("setupStep");
  const [search,setSearch]=useState(""),[category,setCategory]=useState(""),[status,setStatus]=useState("all");
  const [editing,setEditing]=useState<MusicSubjectView|null|undefined>(canCreate&&initialCreate?null:undefined),[error,setError]=useState("");
  const [pending,start]=useTransition();
@@ -34,7 +34,7 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  const inactiveForced=status==="inactive"||!!search||!!category;
  const inactiveExpanded=inactiveForced||showInactive;
  const subjectRow=(s:MusicSubjectView)=><tr {...order.rowProps(s.id)} key={s.id} className={`border-t border-earth-100 ${s.isActive?"":"bg-earth-50/80 text-earth-400"}`}><td className="px-4 py-2 font-medium">{canEdit&&order.handle(s.id,s.name)}{canEdit&&<input type="checkbox" className="mr-2" aria-label={`選取 ${s.name}`} disabled={busyIds.includes(s.id)} checked={selected.includes(s.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/>} {s.name}</td><td className="px-4 py-2">{s.category||<span className={s.isActive?"rounded bg-amber-50 px-2 py-1 text-amber-800":""}>未分類</span>}</td><td className="px-4 py-2"><span className={s.isActive?"text-emerald-700":"rounded bg-earth-200 px-2 py-1 text-earth-600"}>{s.isActive?"上架":"下架"}</span></td><td className="flex gap-2 px-4 py-2">{canEdit&&<button className={`${button} bg-white text-earth-700`} disabled={busyIds.includes(s.id)} onClick={()=>{setDirty(false);setError("");setEditing(s);}}>編輯</button>}<button className={`${button} bg-white text-earth-700`} onClick={()=>router.push(`${pathname}?view=plans&subjectId=${encodeURIComponent(s.id)}`)}>班型與學費</button></td></tr>;
- return <>{created&&<div role="status" className="flex flex-wrap items-center gap-2 text-sm text-primary-800"><span>教學項目已建立</span><DashboardLink href="/dashboard/courses?view=plans&action=create" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定班型與學費 →</DashboardLink></div>}<div className="flex flex-wrap items-center gap-2">
+ return <>{created&&<div role="status" className="flex flex-wrap items-center gap-2 text-sm text-primary-800"><span>教學項目已建立</span>{!guided&&<DashboardLink href="/dashboard/courses?view=plans&action=create&setupStep=plan" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定班型與學費 →</DashboardLink>}</div>}<div className="flex flex-wrap items-center gap-2">
  <input aria-label="搜尋教學項目" className={`${field} max-w-xs`} placeholder="搜尋教學項目名稱或分類" value={search} onChange={e=>{setSelected([]);setSearch(e.target.value);}}/>
  <select aria-label="分類篩選" className={button} value={category} onChange={e=>{setSelected([]);setCategory(e.target.value);}}><option value="">全部分類</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
  <select aria-label="狀態篩選" className={button} value={status} onChange={e=>{setSelected([]);setStatus(e.target.value);}}><option value="all">全部狀態</option><option value="active">上架</option><option value="inactive">下架</option></select>
