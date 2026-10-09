@@ -36,6 +36,14 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "hq-legacy-import-preview") {
+  console.info("[hq-legacy-import-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "hq-intake-list-preview") {
+  console.info("[hq-intake-list-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "course-self-booking-preview") {
   const { verifyCourseSelfBookingPreviewReadiness } = await import("./course-self-booking-preview-scope.mjs");
   await verifyCourseSelfBookingPreviewReadiness(process.env);

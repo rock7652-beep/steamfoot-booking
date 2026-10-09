@@ -42,18 +42,19 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-async function renderModule(module: Module, { empty = false, count = 0, long = false, readonly = false, enabled = true } = {}) {
+async function renderModule(module: Module, { empty = false, count = 0, long = false, readonly = false, enabled = true, musicGroup = false } = {}) {
   const notes = long ? longNote : "", serviceNote = long ? longUsual : "";
   const labels: LabelSnapshot = { storeId: "synthetic-store", available: true, enabled, canEdit: !readonly, canManage: false, categories: [{ id: "category", name: "合成偏好", number: 1, position: 0, active: true }], labels: Array.from({ length: count }, (_, i) => ({ id: `label-${i}`, name: `合成標籤${i}`, categoryId: "category", active: true })), assignments: { customer: Array.from({ length: count }, (_, i) => `label-${i}`) } };
   m.labels.mockResolvedValue(labels);
   const booking: DayBooking = { id: "synthetic-booking", slotTime: "11:00", people: 1, attendedPeople: null, isMakeup: false, isCheckedIn: false, bookingStatus: "PENDING", bookingType: "PACKAGE_SESSION", expectedAmount: null, trialDefaultPrice: null, collected: false, collectedAmount: null, customer: { id: "customer", name, phone: "", serviceNote, validPackageSessions: 8 }, revenueStaff: null, serviceStaff: null, servicePlan: { name: "合成方案" }, customerPlanWallet: null, notes };
   const roster = empty ? [] : [{ id: "synthetic-course", customerId: "customer", customerName: name, customerPhone: "", sharedCard: false, bookingSource: "合成來源", createdAt: "2026-09-01T02:00:00Z", status: "RESERVED", bookingKind: "CARD", checkedInAt: null, trialPayments: [], planName: "合成多期方案", termIndex: 4, termCount: 4, termLeaveCount: 1, termNoShowCount: 1, termLessons: [{ date: "2026-09-15T02:00:00Z", status: "請假" }, { date: "2026-09-22T02:00:00Z", status: "曠課" }], termPrivateLeaves: ["2026-09-08T02:00:00Z"], nextPaidLessons: 8, termPayment: { date: "2026-09-01T02:00:00Z", amount: 3200, method: "CASH" }, nextTerm: { payment: { date: "2026-09-29T02:00:00Z", amount: 6400, method: "BANK_TRANSFER" }, lessons: [{ date: "2026-10-06T02:00:00Z", status: "待上課" }] }, absenceCount: 2, absenceHistory: [], available: 8, unit: "SESSION", notes, serviceNote, pointCost: 1 }];
+  if (musicGroup) for (const booking of roster) booking.termPrivateLeaves = [];
   const session = { startsAt: "2026-09-29T02:00:00Z", pointCost: 1, teacherAttendance: "SCHEDULED", teacherNote: "" };
   m.load.mockResolvedValue({ success: true, data: { session, roster, cards: [], trial: null } });
   m.quick.mockResolvedValue({ success: true, data: { roster, teacherNote: "", teacherAttendance: "SCHEDULED", teacherAttendanceReason: "" } });
   const element = module === "steam" ? createElement(DayDetailPanel, { date: "2026-09-24", bookings: empty ? [] : [booking], slots: [], readOnly: readonly, onBookingClick: m.open })
     : module === "spa" ? createElement(SpaBookingRoster, { bookings: empty ? [] : [{ id: "synthetic-spa", customerId: "customer", serviceStaffId: "staff", serviceLocationId: "room", serviceName: "合成療程", startTime: "10:00", endTime: "11:00", status: "CONFIRMED", totalPrice: 1200, notes, treatmentIds: [], updatedAt: "2026-09-24T02:00:00Z", receipt: { id: "receipt", amount: 1200, paymentMethod: "CASH", paidAt: "2026-09-24T02:00:00Z", refunded: false } }], customers: [{ id: "customer", name, serviceNote }], staff: [{ id: "staff", name: "合成技師" }], locations: [{ id: "room", name: "合成房間" }], canUpdate: !readonly, onOpen: m.open })
-    : createElement(CourseRoster, { sessionId: "synthetic-session", capacity: 1, canCreate: false, canEdit: !readonly, musicLayout: module === "music", classType: "PRIVATE", teacherName: "合成老師" });
+    : createElement(CourseRoster, { sessionId: "synthetic-session", capacity: musicGroup ? 10 : 1, canCreate: false, canEdit: !readonly, musicLayout: module === "music", classType: musicGroup ? "GROUP" : "PRIVATE", teacherName: "合成老師" });
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial: labels, children: element })));
 }
 function overview() { return host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 標籤與備註"]`)!; }
@@ -143,4 +144,75 @@ it.each(["sports", "music"] as const)("%s traps the note editor keyboard focus a
   await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   expect(m.write).toHaveBeenCalledExactlyOnceWith({ sessionId: "synthetic-session", bookingId: "synthetic-course", note: "合成儲存內容\n第二行" });
   expect(document.querySelector("textarea")).toBeNull();
+});
+
+it.each(["pencil", "full-details"] as const)("music GROUP retains expanded history after reminder dismissal and %s editor cancellation", async entry => {
+  await renderModule("music", { count: 8, long: true, musicGroup: true });
+  const historyId = "lesson-history-synthetic-course";
+  const dates = host.querySelector<HTMLButtonElement>(`button[aria-controls="${historyId}"]`)!;
+  const noteTrigger = host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!;
+  const historyText = ["2026-09-15 請假", "2026-09-22 曠課", "3. 尚未排課", "4. 尚未排課", "本期付款：2026-09-01 · NT$ 3,200 · 現金", "下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳", "2026-10-06 待上課"];
+  function expectExpandedHistory() {
+    expect(dates.getAttribute("aria-expanded")).toBe("true");
+    const history = document.getElementById(historyId)!;
+    expect(history).not.toBeNull();
+    expect(host.contains(history)).toBe(true);
+    // Assert the expanded DOM branch, not text hidden in a closed details element.
+    // This establishes accessible DOM state; jsdom does not measure rendered visibility.
+    expect(history.closest('[hidden], [inert], [aria-hidden="true"], details:not([open])')).toBeNull();
+    for (const text of historyText) expect(history.textContent).toContain(text);
+    const row = dates.closest("li")!;
+    expect(row.textContent).toContain("本期第 4/4 堂");
+    expect(row.textContent).toContain("此方案請假 1・曠課 1");
+  }
+  expect(dates.getAttribute("aria-expanded")).toBe("false");
+  expect(document.getElementById(historyId)).toBeNull();
+  await act(async () => dates.click());
+  expectExpandedHistory();
+
+  for (const dismissal of ["Escape", "關閉"]) {
+    overview().focus();
+    await act(async () => overview().click());
+    const dialog = noteDialog();
+    expect(dialog.textContent).toContain(longNote);
+    expect(dialog.textContent).toContain(longUsual);
+    await act(async () => {
+      if (dismissal === "Escape") document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      else [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "關閉")!.click();
+    });
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(overview());
+    expectExpandedHistory();
+  }
+
+  if (entry === "pencil") {
+    noteTrigger.focus();
+    await act(async () => noteTrigger.click());
+  } else {
+    await act(async () => overview().click());
+    await act(async () => [...noteDialog().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "編輯本次備註")!.click());
+  }
+  const input = document.querySelector("textarea")!;
+  expect(input.value).toBe(longNote);
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "團課未儲存草稿\n不應覆蓋原備註"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+  expect(input.value).toBe("團課未儲存草稿\n不應覆蓋原備註");
+  await act(async () => [...input.closest("form")!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expectExpandedHistory();
+
+  noteTrigger.focus();
+  await act(async () => noteTrigger.click());
+  expect(document.querySelector("textarea")?.value).toBe(longNote);
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.activeElement).toBe(noteTrigger);
+  expectExpandedHistory();
+  await act(async () => dates.click());
+  expect(document.getElementById(historyId)).toBeNull();
+  await act(async () => dates.click());
+  expectExpandedHistory();
+  dates.focus(); expect(document.activeElement).toBe(dates);
+  expect(m.write).not.toHaveBeenCalled();
+  expect(m.refresh).not.toHaveBeenCalled();
+  expect(m.open).not.toHaveBeenCalled();
 });

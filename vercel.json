@@ -57,7 +57,9 @@
       "fix/course-roster-two-line-20261008": false,
       "content/yoga-waitlist-management": false,
       "codex/course-student-self-booking-switch": false,
-      "fix/unify-module-notes-density": false
+      "fix/unify-module-notes-density": false,
+      "feat/hq-intake-list-live-filter-20261008": false,
+      "feat/hq-legacy-consultation-import-20261009": false
     }
   }
 }

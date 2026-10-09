@@ -5,6 +5,7 @@ import { applicationStatuses } from "@/lib/trial-application";
 export const LEGACY_CONSULTATION_SHEET = "https://docs.google.com/spreadsheets/d/1VHUCglOH0jRpWbdVAnIw39UVe7ULbag33JHs1Bw7oG4/edit#gid=2026091501";
 export const CONSULTATION_PAGE_SIZE = 20;
 export const sheetStatusLabels: Record<string, string> = {
+  LEGACY_IMPORTED: "歷史 Sheet 已匯入（未重新通知）",
   NOT_SENT_PREVIEW: "測試未送：未傳 Sheet／未寄通知",
   PENDING: "Sheet 尚未確認收件",
   SENDING: "Sheet 傳送中／等待確認",

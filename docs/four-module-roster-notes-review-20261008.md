@@ -121,3 +121,23 @@ Git 自動部署仍 disabled；隔離 Preview 由明確 Git deployment 啟動，
 恢復條件是正常可用、經授權的 QA 瀏覽器會話；頁面讀取與互動可用後，沿同一隔離 Preview 執行以上矩陣。若登入已過期，依既有安全登入流程恢復。使用者截圖不是唯一驗收方式；正式合併仍須完整畫面證據與另外授權。
 
 本輪追加矩陣與既有回歸合跑：25 suites／299 tests passed；changed-source ESLint、diff --check 通過；合成 Vite bundle build 通過。新的 keyboard editor runtime 與新增測試待此 head 的遠端 CI／隔離 Preview，先前 0fb236ca READY 不能當作本輪 editor 修正的畫面驗收。
+
+## 2026-10-09：整合最新 main 與驗收進度
+
+- 已在獨立 worktree 整合 main `415254dfae458de888ed0608ae1facd064aab0f9`，保留 #1264 諮詢清單、#1265 HQ 提醒統計、#1267 正式站合成入口封鎖與 #1266 歷史諮詢。衝突只在 Preview 模式聯集／分派與 `vercel.json` 的 disabled branch 登記；逐支保留原本精確來源及隔離檢查，沒有擴大允許環境、資料庫、權限或 migration 路徑。
+- 四模組產品元件與已部署 `103fbf37999e688f25ee246315af00bdb69f481c` 相同。原 head 的遠端 Typecheck、changed-file ESLint、targeted 1,511 tests、full 8,253 tests 通過（129 skipped），但不是此次新 main 合併後的完整 CI 結論。
+- 整合後本機 35 suites／604 tests 通過，涵蓋 roster／scope、各 Preview 守門、#1267 零 DB 檢查、HQ、legacy 與音樂期数 query。再補音樂 GROUP／capacity 10 的兩項跨視窗回歸；矩陣 35/35 通過，合計不重複案例為 606。腳本與新增測試的 ESLint、語法／JSON、diff 檢查通過；本機未重跑曾資源不足的全量 TypeScript／Vitest。
+- 新音樂案例使用一名合成學員，確認展開的日期、兩期付款、請假／曠課與未來課程在全文關閉、直接筆記／全文轉編輯、取消草稿及 Escape 後仍保持已展開 DOM 狀態，且零寫入。沒有用假尺寸聲稱 responsive 或實際可見性。
+
+下列實際畫面結果均來自舊 `103fbf` 的隔離 Preview、既有原生 Staging Admin 與既有資料，沒有新增預約、改標籤、儲存備註或收付款：
+
+| 模組 | 實際驗證 | 未完成 |
+| --- | --- | --- |
+| 蒸足 | 1180×757；五筆當日名單跨多輪 60 秒自動刷新保留；全文備註 Escape／焦點返回；關閉名單回原月份／日期 | 其餘尺寸、原預約編輯器往返 |
+| SPA | 一般頁六筆名單、全文轉原編輯器、展開備註後關閉返回；內建 390×844、1024×768、768×1024、1440×900 實際 iframe 與截圖；全文 Escape 回原 trigger；無整頁橫向溢出；桌機列高 56px | 真正 Back/Forward、更多列的 sticky 捲動；標籤 entitlement 未開所以此情況僅合成測試 |
+| 運動 | 正確測試店、原生身份與十月課表可讀 | 十人名單開啟後工具 credential observation restriction；依工具支持一次完整 document 恢復後仍受限，已停止 |
+| 音樂 | 合成真元件 private／group 與既有期數 query 測試 | 個別與大團體名單的實際畫面、history 展開、responsive 與原生導覽 |
+
+SPA 四尺寸均量得 shared overview 14px／44px／兩個20px摘要行；768側欄自動收合。1440 header 的 computed position 為 sticky，但六列未超過容器，不能聲稱已驗捲動時黏住。內建尺寸預覽也不能代替實體 iPad Safari、觸控或虛擬鍵盤。
+
+運動／音樂剩餘最小驗收：既有十人／個別與大團體名單，在桌機、平板橫直向及窄容器檢查完整欄位、區塊捲動與長備註取回；全文、標籤選單及原編輯器取消／Escape／焦點返回；音樂各期日期與付款歷史展開後跨視窗保留；真正 Back/Forward／重進及刷新保留課程日期和篩選。允許的瀏覽器會話須先恢復正常觀察，不能用另一身份、路由或低階介面繞過工具限制。正式合併仍未授權，亦不以程式或 DOM 測試取代上述未驗畫面。

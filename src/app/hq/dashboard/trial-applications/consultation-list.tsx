@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { formatTWTime } from "@/lib/date-utils";
 import { CONSULTATION_LEAD_STATUSES, isConsultationNoContact } from "@/lib/consultation-lead";
 import { ConsultationLinkForm, ConsultationNoteForm, ConsultationStatusForm, CopyLineId } from "./consultation-forms";
+import { IntakeList, IntakeListRow } from "./intake-list-row";
+import { consultationNextStep, intakeTestMarker, requirementSummary } from "./intake-summary";
 import { CONSULTATION_PAGE_SIZE, consultationHref, fieldText, originalFields, sheetStatusLabels, suppliedLineHref, suppliedPhoneHref, suppliedWebHref, type ConsultationSearch } from "./consultation-view";
 
 /** Called only after the page's HQ authorization, preview and rollout checks. */
@@ -25,27 +27,30 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
     }),
     prisma.consultationLead.count({ where }),
   ]);
-  return <section aria-label="需求諮詢" className="space-y-4">
-    <p className="text-sm text-earth-600">第一階段：保留原始需求與聯絡偏好。HQ 收件與 Sheet 收件分別顯示，不代表已填正式開通資料。</p>
+  return <section aria-label="需求諮詢" className="space-y-3">
     <p className="text-sm">共 {total} 件 · 第 {page} 頁{(lead || search.application) && <> · <Link href={consultationHref({ stage: "consultations", q })} className="underline">返回諮詢清單</Link></>}</p>
-    {items.map(item => {
+    {items.length > 0 && <IntakeList>{items.map(item => {
       const original = originalFields(item.originalPayload);
+      const legacy = item.sheetStatus === "LEGACY_IMPORTED";
+      const provenance = originalFields("legacyImport" in item ? item.legacyImport : null);
+      const phoneNeedsReview = legacy && provenance.phoneNeedsReview === true;
+      const importedAt = legacy && typeof provenance.importedAt === "string" && Number.isFinite(Date.parse(provenance.importedAt))
+        ? formatTWTime(new Date(provenance.importedAt)) : "待查核";
       const noContact = isConsultationNoContact(original);
-      const phoneHref = noContact ? null : suppliedPhoneHref(item.phone);
+      const phoneHref = noContact || phoneNeedsReview ? null : suppliedPhoneHref(item.phone);
       const lineHref = noContact ? null : suppliedLineHref(item.lineId);
       const statusLabel = CONSULTATION_LEAD_STATUSES[item.status as keyof typeof CONSULTATION_LEAD_STATUSES] ?? item.status;
-      return <details key={item.id} open={lead === item.id || undefined} className="min-w-0 rounded-xl border bg-white p-4 [overflow-wrap:anywhere] sm:p-5">
-        <summary className="min-h-11 cursor-pointer leading-7">
-          <span className="font-semibold">{item.storeName}</span>
-          <span className="ml-3 text-sm text-amber-900">{statusLabel}</span>
-          <span className="ml-3 text-sm text-earth-600">{formatTWTime(item.createdAt)} · {item.industry}</span>
-          <span className="ml-3 text-sm text-primary-800">HQ 已收件</span>
-          <span className="ml-3 text-sm text-earth-600">{sheetStatusLabels[item.sheetStatus] ?? "Sheet 狀態待查核"}</span>
-          {noContact && <span className="ml-3 text-sm font-medium text-red-800">暫不考慮，請勿主動聯繫</span>}
-        </summary>
-        <div className="mt-4 space-y-5">
+      const test = intakeTestMarker(item.storeName, item.contactName, item.lineId);
+      return <IntakeListRow key={item.id} open={lead === item.id}
+        store={<>{item.storeName}<span className="block font-normal text-earth-600">{item.industry}</span>{test && <span className="block text-amber-900">測試紀錄 · 請勿聯繫</span>}</>}
+        contact={noContact ? "未提供（暫不考慮）" : <>{item.contactName || "尚未提供"}<span className="block text-earth-600">{item.phone || item.lineId || "未留聯絡方式"}</span>{phoneNeedsReview && <span className="block text-amber-900">電話格式待核對</span>}</>}
+        demand={<>{requirementSummary(original)}<span className="block text-earth-600">{fieldText(original.contactWay)}</span></>}
+        status={<span className={item.status === "CLOSED" ? "text-earth-600" : "text-primary-800"}>{statusLabel}</span>}
+        next={<span className={noContact || test ? "text-amber-900" : "text-earth-700"}>{test ? "保留查核，請勿聯繫" : consultationNextStep(item.status, noContact, Boolean(item.trialApplicationId))}</span>}
+        submitted={formatTWTime(item.createdAt)}>
           <p className="text-sm text-earth-600">諮詢編號：{item.id} · 修訂 {item.revision}<br />原始收件編號：{item.requestId}</p>
           {noContact && <p role="note" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">店家選擇「目前暫不考慮」。本筆不提供聯絡捷徑，請勿主動聯繫。</p>}
+          {phoneNeedsReview && <p role="note" className="text-sm text-amber-900">來源電話為數字格式，可能缺少開頭的 0；原值保留，請人工核對，暫不提供撥號捷徑。</p>}
           <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
             {Object.entries({
               店家類型: original.industry,
@@ -62,7 +67,7 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
               系統名稱: original.systemName,
             }).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-earth-600">{label}</dt><dd className="whitespace-pre-wrap break-words">{fieldText(value)}</dd></div>)}
           </dl>
-          {!noContact && <div className="flex flex-wrap items-center gap-3 text-sm" aria-label="原始聯絡方式">
+          {!noContact && !test && <div className="flex flex-wrap items-center gap-3 text-sm" aria-label="原始聯絡方式">
             {phoneHref && <a href={phoneHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-800">撥打原留電話</a>}
             {lineHref ? <a href={lineHref} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-800">開啟原留 LINE 連結 ↗</a> : item.lineId ? <CopyLineId value={item.lineId} /> : <span>尚未提供 LINE ID</span>}
           </div>}
@@ -80,7 +85,7 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
               })}
             </div>
           </section>
-          <p className="text-sm text-earth-600">HQ 收件：{formatTWTime(item.createdAt)}<br />Sheet：{sheetStatusLabels[item.sheetStatus] ?? "狀態待查核"}{item.sheetConfirmedAt ? ` · ${formatTWTime(item.sheetConfirmedAt)}` : ""}</p>
+          <p className="text-sm text-earth-600">{legacy ? <>原始填寫：{formatTWTime(item.createdAt)} · HQ 匯入：{importedAt}</> : <>HQ 已收件 · HQ 收件：{formatTWTime(item.createdAt)}</>}<br />Sheet：{sheetStatusLabels[item.sheetStatus] ?? "狀態待查核"}{item.sheetConfirmedAt ? ` · ${formatTWTime(item.sheetConfirmedAt)}` : ""}</p>
           <section className="space-y-3 border-t pt-4" aria-label="處理進度"><ConsultationStatusForm id={item.id} revision={item.revision} status={item.status} /></section>
           <section className="space-y-3 border-t pt-4" aria-label="聯繫紀錄">
             <h3 className="font-semibold">聯繫與處理紀錄</h3>
@@ -101,10 +106,13 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
             {item.trialApplication ? <div className="text-sm"><Link className="inline-flex min-h-11 items-center underline" href={consultationHref({ stage: "applications", application: item.trialApplication.id })}>查看已關聯資料：{item.trialApplication.storeName}</Link><p className="break-all">完整編號：{item.trialApplication.id}</p><p className="text-earth-600">{item.trialLinkedAt ? formatTWTime(item.trialLinkedAt) : ""} · 人工核對：{item.trialLinkedBy}</p></div> : <p className="text-sm text-earth-600">尚未人工關聯；這不代表店家尚未提交開通資料。</p>}
             <details><summary className="min-h-11 cursor-pointer content-center text-sm text-primary-800">{item.trialApplicationId ? "更改人工關聯" : "人工核對並關聯"}</summary><ConsultationLinkForm id={item.id} revision={item.revision} applicationId={item.trialApplicationId} /></details>
           </section>
-        </div>
-      </details>;
-    })}
-    {!items.length && <p className="rounded-xl border bg-white p-8 text-center text-earth-600">目前沒有符合的 HQ 諮詢。歷史資料請查閱上方原有 Sheet。</p>}
+      </IntakeListRow>;
+    })}</IntakeList>}
+    {!items.length && <div className="rounded-lg border bg-white px-4 py-6 text-sm">
+      <p className="font-medium">{q || status || lead || search.application || page > 1 ? "沒有符合條件的諮詢" : "HQ 尚無需求諮詢"}</p>
+      <p className="mt-1 text-earth-600">歷史資料請查閱上方原有 Sheet。</p>
+      {(q || status || lead || search.application || page > 1) && <Link className="inline-flex min-h-11 items-center text-primary-800 underline" href={consultationHref({ stage: "consultations" })}>清除條件，返回全部諮詢</Link>}
+    </div>}
     <nav aria-label="需求諮詢分頁" className="flex justify-between text-sm">
       {page > 1 ? <Link className="flex min-h-11 items-center underline" href={consultationHref({ ...search, page: page - 1 })}>上一頁</Link> : <span />}
       {page * CONSULTATION_PAGE_SIZE < total && <Link className="flex min-h-11 items-center underline" href={consultationHref({ ...search, page: page + 1 })}>下一頁</Link>}

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { payloadSchema } from "@/lib/consultation-lead";
 
 const { JSDOM } = createRequire(import.meta.url)("jsdom");
 const closes: (() => void)[] = [];
@@ -25,9 +26,34 @@ function setup(query = "") {
     field.value = value;
     field.dispatchEvent(new w.Event("change", { bubbles: true }));
   };
-  return { doc, fill, fetch };
+  return { doc, fill, fetch, w };
 }
 describe("store needs form interactions", () => {
+  it.each(["", "?intent=trial&utm_source=website"])("retains all public links in the actual submit payload at /apply%s", async (query) => {
+    const r = setup(query);
+    const links = {
+      websiteUrl: "https://example.com/studio?from=profile#about",
+      facebookUrl: "https://www.facebook.com/synthetic-studio",
+      instagramUrl: "https://www.instagram.com/synthetic-studio",
+    };
+    for (const [name, value] of Object.entries({
+      storeName: "TEST 勿聯絡", contactName: "測試", industry: "音樂／才藝／教育服務",
+      staffCount: "只有我", bookingMode: "不確定，希望協助判斷", lineId: "TEST-NOT-A-CONTACT",
+      contactWay: "先透過 LINE 了解", ...links,
+    })) r.fill(name, value);
+    r.w.dispatchEvent(new r.w.Event("resize"));
+    for (const [name, value] of Object.entries(links)) {
+      expect(r.doc.querySelector<HTMLInputElement>(`[name="${name}"]`)!.value).toBe(value);
+    }
+    r.doc.querySelector<HTMLInputElement>('[name="needs"]')!.click();
+    r.doc.querySelector<HTMLButtonElement>("#submitBtn")!.click();
+    r.doc.querySelector<HTMLButtonElement>("#submitBtn")!.click();
+    await vi.waitFor(() => expect(r.fetch).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(r.fetch.mock.calls[0][1].body);
+    expect(r.fetch.mock.calls[0][0]).toBe("/pricing/submit");
+    expect(payloadSchema.parse(sent)).toMatchObject({ ...links, pageUrl: "https://www.steamfoot.com/apply" + query });
+    await vi.waitFor(() => expect(r.doc.getElementById("successView")!.classList.contains("show")).toBe(true));
+  });
   it("keeps the needs form and next step editable for trial links", () => {
     const { doc, fill } = setup("?intent=trial&utm_source=website");
     expect(doc.getElementById("entryTitle")!.textContent).toBe("讓蒸管家先認識你的店");

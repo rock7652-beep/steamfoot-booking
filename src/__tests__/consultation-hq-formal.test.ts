@@ -13,7 +13,7 @@ beforeEach(() => { vi.resetAllMocks(); vi.stubEnv("CONSULTATION_HQ_ENABLED", "tr
 const render = async () => renderToStaticMarkup(await TrialApplicationsList(parseConsultationSearch({ application: "formal-id" })));
 describe("formal setup remains separate in the shared HQ entry", () => {
   it("retains direct detail links, validated contact controls and an exact linked-lead back-link", async () => {
-    const html = await render(); expect(html).toContain("<details open="); expect(html).toContain('href="tel:0912345678"'); expect(html).toContain('href="mailto:store%2Btag%40example.com"');
+    const html = await render(); expect(html).toMatch(/<details[^>]* open=/); expect(html).toContain('href="tel:0912345678"'); expect(html).toContain('href="mailto:store%2Btag%40example.com"');
     expect(html).toContain("stage=consultations&amp;application=formal-id"); expect(html).toContain("第二階段");
     expect(m.find.mock.calls[0][0]).toMatchObject({ where: { id: "formal-id" }, take: 20 });
   });
