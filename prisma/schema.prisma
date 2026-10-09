@@ -3212,7 +3212,8 @@ model ConsultationLead {
   instagramUrl       String?
   status             String   @default("NEW")
   revision           Int      @default(1)
-  sheetStatus        String   @default("PENDING") // PENDING / SENDING / CONFIRMED / UNKNOWN / NOT_SENT_PREVIEW
+  sheetStatus        String   @default("PENDING") // PENDING / SENDING / CONFIRMED / UNKNOWN / NOT_SENT_PREVIEW / LEGACY_IMPORTED
+  legacyImport       Json?    // Immutable historical source provenance; no outbound attempt
   sheetAttemptedAt   DateTime?
   sheetConfirmedAt   DateTime?
   trialApplicationId String?

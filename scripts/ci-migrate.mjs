@@ -36,6 +36,32 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "operation-guide-preview") {
+  console.info("[operation-guide-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "hq-legacy-import-preview") {
+  console.info("[hq-legacy-import-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "hq-intake-list-preview") {
+  console.info("[hq-intake-list-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "course-self-booking-preview") {
+  const { verifyCourseSelfBookingPreviewReadiness } = await import("./course-self-booking-preview-scope.mjs");
+  await verifyCourseSelfBookingPreviewReadiness(process.env);
+  process.exit(0); // Only the separately approved two-column DDL may run.
+}
+if (releaseMode === "module-roster-preview") {
+  console.info("[module-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "sports-roster-preview") {
+  // Visual checks reuse existing test records. No schema or fixture writes.
+  console.info("[sports-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "consultation-preview") {
   // Consultation uses only its separately approved two-table DDL. Never run
   // unrelated pending migrations for this isolated candidate.

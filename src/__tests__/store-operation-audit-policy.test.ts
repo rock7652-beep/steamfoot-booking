@@ -24,3 +24,21 @@ describe("positive store DTO policy", () => {
   });
   it("every listed action resolves to a store-safe item", () => { for (const [targetType, actions] of Object.entries(STORE_AUDIT_ACTIONS)) for (const action of actions) expect(toStoreAuditItem({ ...row, targetType, action })).not.toBeNull(); });
 });
+
+it.each([
+  ["STEAM", "Booking"], ["SPA", "SpaBooking"],
+  ["FITNESS", "CourseBooking"], ["MUSIC", "CourseBooking"],
+])("retains safe %s business events without exposing private payloads", (module, targetType) => {
+  const item = toStoreAuditItem({ ...row, module, targetType, action: "CREATE" });
+  expect(item).not.toBeNull();
+  expect(item?.module).toBe(module);
+  expect(JSON.stringify(item)).not.toMatch(/private|secret|192\.0|loginRecordId/);
+});
+
+it.each([
+  ["CourseWaitlist", "JOIN"], ["CourseSession", "ENROLL_SERIES"],
+  ["CourseTemplate", "DELETE"], ["CourseBookingRule", "UPDATE"], ["CourseWaitlistSetting", "UPDATE"],
+])("keeps currently unapproved %s/%s out of the store DTO", (targetType, action) => {
+  expect(toStoreAuditItem({ ...row, module: "MUSIC", targetType, action })).toBeNull();
+  expect(toStoreAuditItem({ ...row, module: "FITNESS", targetType, action })).toBeNull();
+});

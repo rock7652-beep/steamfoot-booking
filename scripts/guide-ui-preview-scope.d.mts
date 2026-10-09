@@ -4,3 +4,7 @@ export function isGuideUiPreview(env?: Record<string, string | undefined>): bool
 export function createGuideUiDisabledClient(): unknown;
 export const TRIAL_UI_PREVIEW_BRANCH: string;
 export function isTrialUiPreview(env?: Record<string, string | undefined>): boolean;
+export const HQ_USAGE_UI_PREVIEW_BRANCH: string;
+export function isHqUsageUiPreview(env?: Record<string, string | undefined>): boolean;
+export const SINGLE_PRICING_UI_PREVIEW_BRANCH: string;
+export function isSinglePricingUiPreview(env?: Record<string, string | undefined>): boolean;

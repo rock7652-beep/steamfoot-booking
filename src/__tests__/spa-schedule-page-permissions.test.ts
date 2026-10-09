@@ -1,13 +1,13 @@
 vi.mock("@/lib/dashboard-core-feature", () => ({ requireDashboardCoreFeature: async () => {} }));
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), context: vi.fn(), view: vi.fn() }));
+const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), context: vi.fn(), view: vi.fn(), customers: vi.fn() }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "spa-a" }));
 vi.mock("@/lib/store-context", () => ({ getStoreContext: m.context }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
 vi.mock("@/lib/industry-module-server", () => ({ requireSpaStore: async () => {} }));
-vi.mock("@/lib/db", () => ({ prisma: { staff: { findMany: async () => [] }, customer: { findMany: async () => [{id:"customer-a"}] } } }));
+vi.mock("@/lib/db", () => ({ prisma: { staff: { findMany: async () => [] }, customer: { findMany: m.customers } } }));
 vi.mock("@/lib/spa-db", () => ({ spaPrisma: { spaTreatment: { findMany: async () => [] }, spaServiceLocation: { findMany: async () => [] } } }));
 vi.mock("@/server/queries/spa-schedule", () => ({ getSpaScheduleForDay: async () => [] }));
 vi.mock("@/components/desktop", () => ({ PageShell: () => null }));
@@ -20,6 +20,7 @@ beforeEach(() => {
   m.permission.mockResolvedValue(true);
   m.context.mockResolvedValue(null);
   m.view.mockResolvedValue(null);
+  m.customers.mockResolvedValue([{id:"customer-a"}]);
 });
 async function props() {
   return (await Page({ searchParams: Promise.resolve({ date:"2026-10-07", customerId:"customer-a", new:"1" }) })).props.children.props;
@@ -50,4 +51,12 @@ it("blocks before store context lookup when booking read is denied", async () =>
   m.permission.mockResolvedValue(false);
   await expect(props()).rejects.toThrow("redirect");
   expect(m.context).not.toHaveBeenCalled();
+});
+
+it("loads store notes only with the existing customer.read permission", async () => {
+  await props();
+  expect(m.customers).toHaveBeenLastCalledWith(expect.objectContaining({where:{storeId:"spa-a"},select:expect.objectContaining({serviceNote:true})}));
+  m.permission.mockImplementation(async (_role, _staff, permission) => permission !== "customer.read");
+  await props();
+  expect(m.customers).toHaveBeenLastCalledWith(expect.objectContaining({select:expect.objectContaining({serviceNote:false})}));
 });

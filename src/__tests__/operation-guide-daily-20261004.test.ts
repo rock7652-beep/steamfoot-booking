@@ -30,7 +30,7 @@ describe("October 4 guide access and search", () => {
     expect(availableGuides({...access, permissions: ["booking.read"]}).some(g => ["I17", "I18"].includes(g.id))).toBe(false);
   });
   it("keeps source-added companion help conditional on the portal capability", () => {
-    expect(findCoursePortalGuides("member", true, "", true)).toHaveLength(13);
+    expect(findCoursePortalGuides("member", true, "", true)).toHaveLength(14);
     expect(findCoursePortalGuides("coach", true, "", true)).toHaveLength(8);
     expect(findCoursePortalGuides("coach", true, "已收款", true).map(g => g.id)).toContain("CP21");
     expect(findCoursePortalGuides("coach", true, "已收款", false).map(g => g.id)).not.toContain("CP21");

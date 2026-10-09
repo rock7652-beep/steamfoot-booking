@@ -24,6 +24,21 @@ import {
   resolveTrialDisplayAmount,
 } from "@/app/(dashboard)/dashboard/bookings/compute-amount";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
+import { resolveSingleBookingTotal } from "@/lib/single-booking-price";
+
+describe("單次多人總額", () => {
+  it.each([1, 2, 3, 4])("%i 人無方案無快照，也顯示正確合計", (people) => {
+    const booking = makeBooking({ bookingType: "SINGLE", people, expectedAmount: null, servicePlan: null });
+    expect(computeAmount(booking, null)).toBe(`NT$ ${(799 * people).toLocaleString()}`);
+  });
+  it("總額快照包含免費與優惠，不再乘算", () => {
+    expect(resolveSingleBookingTotal({ expectedAmount: 0, people: 4, unitPrice: 799 })).toBe(0);
+    expect(resolveSingleBookingTotal({ expectedAmount: 2800, people: 4, unitPrice: 799 })).toBe(2800);
+  });
+  it("自訂單價也乘上人數", () => {
+    expect(resolveSingleBookingTotal({ people: 4, unitPrice: 900 })).toBe(3600);
+  });
+});
 
 type Booking = BookingDrawerPayload["booking"];
 type Trial = BookingDrawerPayload["trial"];

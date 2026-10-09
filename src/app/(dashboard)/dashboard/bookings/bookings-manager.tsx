@@ -30,6 +30,7 @@ import {
 import {
   createBookingDetailCache,
 } from "./booking-detail-cache";
+import { updateBookingNoteAction } from "@/server/actions/booking-note";
 import { applyBookingNotePatch, type BookingNotePatch } from "./booking-note-state";
 import { ACTIVE_BOOKING_STATUSES, PENDING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -163,6 +164,7 @@ export interface BookingsManagerProps {
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
   canManageHours?: boolean;
+  canEditBookingNote?: boolean;
   initialBookingId?: string | null;
 }
 
@@ -179,6 +181,7 @@ function BookingsManagerContent({
   servicePlans,
   readOnly = false,
   canManageHours = false,
+  canEditBookingNote = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
   const seedLabels=useSeedCustomerLabels();
@@ -193,8 +196,14 @@ function BookingsManagerContent({
     setMonthData(initialMonthData);
   }, [initialMonthData]);
 
+  const noteOwnerMounted = useRef(false);
+  useEffect(() => { noteOwnerMounted.current = true; return () => { noteOwnerMounted.current = false; }; }, []);
   const [selectedDate, setSelectedDate] = useRetainedState<string | null>(`steamfoot-bookings:date:${year}-${month}`, null,
     (value): value is string | null => value === null || (typeof value === "string" && value.startsWith(`${year}-${String(month).padStart(2, "0")}-`) && /^\d{4}-\d{2}-\d{2}$/.test(value)));
+  const noteScopeKey = `${storeId ?? "ALL"}:${year}-${month}:${selectedDate ?? ""}`;
+  const currentNoteScope = useRef({ key: noteScopeKey });
+  if (currentNoteScope.current.key !== noteScopeKey) currentNoteScope.current = { key: noteScopeKey };
+  const noteScope = currentNoteScope.current;
   // Slots cache, keyed by date string. Bookings are derived from monthData
   // (no per-day fetch); slots are still fetched on demand because they
   // require business-hours / duty / overrides resolution that isn't part of
@@ -210,6 +219,8 @@ function BookingsManagerContent({
     slotsCacheRef.current = slotsCache;
   }, [slotsCache]);
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
+  const [slotsErrors, setSlotsErrors] = useState<ReadonlySet<string>>(() => new Set());
+  const slotReadSequence = useRef(new Map<string, number>());
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useRetainedState<BookingFilters>("steamfoot-bookings:filters", EMPTY_FILTERS, validBookingFilters);
   const [labelFilter, setLabelFilter] = useRetainedState<string>("steamfoot-bookings:label", "", value => typeof value === "string");
@@ -242,6 +253,8 @@ function BookingsManagerContent({
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
+  const noteRevision = useRef(0);
+  const noteSaveVersions = useRef(new Map<string, symbol>());
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
   // The workspace already supplies SSR data or revalidates a month switch.
   // Avoid a second identical request as soon as this manager mounts.
@@ -255,20 +268,28 @@ function BookingsManagerContent({
     setSyncing(false);
     const controller = createBookingRefresh({
       gate: refreshGate.current,
-      paused: () => refreshPaused || document.hidden || !navigator.onLine ||
+      paused: () => refreshPaused || !!document.querySelector("[data-inline-roster-note]") || document.hidden || !navigator.onLine ||
         document.activeElement?.matches("input, textarea, select, [contenteditable='true']") === true ||
         Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
           dialog.getAttribute("aria-labelledby") !== "day-detail-sheet-title" &&
           !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
-      load: () => readBookingMonth({ year, month, storeId, date: selectedDate }),
-      apply: (snapshot) => {
+      load: async () => {
+        const revision = noteRevision.current;
+        const snapshot = await readBookingMonth({ year, month, storeId, date: selectedDate });
+        return { revision, snapshot };
+      },
+      apply: ({ revision, snapshot }) => {
+        if (revision !== noteRevision.current) return;
         if(snapshot.customerLabels)seedLabels?.(snapshot.customerLabels);
         setMonthData(snapshot.monthData);
         setMonthSchedule(snapshot.monthSchedule);
         // Expire other days' slot caches as well. Keep the selected day's
         // authoritative slots without remounting the day panel or its scroll.
         const next = new Map<string, SlotAvailability[]>();
-        if (selectedDate && snapshot.slots) next.set(selectedDate, snapshot.slots);
+        if (selectedDate && snapshot.slots) {
+          next.set(selectedDate, snapshot.slots);
+          setSlotsErrors(previous => { const next = new Set(previous); next.delete(selectedDate); return next; });
+        }
         slotsCacheRef.current = next;
         setSlotsCache(next);
         setLastSyncedAt(new Date());
@@ -463,6 +484,36 @@ function BookingsManagerContent({
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
+  // Slot availability is an independent read. A failure must not reject a
+  // React transition and replace the already loaded booking roster.
+  const loadDaySlots = useCallback(async (date: string) => {
+    const sequence = (slotReadSequence.current.get(date) ?? 0) + 1;
+    slotReadSequence.current.set(date, sequence);
+    setSlotsLoadingDate(date);
+    setSlotsErrors(previous => { const next = new Set(previous); next.delete(date); return next; });
+    try {
+      const result = await readBookingSlots(date, storeId);
+      if (slotReadSequence.current.get(date) !== sequence) return;
+      setSlotsErrors(previous => { const next = new Set(previous); next.delete(date); return next; });
+      setSlotsCache(previous => {
+        const next = new Map(previous);
+        next.set(date, result.slots);
+        return next;
+      });
+    } catch {
+      if (slotReadSequence.current.get(date) !== sequence) return;
+      setSlotsErrors(previous => new Set(previous).add(date));
+      // Do not turn a failed read into authoritative empty or stale slots.
+      setSlotsCache(previous => {
+        const next = new Map(previous);
+        next.delete(date);
+        return next;
+      });
+    } finally {
+      if (slotReadSequence.current.get(date) === sequence) setSlotsLoadingDate(current => current === date ? null : current);
+    }
+  }, [storeId]);
+
   const handleDaySelect = useCallback(
     (dateKey: string) => {
       const [targetYear, targetMonth] = dateKey.split("-").map(Number);
@@ -471,48 +522,18 @@ function BookingsManagerContent({
         return;
       }
       setSelectedDate(dateKey);
-      // Switching day discards the prior selection — those bookings are no
-      // longer visible, batch action would be confusing.
       setSelectedIds(new Set());
       setBatchResult("");
-
-      // Fire slots fetch only on cache miss; consecutive clicks on a date
-      // we've already loaded touch nothing on the server. Read via ref so
-      // the callback identity stays stable — otherwise the calendar
-      // re-renders on every cache update and React 19 reports the
-      // resulting startTransition as render-phase.
       if (slotsCacheRef.current.has(dateKey)) return;
-      setSlotsLoadingDate(dateKey);
-      startTransition(async () => {
-        try {
-          const result = await readBookingSlots(dateKey);
-          setSlotsCache((prev) => {
-            const next = new Map(prev);
-            next.set(dateKey, result.slots);
-            return next;
-          });
-        } finally {
-          setSlotsLoadingDate((cur) => (cur === dateKey ? null : cur));
-        }
-      });
+      startTransition(() => loadDaySlots(dateKey));
     },
-    [setSelectedDate, year, month, monthNavigation],
+    [setSelectedDate, year, month, monthNavigation, loadDaySlots],
   );
 
   const refreshDaySlots = useCallback(async (date: string) => {
     monthNavigation?.invalidate();
-    setSlotsLoadingDate(date);
-    try {
-      const refreshed = await readBookingSlots(date);
-      setSlotsCache((previous) => {
-        const next = new Map(previous);
-        next.set(date, refreshed.slots);
-        return next;
-      });
-    } finally {
-      setSlotsLoadingDate((current) => current === date ? null : current);
-    }
-  }, [monthNavigation]);
+    await loadDaySlots(date);
+  }, [monthNavigation, loadDaySlots]);
 
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
@@ -599,6 +620,9 @@ function BookingsManagerContent({
   );
 
   const handleNotesUpdated = useCallback((patch: BookingNotePatch) => {
+    // A newer detail-editor save also supersedes any delayed inline response.
+    if (patch.kind === "booking") noteSaveVersions.current.set(patch.bookingId, Symbol());
+    noteRevision.current += 1;
     monthNavigation?.invalidate();
     // A customer note applies to every booking for that customer.
     for (const day of monthData) {
@@ -797,10 +821,27 @@ function BookingsManagerContent({
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             key={selectedDate}
+            noteScope={`steam:${storeId ?? "ALL"}`}
+            canEditBookingNote={canEditBookingNote}
+            onSaveBookingNote={async (bookingId, notes, expectedNotes) => {
+              const request = Symbol();
+              noteSaveVersions.current.set(bookingId, request);
+              noteRevision.current += 1;
+              const result = await updateBookingNoteAction({ bookingId, notes, expectedNotes });
+              if (result.success && noteOwnerMounted.current && currentNoteScope.current === noteScope &&
+                  noteSaveVersions.current.get(bookingId) === request) {
+                handleNotesUpdated({ kind: "booking", bookingId, value: notes });
+              }
+              return result;
+            }}
             allBookings={dayBookings}
             batchResult={batchResult}
             onCreated={()=>{void refreshRef.current?.();}}
             toolbar={<>
+              {selectedDate && slotsErrors.has(selectedDate) && <span role="status" className="flex min-h-11 basis-full flex-wrap items-center gap-2 text-sm text-amber-800">
+                時段載入失敗，已保留預約名單。
+                <button type="button" disabled={slotsLoadingForSelected} onClick={() => { if (selectedDate) startTransition(() => loadDaySlots(selectedDate)); }} className="min-h-11 rounded border border-amber-300 px-3">重試時段</button>
+              </span>}
               {(unpaidOnly || dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length > 0) && (
               <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); setBatchResult(""); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length}</button>
               )}
@@ -827,6 +868,7 @@ function BookingsManagerContent({
             slots={daySlots}
             slotsKnown={slotsKnown}
             slotsLoading={slotsLoadingForSelected}
+            slotsError={selectedDate !== null && slotsErrors.has(selectedDate)}
             daySchedule={
               selectedDate && monthSchedule[selectedDate]
                 ? {

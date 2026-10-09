@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { ErrorState } from "@/components/ui/error-state";
+import { useRosterPreviewErrorCode } from "@/components/admin/roster-preview-diagnostics";
 
 function categorizeError(error: Error & { digest?: string }): {
   title: string;
@@ -55,6 +56,7 @@ export default function DashboardError({
     });
   }, [error]);
 
+  const previewCode = useRosterPreviewErrorCode(error);
   const { title, description } = categorizeError(error);
   // 顯示 digest 讓使用者回報時可以對到 server log
   const desc = error.digest
@@ -64,7 +66,7 @@ export default function DashboardError({
   return (
     <ErrorState
       title={title}
-      description={desc}
+      description={previewCode ? `${desc}（隔離名單驗收碼：${previewCode}）` : desc}
       retry={reset}
       backHref="/dashboard"
     />

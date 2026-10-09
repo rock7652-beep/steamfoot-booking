@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
+import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
 
 vi.hoisted(async () => {
   const { AsyncLocalStorage } = await import("node:async_hooks");
@@ -15,6 +15,11 @@ vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor() { spies.p
 vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor() { spies.spa(); } } }));
 vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor() { spies.course(); } } }));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: (client: unknown) => client }));
+// This test proves real outbound boundaries, not Next request-cache internals.
+// A reused Vitest worker may have initialized Next's external CJS cache module
+// before the per-file AsyncLocalStorage bootstrap; keep that unrelated cache
+// wrapper deterministic while preserving all actual sender implementations.
+vi.mock("next/cache", () => ({ unstable_cache: (fn: (...args: unknown[]) => unknown) => fn, revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: spies.send }; } }));
 import { config, proxy } from "@/proxy";
@@ -23,6 +28,18 @@ const safe = {
   GUIDE_UI_PREVIEW: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: GUIDE_UI_PREVIEW_BRANCH,
   DATABASE_URL: GUIDE_UI_PREVIEW_DATABASE_URL, DIRECT_URL: GUIDE_UI_PREVIEW_DATABASE_URL,
 };
+const waitlistSafe = {
+  VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "content/yoga-waitlist-management",
+  VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
+  WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", GUIDE_UI_PREVIEW: "",
+  DATABASE_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
+  DIRECT_URL: "postgresql://synthetic:synthetic@unreachable.invalid/db",
+};
+function enableWaitlist() {
+  for (const [key, value] of Object.entries(waitlistSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }];
+
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
 function enable() {
@@ -35,7 +52,7 @@ function route(path: string, method = "GET") {
   return (proxy as unknown as (req: NextRequest) => Response)(req);
 }
 beforeEach(() => { vi.clearAllMocks(); });
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); Object.assign(normalGlobals, priorCache); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); Object.assign(normalGlobals, priorCache); });
 
 describe("exact guide UI preview scope", () => {
   it("accepts only the complete approved tuple and preserves ordinary environments", () => {
@@ -70,9 +87,9 @@ describe("exact guide UI preview scope", () => {
   });
 });
 
-describe("outer request boundary before auth", () => {
-  beforeEach(enable);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
+  beforeEach(enableMode);
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
@@ -96,7 +113,8 @@ describe("outer request boundary before auth", () => {
     expect(spies.auth).not.toHaveBeenCalled();
   });
   it("does not fall through to auth when runtime configuration loses isolation", () => {
-    vi.stubEnv("DIRECT_URL", "postgresql://invalid.invalid/db");
+    if (name === "waitlist") vi.stubEnv("VERCEL_GIT_REPO_OWNER", "other");
+    else vi.stubEnv("DIRECT_URL", "postgresql://invalid.invalid/db");
     expect(() => route("/api/auth/session")).toThrow(/isolation rejected/);
     expect(spies.auth).not.toHaveBeenCalled();
   });
@@ -109,8 +127,8 @@ describe("outer request boundary before auth", () => {
   });
 });
 
-describe("database and outbound isolation", () => {
-  beforeEach(enable);
+describe.each(previewModes)("$name database and outbound isolation", ({ enable: enableMode }) => {
+  beforeEach(enableMode);
   it("never constructs or reuses any real cached client", async () => {
     vi.resetModules();
     const cached = { connected: true };
@@ -125,6 +143,10 @@ describe("database and outbound isolation", () => {
     expect(normalGlobals.prisma).toBe(cached);
   });
   it("blocks actual LINE, Messenger, email and HealthFlow sender calls before network", async () => {
+    // Next's testing helpers patch console.info to exit request AsyncLocalStorage.
+    // If next/server was loaded by an earlier test, that CJS storage can predate
+    // our bootstrap. Capture the log boundary without replacing any real sender.
+    const infoMock = vi.spyOn(console, "info").mockImplementation(() => {});
     const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
     vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN", "synthetic-only-token");
     vi.stubEnv("RESEND_API_KEY", "synthetic-only-key");
@@ -136,10 +158,58 @@ describe("database and outbound isolation", () => {
     await expect(sendMessengerMessages({ pageId: "synthetic", pageAccessToken: "synthetic", recipientId: "synthetic", messages: [{ text: "test" }] })).resolves.toMatchObject({ success: false });
     await sendPasswordResetEmail("test@example.invalid", "synthetic", "QA");
     await expect(lookupHealthProfile(undefined, "0000000000")).rejects.toThrow("Preview HealthFlow lookup is blocked");
+    expect(infoMock).toHaveBeenCalledExactlyOnceWith("[Email] Preview outbound delivery blocked");
     expect(fetchMock).not.toHaveBeenCalled(); expect(spies.send).not.toHaveBeenCalled();
   });
   it("keeps automatic deployment disabled and removes auth polling only in this mode", () => {
     expect(JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled[GUIDE_UI_PREVIEW_BRANCH]).toBe(false);
     expect(readFileSync("src/app/layout.tsx", "utf8")).toContain("isGuideUiPreview() ?");
+  });
+});
+
+
+describe("waitlist publication exact Preview provenance", () => {
+  it("leaves production main and unrelated previews unchanged", () => {
+    expect(isGuideUiPreview(waitlistSafe)).toBe(true);
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...waitlistSafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/yoga-waitlist-management"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...waitlistSafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations in a real process even with inherited target and no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...waitlistSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+});
+
+
+describe("single pricing Preview isolation", () => {
+  const pricingSafe = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "fix/single-group-pricing-20261009", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking" };
+  it("uses disabled database mode only on the exact approved Preview", () => {
+    expect(isSinglePricingUiPreview(pricingSafe)).toBe(true);
+    expect(isGuideUiPreview(pricingSafe)).toBe(true);
+    expect(isSinglePricingUiPreview({ ...pricingSafe, VERCEL_GIT_COMMIT_REF: "main", VERCEL_ENV: "production" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects incorrect %s", key => {
+    expect(() => isSinglePricingUiPreview({ ...pricingSafe, [key]: "incorrect" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations without any database credentials", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...pricingSafe, WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", DATABASE_URL: "", DIRECT_URL: "" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+  });
+  it("allows only the fixture and assets, blocks payment writes and auth", () => {
+    for (const [key, value] of Object.entries({ ...pricingSafe, WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "" })) vi.stubEnv(key, value);
+    expect(route("/single-pricing-preview").status).toBe(200);
+    expect(route("/single-pricing-preview", "POST").status).toBe(405);
+    expect(route("/api/auth/session").status).toBe(404);
+    expect(route("/dashboard/bookings").status).toBe(404);
+    expect(spies.auth).not.toHaveBeenCalled();
   });
 });

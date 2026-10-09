@@ -50,10 +50,10 @@ function Result({ mutation }: { mutation: ReturnType<typeof useLeadMutation> }) 
 export function ConsultationStatusForm(props: BaseProps & { status: string }) {
   const mutation = useLeadMutation(props);
   const draft = useFormDraft(`consultation-status:${props.id}`, { status: props.status }, String(mutation.revision));
-  return <form className="space-y-2" onSubmit={async event => {
+  return <form data-intake-dirty={draft.dirty || undefined} className="space-y-2" onSubmit={async event => {
     event.preventDefault(); if (draft.busy.current) return; draft.busy.current = true;
     const form = new FormData(event.currentTarget);
-    try { await mutation.save(form, draft.clear); } finally { draft.busy.current = false; }
+    try { await mutation.save(form, draft.clearSubmitted); } finally { draft.busy.current = false; }
   }}>
     <input type="hidden" name="id" value={props.id} /><input type="hidden" name="revision" value={mutation.confirmedRevision ?? draft.expectedRevision ?? mutation.revision} />
     <input type="hidden" name="operation" value="status" />
@@ -70,10 +70,10 @@ export function ConsultationStatusForm(props: BaseProps & { status: string }) {
 export function ConsultationNoteForm(props: BaseProps) {
   const mutation = useLeadMutation(props);
   const draft = useFormDraft(`consultation-note:${props.id}`, { note: "" }, String(mutation.revision));
-  return <form className="space-y-2" onSubmit={async event => {
+  return <form data-intake-dirty={draft.dirty || undefined} className="space-y-2" onSubmit={async event => {
     event.preventDefault(); if (draft.busy.current) return; draft.busy.current = true;
     const form = new FormData(event.currentTarget);
-    try { await mutation.save(form, draft.clear); } finally { draft.busy.current = false; }
+    try { await mutation.save(form, draft.clearSubmitted); } finally { draft.busy.current = false; }
   }}>
     <input type="hidden" name="id" value={props.id} /><input type="hidden" name="revision" value={mutation.confirmedRevision ?? draft.expectedRevision ?? mutation.revision} />
     <input type="hidden" name="operation" value="note" />
@@ -92,10 +92,10 @@ export function ConsultationNoteForm(props: BaseProps) {
 export function ConsultationLinkForm(props: BaseProps & { applicationId: string | null }) {
   const mutation = useLeadMutation(props);
   const draft = useFormDraft<{ applicationId: string; verified: boolean }>(`consultation-link:${props.id}`, { applicationId: props.applicationId ?? "", verified: false }, String(mutation.revision));
-  return <form className="space-y-3" onSubmit={async event => {
+  return <form data-intake-dirty={draft.dirty || undefined} className="space-y-3" onSubmit={async event => {
     event.preventDefault(); if (draft.busy.current) return; draft.busy.current = true;
     const form = new FormData(event.currentTarget);
-    try { await mutation.save(form, draft.clear); } finally { draft.busy.current = false; }
+    try { await mutation.save(form, draft.clearSubmitted); } finally { draft.busy.current = false; }
   }}>
     <input type="hidden" name="id" value={props.id} /><input type="hidden" name="revision" value={mutation.confirmedRevision ?? draft.expectedRevision ?? mutation.revision} />
     <input type="hidden" name="operation" value="link" />
@@ -115,10 +115,10 @@ export function ConsultationLinkForm(props: BaseProps & { applicationId: string 
   </form>;
 }
 
-export function CopyLineId({ value }: { value: string }) {
+export function CopyLineId({ value, showValue = true }: { value: string; showValue?: boolean }) {
   const [message, setMessage] = useState("");
   return <span className="inline-flex flex-wrap items-center gap-2">
-    <span className="select-all break-all">{value}</span>
+    {showValue && <span className="select-all break-all">{value}</span>}
     <button type="button" className={control} onClick={async () => {
       try { await navigator.clipboard.writeText(value); setMessage("已複製 LINE ID"); }
       catch { setMessage("請選取 LINE ID 文字複製"); }

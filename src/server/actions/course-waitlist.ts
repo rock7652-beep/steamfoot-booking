@@ -112,7 +112,7 @@ export async function promoteCourseWaitlistManually(input: unknown) {
     const { user, storeId } = await courseManager("booking.update");
     await requireStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
     const promoted = await courseTransaction(storeId, tx =>
-      promoteCourseWaitlistForSession(tx, storeId, data.sessionId, { ignoreCutoff: true }),
+      promoteCourseWaitlistForSession(tx, storeId, data.sessionId, { ignoreCutoff: true, manual: true }),
      async (promoted, tx) => { if (promoted.length) await enqueueOperationAudit({
         actorUserId: user.id,
         actorNameSnapshot: user.name,

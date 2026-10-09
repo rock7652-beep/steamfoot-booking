@@ -1,4 +1,5 @@
 "use client";
+import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-summary";
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
@@ -209,6 +210,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     }),
     sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
   };
+  const selfBookingEnabled = p.selfBookingEnabled !== false;
   const balanceTotals = courseBalanceTotals(p.cards);
   const sharedCardState = p.sharedCardState ?? "ENABLED";
   const sharingVisible = sharedCardState !== "HIDDEN";
@@ -237,7 +239,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     [recordFilter, setRecordFilter] = useState("all"),
     [recordEdit, setRecordEdit] = useState<string | null>(null);
   const page = requestedPage === "shared" && !sharingVisible ? "plans" : requestedPage;
-  const [session, setSession] = useState<Session | null>(null),
+  const [selectedSession, setSession] = useState<Session | null>(null),
     [cardId, setCardId] = useState(""),
     [learners, setLearners] = useState<string[]>([]),
     [headcount, setHeadcount] = useState(1),
@@ -299,6 +301,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     const t = setTimeout(() => setMessage(""), 4000);
     return () => clearTimeout(t);
   }, [message]);
+  const session = selectedSession ? p.sessions.find(row => row.id === selectedSession.id) ?? selectedSession : null;
   const coach = role === "coach",
     today = toLocalDateStr(new Date(now)),
     selected = date.startsWith(p.month) ? date : p.month + "-01",
@@ -361,7 +364,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
       ]
     : [
         ["home", "首頁", "home"],
-        ["schedule", "預約", "calendar"],
+        ["schedule", selfBookingEnabled ? "預約" : "看課表", "calendar"],
         ["bookings", "我的預約", "bookings"],
         ["account", "我的", "account"],
       ];
@@ -485,6 +488,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const amount = (s: Session, c: CoursePortalData["cards"][number]) =>
     c.unit === "SESSION" ? 1 : s.cost;
   function book(s: Session) {
+    if (!selfBookingEnabled && !s.waitlistPosition) { setError(COURSE_SELF_BOOKING_DISABLED_MESSAGE); return; }
     setSession(s);
     const options = eligible(s);
     setCardId((options.find(c => c.available >= amount(s,c)) ?? options[0])?.id ?? "");
@@ -640,16 +644,21 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             className="primary"
             disabled={
               pending ||
-              new Date(s.startsAt).getTime() <= now ||
-              (s.occupied >= s.capacity && !(s.waitlistAllowed && (s.waitlistPosition || s.waitlistRemaining > 0))) ||
-              closed(courseDate(s.startsAt)) || notOpenYet(s)
+              (!s.waitlistPosition && (
+                !selfBookingEnabled ||
+                new Date(s.startsAt).getTime() <= now ||
+                (s.occupied >= s.capacity && !(s.waitlistAllowed && s.waitlistRemaining > 0)) ||
+                closed(courseDate(s.startsAt)) || notOpenYet(s)
+              ))
             }
             onClick={() => book(s)}
           >
-            {new Date(s.startsAt).getTime() <= now
-              ? "已開始"
-              : s.waitlistPosition
-                ? `候補中・第 ${s.waitlistPosition} 位`
+            {s.waitlistPosition
+              ? `候補中・第 ${s.waitlistPosition} 位`
+              : !selfBookingEnabled
+                ? "請聯繫店家"
+                : new Date(s.startsAt).getTime() <= now
+                  ? "已開始"
                 : s.occupied >= s.capacity
                   ? s.waitlistAllowed && s.waitlistRemaining > 0 ? "候補" : "滿班"
                   : notOpenYet(s) ? "尚未開放" : closed(courseDate(s.startsAt)) ? "公休" : "預約"}
@@ -904,6 +913,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {saving ? "儲存中…" : refreshing ? "更新中…" : "更新"}
             </button>
           </div>
+          {!coach && !selfBookingEnabled && ["home", "schedule", "bookings"].includes(page) && <p className="cp-important">{COURSE_SELF_BOOKING_DISABLED_MESSAGE}</p>}
           {message && (
             <p role="status" className="cp-toast">
               {message}
@@ -948,7 +958,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     }
                   }}
                 >
-                  {!coach && !p.nextBooking ? "預約課程" : "查看"}
+                  {!coach && !p.nextBooking ? selfBookingEnabled ? "預約課程" : "查看課表" : "查看"}
                 </button>
               </section>}
               {coach ? (
@@ -961,7 +971,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 </>
               ) : (
                 <>
-                  <button className="primary cp-wide-action" onClick={() => go("schedule")}>立即預約</button>
+                  <button className="primary cp-wide-action" onClick={() => go("schedule")}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
                   <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><p>{courseBalanceText(balanceTotals)}</p><button onClick={()=>go("plans")}>查看各方案與期限</button></section>
                   <h2>常用功能</h2>
                   <section className="cp-card">
@@ -982,7 +992,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           )}
           {page === "schedule" && (
             <>
-              {heading(coach ? "我的課表" : "課表預約")}
+              {heading(coach ? "我的課表" : selfBookingEnabled ? "課表預約" : "查看課表")}
               <div className="cp-schedule">
                 {coach ? <>
                   {!showWorkCalendar && <>
@@ -1051,7 +1061,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           <span className="cp-badge" data-status={b.status}>
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
-                          {b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
+                          {selfBookingEnabled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
                           {b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
                           {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
@@ -1357,7 +1367,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
       {companionEditor && (!companionEditor.add || sharingEnabled) && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={receipt => { if (receipt) { setCompanionReceipts(previous => [...previous.filter(row => row.booking.id !== receipt.booking.id), receipt]); setMessage(receipt.returned ? `已返還 ${receipt.returned.amount} ${unit(receipt.returned.unit)}` : "使用方式已更新"); } else setMessage("同行已新增"); start(() => router.refresh()); }} />}
       {session && !buy && (
         <Sheet
-          title={waitlistAlready ? "候補狀態" : waitlistMode ? (confirm ? "確認候補" : companionMode ? "預約人數" : "選擇候補人") : (confirm ? "確認預約" : companionMode ? "預約人數" : "選擇上課人")}
+          title={waitlistAlready ? "候補狀態" : !selfBookingEnabled ? "查看課程" : waitlistMode ? (confirm ? "確認候補" : companionMode ? "預約人數" : "選擇候補人") : (confirm ? "確認預約" : companionMode ? "預約人數" : "選擇上課人")}
           busy={pending}
           close={() => setSession(null)}
           footer={
@@ -1380,7 +1390,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 >
                   {pending ? "處理中…" : "取消候補"}
                 </button>
-              ) : (
+              ) : selfBookingEnabled ? (
                 <button
                   className="primary"
                   disabled={
@@ -1389,8 +1399,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     !participantCount ||
                     card.available < amount(session, card) * participantCount
                   }
-                  onClick={() =>
-                    (companionMode || confirm)
+                  onClick={() => {
+                    if (!selfBookingEnabled) return;
+                    return (companionMode || confirm)
                       ? run(
                           () => waitlistMode
                             ? joinMemberCourseWaitlist({
@@ -1421,12 +1432,12 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           },
                           waitlistMode ? "已加入候補" : "預約成功",
                         )
-                      : setConfirm(true)
-                  }
+                      : setConfirm(true);
+                  }}
                 >
                   {pending ? (waitlistMode ? "候補中…" : "預約中…") : (companionMode || confirm) ? (waitlistMode ? "確認候補" : "確認預約") : "下一步"}
                 </button>
-              )}
+              ) : null}
             </>
           }
         >
@@ -1439,20 +1450,21 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {error}
             </p>
           )}
+          {!selfBookingEnabled && <p className="cp-important">{COURSE_SELF_BOOKING_DISABLED_MESSAGE}</p>}
           {waitlistAlready && (
             <div className="cp-important">
               <p>目前候補第 {session.waitlistPosition} 位。</p>
-              <p>遞補成功後會透過 LINE 通知，不需要一直回來查看。</p>
+              <p>{selfBookingEnabled ? "遞補成功後會透過 LINE 通知，不需要一直回來查看。" : "店家目前暫停自動遞補，既有候補順位保留。"}</p>
               <p>取消候補會連同本次同行候補者一起退出。</p>
             </div>
           )}
-          {waitlistMode && !waitlistAlready && (
+          {selfBookingEnabled && waitlistMode && !waitlistAlready && (
             <div className="cp-important">
               <p>本堂已滿班，現在加入候補。</p>
               <p>有足夠名額時一起遞補，並通知預約人。</p>
             </div>
           )}
-          {!waitlistAlready && (eligible(session).length ? (
+          {selfBookingEnabled && !waitlistAlready && (eligible(session).length ? (
             <>
               <label>
                 使用方案
@@ -1520,7 +1532,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           ) : (
             <p>沒有適用本堂課的有效方案。</p>
           ))}
-          {!waitlistAlready && !waitlistMode && <details><summary>備註（選填）</summary><label>
+          {selfBookingEnabled && !waitlistAlready && !waitlistMode && <details><summary>備註（選填）</summary><label>
             本次預約備註
             <textarea
               maxLength={1000}
@@ -1529,14 +1541,14 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               onChange={(e) => setNotes(e.target.value)}
             />
           </label></details>}
-          {!waitlistAlready && (!card || card.available < amount(session, card) * Math.max(participantCount, 1)) && (
+          {selfBookingEnabled && !waitlistAlready && (!card || card.available < amount(session, card) * Math.max(participantCount, 1)) && (
             <div className="cp-no-plan">
               {shop.length ? <button className="primary" onClick={() => { setSession(null); go("shop"); }}>查看可購買方案</button> : <p>目前沒有適用的販售方案，請聯絡店家協助。</p>}
             </div>
           )}
         </Sheet>
       )}
-      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
+      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
       {cancelId && (
         <Sheet
           title="取消預約"

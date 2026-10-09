@@ -22,7 +22,10 @@ export async function refreshBookingManagement(input: {
   console.info("[BOOKING_ACTION]", "refreshBookingManagement");
   const timing = new OperationTiming("steamfoot.refresh");
   try {
-  const user = await timing.measure("permission", () => requirePermission("booking.read"));
+  if (input.storeId !== undefined && (typeof input.storeId !== "string" || !input.storeId.trim() || input.storeId === "__all__" || input.storeId.length > 100)) throw new AppError("VALIDATION", "門市無效");
+  const user = await timing.measure("permission", () => input.storeId
+    ? requirePermission("booking.read", undefined, { storeId: input.storeId })
+    : requirePermission("booking.read"));
   if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100 ||
       !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
     throw new AppError("VALIDATION", "月份無效");
@@ -33,10 +36,10 @@ export async function refreshBookingManagement(input: {
       Number(input.date.slice(8)) > new Date(Date.UTC(input.year, input.month, 0)).getUTCDate())) {
     throw new AppError("VALIDATION", "日期無效");
   }
-  // Month-only reads already have an explicit, validated scope. Resolve the
-  // active route/cookie scope only when needed for fallback or day slots.
+  // Explicit reads use their validated scope for both the roster and slots.
+  // Only legacy reads need the active route/cookie fallback.
   const [activeStoreId, explicitStoreId] = await Promise.all([
-    !input.storeId || input.date !== null
+    !input.storeId
       ? timing.measure("activeStore", () => getActiveStoreForRead(user))
       : Promise.resolve(null),
     input.storeId
@@ -47,13 +50,13 @@ export async function refreshBookingManagement(input: {
   if (storeId && await timing.measure("industry", () => getStoreIndustryModule(storeId)) !== "steamfoot") {
     throw new AppError("FORBIDDEN", "此更新僅適用蒸足預約管理");
   }
-  // Slots still resolve their scope from the session. Do not combine a
-  // notification's explicit store with slots from a different active store.
+  // Never combine an explicit roster with another cookie-selected store.
+  // The slots action rechecks permission and store access for this exact ID.
   const [monthData, monthSchedule, slotResult] = await Promise.all([
     timing.measure("month", () => getMonthBookingSummary(input.year, input.month, storeId)),
     timing.measure("schedule", () => storeId ? getCachedMonthScheduleSummary(storeId, input.year, input.month) : Promise.resolve({})),
-    input.date && storeId && storeId === activeStoreId
-      ? timing.measure("slots", () => fetchDaySlots(input.date!))
+    input.date && storeId
+      ? timing.measure("slots", () => input.storeId ? fetchDaySlots(input.date!, storeId) : fetchDaySlots(input.date!))
       : Promise.resolve(null),
   ]);
   const customerLabels=await timing.measure("labels",()=>loadBookingRosterLabels(monthData,storeId));

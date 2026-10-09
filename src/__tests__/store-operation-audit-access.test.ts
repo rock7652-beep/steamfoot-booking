@@ -34,3 +34,26 @@ describe("store operation audit scope", () => {
     expect(m.grant).toHaveBeenCalledTimes(3);
   });
 });
+
+// Four product modules share a store-keyed grant; this is backend coverage, not UI acceptance.
+it.each([
+  ["steamfoot", "STEAMFOOT", false], ["spa", "SPA", false],
+  ["sports", "COURSE", false], ["music", "COURSE", true],
+])("%s audit grant stays independent of other module stores", async (label, industryModule, music) => {
+  const own = `fixture-${label}`;
+  const user = { id: `owner-${label}`, role: "OWNER", storeId: own, staffId: `staff-${label}` };
+  m.active.mockResolvedValue(own);
+  m.store.mockResolvedValue({ id: own, industryModule, music });
+  m.staff.mockResolvedValue({ id: user.staffId });
+  let enabledStore: string | null = null;
+  m.grant.mockImplementation(async ({ where }) => where.uq_store_feature_entitlement.storeId === enabledStore
+    ? { status: "ENABLED", startsAt: null, expiresAt: null } : null);
+  expect(await resolveOperationAuditScope(user)).toBeNull();
+  enabledStore = "fixture-other-module";
+  expect(await resolveOperationAuditScope(user)).toBeNull();
+  enabledStore = own;
+  expect(await resolveOperationAuditScope(user)).toEqual({ hq: false, storeId: own });
+  for (const role of ["MANAGER", "STAFF"]) expect(await resolveOperationAuditScope({ ...user, role })).toBeNull();
+  enabledStore = null;
+  expect(await resolveOperationAuditScope(user)).toBeNull();
+});

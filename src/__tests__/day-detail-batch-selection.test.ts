@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { DayDetailPanel, type DayBooking } from "@/app/(dashboard)/dashboard/bookings/day-detail-panel";
 
+vi.mock("@/components/admin/roster-reminders", () => ({ RosterReminders: () => null }));
 vi.mock("@/components/admin/roster-primitives", () => ({
   RosterToolbar: ({children}: {children: React.ReactNode}) => React.createElement("div", {}, children),
   RosterNotes: () => null, RosterMoreMenu: () => null,

@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatDateZh } from "@/lib/date-utils";
 import type { MarketingUsageSnapshot } from "@/lib/marketing-usage-snapshot";
 
 // Verified aggregate snapshot; see docs/marketing-usage-statistics.md.
 // No customer records or database credentials are sent to the browser.
 export function MarketingUsageStatistics({ snapshot }: { snapshot: MarketingUsageSnapshot }) {
   const statistics = [
-    { label: "使用門市", value: snapshot.stores, unit: "間" },
-    { label: "服務顧客名單", value: snapshot.customers, unit: "筆" },
-    { label: "累計完成服務", value: snapshot.completedPeople, unit: "人次" },
+    { label: "使用店家", value: snapshot.stores, unit: "間" },
+    { label: "服務顧客", value: snapshot.customers, unit: "位" },
+    { label: "完成服務", value: snapshot.completedPeople, unit: "人次" },
+    { label: "自動提醒", value: snapshot.remindersSent, unit: "則" },
   ];
   const sectionRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(1);
@@ -52,17 +52,20 @@ export function MarketingUsageStatistics({ snapshot }: { snapshot: MarketingUsag
   return <section ref={sectionRef} id="usage" aria-labelledby="usage-title" className="mx-auto max-w-6xl scroll-mt-24 px-5 pb-7 sm:px-8 sm:pb-8">
     <div className="border-y border-[#153B31]/15 py-6 sm:py-7">
       <h2 id="usage-title" className="text-sm font-medium tracking-widest text-[#74603C]">從預約到服務，店家每天都在使用</h2>
-      <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-6">
-        {statistics.map((item, index) => <div key={item.label} className={index > 0 ? "border-l border-[#153B31]/15 pl-3 sm:pl-6" : ""}>
-          <dt className="min-h-12 text-sm leading-6 text-[#4C6259] sm:min-h-0 sm:text-base">{item.label}</dt>
-          <dd className="mt-2 flex flex-col items-start gap-1 sm:flex-row sm:items-baseline sm:gap-2">
+      <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-4 md:gap-x-6">
+        {statistics.map((item, index) => <div key={item.label} className={`min-w-0 ${index % 2 === 1 ? "border-l border-[#153B31]/15 pl-4 md:pl-6" : index > 0 ? "md:border-l md:border-[#153B31]/15 md:pl-6" : ""}`}>
+          <dt className="text-sm leading-6 text-[#4C6259] sm:text-base">{item.label}</dt>
+          <dd className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="sr-only">{item.value.toLocaleString("en-US")} {item.unit}</span>
-            <span aria-hidden="true" style={{ width: `${item.value.toLocaleString("en-US").length}ch` }} className="inline-block text-[clamp(1.625rem,4vw,3rem)] font-semibold leading-tight tracking-tight tabular-nums">{Math.round(item.value * progress).toLocaleString("en-US")}</span>
+            <span aria-hidden="true" className="inline-grid text-[clamp(2rem,4vw,3rem)] font-semibold leading-tight tracking-tight tabular-nums">
+              <span className="invisible col-start-1 row-start-1">{item.value.toLocaleString("en-US")}</span>
+              <span className="col-start-1 row-start-1">{Math.round(item.value * progress).toLocaleString("en-US")}</span>
+            </span>
             <span aria-hidden="true" className="text-sm text-[#74603C]">{item.unit}</span>
           </dd>
         </div>)}
       </dl>
-      <p className="mt-5 text-sm leading-6 text-[#4C6259]">截至 {formatDateZh(snapshot.asOf)}</p>
+      <p className="mt-5 text-sm leading-6 text-[#4C6259]">每日更新｜資料更新至 {snapshot.asOf.replaceAll("-", "/")}</p>
     </div>
   </section>;
 }

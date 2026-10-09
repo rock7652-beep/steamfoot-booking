@@ -13,15 +13,75 @@ const lead = () => ({ id: "lead-id", requestId: "request-id", revision: 3, store
 const render = async (params: Record<string, string> = {}) => renderToStaticMarkup(await ConsultationLeadList(parseConsultationSearch(params)));
 beforeEach(() => { vi.resetAllMocks(); m.find.mockResolvedValue([lead()]); m.count.mockResolvedValue(21); });
 describe("consultation HQ lead details", () => {
+  it("shows answers once, hides missing details, and keeps identifiers in one secondary disclosure", async () => {
+    const item = lead();
+    m.find.mockResolvedValue([{ ...item, originalPayload: { ...item.originalPayload, courseFormat: " ", time: null, storeCount: 0, hasSystem: false } }]);
+    const html = await render();
+    expect(html.match(/原留聯絡人/g)).toHaveLength(1);
+    expect(html.match(/原始需求A/g)).toHaveLength(1);
+    expect(html).not.toContain("授課型態"); expect(html).not.toContain("可聯絡時間");
+    expect(html).not.toContain("尚未提供");
+    expect(html).toContain(">0</dd>"); expect(html).toContain(">否</dd>");
+    expect(html).toMatch(/<summary[^>]*>來源與編號<\/summary>[\s\S]*諮詢編號：lead-id/);
+    expect(html.indexOf("status-form")).toBeLessThan(html.indexOf("諮詢編號："));
+  });
+  it("distinguishes legacy source time from import time and flags unverified numeric phones", async () => {
+    const item = { ...lead(), phone: "900000001", sheetStatus: "LEGACY_IMPORTED",
+      legacyImport: { phoneNeedsReview: true, importedAt: "2026-10-08T16:00:00.000Z" },
+      originalPayload: { ...lead().originalPayload, phone: "900000001" } };
+    m.find.mockResolvedValue([item]);
+    const html = await render();
+    expect(html).toContain("電話格式待核對"); expect(html).toContain("原值保留");
+    expect(html).toContain("原始填寫："); expect(html).toContain("HQ 匯入：");
+    expect(html).toContain("歷史 Sheet 已匯入（未重新通知）");
+    expect(html).not.toContain("HQ 收件："); expect(html).not.toContain('href="tel:');
+    expect(html).toContain("900000001"); expect(html).not.toContain("0900000001");
+    expect(html).toContain("複製 LINE ID @actual-id");
+  });
+  it("shows an exact stored prefix correction once and retains source evidence in the secondary disclosure", async () => {
+    const item = { ...lead(), phone: "0900000001", sheetStatus: "LEGACY_IMPORTED",
+      legacyImport: { phoneNeedsReview: true }, originalPayload: { ...lead().originalPayload, phone: "900000001" } };
+    const before = JSON.stringify(item);
+    m.find.mockResolvedValue([item]);
+    const html = await render();
+    expect(html).not.toContain("電話格式待核對");
+    expect(html).toContain('href="tel:0900000001"'); expect(html).toContain("撥打更正後電話");
+    expect(html).toMatch(/<summary[^>]*>來源與編號<\/summary>[\s\S]*原始匯入電話：900000001/);
+    expect(html.match(/>0900000001</g)).toHaveLength(1);
+    expect(html.match(/原始匯入電話：900000001/g)).toHaveLength(1);
+    expect(JSON.stringify(item)).toBe(before);
+  });
+  it.each([null, "", "900000001", "090000000", "09000000012", "0900-000-001", " 0900000001", "0900000001\n", "0900000002", "not a phone"])("keeps flagged malformed or unverified current phone %j blocked", async phone => {
+    m.find.mockResolvedValue([{ ...lead(), phone, sheetStatus: "LEGACY_IMPORTED", legacyImport: { phoneNeedsReview: true }, originalPayload: { ...lead().originalPayload, phone: "900000001" } }]);
+    const html = await render();
+    expect(html).toContain("電話格式待核對"); expect(html).not.toContain('href="tel:');
+    expect(html).not.toContain("撥打更正後電話");
+  });
+  it.each([null, "", 900000001, "800000001", "0900000001", "900000001\n"])("does not infer correction from invalid original source %j", async phone => {
+    m.find.mockResolvedValue([{ ...lead(), phone: "0900000001", sheetStatus: "LEGACY_IMPORTED", legacyImport: { phoneNeedsReview: true }, originalPayload: { ...lead().originalPayload, phone } }]);
+    const html = await render(); expect(html).toContain("電話格式待核對"); expect(html).not.toContain('href="tel:');
+  });
+  it("keeps blank unflagged legacy contacts blank without invented phone", async () => {
+    m.find.mockResolvedValue([{ ...lead(), phone: null, lineId: null, sheetStatus: "LEGACY_IMPORTED", legacyImport: { phoneNeedsReview: false }, originalPayload: { ...lead().originalPayload, phone: "" } }]);
+    const html = await render(); expect(html).not.toContain("電話格式待核對"); expect(html).not.toContain('href="tel:'); expect(html).toContain("未留聯絡方式");
+  });
   it("renders original needs, exact contact and separate HQ/Sheet statuses", async () => {
     const html = await render();
     for (const text of ["原始需求A", "原始補充", "原留聯絡人", "HQ 已收件", "Sheet 結果不明，請先查核，勿重送", "admin-123", "既有聯繫紀錄", "2026/10/8", "修訂 3"]) expect(html).toContain(text);
+    expect(html).not.toContain("第一階段 · 需求與聯繫紀錄");
     expect(html).toContain('href="tel:0912345678"'); expect(html).toContain("複製 LINE ID @actual-id"); expect(html).not.toContain("line.me/"); expect(html).not.toContain('href="javascript:');
     expect(html).toContain("stage=applications&amp;application=formal-id"); expect(html).toContain("下一頁"); expect(html).toContain("查看全部紀錄");
   });
   it("suppresses all contact controls for no-contact fitness leads, even if old bad data retains contacts", async () => {
     const item = lead(); item.originalPayload = { ...item.originalPayload, ...{ formVersion: "fitness-v2", source: "fitness-intake", contactWay: "目前暫不考慮" } }; m.find.mockResolvedValue([item]);
     const html = await render(); expect(html).toContain("請勿主動聯繫"); expect(html).not.toContain('href="tel:'); expect(html).not.toContain("複製 LINE ID"); expect(html).not.toContain("原留聯絡人");
+  });
+  it("marks existing HQ test fixtures and never suggests contacting them", async () => {
+    m.find.mockResolvedValue([{ ...lead(), storeName: "【HQ測試】合成網址驗收", lineId: "QA_URL_ONLY_20990101" }]);
+    const html = await render();
+    expect(html).toContain("測試紀錄 · 請勿聯繫"); expect(html).toContain("保留查核，請勿聯繫");
+    expect(html).not.toContain('href="tel:'); expect(html).not.toContain("複製 LINE ID");
+    expect(html).not.toContain("依原留方式聯繫");
   });
   it("uses only supplied LINE links", async () => {
     m.find.mockResolvedValue([{ ...lead(), lineId: "https://lin.ee/original" }]); const html = await render(); expect(html).toContain('href="https://lin.ee/original"'); expect(html).not.toContain("複製 LINE ID");

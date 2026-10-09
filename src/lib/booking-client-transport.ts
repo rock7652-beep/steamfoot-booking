@@ -25,9 +25,11 @@ export async function updateBookingStatus(
   return result;
 }
 
-/** Read slots without a Server Action page payload; server retains session scope. */
-export async function readBookingSlots(date: string): Promise<{ slots: import("@/types").SlotAvailability[] }> {
-  const response = await fetch(`/api/bookings/slots?${new URLSearchParams({ date })}`, {
+/** Explicit roster scope is reauthorized by the server; legacy reads retain session scope. */
+export async function readBookingSlots(date: string, storeId?: string): Promise<{ slots: import("@/types").SlotAvailability[] }> {
+  const params = new URLSearchParams({ date });
+  if (storeId) params.set("storeId", storeId);
+  const response = await fetch(`/api/bookings/slots?${params}`, {
     cache: "no-store", credentials: "same-origin",
   });
   if (!response.ok) throw new Error("時段暫時無法載入");

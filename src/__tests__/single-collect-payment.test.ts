@@ -161,6 +161,38 @@ beforeEach(() => {
 
 const base = { bookingId: "bk_1", paymentMethod: "CASH" as const };
 
+describe("多人單次收款", () => {
+  it.each([1, 2, 3, 4])("%i 人未存總額時，交易原價與實收皆乘人數", async (people) => {
+    const booking = await h.bookingFindFirst();
+    h.bookingFindFirst.mockResolvedValue({ ...(booking as object), people, expectedAmount: null } as never);
+    const result = await collectSinglePayment(base);
+    expect(result.success).toBe(true);
+    expect(lastTx().grossAmount).toBe(799 * people);
+    expect(lastTx().netAmount).toBe(799 * people);
+    expect(lastTx().amount).toBe(799 * people);
+    const lookup = h.bookingFindFirst.mock.calls[1] as unknown as [unknown];
+    expect(lookup[0]).toMatchObject({ select: { people: true } });
+  });
+
+  it("4 人已保存優惠總額時，不再重複乘人數", async () => {
+    const booking = await h.bookingFindFirst();
+    h.bookingFindFirst.mockResolvedValue({ ...(booking as object), people: 4, expectedAmount: 2800 } as never);
+    expect((await collectSinglePayment(base)).success).toBe(true);
+    expect(lastTx().grossAmount).toBe(2800);
+    expect(lastTx().netAmount).toBe(2800);
+  });
+
+  it("預約 4 人只到 3 人，可調整實收並保留查帳原因", async () => {
+    const booking = await h.bookingFindFirst();
+    h.bookingFindFirst.mockResolvedValue({ ...(booking as object), people: 4, expectedAmount: null } as never);
+    expect((await collectSinglePayment({ ...base, amount: 2397, discountReason: "實到 3 人" })).success).toBe(true);
+    expect(lastTx().grossAmount).toBe(3196);
+    expect(lastTx().netAmount).toBe(2397);
+    expect(lastTx().discountAmount).toBe(799);
+    expect(lastTx().discountReason).toBe("實到 3 人");
+  });
+});
+
 describe("collectSinglePayment — SUCCESS-only real-revenue tx", () => {
   it("creates exactly ONE SINGLE_PURCHASE tx, SUCCESS+SUCCESS, paidAt set, bookingId linked", async () => {
     const r = await collectSinglePayment(base);

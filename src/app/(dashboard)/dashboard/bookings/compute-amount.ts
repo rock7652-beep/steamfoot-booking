@@ -15,6 +15,7 @@
  */
 
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
+import { resolveSingleBookingTotal } from "@/lib/single-booking-price";
 
 /**
  * 體驗預約「本次總額」顯示容錯。
@@ -68,19 +69,18 @@ export function computeAmount(
   // 否則同一張預約的詳情與現場結帳會顯示不同金額。
   if (
     booking.bookingType === "SINGLE" &&
-    booking.treatmentPriceSnapshot != null &&
-    booking.treatmentPriceSnapshot > 0
+    booking.treatmentPriceSnapshot != null
   ) {
     return `NT$ ${booking.treatmentPriceSnapshot.toLocaleString()}`;
   }
 
-  // 蒸足「方案扣堂 → 單次」使用轉換當下的 expectedAmount 快照。
-  if (
-    booking.bookingType === "SINGLE" &&
-    booking.expectedAmount != null &&
-    booking.expectedAmount > 0
-  ) {
-    return `NT$ ${booking.expectedAmount.toLocaleString()}`;
+  if (booking.bookingType === "SINGLE") {
+    const total = resolveSingleBookingTotal({
+      expectedAmount: booking.expectedAmount,
+      unitPrice: booking.servicePlan?.price,
+      people: booking.people,
+    });
+    return `NT$ ${total.toLocaleString()}`;
   }
 
   if (!booking.servicePlan) return "—";
