@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
+import { currentStoreId, getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
+import { requirePermission } from "@/lib/permissions";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -186,11 +187,21 @@ export async function fetchMonthAvailability(
 // fetchDaySlots — 單日時段查詢（前台預約用，含 duty 過濾）
 // ============================================================
 
-export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailability[] }> {
+export async function fetchDaySlots(date: string, requestedStoreId?: string): Promise<{ slots: SlotAvailability[] }> {
   // Fixed action label only; no arguments, customer data, or identifiers.
   console.info("[BOOKING_ACTION]", "fetchDaySlots");
-  const user = await requireSession();
-  const { storeId } = await resolveReadStoreContextOrThrow(user);
+  // A roster can be opened via an authorized /s/:slug route without an
+  // active-store cookie. Treat its explicit ID only as a request: authorize
+  // booking.read and tenant/HQ view scope again before any availability read.
+  const explicit = requestedStoreId !== undefined;
+  if (explicit && (typeof requestedStoreId !== "string" || !requestedStoreId.trim() || requestedStoreId === "__all__" || requestedStoreId.length > 100)) {
+    throw new AppError("VALIDATION", "門市無效");
+  }
+  const user = explicit ? await requirePermission("booking.read", undefined, { storeId: requestedStoreId }) : await requireSession();
+  const storeId = explicit
+    ? await validateStoreAccess(user, requestedStoreId!, "read")
+    : (await resolveReadStoreContextOrThrow(user)).storeId;
+  if (!storeId) throw new AppError("VALIDATION", "請指定門市");
 
   if (!(await isStoreBookable(storeId))) return { slots: [] };
 

@@ -770,11 +770,31 @@ export async function loadCourseRosterQuick(sessionId: string) {
 
 export async function saveCourseRosterNote(input: unknown) {
   try {
-    const data=z.object({sessionId:id,bookingId:id.optional(),note:z.string().trim().max(1000)}).parse(input);
+    const data=z.object({
+      sessionId:id,
+      bookingId:id.optional(),
+      note:z.string().trim().max(1000),
+      // Optional for the existing detail / teacher editor; inline saves compare
+      // exactly what was displayed before changing this booking's note only.
+      expectedNote:z.string().max(1000).optional(),
+    }).parse(input);
     const {storeId}=await courseManager("booking.update");
     if(data.bookingId) {
-      const result=await coursePrisma.courseBooking.updateMany({where:{id:data.bookingId,sessionId:data.sessionId,storeId,status:{not:"CANCELLED"}},data:{notes:data.note}});
-      if(!result.count)throw new AppError("NOT_FOUND","找不到本店學員預約");
+      const where={id:data.bookingId,sessionId:data.sessionId,storeId,status:{not:"CANCELLED" as const}};
+      const result=await coursePrisma.courseBooking.updateMany({
+        where:{...where,...(data.expectedNote !== undefined ? {notes:data.expectedNote} : {})},
+        data:{notes:data.note},
+      });
+      if(!result.count) {
+        const current=await coursePrisma.courseBooking.findFirst({where,select:{notes:true}});
+        if(!current)throw new AppError("NOT_FOUND","找不到本店學員預約");
+        // A retry after a lost response can already have committed this value.
+        if(current.notes !== data.note) return {success:false as const,error:"本次備註已被更新，請確認最新內容後再儲存",currentValue:current.notes};
+      }
+      // The roster patches this field locally. Route revalidation here would
+      // remount unrelated editors and discard the current list position.
+      if(data.expectedNote === undefined) refresh();
+      return {success:true as const};
     } else {
       const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null},data:{teacherNote:data.note}});
       if(!result.count)throw new AppError("NOT_FOUND","找不到本店課程");

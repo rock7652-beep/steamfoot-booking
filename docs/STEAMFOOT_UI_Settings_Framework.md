@@ -490,7 +490,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - Settings Panel → 共用 panel 容器，逐步取代只屬於單一模組的 panel wrapper
 - Reminder Center → 共用 tabs、panel、dirty guard、發送紀錄與健康狀態元件
 - 大量清單 → 共用搜尋／篩選／排序／批次操作模式
-- 預約／課程名單 → `src/components/admin/roster-primitives.tsx`（工具列、資料列密度、狀態操作尺寸、標籤／備註欄）
+- 預約／課程名單 → `src/components/admin/roster-primitives.tsx`（工具列、資料列密度、狀態操作尺寸）；標籤／備註欄 → `src/components/admin/roster-reminders.tsx`（四模組兩行摘要、44px 分離操作、完整內容入口）；本次備註原列編輯 → `src/components/admin/inline-roster-note.tsx`（草稿保留、儲存／取消、就地錯誤，各模組注入 notes-only action）
 
 若共用元件名稱或路徑改變，修改 UI 骨架的 PR **MUST** 同步檢查本節是否需要更新。
 

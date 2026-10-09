@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { assertHqIntakeListPreviewEnvironment, assertReviewedReleaseEnvironment, HQ_INTAKE_LIST_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertHqIntakeListPreviewEnvironment, assertReviewedReleaseEnvironment, HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, HQ_PHONE_REVIEW_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const valid = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: HQ_INTAKE_LIST_PREVIEW_BRANCH, VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", CONSULTATION_HQ_ENABLED: "true", CONSULTATION_PREVIEW_INTAKE_ENABLED: "false", DATABASE_URL: pool, DIRECT_URL: direct };
@@ -15,26 +15,28 @@ function run(patch: Record<string, string | undefined> = {}) {
   for (const secret of [env.DATABASE_URL, env.DIRECT_URL]) if (secret) expect(output).not.toContain(secret);
   return { status: result.status, output };
 }
-describe("exact approved HQ intake list preview", () => {
+describe.each([HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, HQ_PHONE_REVIEW_PREVIEW_BRANCH])("exact approved HQ intake preview: %s", branch => {
+  const validBranch = { ...valid, VERCEL_GIT_COMMIT_REF: branch };
+  const runBranch = (patch: Record<string, string | undefined> = {}) => run({ VERCEL_GIT_COMMIT_REF: branch, ...patch });
   it("retains isolated DB checks and exits before any migration or client construction", () => {
-    expect(assertReviewedReleaseEnvironment(valid)).toBe("hq-intake-list-preview");
-    const result = run(); expect(result.status).toBe(0); expect(result.output).toContain("public_intake_disabled=true migrations_skipped=true");
+    expect(assertReviewedReleaseEnvironment(validBranch)).toBe("hq-intake-list-preview");
+    const result = runBranch(); expect(result.status).toBe(0); expect(result.output).toContain("public_intake_disabled=true migrations_skipped=true");
   });
   it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_COMMIT_REF", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG", "CONSULTATION_HQ_ENABLED", "CONSULTATION_PREVIEW_INTAKE_ENABLED", "DATABASE_URL", "DIRECT_URL"])("fails closed for missing/malformed %s", key => {
     for (const value of [undefined, "", "wrong"]) {
-      expect(() => assertHqIntakeListPreviewEnvironment({ ...valid, [key]: value })).toThrow();
-      expect(run({ [key]: value }).status).not.toBe(0);
+      expect(() => assertHqIntakeListPreviewEnvironment({ ...validBranch, [key]: value })).toThrow();
+      expect(runBranch({ [key]: value }).status).not.toBe(0);
     }
   });
   it.each(["DATABASE_URL", "DIRECT_URL"])("rejects a different project or routing injection in %s", key => {
-    for (const value of [direct.replace("ttworfzgwejdeolegkxl", "other-project"), direct + "?host=other.invalid", pool + "?schema=private"]) expect(run({ [key]: value }).status).not.toBe(0);
+    for (const value of [direct.replace("ttworfzgwejdeolegkxl", "other-project"), direct + "?host=other.invalid", pool + "?schema=private"]) expect(runBranch({ [key]: value }).status).not.toBe(0);
   });
   it("requires intake disabled and rejects conflicting providers", () => {
-    expect(run({ CONSULTATION_PREVIEW_INTAKE_ENABLED: "true" }).status).not.toBe(0);
-    for (const key of ["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"]) expect(run({ [key]: "main" }).status).not.toBe(0);
+    expect(runBranch({ CONSULTATION_PREVIEW_INTAKE_ENABLED: "true" }).status).not.toBe(0);
+    for (const key of ["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"]) expect(runBranch({ [key]: "main" }).status).not.toBe(0);
   });
   it("keeps automatic branch deployment off and production main unchanged", () => {
     const enabled = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
-    expect(enabled[HQ_INTAKE_LIST_PREVIEW_BRANCH]).toBe(false); expect(enabled.main).not.toBe(false);
+    expect(enabled[branch]).toBe(false); expect(enabled.main).not.toBe(false);
   });
 });

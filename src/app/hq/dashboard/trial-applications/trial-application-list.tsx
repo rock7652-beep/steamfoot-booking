@@ -3,15 +3,53 @@ import { prisma } from "@/lib/db";
 import { formatTWTime } from "@/lib/date-utils";
 import {
   applicationStatuses,
+  setupSections,
   trialApplicationSchema,
   trialChecklist,
-  trialSetupSummary,
+  type TrialApplicationData,
 } from "@/lib/trial-application";
 import { retryApplicationNotification } from "./actions";
 import { TrialApplicationStatusForm } from "./formal-status-form";
 import { IntakeList, IntakeListRow } from "./intake-list-row";
+import { IntakeDetailFields, IntakeSecondaryDetails } from "./intake-detail-fields";
 import { applicationNextStep, intakeTestMarker } from "./intake-summary";
 import { consultationHref, suppliedPhoneHref, suppliedEmailHref, type ConsultationSearch } from "./consultation-view";
+
+function setupDetailFields(data: TrialApplicationData): Record<string, unknown> {
+  const checklist = new Map(trialChecklist(data).map(({ label, state }) => [label, state]));
+  const withNote = (state: string | undefined, note: string) => note ? `${state} · ${note}` : state;
+  const authorization = (value: TrialApplicationData["providerAdmin"]) => value && ({
+    pending: "待處理", invited: "已邀請，待確認", help: "需要協助", absent: "尚未建立",
+  }[value]);
+  const line = [
+    { existing: "已有", new: "尚未申請", help: "需要協助" }[data.lineStatus],
+    data.lineId, checklist.get("官方 LINE ID／好友連結"),
+  ];
+  return {
+    "官方 LINE": [...new Set(line.filter(value => value !== "" && value !== undefined))].join(" · "),
+    "官方 LINE 管理員邀請": checklist.get("官方 LINE 管理員邀請"),
+    既有串接: withNote(checklist.get("既有串接"), data.integrationName),
+    品牌: data.brandName,
+    其他門市: data.otherStores,
+    希望網址: withNote(checklist.get("網址英文名稱"), data.slug),
+    其他後台使用者: data.additionalManagers,
+    "共用 LINE": withNote({ yes: "是", no: "否", unknown: "待確認" }[data.sharedLine], data.sharedLineStores),
+    "LINE 管理聯絡人": data.lineManagerContact,
+    "Provider 管理員授權": authorization(data.providerAdmin),
+    "Messaging API 管理員授權": authorization(data.messagingAdmin),
+    "LINE Login 管理員授權": authorization(data.loginAdmin),
+    "Developers 授權（歷史填報）": authorization(data.developers),
+    ...Object.fromEntries(setupSections.map(([progress, notes, label]) => {
+      const state = checklist.get(label);
+      // Keep both the check result and submitted notes, even for "none" or "help".
+      const progressState = data[progress] === "provided" && state !== "已提供"
+        ? `${state}（填報已提供）` : state;
+      const note = data[notes] || (data[progress] === "provided" && data.attachments.length ? "見附件" : "");
+      return [label, withNote(progressState, note)];
+    })),
+    現有學員匯入: checklist.get("現有學員匯入"),
+  };
+}
 
 /** Called only after the page's HQ permission and database checks. */
 export async function TrialApplicationsList({ q, status, page, application }: ConsultationSearch) {
@@ -58,42 +96,10 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
             status={<span className={item.status === "CLOSED" ? "text-earth-600" : "text-primary-800"}>{applicationStatuses[item.status as keyof typeof applicationStatuses] ?? item.status}</span>}
             next={<span className={test ? "text-amber-900" : "text-earth-700"}>{test ? "保留查核，請勿聯繫" : applicationNextStep(item.status)}</span>}
             submitted={formatTWTime(item.createdAt)}>
-              <p className="text-sm">
-                編號：{item.id} · 修訂 {item.revision}
-              </p>
-              {process.env.CONSULTATION_HQ_ENABLED === "true" && <Link
-                href={consultationHref({ stage: "consultations", application: item.id })}
-                className="inline-flex min-h-11 items-center text-sm underline">
-                查看人工關聯的需求諮詢
-              </Link>}
-              {parsed.success && (
-                <>
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    {Object.entries({
-                      店家類型: parsed.data.industry,
-                      聯絡人: parsed.data.contactName,
-                      電話: parsed.data.phone,
-                      "官方 LINE ID": parsed.data.lineId,
-                      "LINE 狀態":
-                        parsed.data.lineStatus === "existing"
-                          ? "已有"
-                          : parsed.data.lineStatus === "new"
-                            ? "尚未申請"
-                            : "需要協助",
-                      既有串接:
-                        parsed.data.integration === "existing"
-                          ? parsed.data.integrationName || "有，待確認"
-                          : parsed.data.integration === "none"
-                            ? "無"
-                            : "不確定",
-                    }).map(([k, v]) => (
-                      <div key={k}>
-                        <dt className="text-earth-500">{k}</dt>
-                        <dd className="break-all">{v || "尚未提供"}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <div className="flex flex-wrap gap-3 text-sm">
+              {parsed.success ? (
+                <div className="space-y-2">
+                  <IntakeDetailFields fields={{ 電話: parsed.data.phone }} />
+                  <div className="flex flex-wrap gap-2 text-sm">
                     {!test && phoneHref && <a href={phoneHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-700">撥打原留電話</a>}
                     {!test && emailHref && <a href={emailHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-700">寄信至原留 Email</a>}
                     {Object.entries({
@@ -107,40 +113,21 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-lg border px-3 py-2 text-primary-700"
+                          className="inline-flex min-h-11 max-w-full items-center rounded-lg border px-3 py-2 text-primary-700"
                         >
                           {label} ↗
                         </a>
                       ) : null,
                     )}
                   </div>
-                  <pre className="whitespace-pre-wrap break-words font-sans text-sm">
-                    {trialSetupSummary(parsed.data)}
-                  </pre>
-                  <div className="flex flex-wrap gap-3">
-                    {parsed.data.attachments.map((a, index) => (
-                      <a
-                        key={`${a.name}-${index}`}
-                        href={`/api/trial-applications/${item.id}/attachments/${index}`}
-                        className="rounded border px-3 py-2 text-sm text-primary-700"
-                      >
-                        下載 {a.name}
-                      </a>
-                    ))}
-                  </div>
-                  <ul className="space-y-2 text-sm">
-                    {trialChecklist(parsed.data).map((i) => (
-                      <li key={i.label}>
-                        {i.label}：{i.state}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                </div>
+              ) : (
+                <p role="alert" className="text-sm text-amber-900">開通資料格式待核對，請先查核原始申請。</p>
               )}
               <TrialApplicationStatusForm id={item.id} name={item.storeName} status={item.status} />
               <form
                 action={retryApplicationNotification}
-                className="flex flex-wrap items-center gap-3 text-sm"
+                className="flex flex-wrap items-center gap-2 text-sm"
               >
                 <input type="hidden" name="id" value={item.id} />
                 <span>
@@ -161,6 +148,28 @@ export async function TrialApplicationsList({ q, status, page, application }: Co
                   </button>
                 )}
               </form>
+              {parsed.success && <>
+                <IntakeDetailFields fields={setupDetailFields(parsed.data)} />
+                {parsed.data.attachments.length > 0 && <div className="flex flex-wrap gap-2">
+                  {parsed.data.attachments.map((attachment, index) => (
+                    <a
+                      key={`${attachment.name}-${index}`}
+                      href={`/api/trial-applications/${item.id}/attachments/${index}`}
+                      className="inline-flex min-h-11 max-w-full items-center break-all rounded border px-3 py-2 text-sm text-primary-700"
+                    >
+                      下載 {attachment.name}
+                    </a>
+                  ))}
+                </div>}
+              </>}
+              <IntakeSecondaryDetails>
+                <IntakeDetailFields fields={{ 編號: item.id, 修訂: item.revision }} />
+                {process.env.CONSULTATION_HQ_ENABLED === "true" && <Link
+                  href={consultationHref({ stage: "consultations", application: item.id })}
+                  className="inline-flex min-h-11 items-center text-sm underline">
+                  查看人工關聯的需求諮詢
+                </Link>}
+              </IntakeSecondaryDetails>
           </IntakeListRow>
         );
       })}</IntakeList>}

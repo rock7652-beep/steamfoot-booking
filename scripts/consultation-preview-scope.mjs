@@ -57,7 +57,13 @@ export function isIsolatedConsultationDatabaseUrl(value) {
 
 export const CONSULTATION_PREVIEW_BRANCH = "feat/hq-consultation-intake-20261008";
 export const HQ_INTAKE_LIST_PREVIEW_BRANCH = "feat/hq-intake-list-live-filter-20261008";
+export const HQ_PHONE_REVIEW_PREVIEW_BRANCH = "fix/hq-reviewed-phone-prefix";
+export const HQ_INTAKE_DETAIL_PREVIEW_BRANCH = "fix/hq-intake-compact-details-20261009";
+export const HQ_LEGACY_IMPORT_PREVIEW_BRANCH = "feat/hq-legacy-consultation-import-20261009";
 export const SPORTS_ROSTER_PREVIEW_BRANCH = "fix/course-roster-two-line-20261008";
+export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
+export const INLINE_BOOKING_NOTES_PREVIEW_BRANCH = "feat/inline-booking-notes-local-20261009";
+
 export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261008";
 
 /** Read-only documentation candidate against the existing isolated test database. */
@@ -78,7 +84,7 @@ export function assertOperationGuidePreviewEnvironment(env) {
  */
 export function assertHqIntakeListPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      env.VERCEL_GIT_COMMIT_REF !== HQ_INTAKE_LIST_PREVIEW_BRANCH ||
+      ![HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, HQ_PHONE_REVIEW_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("HQ intake list requires its exact authorized Vercel Preview branch and repository.");
@@ -88,6 +94,23 @@ export function assertHqIntakeListPreviewEnvironment(env) {
   }
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
     throw new Error("HQ intake list Preview requires the existing isolated database for both connections.");
+  }
+}
+
+/** Historical import UI review uses synthetic rows in the existing isolated DB.
+ * Schema and fixture operations are separately controlled; a build never runs them.
+ * @param {Readonly<Record<string, string | undefined>>} env
+ */
+export function assertHqLegacyImportPreviewEnvironment(env) {
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== HQ_LEGACY_IMPORT_PREVIEW_BRANCH ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
+    throw new Error("Legacy consultation review requires its exact Vercel Preview branch and repository.");
+  }
+  if (env.CONSULTATION_HQ_ENABLED !== "true" || env.CONSULTATION_PREVIEW_INTAKE_ENABLED !== "false" ||
+      ![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
+    throw new Error("Legacy consultation Preview requires isolated connections, HQ enabled, and public intake disabled.");
   }
 }
 
@@ -103,6 +126,21 @@ export function assertSportsRosterPreviewEnvironment(env) {
   }
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
     throw new Error("Sports roster Preview requires the existing isolated database for both connections.");
+  }
+}
+
+/** Four-module UI review reuses the same isolated data and blocks migrations.
+ * @param {Readonly<Record<string, string | undefined>>} env
+ */
+export function assertModuleRosterPreviewEnvironment(env) {
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
+    throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
+  }
+  if (![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
+    throw new Error("Module roster Preview requires the existing isolated database for both connections.");
   }
 }
 
@@ -145,7 +183,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "hq-intake-list-preview" | "operation-guide-preview"}
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
@@ -159,9 +197,17 @@ export function assertReviewedReleaseEnvironment(env) {
     assertOperationGuidePreviewEnvironment(env);
     return "operation-guide-preview";
   }
-  if (env.VERCEL_GIT_COMMIT_REF === HQ_INTAKE_LIST_PREVIEW_BRANCH) {
+  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+    assertModuleRosterPreviewEnvironment(env);
+    return "module-roster-preview";
+  }
+  if ([HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, HQ_PHONE_REVIEW_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertHqIntakeListPreviewEnvironment(env);
     return "hq-intake-list-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === HQ_LEGACY_IMPORT_PREVIEW_BRANCH) {
+    assertHqLegacyImportPreviewEnvironment(env);
+    return "hq-legacy-import-preview";
   }
   if (env.VERCEL_GIT_COMMIT_REF === SPORTS_ROSTER_PREVIEW_BRANCH) {
     assertSportsRosterPreviewEnvironment(env);

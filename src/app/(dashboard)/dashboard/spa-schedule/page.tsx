@@ -28,13 +28,14 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   // Match SPA customer management: HQ selection permits reads only.
   const writeContext = isViewMode ? null : await getStoreContext();
   const canWrite = !isViewMode && writeContext?.storeId === storeId;
+  const canReadCustomerNotes = await checkPermission(user.role, user.staffId, "customer.read");
 
   const { date: requestedDate, customerId, new: openNew } = await searchParams;
   const date = requestedDate && validSpaDate(requestedDate) ? requestedDate : toLocalDateStr();
   const [bookings, staff, customers, treatments, locations, canCreate, canUpdate,canCheckout,canCreateCustomer] = await Promise.all([
     getSpaScheduleForDay(storeId, date),
     prisma.staff.findMany({ where: { storeId, status: "ACTIVE" }, select: { id: true, displayName: true, colorCode: true }, orderBy: { displayName: "asc" } }),
-    prisma.customer.findMany({ where: { storeId }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { storeId }, select: { id: true, name: true, phone: true, serviceNote: canReadCustomerNotes }, orderBy: { name: "asc" } }),
     spaPrisma.spaTreatment.findMany({ where: { storeId, isActive: true }, include: { serviceLocations: true }, orderBy: { sortOrder: "asc" } }),
     spaPrisma.spaServiceLocation.findMany({ where: { storeId, isActive: true }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
     canWrite ? checkPermission(user.role, user.staffId, "booking.create") : Promise.resolve(false),
@@ -43,7 +44,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     canWrite ? checkPermission(user.role, user.staffId, "customer.create") : Promise.resolve(false),
   ]);
   return <PageShell className="max-w-none px-4 py-6">
-    <SpaScheduleWorkspace key={`${date}:${customerId??""}:${openNew??""}`} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
+    <SpaScheduleWorkspace key={`${storeId}:${date}:${customerId??""}:${openNew??""}`} storeId={storeId} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
       locations={locations} canCreateCustomer={canCreateCustomer} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,
         bufferMinutes: t.bufferMinutes, locationIds: t.serviceLocations.map(l => l.serviceLocationId) }))} />

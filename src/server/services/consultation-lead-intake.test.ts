@@ -132,7 +132,7 @@ describe("single-attempt Sheet delivery", () => {
     expect(mocks.updateMany).toHaveBeenCalledWith({ where: { id: "lead-synthetic", sheetStatus: "PENDING", sheetAttemptedAt: null }, data: { sheetStatus: "SENDING", sheetAttemptedAt: expect.any(Date) } });
   });
 
-  it.each(["SENDING", "UNKNOWN", "CONFIRMED", "NOT_SENT_PREVIEW"])("never automatically retries %s, including a crashed/lost-response attempt", async (status) => {
+  it.each(["SENDING", "UNKNOWN", "CONFIRMED", "NOT_SENT_PREVIEW", "LEGACY_IMPORTED"])("never automatically retries %s, including a crashed/lost-response attempt", async (status) => {
     mocks.updateMany.mockImplementation(async ({ where }) => ({ count: status === where.sheetStatus ? 1 : 0 }));
     expect(await claimConsultationDelivery("lead-synthetic")).toBe(false);
     expect(mocks.updateMany.mock.calls[0][0].data.sheetStatus).toBe("SENDING");

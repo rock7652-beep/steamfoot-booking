@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         hqSaved: true, sheetStatus: "NOT_SENT_PREVIEW" });
       if (lead.sheetStatus !== "PENDING") {
         return reply({ ok: true, saved: true, requestId: payload.requestId,
-          hqSaved: true, sheetStatus: lead.sheetStatus === "CONFIRMED" ? "CONFIRMED" : "UNKNOWN" });
+          hqSaved: true, sheetStatus: lead.sheetStatus === "CONFIRMED" || lead.sheetStatus === "LEGACY_IMPORTED" ? lead.sheetStatus : "UNKNOWN" });
       }
     }
     if (payload.formVersion === "fitness-v2") {

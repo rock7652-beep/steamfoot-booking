@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/hq-reviewed-phone-prefix": false,
       "fix/public-seo-crawlers-20261007": false,
       "feat/public-guide-articles-20261007": false,
       "fix/publish-music-guide-20261008": false,
@@ -57,7 +58,11 @@
       "fix/course-roster-two-line-20261008": false,
       "content/yoga-waitlist-management": false,
       "codex/course-student-self-booking-switch": false,
-      "feat/hq-intake-list-live-filter-20261008": false
+      "fix/unify-module-notes-density": false,
+      "feat/hq-intake-list-live-filter-20261008": false,
+      "feat/hq-legacy-consultation-import-20261009": false,
+      "fix/hq-intake-compact-details-20261009": false,
+      "feat/inline-booking-notes-local-20261009": false
     }
   }
 }

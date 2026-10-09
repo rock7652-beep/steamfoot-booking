@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ user: vi.fn(), storeView: vi.fn(), permission: vi.fn(), allowed: vi.fn(), leads: vi.fn(), applications: vi.fn() }));
+const m = vi.hoisted(() => ({ user: vi.fn(), storeView: vi.fn(), permission: vi.fn(), allowed: vi.fn(), leads: vi.fn(), applications: vi.fn(), legacyCount: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { consultationLead: { count: m.legacyCount } } }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/hq-store-view", () => ({ isHqStoreView: m.storeView }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
@@ -15,8 +16,17 @@ const render = async (params: Record<string, string> = {}) => renderToStaticMark
 beforeEach(() => {
   vi.resetAllMocks(); vi.stubEnv("CONSULTATION_HQ_ENABLED", "true");
   m.user.mockResolvedValue({ id: "admin", role: "ADMIN", staffId: null }); m.storeView.mockResolvedValue(false); m.permission.mockResolvedValue(true); m.allowed.mockReturnValue(true);
+  m.legacyCount.mockResolvedValue(0);
 });
 describe("HQ unified consultation page", () => {
+  it("shows actual historical import count without asserting all source rows were imported", async () => {
+    expect(await render()).toContain("歷史 Sheet 尚未匯入 HQ");
+    m.legacyCount.mockResolvedValue(4);
+    const html = await render();
+    expect(html).toContain("已匯入 4 筆歷史諮詢；其他來源請核對 Sheet");
+    expect(html).not.toContain("歷史 Sheet 尚未匯入 HQ");
+    expect(m.legacyCount).toHaveBeenCalledWith({ where: { sheetStatus: "LEGACY_IMPORTED" } });
+  });
   it.each([null, { role: "OWNER", staffId: "owner" }, { role: "STAFF", staffId: "staff" }])("blocks non-HQ sessions before querying either list (%j)", async user => {
     m.user.mockResolvedValue(user); await expect(render()).rejects.toThrow("redirect:/hq/login"); expect(m.leads).not.toHaveBeenCalled(); expect(m.applications).not.toHaveBeenCalled();
   });
@@ -31,7 +41,7 @@ describe("HQ unified consultation page", () => {
   });
   it("shows truthful disabled collection and historical Sheet notices without reading new tables", async () => {
     vi.stubEnv("CONSULTATION_HQ_ENABLED", "false"); const html = await render();
-    expect(html).toContain("HQ 需求諮詢尚未啟用"); expect(html).toContain("歷史 Sheet 尚未匯入 HQ"); expect(html).toContain("1VHUCglOH0jRpWbdVAnIw39UVe7ULbag33JHs1Bw7oG4"); expect(m.leads).not.toHaveBeenCalled();
+    expect(html).toContain("HQ 需求諮詢尚未啟用"); expect(html).toContain("歷史資料請核對原有 Sheet"); expect(html).toContain("1VHUCglOH0jRpWbdVAnIw39UVe7ULbag33JHs1Bw7oG4"); expect(m.leads).not.toHaveBeenCalled(); expect(m.legacyCount).not.toHaveBeenCalled();
     await render({ stage: "applications" }); expect(m.applications).toHaveBeenCalledOnce();
   });
   it("retains old ?application deep links and shares the bounded query across stages", async () => {

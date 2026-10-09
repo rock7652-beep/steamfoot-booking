@@ -41,11 +41,11 @@ describe("two-stage consultation intake", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout"))); m.mark.mockRejectedValue(new Error("db offline"));
     expect(await (await POST(req())).json()).toMatchObject({saved:true,hqSaved:true,sheetStatus:"UNKNOWN"});
   });
-  it.each(["SENDING", "UNKNOWN", "CONFIRMED"])("never forwards a retried %s submission", async sheetStatus => {
+  it.each(["SENDING", "UNKNOWN", "CONFIRMED", "LEGACY_IMPORTED"])("never forwards a retried %s submission", async sheetStatus => {
     m.save.mockResolvedValue({lead:{id:"lead-test",sheetStatus},created:false}); m.claim.mockResolvedValue(false);
     const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
-    expect(await (await POST(req())).json()).toMatchObject({saved:true,sheetStatus:sheetStatus==="CONFIRMED"?"CONFIRMED":"UNKNOWN"});
-    expect(fetch).not.toHaveBeenCalled();
+    expect(await (await POST(req())).json()).toMatchObject({saved:true,sheetStatus:["CONFIRMED","LEGACY_IMPORTED"].includes(sheetStatus)?sheetStatus:"UNKNOWN"});
+    expect(fetch).not.toHaveBeenCalled(); expect(m.claim).not.toHaveBeenCalled(); expect(m.mark).not.toHaveBeenCalled();
   });
   it("rejects changed content reusing an id without posting", async () => {
     m.save.mockRejectedValue(new ConsultationRequestConflictError()); const fetch=vi.fn();vi.stubGlobal("fetch",fetch);

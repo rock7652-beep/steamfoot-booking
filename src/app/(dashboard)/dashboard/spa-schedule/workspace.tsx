@@ -1,7 +1,7 @@
 "use client";
 import scheduleControls from "@/components/admin/schedule-controls.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { CustomerListIdentity } from "@/components/customer-list-identity";
+import { SpaBookingRoster } from "./booking-roster";
 import { CustomerLabels } from "@/components/customer-labels";
 import { createCustomer } from "@/server/actions/customer";
 import { normalizePhone } from "@/lib/normalize";
@@ -34,11 +34,12 @@ type Treatment = Named & {
   locationIds: string[];
 };
 type Props = {
+  storeId: string;
   initialCustomerId?: string;
   date: string;
   bookings: SpaScheduleBooking[];
   staff: (Named & { colorCode?: string })[];
-  customers: (Named & { phone: string })[];
+  customers: (Named & { phone: string; serviceNote?: string | null })[];
   treatments: Treatment[];
   locations: Named[];
   canCreate: boolean;
@@ -63,8 +64,9 @@ const inputClass =
 
 export function SpaScheduleWorkspace(props: Props) {
   const {
+    storeId,
     date,
-    bookings,
+    bookings: initialBookings,
     staff,
     customers: initialCustomers,
     treatments,
@@ -73,6 +75,26 @@ export function SpaScheduleWorkspace(props: Props) {
     canUpdate,
     canCheckout,
   } = props;
+  const noteScope = JSON.stringify([storeId, date]);
+  const [savedNotes, setSavedNotes] = useState<Record<string, {
+    scope: string; notes: string; updatedAt: string; previousUpdatedAt: string;
+  }>>({});
+  const bookings = initialBookings.map(booking => {
+    const saved = savedNotes[booking.id];
+    // A stale server render cannot undo a completed save. A newer revision
+    // remains authoritative, including subsequent edits in the detail panel.
+    // Equal millisecond revisions mean the server has caught up. Prefer its
+    // complete row, including a later note written within that same millisecond.
+    return saved?.scope === noteScope && saved.updatedAt > booking.updatedAt
+      ? {
+          ...booking, notes: saved.notes,
+          // Do not bless stale service/status fields with the note revision.
+          // Full-detail editing retains its existing conflict check until fresh
+          // server props include any intervening changes.
+          updatedAt: booking.updatedAt === saved.previousUpdatedAt ? saved.updatedAt : booking.updatedAt,
+        }
+      : booking;
+  });
   const [addedCustomers, setAddedCustomers] = useState<Props["customers"]>([]);
   const customers = [
     ...initialCustomers,
@@ -614,36 +636,14 @@ export function SpaScheduleWorkspace(props: Props) {
       <p className="mt-2 text-xs text-earth-500">
         黃：待確認 · 綠：已預約 · 灰：已完成。短時段點開即可查看完整內容。
       </p>
-      <details className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
-        <summary className="cursor-pointer">
+      <details className="mt-4 min-w-0 rounded-xl border border-earth-200 bg-white">
+        <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm">
           當日預約紀錄（{bookings.length}）
         </summary>
-        {bookings.map((b) => (
-          <div key={b.id} className="border-b border-earth-100"><button
-            onClick={() => openEdit(b)}
-            className="flex w-full justify-between gap-3 border-b border-earth-100 py-3 text-left text-sm"
-          >
-            <span>
-              {b.startTime}–{b.endTime}{" "}
-              {b.serviceName}
-              <small className="block text-earth-500">
-                {staff.find((p) => p.id === b.serviceStaffId)?.name ??
-                  "服務人員"}{" "}
-                ·{" "}
-                {locations.find((l) => l.id === b.serviceLocationId)?.name ??
-                  "待安排位置"}
-              </small>
-            </span>
-            <span>
-              {statusNames[b.status]}
-              {b.receipt && (
-                <span className="ml-1 font-normal">
-                  · {spaReceiptStatus(b.receipt)}
-                </span>
-              )}
-            </span>
-          </button><CustomerListIdentity customerId={b.customerId} name={customers.find(c=>c.id===b.customerId)?.name ?? "顧客"} phone={customers.find(c=>c.id===b.customerId)?.phone}/></div>
-        ))}
+        <SpaBookingRoster bookings={bookings} customers={customers} staff={staff} locations={locations} canUpdate={canUpdate} onOpen={openEdit}
+          storeId={storeId} date={date} onNotesSaved={(bookingId, notes, updatedAt, previousUpdatedAt) => {
+            setSavedNotes(previous => ({ ...previous, [bookingId]: { scope: noteScope, notes, updatedAt, previousUpdatedAt } }));
+          }} />
       </details>
       {checkout && (
         <SpaCheckoutPanel

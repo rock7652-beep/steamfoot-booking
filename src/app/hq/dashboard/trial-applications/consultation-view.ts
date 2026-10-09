@@ -5,6 +5,7 @@ import { applicationStatuses } from "@/lib/trial-application";
 export const LEGACY_CONSULTATION_SHEET = "https://docs.google.com/spreadsheets/d/1VHUCglOH0jRpWbdVAnIw39UVe7ULbag33JHs1Bw7oG4/edit#gid=2026091501";
 export const CONSULTATION_PAGE_SIZE = 20;
 export const sheetStatusLabels: Record<string, string> = {
+  LEGACY_IMPORTED: "歷史 Sheet 已匯入（未重新通知）",
   NOT_SENT_PREVIEW: "測試未送：未傳 Sheet／未寄通知",
   PENDING: "Sheet 尚未確認收件",
   SENDING: "Sheet 傳送中／等待確認",
@@ -74,4 +75,16 @@ export function fieldText(value: unknown) {
   if (typeof value === "string") return value || "尚未提供";
   if (Array.isArray(value)) return value.filter(item => typeof item === "string").join("、") || "尚未提供";
   return "尚未提供";
+}
+
+/** Display-only recognition of an explicitly stored prefix correction.
+ * Never normalizes/writes a phone or clears immutable import evidence. A flagged
+ * source can resolve only when the current value is its exact valid 0-prefix
+ * counterpart; arbitrary valid replacements still require separate review.
+ */
+export function consultationPhoneReview(legacy: boolean, provenance: Record<string, unknown>, originalPhone: unknown, currentPhone: string | null | undefined) {
+  const flagged = legacy && provenance.phoneNeedsReview === true;
+  const corrected = flagged && typeof originalPhone === "string" && originalPhone.length === 9 && /^9\d{8}$/.test(originalPhone)
+    && typeof currentPhone === "string" && currentPhone.length === 10 && /^09\d{8}$/.test(currentPhone) && currentPhone === `0${originalPhone}`;
+  return { needsReview: flagged && !corrected, corrected };
 }
