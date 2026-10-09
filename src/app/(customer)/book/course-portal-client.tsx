@@ -292,6 +292,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   }) }));
   const busyRef = useRef(false),
     trail = useRef<Array<{ page: Page; y: number }>>([]),
+    memberPositions = useRef<Partial<Record<Page, number>>>({}),
     daily = useRef<HTMLElement>(null),
     transferLastFourInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -387,6 +388,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     if (["home", "schedule", "bookings", "account", "records"].includes(next))
       trail.current = [];
     else trail.current.push({ page, y: scrollY });
+    if (!coach) memberPositions.current[page] = scrollY;
     setPage(next);
     setRoster(null);
     setRecordEdit(null);
@@ -398,7 +400,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     setLimit(20);
     setSearch("");
     setError("");
-    window.scrollTo(0, 0);
+    requestAnimationFrame(() => window.scrollTo(0, coach ? 0 : memberPositions.current[next] ?? 0));
   }
   function leaveNote() {
     if (editingNote && editingNote.value !== (editingNote.original ?? "") && !window.confirm("本次備註尚未儲存，要放棄修改嗎？")) return false;
@@ -628,6 +630,10 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     </section>
   );
   const notOpenYet = (s: Session) => new Date(s.startsAt).getTime() > new Date(p.bookingWindow.closesAt).getTime() || (!!p.bookingWindow.opensAt && now < new Date(p.bookingWindow.opensAt).getTime());
+  function lessonCostLabel(s: Session) {
+    const units = Array.from(new Set(eligible(s).map(c => c.unit)));
+    return units.length === 1 ? units[0] === "SESSION" ? "每人 1 堂" : `每人 ${s.cost} 點` : "依所選方案扣抵";
+  }
   function lessonRows(list: Session[]) {
     return list.length ? (
       list.map((s) => (
@@ -637,7 +643,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {time(s.startsAt)} · {s.name}
             </strong>
             <p>
-              {s.coach} · {s.room} · {s.cost} 點／堂 · 剩{" "}
+              {s.coach} · {s.room} · {lessonCostLabel(s)} · 剩{" "}
               {Math.max(0, s.capacity - s.occupied)} 位
             </p>
             {s.precautions && <p className="cp-important">{s.precautions}</p>}
@@ -669,7 +675,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
       ))
     ) : (
       <p className="cp-empty">
-        {closed(selected) ? "店家公休" : "當日尚未排課"}
+        {closed(selected) ? "店家公休" : (courseFilter || teacherFilter) && p.sessions.some(s => courseDate(s.startsAt) === selected) ? "當日沒有符合篩選的課程" : "當日尚未排課"}
       </p>
     );
   }
