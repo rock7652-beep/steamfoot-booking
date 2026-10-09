@@ -12,6 +12,7 @@ import { GET as robots } from "@/app/robots.txt/route";
 vi.mock("@/lib/auth", () => ({ auth: (handler: unknown) => handler }));
 import { proxy } from "@/proxy";
 
+const migrationSlug = "music-school-system-data-migration";
 const waitlistSlug = "yoga-studio-waitlist-order";
 const musicSlug = "music-school-leave-makeup-lesson-balance";
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
@@ -26,7 +27,7 @@ describe("public editorial guides", () => {
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, migrationSlug]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -210,7 +211,7 @@ describe("public editorial guides", () => {
       }
 };
     expect(Object.keys(approved)).toHaveLength(10);
-    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug)) {
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== migrationSlug)) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -219,7 +220,7 @@ describe("public editorial guides", () => {
       const html = renderToStaticMarkup(await GuideArticle(props(guide.id)));
       const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
       expect(article).toMatch(/<\/h1><p class="mt-3 text-sm leading-6 text-\[#4C6259\]">以下情境取材自門市常見困擾，人物與對話為示意，非特定店家的個案紀錄。<\/p>/);
-      const ordered = [guide.title, guide.disclosure!, ...(guide.showSummary === false ? [] : [guide.summary]), ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? [])]), ...(guide.conclusion ? [guide.conclusion] : []), guide.callToAction.heading, guide.callToAction.text];
+      const ordered = [guide.title, guide.disclosure!, ...(guide.showSummary === false ? [] : [guide.summary]), ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs, ...(section.bullets ?? [])]), ...(guide.conclusion ? [guide.conclusion] : []), ...(guide.callToAction.heading ? [guide.callToAction.heading] : []), guide.callToAction.text];
       let cursor = 0;
       for (const text of ordered) {
         const position = article.indexOf(text, cursor);
@@ -255,7 +256,7 @@ describe("public editorial guides", () => {
     expect(createHash("sha256").update(JSON.stringify(guide)).digest("hex")).toBe("d35b30350925e88d355f57c29e989d891191146595f491386ca993f9c4dbc21f");
     const html = renderToStaticMarkup(await GuideArticle(props(waitlistSlug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
-    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.heading, guide.callToAction.text];
+    const ordered = [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), ...(guide.callToAction.heading ? [guide.callToAction.heading] : []), guide.callToAction.text];
     let cursor = 0;
     for (const text of ordered) {
       const position = article.indexOf(text, cursor);
@@ -277,6 +278,39 @@ describe("public editorial guides", () => {
     expect(route(`/guides/${waitlistSlug}`).headers.get("x-robots-tag")).toBeNull();
     vi.stubEnv("VERCEL_ENV", "preview");
     expect((await generateMetadata(props(waitlistSlug))).robots).toEqual({ index: false, follow: false });
+  });
+
+  it("publishes the approved five-step migration manuscript with one article CTA", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const guide = findPublicGuide(migrationSlug)!;
+    expect(guide.format).toBe("article");
+    if (guide.format !== "article") return;
+    const manuscript = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, `${guide.callToAction.label}\n${guide.callToAction.url}`].join("\n\n") + "\n";
+    // Exact UTF-8 approved five-step manuscript, without the private SEO research appendix.
+    expect(createHash("sha256").update(manuscript).digest("hex")).toBe("7e72835d56b2dfc951f05145da5d611d79b6a4db6004e013e2e963d38e52008d");
+    expect(guide.sections).toHaveLength(5);
+    expect(guide.showSummary).toBe(false);
+    const html = renderToStaticMarkup(await GuideArticle(props(migrationSlug)));
+    const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
+    expect(article.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
+    expect(article).toContain("前往蒸管家，了解體驗與導入範圍");
+    expect(article).not.toContain(guide.summary);
+    expect(article).not.toContain("申請免費試用 30 天");
+    expect(article).not.toMatch(/搜尋量|SEO|熱門搜尋|自動搬家|無痛|永久保留/);
+    expect(html).toContain('href="/pricing/features/music"');
+    expect(route(`/guides/${migrationSlug}`).status).toBe(200);
+    expect(route(`/guides/${migrationSlug}`).headers.get("x-robots-tag")).toBeNull();
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${migrationSlug}`);
+    const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
+    expect(index).toContain(`href="/guides/${migrationSlug}"`);
+    expect(index).toContain(guide.summary);
+    for (const previous of visiblePublicGuides().filter(item => item.id !== migrationSlug)) {
+      const previousHtml = renderToStaticMarkup(await GuideArticle(props(previous.id)));
+      expect(previousHtml).toContain("申請免費試用 30 天 →");
+      expect(previousHtml).not.toContain("前往蒸管家，了解體驗與導入範圍");
+    }
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect((await generateMetadata(props(migrationSlug))).robots).toEqual({ index: false, follow: false });
   });
 
   it("keeps a future unpublished fixture private without treating the published music article as draft", async () => {
@@ -332,8 +366,8 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(11);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(24);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(12);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(25);
     for (const path of PUBLISHED_GUIDE_PATHS) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com${path}</loc>`);
       expect(rules).toContain(`Allow: ${path}$\n`);

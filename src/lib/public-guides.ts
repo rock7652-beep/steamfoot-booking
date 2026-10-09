@@ -4,7 +4,7 @@ export type GuideSection = { heading: string; paragraphs: readonly string[]; bul
 type GuideBase = { id: string; category: GuideCategory; title: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
-  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading: string; text: string; url?: string } }
+  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string } }
 );
 
 export const GUIDE_CATEGORIES = [
@@ -608,6 +608,57 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
   },
   "format": "article",
   "showSummary": false
+},
+{
+  "id": "music-school-system-data-migration",
+  "category": "operations",
+  "title": "音樂教室換系統前，先確認這5件事",
+  "summary": "音樂教室換系統，先確認必要資料、試搬核對、分工、離峰切換與日常驗收。整理五個準備重點，讓轉移方式貼近教室每天的工作，減少重複操作與營業干擾。",
+  "status": "published",
+  "feature": "music",
+  "featureName": "音樂教室功能",
+  "format": "article",
+  "showSummary": false,
+  "introduction": [
+    "換管理系統，可以先把教室隔天要用的資料接好，再處理其他歷史紀錄。準備時把範圍、負責人和核對方式說清楚，讓店家少做重複整理，也盡量避開正在上課、收費的忙碌時段。"
+  ],
+  "sections": [
+    {
+      "heading": "1. 先列出每天一定會用的資料",
+      "paragraphs": [
+        "學生與聯絡人、老師、已排好的課，以及尚未處理完的方案或款項，先列入核對清單。過去的課表、收費明細和附件，另確認能否保留查閱。先分清楚哪些要接續使用、哪些留著查，不必一開始就要求所有歷史資料全部搬進新系統。"
+      ]
+    },
+    {
+      "heading": "2. 先試少量，確認資料接得上",
+      "paragraphs": [
+        "先用不含真實姓名、電話的示例確認格式；需要真實資料核對時，再確認接收對象與必要範圍。可挑同名學生、同一學生學兩種樂器等情況試搬，查看學生、老師與課程有沒有接錯。也問清楚重複匯入怎麼處理，避免失敗後整批重傳。"
+      ]
+    },
+    {
+      "heading": "3. 把範圍和分工一次談清楚",
+      "paragraphs": [
+        "先確認新系統要正常排課、查詢，需要哪些資料；再約定誰取得舊資料、誰整理格式、誰處理差異、誰做最後確認。請對方列明可協助的項目、仍需店家操作的步驟與費用。能集中確認的問題就一起處理，避免每遇到一個欄位，都要店家重新整理一次。"
+      ]
+    },
+    {
+      "heading": "4. 選離峰切換，補上最後的變動",
+      "paragraphs": [
+        "切換時間依教室的上課與收費安排決定。最後一次匯出後，若又有人報名、改課或繳費，要有人整理並補上。也約定從哪個時間開始，新增與修改統一記在新系統；如果暫時並行，先說好以哪一份為準，避免兩邊各改各的。"
+      ]
+    },
+    {
+      "heading": "5. 用平常的工作確認能不能開門",
+      "paragraphs": [
+        "請實際接待的同事查一次今天的課表、找一位學生、核對一筆未完事項，再試著查一筆舊紀錄。會影響上課或接待的差異，先處理好再切換；其他項目列好負責人和後續安排。確認必要工作都接得上，再評估舊系統何時停用。"
+      ]
+    }
+  ],
+  "callToAction": {
+    "text": "評估蒸管家時，可以先說明目前使用的工具、想保留的資料與每天必做的工作，一起確認合適的體驗及導入範圍。實際能搬哪些資料、由誰處理、是否有額外費用，都先確認清楚，再安排切換。",
+    "label": "前往蒸管家，了解體驗與導入範圍",
+    "url": "https://www.steamfoot.com/apply"
+  }
 }
 ];
 
