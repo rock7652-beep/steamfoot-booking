@@ -251,7 +251,7 @@ export default function StoreSwitcher({
           setOpen(!open);
         }}
         disabled={isPending}
-        className="flex w-full items-center justify-between rounded-lg border border-earth-200 bg-earth-50 px-2.5 py-1.5 text-left text-xs text-earth-700 hover:bg-earth-100 disabled:opacity-50"
+        className="flex min-h-11 w-full items-center justify-between rounded-lg border border-earth-200 bg-earth-50 px-2.5 py-1.5 text-left text-xs text-earth-700 hover:bg-earth-100 disabled:opacity-50"
       >
         <span className="flex items-center gap-1.5 truncate">
           <svg

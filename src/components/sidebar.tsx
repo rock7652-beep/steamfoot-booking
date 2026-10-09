@@ -1198,6 +1198,9 @@ export default function DashboardShell({
                 multiStoreEnabled={viewMode.multiStoreEnabled}
               />
             ) : null}
+            {storeOptions && storeOptions.length > 0 && (
+              <StoreSwitcher stores={storeOptions} activeStoreId={activeStoreId ?? null} />
+            )}
             {renderNavGroups(false)}
             {industryModule === "spa" && <div className="flex justify-center border-t border-earth-100 px-3 py-3"><PlanBadge plan={pricingPlan} /></div>}
           </aside>
