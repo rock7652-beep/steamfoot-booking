@@ -115,10 +115,10 @@ export function ConsultationLinkForm(props: BaseProps & { applicationId: string 
   </form>;
 }
 
-export function CopyLineId({ value }: { value: string }) {
+export function CopyLineId({ value, showValue = true }: { value: string; showValue?: boolean }) {
   const [message, setMessage] = useState("");
   return <span className="inline-flex flex-wrap items-center gap-2">
-    <span className="select-all break-all">{value}</span>
+    {showValue && <span className="select-all break-all">{value}</span>}
     <button type="button" className={control} onClick={async () => {
       try { await navigator.clipboard.writeText(value); setMessage("已複製 LINE ID"); }
       catch { setMessage("請選取 LINE ID 文字複製"); }

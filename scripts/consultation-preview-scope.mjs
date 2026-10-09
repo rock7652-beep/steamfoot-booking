@@ -57,6 +57,7 @@ export function isIsolatedConsultationDatabaseUrl(value) {
 
 export const CONSULTATION_PREVIEW_BRANCH = "feat/hq-consultation-intake-20261008";
 export const HQ_INTAKE_LIST_PREVIEW_BRANCH = "feat/hq-intake-list-live-filter-20261008";
+export const HQ_INTAKE_DETAIL_PREVIEW_BRANCH = "fix/hq-intake-compact-details-20261009";
 export const HQ_LEGACY_IMPORT_PREVIEW_BRANCH = "feat/hq-legacy-consultation-import-20261009";
 export const SPORTS_ROSTER_PREVIEW_BRANCH = "fix/course-roster-two-line-20261008";
 export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
@@ -66,7 +67,7 @@ export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
  */
 export function assertHqIntakeListPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      env.VERCEL_GIT_COMMIT_REF !== HQ_INTAKE_LIST_PREVIEW_BRANCH ||
+      ![HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("HQ intake list requires its exact authorized Vercel Preview branch and repository.");
@@ -179,7 +180,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertModuleRosterPreviewEnvironment(env);
     return "module-roster-preview";
   }
-  if (env.VERCEL_GIT_COMMIT_REF === HQ_INTAKE_LIST_PREVIEW_BRANCH) {
+  if ([HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertHqIntakeListPreviewEnvironment(env);
     return "hq-intake-list-preview";
   }
