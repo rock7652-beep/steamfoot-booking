@@ -511,10 +511,26 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     setKey(crypto.randomUUID());
     setError("");
   }
-  const heading = (name: string, description?: string) => (
+  const heading = (name: string, description?: string) => !coach ? (
+    <>
+      <h1 className="sr-only">{name}</h1>
+      {description && <p className="cp-page-description">{description}</p>}
+    </>
+  ) : (
     <div className="cp-title">
       <h1>{name}</h1>
       {description && <p>{description}</p>}
+    </div>
+  );
+  const refreshControl = (
+    <div className="cp-refresh">
+      <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
+      <button
+        disabled={saving || refreshing}
+        onClick={() => start(() => router.refresh())}
+      >
+        {saving ? "儲存中…" : refreshing ? "更新中…" : "更新"}
+      </button>
     </div>
   );
   const menu = (name: string, next: Page, description?: string) => (
@@ -919,15 +935,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
         </nav>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
           {p.incomeAvailable && (coach || (!p.hasWork && page === "account")) && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入 · 查看已確認月結</a>}
-          <div className="cp-refresh">
-            <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
-            <button
-              disabled={saving || refreshing}
-              onClick={() => start(() => router.refresh())}
-            >
-              {saving ? "儲存中…" : refreshing ? "更新中…" : "更新"}
-            </button>
-          </div>
+          {coach && refreshControl}
           {!coach && !selfBookingEnabled && ["home", "schedule", "bookings"].includes(page) && <p className="cp-important">{COURSE_SELF_BOOKING_DISABLED_MESSAGE}</p>}
           {message && (
             <p role="status" className="cp-toast">
@@ -1378,6 +1386,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               <LogoutButton className="cp-menu" />
             </form>
           )}
+          {!coach && page === "account" && refreshControl}
         </main>
       </div>
       {companionEditor && (!companionEditor.add || sharingEnabled) && <CourseCompanionEditor {...companionEditor} coach onClose={() => setCompanionEditor(null)} onSaved={receipt => { if (receipt) { setCompanionReceipts(previous => [...previous.filter(row => row.booking.id !== receipt.booking.id), receipt]); setMessage(receipt.returned ? `已返還 ${receipt.returned.amount} ${unit(receipt.returned.unit)}` : "使用方式已更新"); } else setMessage("同行已新增"); start(() => router.refresh()); }} />}
