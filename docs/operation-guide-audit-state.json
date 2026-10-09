@@ -3,7 +3,7 @@
   "repository": "rock7652-beep/steamfoot-booking",
   "auditDateTaipei": "2026-10-09",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "a510ff15adf6b2c6c8402cf5ecc71ef91bb7a4ac",
+  "lastInventoriedMainCommit": "84aca95aa5ec3ce30c56a492037acf066ad10291",
   "previousSuccessfulAuditCommit": "51cab4ff29d858c9997b1ef7077112c1e47e11b0",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261008",
@@ -384,12 +384,13 @@
     1262,
     1263,
     1264,
-    1265
+    1265,
+    1267
   ],
   "interactionStatus": "partial-isolated-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-09 自動盤點從上一成功基準 main 51cab4ff 比對至 a510ff15，共 30 筆 commit。新增後台 C168、I19 與會員 CP22；更新 I18、C101、C118、CP04、CP14，對齊學員自助預約開關、運動共卡獨立功能、運動名單標籤／備註、HQ 諮詢分流及品牌自動提醒統計。後台 203 題、前台 22 題，共 225 題、16 類；待登入後實際驗收 177 題。今日沒有已登入且確認隔離與通知封鎖的工作階段；草稿 PR 與 Preview 通過後仍須使用者確認，不自動合併正式站。",
+  "continuation": "2026-10-09 自動盤點從上一成功基準 main 51cab4ff 比對至 84aca95a，共 31 筆 commit。新增後台 C168、I19 與會員 CP22；更新 I18、C101、C118、CP04、CP14，對齊學員自助預約開關、運動共卡獨立功能、運動名單標籤／備註、HQ 諮詢分流及品牌自動提醒統計。後台 203 題、前台 22 題，共 225 題、16 類；待登入後實際驗收 177 題。今日沒有已登入且確認隔離與通知封鎖的工作階段；草稿 PR 與 Preview 通過後仍須使用者確認，不自動合併正式站。 PR #1267 僅補正式站合成驗收網址封鎖，不新增操作題目。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -446,7 +447,7 @@
   "frontendArticleCount": 22,
   "backendInteractionPendingCount": 155,
   "totalInteractionPendingCount": 177,
-  "reviewedMainCommitCount": 148,
+  "reviewedMainCommitCount": 149,
   "reviewedStandaloneCommits": [
     "1e133b93",
     "e4b44f8c",
@@ -545,7 +546,7 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "a510ff15adf6b2c6c8402cf5ecc71ef91bb7a4ac",
+    "sourceCommit": "84aca95aa5ec3ce30c56a492037acf066ad10291",
     "report": "docs/operation-guide-coverage.md",
     "isolation": "今日未取得可確認資料隔離與通知封鎖的已登入工作階段",
     "externalNotifications": "未發送實際通知，未新增或修改營運資料",

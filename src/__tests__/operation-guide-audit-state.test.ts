@@ -32,9 +32,9 @@ describe("incremental guide audit accounting", () => {
     expect(state.newGuideIds).toEqual(["C168", "I19"]);
     expect(state.updatedGuideIds).toEqual(["I05", "I18", "C101", "C118"]);
     expect(state.frontendNewGuideIds).toEqual(["CP22"]);
-    expect(state.lastInventoriedMainCommit).toBe("a510ff15adf6b2c6c8402cf5ecc71ef91bb7a4ac");
+    expect(state.lastInventoriedMainCommit).toBe("84aca95aa5ec3ce30c56a492037acf066ad10291");
     expect(state.previousSuccessfulAuditCommit).toBe("51cab4ff29d858c9997b1ef7077112c1e47e11b0");
-    expect(state.reviewedMainPullRequests).toEqual(expect.arrayContaining([1249, 1251, 1257, 1262, 1264, 1265]));
+    expect(state.reviewedMainPullRequests).toEqual(expect.arrayContaining([1249, 1251, 1257, 1262, 1264, 1265, 1267]));
     expect(state.publishedGuidePullRequests).toContain(1184);
   });
 });
