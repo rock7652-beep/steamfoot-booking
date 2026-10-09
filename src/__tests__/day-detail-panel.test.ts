@@ -145,14 +145,14 @@ describe("當日清單備註", () => {
       date: "2026-09-10", bookings: [entry], slots: [],
     }));
   }
-  it("shows usual notes before emphasized booking notes", () => {
+  it("shows both sources in the shared session-first reminder summary", () => {
     const html = renderNotes("今天晚到", "怕冷");
     const text = textFromHtml(html);
-    expect(text).toMatch(/本次：\s*今天晚到/);
-    expect(text).toMatch(/平時：\s*怕冷/);
-    expect(text.indexOf("平時：")).toBeLessThan(text.indexOf("本次："));
+    expect(text).toMatch(/本次\s*備註\s*：\s*今天晚到/);
+    expect(text).toMatch(/平時\s*備註\s*：\s*怕冷/);
+    expect(text.indexOf("本次")).toBeLessThan(text.indexOf("平時"));
     expect(text).not.toContain("已停用的顧客資料備註");
-    expect(html).toContain('truncate');
+    expect(html).toContain('data-roster-reminders');
   });
   it.each([[null, null], ["  ", "  "]])("omits empty notes", (notes, serviceNote) => {
     const text = textFromHtml(renderNotes(notes, serviceNote));
@@ -161,7 +161,7 @@ describe("當日清單備註", () => {
   });
   it("shows a booking note even without a store note", () => {
     const text = textFromHtml(renderNotes("驗收完成扣堂test", null));
-    expect(text).toMatch(/本次：\s*驗收完成扣堂test/);
+    expect(text).toMatch(/本次\s*備註\s*：\s*驗收完成扣堂test/);
     expect(text).not.toContain("平時：");
   });
 });

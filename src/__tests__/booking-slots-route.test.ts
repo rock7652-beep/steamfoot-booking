@@ -11,7 +11,7 @@ it.each(["2026-02-30", "bad", "2026-13-01"])("rejects invalid date %s before que
 });
 it("checks read permission and delegates session-scoped slot rules", async () => {
   mocks.slots.mockResolvedValue({ slots: [] });
-  const response = await GET(new Request("https://example.test/api/bookings/slots?date=2026-09-28&storeId=untrusted"));
+  const response = await GET(new Request("https://example.test/api/bookings/slots?date=2026-09-28"));
   expect(mocks.permission).toHaveBeenCalledWith("booking.read");
   expect(mocks.slots).toHaveBeenCalledExactlyOnceWith("2026-09-28");
   expect(await response.json()).toEqual({ slots: [] });
@@ -22,4 +22,11 @@ it("denies access before reading slots", async () => {
   const response = await GET(new Request("https://example.test/api/bookings/slots?date=2026-09-28"));
   expect(response.status).toBe(403);
   expect(mocks.slots).not.toHaveBeenCalled();
+});
+
+it("delegates an explicit scope to the action that reauthorizes it", async () => {
+  mocks.slots.mockResolvedValue({ slots: [] });
+  await GET(new Request("https://example.test/api/bookings/slots?date=2026-09-28&storeId=synthetic-store"));
+  expect(mocks.permission).not.toHaveBeenCalled(); // action owns the explicit-store guard
+  expect(mocks.slots).toHaveBeenCalledExactlyOnceWith("2026-09-28", "synthetic-store");
 });

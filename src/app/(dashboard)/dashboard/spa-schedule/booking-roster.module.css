@@ -1,0 +1,16 @@
+.root { container: spa-roster / inline-size; min-width: 0; }
+.scroll { max-height: 60dvh; min-width: 0; overflow: auto; overscroll-behavior: contain; }
+.header, .row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(250px, 1.2fr) minmax(110px, 0.6fr) minmax(250px, 1.4fr); align-items: center; gap: 8px; padding-inline: 10px; font-size: 14px; }
+.header { position: sticky; top: 0; z-index: 30; background: var(--color-earth-50); padding-block: 8px; }
+.row { min-height: 56px; padding-block: 5px; background: white; }
+.reminders { min-width: 0; }
+@container spa-roster (max-width: 959px) {
+  .header { display: none; }
+  .row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .row > :nth-child(3) { grid-column: 1; grid-row: 2; }
+  .reminders { grid-column: 1 / -1; }
+}
+@container spa-roster (max-width: 559px) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .row > :nth-child(3) { grid-row: auto; }
+}

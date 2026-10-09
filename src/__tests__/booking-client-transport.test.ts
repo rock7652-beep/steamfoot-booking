@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("@/server/actions/booking-drawer", () => ({ fetchBookingDetail: vi.fn() }));
-import { readBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
+import { readBookingSlots, readBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 afterEach(() => vi.unstubAllGlobals());
 it("does not replay an uncertain write", async () => {
   const fetch = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
@@ -43,4 +43,13 @@ it("does not replay an uncertain correction or accept a missing new transaction"
   await expect(correctBookingTrialCollection(correction)).rejects.toThrow("待確認");
   await expect(correctBookingTrialCollection(correction)).rejects.toThrow("待確認");
   expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it("sends the roster store ID for server reauthorization without altering the legacy request", async () => {
+  const fetch = vi.fn().mockImplementation(async () => Response.json({ slots: [] }));
+  vi.stubGlobal("fetch", fetch);
+  await readBookingSlots("2026-09-24", "synthetic-store");
+  expect(fetch).toHaveBeenLastCalledWith("/api/bookings/slots?date=2026-09-24&storeId=synthetic-store", { cache: "no-store", credentials: "same-origin" });
+  await readBookingSlots("2026-09-24");
+  expect(fetch).toHaveBeenLastCalledWith("/api/bookings/slots?date=2026-09-24", { cache: "no-store", credentials: "same-origin" });
 });
