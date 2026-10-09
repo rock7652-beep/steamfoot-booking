@@ -36,6 +36,10 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "operation-guide-preview") {
+  console.info("[operation-guide-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "hq-legacy-import-preview") {
   console.info("[hq-legacy-import-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
   process.exit(0);

@@ -15,7 +15,7 @@ export const courseOperationGuides: OperationGuide[] = [
       "同行流程選含本人 1–3 人，同行姓名可留白；若本人不上課，僅在具名選擇入口勾選既有授權成員，沒有該入口請店家協助。",
       "核對上課者、適用方案及總占用額度，再確認預約。"
     ],
-    "important": "共卡授權不會開放其他成員的健康資料，也不會授予教練權限。",
+    "important": "共卡授權不會開放其他成員的健康資料，也不會授予教練權限；運動共卡另受總部獨立功能開通狀態限制。",
     "success": "我的預約依同堂課合併，學員逐人列出，能辨識本人與代約。",
     "details": [
       "方案須有效、適用課程且額度足夠；預約保留，出席才正式使用。",
@@ -196,11 +196,11 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C118", category: "plans", title: "共卡成員要怎麼新增或移除？",
     summary: "先打開顧客持有方案，再搜尋並儲存同店授權成員。", answer: "共卡成員共享同一張卡的可用額度；固定期課不開放共卡。",
-    keywords: "共卡 授權成員 新增成員 移除成員 搜尋顧客 占用 固定期課", path: "顧客管理 → 顧客詳情 → 持有方案 → 方案與共卡",
+    keywords: "共卡 授權成員 新增成員 移除成員 搜尋顧客 占用 固定期課 功能未開通 隱藏 鎖定", path: "顧客管理 → 顧客詳情 → 持有方案 → 方案與共卡",
     steps: ["打開顧客的持有方案，選正確卡片並等待詳細資料載入完成。", "在共卡授權成員輸入姓名或電話；明確點選正確候選再勾選，搜尋框按 Enter 不會自動選第一位。", "儲存後重新開啟，核對成員、剩餘、已預約占用與可用額度。"],
     important: "移除成員前先處理該成員或代約人的有效預約；系統會阻擋留下無權使用卡片的預約。",
     success: "卡片只保留正確同店成員，原額度與使用紀錄沒有被重建。",
-    details: ["搜尋只會回傳部分結果，必須選到實際顧客，不能只輸入姓名；共卡不開放彼此健康資料。", "固定期課綁定指定學員與課次，不能加入共卡成員；請另購自由預約方案。"],
+    details: ["搜尋只會回傳部分結果，必須選到實際顧客，不能只輸入姓名；共卡不開放彼此健康資料。", "固定期課綁定指定學員與課次，不能加入共卡成員；請另購自由預約方案。", "運動共卡由總部獨立開通；HIDDEN 時不顯示共卡操作，LOCKED 時只保留既有授權與預約的查看、使用及取消，不能新增成員或同行。"],
     permission: "wallet.create", additionalPermissions: ["wallet.read", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-customer-picker.tsx", "src/server/actions/course-members.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

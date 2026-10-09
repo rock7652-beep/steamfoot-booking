@@ -1,4 +1,5 @@
 "use server";
+import { resolveSingleBookingTotal } from "@/lib/single-booking-price";
 
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
 
@@ -67,6 +68,7 @@ export async function collectSinglePayment(
         serviceStaffId: true,
         servicePlanId: true,
         expectedAmount: true,
+        people: true,
         bookingDate: true,
         slotTime: true,
         servicePlan: { select: { price: true } },
@@ -89,12 +91,11 @@ export async function collectSinglePayment(
     }
 
     // 實收：未傳 amount → 預設等於原價（= 全價）。
-    const originalAmount =
-      booking.expectedAmount != null
-          ? Number(booking.expectedAmount)
-          : booking.servicePlan?.price != null
-            ? Number(booking.servicePlan.price)
-            : SINGLE_DEFAULT_PRICE;
+    const originalAmount = resolveSingleBookingTotal({
+      expectedAmount: booking.expectedAmount == null ? null : Number(booking.expectedAmount),
+      unitPrice: booking.servicePlan?.price == null ? SINGLE_DEFAULT_PRICE : Number(booking.servicePlan.price),
+      people: booking.people,
+    });
     const netAmount = data.amount ?? originalAmount;
     // Revalidate the resolved amount too: omitted input may resolve to a zero-price snapshot.
     if (netAmount === 0 && (!data.discountReason || !completeService || data.paymentSplits)) {

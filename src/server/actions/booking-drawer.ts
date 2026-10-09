@@ -1,4 +1,5 @@
 "use server";
+import { resolveSingleBookingTotal } from "@/lib/single-booking-price";
 
 import { OperationTiming } from "@/lib/operation-timing";
 
@@ -519,12 +520,11 @@ async function fetchBookingDetailMeasured(
           collectedAt: collectedSingleTx?.paidAt
             ? toLocalDateStr(collectedSingleTx.paidAt)
             : null,
-          defaultPrice:
-            booking.expectedAmount != null
-                ? Number(booking.expectedAmount)
-                : booking.servicePlan?.price != null
-                  ? Number(booking.servicePlan.price)
-                  : 799,
+          defaultPrice: resolveSingleBookingTotal({
+            expectedAmount: booking.expectedAmount == null ? null : Number(booking.expectedAmount),
+            unitPrice: booking.servicePlan?.price == null ? null : Number(booking.servicePlan.price),
+            people: booking.people,
+          }),
         }
       : null,
     storedValue: null,

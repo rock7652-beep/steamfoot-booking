@@ -10,7 +10,7 @@ const hq: GuideAccess = { module: "steamfoot", permissions: ["staff.manage"], fe
 
 describe("October 3 guide review", () => {
   it("adds course operations and HQ entitlement guidance", () => {
-    expect(operationGuides).toHaveLength(201);
+    expect(operationGuides).toHaveLength(203);
     expect(findOperationGuides("標籤 八字 篩選", course).map(item => item.id)).toContain("C160");
     expect(findOperationGuides("租借 30分鐘 取消", course).map(item => item.id)).toContain("C161");
     expect(findOperationGuides("教師 缺席 返還", course).map(item => item.id)).toContain("C162");

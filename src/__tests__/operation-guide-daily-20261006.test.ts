@@ -33,7 +33,7 @@ const guide = (id: string) => {
 
 describe("October 6 operation guide audit", () => {
   it("adds one inventory category and ten source-reviewed guides", () => {
-    expect(operationGuides).toHaveLength(201);
+    expect(operationGuides).toHaveLength(203);
     expect(guideCategoryForPath("/dashboard/inventory")).toBe("inventory");
     for (const id of ["A13", "G05", "O01", "O02", "O03", "O04", "O05", "O06", "O07", "O08"]) {
       expect(guide(id).verification).toBe("source-reviewed");
