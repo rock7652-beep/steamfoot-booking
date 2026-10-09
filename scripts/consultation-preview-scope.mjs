@@ -4,6 +4,11 @@ import {
   isSportsSharedCardProductionRelease,
 } from "./sports-shared-card-preview-scope.mjs";
 
+import {
+  assertStoreOperationAuditPreviewEnvironment,
+  STORE_OPERATION_AUDIT_PREVIEW_BRANCH,
+} from "./store-operation-audit-preview-scope.mjs";
+
 const PREVIEW_PROJECT = "ttworfzgwejdeolegkxl";
 const PREVIEW_POOLER_HOSTS = new Set([
   "aws-0-ap-northeast-1.pooler.supabase.com",
@@ -178,12 +183,12 @@ export function assertConsultationPreviewEnvironment(env) {
 }
 
 /**
- * Compose the exact Preview gates without allowing either to become a
+ * Compose the exact Preview gates without allowing any to become a
  * fallback for malformed metadata. Production requires the reviewed full
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview"}
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
@@ -216,6 +221,10 @@ export function assertReviewedReleaseEnvironment(env) {
   if (env.VERCEL_GIT_COMMIT_REF === CONSULTATION_PREVIEW_BRANCH) {
     assertConsultationPreviewEnvironment(env);
     return "consultation-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === STORE_OPERATION_AUDIT_PREVIEW_BRANCH) {
+    assertStoreOperationAuditPreviewEnvironment(env);
+    return "store-operation-audit-preview";
   }
   if (env.VERCEL_GIT_COMMIT_REF === COURSE_SELF_BOOKING_PREVIEW_BRANCH) {
     assertCourseSelfBookingPreviewEnvironment(env);

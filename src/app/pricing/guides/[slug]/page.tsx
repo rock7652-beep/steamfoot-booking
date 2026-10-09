@@ -26,7 +26,7 @@ export default async function PublicGuidePage({ params }: Props) {
   const guide = findPublicGuide((await params).slug);
   if (!guide) notFound();
   const category = GUIDE_CATEGORIES.find(item => item.id === guide.category)!;
-  const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-system-data-migration"].includes(guide.id);
+  const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-leave-reschedule-notifications"].includes(guide.id);
   const url = `${MARKETING_ORIGIN}${guidePath(guide)}`;
   // No invented byline, publication date, review, or customer-result claims.
   const structuredData = {

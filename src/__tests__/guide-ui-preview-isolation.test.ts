@@ -93,7 +93,7 @@ describe("exact guide UI preview scope", () => {
 
 describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
   beforeEach(enableMode);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-system-data-migration", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);

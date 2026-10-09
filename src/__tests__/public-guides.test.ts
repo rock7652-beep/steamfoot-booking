@@ -12,7 +12,7 @@ import { GET as robots } from "@/app/robots.txt/route";
 vi.mock("@/lib/auth", () => ({ auth: (handler: unknown) => handler }));
 import { proxy } from "@/proxy";
 
-const migrationSlug = "music-school-system-data-migration";
+const notificationSlug = "music-school-leave-reschedule-notifications";
 const waitlistSlug = "yoga-studio-waitlist-order";
 const musicSlug = "music-school-leave-makeup-lesson-balance";
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
@@ -27,7 +27,7 @@ describe("public editorial guides", () => {
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, migrationSlug]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -211,7 +211,7 @@ describe("public editorial guides", () => {
       }
 };
     expect(Object.keys(approved)).toHaveLength(10);
-    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== migrationSlug)) {
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug)) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -280,43 +280,52 @@ describe("public editorial guides", () => {
     expect((await generateMetadata(props(waitlistSlug))).robots).toEqual({ index: false, follow: false });
   });
 
-  it("publishes the approved five-step migration manuscript with one article CTA", async () => {
+  it("publishes only the approved v5 leave/reschedule manuscript with one article CTA", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
-    const guide = findPublicGuide(migrationSlug)!;
+    const guide = findPublicGuide(notificationSlug)!;
     expect(guide.format).toBe("article");
     if (guide.format !== "article") return;
-    const manuscript = [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, `${guide.callToAction.label}\n${guide.callToAction.url}`].join("\n\n") + "\n";
-    // Exact UTF-8 approved five-step manuscript, without the private SEO research appendix.
-    expect(createHash("sha256").update(manuscript).digest("hex")).toBe("7e72835d56b2dfc951f05145da5d611d79b6a4db6004e013e2e963d38e52008d");
-    expect(guide.sections).toHaveLength(5);
+    const manuscript = [guide.title, guide.disclosure, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, `${guide.callToAction.label}\n${guide.callToAction.url}`].join("\n\n") + "\n";
+    // Exact UTF-8 approved v5 first-page manuscript; private SEO/product-gap appendix is excluded.
+    expect(createHash("sha256").update(manuscript).digest("hex")).toBe("9c9a961e180c9543ac1c64d91c6ea7d2a8e3b2aec28af768513cc490dc9b4e42");
+    expect(guide.sections).toHaveLength(3);
     expect(guide.showSummary).toBe(false);
-    const html = renderToStaticMarkup(await GuideArticle(props(migrationSlug)));
+    const html = renderToStaticMarkup(await GuideArticle(props(notificationSlug)));
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
     expect(article.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
-    expect(article).toContain("前往蒸管家，了解體驗與導入範圍");
+    expect(article).toContain("前往蒸管家，了解體驗與適用流程");
     let cursor = 0;
-    for (const text of [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label!]) {
+    for (const text of [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label!]) {
       const position = article.indexOf(text, cursor);
       expect(position, text).toBeGreaterThanOrEqual(cursor);
       cursor = position + text.length;
     }
     expect(article).not.toContain(guide.summary);
     expect(article).not.toContain("申請免費試用 30 天");
-    expect(article).not.toMatch(/搜尋量|SEO|熱門搜尋|自動搬家|無痛|永久保留/);
+    expect(article).not.toMatch(/搜尋量|SEO|熱門搜尋|自動搬家|無痛|永久保留|產品缺口|待驗證|CourseCoachNotification/);
+    expect(article).toContain("以下為匿名示意情境，非特定店家的事件或老師訪談原話。");
+    expect(article).toContain("每一次人工提醒，都要有人記得、有人傳送");
+    expect(article).toContain("哪些已送出、哪些失敗需要補聯絡");
+    expect(article).toContain("訊息送出，不代表對方已收到或看過；已讀，也不等於已確認新的安排");
+    expect(article).toContain("以上為選型評估方向，實際功能與通知條件以試用確認為準");
+    const retiredSlug = "music-school-system-data-migration";
+    expect(findPublicGuide(retiredSlug)).toBeUndefined();
+    expect(route(`/guides/${retiredSlug}`).status).toBe(404);
+    expect(PUBLISHED_GUIDE_PATHS).not.toContain(`/guides/${retiredSlug}`);
     expect(html).toContain('href="/pricing/features/music"');
-    expect(route(`/guides/${migrationSlug}`).status).toBe(200);
-    expect(route(`/guides/${migrationSlug}`).headers.get("x-robots-tag")).toBeNull();
-    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${migrationSlug}`);
+    expect(route(`/guides/${notificationSlug}`).status).toBe(200);
+    expect(route(`/guides/${notificationSlug}`).headers.get("x-robots-tag")).toBeNull();
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${notificationSlug}`);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
-    expect(index).toContain(`href="/guides/${migrationSlug}"`);
+    expect(index).toContain(`href="/guides/${notificationSlug}"`);
     expect(index).toContain(guide.summary);
-    for (const previous of visiblePublicGuides().filter(item => item.id !== migrationSlug)) {
+    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug)) {
       const previousHtml = renderToStaticMarkup(await GuideArticle(props(previous.id)));
       expect(previousHtml).toContain("申請免費試用 30 天 →");
-      expect(previousHtml).not.toContain("前往蒸管家，了解體驗與導入範圍");
+      expect(previousHtml).not.toContain("前往蒸管家，了解體驗與適用流程");
     }
     vi.stubEnv("VERCEL_ENV", "preview");
-    expect((await generateMetadata(props(migrationSlug))).robots).toEqual({ index: false, follow: false });
+    expect((await generateMetadata(props(notificationSlug))).robots).toEqual({ index: false, follow: false });
   });
 
   it("keeps a future unpublished fixture private without treating the published music article as draft", async () => {

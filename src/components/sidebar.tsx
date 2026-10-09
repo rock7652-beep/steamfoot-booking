@@ -809,7 +809,7 @@ export default function DashboardShell({
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
     const management: NavItem[] = [
-      hqItem("/dashboard/operation-audits"),
+      { ...hqItem("/dashboard/operation-audits"), label: "操作紀錄", permission: "store.audit.read", requiredFeature: FEATURES.STORE_OPERATION_AUDIT },
       { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
@@ -850,7 +850,7 @@ export default function DashboardShell({
       const categorizedItems = group.items
         .filter(
           (item) =>
-            (item.href !== "/dashboard/operation-audits" || (canViewAudit && isHqPlatformView)) &&
+            (item.href !== "/dashboard/operation-audits" || canViewAudit) &&
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
             !previewItems.some(preview => preview.href === item.href) &&
             !(isIframePreview && item.href === "/dashboard/device-preview"),

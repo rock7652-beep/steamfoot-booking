@@ -2,7 +2,8 @@
 
 import { AuditChanges } from "@/components/audit-changes";
 import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
-import { useOperationAuditAccess } from "@/components/operation-audit-access";
+import { useOperationAuditAccess, useHqOperationAuditAccess } from "@/components/operation-audit-access";
+import { isStoreAuditTarget } from "@/lib/store-operation-audit-policy";
 import { useState } from "react";
 import { loadOperationHistory, type OperationHistoryItem } from "@/server/actions/operation-audit";
 
@@ -27,6 +28,7 @@ export function OperationHistoryButton({
   className?: string;
 }) {
   const canViewAudit = useOperationAuditAccess();
+  const hq = useHqOperationAuditAccess();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<OperationHistoryItem[] | null>(null);
@@ -42,7 +44,7 @@ export function OperationHistoryButton({
     setLoading(false);
   }
 
-  if (!canViewAudit) return null;
+  if (!canViewAudit || (!hq && !isStoreAuditTarget(targetType))) return null;
 
   return (
     <>
@@ -57,6 +59,7 @@ export function OperationHistoryButton({
               <button type="button" className="flex h-9 w-9 items-center justify-center rounded-lg text-earth-500 hover:bg-earth-100" aria-label="關閉操作紀錄" onClick={() => setOpen(false)}>✕</button>
             </header>
             <div className="max-h-[65vh] overflow-y-auto p-5">
+              {!hq && <p className="mb-3 text-sm text-earth-500">僅顯示門市業務欄位，私人備註與安全資訊不提供。</p>}
               {loading && <p className="text-sm text-earth-500">讀取中…</p>}
               {error && <p className="text-sm text-red-700">{error}</p>}
               {items?.length === 0 && <p className="text-sm text-earth-500">這筆資料尚無操作紀錄；功能上線前的歷史資料不會補填操作人。</p>}
