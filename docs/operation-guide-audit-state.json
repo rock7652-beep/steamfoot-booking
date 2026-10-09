@@ -390,7 +390,7 @@
   "interactionStatus": "partial-isolated-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-09 自動盤點從上一成功基準 main 51cab4ff 比對至 84aca95a，共 31 筆 commit。新增後台 C168、I19 與會員 CP22；更新 I18、C101、C118、CP04、CP14，對齊學員自助預約開關、運動共卡獨立功能、運動名單標籤／備註、HQ 諮詢分流及品牌自動提醒統計。後台 203 題、前台 22 題，共 225 題、16 類；待登入後實際驗收 177 題。今日沒有已登入且確認隔離與通知封鎖的工作階段；草稿 PR 與 Preview 通過後仍須使用者確認，不自動合併正式站。 PR #1267 僅補正式站合成驗收網址封鎖，不新增操作題目。",
+  "continuation": "2026-10-09 自動盤點從上一成功基準 main 51cab4ff 比對至 84aca95a，共 31 筆 commit。新增後台 C168、I19 與會員 CP22；更新 I18、C101、C118、CP04、CP14，對齊學員自助預約開關、運動共卡獨立功能、運動名單標籤／備註、HQ 諮詢分流及品牌自動提醒統計。後台 203 題、前台 22 題，共 225 題、16 類；待登入後實際驗收 177 題。今日沒有已登入且確認隔離與通知封鎖的工作階段；草稿 PR 與 Preview 通過後仍須使用者確認，不自動合併正式站。 PR #1267 僅補正式站合成驗收網址封鎖，不新增操作題目。 自 2026-10-09 使用者範圍調整起，前台 22 題退役封存，移出待驗收而非驗收通過；現行待驗收僅後台 155 題。後續只維護後台，保留既有 main 盤點基準與歷史批次。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -420,33 +420,10 @@
     "courseArticleCount": 47,
     "interactionStatus": "not-completed"
   },
-  "frontendInteractionPendingGuideIds": [
-    "CP01",
-    "CP02",
-    "CP03",
-    "CP04",
-    "CP05",
-    "CP06",
-    "CP07",
-    "CP08",
-    "CP09",
-    "CP10",
-    "CP11",
-    "CP12",
-    "CP13",
-    "CP14",
-    "CP15",
-    "CP16",
-    "CP17",
-    "CP18",
-    "CP19",
-    "CP20",
-    "CP21",
-    "CP22"
-  ],
+  "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 22,
   "backendInteractionPendingCount": 155,
-  "totalInteractionPendingCount": 177,
+  "totalInteractionPendingCount": 155,
   "reviewedMainCommitCount": 149,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -571,5 +548,36 @@
     ],
     "rolesVerified": [],
     "mergeReadiness": "草稿內容與 Preview 可供確認；正式站未授權自動合併。"
+  },
+  "maintenanceScope": "backend-only",
+  "frontendGuideRetirement": {
+    "dateTaipei": "2026-10-09",
+    "reason": "使用者決定移除會員專區與我的工作指南，後續只維護後台",
+    "guideIds": [
+      "CP01",
+      "CP02",
+      "CP03",
+      "CP04",
+      "CP05",
+      "CP06",
+      "CP07",
+      "CP08",
+      "CP09",
+      "CP10",
+      "CP11",
+      "CP12",
+      "CP13",
+      "CP14",
+      "CP15",
+      "CP16",
+      "CP17",
+      "CP18",
+      "CP19",
+      "CP20",
+      "CP21",
+      "CP22"
+    ],
+    "status": "retired-not-verified",
+    "articleCount": 22
   }
 }

@@ -305,11 +305,13 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
     expect(host.textContent).toContain("本人＋家人 · 共 2 位");
-    for (const label of ["立即預約","我的預約","查看各方案與期限","健康追蹤","操作指南"]) expect(host.textContent).toContain(label);
+    for (const label of ["立即預約","我的預約","查看各方案與期限","健康追蹤"]) expect(host.textContent).toContain(label);
     expect(host.querySelector('[aria-label="身分"]')).toBeNull();
     expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
     expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(4);
+    expect(host.textContent).not.toContain("操作指南");
     await click("我的工作");
+    expect(host.textContent).not.toContain("操作指南");
     expect(host.textContent).toContain("今天 · 2026-09-20");
   });
   it("shows coach and room without field prefixes on course cards", async () => {
@@ -554,9 +556,9 @@ describe("simple companion booking", () => {
     expect(host.textContent).toContain("我的方案");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.textContent).toContain("使用紀錄");
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
     expect([...host.querySelectorAll("button")].some(button=>button.textContent?.startsWith("共卡成員"))).toBe(false);
-    await click("首頁");await click("操作指南");
+    await click("首頁");
+    expect(host.textContent).not.toContain("操作指南");
     expect(host.textContent).not.toContain("如何預約 1–3 人同行");expect(host.textContent).not.toContain("如何替共卡成員預約");
-    expect(host.textContent).toContain("如何改期或取消預約");
   });
   it("keeps blue self and orange other attendees regardless of who operated the booking when HIDDEN",async()=>{
     const data=memberProps();data.cancellationLeadMinutes=30;

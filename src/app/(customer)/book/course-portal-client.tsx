@@ -5,7 +5,6 @@ import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-sum
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
 import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
-import { findCoursePortalGuides } from "@/lib/course-portal-guides";
 import { ShareReferral } from "@/components/share-referral";
 import { trackCourseShare } from "@/server/actions/course-referral-share";
 import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
@@ -65,7 +64,6 @@ type Page =
   | "shared"
   | "health"
   | "store"
-  | "guide"
   | "records";
 const statusName = (s: string) =>
   ({
@@ -899,7 +897,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   ) ?? [];
   const cancelBooking = p.bookings.find((booking) => booking.id === cancelId);
   const sharedCards = p.cards.filter((candidate) => candidate.members.length > 1);
-  const guides = findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled, sharedCardState);
   const shop = p.plans.filter(
     (plan) =>
       !session ||
@@ -919,7 +916,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
-          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><button type="button" className="cp-menu" onClick={(event) => { go("guide"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>操作指南</button><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}><input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
+          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}><input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
         </header>
         <nav className="cp-nav" aria-label="主要功能">
           {nav.map(([v, label, icon]) => (
@@ -996,10 +993,9 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
                   <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><p>{courseBalanceText(balanceTotals)}</p><button onClick={()=>go("plans")}>查看各方案與期限</button></section>
-                  <section className="cp-card">
-                    {p.healthEnabled && menu("健康追蹤", "health", "查看身體數據與趨勢")}
-                    {menu("操作指南", "guide", sharingVisible ? "預約、取消、方案與共卡" : "預約、取消與方案")}
-                  </section>
+                  {p.healthEnabled && <section className="cp-card">
+                    {menu("健康追蹤", "health", "查看身體數據與趨勢")}
+                  </section>}
                 </>
               )}
             </>
@@ -1335,26 +1331,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 <p className="cp-store-hint">請依預約時間到店。</p>
               </section>
               {p.referralShare && <details className="cp-card cp-pad"><summary>推薦給朋友</summary><div className="mt-3"><ShareReferral storeName={p.storeName} referralUrl={p.referralShare.referralUrl} shareTemplate={p.referralShare.shareTemplate} source="course-member" trackAction={trackCourseShare}/></div></details>}
-            </>
-          )}
-          {page === "guide" && (
-            <>
-              {heading("操作指南", "常用操作一次看懂")}
-              <label className="cp-card cp-pad cp-guide-search">搜尋操作指南
-                <input type="search" aria-label="搜尋操作指南" placeholder={coach ? "點名、更正、備註…" : sharingVisible ? "預約、共卡、轉帳…" : "預約、取消、轉帳…"} value={search} onChange={event => setSearch(event.target.value)} />
-              </label>
-              <p role="status">{coach ? "教練" : "會員"}指南 · {guides.length} 題</p>
-              <section className="cp-card cp-pad cp-guide" key={`${role}:${search}`}>
-                {guides.map(guide => (
-                  <details key={guide.id}>
-                    <summary>{guide.title}</summary>
-                    <ol className="list-decimal space-y-2 pl-5 py-3">{guide.steps.map(step => <li key={step}>{step}</li>)}</ol>
-                    <p>{guide.note}</p>
-                  </details>
-                ))}
-                {!guides.length && <p>找不到符合的教學，請換個關鍵字或聯絡店家。</p>}
-              </section>
-              {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">仍需協助？聯絡店家</a>}
             </>
           )}
           {page === "records" && (
