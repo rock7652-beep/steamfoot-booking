@@ -325,6 +325,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     selfBookingEnabled: bookingRule?.selfBookingEnabled ?? true,
     waitlistEnabled,
     companionBookingEnabled: !musicStore,
+    musicStore,
     sharedCardState,
     config,
     // Shared membership grants names and shared balance, never another member's contact/profile fields.

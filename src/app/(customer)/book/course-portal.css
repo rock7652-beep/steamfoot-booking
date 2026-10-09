@@ -247,9 +247,11 @@
 }
 .cp-dots .shared {
   background: #dd883c;
+  border-radius: 0;
+  transform: rotate(45deg);
 }
 .cp-legend {
-  font-size: 11px !important;
+  font-size: 14px !important;
   padding: 6px 8px;
 }
 .cp-daily {
@@ -262,6 +264,28 @@
   gap: 12px;
   padding: 12px;
 }
+.cp-lesson-past { background: #f2f3ef; }
+.cp-lesson-details { flex: 1; min-width: 0; }
+.cp-lesson-details summary { cursor: pointer; min-height: 44px; padding-right: 12px; list-style: none; }
+.cp-lesson-details summary::after { content: "⌄"; }
+.cp-lesson-details[open] summary::after { content: "⌃"; }
+.cp-lesson-details strong, .cp-lesson-location, .cp-lesson-capacity { display: block; }
+.cp-lesson-location, .cp-lesson-capacity { font-size: 14px; color: #61715c; margin-top: 4px; }
+.cp-lesson-details ul { padding-left: 20px; font-size: 14px; }
+.cp-filters summary, .cp-profile > summary, .cp-purchase-history > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cp-filters summary::after, .cp-profile > summary::after, .cp-purchase-history > summary::after { content: "⌄"; flex-shrink: 0; }
+.cp-filters[open] summary::after, .cp-profile[open] > summary::after, .cp-purchase-history[open] > summary::after { content: "⌃"; }
+.cp-filters { padding: 4px 12px; }
+.cp-filter-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding-bottom: 8px; }
+.cp-filter-fields label { min-width: 0; }
+.cp-filter-fields select { display: block; width: 100%; }
+.cp-filter-fields > button { grid-column: 1 / -1; }
+.cp-profile > summary { padding: 4px 14px; }
+.cp-inline-confirm { padding: 8px; border: 1px solid #d4ddd0; border-radius: 8px; margin-top: 8px; }
+.cp-balances strong, .cp-balances span { display: block; }
+.cp-balances strong { display: inline; font-size: 16px; color: #244437; }
+.cp-legend-self { color: #2c76c5; }
+.cp-legend-shared { color: #a75b17; }
 .cp-lesson > div {
   min-width: 0;
 }

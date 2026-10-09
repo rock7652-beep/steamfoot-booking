@@ -152,7 +152,7 @@ describe("coach daily work interactions", () => {
     await act(async () => (host.querySelector('[aria-label="下一週"]') as HTMLButtonElement).click());
     expect(m.replace).toHaveBeenCalledWith("/s/a/book?month=2026-10", { scroll: false });
     await act(async () => root.render(createElement(CoursePortalClient, { ...props(), month: "2026-10", work: [] })));
-    expect(host.textContent).toContain("2026-10-07");
+    expect(host.textContent).toContain("10/7（三）");
   });
   it("preserves an unsaved note when navigation is declined", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
@@ -297,14 +297,14 @@ describe("member plan and purchase navigation", () => {
     ]};
     await act(async()=>root.render(createElement(CoursePortalClient,data)));
     const select=host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1];
-    expect([...select.options].map(option=>option.text)).toEqual(['全部教師／教練','林教練（同名教師 1）','林教練（同名教師 2）']);
+    expect([...select.options].map(option=>option.text)).toEqual(['全部教練','林教練（同名教練 1）','林教練（同名教練 2）']);
     await act(async()=>{select.value='teacher-two';select.dispatchEvent(new Event('change',{bubbles:true}));});
     expect(host.querySelector('.cp-daily')?.textContent).toContain('課程二');
     expect(host.querySelector('.cp-daily')?.textContent).not.toContain('課程一');
     await act(async()=>(host.querySelector('.cp-month button:last-child') as HTMLButtonElement).click());
     expect(m.replace).toHaveBeenCalledWith('/s/a/book?month=2026-10&date=2026-10-21',{scroll:false});
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,month:'2026-10',sessions:[]})));
-    expect(host.querySelector('.cp-daily')?.textContent).toContain('2026-10-21');
+    expect(host.querySelector('.cp-daily')?.textContent).toContain('10/21（三）');
     expect(host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1].value).toBe('teacher-two');
     expect(host.textContent).toContain('本月無課');
     await click('我的預約');await click('預約');
@@ -455,7 +455,7 @@ describe("simple companion booking", () => {
     expect(host.querySelector('.cp-headcount button[aria-pressed="true"]')?.textContent).toBe("1 人");
     await click("3 人");
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：3 人");
-    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次保留：6 點");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次保留：3 人 × 2 點＝6 點");
     expect(host.querySelector('.cp-headcount')?.parentElement?.querySelector('input[type="checkbox"]')).toBeNull();
     expect(host.querySelector('[role="dialog"]')?.textContent).not.toContain("下一步");
     await click("確認預約");
@@ -471,7 +471,8 @@ describe("simple companion booking", () => {
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     await click("3 人"); await click("確認預約");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    expect(host.querySelectorAll('.cp-booking-person-line')).toHaveLength(3);
+    expect(host.querySelector('.cp-lesson')?.textContent).toContain('已預約');
+    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe('預約');
     await act(async () => ([...host.querySelectorAll("button")].find(b => b.textContent === "我的") as HTMLButtonElement).click());
     await click("我的方案");
     expect(host.textContent).toContain("4 點可用");
@@ -520,7 +521,7 @@ describe("simple companion booking", () => {
     expect(host.querySelector(".cp-headcount")).toBeNull();
     expect(host.querySelector('[role="dialog"]')?.textContent).not.toContain("同行姓名");
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：1 人");
-    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次保留：2 點");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次保留：1 人 × 2 點＝2 點");
     await click("確認預約");
     expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({customerIds:["member"],companionNames:[]}));
   });

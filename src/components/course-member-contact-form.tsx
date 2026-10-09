@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { saveCourseMemberContact } from "@/server/actions/course-member-contact";
 
-export function CourseMemberContactForm({ initial }: { initial: {
+export function CourseMemberContactForm({ initial, readOnly = false }: { readOnly?: boolean; initial: {
   emergencyContactName: string | null; emergencyContactPhone: string | null;
 } }) {
   const [name, setName] = useState(initial.emergencyContactName ?? "");
@@ -13,7 +13,7 @@ export function CourseMemberContactForm({ initial }: { initial: {
   return <details className="border-t border-earth-200 px-4 py-2">
     <summary className="min-h-11 cursor-pointer py-3 text-sm">緊急聯絡人</summary>
     <form className="space-y-3 pb-3" onSubmit={event => {
-      event.preventDefault(); if (pending) return; setMessage("");
+      event.preventDefault(); if (pending) return; if (readOnly) { setMessage("預覽中不會儲存"); return; } setMessage("");
       start(async () => {
         try {
           const result = await saveCourseMemberContact({ emergencyContactName: name, emergencyContactPhone: phone });

@@ -46,6 +46,42 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 
 describe("student booking switch portal", () => {
+  it("cancels inside the reservation card, keeps failure retryable and submits once", async () => {
+    const data = props();
+    data.bookings = [{ ...data.sessions[0], id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31" }] as unknown as CoursePortalData["bookings"];
+    await render({...data,initialView:"bookings"} as unknown as typeof data);
+    await click("取消"); expect(dialog()).toBeNull();
+    m.cancel.mockResolvedValueOnce({success:false,error:"預約已變更"});
+    await click("確認取消");
+    expect(host.querySelector('.cp-inline-confirm')?.textContent).toContain("預約已變更");
+    expect(host.textContent).not.toContain("已取消預約，正在同步額度");
+    const submit=button("確認取消")!;
+    await act(async()=>{submit.click();submit.click();});
+    expect(m.cancel).toHaveBeenCalledTimes(2);
+    expect(host.querySelector('.cp-inline-confirm')).toBeNull();
+    expect(host.textContent).toContain("已取消預約，正在同步額度");
+  });
+
+  it("keeps member date and filters when returning from work", async () => {
+    const data={...props(),hasWork:true}; await render(data);
+    const filter=host.querySelector<HTMLSelectElement>('.cp-filters select')!;
+    await act(async()=>{filter.value='template';filter.dispatchEvent(new Event('change',{bubbles:true}));});
+    await click("我的工作"); await click("會員");
+    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe("預約");
+    expect((host.querySelector('.cp-filters select') as HTMLSelectElement).value).toBe("template");
+    expect(host.querySelector('.cp-daily h2')?.textContent).toContain("1/20");
+  });
+
+  it("uses module-specific filters and makes course costs an inline disclosure", async () => {
+    await render({...props(),musicStore:true});
+    expect(host.querySelector('.cp-filters summary')?.textContent).toContain("教師：全部");
+    expect(host.querySelector('.cp-filters')?.hasAttribute('open')).toBe(false);
+    const details=host.querySelector('.cp-lesson details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    await act(async()=>(details.querySelector('summary') as HTMLElement).click());
+    expect(details.open).toBe(true); expect(details.textContent).toContain("扣抵：每人 2 點");
+    expect(dialog()).toBeNull();
+  });
   it("keeps the schedule visible, changes entry labels and blocks both booking and new waitlists", async () => {
     const data = props(); data.selfBookingEnabled = false;
     await render({ ...data, initialView: "home" } as unknown as typeof data);
@@ -91,7 +127,7 @@ describe("student booking switch portal", () => {
     data.bookings = [{ ...data.sessions[0], id: "booking", sessionId: "session", status: "RESERVED", customerId: "member", customerName: "會員本人", operatorName: "本人", notes: "", unit: "POINT", planName: "十點方案", expiresAt: "2099-12-31", trialPaid: null, trialPrice: null }] as unknown as CoursePortalData["bookings"];
     await render({ ...data, initialView: "bookings" } as unknown as typeof data);
     expect(host.textContent).toContain("會員本人"); expect(button("改時段")).toBeUndefined();
-    await click("取消"); await click("確認取消", dialog()); expect(m.cancel).toHaveBeenCalledWith({ bookingId: "booking", status: "CANCELLED", member: true });
+    await click("取消"); expect(dialog()).toBeNull(); await click("確認取消", host.querySelector(".cp-inline-confirm")!); expect(m.cancel).toHaveBeenCalledWith({ bookingId: "booking", status: "CANCELLED", member: true });
     data.serverNow = Date.parse("2099-01-20T11:00:00+08:00"); await act(async () => root.render(el(CoursePortalClient, { ...data, initialView: "bookings", key: "after-cutoff" })));
     expect(button("取消")).toBeUndefined(); expect(host.textContent).toContain("已超過取消期限");
   });
