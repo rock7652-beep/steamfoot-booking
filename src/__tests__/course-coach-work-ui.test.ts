@@ -428,20 +428,47 @@ describe("member plan and purchase navigation", () => {
   });
   it("lists actual lesson dates and times inside each plan, separately from ledger timestamps", async () => {
     const data = memberProps();
-    data.cards = [{id:"card",name:"十點方案",unit:"POINT",available:8,remaining:8,held:0,expiresAt:"2026-10-20",expired:false,closed:false,members:[{id:"member",name:"本人"},{id:"family",name:"家人"}],templateIds:[],entries:[{id:"entry",kind:"DEBIT",points:2,createdAt:"2026-10-06T08:21:00Z"}],history:{count:2,lessons:[{id:"lesson",name:"基礎伸展",startsAt:"2026-09-18T04:00:00Z",customerName:"家人",status:"已出席",used:2},{id:"cancelled",name:"瑜珈",startsAt:"2026-09-17T02:00:00Z",customerName:"本人",status:"已取消",used:0}]}}] as unknown as CoursePortalData["cards"];
+    data.cards = [{id:"card",name:"十點方案",unit:"POINT",available:8,remaining:8,held:0,expiresAt:"2026-10-20",expired:false,closed:false,members:[{id:"member",name:"本人"},{id:"family",name:"家人"}],templateIds:[],entries:[{id:"entry",kind:"CORRECT:ATTENDED:CANCELLED",points:2,createdAt:"2026-10-06T08:21:00Z"}],history:{count:2,lessons:[{id:"lesson",name:"基礎伸展",startsAt:"2026-09-18T04:00:00Z",customerName:"家人",status:"已出席",used:2},{id:"cancelled",name:"瑜珈",startsAt:"2026-09-17T02:00:00Z",customerName:"本人",status:"已取消",used:0}]}}] as unknown as CoursePortalData["cards"];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
-    const history = host.querySelector<HTMLElement>(".cp-plan-history summary")!;
-    await act(async()=>history.click());
     const rows = [...host.querySelectorAll(".cp-history-list li")];
-    expect(rows[0].textContent).toContain("2026-09-18"); expect(rows[0].textContent).toContain("12:00");
-    expect(rows[0].textContent).toContain("基礎伸展"); expect(rows[0].textContent).toContain("已出席 · 家人"); expect(rows[0].textContent).toContain("扣 2 點");
+    expect(rows[0].textContent).toContain("9/18（五）"); expect(rows[0].textContent).toContain("12:00");
+    expect(rows[0].textContent).toContain("基礎伸展"); expect(rows[0].textContent).toContain("家人"); expect(rows[0].textContent).toContain("扣 2 點");
     expect(rows[1].textContent).toContain("未扣抵");
     expect(host.querySelector(".cp-history-list")?.textContent).not.toContain("2026-10-06");
     expect(host.querySelector(".cp-ledger-list")?.textContent).toContain("2026-10-06 16:21");
     expect(host.querySelector("[role=dialog]")).toBeNull();
     data.cards[0].members = [{id:"member",name:"本人"}];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
-    expect(host.querySelector(".cp-history-list")?.textContent).toContain("已出席 · 家人");
+    expect(host.querySelector(".cp-history-list")?.textContent).toContain("家人");
+  });
+  it("shows three recent rows, groups months and preserves expanded history across navigation", async () => {
+    const data = memberProps();
+    data.cards = [{id:"card",name:"十點方案",unit:"POINT",available:8,remaining:8,held:0,expiresAt:"2026-10-20",expired:false,closed:false,members:[{id:"member",name:"會員本人"}],templateIds:[],entries:[],purchases:[{id:"purchase",points:10,createdAt:"2026-08-01T00:00:00Z",status:"CONFIRMED"}],history:{count:4,lessons:[
+      {id:"1",name:"瑜珈一",startsAt:"2026-10-01T04:00:00Z",customerId:"member",customerName:"舊姓名",status:"已出席",used:2},
+      {id:"2",name:"瑜珈二",startsAt:"2026-09-18T04:00:00Z",customerId:"member",customerName:"會員本人",status:"已出席",used:2},
+      {id:"3",name:"瑜珈三",startsAt:"2026-09-17T04:00:00Z",customerId:null,customerName:"同行朋友",status:"請假",used:0},
+      {id:"4",name:"瑜珈四",startsAt:"2026-08-30T04:00:00Z",customerId:"member",customerName:"會員本人",status:"已取消",used:0},
+    ]}}] as unknown as CoursePortalData["cards"];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
+    expect(host.querySelectorAll(".cp-history-list li")).toHaveLength(3);
+    expect(host.textContent).toContain("2026 年 10 月"); expect(host.textContent).toContain("2026 年 9 月");
+    expect(host.textContent).not.toContain("舊姓名"); expect(host.textContent).toContain("同行朋友");
+    expect(host.textContent).not.toContain("剩餘 8"); expect(host.textContent).not.toContain("已預約 0");
+    expect(host.textContent).toContain("2026-08-01 購買 10 點");
+    expect(host.querySelector('.cp-ledger')).toBeNull(); expect(host.querySelector('.cp-purchase-history')).toBeNull();
+    await click("查看全部 4 筆");
+    expect(host.querySelectorAll(".cp-history-list li")).toHaveLength(4);
+    expect(host.textContent).toContain("2026 年 8 月");
+    await act(async()=>host.querySelector<HTMLButtonElement>(".cp-nav button:last-child")!.click()); await click("我的方案");
+    expect(host.querySelectorAll(".cp-history-list li")).toHaveLength(4);
+    await click("收起紀錄"); expect(host.querySelectorAll(".cp-history-list li")).toHaveLength(3);
+  });
+  it("orders reserved plans before other effective plans and keeps archived plans last", async () => {
+    const card=(id:string,held:number,expired=false)=>({id,name:id,unit:"POINT",available:8,remaining:10,held,expired,closed:false,expiresAt:"2026-10-20",members:[],entries:[],templateIds:[]});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"plans",cards:[card("其他方案",0),card("已到期",0,true),card("目前使用",2)] as unknown as CoursePortalData["cards"]})));
+    expect([...host.querySelectorAll('.cp-plan h2')].map(el=>el.textContent)).toEqual(["目前使用","其他方案"]);
+    await click("查看已到期");
+    expect([...host.querySelectorAll('.cp-plan h2')].map(el=>el.textContent)).toEqual(["目前使用","其他方案","已到期"]);
   });
   it("shows pending orders first and exposes completed orders only in history", async () => {
     const order=(id:string,status:string)=>({id,name:id,status,price:500,listPrice:null,points:4,unit:"SESSION",termSizes:[],bonus:0,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
@@ -585,7 +612,7 @@ describe("simple companion booking", () => {
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
     await click("我的方案");
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
-    expect(host.textContent).toContain("我的方案");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.textContent).toContain("使用紀錄");
+    expect(host.textContent).toContain("我的方案");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.querySelector(".cp-plan-history")).toBeNull();
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
     expect([...host.querySelectorAll("button")].some(button=>button.textContent?.startsWith("共卡成員"))).toBe(false);
     await click("首頁");

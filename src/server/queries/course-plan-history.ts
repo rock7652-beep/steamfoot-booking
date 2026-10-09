@@ -15,7 +15,7 @@ export async function getCoursePlanHistory(storeId: string, customerId: string, 
         orderBy: [{ session: { startsAt: "desc" } }, { id: "asc" }],
         take: 100,
         select: {
-          id: true, customerName: true, status: true, absenceKind: true, pointCost: true,
+          id: true, customerId: true, customerName: true, status: true, absenceKind: true, pointCost: true,
           session: { select: { startsAt: true, nameSnapshot: true } },
         },
       },
@@ -29,6 +29,7 @@ export async function getCoursePlanHistory(storeId: string, customerId: string, 
       name: booking.session.nameSnapshot,
       startsAt: booking.session.startsAt.toISOString(),
       customerName: booking.customerName,
+      customerId: booking.customerId,
       status: booking.absenceKind === "GROUP_LEAVE_FORFEITED" || booking.absenceKind === "STUDENT_LEAVE" ? "請假"
         : booking.absenceKind === "TEACHER_ABSENT" ? "教師未授課"
         : ({ ATTENDED: "已出席", NO_SHOW: "未到", CANCELLED: "已取消", RESERVED: "待確認出席" }[booking.status] ?? "待確認"),
