@@ -339,7 +339,7 @@ describe("full single-store trial across industries", () => {
   it("includes preview, LIFF and all single-store features for legacy undated trial stores", async () => {
     mockStore("EXPERIENCE");
     const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
-    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD]);
+    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT]);
     for (const feature of Object.values(FEATURES)) {
       expect(await hasStoreFeature("store-1", feature), feature).toBe(!excluded.has(feature));
     }
@@ -389,4 +389,26 @@ describe("inventory and work order paid add-ons", () => {
     mockEntitlement("ENABLED");
     expect(await hasStoreFeature("store-a",FEATURES.WORK_ORDERS)).toBe(true);
   });
+});
+
+it.each([
+  ["steamfoot", "STEAMFOOT", false], ["spa", "SPA", false],
+  ["sports", "COURSE", false], ["music", "COURSE", true],
+])("%s audit remains explicit and store-specific despite demo/trial/module defaults", async (label, industryModule, music) => {
+  const storeId = `fixture-${label}`;
+  mockGetStoreForPlanByStoreId.mockResolvedValue({ id: storeId, plan: "EXPERIENCE", isDemo: true, industryModule, music });
+  const { hasStoreFeature } = await import("@/lib/feature-gate");
+  expect(await hasStoreFeature(storeId, FEATURES.STORE_OPERATION_AUDIT)).toBe(false);
+  mockEntitlement("ENABLED");
+  expect(await hasStoreFeature(storeId, FEATURES.STORE_OPERATION_AUDIT)).toBe(true);
+  expect(mockEntitlementFindUnique).toHaveBeenLastCalledWith({
+    where: { uq_store_feature_entitlement: { storeId, featureKey: FEATURES.STORE_OPERATION_AUDIT } },
+    select: { status: true, startsAt: true, expiresAt: true },
+  });
+  for (const status of ["HIDDEN", "DISABLED", "LOCKED"] as const) {
+    mockEntitlement(status);
+    expect(await hasStoreFeature(storeId, FEATURES.STORE_OPERATION_AUDIT)).toBe(false);
+  }
+  // The audit gate runs before the plan/demo/module shortcuts.
+  expect(mockGetStoreForPlanByStoreId).not.toHaveBeenCalled();
 });

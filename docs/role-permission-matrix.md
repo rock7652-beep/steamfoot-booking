@@ -13,7 +13,17 @@
 
 Owner 不會因舊 StaffPermission 缺少勾選而失去店內權限；不會因此取得 Admin 的跨店權限。店舖範圍、母子店既有授權、訂閱及模組開通限制仍需各入口檢查。舊 `isOwner()` helper 代表 Admin，不能改為 Owner 放行跨店。
 
-2026-10-07（PR #1240 預覽）：操作與登入紀錄僅限 ADMIN；OWNER／MANAGER／PARTNER／STAFF 不開放，既有 audit.read 授權亦不生效。店家操作照常留存，總部可查。
+## 操作與登入紀錄（PR #1255 隔離驗收草稿）
+
+本節描述此草稿的既有設計，尚未代表正式站開通或角色 UI 驗收完成。#1240 的總部完整稽核仍保留；#1255 另以 `store_operation_audit` 獨立開關提供受限的門市操作紀錄。
+
+- 蒸足、SPA、運動與音樂店皆使用每店獨立的 `storeId + store_operation_audit` 授權；同一家店共用此開關，不是店內各模組各一顆開關。顯示內容仍限已列入安全白名單的業務事件，不代表每種操作均已涵蓋。
+- 所有方案、試用及展示店預設隱藏。只有明確 `ENABLED` 且已開始、尚未到期的店家授權才可讀取；`HIDDEN`、`DISABLED`、`LOCKED`、缺少授權及到期均拒絕。
+- OWNER 必須是本人本店的 ACTIVE、isOwner Staff membership，且店家為 ACTIVE／TRIAL；只能查自己的店，母店切子店或跨店不取得權限。門市入口使用 `store.audit.read` 並重查店家授權與身分，不能單憑舊 `audit.read` 放行。
+- MANAGER／PARTNER／STAFF／CUSTOMER 不開放門市稽核，即使有舊權限或店家開關啟用也拒絕。
+- ADMIN 在真正總部視角保留完整操作與登入稽核；HQ 切店時遵守相同店家開關，只能取得門市安全資料，返回總部後恢復原總部視角。
+- 門市資料僅含白名單業務類型／動作、事件時角色、時間、操作人及有限狀態／數值；不含登入、安全資訊、IP、session、任意私人備註、HQ 事件或未知角色歷史。直連路由與單筆紀錄 server action 均檢查同一身分及店家範圍。
+- 關閉、隱藏、到期或撤回身分只收回讀取權；每次請求重新驗證，不停止記錄、不刪除歷史，也不改變既有 writers／outbox／actor attribution。
 
 ## 進銷存預設
 

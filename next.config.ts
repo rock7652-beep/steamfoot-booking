@@ -14,7 +14,7 @@ isGuideUiPreview(); // Validate the isolated mode before Next build work.
 import type { NextConfig } from "next";
 import { assertReviewedReleaseEnvironment } from "./scripts/consultation-preview-scope.mjs";
 
-// Provider build-command overrides cannot bypass either Preview gate or the
+// Provider build-command overrides cannot bypass any reviewed Preview gate or the
 // positively identified production main boundary. Guide mode has no DB access.
 if (!isGuideUiPreview()) assertReviewedReleaseEnvironment(process.env);
 
