@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
+import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
 
 vi.hoisted(async () => {
   const { AsyncLocalStorage } = await import("node:async_hooks");
@@ -185,5 +185,31 @@ describe("waitlist publication exact Preview provenance", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
     expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+});
+
+
+describe("single pricing Preview isolation", () => {
+  const pricingSafe = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "fix/single-group-pricing-20261009", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking" };
+  it("uses disabled database mode only on the exact approved Preview", () => {
+    expect(isSinglePricingUiPreview(pricingSafe)).toBe(true);
+    expect(isGuideUiPreview(pricingSafe)).toBe(true);
+    expect(isSinglePricingUiPreview({ ...pricingSafe, VERCEL_GIT_COMMIT_REF: "main", VERCEL_ENV: "production" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects incorrect %s", key => {
+    expect(() => isSinglePricingUiPreview({ ...pricingSafe, [key]: "incorrect" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations without any database credentials", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...pricingSafe, WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", DATABASE_URL: "", DIRECT_URL: "" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+  });
+  it("allows only the fixture and assets, blocks payment writes and auth", () => {
+    for (const [key, value] of Object.entries({ ...pricingSafe, WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "" })) vi.stubEnv(key, value);
+    expect(route("/single-pricing-preview").status).toBe(200);
+    expect(route("/single-pricing-preview", "POST").status).toBe(405);
+    expect(route("/api/auth/session").status).toBe(404);
+    expect(route("/dashboard/bookings").status).toBe(404);
+    expect(spies.auth).not.toHaveBeenCalled();
   });
 });

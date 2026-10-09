@@ -868,6 +868,7 @@ export function BookingDetailDrawer({
             dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
             defaultPrice={data.single.defaultPrice}
             spaMode={spaMode}
+            people={data.booking.people}
             serviceName={
               data.booking.treatmentNameSnapshot ??
               data.booking.servicePlan?.name ??

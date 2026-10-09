@@ -32,8 +32,10 @@ interface Props {
   bookingId: string;
   customerName: string;
   dateLabel: string;
-  /** 原價（servicePlan.price ?? 799），由 drawer payload 帶入 */
+  /** 本次所有預約人數的合計原價，由 drawer payload 帶入 */
   defaultPrice: number;
+  people?: number;
+  readOnly?: boolean;
   spaMode?: boolean;
   /** SPA 工作台嵌在既有右側面板內，不再疊第二層 Modal。 */
   embedded?: boolean;
@@ -66,6 +68,8 @@ export function CollectSingleModal({
   customerName,
   dateLabel,
   defaultPrice,
+  people = 1,
+  readOnly = false,
   spaMode = false,
   embedded = false,
   serviceName = "本次服務",
@@ -101,6 +105,7 @@ export function CollectSingleModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   function runCheckout(action: () => Promise<void>) {
+    if (readOnly) return;
     if (spaMode) {
       startTransition(action);
       return;
@@ -122,7 +127,7 @@ export function CollectSingleModal({
   }
 
   useEffect(() => {
-    if (!open || mode !== "plan" || plans.length > 0) return;
+    if (readOnly || !open || mode !== "plan" || plans.length > 0) return;
     startTransition(async () => {
       const r = await getSingleBookingPurchasePlans(bookingId);
       if (!r.success) {
@@ -133,7 +138,7 @@ export function CollectSingleModal({
       setPlanId(r.data[0]?.id ?? "");
       if (r.data[0]) setAmount(String(r.data[0].price));
     });
-  }, [bookingId, mode, open, plans.length]);
+  }, [bookingId, mode, open, plans.length, readOnly]);
 
   if (!open) return null;
 
@@ -333,7 +338,7 @@ export function CollectSingleModal({
             </div>
           ) : null}
           <div className="flex justify-between">
-            <span className="text-earth-500">原價</span>
+            <span className="text-earth-500">{!spaMode && people > 1 ? `原價（${people} 人合計）` : "原價"}</span>
             <span className="text-earth-700">
               NT$ {defaultPrice.toLocaleString()}
             </span>
@@ -686,7 +691,7 @@ export function CollectSingleModal({
             type="button"
             onClick={handleConfirm}
             disabled={
-              pending ||
+              readOnly || pending ||
               (spaMode && spaSettlement !== "PAYMENT"
                 ? spaSettlement === "PACKAGE"
                   ? !walletId
