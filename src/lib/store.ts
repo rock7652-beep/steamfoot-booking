@@ -11,7 +11,7 @@ type SessionLike = { role: string; storeId?: string | null };
 export const ALL_STORES_ID = "__all__";
 
 export type StoreAccessMode = "read" | "write" | "switch";
-export type AccessibleStore = { id: string; slug: string; name: string; isDefault: boolean; isArchived?: boolean };
+export type AccessibleStore = { id: string; slug: string; name: string; isDefault: boolean; isArchived?: boolean; industryModule?:string; address?:string|null };
 export type AuthorizedConcreteStore = { id: string; slug: string; name: string };
 
 const MAX_STORE_TREE_DEPTH = 20;
@@ -50,11 +50,12 @@ async function getAccessibleDescendantStoreIds(ownStoreId: string): Promise<stri
 export async function getAccessibleStores(user: SessionLike): Promise<AccessibleStore[]> {
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
-    return prisma.store.findMany({
+    const rows=await prisma.store.findMany({
       where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
-      select: { id: true, slug: true, name: true, isDefault: true },
+      select: { id: true, slug: true, name: true, isDefault: true, industryModule:true,shopConfig:{select:{address:true}} },
       orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
+    return rows.map(({shopConfig,...store})=>({...store,address:shopConfig?.address}));
   }
   if (!user.storeId) throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
 

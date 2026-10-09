@@ -34,7 +34,7 @@ it("keeps music-specific HQ and schedule wording behind the MUSIC business profi
   expect(hqDetail).toContain("音樂教室測試店已建置，30 天尚未起算");
   expect(onboarding).toContain("音樂教室使用老師／教室排課，不建立蒸足固定時段");
   expect(workspace).toContain('businessProfile === "MUSIC" ? "音樂課表" : "課表排程"');
-  expect(board).toContain('businessProfile === "MUSIC" ? "老師視角" : "教練視角"');
+  expect(board).toContain('businessProfile === "MUSIC" ? "老師視角" : courseDisplayText("教練視角", businessProfile)');
   expect(board).toContain('businessProfile === "MUSIC" ? "一對一" : "私教"');
 });
 

@@ -10,7 +10,7 @@ import { formatTWDateTime } from "@/lib/date-utils";
 const money=(n:number)=>`NT$ ${n.toLocaleString()}`;
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm disabled:opacity-50";
-export function CourseMonthlyPeople({entries,children,actions,category="ALL"}:{entries:{id:string;name:string;pending:boolean;priority:number}[];children?:ReactNode;actions?:ReactNode;category?:"ALL"|"PROFIT"|"FEE"}){
+export function CourseMonthlyPeople({entries,children,actions,category="ALL",music=false}:{music?:boolean;entries:{id:string;name:string;pending:boolean;priority:number}[];children?:ReactNode;actions?:ReactNode;category?:"ALL"|"PROFIT"|"FEE"}){
  const [query,setQuery]=useState("");
  const nodes=Children.toArray(children);
  const sorted=entries.map((entry,index)=>({...entry,node:nodes[index]})).sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name,"zh-Hant"));
@@ -21,13 +21,13 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL"}:{e
  {actions&&<div className="ml-auto flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">{actions}</div>}
  </div>
  <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
- <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-4 py-3 text-xs text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?"教練授課費":"應領合計"}</span><span className="sr-only">明細</span></div>
+ <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-4 py-3 text-xs text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?(music ? "教師授課費" : "教練授課費"):"應領合計"}</span><span className="sr-only">明細</span></div>
  {!entries.length?children:sorted.map(e=><div key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}
  {!!entries.length&&!visible.length&&<p role="status" className="p-4 text-sm">找不到符合的人員。</p>}
  </div></section>;
 }
 
-export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false}:{lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode}){
+export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false,music=false}:{music?:boolean;lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode}){
  const [category,setCategory]=useState<"ALL"|"PROFIT"|"FEE">("ALL");
  const filtered=lines.filter(line=>category==="ALL"||line.kind===category);
  const people=summarizeSettlement(filtered);
@@ -35,12 +35,12 @@ export function CourseMonthlyReport({lines,status,confirm,actions,canPay=false}:
  const total=people.reduce((sum,person)=>sum+person.profit+person.fee,0);
  return <>
  <div className="flex flex-wrap items-center gap-2" role="group" aria-label="收入類別">
- {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:"教練授課費"}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
+ {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:(music ? "教師授課費" : "教練授課費")}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
  </div>
  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
  {status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?"授課費合計":"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{confirm}
  </div>
- <CourseMonthlyPeople category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={actions}>
+ <CourseMonthlyPeople music={music} category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={actions}>
  {!people.length&&<p className="p-4 text-sm text-earth-500">本月沒有此類收入紀錄。</p>}
  {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
  <strong className="truncate" title={person.name}>{person.name}</strong>

@@ -149,7 +149,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
 
       <FeatureEntitlementList storeId={store.id} categories={[...STORE_FEATURE_CATEGORIES]} rows={manageableFeatures.map(feature => {
                   const entitlement = entitlements.get(feature.key) ?? null;
-                  const trialAllowed = fullSingleStoreAccess && feature.key !== "shared_card";
+                  const trialAllowed = fullSingleStoreAccess && feature.key !== "shared_card" && feature.key !== "store_operation_audit";
                   const baseAllowed = feature.key === "shared_card" ? false : trialAllowed || hasFeature(store.plan, feature.key);
                   const ordinaryState = resolveStoreFeatureDisplayState(
                     store.plan,

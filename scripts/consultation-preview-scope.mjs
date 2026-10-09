@@ -4,6 +4,11 @@ import {
   isSportsSharedCardProductionRelease,
 } from "./sports-shared-card-preview-scope.mjs";
 
+import {
+  assertStoreOperationAuditPreviewEnvironment,
+  STORE_OPERATION_AUDIT_PREVIEW_BRANCH,
+} from "./store-operation-audit-preview-scope.mjs";
+
 const PREVIEW_PROJECT = "ttworfzgwejdeolegkxl";
 const PREVIEW_POOLER_HOSTS = new Set([
   "aws-0-ap-northeast-1.pooler.supabase.com",
@@ -64,6 +69,7 @@ export const SPORTS_ROSTER_PREVIEW_BRANCH = "fix/course-roster-two-line-20261008
 export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
 export const INLINE_BOOKING_NOTES_PREVIEW_BRANCH = "feat/inline-booking-notes-local-20261009";
 export const CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH = "feat/customer-course-portal-simplify-20261009";
+export const MUSIC_SETUP_PREVIEW_BRANCH = "fix/music-teacher-terminology-20261009";
 
 export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261008";
 
@@ -135,7 +141,7 @@ export function assertSportsRosterPreviewEnvironment(env) {
  */
 export function assertModuleRosterPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
+      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
@@ -179,12 +185,12 @@ export function assertConsultationPreviewEnvironment(env) {
 }
 
 /**
- * Compose the exact Preview gates without allowing either to become a
+ * Compose the exact Preview gates without allowing any to become a
  * fallback for malformed metadata. Production requires the reviewed full
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview"}
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
@@ -198,7 +204,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertOperationGuidePreviewEnvironment(env);
     return "operation-guide-preview";
   }
-  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertModuleRosterPreviewEnvironment(env);
     return "module-roster-preview";
   }
@@ -217,6 +223,10 @@ export function assertReviewedReleaseEnvironment(env) {
   if (env.VERCEL_GIT_COMMIT_REF === CONSULTATION_PREVIEW_BRANCH) {
     assertConsultationPreviewEnvironment(env);
     return "consultation-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === STORE_OPERATION_AUDIT_PREVIEW_BRANCH) {
+    assertStoreOperationAuditPreviewEnvironment(env);
+    return "store-operation-audit-preview";
   }
   if (env.VERCEL_GIT_COMMIT_REF === COURSE_SELF_BOOKING_PREVIEW_BRANCH) {
     assertCourseSelfBookingPreviewEnvironment(env);

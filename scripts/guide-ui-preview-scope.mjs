@@ -37,6 +37,22 @@ function isWaitlistUiPreview(env) {
   return true;
 }
 
+// Exact approved migration-article review. Reuse disabled database clients and
+// the editorial-only request boundary; never read inherited DB credentials.
+/** @param {Record<string, string | undefined>} env */
+function isMusicMigrationUiPreview(env) {
+  const branch = "content/music-school-data-migration";
+  const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
+  if (!branches.includes(branch)) return false;
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== branch ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW)) {
+    throw new Error("Music migration UI preview isolation rejected: exact Vercel Preview branch and repository required");
+  }
+  return true;
+}
+
 // Exact HQ KPI-only review: no database, auth, writes or real customer records.
 export const HQ_USAGE_UI_PREVIEW_BRANCH = "fix/hq-automatic-reminder-total";
 export const SINGLE_PRICING_UI_PREVIEW_BRANCH = "fix/single-group-pricing-20261009";
@@ -67,7 +83,7 @@ export function isHqUsageUiPreview(env = process.env) {
 
 /** @param {Record<string, string | undefined>} [env] */
 export function isGuideUiPreview(env = process.env) {
-  if (isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
+  if (isMusicMigrationUiPreview(env) || isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
   const requested = branches.includes(GUIDE_UI_PREVIEW_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW);
   if (!requested) return false;

@@ -45,7 +45,7 @@ export async function readCourseMonthlySettlement(tx:Prisma.TransactionClient,st
     const fee=calculated.amount;
     if(fee===0&&!history.length)continue;
     const issue=fee===null?calculated.issue:!Number.isSafeInteger(fee)?"小數授課費需核對":null;
-    lines.push({kind:"FEE",id:session.id,staffId:session.staffId,name:names.get(session.staffId)??"歷史教練",label:session.name,date:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),feeDetails:calculated.details.map(({name,base,amount,reason})=>({name,base,amount,reason})),amount:fee,paid:history.filter(p=>!p.voidedAt).reduce((n,p)=>n+p.amount,0),issue,payments:history.map(p=>paymentView({...p,purchaseId:""}))});
+    lines.push({kind:"FEE",id:session.id,staffId:session.staffId,name:names.get(session.staffId)??"歷史授課人員",label:session.name,date:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),feeDetails:calculated.details.map(({name,base,amount,reason})=>({name,base,amount,reason})),amount:fee,paid:history.filter(p=>!p.voidedAt).reduce((n,p)=>n+p.amount,0),issue,payments:history.map(p=>paymentView({...p,purchaseId:""}))});
   }
   // Payments remain live. Confirmation freezes obligations, not payment status.
   const obligations=lines.map(({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue})=>({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue}));

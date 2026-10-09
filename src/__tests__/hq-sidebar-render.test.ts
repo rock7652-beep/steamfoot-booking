@@ -17,13 +17,13 @@ import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner) {
+function render(module: "steamfoot" | "course" | "spa", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
     canOpenCourseSettings,
-    canViewAudit: path.startsWith("/hq"),
+    canViewAudit: auditGranted || (path.startsWith("/hq") && !selected),
     operationGuidePreview: true,
     cashDrawerStoreId: selected && permissions.includes("cashDrawer.read") ? selected : undefined,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
@@ -147,4 +147,11 @@ it.each(["steamfoot", "spa", "course"] as const)("hides audits from %s stores de
   expect(render(module, "a", "/s/store-a/admin/dashboard")).not.toContain("operation-audits");
   expect(render(module, "a", "/hq/dashboard")).not.toContain("operation-audits");
   expect(render(module, null, "/hq/dashboard")).toContain("operation-audits");
+});
+
+it.each(["steamfoot", "spa", "course"] as const)("shows granted %s store operation entry without login label", module => {
+  const html = render(module, "a", "/s/store-a/admin/dashboard", false, true, [...ALL_PERMISSIONS], false, true, true);
+  expect(html).toContain("operation-audits");
+  expect(html).toContain("操作紀錄");
+  expect(html).not.toContain("操作與登入紀錄");
 });

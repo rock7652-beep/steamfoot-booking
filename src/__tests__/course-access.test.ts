@@ -62,7 +62,7 @@ describe("course fixed member access", () => {
   it("allows fixed coach identity but rejects member operations for coach-only mode", async () => {
     m.link.mockResolvedValue({ courseMemberEnabled: false });
     expect((await courseAccount()).user.id).toBe("a");
-    await expect(courseMember()).rejects.toThrow("僅開放教練工作");
+    await expect(courseMember()).rejects.toThrow("僅開放授課人員工作");
   });
   it("rejects suspended accounts before resolving membership", async () => {
     m.account.mockResolvedValue(null);

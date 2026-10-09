@@ -73,6 +73,10 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
+  if (feature === FEATURES.STORE_OPERATION_AUDIT) {
+    const { isStoreOperationAuditEnabled } = await import("@/server/services/store-operation-audit-access");
+    return isStoreOperationAuditEnabled(storeId);
+  }
   // Sports-only eligibility and explicit controls precede demo/trial shortcuts.
   if (feature === FEATURES.SHARED_CARD) {
     const { getCourseSharedCardState } = await import("@/server/services/course-shared-card");
@@ -150,6 +154,7 @@ export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boole
 /** Shares the same entitlement dates and effective authorization as server actions. */
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
+  if (feature === FEATURES.STORE_OPERATION_AUDIT) return await hasStoreFeature(storeId, feature) ? "ENABLED" : "HIDDEN";
   if (feature === FEATURES.SHARED_CARD) {
     const { getCourseSharedCardState } = await import("@/server/services/course-shared-card");
     return getCourseSharedCardState(storeId);

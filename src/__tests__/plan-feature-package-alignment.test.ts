@@ -26,7 +26,7 @@ describe("plan feature package alignment", () => {
   });
 
   it("includes every single-store feature in the trial plan", () => {
-    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD]);
+    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT]);
     for (const feature of Object.values(FEATURES)) {
       expect(hasFeature("EXPERIENCE", feature), feature).toBe(!excluded.has(feature));
     }
@@ -62,14 +62,14 @@ describe("plan feature package alignment", () => {
 
   it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
     for (const feature of MANAGEABLE_STORE_FEATURES.filter(
-      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.INVENTORY, FEATURES.WORK_ORDERS, FEATURES.SHARED_CARD])).has(feature.key),
+      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.INVENTORY, FEATURES.WORK_ORDERS, FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT])).has(feature.key),
     )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
-    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.INVENTORY, FEATURES.WORK_ORDERS, FEATURES.SHARED_CARD]) {
+    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS, FEATURES.FRONTEND_PREVIEW, FEATURES.INVENTORY, FEATURES.WORK_ORDERS, FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT]) {
       expect(hasFeature("ALLIANCE", feature)).toBe(false);
     }
   });

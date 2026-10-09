@@ -76,7 +76,7 @@ async function render(notice:Notice,slug:string,storeName:string) {
   }else{
    const old=before as Snapshot|null;if(!old)continue;
    if(+new Date(old.startsAt)===+session.startsAt&&+new Date(old.endsAt)===+session.endsAt&&old.roomId===session.roomId&&old.coachId===session.coachId&&!!old.cancelledAt===!!session.cancelledAt&&old.teacherAttendance===session.teacherAttendance)continue;
-   detail=session.cancelledAt?'課程已取消':session.teacherAttendance==='LEAVE'?'老師請假 · 停課':session.teacherAttendance==='NO_SHOW'?'老師曠課 · 停課':old.coachId!==session.coachId?(notice.staffId===session.coachId?'由您接任授課':'已改由其他教練授課'):'授課安排已更新';
+   detail=session.cancelledAt?'課程已取消':session.teacherAttendance==='LEAVE'?'老師請假 · 停課':session.teacherAttendance==='NO_SHOW'?'老師曠課 · 停課':old.coachId!==session.coachId?(notice.staffId===session.coachId?'由您接任授課':'已改由其他授課人員授課'):'授課安排已更新';
    previous=`原 ${formatTWDateTime(new Date(old.startsAt))}–${formatTWDateTime(new Date(old.endsAt)).slice(11)}`;
   }
   const type=session.template.classType;
@@ -102,7 +102,7 @@ export async function runCoachNotifications(storeId?:string) {
    if(isPreviewExternalIntegrationBlocked()){await finish('SKIPPED','隔離預覽不向外發送 LINE');counts.skipped++;continue;}
    if(Date.now()-(notice.firstAttemptAt??notice.createdAt).getTime()>23*3600000){await finish('BLOCKED','已超過安全重試期限');counts.skipped++;continue;}
    target=await targetFor(notice.storeId,notice.staffId);
-   if(!target){await finish('SKIPPED','教練未完成可用 LINE 綁定或已停用');counts.skipped++;continue;}
+   if(!target){await finish('SKIPPED','授課人員未完成可用 LINE 綁定或已停用');counts.skipped++;continue;}
    if(notice.recipient&&!sameTarget(notice.recipient,target)){await finish('BLOCKED','通知對象綁定已變更');counts.skipped++;continue;}
    const store=await prisma.store.findUniqueOrThrow({where:{id:notice.storeId},select:{name:true,slug:true}});
    const message=notice.message??await render(notice,store.slug,store.name);
@@ -124,7 +124,7 @@ export async function runCoachNotifications(storeId?:string) {
    const result=target.channel==='STORE'?await pushMessage(notice.storeId,target.recipient,[message],notice.retryKey):await pushSteamButlerMessage(target.recipient,[message],notice.retryKey);
    const status=result.success?'SENT':result.httpStatus&&result.httpStatus>=400&&result.httpStatus<500&&result.httpStatus!==429?'BLOCKED':'FAILED';
    await finish(status,result.success?null:'LINE 未確認送達');
-   await prisma.messageLog.updateMany({where:{id:notice.id,status:{not:'SENT'}},data:{status:result.success?'SENT':'FAILED',sentAt:result.success?new Date():null,lineRoute:target.channel,errorMessage:result.success?null:'教練通知未確認送達'}});
+   await prisma.messageLog.updateMany({where:{id:notice.id,status:{not:'SENT'}},data:{status:result.success?'SENT':'FAILED',sentAt:result.success?new Date():null,lineRoute:target.channel,errorMessage:result.success?null:'授課人員通知未確認送達'}});
    counts[result.success?'sent':'failed']++;
   }catch(error){await finish('FAILED',error instanceof Error?error.message.slice(0,200):'通知處理失敗');counts.failed++;}
  }

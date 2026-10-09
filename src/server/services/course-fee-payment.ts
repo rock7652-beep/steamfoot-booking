@@ -27,7 +27,7 @@ export async function recordCourseFeePayment(tx: Prisma.TransactionClient, actor
     WHERE s.id=${d.sessionId} AND s."storeId"=${storeId} FOR UPDATE OF s, c`;
   const row = rows[0];
   if (!row || row.cancelledAt || row.endsAt > new Date() || row.coachId !== row.staffId)
-    throw new AppError("BUSINESS_RULE", "請核對已結束、未取消課次及授課教練");
+    throw new AppError("BUSINESS_RULE", "請核對已結束、未取消課次及授課人員");
   const seats=await readTeacherFeeSeats(tx,storeId,[d.sessionId]);
   const total=capturedTeacherFee(row,seats.get(d.sessionId)??[]).amount;
   if (total === null || total !== d.expectedAmount || !Number.isSafeInteger(total))

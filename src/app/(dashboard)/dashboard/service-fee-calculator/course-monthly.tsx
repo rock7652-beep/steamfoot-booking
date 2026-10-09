@@ -1,4 +1,4 @@
-import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
+import {isMusicFinanceStore,canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { CourseMonthlyNotifications } from "./course-monthly-notifications";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
@@ -20,6 +20,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const user=await getCurrentUser();
  if(!user||user.role!=="OWNER"||!await checkPermission(user.role,user.staffId,"report.read"))return <p>僅店長可查看課程月結。</p>;
  if(!await canMusicFinance(user,storeId,"teacher.settlement.read"))return <p>尚未授權查看教師月結。</p>;
+ const music=await isMusicFinanceStore(storeId);
  const scope=await readMusicFinanceScope(user,storeId);
  const canConfirm=scope===null && await canMusicFinance(user,storeId,"teacher.settlement.confirm");
  await requireCourseStore(storeId);
@@ -39,7 +40,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  return <PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  <PageHeader title="每月收入結算" subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
  {scope!==null&&<p className="text-sm text-earth-500">僅顯示授權教師；全店月結確認由全店授權人員處理。</p>}
- <CourseMonthlyReport canPay={canPay&&!readOnly} key={month} lines={report.lines} status={<span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>} confirm={!confirmed&&!readOnly&&canConfirm&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>} actions={<>
+ <CourseMonthlyReport music={music} canPay={canPay&&!readOnly} key={month} lines={report.lines} status={<span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>} confirm={!confirmed&&!readOnly&&canConfirm&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>} actions={<>
  {!readOnly&&scope===null&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&canConfirm&&!readOnly}/>
  </>}/>

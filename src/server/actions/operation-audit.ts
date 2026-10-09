@@ -2,6 +2,10 @@
 
 import { z } from "zod";
 import { redactAuditValue } from "@/lib/audit-redact";
+import { getCurrentUser } from "@/lib/session";
+import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
+import { readStoreOperationAudits } from "@/server/services/store-operation-audit-reader";
+import { isStoreAuditTarget } from "@/lib/store-operation-audit-policy";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import { assertStoreAccess } from "@/lib/manager-visibility";
@@ -30,15 +34,23 @@ export type OperationHistoryItem = {
   references?: AuditReferences;
   beforeJson: unknown;
   afterJson: unknown;
-  actor: { id: string; name: string; role: string };
+  actor: { id?: string; name: string; role: string };
 };
 
 export async function loadOperationHistory(
   input: z.infer<typeof inputSchema>,
 ): Promise<ActionResult<OperationHistoryItem[]>> {
   try {
-    const user = await requirePermission("audit.read");
-    if (user.role !== "ADMIN") throw new AppError("FORBIDDEN", "無權查看操作紀錄");
+    const current = await getCurrentUser();
+    const scope = current ? await resolveOperationAuditScope(current) : null;
+    if (!scope) throw new AppError("FORBIDDEN", "無權查看操作紀錄");
+    const user = await requirePermission(scope.hq ? "audit.read" : "store.audit.read");
+    if (!scope.hq) {
+      const data = inputSchema.parse(input);
+      if (!isStoreAuditTarget(data.targetType)) throw new AppError("FORBIDDEN", "無權查看此類紀錄");
+      const result = await readStoreOperationAudits({ storeId: scope.storeId, ...data });
+      return { success: true, data: result.items };
+    }
     const storeId = await resolveWriteStoreId(user);
     assertStoreAccess(user, storeId);
     const data = inputSchema.parse(input);
