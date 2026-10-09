@@ -290,21 +290,21 @@
 .cp-plan-content > summary::after, .cp-ledger > summary::after { content: "⌄"; margin-left: auto; }
 .cp-plan-content[open] > summary::after, .cp-ledger[open] > summary::after { content: "⌃"; }
 .course-portal .cp-history-list, .course-portal .cp-ledger-list { list-style: none; padding: 0; margin: 0; }
-.cp-history-month h3 { margin: 12px 0 0; font-size: 14px; color: #63756a; }
-.cp-history-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding: 10px 0; border-bottom: 1px solid #e1e7de; }
+.cp-history-list { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cp-history-list caption { text-align: left; font-weight: 700; padding: 8px 0; }
+.cp-history-list th, .cp-history-list td { text-align: left; vertical-align: top; padding: 8px 4px 8px 0; border-bottom: 1px solid #e1e7de; overflow-wrap: anywhere; }
+.cp-history-list .cp-history-month th { padding: 6px 0; color: #63756a; font-weight: 400; }
+.cp-history-date-column { width: 40%; }
+.cp-history-usage-column { width: 23%; }
 .cp-history-date { font-variant-numeric: tabular-nums; }
-.cp-history-course { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
+.cp-history-date span { white-space: nowrap; }
 .cp-history-course span { color: #63756a; }
-.cp-history-usage { align-self: start; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cp-history-list .cp-history-usage, .cp-history-list thead th:last-child { text-align: right; padding-right: 0; white-space: nowrap; }
+.cp-history-empty { margin: 8px 0; color: #63756a; }
 .cp-history-toggle { width: 100%; min-height: 44px; margin-top: 8px; }
 .cp-ledger-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid #e1e7de; overflow-wrap: anywhere; }
 .cp-ledger-list time { grid-column: 1 / -1; color: #63756a; font-variant-numeric: tabular-nums; }
 .cp-plan-purchases p { margin: 4px 0; color: #63756a; }
-@media (min-width: 640px) {
-  .cp-history-list li { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .cp-history-course { grid-column: 2; grid-row: 1; }
-  .cp-history-usage { grid-column: 3; grid-row: 1; }
-}
 .cp-legend-self { color: #2c76c5; }
 .cp-legend-shared { color: #a75b17; }
 .cp-lesson > div {
@@ -708,6 +708,15 @@
 .cp-plan-summary > button { flex-shrink: 0; }
 .cp-plan .cp-plan-expiry { margin: 4px 0; }
 .cp-plan p.cp-plan-purchases, .cp-plan-purchases p { margin: 4px 0; color: #63756a; }
-.cp-plan .cp-history-month h3 { margin-top: 8px; }
-.cp-plan .cp-history-list li { padding: 8px 0; }
 .cp-history-course .cp-history-status { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: #edf1e9; }
+
+.cp-plan.cp-pad { margin: 6px 0; padding: 8px 12px; }
+.cp-plan-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 12px; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; list-style: none; }
+.cp-plan-row::-webkit-details-marker { display: none; }
+.cp-plan-row::after { content: "⌄"; grid-column: 4; grid-row: 1; }
+.cp-plan[open] > .cp-plan-row::after { content: "⌃"; }
+.cp-plan-row h2 { font-size: 16px; min-width: 0; }
+.cp-plan-row > strong, .cp-plan-row > span { white-space: nowrap; }
+.cp-plan-row > span { color: #63756a; }
+.cp-plan-held { grid-column: 1 / -1; font-size: inherit; color: #63756a; }
+.cp-plan-body { border-top: 1px solid #e1e7de; padding-top: 8px; margin-top: 4px; }
