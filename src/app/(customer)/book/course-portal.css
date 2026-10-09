@@ -699,3 +699,15 @@
 
 .cp-coach-options .cp-refresh { padding: 8px 12px; margin: 0; }
 .cp-coach-options .cp-refresh button { min-height: 44px; font-size: 14px; }
+
+/* Compact plan information without shrinking text or touch targets. */
+.cp-plan-overview.cp-pad, .cp-plan.cp-pad { padding: 12px; }
+.cp-plan-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cp-plan-summary .cp-balances { min-width: 0; }
+.cp-plan-summary .cp-balances p { margin: 0; }
+.cp-plan-summary > button { flex-shrink: 0; }
+.cp-plan .cp-plan-expiry { margin: 4px 0; }
+.cp-plan p.cp-plan-purchases, .cp-plan-purchases p { margin: 4px 0; color: #63756a; }
+.cp-plan .cp-history-month h3 { margin-top: 8px; }
+.cp-plan .cp-history-list li { padding: 8px 0; }
+.cp-history-course .cp-history-status { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: #edf1e9; }

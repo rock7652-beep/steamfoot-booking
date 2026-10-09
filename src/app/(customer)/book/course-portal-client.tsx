@@ -1206,8 +1206,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             <>
               {heading("我的方案")}
               <section className="cp-card cp-pad cp-plan-overview" aria-label="有效方案合計">
-                <div className="cp-line"><h2>我的方案</h2><button className="primary" onClick={() => go("shop")}>購買方案</button></div>
-                <div className="cp-balances">{!balanceTotals.length && <p>尚無有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>{total.held > 0 ? `｜已預約 ${total.held} ${unit(total.unit)}` : ""}</p>)}</div>
+                <div className="cp-plan-summary"><div className="cp-balances">{!balanceTotals.length && <p>尚無有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>{total.held > 0 ? `｜已預約 ${total.held} ${unit(total.unit)}` : ""}</p>)}</div><button className="primary" onClick={() => go("shop")}>購買方案</button></div>
                 {!!p.orders.length && <details className="cp-purchase-history"><summary>購買紀錄{p.orders.some(o => o.status === "PENDING") ? ` · ${p.orders.filter(o => o.status === "PENDING").length} 筆待核帳` : ""}</summary>{purchaseHistory}</details>}
               </section>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
@@ -1236,7 +1235,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           return <li key={lesson.id}>
                             <time className="cp-history-date" dateTime={lesson.startsAt}>{Number(date.slice(5,7))}/{Number(date.slice(8))}（{weekday}） {time(lesson.startsAt)}</time>
                             <strong className="cp-history-usage">{lesson.used ? `扣 ${lesson.used} ${unit(c.unit)}` : "未扣抵"}</strong>
-                            <div className="cp-history-course"><strong>{lesson.name}</strong>{person && <span> · {person}</span>}{lesson.status !== "已出席" && <span> · {lesson.status}</span>}</div>
+                            <div className="cp-history-course"><strong>{lesson.name}</strong>{person && <span> · {person}</span>}{lesson.status !== "已出席" && <span className="cp-history-status">{lesson.status === "待確認出席" ? "待點名" : lesson.status === "已取消" ? "取消" : lesson.status}</span>}</div>
                           </li>;
                         })}
                       </ul>
@@ -1244,7 +1243,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     {lessons.length > 3 && <button className="cp-history-toggle" aria-expanded={expanded} onClick={() => setExpandedPlanHistory(previous => ({...previous, [c.id]: !previous[c.id]}))}>{expanded ? "收起紀錄" : (c.history?.count ?? 0) > 100 ? "查看最近 100 筆" : `查看全部 ${c.history?.count ?? lessons.length} 筆`}</button>}
                     {expanded && (c.history?.count ?? 0) > 100 && <p>顯示最近 100 筆</p>}
                   </section>}
-                  <details className="cp-plan-content"><summary>方案明細{c.members.length > 1 ? "與共卡成員" : ""}</summary>
+                  <details className="cp-plan-content"><summary>適用課程{c.members.length > 1 ? "／共卡" : ""}{adjustments.length ? `／${unit(c.unit) === "堂" ? "堂數" : "點數"}調整` : ""}</summary>
                     <p>適用：{c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
                     {c.members.length > 1 && <p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p>}
                     {!!adjustments.length && <details className="cp-ledger"><summary>{unit(c.unit) === "堂" ? "堂數調整" : "點數調整"}</summary><ul className="cp-ledger-list">
