@@ -13,6 +13,8 @@
  * 參考：docs/deployment.md
  */
 
+import { isSportsSharedCardMockedUnitTest, isSportsSharedCardProductionRelease } from "../../scripts/sports-shared-card-preview-scope.mjs";
+
 export type RuntimeEnv = "development" | "preview" | "production";
 
 export function getRuntimeEnv(): RuntimeEnv {
@@ -43,5 +45,8 @@ export function isDevelopment(): boolean {
  * environment unless this is the production deployment itself.
  */
 export function isPreviewExternalIntegrationBlocked(): boolean {
-  return isPreview();
+  // Preview and unknown deployments stay blocked before DB imports. Only
+  // positively identified production main can resume normal outbound behavior.
+  return isPreview() || (!isSportsSharedCardMockedUnitTest(process.env) &&
+    !isSportsSharedCardProductionRelease(process.env));
 }

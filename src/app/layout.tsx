@@ -7,6 +7,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: '蒸管家｜服務品牌成長系統',
   description: '整合預約、會員、方案、收款、顧客經營與多店管理的服務品牌營運系統',
+  verification: {
+    google: 'jvCQki7EZG-2b1hGRfmzDG-9R4w4YjsTIJlzfPnA48w',
+  },
 }
 
 export const viewport: Viewport = {

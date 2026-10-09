@@ -136,7 +136,8 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="批次點名")!.click());
   expect(host.querySelectorAll('input[aria-label^="選取 "]')).toHaveLength(20);
   expect(host.querySelectorAll('a[href^="tel:"]')).toHaveLength(20);
-  expect(host.textContent).not.toContain("共卡");
+  expect(host.querySelectorAll('button[aria-label$="共卡，查看預約詳情"]')).toHaveLength(1);
+  expect([...host.querySelectorAll('[aria-label="學員名單捲動區"] > div > span')].some(node=>node.textContent==="共卡")).toBe(false);
 
 
   expect(host.querySelector('[aria-label="上課統計"]')?.textContent).toContain("待點名 20");
@@ -340,9 +341,37 @@ it('groups trial payment with identity and separates full usual and class notes'
   expect(row.textContent).toContain('店內備註：');expect(row.textContent).toContain('本次備註：');
   expect(host.textContent).not.toContain('已預約');expect(host.textContent).not.toContain('取消整堂課');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="示範學員 標籤與備註"]')!.click());
-  expect(host.querySelector('[role="dialog"]')?.textContent).toContain('長期提醒完整文字，膝蓋不適避免深蹲');
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain('長期提醒完整文字，膝蓋不適避免深蹲');
   await act(async()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
   expect(host.querySelector('[role="dialog"]')).toBeNull();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it.each([false,true])("keeps direct note add/edit and full notes available in the compact roster (music=%s)",async(musicLayout)=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const base={customerPhone:"0900000000",status:"RESERVED",bookingKind:"CARD",trialPayments:[],pointCost:2,cardId:"plan",cardRemaining:12,serviceNote:"店內完整提醒",termLessons:[],termPrivateLeaves:[],absenceHistory:[],createdAt:"2026-10-01T02:00:00Z"};
+ const roster=[{...base,id:"empty-note",customerId:"empty",customerName:"無備註學員",notes:""},{...base,id:"saved-note",customerId:"saved",customerName:"有備註學員",notes:"保留完整本次備註\n第二行"}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-10-01T02:00:00Z",pointCost:2},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:true,musicLayout})));
+  for(const booking of roster){
+   const trigger=host.querySelector<HTMLButtonElement>(`button[aria-label="${booking.customerName} 本次備註"]`)!;
+   expect(trigger.textContent).toBe(booking.notes ? "編輯本次備註" : "＋本次備註");
+   await act(async()=>trigger.click());
+   const dialog=document.querySelector(`[role="dialog"][aria-label="${booking.customerName}本次備註"]`)!;
+   expect(dialog.querySelector("textarea")?.value).toBe(booking.notes);
+   expect(document.activeElement).toBe(dialog.querySelector("textarea"));
+   await act(async()=>[...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="取消")!.click());
+   expect(document.querySelector('[role="dialog"]')).toBeNull();
+  }
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="有備註學員 標籤與備註"]')!.click());
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("店內完整提醒");
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("保留完整本次備註\n第二行");
+  await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:false,musicLayout})));
+  expect(host.querySelector('button[aria-label="有備註學員 本次備註"]')).toBeNull();
+  expect(host.querySelector('button[aria-label="有備註學員 標籤與備註"]')).toBeTruthy();
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -425,4 +454,73 @@ it("hides zero pending counts and hides the legend on an empty fitness roster", 
   expect([...host.querySelectorAll("button")].some(b=>b.textContent?.startsWith("待點名"))).toBe(false);
   expect(host.textContent).toContain("○ 待點名");
  }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("uses one neutral touch-open indicator for shared authorization and proxy operation, with live details", async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const longName="姓名很長的學員".repeat(10);
+ const base={customerPhone:"0900000001",status:"RESERVED",bookingKind:"CARD",trialPayments:[],planName:"舊有共用方案",notes:"",serviceNote:"",pointCost:1,termLessons:[],termPrivateLeaves:[],absenceHistory:[],createdAt:"2026-10-01T02:00:00Z"};
+ const roster=[
+  {...base,id:"shared",customerId:"a",customerName:longName,sharedCard:true,operatorCustomerId:"a",bookingSource:"本人預約",operatorName:longName},
+  {...base,id:"proxy",customerId:"b",customerName:"乙",sharedCard:false,operatorCustomerId:"a",bookingSource:"甲代約",operatorName:"甲"},
+  {...base,id:"both",customerId:"c",customerName:"丙",sharedCard:true,operatorCustomerId:"a",bookingSource:"甲代約",operatorName:"甲"},
+  {...base,id:"companion",customerId:null,customerName:"同行者",sharedCard:false,operatorCustomerId:"a",companionIndex:1,bookingSource:"同行 · 預約人 甲",operatorName:"甲"},
+ ];
+ const data={sharedCardState:"ENABLED",session:{startsAt:"2026-10-01T02:00:00Z",pointCost:1},roster,cards:[],trial:null};
+ m.load.mockResolvedValue({success:true,data});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"shared-context",capacity:8,canCreate:false,canEdit:false})));
+  const rows=[...host.querySelectorAll("li")];
+  const indicators=rows.map(row=>[...row.querySelectorAll<HTMLButtonElement>('button[aria-label$="查看預約詳情"]')]);
+  expect(indicators.map(row=>row.map(button=>button.textContent))).toEqual([["共卡"],["代約"],["共卡・代約"],[]]);
+  expect(rows.every(row=>row.children.length===5)).toBe(true);
+  expect(indicators.flat().every(button=>button.className.includes("text-earth-600")&&!button.hasAttribute("title"))).toBe(true);
+  // Structural/jsdom regression only: real CSS row height is not measured here.
+  for (const flow of host.querySelectorAll<HTMLElement>("[data-roster-name-flow]")) {
+    expect(flow.className).toContain("flex-nowrap");expect(flow.className).toContain("max-w-full");
+    for (const control of flow.querySelectorAll<HTMLButtonElement>("button")) {
+      if (control.hasAttribute("data-sports-roster-name")) {
+        expect(control.className).toContain("min-h-11");
+        expect(control.className).not.toContain("after:-inset-y-2.5");
+      } else {
+        expect(control.className).not.toContain("min-h-11");expect(control.className).toContain("h-6");
+        expect(control.className).toContain("after:inset-x-0");expect(control.className).toContain("after:-inset-y-2.5");
+      }
+    }
+  }
+  expect(rows[0].querySelector('[data-roster-name-flow] > button > span')?.className).toContain("truncate");
+
+  indicators[2][0].focus();await act(async()=>indicators[2][0].click());
+  let dialog=document.querySelector('[role="dialog"]')!;
+  expect(dialog.textContent).toContain("共卡：此方案由既有授權成員共用餘額");
+  expect(dialog.textContent).toContain("代約：由 甲 協助預約，上課人為 丙");
+  await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();expect(document.activeElement).toBe(indicators[2][0]);
+  await act(async()=>indicators[0][0].click());
+  dialog=document.querySelector('[role="dialog"]')!;expect(dialog.textContent).toContain(longName);expect(dialog.textContent).not.toContain("上課人為 丙");
+  m.load.mockResolvedValue({success:true,data:{...data,sharedCardState:"HIDDEN"}});
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"hidden-context",capacity:8,canCreate:false,canEdit:false})));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect([...host.querySelectorAll<HTMLButtonElement>('button[aria-label$="查看預約詳情"]')].map(button=>button.textContent)).toEqual(["代約","代約"]);
+  await act(async()=>host.querySelector<HTMLButtonElement>(`button[aria-label="${longName} 預約詳情"]`)!.click());
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("共卡：此方案由既有授權成員共用餘額");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+
+it.each(["HIDDEN","LOCKED"] as const)("does not offer new companions from stale row metadata when %s",async(sharedCardState)=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const base={customerPhone:"0900000001",status:"RESERVED",bookingKind:"CARD",trialPayments:[],planName:"既有方案",notes:"",serviceNote:"",pointCost:1,termLessons:[],termPrivateLeaves:[],absenceHistory:[],createdAt:"2026-10-01T02:00:00Z",canAddCompanion:true};
+ const roster=[{...base,id:"self-stale",customerId:"self",customerName:"本人"},{...base,id:"existing-companion",customerId:null,customerName:"既有同行",companionIndex:1}];
+ m.load.mockResolvedValue({success:true,data:{sharedCardState,session:{startsAt:"2026-10-01T02:00:00Z",pointCost:1},roster,cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:`stale-companion-${sharedCardState}`,capacity:8,canCreate:true,canEdit:true})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="本人 更多操作"]')!.click());
+  expect(document.querySelector('[role="menu"]')?.textContent).not.toContain("新增同行");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="既有同行 更多操作"]')!.click());
+  expect(document.querySelector('[role="menu"]')?.textContent).toContain("變更使用方式");
+ } finally {await act(async()=>root.unmount());host.remove();}
 });

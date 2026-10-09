@@ -2,6 +2,7 @@ import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/gui
 import { PrismaClient } from "@prisma/client";
 import { buildDatabaseUrl } from "@/lib/database-url";
 import { withAuditDatabaseContext } from "@/lib/audit-db-context";
+import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -24,13 +25,15 @@ const globalForPrisma = globalThis as unknown as {
  */
 export const prisma: PrismaClient = isGuideUiPreview()
   ? createGuideUiDisabledClient() as PrismaClient
-  : globalForPrisma.prisma ??
-  withAuditDatabaseContext(new PrismaClient({
+  : guardedSportsSharedCardPreviewClient(
+  () => globalForPrisma.prisma,
+  () => withAuditDatabaseContext(new PrismaClient({
     datasources: {
       db: { url: buildDatabaseUrl() },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  }), true);
+  }), true),
+);
 
 if (!isGuideUiPreview() && (
   process.env.NODE_ENV !== "production" ||

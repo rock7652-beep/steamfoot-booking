@@ -83,6 +83,8 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
         name={store?.name ?? ""}
         bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
         shopPhone={config?.shopPhone ?? ""} lineOfficialId={config?.lineOfficialId ?? ""} address={config?.address ?? ""} mapUrl={config?.mapUrl ?? ""} lineOfficialUrl={config?.lineOfficialUrl ?? ""}
+        selfBookingEnabled={rule?.selfBookingEnabled ?? true}
+        selfBookingRevision={rule?.selfBookingRevision ?? 0}
         bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
         canEdit={canEdit && !readOnly}

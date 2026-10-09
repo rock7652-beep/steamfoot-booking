@@ -1,3 +1,5 @@
+import type { FeaturePresentationState } from "@/lib/effective-entitlement";
+
 export type CoursePortalGuideRole = "member" | "coach";
 export type CoursePortalGuide = {
   id: string;
@@ -27,8 +29,8 @@ export const coursePortalGuides: CoursePortalGuide[] = [
   { id: "CP03", role: "member", title: "方案額度何時扣除？全部有效方案怎麼合計？", keywords: "總剩餘 已預約 可用 扣點 扣堂 未到 固定期 多張方案 共卡",
     steps: ["在首頁或「我的 → 我的方案」分別查看點數與堂數的總剩餘、已預約與可用。", "展開每張有效方案核對期限、適用課程與個別餘額；同一共卡合計只算一次。", "一般預約先保留額度，出席後正式使用；取消成功再查釋放紀錄。"],
     note: "總剩餘不能把點數與堂數相加，過期／停用也不列入有效合計。固定期課未到仍扣堂，不提供補課券。" },
-  { id: "CP04", role: "member", title: "如何替共卡成員預約？", keywords: "共卡 代約 家人 多人 成員",
-    steps: ["先到「我的 → 共卡成員」確認方案及已授權成員。", "依畫面選預約人數或勾選實際上課人，核對人數及額度。", "送出後，到我的預約核對每一位學員；查看共卡紀錄時切換對應範圍。"],
+  { id: "CP04", role: "member", title: "如何替共卡成員預約？", keywords: "共卡 代約 家人 多人 成員 功能未開通 隱藏 鎖定",
+    steps: ["先到「我的 → 共卡成員」確認方案及已授權成員。", "依畫面選預約人數或勾選實際上課人，核對人數及額度。", "送出後，到我的預約核對每位實際上課人的狀態。"],
     note: "運動自由選課另可依同行人數預約，姓名選填；需要指定共卡成員時，仍須由店家授權。共卡不開放別人的健康資料。" },
   { id: "CP05", role: "member", title: "有剩餘額度，為什麼還是不能預約？", keywords: "不足 過期 到期 停用 適用 期課",
     steps: ["在我的方案核對可用額度，扣除已被其他預約保留的部分。", "確認方案到期日、適用課程及是否停用；點數與堂數分開看。", "再核對課程名額與預約截止時間；需要時把提示提供給店家。"],
@@ -41,7 +43,7 @@ export const coursePortalGuides: CoursePortalGuide[] = [
     note: "查詢進度不需要再次購買。畫面顯示已登錄退款不等於銀行款項已到帳，實際退費請向店家確認。" },
   { id: "CP08", role: "member", title: "如何查看歷史預約與方案使用紀錄？", keywords: "歷史 紀錄 出席 未到 月份 消費",
     steps: ["在我的預約切換月份與歷史紀錄，展開同堂課查看個別學員狀態。", "在我的方案展開使用紀錄，核對預約保留、出席使用、釋放或點名更正。", "購買與退款資訊另外到購買紀錄查看。"],
-    note: "使用紀錄顯示最近 100 筆，不代表更早資料被刪除。沒有本月紀錄時先核對月份與本人／共卡範圍。" },
+    note: "使用紀錄顯示最近 100 筆，不代表更早資料被刪除。沒有本月紀錄時先核對月份與實際上課人。" },
   { id: "CP09", role: "member", title: "如何新增或修正自己的健康量測？", keywords: "健康 體重 日期 量測 修改", healthOnly: true,
     steps: ["從首頁或「我的」開啟健康紀錄。", "新增時選新增量測；修正時展開編輯量測紀錄，選正確日期那筆。", "核對實際量測日期與數值，儲存後查看結果。"],
     note: "只能填今天或之前的日期；修正請編輯原紀錄。健康資料屬於本人，共卡成員不會因此取得存取權。" },
@@ -57,9 +59,9 @@ export const coursePortalGuides: CoursePortalGuide[] = [
   { id: "CP13", role: "coach", title: "點名按錯，如何更正？", keywords: "更正 誤按 待點名 出席 未到 歷史",
     steps: ["找到原課次與學員；歷史課可從授課紀錄進入。", "需要時先選「更正紀錄」，再於學員列按更正，核對原狀態與正確目標。", "確認更正後檢查狀態；若被限制，保留提示請店家處理。"],
     note: "更正會保留紀錄，可能連動額度；不要另建預約或重做購買來修正點名。" },
-  { id: "CP14", role: "coach", title: "本次備註與店內備註有何不同？", keywords: "備註 ＋本次備註 編輯本次備註 儲存 留言 店內 提醒",
-    steps: ["在課次名單找到「＋本次備註／編輯本次備註」，核對正確學員。", "單次交代填在本次備註；長期提醒另由店家維護店內備註。", "儲存後確認文字；若提示內容已變更，先重新核對，不直接覆蓋。"],
-    note: "本次備註供店長與授課教練查看，上限 1,000 字；長期店內備註請店家於顧客資料維護。備註不能代替點名。" },
+  { id: "CP14", role: "coach", title: "本次備註、店內備註與標籤有何不同？", keywords: "備註 ＋本次備註 編輯本次備註 儲存 留言 店內 提醒 標籤 名單兩行",
+    steps: ["在課次名單先看學員下方兩行摘要：第一行是顧客標籤，第二行分開顯示「本次」與「店內」備註。", "單次交代用右側按鈕新增或編輯本次備註；長期提醒另由店家維護店內備註，標籤用獨立標籤按鈕查看或修改。", "儲存後回名單核對正確學員與文字；若提示內容已變更，先重新讀取，不直接覆蓋。"],
+    note: "本次備註供店長與授課教練查看，上限 1,000 字；標籤、店內備註與本次備註用途不同，且都不能代替點名。" },
   { id: "CP15", role: "coach", title: "授課紀錄的堂數、時數與人次怎麼看？", keywords: "授課紀錄 時數 鐘點費 月份 待補點名",
     steps: ["開啟授課紀錄並選月份。", "核對已授課堂數、時數及出席／未到人次，展開統計說明。", "需要補記時切「待補點名」，進原課次選補完點名。"],
     note: "已授課須課程結束、點名完成且至少一人出席；全班未到、無有效預約與取消課程不計入。時數依排定時長，紀錄不等於授課費已支付。" },
@@ -75,11 +77,29 @@ export const coursePortalGuides: CoursePortalGuide[] = [
   { id: "CP19", role: "member", title: "課程滿班後如何加入、查看或取消候補？", keywords: "候補 滿班 排隊 順位 同行 取消候補 自動遞補 LINE",
     steps: ["在預約頁找到顯示「候補」的滿班課，核對時間、教練、方案及實際候補人。", "送出前閱讀候補說明；確認後回課程卡查看「候補中・第幾位」。", "不再等候時開啟同一課程取消候補；遞補成功後到我的預約核對正式預約與方案額度。"],
     note: "候補不先扣堂；有空位時依加入順序處理，同行者視為一組且不拆開。遞補成功才正式保留額度並嘗試發 LINE。取消會讓同次同行候補者一起退出；沒收到通知時先查我的預約，不要重複候補。" },
+  { id: "CP22", role: "member", title: "為什麼不能自行預約、改期或加入候補？", keywords: "暫停自行預約 店家關閉 無法預約 改期 候補 自動遞補 聯絡店家",
+    steps: ["先看畫面是否提示店家已暫停學員自行預約；這不是方案或既有預約被刪除。", "仍可查看課表、我的預約、方案與候補順位；需要新增預約、改期或加入候補時聯絡店家協助。", "既有預約仍可依原規則取消，既有候補也可退出；店家重新開啟後再依畫面操作。"],
+    note: "暫停期間自動遞補也會停下，但不會刪除或重排候補。重新開啟不會立刻批次遞補或發通知，會在之後有名額事件時再處理。" },
 ];
 
-export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnabled: boolean, query = "", companionEnabled = false) {
+export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnabled: boolean, query = "", companionEnabled = false, sharedCardState: FeaturePresentationState = "ENABLED") {
   const terms = query.normalize("NFKC").trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return coursePortalGuides.filter(g => g.role === role && (!g.healthOnly || healthEnabled) && (!g.companionOnly || companionEnabled)).filter(g => {
+  return coursePortalGuides.filter(g => g.role === role && (!g.healthOnly || healthEnabled) && (!g.companionOnly || companionEnabled))
+    .filter(g => !(g.id === "CP04" && sharedCardState === "HIDDEN") && !(g.id === "CP20" && sharedCardState !== "ENABLED"))
+    .map(g => {
+      if (g.id === "CP01") return {...g, steps: [g.steps[0], companionEnabled && sharedCardState === "ENABLED"
+        ? "自由選課選擇可用方案與 1–3 人（含本人）；同行姓名選填。"
+        : "選擇可用方案及實際上課人；僅能使用既有授權成員。", g.steps[2]]};
+      if (g.id === "CP04" && companionEnabled && sharedCardState === "ENABLED") return {...g,
+        title: "共卡成員與同行預約有何不同？",
+        steps: ["「我的 → 共卡成員」顯示店家已授權、可共用方案餘額的人。", "自由選課主畫面選 1–3 人（含本人），同行姓名選填；這個流程不選取具名授權成員。", "同行預約不會新增共卡授權；送出後，到我的預約核對人數與個別狀態。"],
+        note: "共卡是方案使用授權；代約是協助預約。同行者可由教練調整使用方式，不會取得他人的健康資料。"};
+      if (g.id === "CP04" && sharedCardState === "LOCKED") return {...g,
+        steps: ["在我的方案查看既有授權成員。", "選可用方案與實際上課人，僅能勾選既有授權成員。", "核對人數及額度後送出，再到我的預約核對每位學員。"],
+        note: "共卡功能未開通，暫不新增成員或同行；既有授權與預約仍可使用、查看及取消。"};
+      if (g.id === "CP03" && sharedCardState === "HIDDEN") return {...g, keywords: g.keywords.replace(" 共卡", ""), steps: [g.steps[0], "展開每張有效方案核對期限、適用課程與個別餘額；同一張方案合計只算一次。", g.steps[2]]};
+      return g;
+    }).filter(g => {
     const text = [g.title, g.keywords, ...g.steps, g.note].join(" ").normalize("NFKC").toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });

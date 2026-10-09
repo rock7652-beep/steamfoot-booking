@@ -1,3 +1,5 @@
+import { courseCardPublicMembers } from "@/lib/course-card-public-members";
+import { getCourseSharedCardState } from "@/server/services/course-shared-card";
 import { authorizeFrontendPreview, resolveCoursePreviewIdentity, type FrontendPreviewSelection } from "@/server/services/frontend-preview";
 import { cookies } from "next/headers";
 import { coursePortalRoleCookie, resolveCoursePortalRole } from "@/lib/course-portal-role";
@@ -84,6 +86,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
   const memberEnabled = access ? previewIdentity!.memberEnabled : identity?.courseMemberEnabled !== false;
   const workLink = access ? (previewIdentity!.workStaffId ? { staffId: previewIdentity!.workStaffId } : null) : link;
   const musicStore = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+  const sharedCardState = musicStore ? "ENABLED" as const : await getCourseSharedCardState(storeId);
   const waitlistFeature = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
   const waitlistSetting = waitlistFeature
     ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
@@ -242,7 +245,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     memberEnabled
       ? coursePrisma.courseBookingRule.findUnique({
           where: { storeId },
-          select: { cancellationLeadMinutes: true },
+          select: { cancellationLeadMinutes: true, selfBookingEnabled: true },
         })
       : null,
   ]);
@@ -319,10 +322,13 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     incomeAvailable: !!incomeAccess,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
+    selfBookingEnabled: bookingRule?.selfBookingEnabled ?? true,
     waitlistEnabled,
     companionBookingEnabled: !musicStore,
+    sharedCardState,
     config,
-    cards,
+    // Shared membership grants names and shared balance, never another member's contact/profile fields.
+    cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members) })),
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
     plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
     templates,
@@ -400,7 +406,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         cardId: b.cardId,
         companionIndex: b.companionIndex,
         reserverName: b.reserverName,
-        canAddCompanion: !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
+        canAddCompanion: sharedCardState === "ENABLED" && !musicStore && !b.companionIndex && !!b.customerId && !!b.card && !b.card.termSessionIds.length && b.card.plan.allowShared,
         customerName: b.customerName,
         status: b.status,
         checkedIn: !!b.checkedInAt,

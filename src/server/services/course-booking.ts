@@ -1,3 +1,4 @@
+import { assertCourseSelfBookingEnabled } from "./course-self-booking";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
 import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
@@ -8,6 +9,7 @@ import {musicCourseExpiry} from "@/lib/music-course-products";
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
+import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
 import type { Prisma } from "../../../generated/course-client";
 
 export type CourseActor = {
@@ -156,6 +158,7 @@ export async function reserveCourseInTransaction(
     allowOverCapacity?: boolean;
   },
   maxMonthlyBookings: number | null,
+  options: { existingWaitlistEntryId?: string; manualWaitlistPromotion?: boolean } = {},
 ) {
   const { storeId } = actor;
   const previous = await tx.courseBooking.findUnique({
@@ -196,6 +199,29 @@ export async function reserveCourseInTransaction(
       Array<{ id: string; name: string }>
     >`SELECT id, name FROM "Customer" WHERE id = ${input.customerId} AND "storeId" = ${storeId} AND "mergedIntoCustomerId" IS NULL` : Promise.resolve([]),
   ]);
+  // Only a matching persisted queue entry can retain its existing rights.
+  // Manual self-booking overrides cannot authorize a different member or course.
+  const existingWaitlistEntry = options.existingWaitlistEntryId &&
+      input.requestKey === `waitlist-promote:${options.existingWaitlistEntryId}`
+      ? await tx.courseWaitlistEntry.findFirst({
+        where: {
+          id: options.existingWaitlistEntryId, storeId, status: "WAITING",
+          sessionId: input.sessionId, cardId: input.cardId ?? "", customerId: input.customerId,
+          customerName: input.customerName ?? "", companionIndex: input.companionIndex ?? null,
+          reserverCustomerId: input.reserverCustomerId ?? null,
+          reserverCardId: input.reserverCardId ?? null, reserverName: input.reserverName ?? null,
+          groupKey: input.groupKey ?? "", operatorUserId: actor.userId,
+          operatorCustomerId: actor.customerId ?? null, operatorName: actor.name,
+        },
+        select: { id: true },
+      }) : null;
+  if (options.existingWaitlistEntryId && !existingWaitlistEntry)
+    return fail("原同行候補紀錄已變更，請重新確認");
+  if (options.manualWaitlistPromotion && !existingWaitlistEntry)
+    return fail("人工遞補必須對應原候補紀錄");
+  // The manual option comes only from the permission-checked staff action and
+  // requires the exact persisted queue entry. Other member rules still apply.
+  if (actor.customerId && !options.manualWaitlistPromotion) assertCourseSelfBookingEnabled(rule);
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
   if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
     return fail("請選擇本店有效課程、方案與上課人");
@@ -209,8 +235,10 @@ export async function reserveCourseInTransaction(
     return fail("僅能替此共卡的授權成員預約");
   if (input.companionIndex) {
     const music = await tx.$queryRaw<Array<{featureKey: string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-    if (music.length || card?.termSessionIds.length || !card?.plan.allowShared || !input.reserverCustomerId || !card.members.some(m => m.customerId === input.reserverCustomerId))
+    if (music.length || !card || card.termSessionIds.length || (!existingWaitlistEntry && !card.plan.allowShared) || !input.reserverCustomerId || !card.members.some(m => m.customerId === input.reserverCustomerId))
       return fail("此方案未開放自由選課同行預約");
+    if (!existingWaitlistEntry && await getCourseSharedCardStateInTransaction(tx, storeId) !== "ENABLED")
+      return fail("本店共卡功能尚未開通，不能新增同行預約");
     if (input.customerId || !Number.isInteger(input.companionIndex) || input.companionIndex < 1 || input.companionIndex > 2 || !input.customerName || input.customerName.length > 100 || (actor.customerId && actor.customerId !== input.reserverCustomerId))
       return fail("同行預約資料不正確");
   }

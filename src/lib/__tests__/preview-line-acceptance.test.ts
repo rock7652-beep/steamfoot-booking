@@ -3,6 +3,29 @@ import {afterEach,expect,it,vi} from "vitest";
 import {readPreviewLineAcceptance,withPreviewLineAcceptance,withAcceptanceRetryKey,allowsPreviewLinePush} from "../preview-line-acceptance";
 const grant={storeId:"store-course-start-0918-a" as const,bookingId:"booking",customerId:"member",recipientHash:createHash("sha256").update("U"+"a".repeat(32)).digest("hex"),expiresAt:"2099-01-01T00:00:00.000Z"};
 function setup(){vi.stubEnv("VERCEL_ENV","preview");vi.stubEnv("VERCEL_GIT_COMMIT_REF","codex/course-scheduling-stage1");vi.stubEnv("DATABASE_URL","postgres://postgres.ttworfzgwejdeolegkxl@pooler/db");vi.stubEnv("COURSE_LINE_ACCEPTANCE_JSON",JSON.stringify(grant));}
-afterEach(()=>vi.unstubAllEnvs());
+afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 it("fails closed outside isolated branch, after expiry and without a grant",()=>{expect(readPreviewLineAcceptance()).toBeNull();setup();expect(readPreviewLineAcceptance()).toEqual(grant);for(const [key,val] of [["VERCEL_ENV","production"],["DATABASE_URL","postgres://qijlnhtpbintanzpxkvf/db"],["VERCEL_GIT_COMMIT_REF","main"],["COURSE_LINE_ACCEPTANCE_JSON",JSON.stringify({...grant,expiresAt:"2020-01-01T00:00:00.000Z"})]]){setup();vi.stubEnv(key,val);expect(readPreviewLineAcceptance()).toBeNull();}});
 it("allows only scoped store/recipient/key and does not leak across async tasks",async()=>{setup();expect(allowsPreviewLinePush(grant.storeId,("U"+"a".repeat(32)),"key")).toBe(false);await withPreviewLineAcceptance(grant,async()=>{expect(allowsPreviewLinePush(grant.storeId,("U"+"a".repeat(32)),undefined)).toBe(false);await withAcceptanceRetryKey("key",async()=>{expect(allowsPreviewLinePush(grant.storeId,("U"+"a".repeat(32)),"key")).toBe(true);expect(allowsPreviewLinePush(undefined,("U"+"a".repeat(32)),"key")).toBe(false);expect(allowsPreviewLinePush("other",("U"+"a".repeat(32)),"key")).toBe(false);expect(allowsPreviewLinePush(grant.storeId,"U"+"b".repeat(32),"key")).toBe(false);expect(allowsPreviewLinePush(grant.storeId,("U"+"a".repeat(32)),"other")).toBe(false);});});expect(allowsPreviewLinePush(grant.storeId,("U"+"a".repeat(32)),"key")).toBe(false);});
+
+it("never lets an old acceptance scope bypass the Preview-only release lock in deployed code",async()=>{
+  setup();
+  const outbound = vi.fn();
+  vi.stubGlobal("fetch", outbound);
+  const {pushMessage} = await import("../line");
+  await withPreviewLineAcceptance(grant,async()=>{
+    await withAcceptanceRetryKey("key",async()=>{
+      expect(allowsPreviewLinePush(grant.storeId,"U"+"a".repeat(32),"key")).toBe(true);
+      vi.stubEnv("VERCEL","1");
+      expect(readPreviewLineAcceptance()).toBeNull();
+      expect(allowsPreviewLinePush(grant.storeId,"U"+"a".repeat(32),"key")).toBe(false);
+      await expect(pushMessage(grant.storeId,"U"+"a".repeat(32),[{type:"text",text:"synthetic blocked acceptance"}],"key")).resolves.toMatchObject({success:false,errorType:"preview_blocked"});
+      expect(outbound).not.toHaveBeenCalled();
+      vi.stubEnv("VERCEL_ENV",undefined);
+      vi.stubEnv("VERCEL_GIT_COMMIT_REF",undefined);
+      expect(readPreviewLineAcceptance()).toBeNull();
+      expect(allowsPreviewLinePush(grant.storeId,"U"+"a".repeat(32),"key")).toBe(false);
+      await expect(pushMessage(grant.storeId,"U"+"a".repeat(32),[{type:"text",text:"synthetic blocked acceptance"}],"key")).resolves.toMatchObject({success:false,errorType:"preview_blocked"});
+      expect(outbound).not.toHaveBeenCalled();
+    });
+  });
+});

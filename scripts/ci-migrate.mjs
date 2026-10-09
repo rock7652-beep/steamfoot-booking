@@ -1,3 +1,8 @@
+// Public article review must not trigger a preview build or database work.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
+  throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
+}
+
 // Store-view verification must never migrate or query the live database.
 if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/hq-store-real-view-20261007") {
   if (![process.env.DATABASE_URL, process.env.DIRECT_URL].every(isIsolatedCourseConnection))
@@ -25,6 +30,34 @@ import { isGuideUiPreview } from "./guide-ui-preview-scope.mjs";
 if (isGuideUiPreview()) {
   console.info("[guide-ui-preview] database_disabled=true migrations_skipped=true");
   process.exit(0);
+}
+
+import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.mjs";
+
+// Validate the exact release mode before any migration subprocess or DB client.
+const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "hq-intake-list-preview") {
+  console.info("[hq-intake-list-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "course-self-booking-preview") {
+  const { verifyCourseSelfBookingPreviewReadiness } = await import("./course-self-booking-preview-scope.mjs");
+  await verifyCourseSelfBookingPreviewReadiness(process.env);
+  process.exit(0); // Only the separately approved two-column DDL may run.
+}
+if (releaseMode === "sports-roster-preview") {
+  // Visual checks reuse existing test records. No schema or fixture writes.
+  console.info("[sports-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "consultation-preview") {
+  // Consultation uses only its separately approved two-table DDL. Never run
+  // unrelated pending migrations for this isolated candidate.
+  console.info("[consultation-preview-preflight] isolated_database=true notifications_blocked=true flags_enabled=true migrations_skipped=true");
+  process.exit(0);
+}
+if (releaseMode === "sports-shared-card-preview") {
+  console.info("[sports-shared-card-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
 }
 
 import { execFileSync } from "node:child_process";

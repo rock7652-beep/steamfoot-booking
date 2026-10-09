@@ -15,7 +15,7 @@ describe("incremental guide audit accounting", () => {
     expect(frontendPending.size).toBe(state.frontendInteractionPendingGuideIds.length);
     expect(state.backendInteractionPendingCount).toBe(pending.size);
     expect(state.totalInteractionPendingCount).toBe(pending.size + frontendPending.size);
-    expect(state.totalInteractionPendingCount).toBe(174);
+    expect(state.totalInteractionPendingCount).toBe(177);
     for (const id of pending) expect(operationGuides.some(g => g.id === id), id).toBe(true);
     for (const id of frontendPending) expect(coursePortalGuides.some(g => g.id === id), id).toBe(true);
     for (const id of [...state.newGuideIds, ...state.updatedGuideIds]) {
@@ -26,16 +26,15 @@ describe("incremental guide audit accounting", () => {
     expect(state.allSystemCoverageComplete).toBe(false);
   });
 
-  it("records the October 8 main diff without rewriting the historical baseline", () => {
+  it("records the October 9 main diff without rewriting the historical baseline", () => {
     expect(state.previousBatchReview.totalInteractionPendingCount).toBe(171);
     expect(state.scopedCorrectionReview.newPendingGuideIds).toEqual(["O09", "O10", "F03"]);
-    expect(state.newGuideIds).toEqual([]);
-    expect(state.updatedGuideIds).toEqual(["I05", "I18"]);
-    expect(state.cumulativeDraftNewGuideIds).toEqual([]);
-    expect(state.cumulativeDraftUpdatedGuideIds).toEqual(["I05", "I18"]);
-    expect(state.lastInventoriedMainCommit).toBe("51cab4ff29d858c9997b1ef7077112c1e47e11b0");
-    expect(state.previousSuccessfulAuditCommit).toBe("a404b4715a587090dc099da495413ca5f6d6a157");
-    expect(state.reviewedMainPullRequests).toEqual(expect.arrayContaining([1244, 1246, 1247, 1248]));
+    expect(state.newGuideIds).toEqual(["C168", "I19"]);
+    expect(state.updatedGuideIds).toEqual(["I05", "I18", "C101", "C118"]);
+    expect(state.frontendNewGuideIds).toEqual(["CP22"]);
+    expect(state.lastInventoriedMainCommit).toBe("a510ff15adf6b2c6c8402cf5ecc71ef91bb7a4ac");
+    expect(state.previousSuccessfulAuditCommit).toBe("51cab4ff29d858c9997b1ef7077112c1e47e11b0");
+    expect(state.reviewedMainPullRequests).toEqual(expect.arrayContaining([1249, 1251, 1257, 1262, 1264, 1265]));
     expect(state.publishedGuidePullRequests).toContain(1184);
   });
 });

@@ -611,7 +611,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: "core", label: "", icon: <></>, defaultOpen: true, items: [hqItem("/dashboard", "品牌總覽")] },
   { id: "stores", label: "店舖管理", icon: storeIcon, defaultOpen: true, items: [
     hqItem("/dashboard/stores", "店舖清單"),
-    hqExtra("/dashboard/trial-applications", "體驗申請"),
+    hqExtra("/dashboard/trial-applications", "諮詢與體驗申請"),
     hqExtra("/dashboard/stores/subscriptions", "訂閱管理"),
     hqExtra("/dashboard/stores/organization", "店舖組織"),
   ] },
@@ -1115,7 +1115,7 @@ export default function DashboardShell({
   if (pathname === "/dashboard/cash-drawer" && searchParams.get("cashDrawerPanel") === "1") return <div className="min-h-dvh bg-earth-50">{children}</div>;
 
   return (
-    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
+    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ module: industryModule, permissions, features: effectiveFeatures, sharedCardState: industryModule === "course" && !musicEnabled ? featureStates.shared_card ?? "HIDDEN" : undefined }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
