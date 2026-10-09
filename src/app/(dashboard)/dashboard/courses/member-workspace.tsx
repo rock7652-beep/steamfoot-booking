@@ -1,4 +1,8 @@
 "use client";
+import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
+import { DashboardLink } from "@/components/dashboard-link";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
+import { courseDisplayText } from "@/lib/course-display-text";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseSharedCardIndicator } from "./course-shared-card-indicator";
 import { useCardDetail } from "./use-card-detail";
@@ -183,7 +187,8 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  function finishDraftForm(){setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  useCourseDraftGuard(!!panel&&dirty,!!panel&&(pending||formPending));
+  function finishDraftForm(){if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
@@ -299,7 +304,7 @@ export function CourseMemberWorkspace({
               } else preparePlan(null);
             }}
           >
-            ＋新增{view === "customers" ? "顧客" : "方案"}
+            ＋新增{view === "customers" ? "顧客" : music ? "班型與學費" : "方案"}
           </button>
         )}
         {canAssign && (view === "customers" || planArea === "cards") && (
@@ -314,9 +319,10 @@ export function CourseMemberWorkspace({
       </div>
       {error && !panel && <p role="alert" className="mb-3 text-red-700">{error}</p>}
       {notice && (
-        <p role="status" className="mb-3 text-primary-700">
-          {notice}
-        </p>
+        <div role="status" className="mb-3 flex flex-wrap items-center gap-2 text-sm text-primary-700">
+          <span>{notice}</span>
+          {music&&!params.get("setupStep")&&notice==="班型與學費已儲存"&&<DashboardLink href="/dashboard/teachers" className="inline-flex min-h-11 items-center px-3 font-medium">下一步：設定教師授課資格 →</DashboardLink>}
+        </div>
       )}
 <div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${!music && view === "plans" && planArea === "catalog" ? "min-h-11" : ""}`}>
       {music&&view === "plans"&&planArea === "catalog"&&<CourseTestDataFilter names={plans.map(p=>p.name)} checked={hideTestData} onChange={v=>{setSelected([]);setPage(0);setHideTestData(v);}}/>}
@@ -391,12 +397,13 @@ export function CourseMemberWorkspace({
               {customerPanel ? person.name : panel === "person"
                 ? person ? person.name : "新增顧客"
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
-                  ? planReadOnly&&plan ? plan.name : plan ? "編輯方案" : "新增方案"
+                  ? planReadOnly&&plan ? plan.name : plan ? music ? "編輯班型與學費" : "編輯方案" : music ? "新增班型與學費" : "新增方案"
                   : panel === "assign"
                     ? "購買方案"
                     : panel === "coach"
-                      ? "加入為教練"
+                      ? courseDisplayText("加入為教練", music)
                       : sharingVisible ? "方案與共卡" : "方案詳情"}
+              {panel === "plan" && <CourseSetupStepBadge step="plan" />}
             </h2>
             <div className="flex shrink-0 items-center gap-2">
               {person && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} />}
@@ -472,14 +479,14 @@ export function CourseMemberWorkspace({
               ]}/>
               <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
 
-              <RetainedNoteEditor quiet optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
+              <RetainedNoteEditor quiet optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint={courseDisplayText("店長與授課教練可見", music)}
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />
               {personTab === "info" && <details className="border-b border-earth-100 pb-2"><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
               </dl>
-                {canManageStaff && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => open("coach")}>加入為教練</button>}<CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
+                {canManageStaff && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => open("coach")}>{courseDisplayText("加入為教練", music)}</button>}<CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
               </details>}
             </section>}
             {panel === "person" && (

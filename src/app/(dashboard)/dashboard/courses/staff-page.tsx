@@ -22,7 +22,7 @@ import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CourseStaffWorkspace } from "./staff-workspace";
-export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
+export async function CourseStaffPage({teachers=false,initialCreate=false}:{teachers?:boolean;initialCreate?:boolean}={}) {
   const user = await getCurrentUser();
   if (
     !user ||
@@ -63,7 +63,7 @@ export async function CourseStaffPage({teachers=false}:{teachers?:boolean}={}) {
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
       <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
 
-      <CourseStaffWorkspace previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+      <CourseStaffWorkspace initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
         financeScope={financeScope}
         teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}

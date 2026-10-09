@@ -28,7 +28,7 @@ export default async function CourseHoursPage({ searchParams }: { searchParams?:
  const days=["週日","週一","週二","週三","週四","週五","週六"];
  const weekly=days.map((dayName,dayOfWeek)=>{
   const row=hours.find(h=>h.dayOfWeek===dayOfWeek);
-  return {dayOfWeek,dayName,isOpen:row?.isOpen??true,openTime:row?.openTime??null,closeTime:row?.closeTime??null,slotInterval:60,defaultCapacity:6,periods:row?parseBusinessPeriods(row.segments,row):[]};
+  return {dayOfWeek,dayName,persisted:!!row,isOpen:row?.isOpen??true,openTime:row?.openTime??null,closeTime:row?.closeTime??null,slotInterval:60,defaultCapacity:6,periods:row?parseBusinessPeriods(row.segments,row):[]};
  });
  return <PageShell><PageHeader title={music?"授課時段與公休":"營業與公休"} subtitle={music?"先設定店家每週可授課時段；一天可多段，未開放時段會在音樂課表反灰":"每週營業、多段時間、特殊休假與後續週次設定"} actions={<DashboardLink href="/dashboard/courses?view=settings&section=booking">返回設定</DashboardLink>}/>
  {music&&params?.setup==="1"&&<div className="mb-4 rounded-xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-900"><strong>先完成第一步：設定每週授課時段</strong><p className="mt-1">儲存後即可進入音樂課表；之後可隨時回來調整多段時段與特殊公休。</p></div>}

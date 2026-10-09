@@ -38,10 +38,10 @@ export async function assertCourseResources(tx: Pick<Prisma.TransactionClient,"$
       SELECT "courseCoachEnabled","courseQualificationsConfirmed","courseQualifiedTemplateIds" FROM "Staff"
       WHERE id=${input.coachId} AND "storeId"=${storeId} AND status::text='ACTIVE'`
   ]);
-  if (!room || !template || !staff[0]?.courseCoachEnabled) throw new AppError("VALIDATION","請選擇本店啟用教室及具教練身分的人員");
+  if (!room || !template || !staff[0]?.courseCoachEnabled) throw new AppError("VALIDATION","請選擇本店啟用教室及具授課人員身分的人員");
   if ((!previous || previous.templateId !== input.templateId) && (!template.isActive || template.visibility === 'OFF' || template.musicSubject?.isActive===false)) throw new AppError("VALIDATION","下架課程不可新增使用");
   if (!template.musicSubject && room.capacity !== null && input.capacity > room.capacity) throw new AppError("CONFLICT",`排課上限 ${input.capacity} 人超過教室容量 ${room.capacity} 人`);
   const unchanged = previous?.coachId === input.coachId && previous.templateId === input.templateId;
   const coach = staff[0];
-  if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(input.templateId))) throw new AppError("VALIDATION","教練尚未具備本課程授課資格，請先由店長一次設定可教課程");
+  if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(input.templateId))) throw new AppError("VALIDATION","授課人員尚未具備本課程授課資格，請先由店長一次設定可教課程");
 }

@@ -112,6 +112,7 @@ export const operationGuides: OperationGuide[] = [
   ...dailyOperationGuides20261007,
   ...dailyOperationGuides20261009,
 ];
+import { courseDisplayText } from "./course-display-text";
 export function availableGuides(access: GuideAccess) {
   const sharingRestricted = access.module === "course" && access.sharedCardState !== undefined && access.sharedCardState !== "ENABLED";
   return operationGuides.filter(g => g.modules.includes(access.module) &&
@@ -123,6 +124,12 @@ export function availableGuides(access: GuideAccess) {
       keywords: g.keywords.replace(" 允許共卡", ""),
       steps: [g.steps[0], "選適用課程及「顧客可購買／僅後台指派」；固定期課需連結與堂數相同的未開始課次。", g.steps[2]],
       details: [g.details[0], "堂數卡不使用課程點數，固定期課另受指定課次限制；修改其他欄位會保留既有使用授權。"],
+    } : g).map(g => access.module === "course" && access.music ? {...g,
+      title: courseDisplayText(g.title, true), summary: courseDisplayText(g.summary, true),
+      answer: courseDisplayText(g.answer, true), path: courseDisplayText(g.path, true),
+      keywords: courseDisplayText(g.keywords, true), important: courseDisplayText(g.important, true),
+      success: courseDisplayText(g.success, true), steps: g.steps.map(s => courseDisplayText(s, true)),
+      details: g.details.map(s => courseDisplayText(s, true)),
     } : g);
 }
 export function guideCategoryForPath(pathname: string) {

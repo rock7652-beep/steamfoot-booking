@@ -1,4 +1,5 @@
 "use client";
+import { courseDisplayText } from "@/lib/course-display-text";
 import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { courseBalanceTotals, courseBalanceText } from "@/lib/course-balance-summary";
@@ -820,7 +821,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     {!readOnly && !p.readOnly && p.companionBookingEnabled && sharingEnabled && !b.companionIndex && b.canAddCompanion && <button disabled={pending} onClick={() => setCompanionEditor({bookingId: b.id, add: !b.companionIndex})}>{b.companionIndex ? "變更使用方式" : "新增同行"}</button>}
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
                     {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
-                      <label>本次備註（店長與授課教練可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
+                      <label>{courseDisplayText("本次備註（店長與授課教練可見）", !!p.music)}<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
                       <div className="cp-actions"><button type="submit" disabled={pending}>儲存備註</button><button type="button" disabled={pending} onClick={() => leaveNote()}>取消修改</button></div>
                     </form> : <button disabled={pending} onClick={() => { if (leaveNote()) setEditingNote({ id: b.id, original: b.notes, value: b.notes ?? "" }); }}>編輯本次備註</button>}
                   </details>
@@ -868,7 +869,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   ) ?? [];
   const cancelBooking = p.bookings.find((booking) => booking.id === cancelId);
   const sharedCards = p.cards.filter((candidate) => candidate.members.length > 1);
-  const guides = findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled, sharedCardState);
+  const guides = findCoursePortalGuides(coach ? "coach" : "member", p.healthEnabled, search, !!p.companionBookingEnabled, sharedCardState, !!p.music);
   const shop = p.plans.filter(
     (plan) =>
       !session ||
@@ -1319,7 +1320,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               <label className="cp-card cp-pad cp-guide-search">搜尋操作指南
                 <input type="search" aria-label="搜尋操作指南" placeholder={coach ? "點名、更正、備註…" : sharingVisible ? "預約、共卡、轉帳…" : "預約、取消、轉帳…"} value={search} onChange={event => setSearch(event.target.value)} />
               </label>
-              <p role="status">{coach ? "教練" : "會員"}指南 · {guides.length} 題</p>
+              <p role="status">{coach ? courseDisplayText("教練", !!p.music) : "會員"}指南 · {guides.length} 題</p>
               <section className="cp-card cp-pad cp-guide" key={`${role}:${search}`}>
                 {guides.map(guide => (
                   <details key={guide.id}>

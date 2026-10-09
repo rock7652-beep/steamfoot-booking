@@ -63,7 +63,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     body = (<>
-      {!music&&!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide manual {...await getCourseSetup(storeId,user.id)}/>}
+      {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide key={storeId} manual {...await getCourseSetup(storeId,user.id)}/>}
       <CourseSettingsWorkspace
         music={music}
         panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}

@@ -93,7 +93,7 @@ export async function saveCourseStaff(input: unknown) {
       .parse(input);
     if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
-    if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動教練才能設定每堂預設授課費");
+    if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動授課人員才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
@@ -143,7 +143,7 @@ export async function saveCourseStaff(input: unknown) {
         )
           throw new AppError(
             "CONFLICT",
-            "不可用角色改名取代身分連結；請分別管理後台帳號與教練",
+            "不可用角色改名取代身分連結；請分別管理後台帳號與授課人員",
           );
         if (
           existing?.id === user.staffId &&
@@ -168,7 +168,7 @@ export async function saveCourseStaff(input: unknown) {
         const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
         if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || removed.length)) {
           const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
-          if(rows.length) throw new ResourceConflict("尚有未結束課次（含進行中），請先交接再移除教練身分或資格",rows.map(r=>({...r,startsAt:r.startsAt.toISOString()})));
+          if(rows.length) throw new ResourceConflict("尚有未結束課次（含進行中），請先交接再移除授課人員身分或資格",rows.map(r=>({...r,startsAt:r.startsAt.toISOString()})));
         }
         if(existing?.courseQualificationsConfirmed && !qualificationsConfirmed) throw new AppError("VALIDATION","已確認資格不可改回待補；請調整可教課程");
         const courseFields={courseCoachEnabled:coachEnabled,courseQualifiedTemplateIds:qualificationIds,courseQualificationsConfirmed:qualificationsConfirmed};
@@ -209,7 +209,7 @@ export async function saveCourseStaff(input: unknown) {
           if (!c || userIds.length !== 1)
             throw new AppError(
               "VALIDATION",
-              "請先完成此顧客的固定帳號綁定，再加入教練",
+              "請先完成此顧客的固定帳號綁定，再加入授課人員",
             );
           const account = await tx.user.findFirst({
             where: { id: userIds[0], status: "ACTIVE", role: "CUSTOMER" },
@@ -228,7 +228,7 @@ export async function saveCourseStaff(input: unknown) {
           if (link && link.staffId !== staffId)
             throw new AppError(
               "CONFLICT",
-              "此顧客已連結另一位教練，請編輯原人員",
+              "此顧客已連結另一位授課人員，請編輯原人員",
             );
         }
         if (existing) {

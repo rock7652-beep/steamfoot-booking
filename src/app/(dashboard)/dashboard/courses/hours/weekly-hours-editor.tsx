@@ -5,10 +5,11 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { saveCourseWeeklyHours } from "@/server/actions/course-business-hours";
 
 type Period = { openTime: string; closeTime: string };
-type Day = { dayOfWeek: number; dayName: string; isOpen: boolean; periods: Period[]; openTime: string | null; closeTime: string | null };
+type Day = { dayOfWeek: number; dayName: string; persisted?: boolean; isOpen: boolean; periods: Period[]; openTime: string | null; closeTime: string | null };
 export function CourseWeeklyHoursEditor({ initial, canManage, onSaved }: { initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
   const [days, setDays] = useState(() => initial.map(day => ({ ...day, periods: day.periods.length ? day.periods.map(p => ({ openTime: p.openTime, closeTime: p.closeTime })) : [{ openTime: day.openTime ?? "10:00", closeTime: day.closeTime ?? "22:00" }] })));
-  const [saved, setSaved] = useState(days);
+  const [saved, setSaved] = useState(() => days.filter(day => day.persisted !== false));
+  const initialDays = useRef(days);
   const [source, setSource] = useState(1);
   const [targets, setTargets] = useState<number[]>([]);
   const [message, setMessage] = useState("");
@@ -49,6 +50,6 @@ export function CourseWeeklyHoursEditor({ initial, canManage, onSaved }: { initi
       </div>
     </fieldset>}
     {message && <p role="status" className="mt-3 whitespace-pre-wrap text-sm text-amber-800">{message}</p>}
-    {canManage && <div className="sticky bottom-0 z-10 mt-3 flex flex-wrap items-center justify-end gap-3 border-t bg-white py-3"><span className="mr-auto text-xs text-earth-500">{changed.length ? `${changed.length} 天尚未儲存` : "尚未變更"}</span><button type="button" disabled={pending || !changed.length} onClick={() => { setDays(saved); setMessage(""); }} className="min-h-11 rounded border px-3 disabled:opacity-50">還原修改</button><button type="submit" disabled={pending || !changed.length} className="min-h-11 rounded bg-primary-700 px-4 text-white disabled:opacity-50">{pending ? "儲存中…" : "儲存每週設定"}</button></div>}
+    {canManage && <div className="sticky bottom-0 z-10 mt-3 flex flex-wrap items-center justify-end gap-3 border-t bg-white py-3"><span className="mr-auto text-xs text-earth-500">{changed.length ? `${changed.length} 天尚未儲存` : "尚未變更"}</span><button type="button" disabled={pending || !changed.length} onClick={() => { setDays(initialDays.current.map(day => saved.find(s => s.dayOfWeek === day.dayOfWeek) ?? day)); setMessage(""); }} className="min-h-11 rounded border px-3 disabled:opacity-50">還原修改</button><button type="submit" disabled={pending || !changed.length} className="min-h-11 rounded bg-primary-700 px-4 text-white disabled:opacity-50">{pending ? "儲存中…" : "儲存每週設定"}</button></div>}
   </form>;
 }

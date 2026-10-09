@@ -1,4 +1,5 @@
 "use client";
+import { courseDisplayText } from "@/lib/course-display-text";
 import { useState } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { CourseRoster } from "./roster";
@@ -16,10 +17,12 @@ type Row = {
   unmarked: number;
 };
 export function CourseTodayList({
+  music = false,
   sessions,
   canCreate,
   canEdit,
 }: {
+  music?: boolean;
   sessions: Row[];
   canCreate: boolean;
   canEdit: boolean;
@@ -37,7 +40,7 @@ export function CourseTodayList({
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["時間", "課程", "教練", "教室", "已預約／上限", "名單與出席"].map((h) => (
+              {["時間", "課程", courseDisplayText("教練", music), "教室", "已預約／上限", "名單與出席"].map((h) => (
                 <th className="whitespace-nowrap px-4 py-3" key={h}>
                   {h}
                 </th>

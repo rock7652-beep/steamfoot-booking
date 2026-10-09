@@ -1,5 +1,6 @@
 "use client";
 
+import { courseDisplayText } from "@/lib/course-display-text";
 import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SettingsListRow } from "@/components/settings";
@@ -7,6 +8,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { saveCourseSelfBookingSettings } from "@/server/actions/course-settings";
 
 export function CourseSelfBookingSettings({
+  music = false,
   initialEnabled = true,
   initialRevision = 0,
   canEdit,
@@ -14,6 +16,7 @@ export function CourseSelfBookingSettings({
   onEdit,
   onClose,
 }: {
+  music?: boolean;
   initialEnabled?: boolean;
   initialRevision?: number;
   canEdit: boolean;
@@ -97,7 +100,7 @@ export function CourseSelfBookingSettings({
           <input type="checkbox" checked={enabled} disabled={!canEdit || pending} onChange={event => { const checked = event.target.checked; setState(current => ({ ...current, enabled: checked })); setError(""); setSaved(false); }} />
           允許學員自行預約
         </label>
-        <p className="text-sm leading-6 text-earth-600">關閉後保留課表、預約與候補順位；新增預約、改期、加入候補及自動遞補暫停。取消與店家／教練操作不變，可隨時重新開啟。</p>
+        <p className="text-sm leading-6 text-earth-600">{courseDisplayText("關閉後保留課表、預約與候補順位；新增預約、改期、加入候補及自動遞補暫停。取消與店家／教練操作不變，可隨時重新開啟。", music)}</p>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" disabled={pending} onClick={cancel} className="min-h-11 rounded-lg border border-earth-200 px-4 text-sm disabled:opacity-40">取消</button>

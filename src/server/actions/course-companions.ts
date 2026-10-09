@@ -60,7 +60,7 @@ export async function saveCourseCompanionUsage(input: unknown) {
     const receipt = await courseTransaction(storeId, async tx => {
       await authorize(tx, storeId, user.id, data.bookingId, data.coach);
       const before = await tx.courseBooking.findFirstOrThrow({where: {id: data.bookingId, storeId}, select: {cardId: true, pointCost: true}});
-      const updated = await changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {...data, trialPrice});
+      const updated = await changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "授課人員"}, {...data, trialPrice});
       const cards = await tx.coursePointCard.findMany({where: {storeId, id: {in: [before.cardId, updated.cardId].filter((id): id is string => !!id)}}, include: {bookings: {where: {status: "RESERVED"}, select: {pointCost: true}}}});
       const balances = cards.map(card => ({id: card.id, available: card.closedAt || card.expiresAt < new Date() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((sum, b) => sum + b.pointCost, 0))}));
       const card = cards.find(card => card.id === updated.cardId);
@@ -92,7 +92,7 @@ export async function addCourseCompanion(input: unknown) {
       const index = [1, 2].find(i => !companions.some(b => b.companionIndex === i));
       if (!index) throw new AppError("VALIDATION", "本次預約最多 3 人");
       await tx.courseBooking.update({where: {id: source.id}, data: {groupKey}});
-      return reserveCourseInTransaction(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {
+      return reserveCourseInTransaction(tx, {storeId, userId: user.id, name: user.name ?? "授課人員"}, {
         sessionId: source.sessionId, cardId: source.cardId, customerId: null, customerName: data.name || `同行者 ${index}`, companionIndex: index,
         reserverCustomerId: source.customerId, reserverName: source.customerName, reserverCardId: source.cardId, groupKey,
         requestKey: `onsite-companion:${data.requestKey}`, onSite: true,

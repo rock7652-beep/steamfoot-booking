@@ -20,6 +20,21 @@ it("copies a day to selected weekdays and saves all changed days once", async()=
  expect((host.querySelector('input[aria-label="週二第1段開始"]') as HTMLInputElement).value).toBe("10:00"); await submit();
  expect(m.save).toHaveBeenCalledExactlyOnceWith([1,2].map(dayOfWeek=>({dayOfWeek,isOpen:true,periods:[{openTime:"10:00",closeTime:"18:00"}]}))); expect(m.saved).toHaveBeenCalledOnce();
 });
+it("saves all missing weekdays on first setup without forcing edits", async()=>{
+ await act(async()=>root.render(createElement(CourseWeeklyHoursEditor,{key:"blank",initial:days.map(day=>({...day,persisted:false})),canManage:true,onSaved:m.saved})));
+ expect(host.textContent).toContain("7 天尚未儲存");
+ await click("還原修改"); expect(host.querySelectorAll('input[aria-label$="段開始"]')).toHaveLength(7);
+ await click("儲存每週設定");
+ expect(m.save).toHaveBeenCalledExactlyOnceWith(days.map(({dayOfWeek,isOpen,periods})=>({dayOfWeek,isOpen,periods})));
+ expect(host.textContent).toContain("尚未變更");
+});
+it("persists missing weekdays alongside a newly selected public holiday",async()=>{
+ await act(async()=>root.render(createElement(CourseWeeklyHoursEditor,{key:"partial",initial:days.map(day=>({...day,persisted:day.dayOfWeek===0})),canManage:true,onSaved:m.saved})));
+ await act(async()=>host.querySelector('fieldset input[type="checkbox"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
+ await submit();
+ expect(m.save.mock.calls[0][0]).toHaveLength(7);
+ expect(m.save.mock.calls[0][0][0].isOpen).toBe(false);
+});
 it("retains all edits after a conflict, supports restore and prevents double save", async()=>{
  await input("週一第1段開始","11:00"); m.save.mockResolvedValueOnce({success:false,error:"課程衝突"}); await submit(); expect(host.textContent).toContain("課程衝突"); expect(m.saved).not.toHaveBeenCalled();
  let finish!: (result:unknown)=>void; m.save.mockReturnValueOnce(new Promise(resolve=>{finish=resolve;})); await submit(); await submit(); expect(m.save).toHaveBeenCalledTimes(2); await act(async()=>finish({success:false,error:"重試"}));

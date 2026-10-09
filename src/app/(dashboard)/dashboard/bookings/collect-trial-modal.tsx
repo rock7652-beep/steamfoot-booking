@@ -197,7 +197,7 @@ export function CollectTrialModal({
           )}
         </div>
 
-        {courseMode ? <p className="mb-4 text-sm text-primary-800">只記錄付款與收入；出席另由教練點名，不使用其他方案額度。</p> : <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
+        {courseMode ? <p className="mb-4 text-sm text-primary-800">只記錄付款與收入；出席另由授課人員點名，不使用其他方案額度。</p> : <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
           <input
             type="checkbox"
             checked={!completeService}

@@ -11,7 +11,7 @@ import { dayRange, formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from 
 import { handleCourseActionError } from "@/server/services/course-resources";
 
 export type MusicSlotMatch = { time: string; roomId: string; coachIds: string[]; fixedOriginCoachIds?: string[] };
-export type MusicUnavailableSlot = {time:string;reason:string};
+export type MusicUnavailableSlot = {time:string;reason:string;fixTarget?:"hours"|"teacher"|"room"};
 
 /** One read for all slots on a day. The write actions still validate under the store lock. */
 export async function getMusicSlotMatches(input: unknown) {
@@ -53,7 +53,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const lastDate = projectedDates.reduce((a, b) => a > b ? a : b, data.date);
     const [rooms, staff, hours, specials, weekly, exceptions, dutyConfig, assignments, occupied] = await Promise.all([
       coursePrisma.courseRoom.findMany({ where: { storeId, isActive: true }, select: { id: true, capacity: true } }),
-      prisma.staff.findMany({ where: { storeId, status: "ACTIVE", courseCoachEnabled: true }, select: { id: true, courseQualificationsConfirmed: true, courseQualifiedTemplateIds: true } }),
+      prisma.staff.findMany({ where: { storeId, status: "ACTIVE", courseCoachEnabled: true }, select: { id: true, displayName:true, courseQualificationsConfirmed: true, courseQualifiedTemplateIds: true } }),
       prisma.$queryRaw<Hour[]>`SELECT * FROM "BusinessHours" WHERE "storeId"=${storeId}`,
       prisma.$queryRaw<Special[]>`SELECT * FROM "SpecialBusinessDay" WHERE "storeId"=${storeId}`,
       prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
@@ -131,7 +131,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const closing=store.periods.map(p=>minuteOfDay(p.closeTime));
     const firstMinute=Math.min(9*60,...opening);
     const lastMinute=Math.max(22*60,...closing);
-    const qualified=staff.filter(coach=>!coach.courseQualificationsConfirmed||coach.courseQualifiedTemplateIds.includes(data.templateId));
+    const qualified=staff.filter(coach=>coach.courseQualificationsConfirmed&&coach.courseQualifiedTemplateIds.includes(data.templateId));
     const suitableRooms=rooms.filter(room=>!!template.musicSubject||room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
     for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){
@@ -149,9 +149,21 @@ export async function getMusicSlotMatches(input: unknown) {
         : !freeCoaches.length?"合格老師已有課"
         : !freeRooms.length?"合適教室已有課"
         : "排班或後續課次無法完整排入";
-      unavailable.push({time,reason});
+      const fixTarget=!periodContains(store.periods,time,data.durationMinutes)?"hours"
+        : !suitableRooms.length?"room"
+        : !qualified.length || !availableCoaches.length?"teacher":undefined;
+      unavailable.push({time,reason,fixTarget});
     }
-    return { success: true as const, data: slots, unavailable };
+    // Prefer a day-wide blocker over outside-hours rows in the detailed timeline.
+    const blocker: Omit<MusicUnavailableSlot,"time"> | undefined = slots.length ? undefined
+      : store.status==="closed" ? {reason:"這天公休",fixTarget:"hours"}
+      : store.status==="training" ? {reason:"這天店內訓練，未開放上課",fixTarget:"hours"}
+      : !store.periods.length ? {reason:"這天尚未設定營業時間",fixTarget:"hours"}
+      : !suitableRooms.length ? {reason:"沒有啟用且符合人數的教室",fixTarget:"room"}
+      : !qualified.length ? {reason:staff.length===1?`${staff[0].displayName}尚未確認「${template.name}」的授課資格`: `尚無教師具備「${template.name}」的授課資格`,fixTarget:"teacher"}
+      : !store.periods.some(p=>minuteOfDay(p.closeTime)-minuteOfDay(p.openTime)>=data.durationMinutes) ? {reason:"營業時段不足以容納這堂課的時長",fixTarget:"hours"}
+      : unavailable.find(slot=>periodContains(store.periods,slot.time,data.durationMinutes));
+    return { success: true as const, data: slots, unavailable, blocker };
   } catch (error) {
     return handleCourseActionError(error);
   }

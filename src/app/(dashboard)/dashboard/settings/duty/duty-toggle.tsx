@@ -80,7 +80,7 @@ export function DutySchedulingToggle({ enabled, compact = false, course = false 
       {switchEl}
     </div>
     {course && confirming && <div className="rounded-lg border border-earth-200 p-2.5 text-xs">
-      <p>啟用前將檢查教練值班是否涵蓋全部未結束課程。有衝突會列出並阻擋，不取消課程或預約。</p>
+      <p>啟用前將檢查授課人員值班是否涵蓋全部未結束課程。有衝突會列出並阻擋，不取消課程或預約。</p>
       <div className="mt-2 flex flex-wrap gap-2"><button type="button" disabled={isPending} onClick={()=>handleToggle(true)} className="min-h-9 rounded bg-primary-700 px-3 text-xs text-white">確認啟用</button><button type="button" onClick={()=>setConfirming(false)} className="min-h-9 rounded border px-3 text-xs">取消</button></div>
     </div>}
     {course && error && <p role="alert" className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}

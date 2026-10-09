@@ -82,7 +82,8 @@ export const coursePortalGuides: CoursePortalGuide[] = [
     note: "暫停期間自動遞補也會停下，但不會刪除或重排候補。重新開啟不會立刻批次遞補或發通知，會在之後有名額事件時再處理。" },
 ];
 
-export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnabled: boolean, query = "", companionEnabled = false, sharedCardState: FeaturePresentationState = "ENABLED") {
+import { courseDisplayText } from "./course-display-text";
+export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnabled: boolean, query = "", companionEnabled = false, sharedCardState: FeaturePresentationState = "ENABLED", music = false) {
   const terms = query.normalize("NFKC").trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return coursePortalGuides.filter(g => g.role === role && (!g.healthOnly || healthEnabled) && (!g.companionOnly || companionEnabled))
     .filter(g => !(g.id === "CP04" && sharedCardState === "HIDDEN") && !(g.id === "CP20" && sharedCardState !== "ENABLED"))
@@ -99,7 +100,7 @@ export function findCoursePortalGuides(role: CoursePortalGuideRole, healthEnable
         note: "共卡功能未開通，暫不新增成員或同行；既有授權與預約仍可使用、查看及取消。"};
       if (g.id === "CP03" && sharedCardState === "HIDDEN") return {...g, keywords: g.keywords.replace(" 共卡", ""), steps: [g.steps[0], "展開每張有效方案核對期限、適用課程與個別餘額；同一張方案合計只算一次。", g.steps[2]]};
       return g;
-    }).filter(g => {
+    }).map(g => music ? {...g, title: courseDisplayText(g.title, true), keywords: courseDisplayText(g.keywords, true), steps: g.steps.map(s => courseDisplayText(s, true)), note: courseDisplayText(g.note, true)} : g).filter(g => {
     const text = [g.title, g.keywords, ...g.steps, g.note].join(" ").normalize("NFKC").toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });

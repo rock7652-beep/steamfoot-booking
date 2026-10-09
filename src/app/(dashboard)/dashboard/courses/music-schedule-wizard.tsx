@@ -4,14 +4,18 @@ import { useEffect, useState, useTransition } from "react";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
 import { createCourseSchedule } from "@/server/actions/course";
+import { DashboardLink } from "@/components/dashboard-link";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 
 type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
 type Room = { id:string; name:string };
 type Coach = { id:string; displayName:string };
 
-export function MusicScheduleWizard({templates,rooms,coaches,initialDate,requestKey,sourceSessionId,initialTemplateId,onCreated}:{
+export function MusicScheduleWizard({templates,rooms,coaches,initialDate,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh}:{
   templates:Template[];rooms:Room[];coaches:Coach[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
   onCreated:(sessionId:string,date:string)=>void;
+  onGuard?:(dirty:boolean,pending:boolean)=>void;
+  onRefresh?:()=>void;
 }) {
   const [templateId,setTemplateId]=useState(initialTemplateId ?? templates[0]?.id ?? "");
   const template=templates.find(t=>t.id===templateId);
@@ -26,6 +30,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   });
   const [date,setDate]=useState(initialDate);
   const [slots,setSlots]=useState<MusicSlotMatch[]|null>(null);
+  const [blocker,setBlocker]=useState<Omit<MusicUnavailableSlot,"time">>();
   const [unavailable,setUnavailable]=useState<MusicUnavailableSlot[]>([]);
   const [time,setTime]=useState("");
   const [coachId,setCoachId]=useState("");
@@ -33,17 +38,28 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const [repeat,setRepeat]=useState(false);
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
-  function resetSlot(){setSlots(null);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}
+  const [checkedAgain,setCheckedAgain]=useState(false);
+  const [reload,setReload]=useState(0);
+  const initialTemplate=templates.find(t=>t.id===(initialTemplateId??templates[0]?.id));
+  const initialDuration=([30,60,90,120] as number[]).includes(initialTemplate?.durationMinutes??60)?initialTemplate?.durationMinutes??60:60;
+  const dirty=!!time || date!==initialDate || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat;
+  useCourseDraftGuard(dirty,pending);
+  useEffect(()=>{onGuard?.(dirty,pending);return()=>onGuard?.(false,false);},[dirty,pending,onGuard]);
+  function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}
   useEffect(()=>{
     if(!templateId || !date) return;
     let active=true;
     getMusicSlotMatches({date,templateId,durationMinutes:duration}).then(result=>{
       if(!active)return;
-      if(result.success){setSlots(result.data);setUnavailable("unavailable" in result ? result.unavailable??[] : []);}
+      if(result.success){setBlocker("blocker" in result?result.blocker:undefined);setSlots(result.data);setUnavailable("unavailable" in result ? result.unavailable??[] : []);}
       else setError(result.error ?? "空位讀取失敗");
     }).catch(()=>{if(active)setError("空位讀取失敗，請重新選擇日期");});
     return()=>{active=false;};
-  },[date,templateId,duration]);
+  },[date,templateId,duration,reload]);
+  function refresh(){resetSlot();setCheckedAgain(true);setReload(value=>value+1);onRefresh?.();}
+  const repairTargets=blocker ? [blocker.fixTarget].filter(Boolean) : [...new Set(unavailable.map(slot=>slot.fixTarget).filter(Boolean))];
+  const noSlotReason=blocker?.reason??unavailable.find(slot=>slot.fixTarget!=="hours")?.reason??unavailable[0]?.reason;
+  const repairLinks={hours:{href:"/dashboard/courses/hours",label:"設定營業時間與公休"},teacher:{href:"/dashboard/teachers",label:"設定教師授課資格與時間"},room:{href:"/dashboard/courses?view=rooms",label:"設定教室與容量"}};
   const times=[...new Set(slots?.map(s=>s.time) ?? [])].sort();
   const pairs=slots?.filter(s=>s.time===time).flatMap(s=>s.coachIds.map(coachId=>({roomId:s.roomId,coachId,fixedOrigin:s.fixedOriginCoachIds?.includes(coachId)??false}))) ?? [];
   const teacherIds=[...new Set(pairs.map(option=>option.coachId))];
@@ -82,18 +98,25 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     </label>
     <div aria-label="可排時段" className="space-y-2">
       <strong>可排時段</strong>
-      {!slots && !error && <p role="status" className="text-earth-600">正在核對老師、教室與營業時間…</p>}
-      {slots?.length===0 && <p className="rounded-xl bg-earth-50 px-3 py-4 text-earth-700">這天沒有合適空位，請換日期或時長。</p>}
+      {checkedAgain&&!!slots?.length&&<p role="status" className="text-primary-800">已找到可排時段，請選擇上課時間。</p>}
+      {!slots && !error && !!templateId && <p role="status" className="text-earth-600">正在核對老師、教室與營業時間…</p>}
+      {(slots?.length===0 || !templateId) && <p className="rounded-xl bg-earth-50 px-3 py-4 text-earth-700">{!templateId?"尚未建立可排課的班型。":noSlotReason??"這天沒有合適空位，請換日期或時長。"}</p>}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {times.map(slotTime=>{
           const matching=slots!.filter(s=>s.time===slotTime);
           const teacherCount=new Set(matching.flatMap(s=>s.coachIds)).size;
-          return <button key={slotTime} type="button" className={`min-h-11 rounded-xl border px-2 ${slotTime===time?"border-primary-700 bg-primary-50 text-primary-900":"border-earth-200"}`} onClick={()=>{setTime(slotTime);setCoachId("");setPair(null);}}>
+          return <button key={slotTime} type="button" className={`min-h-11 rounded-xl border px-2 ${slotTime===time?"border-primary-700 bg-primary-50 text-primary-900":"border-earth-200"}`} onClick={()=>{setTime(slotTime);const options=matching.flatMap(slot=>slot.coachIds.map(id=>({coachId:id,roomId:slot.roomId,fixedOrigin:slot.fixedOriginCoachIds?.includes(id)??false})));const ids=[...new Set(options.map(option=>option.coachId))];setCoachId(ids.length===1?ids[0]:"");setPair(options.length===1&&!(options[0].fixedOrigin&&template?.musicScheduleMode==="FIXED")?options[0]:null);}}>
             {slotTime}<span className="block text-[11px]">{teacherCount} 位老師 · {matching.length} 間教室</span>
           </button>;
         })}
       </div>
       {!!unavailable.length && <details className="rounded-xl border border-earth-200 px-3 py-2 text-earth-700"><summary className="cursor-pointer">查看其他時段為何不能排（{unavailable.length} 個）</summary><div className="mt-2 grid max-h-36 grid-cols-2 gap-1 overflow-y-auto sm:grid-cols-3">{unavailable.map(slot=><span key={slot.time} className="rounded bg-earth-50 px-2 py-1 text-xs">{slot.time} · {slot.reason}</span>)}</div></details>}
+      {(slots?.length===0 || !templateId)&&<div className="flex flex-wrap items-center gap-2 text-sm">
+        {!templates.length&&<DashboardLink href="/dashboard/courses?view=plans&action=create" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">建立班型與學費（另開分頁）</DashboardLink>}
+        {repairTargets.map(target=>{const repair=repairLinks[target!];return <DashboardLink key={target} href={repair.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">{repair.label}（另開分頁）</DashboardLink>;})}
+        <button type="button" disabled={pending} onClick={refresh} className="min-h-11 rounded-lg border border-earth-200 px-3">已修正，重新查空位</button>
+        <p className="w-full text-earth-600">設定另開分頁，這裡的日期、班型與時長會保留。</p>
+      </div>}
     </div>
     {time && <div aria-label="合格老師與可用教室" className="space-y-2">
       <strong>④ {date} {time} · 選老師／教室</strong>
@@ -106,7 +129,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
         {availableRooms.map(option=><button key={option.roomId} type="button" disabled={option.fixedOrigin&&template?.musicScheduleMode==="FIXED"} title={option.fixedOrigin?"原固定課保留此時段，僅可排單次臨時課":undefined} className={`min-h-11 rounded-xl border px-3 text-left disabled:opacity-50 ${pair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setPair(option);if(option.fixedOrigin)setRepeat(false);}}>教室 {rooms.find(r=>r.id===option.roomId)?.name}{option.fixedOrigin&&<span className="block text-[11px]">原固定課保留 · 限單次臨時課</span>}</button>)}
       </div>}
     </div>}
-    {pair && <div className="space-y-3 border-t border-earth-100 pt-3">
+    {pair && <div className="sticky bottom-0 z-10 space-y-3 border-t border-earth-100 bg-white py-3">
       <label className="flex min-h-10 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pairs.find(option=>option.roomId===pair.roomId&&option.coachId===pair.coachId)?.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排 {template?.musicTermLessons ?? 4} 堂</label>
       {repeat && <p className="text-xs text-earth-600">將從首次上課日建立同時段的 {template?.musicTermLessons ?? 4} 堂；每堂都會再次檢查空位。</p>}
       <button type="button" disabled={pending} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":"建立課程，接著選學員"}</button>
