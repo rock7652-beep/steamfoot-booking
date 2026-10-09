@@ -1193,7 +1193,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 {p.healthEnabled && menu("健康追蹤", "health")}
               </section>
 
-              <section className="cp-card">
+              <section className="cp-card cp-account-settings">
                 <details className="cp-profile">
                   <summary>個人資料與登入</summary>
                   <a className="cp-menu" href={`${p.prefix}/profile`}>修改資料 ›</a>

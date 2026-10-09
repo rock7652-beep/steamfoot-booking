@@ -695,6 +695,19 @@
 
 .course-portal .cp-menu small { font-size: 14px; }
 
+/* Account settings align with the adjacent menu rows, including in Safari. */
+.course-portal .cp-account-settings > .cp-profile > summary {
+  padding: 12px 14px;
+  min-height: 52px;
+  font-size: inherit;
+  font-weight: 600;
+  list-style: none;
+}
+.cp-account-settings > .cp-profile > summary::-webkit-details-marker { display: none; }
+.cp-account-settings > .cp-profile + .cp-profile { border-top: 1px solid #edf0e8; }
+.cp-account-settings > .cp-profile > summary::after { width: 14px; text-align: center; }
+.cp-account-settings > .cp-profile[open] > summary { border-bottom: 1px solid #edf0e8; }
+
 .cp-page-description { margin: 0 0 12px; }
 
 .cp-coach-options .cp-refresh { padding: 8px 12px; margin: 0; }
