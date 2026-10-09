@@ -32,8 +32,9 @@ interface Props {
   bookingId: string;
   customerName: string;
   dateLabel: string;
-  /** 原價（servicePlan.price ?? 799），由 drawer payload 帶入 */
+  /** 本次所有預約人數的合計原價，由 drawer payload 帶入 */
   defaultPrice: number;
+  people?: number;
   spaMode?: boolean;
   /** SPA 工作台嵌在既有右側面板內，不再疊第二層 Modal。 */
   embedded?: boolean;
@@ -66,6 +67,7 @@ export function CollectSingleModal({
   customerName,
   dateLabel,
   defaultPrice,
+  people = 1,
   spaMode = false,
   embedded = false,
   serviceName = "本次服務",
@@ -333,7 +335,7 @@ export function CollectSingleModal({
             </div>
           ) : null}
           <div className="flex justify-between">
-            <span className="text-earth-500">原價</span>
+            <span className="text-earth-500">{!spaMode && people > 1 ? `原價（${people} 人合計）` : "原價"}</span>
             <span className="text-earth-700">
               NT$ {defaultPrice.toLocaleString()}
             </span>
