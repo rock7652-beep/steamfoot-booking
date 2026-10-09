@@ -38,6 +38,33 @@ describe("consultation HQ lead details", () => {
     expect(html).toContain("900000001"); expect(html).not.toContain("0900000001");
     expect(html).toContain("複製 LINE ID @actual-id");
   });
+  it("shows an exact stored prefix correction once and retains source evidence in the secondary disclosure", async () => {
+    const item = { ...lead(), phone: "0900000001", sheetStatus: "LEGACY_IMPORTED",
+      legacyImport: { phoneNeedsReview: true }, originalPayload: { ...lead().originalPayload, phone: "900000001" } };
+    const before = JSON.stringify(item);
+    m.find.mockResolvedValue([item]);
+    const html = await render();
+    expect(html).not.toContain("電話格式待核對");
+    expect(html).toContain('href="tel:0900000001"'); expect(html).toContain("撥打更正後電話");
+    expect(html).toMatch(/<summary[^>]*>來源與編號<\/summary>[\s\S]*原始匯入電話：900000001/);
+    expect(html.match(/>0900000001</g)).toHaveLength(1);
+    expect(html.match(/原始匯入電話：900000001/g)).toHaveLength(1);
+    expect(JSON.stringify(item)).toBe(before);
+  });
+  it.each([null, "", "900000001", "090000000", "09000000012", "0900-000-001", " 0900000001", "0900000001\n", "0900000002", "not a phone"])("keeps flagged malformed or unverified current phone %j blocked", async phone => {
+    m.find.mockResolvedValue([{ ...lead(), phone, sheetStatus: "LEGACY_IMPORTED", legacyImport: { phoneNeedsReview: true }, originalPayload: { ...lead().originalPayload, phone: "900000001" } }]);
+    const html = await render();
+    expect(html).toContain("電話格式待核對"); expect(html).not.toContain('href="tel:');
+    expect(html).not.toContain("撥打更正後電話");
+  });
+  it.each([null, "", 900000001, "800000001", "0900000001", "900000001\n"])("does not infer correction from invalid original source %j", async phone => {
+    m.find.mockResolvedValue([{ ...lead(), phone: "0900000001", sheetStatus: "LEGACY_IMPORTED", legacyImport: { phoneNeedsReview: true }, originalPayload: { ...lead().originalPayload, phone } }]);
+    const html = await render(); expect(html).toContain("電話格式待核對"); expect(html).not.toContain('href="tel:');
+  });
+  it("keeps blank unflagged legacy contacts blank without invented phone", async () => {
+    m.find.mockResolvedValue([{ ...lead(), phone: null, lineId: null, sheetStatus: "LEGACY_IMPORTED", legacyImport: { phoneNeedsReview: false }, originalPayload: { ...lead().originalPayload, phone: "" } }]);
+    const html = await render(); expect(html).not.toContain("電話格式待核對"); expect(html).not.toContain('href="tel:'); expect(html).toContain("未留聯絡方式");
+  });
   it("renders original needs, exact contact and separate HQ/Sheet statuses", async () => {
     const html = await render();
     for (const text of ["原始需求A", "原始補充", "原留聯絡人", "HQ 已收件", "Sheet 結果不明，請先查核，勿重送", "admin-123", "既有聯繫紀錄", "2026/10/8", "修訂 3"]) expect(html).toContain(text);

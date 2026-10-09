@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/hq-reviewed-phone-prefix": false,
       "fix/public-seo-crawlers-20261007": false,
       "feat/public-guide-articles-20261007": false,
       "fix/publish-music-guide-20261008": false,
