@@ -619,7 +619,7 @@
 .cp-week-strip small { font-size:12px; }
 .cp-coach-options { position:relative; }
 .cp-coach-options > summary { cursor:pointer; min-width:44px; min-height:44px; display:grid; place-items:center; }
-.cp-coach-options form { position:absolute; right:0; top:100%; z-index:10; width:120px; background:white; border:1px solid #dce3d8; border-radius:12px; }
+.cp-coach-options form { position:absolute; right:0; top:100%; z-index:10; width:220px; background:white; border:1px solid #dce3d8; border-radius:12px; }
 
 /* Member bookings keep essential information visible, with inline details. */
 .course-portal .cp-booking-card { padding: 10px 14px; margin: 8px 0; }
@@ -651,3 +651,6 @@
 .course-portal .cp-menu small { font-size: 14px; }
 
 .cp-page-description { margin: 0 0 12px; }
+
+.cp-coach-options .cp-refresh { padding: 8px 12px; margin: 0; }
+.cp-coach-options .cp-refresh button { min-height: 44px; font-size: 14px; }

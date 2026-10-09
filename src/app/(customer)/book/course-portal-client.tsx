@@ -509,21 +509,17 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     setKey(crypto.randomUUID());
     setError("");
   }
-  const heading = (name: string, description?: string) => !coach ? (
+  const heading = (name: string, description?: string) => (
     <>
       <h1 className="sr-only">{name}</h1>
       {description && <p className="cp-page-description">{description}</p>}
     </>
-  ) : (
-    <div className="cp-title">
-      <h1>{name}</h1>
-      {description && <p>{description}</p>}
-    </div>
   );
   const refreshControl = (
     <div className="cp-refresh">
       <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
       <button
+        type="button"
         disabled={saving || refreshing}
         onClick={() => start(() => router.refresh())}
       >
@@ -916,7 +912,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
-          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}><input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
+          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}>{refreshControl}<input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
         </header>
         <nav className="cp-nav" aria-label="主要功能">
           {nav.map(([v, label, icon]) => (
@@ -932,7 +928,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
         </nav>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
           {p.incomeAvailable && (coach || (!p.hasWork && page === "account")) && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入 · 查看已確認月結</a>}
-          {coach && refreshControl}
           {!coach && !selfBookingEnabled && ["home", "schedule", "bookings"].includes(page) && <p className="cp-important">{COURSE_SELF_BOOKING_DISABLED_MESSAGE}</p>}
           {message && (
             <p role="status" className="cp-toast">

@@ -57,6 +57,17 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 describe("coach daily work interactions", () => {
+  it("refreshes from the work account menu without submitting logout", async () => {
+    await act(async()=>root.render(createElement(CoursePortalClient,props())));
+    const form=host.querySelector('.cp-coach-options form') as HTMLFormElement;
+    const submitted=vi.fn();form.addEventListener('submit',submitted);
+    await act(async()=>(host.querySelector('.cp-coach-options summary') as HTMLElement).click());
+    await act(async()=>(form.querySelector('.cp-refresh button') as HTMLButtonElement).click());
+    expect(m.refresh).toHaveBeenCalledTimes(1);
+    expect(submitted).not.toHaveBeenCalled();
+    expect(host.querySelector('.cp-main .cp-refresh')).toBeNull();
+  });
+
   it("updates companion usage and the reserver balance from the saved receipt before refresh", async () => {
     const data = props(); data.companionBookingEnabled = true;
     data.work[0].bookings = [learner("本人", false), {...learner("同行者", false), customerId: null, companionIndex: 1, reserverName: "本人"}] as CoursePortalData["work"][number]["bookings"];
