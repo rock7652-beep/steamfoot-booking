@@ -23,4 +23,23 @@ it("shows the actual six setup actions with store hours first and teachers in mu
  if(process.env.MUSIC_SETUP_RENDER_FILE)writeFileSync(process.env.MUSIC_SETUP_RENDER_FILE,JSON.stringify({html:host.innerHTML,styles}));
  const close=[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!;
  await act(async()=>close.click());expect(host.querySelector('[role="dialog"]')).toBeNull();
+ // Keep the same mounted guide, as the persistent dashboard layout does.
+ // New server data must advance the next action without reopening the panel.
+ const counts={openDays:0,coaches:0,rooms:0,templates:0,plans:0,sessions:0,qualifiedCoaches:0};
+ const transitions=[
+  {change:{openDays:1},label:"新增空間"},
+  {change:{rooms:1},label:"建立課程"},
+  {change:{templates:1},label:"建立方案"},
+  {change:{plans:1},label:"新增教師與授課課程"},
+  {change:{coaches:1,qualifiedCoaches:1},label:"排第一堂課"},
+ ];
+ for(const [index,transition] of transitions.entries()) {
+  Object.assign(counts,transition.change);
+  await act(async()=>root.render(createElement(CourseSetupGuide,{steps:courseSetupSteps(counts,true),preference:{mode:"show"},login:"fixture"})));
+  expect(host.textContent).toContain(`已完成 ${index+1}/6`);
+  expect(host.textContent).toContain(`下一步：${transition.label}`);
+ }
+ counts.sessions=1;
+ await act(async()=>root.render(createElement(CourseSetupGuide,{steps:courseSetupSteps(counts,true),preference:{mode:"show"},login:"fixture"})));
+ expect(host.querySelector('[aria-label="開始設定"]')).toBeNull();
 });
