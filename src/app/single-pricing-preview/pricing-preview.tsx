@@ -3,8 +3,18 @@ import { useState } from "react";
 import { CollectSingleModal } from "@/app/(dashboard)/dashboard/bookings/collect-single-modal";
 import { resolveSingleBookingTotal } from "@/lib/single-booking-price";
 
-export default function PricingPreview() {
+export default function PricingPreview({ framed = false }: { framed?: boolean }) {
   const [people, setPeople] = useState<number | null>(null);
+  const [device, setDevice] = useState([1366, 900]);
+  if (!framed) return <main className="p-4">
+    <h1 className="mb-3 text-xl font-semibold">多人收款・裝置預覽</h1>
+    <div className="mb-4 flex flex-wrap gap-2">
+      {[[1366, 900], [1920, 1080], [1024, 768], [768, 1024]].map(([w, h]) =>
+        <button key={w} className="min-h-11 rounded-lg border px-4" onClick={() => setDevice([w, h])}>{w} × {h}</button>)}
+    </div>
+    <div className="overflow-auto"><iframe title="收款預覽" src="/single-pricing-preview?frame=1"
+      style={{ width: device[0], height: device[1], border: "1px solid #ddd" }} /></div>
+  </main>;
   return <main className="mx-auto max-w-4xl p-6 text-earth-900">
     <h1 className="text-xl font-semibold">多人單次收款預覽</h1>
     <p className="my-4">測試資料，僅供查看；不會收款或變更顧客資料。</p>

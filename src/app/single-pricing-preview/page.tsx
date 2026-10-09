@@ -4,7 +4,7 @@ import PricingPreview from "./pricing-preview";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
-export default function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ frame?: string }> }) {
   if (!isSinglePricingUiPreview()) notFound();
-  return <PricingPreview />;
+  return <PricingPreview framed={(await searchParams).frame === "1"} />;
 }
