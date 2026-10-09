@@ -294,6 +294,12 @@ describe("public editorial guides", () => {
     const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
     expect(article.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
     expect(article).toContain("前往蒸管家，了解體驗與導入範圍");
+    let cursor = 0;
+    for (const text of [guide.title, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label!]) {
+      const position = article.indexOf(text, cursor);
+      expect(position, text).toBeGreaterThanOrEqual(cursor);
+      cursor = position + text.length;
+    }
     expect(article).not.toContain(guide.summary);
     expect(article).not.toContain("申請免費試用 30 天");
     expect(article).not.toMatch(/搜尋量|SEO|熱門搜尋|自動搬家|無痛|永久保留/);

@@ -38,7 +38,11 @@ const waitlistSafe = {
 function enableWaitlist() {
   for (const [key, value] of Object.entries(waitlistSafe)) vi.stubEnv(key, value);
 }
-const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }];
+const migrationSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-school-data-migration" };
+function enableMigration() {
+  for (const [key, value] of Object.entries(migrationSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }];
 
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
@@ -89,7 +93,7 @@ describe("exact guide UI preview scope", () => {
 
 describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
   beforeEach(enableMode);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-system-data-migration", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
@@ -113,7 +117,7 @@ describe.each(previewModes)("$name outer request boundary before auth", ({ name,
     expect(spies.auth).not.toHaveBeenCalled();
   });
   it("does not fall through to auth when runtime configuration loses isolation", () => {
-    if (name === "waitlist") vi.stubEnv("VERCEL_GIT_REPO_OWNER", "other");
+    if (name !== "original") vi.stubEnv("VERCEL_GIT_REPO_OWNER", "other");
     else vi.stubEnv("DIRECT_URL", "postgresql://invalid.invalid/db");
     expect(() => route("/api/auth/session")).toThrow(/isolation rejected/);
     expect(spies.auth).not.toHaveBeenCalled();
@@ -211,5 +215,33 @@ describe("single pricing Preview isolation", () => {
     expect(route("/api/auth/session").status).toBe(404);
     expect(route("/dashboard/bookings").status).toBe(404);
     expect(spies.auth).not.toHaveBeenCalled();
+  });
+});
+
+describe("music migration publication exact Preview provenance", () => {
+  it("accepts only the approved branch and leaves production main or unrelated previews unchanged", () => {
+    expect(isGuideUiPreview(migrationSafe)).toBe(true);
+    expect(isGuideUiPreview({ VERCEL: "1", VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...migrationSafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/music-school-data-migration"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...migrationSafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
+    expect(() => isGuideUiPreview({ ...migrationSafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/music-school-data-migration" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations before database work even with inherited target and no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...migrationSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
+  });
+  it("keeps automatic Git deployment disabled only for the new editorial branch", () => {
+    const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
+    expect(deployment["content/music-school-data-migration"]).toBe(false);
+    expect(deployment.main).toBeUndefined();
   });
 });
