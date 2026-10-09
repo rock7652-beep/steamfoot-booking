@@ -15,15 +15,17 @@ describe("unified operation audit center contract", () => {
     expect(migration).toContain("ON CONFLICT");
   });
 
-  it("limits reads to headquarters while preserving selected store scope, filters and pagination", () => {
+  it("separates HQ and granted store reads while preserving HQ filters and pagination", () => {
     const page = read("src/app/(dashboard)/dashboard/operation-audits/page.tsx");
     const layout = read("src/components/dashboard-layout.tsx");
     const sidebar = read("src/components/sidebar.tsx");
     const service = read("src/server/services/operation-audit.ts");
     expect(page).toContain('if (!isStaffRole(user.role)) redirect("/dashboard")');
-    expect(page).toContain('if (!user || user.role !== "ADMIN") notFound()');
+    expect(page).toContain('if (!scope) notFound()');
+    expect(page).toContain('if (!scope.hq)');
+    expect(page).toContain('params.tab === "login" || params.login || params.outcome');
     expect(page).toContain('const storeId = storeIdForViewContext(activeStoreId, viewContext)');
-    expect(page).toContain('checkPermission(user.role, user.staffId, "audit.read")');
+    expect(page).toContain('checkPermission(user.role, user.staffId, scope.hq ? "audit.read" : "store.audit.read")');
     expect(layout).toContain("operation-audits\\/?$");
     expect(page).toContain("storeIdForViewContext");
     expect(page).toContain('module: moduleFilter');

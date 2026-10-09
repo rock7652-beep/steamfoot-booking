@@ -46,6 +46,7 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
+  { key: FEATURES.STORE_OPERATION_AUDIT, label: "門市操作紀錄", module: "營運", description: "預設隱藏，須總部獨立開通。僅本店有效 OWNER 可查看門市業務操作；不含登入、安全、總部事件或完整私人備註。關閉、隱藏或到期不停止記錄，不刪除歷史。總部切店同樣依此開關。" },
   { key: FEATURES.SHARED_CARD, label: "運動共卡", module: "營運", description: "僅運動課程。啟用後仍須逐方案允許共卡；鎖定或隱藏停止新增成員及同行，既有成員使用、取消、點名、更正、退款與紀錄保留在原方案。未覆寫時需總部開通；舊店先經核准初始化明確授權，資格不隨方案開關改變。限時覆寫未開始或到期會停止新增共享，不自動回復。" },
   { key: FEATURES.WORK_ORDERS, label: "工單管理", module: "營運", description: "獨立管理鋼琴調音、管樂與弦樂器維修保養、吉他維修保養，以及其他施工與服務案件。預設未付款，處理進度與付款分開；支援顧客／店家雙聯列印；加入商品材料及扣庫存須搭配已開通的進銷存及相應人員權限，收款紀錄共用。各付費方案皆額外加購 NT$800／月；HQ 可獨立開通、關閉或隱藏，不依進銷存開關。關閉或加購到期保留資料。" },
   { key: FEATURES.FRONTEND_PREVIEW, label: "前台預覽", module: "營運", description: "完整功能試用內含；一般方案需另行開通。依後台權限查看會員與工作前台，預覽不儲存、不發通知。" },
@@ -159,6 +160,10 @@ export function resolveStoreFeatureDisplayState(
   entitlement: StoreFeatureEntitlementSnapshot | null,
   now: Date = new Date(),
 ): StoreFeatureDisplayState {
+  if (feature === FEATURES.STORE_OPERATION_AUDIT) {
+    const enabled = entitlement?.status === "ENABLED" && (!entitlement.startsAt || entitlement.startsAt <= now) && (!entitlement.expiresAt || entitlement.expiresAt > now);
+    return { effectiveAllowed: enabled, statusLabel: enabled ? "啟用" : "隱藏", statusClass: enabled ? "bg-green-50 text-green-700" : "bg-earth-100 text-earth-600", sourceLabel: entitlement ? getStoreFeatureSourceLabel(entitlement.source) : "需總部獨立開通" };
+  }
   const baseAllowed = hasFeature(plan, feature);
   const resolution = resolveEffectiveEntitlement(baseAllowed, entitlement, now);
   if (resolution.source === "PLAN_DEFAULT") {

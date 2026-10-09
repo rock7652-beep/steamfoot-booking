@@ -1,3 +1,5 @@
+import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
+import { StoreOperationAuditView } from "./store-operation-audit-view";
 import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
 import { resolveAuditPresentation } from "@/server/services/audit-presentation";
 import { AuditChanges } from "@/components/audit-changes";
@@ -58,9 +60,11 @@ export default async function OperationAuditsPage({
   }>;
 }) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") notFound();
+  if (!user) notFound();
+  const scope = await resolveOperationAuditScope(user);
+  if (!scope) notFound();
   if (!isStaffRole(user.role)) redirect("/dashboard");
-  if (!(await checkPermission(user.role, user.staffId, "audit.read"))) notFound();
+  if (!(await checkPermission(user.role, user.staffId, scope.hq ? "audit.read" : "store.audit.read"))) notFound();
 
   const params = await searchParams;
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,6 +78,11 @@ export default async function OperationAuditsPage({
   const requestedPage = Number(params.page ?? 1);
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 10000) : 1;
 
+  if (!scope.hq) {
+    // Login/session filters cannot be used as an oracle in store view.
+    if (params.tab === "login" || params.login || params.outcome) notFound();
+    return <StoreOperationAuditView storeId={scope.storeId} dateFrom={dateFrom} dateTo={dateTo} page={page} />;
+  }
   const activeStoreId = await getActiveStoreForRead(user);
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const storeId = storeIdForViewContext(activeStoreId, viewContext);

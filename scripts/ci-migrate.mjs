@@ -68,6 +68,9 @@ if (releaseMode === "consultation-preview") {
   console.info("[consultation-preview-preflight] isolated_database=true notifications_blocked=true flags_enabled=true migrations_skipped=true");
   process.exit(0);
 }
+if (releaseMode === "store-operation-audit-preview") {
+  console.info("[store-operation-audit-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
+}
 if (releaseMode === "sports-shared-card-preview") {
   console.info("[sports-shared-card-preview-preflight] isolated_database=true; notifications_blocked=true; environment=preview");
 }
