@@ -22,7 +22,7 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
@@ -61,10 +61,10 @@ type RosterView = "roster" | "member-booking" | "trial-booking";
 const postClassBalanceDescription = "本方案扣除本堂全部使用同一卡的預約後餘額，不含其他方案；其他堂預約尚未扣點";
 
 type RosterBooking = Awaited<ReturnType<typeof getCourseRoster>>[number];
-function RosterReminders({booking,canEdit,onOpen,onEdit}:{booking:RosterBooking;canEdit:boolean;onOpen:()=>void;onEdit:()=>void}) {
+function RosterReminders({booking,canEdit,onOpen,inlineNote}:{booking:RosterBooking;canEdit:boolean;onOpen:()=>void;inlineNote:ComponentProps<typeof SharedRosterReminders>["inlineNote"]}) {
   return <SharedRosterReminders customerId={booking.customerId ?? undefined} name={booking.customerName}
     serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit}
-    canEditNote={canEdit && booking.status !== "CANCELLED"} onOpen={onOpen} onEdit={onEdit} />;
+    canEditNote={canEdit && booking.status !== "CANCELLED"} onOpen={onOpen} inlineNote={inlineNote} />;
 }
 
 function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof getCourseRoster>>[number] }) {
@@ -134,6 +134,10 @@ export function CourseRoster({
   const mutationLock = useRef(false);
   const currentSession = useRef(sessionId);
   currentSession.current = sessionId;
+  const noteScope = useRef({ sessionId, saveGenerations: new Map<string, number>() });
+  if (noteScope.current.sessionId !== sessionId) noteScope.current = { sessionId, saveGenerations: new Map<string, number>() };
+  const rosterMounted = useRef(false);
+  useEffect(() => { rosterMounted.current = true; return () => { rosterMounted.current = false; }; }, []);
   const [transitionPending, start] = useTransition();
   const quickInFlight = useRef(new Set<string>());
   const [savingBookingIds, setSavingBookingIds] = useState<string[]>([]);
@@ -238,6 +242,39 @@ export function CourseRoster({
   const [makeupDialog,setMakeupDialog]=useState(false);
   const [makeupDate,setMakeupDate]=useState("");
   const [makeupTime,setMakeupTime]=useState("09:00");
+
+  function inlineBookingNote(bookingId: string): NonNullable<ComponentProps<typeof SharedRosterReminders>["inlineNote"]> {
+    const scope = noteScope.current;
+    let savedGeneration: number | undefined;
+    const applySavedNote = (notes: string | null, generation: number) => {
+      if (!rosterMounted.current || noteScope.current !== scope || scope.saveGenerations.get(bookingId) !== generation) return;
+      // Also invalidate any refresh that started while the write was pending.
+      ++readVersion.current;
+      setRoster(rows => rows.map(row => row.id === bookingId ? {...row, notes: notes ?? ""} : row));
+    };
+    return {
+      // OperationScope already isolates this retained editor by account/store.
+      scopeKey: `course-roster:${sessionId}:booking:${bookingId}`,
+      maxLength: 1000,
+      save: async (notes, expected) => {
+        // The editor may remount after filtering while an older response is
+        // delayed. Keep save ordering in the roster owner, not the row editor.
+        const generation = (scope.saveGenerations.get(bookingId) ?? 0) + 1;
+        scope.saveGenerations.set(bookingId, generation);
+        savedGeneration = generation;
+        // Reads already in flight must not restore a pre-save note afterward.
+        ++readVersion.current;
+        const result = await saveCourseRosterNote({sessionId, bookingId, note: notes ?? "", expectedNote: expected ?? ""});
+        // A filter can unmount the row while the same roster remains open.
+        // Record the committed note even if its editor is no longer mounted.
+        if (result.success) applySavedNote(notes, generation);
+        return result;
+      },
+      onSaved: (notes) => {
+        if (savedGeneration !== undefined) applySavedNote(notes, savedGeneration);
+      },
+    };
+  }
 
   async function load() {
 
@@ -364,9 +401,10 @@ export function CourseRoster({
     const rollback = () => {
       if (updates.length) {
         if (bookingId && previousRow && musicLayout) {
-          setRoster(rows => rows.map(row => row.id === bookingId ? previousRow : row));
+          setRoster(rows => rows.map(row => row.id === bookingId ? {...previousRow, notes: row.notes} : row));
         } else {
-          setRoster(previous);
+          // An independent inline note may have saved since attendance began.
+          setRoster(rows => previous.map(row => ({...row, notes: rows.find(current => current.id === row.id)?.notes ?? row.notes})));
         }
         updates.forEach(item => onAttendanceOptimistic?.(item.bookingId, null));
       }
@@ -1195,7 +1233,7 @@ export function CourseRoster({
 
 
                 </div>
-                <div className="min-w-0 basis-72 flex-1 lg:order-1"><RosterReminders booking={booking} canEdit={canEdit} onOpen={()=>setInfoBookingId(booking.id)} onEdit={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}} /></div>
+                <div className="min-w-0 basis-72 flex-1 lg:order-1"><RosterReminders booking={booking} canEdit={canEdit} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)} /></div>
                 {savingBookingIds.includes(booking.id) && <span className="self-center whitespace-nowrap text-xs text-primary-700" role="status">儲存中…</span>}
                 {canEdit && <div className={`flex min-w-0 gap-1 ${largeMusicGroup ? "ml-auto flex-wrap justify-end lg:order-1 lg:flex-nowrap lg:shrink-0" : "ml-auto flex-wrap"}`}>
 
@@ -1254,7 +1292,7 @@ export function CourseRoster({
               <span className={`${sportsRoster.ownerColumn} text-xs text-earth-600`}>{booking.assignedCoachName || ""}</span>
               <span className={`${sportsRoster.pointColumn} text-center tabular-nums`}>{booking.bookingKind === "TRIAL" ? "" : booking.bookingKind === "TEACHER_MAKEUP" ? "免費券" : <>{booking.pointCost}{booking.unit === "SESSION" && <span className="ml-1 text-xs">堂</span>}</>}</span>
               <span className={`${sportsRoster.balanceColumn} text-center tabular-nums ${after != null && after <= 0 ? "text-amber-700" : ""}`} title={postClassBalanceDescription}>{after == null ? "" : after < 0 ? "不足" : after}</span>
-              <SportsRosterReminders customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit && booking.status !== "CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} onEdit={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}} />
+              <SportsRosterReminders customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit && booking.status !== "CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)} />
               {canEdit && <button type="button" className={`${sportsRoster.more} min-h-11 min-w-11 rounded text-earth-600 hover:bg-earth-100`} aria-label={`${booking.customerName} 更多操作`} aria-expanded={openActionMenu?.bookingId === booking.id} data-roster-action-trigger onClick={event => toggleRosterMenu(event.currentTarget,booking.id)}>⋯</button>}
             </li>;
           })}
@@ -1451,7 +1489,15 @@ export function CourseRoster({
       )}
 
       {editingNote && <ModalPanel open onClose={() => setEditingNote(null)} labelledById={noteEditorTitleId} width={512}>
-        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft}),"備註已儲存");setEditingNote(null);}}>
+        <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>{
+          if(target.bookingId) {
+            // A newer save through the existing details editor also supersedes
+            // delayed inline responses for this booking; teacher notes are separate.
+            const generations=noteScope.current.saveGenerations;
+            generations.set(target.bookingId,(generations.get(target.bookingId)??0)+1);
+          }
+          return saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft});
+        },"備註已儲存");setEditingNote(null);}}>
           <h3 id={noteEditorTitleId} className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : "教師備註"}</h3>
           <textarea className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
           <div className="mt-4 flex justify-end gap-2"><button type="button" className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>

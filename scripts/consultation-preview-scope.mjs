@@ -62,6 +62,7 @@ export const HQ_INTAKE_DETAIL_PREVIEW_BRANCH = "fix/hq-intake-compact-details-20
 export const HQ_LEGACY_IMPORT_PREVIEW_BRANCH = "feat/hq-legacy-consultation-import-20261009";
 export const SPORTS_ROSTER_PREVIEW_BRANCH = "fix/course-roster-two-line-20261008";
 export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
+export const INLINE_BOOKING_NOTES_PREVIEW_BRANCH = "feat/inline-booking-notes-local-20261009";
 
 /** Read existing isolated intake rows; no synthetic intake or migrations.
  * @param {Readonly<Record<string, string | undefined>>} env
@@ -118,7 +119,7 @@ export function assertSportsRosterPreviewEnvironment(env) {
  */
 export function assertModuleRosterPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      env.VERCEL_GIT_COMMIT_REF !== MODULE_ROSTER_PREVIEW_BRANCH ||
+      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
@@ -177,7 +178,7 @@ export function assertReviewedReleaseEnvironment(env) {
     }
     return "production";
   }
-  if (env.VERCEL_GIT_COMMIT_REF === MODULE_ROSTER_PREVIEW_BRANCH) {
+  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertModuleRosterPreviewEnvironment(env);
     return "module-roster-preview";
   }

@@ -9,6 +9,8 @@ import type { LabelSnapshot } from "@/lib/customer-labels";
 const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), labels: vi.fn(), write: vi.fn(), open: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/s/synthetic/admin/dashboard/bookings", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("next/link", () => ({ default: ({ href, children }: { href: string; children: React.ReactNode }) => createElement("a", { href }, children), useLinkStatus: () => ({ pending: false }) }));
+vi.mock("@/server/actions/booking-note", () => ({ updateBookingNoteAction: m.write }));
+vi.mock("@/server/actions/spa-booking", () => ({ updateSpaBookingNoteAction: m.write }));
 vi.mock("@/server/actions/customer-labels", () => ({ loadCustomerLabels: m.labels, setCustomerLabel: m.write, manageCustomerLabels: m.write }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: m.write, loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: m.write }));
 vi.mock("@/server/actions/course-roster-enrollment", () => ({ previewCourseEnrollment: vi.fn(), enrollCourseSeries: m.write }));
@@ -38,6 +40,7 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(() => [{ width: 100, height: 44 }] as unknown as DOMRectList);
+  vi.spyOn(window, "confirm").mockReturnValue(true);
   m.write.mockResolvedValue({ success: true });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
@@ -53,7 +56,7 @@ async function renderModule(module: Module, { empty = false, count = 0, long = f
   m.load.mockResolvedValue({ success: true, data: { session, roster, cards: [], trial: null } });
   m.quick.mockResolvedValue({ success: true, data: { roster, teacherNote: "", teacherAttendance: "SCHEDULED", teacherAttendanceReason: "" } });
   const element = module === "steam" ? createElement(DayDetailPanel, { date: "2026-09-24", bookings: empty ? [] : [booking], slots: [], readOnly: readonly, onBookingClick: m.open })
-    : module === "spa" ? createElement(SpaBookingRoster, { bookings: empty ? [] : [{ id: "synthetic-spa", customerId: "customer", serviceStaffId: "staff", serviceLocationId: "room", serviceName: "合成療程", startTime: "10:00", endTime: "11:00", status: "CONFIRMED", totalPrice: 1200, notes, treatmentIds: [], updatedAt: "2026-09-24T02:00:00Z", receipt: { id: "receipt", amount: 1200, paymentMethod: "CASH", paidAt: "2026-09-24T02:00:00Z", refunded: false } }], customers: [{ id: "customer", name, serviceNote }], staff: [{ id: "staff", name: "合成技師" }], locations: [{ id: "room", name: "合成房間" }], canUpdate: !readonly, onOpen: m.open })
+    : module === "spa" ? createElement(SpaBookingRoster, { bookings: empty ? [] : [{ id: "synthetic-spa", customerId: "customer", serviceStaffId: "staff", serviceLocationId: "room", serviceName: "合成療程", startTime: "10:00", endTime: "11:00", status: "CONFIRMED", totalPrice: 1200, notes, treatmentIds: [], updatedAt: "2026-09-24T02:00:00Z", receipt: { id: "receipt", amount: 1200, paymentMethod: "CASH", paidAt: "2026-09-24T02:00:00Z", refunded: false } }], customers: [{ id: "customer", name, serviceNote }], staff: [{ id: "staff", name: "合成技師" }], locations: [{ id: "room", name: "合成房間" }], canUpdate: !readonly, onOpen: m.open, storeId: "synthetic-store", date: "2026-09-24", onNotesSaved: vi.fn() })
     : createElement(CourseRoster, { sessionId: "synthetic-session", capacity: musicGroup ? 10 : 1, canCreate: false, canEdit: !readonly, musicLayout: module === "music", classType: musicGroup ? "GROUP" : "PRIVATE", teacherName: "合成老師" });
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial: labels, children: element })));
 }
@@ -96,10 +99,11 @@ it.each(["sports", "music"] as const)("%s note-edit cancel discards a draft with
   await renderModule(module, { long: true });
   const trigger = host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!;
   await act(async () => trigger.click());
-  const dialog = document.querySelector("textarea")!.closest<HTMLElement>('[role="dialog"]')!;
-  const input = dialog.querySelector("textarea")!;
+  const editor = host.querySelector<HTMLElement>("[data-inline-roster-note]")!;
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  const input = editor.querySelector("textarea")!;
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "合成未儲存草稿"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-  await act(async () => [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
+  await act(async () => [...editor.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
   expect(document.querySelector("textarea")).toBeNull();
   await act(async () => trigger.click()); expect(document.querySelector("textarea")?.value).toBe(longNote);
   expect(m.write).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
@@ -109,7 +113,7 @@ it.each(["sports", "music"] as const)("%s note editor supports keyboard Escape a
   const trigger = host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!;
   trigger.focus(); await act(async () => trigger.click());
   expect(document.querySelector("textarea")?.value).toBe(longNote);
-  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await act(async () => document.querySelector("textarea")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
   expect(document.querySelector("textarea")).toBeNull(); expect(document.activeElement).toBe(trigger);
   expect(m.write).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
 });
@@ -130,20 +134,18 @@ it.each(modules)("%s retains the empty reminder skeleton without fabricating con
   await act(async () => overview().click()); const dialog = noteDialog();
   expect(dialog.textContent?.match(/尚無備註/g)?.length).toBe(2); expect(m.write).not.toHaveBeenCalled();
 });
-it.each(["sports", "music"] as const)("%s traps the note editor keyboard focus and submits one unchanged action contract", async module => {
+it.each(["sports", "music"] as const)("%s opens its inline note editor without trapping Enter and sends one note-only action", async module => {
   await renderModule(module);
   await act(async () => host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 本次備註"]`)!.click());
-  const textarea = document.querySelector("textarea")!, form = textarea.closest("form")!;
-  const save = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-  expect(document.activeElement).toBe(textarea);
-  save.focus(); await act(async () => save.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
-  expect(document.activeElement).toBe(textarea);
-  await act(async () => textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })));
-  expect(document.activeElement).toBe(save);
+  const textarea = document.querySelector("textarea")!, editor = textarea.closest("[data-inline-roster-note]")!;
+  const save = [...editor.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "儲存")!;
+  expect(document.querySelector('[role="dialog"]')).toBeNull(); expect(document.activeElement).toBe(textarea);
+  const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+  await act(async () => textarea.dispatchEvent(enter)); expect(enter.defaultPrevented).toBe(false); expect(m.write).not.toHaveBeenCalled();
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(textarea, "合成儲存內容\n第二行"); textarea.dispatchEvent(new Event("input", { bubbles: true })); });
-  await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-  expect(m.write).toHaveBeenCalledExactlyOnceWith({ sessionId: "synthetic-session", bookingId: "synthetic-course", note: "合成儲存內容\n第二行" });
-  expect(document.querySelector("textarea")).toBeNull();
+  await act(async () => save.click());
+  expect(m.write).toHaveBeenCalledExactlyOnceWith({ sessionId: "synthetic-session", bookingId: "synthetic-course", note: "合成儲存內容\n第二行", expectedNote: "" });
+  expect(document.querySelector("textarea")).toBeNull(); expect(m.refresh).not.toHaveBeenCalled();
 });
 
 it.each(["pencil", "full-details"] as const)("music GROUP retains expanded history after reminder dismissal and %s editor cancellation", async entry => {
@@ -196,14 +198,15 @@ it.each(["pencil", "full-details"] as const)("music GROUP retains expanded histo
   expect(input.value).toBe(longNote);
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "團課未儲存草稿\n不應覆蓋原備註"); input.dispatchEvent(new Event("input", { bubbles: true })); });
   expect(input.value).toBe("團課未儲存草稿\n不應覆蓋原備註");
-  await act(async () => [...input.closest("form")!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
+  await act(async () => [...input.closest("form, [data-inline-roster-note]")!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expectExpandedHistory();
 
   noteTrigger.focus();
   await act(async () => noteTrigger.click());
   expect(document.querySelector("textarea")?.value).toBe(longNote);
-  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await act(async () => document.querySelector("textarea")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  expect(document.querySelector("textarea")).toBeNull();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(document.activeElement).toBe(noteTrigger);
   expectExpandedHistory();

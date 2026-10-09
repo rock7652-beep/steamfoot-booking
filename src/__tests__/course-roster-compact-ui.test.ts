@@ -369,12 +369,14 @@ it.each([false,true])("keeps direct note add/edit and full notes available in th
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:`compact-note-${musicLayout}`,capacity:10,canCreate:false,canEdit:true,musicLayout})));
   for(const booking of roster){
    const trigger=host.querySelector<HTMLButtonElement>(`button[aria-label="${booking.customerName} 本次備註"]`)!;
-   expect(trigger.textContent).toBe(booking.notes ? "編輯本次備註" : "＋本次備註");
+   expect(trigger.title).toBe(booking.notes ? "編輯本次備註" : "新增本次備註");
    await act(async()=>trigger.click());
-   const dialog=document.querySelector("textarea")!.closest('[role="dialog"]')!;
-   expect(dialog.querySelector("textarea")?.value).toBe(booking.notes);
-   expect(document.activeElement).toBe(dialog.querySelector("textarea"));
-   await act(async()=>[...dialog.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="取消")!.click());
+   const editor=trigger.closest("li")!.querySelector('[data-inline-roster-note]')!;
+   expect(document.querySelector('[role="dialog"]')).toBeNull();
+   expect(editor.querySelector("textarea")?.value).toBe(booking.notes);
+   expect(document.activeElement).toBe(editor.querySelector("textarea"));
+   await act(async()=>[...editor.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="取消")!.click());
+   expect(document.querySelector("textarea")).toBeNull();
    expect(document.querySelector('[role="dialog"]')).toBeNull();
   }
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="有備註學員 標籤與備註"]')!.click());

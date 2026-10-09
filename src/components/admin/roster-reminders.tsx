@@ -3,10 +3,11 @@
 import { CustomerLabels } from "@/components/customer-labels";
 import { useId, useState } from "react";
 import { ModalPanel } from "./modal-panel";
+import { InlineRosterNoteEditor, type InlineRosterNote } from "./inline-roster-note";
 import styles from "./roster-reminders.module.css";
 
 /** Shared roster reminders: two lines, separate 44px actions, full text on demand. */
-export function RosterReminders({ customerId, name, serviceNote, notes, canEdit, canEditNote = false, onOpen, onEdit, usualLabel = "店內", className = "", sports = false }: {
+export function RosterReminders({ customerId, name, serviceNote, notes, canEdit, canEditNote = false, onOpen, onEdit, inlineNote, usualLabel = "店內", className = "", sports = false }: {
   customerId?: string;
   name: string;
   serviceNote?: string | null;
@@ -15,6 +16,7 @@ export function RosterReminders({ customerId, name, serviceNote, notes, canEdit,
   canEditNote?: boolean;
   onOpen?: () => void;
   onEdit?: () => void;
+  inlineNote?: InlineRosterNote;
   usualLabel?: string;
   className?: string;
   sports?: boolean;
@@ -23,7 +25,7 @@ export function RosterReminders({ customerId, name, serviceNote, notes, canEdit,
   const titleId = useId();
   const sessionNote = notes?.trim().replace(/\s+/g, " ");
   const usualNote = serviceNote?.trim().replace(/\s+/g, " ");
-  return <><div className={`${styles.reminders} ${className}`} data-roster-reminders data-sports-roster-reminders={sports || undefined}>
+  return <><div className={`${styles.reminders} ${className}`} onClick={event => event.stopPropagation()} data-roster-reminders data-sports-roster-reminders={sports || undefined}>
     <button type="button" className={styles.overview} aria-label={`${name} 標籤與備註`} onClick={onOpen ?? (() => setOpen(true))}>
       <span className={styles.summaryLine}>
         {customerId ? <CustomerLabels customerId={customerId} displayOnly variant="summary" maxVisible={5} /> : <span className="text-earth-400">無標籤</span>}
@@ -38,12 +40,12 @@ export function RosterReminders({ customerId, name, serviceNote, notes, canEdit,
     <span className={styles.actionSlot}>
       {customerId && <CustomerLabels customerId={customerId} readOnly={!canEdit} iconOnly triggerLabel={`${name} ${canEdit ? "查看或修改" : "查看"}標籤`} />}
     </span>
-    <span className={styles.actionSlot}>
+    {inlineNote ? <InlineRosterNoteEditor key={inlineNote.scopeKey} name={name} value={notes ?? null} canEdit={canEditNote} config={inlineNote} /> : <span className={styles.actionSlot}>
       {canEditNote && onEdit && <button type="button" className={styles.iconAction} aria-label={`${name} 本次備註`} title={sessionNote ? "編輯本次備註" : "新增本次備註"} onClick={onEdit}>
         <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="m15 4 5 5M4 20l4-1 12-12a2.1 2.1 0 0 0-3-3L5 16Z"/></svg>
         <span className="sr-only">{sessionNote ? "編輯本次備註" : "＋本次備註"}</span>
       </button>}
-    </span>
+    </span>}
   </div>
     <ModalPanel open={open} onClose={() => setOpen(false)} labelledById={titleId} width={512}>
       <header className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-2">

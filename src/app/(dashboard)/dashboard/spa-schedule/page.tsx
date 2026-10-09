@@ -44,7 +44,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     canWrite ? checkPermission(user.role, user.staffId, "customer.create") : Promise.resolve(false),
   ]);
   return <PageShell className="max-w-none px-4 py-6">
-    <SpaScheduleWorkspace key={`${date}:${customerId??""}:${openNew??""}`} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
+    <SpaScheduleWorkspace key={`${storeId}:${date}:${customerId??""}:${openNew??""}`} storeId={storeId} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
       locations={locations} canCreateCustomer={canCreateCustomer} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,
         bufferMinutes: t.bufferMinutes, locationIds: t.serviceLocations.map(l => l.serviceLocationId) }))} />

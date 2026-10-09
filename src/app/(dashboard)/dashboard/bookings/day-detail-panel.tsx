@@ -1,6 +1,8 @@
 "use client";
 import { useId, useState, type ReactNode } from "react";
 import { RosterToolbar, RosterMoreMenu, rosterRowClassName, rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
+import type { NoteSaveResult } from "@/components/operations/retained-note-editor";
+import { updateBookingNoteAction } from "@/server/actions/booking-note";
 import { RosterReminders } from "@/components/admin/roster-reminders";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import styles from "./day-detail-panel.module.css";
@@ -103,6 +105,10 @@ interface DayDetailPanelProps {
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
   onBookingClick?: (bookingId: string, intent?: "collect") => void;
+  noteScope?: string;
+  canEditBookingNote?: boolean;
+  onBookingNoteSaved?: (bookingId: string, value: string | null) => void;
+  onSaveBookingNote?: (bookingId: string, notes: string | null, expectedNotes: string | null) => Promise<NoteSaveResult>;
   /** ── Batch / inline action wiring (omit to disable) ── */
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (id: string) => void;
@@ -134,6 +140,10 @@ export function DayDetailPanel({
   monthHasAnyBookings = false,
   filteredFrom = null,
   onBookingClick,
+  noteScope = "steam",
+  canEditBookingNote = false,
+  onBookingNoteSaved,
+  onSaveBookingNote,
   selectedIds,
   onToggleSelect,
   onSelectAllActionable,
@@ -282,6 +292,10 @@ export function DayDetailPanel({
                 <li key={b.id}>
                   <TimelineItem
                     booking={b}
+                    noteScope={`${noteScope}:${date}`}
+                    canEditBookingNote={canEditBookingNote}
+                    onBookingNoteSaved={onBookingNoteSaved}
+                    onSaveBookingNote={onSaveBookingNote}
                     onClick={onBookingClick}
                     readOnly={readOnly}
                     actionable={!readOnly && actionable}
@@ -329,6 +343,10 @@ export function DayDetailPanel({
 
 function TimelineItem({
   booking,
+  noteScope,
+  canEditBookingNote,
+  onBookingNoteSaved,
+  onSaveBookingNote,
   readOnly = false,
   onClick,
   actionable,
@@ -339,6 +357,10 @@ function TimelineItem({
   isActing,
 }: {
   booking: DayBooking;
+  noteScope: string;
+  canEditBookingNote: boolean;
+  onBookingNoteSaved?: (bookingId: string, value: string | null) => void;
+  onSaveBookingNote?: (bookingId: string, notes: string | null, expectedNotes: string | null) => Promise<NoteSaveResult>;
   readOnly?: boolean;
   onClick?: (id: string, intent?: "collect") => void;
   actionable: boolean;
@@ -543,7 +565,17 @@ function TimelineItem({
         <div className={styles.noteCell}>
           <RosterReminders customerId={booking.customer.id} name={booking.customer.name} canEdit={!readOnly}
             serviceNote={booking.customer.serviceNote} notes={booking.notes} usualLabel="平時"
-            canEditNote={!readOnly && !isActing && !!onClick} onEdit={onClick ? handleBodyClick : undefined} />
+            canEditNote={!readOnly && !isActing && canEditBookingNote}
+            inlineNote={{ scopeKey: `${noteScope}:${booking.id}`, maxLength: 500,
+              save: async (notes, expectedNotes) => {
+                const result = await (onSaveBookingNote
+                  ? onSaveBookingNote(booking.id, notes, expectedNotes)
+                  : updateBookingNoteAction({ bookingId: booking.id, notes, expectedNotes }));
+                if (result.success) onBookingNoteSaved?.(booking.id, notes);
+                return result;
+              },
+              onSaved: () => {},
+            }} />
         </div>
         <span title={assignedStaffName} className={`${styles.staffCell} text-sm text-earth-500`}>{assignedStaffName}</span>
       </div>

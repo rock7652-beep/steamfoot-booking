@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { LabelSnapshot } from "@/lib/customer-labels";
 const m = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), open: vi.fn(), edit: vi.fn() }));
+vi.mock("@/server/actions/spa-booking", () => ({ updateSpaBookingNoteAction: m.save }));
 vi.mock("@/server/actions/customer-labels", () => ({ loadCustomerLabels: m.load, setCustomerLabel: m.save }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: () => null }));
@@ -122,6 +123,7 @@ it.each([
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial, children: createElement(SpaBookingRoster, {
     bookings: [{ id: "spa-booking", customerId: "customer", serviceStaffId: "staff", serviceLocationId: "room", serviceName: "合成服務", startTime: "10:00", endTime: "11:00", status: "CONFIRMED", totalPrice: 1200, notes: "本次備註", treatmentIds: [], updatedAt: "2026-10-08T02:00:00Z", receipt: null }],
     customers: [{ id: "customer", name: "合成顧客", serviceNote: "店內備註" }], staff: [], locations: [], canUpdate: canUpdateBooking, onOpen: m.edit,
+    storeId: "synthetic-store", date: "2026-10-08", onNotesSaved: vi.fn(),
   }) })));
   expect(!!host.querySelector('button[aria-label="合成顧客 本次備註"]')).toBe(canUpdateBooking);
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="合成顧客 查看或修改標籤"]')!.click());
