@@ -463,6 +463,44 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelectorAll(".cp-history-list li")).toHaveLength(4);
     await click("收起紀錄"); expect(host.querySelectorAll(".cp-history-list li")).toHaveLength(3);
   });
+  it("distinguishes same-name cards and shows the history limit and actual leave debit", async () => {
+    const data = memberProps();
+    const card = (id: string, createdAt: string, used: number) => ({id,name:"十點方案",unit:"POINT",available:8,remaining:8,held:0,expiresAt:"2026-10-20",expired:false,closed:false,members:[],templateIds:[],entries:[],purchases:[],history:{createdAt,count:103,lessons:Array.from({length:100},(_,i)=>({id:`${id}-${i}`,name:id,startsAt:"2026-09-18T04:00:00Z",customerId:"member",customerName:"會員本人",status:"請假",used}))}});
+    data.cards = [card("舊方案課程","2026-08-01T00:00:00Z",2),card("續報課程","2026-09-01T00:00:00Z",0)] as unknown as CoursePortalData["cards"];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
+    const plans = host.querySelectorAll(".cp-plan");
+    expect(plans[0].textContent).toContain("2026-08-01");
+    expect(plans[1].textContent).toContain("2026-09-01");
+    expect(plans[0].textContent).toContain("扣 2 點");
+    expect(plans[1].textContent).toContain("未扣抵");
+    expect(plans[0].textContent).not.toContain("續報課程");
+    expect(host.textContent).not.toContain("查看全部 103");
+    await click("查看最近 100 筆");
+    expect(plans[0].querySelectorAll(".cp-history-list li")).toHaveLength(100);
+    expect(plans[1].querySelectorAll(".cp-history-list li")).toHaveLength(3);
+  });
+  it("refreshes a restored page while retaining the visibility and debounce guards", async () => {
+    const visibility = Object.getOwnPropertyDescriptor(document,"visibilityState");
+    const clock = vi.spyOn(Date,"now").mockReturnValue(0);
+    try {
+      Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"});
+      await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
+      clock.mockReturnValue(16000);
+      await act(async()=>window.dispatchEvent(new Event("pageshow")));
+      expect(m.refresh).toHaveBeenCalledTimes(1);
+      clock.mockReturnValue(17000);
+      await act(async()=>window.dispatchEvent(new Event("pageshow")));
+      expect(m.refresh).toHaveBeenCalledTimes(1);
+      Object.defineProperty(document,"visibilityState",{configurable:true,value:"hidden"});
+      clock.mockReturnValue(32000);
+      await act(async()=>window.dispatchEvent(new Event("pageshow")));
+      expect(m.refresh).toHaveBeenCalledTimes(1);
+    } finally {
+      clock.mockRestore();
+      if (visibility) Object.defineProperty(document,"visibilityState",visibility);
+      else Reflect.deleteProperty(document,"visibilityState");
+    }
+  });
   it("orders reserved plans before other effective plans and keeps archived plans last", async () => {
     const card=(id:string,held:number,expired=false)=>({id,name:id,unit:"POINT",available:8,remaining:10,held,expired,closed:false,expiresAt:"2026-10-20",members:[],entries:[],templateIds:[]});
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"plans",cards:[card("其他方案",0),card("已到期",0,true),card("目前使用",2)] as unknown as CoursePortalData["cards"]})));

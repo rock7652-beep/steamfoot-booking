@@ -331,7 +331,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     sharedCardState,
     config,
     // Shared membership grants names and shared balance, never another member's contact/profile fields.
-    cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members), history: planHistory.find(history => history.cardId === card.id) ?? { count: 0, lessons: [] },
+    cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members), history: planHistory.find(history => history.cardId === card.id) ?? { createdAt: null, count: 0, lessons: [] },
       // Only this customer's existing purchase records may appear beside a shared card.
       purchases: orders.filter(order => order.cardId === card.id).map(order => ({ id: order.id, points: order.points, createdAt: order.createdAt.toISOString(), status: order.status })),
     })),

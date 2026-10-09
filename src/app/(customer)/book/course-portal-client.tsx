@@ -354,10 +354,12 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     };
     const timer = setInterval(refresh, 60000);
     window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [router]);
@@ -1222,6 +1224,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   <div className="cp-line"><h2>{c.name}</h2><strong>{c.available} {unit(c.unit)}可用</strong></div>
                   <p className="cp-plan-expiry">{courseDate(c.expiresAt)} 到期{c.closed ? " · 已停用" : c.expired ? " · 已到期" : ""}{c.held > 0 ? ` · 已預約 ${c.held} ${unit(c.unit)}` : ""}</p>
                   {!!c.purchases?.length && <div className="cp-plan-purchases">{c.purchases.map(purchase => <p key={purchase.id}><time dateTime={purchase.createdAt}>{courseDate(purchase.createdAt)}</time> 購買 {purchase.points} {unit(c.unit)}{purchase.status === "REFUNDED" ? " · 已退款登記" : purchase.status === "VOIDED" ? " · 已作廢" : ""}</p>)}</div>}
+                  {!c.purchases?.length && c.history?.createdAt && <p className="cp-plan-purchases"><time dateTime={c.history.createdAt}>{formatTWDateTime(new Date(c.history.createdAt))}</time> 開卡</p>}
                   {!!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
                     {months.map(month => <section className="cp-history-month" key={month}>
                       <h3>{month.slice(0,4)} 年 {Number(month.slice(5))} 月</h3>

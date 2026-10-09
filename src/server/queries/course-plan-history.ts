@@ -8,7 +8,7 @@ export async function getCoursePlanHistory(storeId: string, customerId: string, 
   const cards = await coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: cardIds }, members: { some: { customerId } } },
     select: {
-      id: true,
+      id: true, createdAt: true,
       _count: { select: { bookings: { where } } },
       bookings: {
         where,
@@ -23,6 +23,7 @@ export async function getCoursePlanHistory(storeId: string, customerId: string, 
   });
   return cards.map(card => ({
     cardId: card.id,
+    createdAt: card.createdAt.toISOString(),
     count: card._count.bookings,
     lessons: card.bookings.map(booking => ({
       id: booking.id,
