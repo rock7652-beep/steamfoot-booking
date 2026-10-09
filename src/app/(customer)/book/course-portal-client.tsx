@@ -1052,7 +1052,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   <article className="cp-card cp-pad cp-booking-card" key={id}>
                     <div className="cp-booking-heading">
                       <h2>{formatTWDateTime(new Date(first.startsAt))} · {first.name}</h2>
-                      <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合 ⌃" : "明細 ⌄"}</button>
+                      <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合備註 ⌃" : "查看備註 ⌄"}</button>
                     </div>
                     <p className="cp-booking-location">{first.coach} · {first.room} · 共 {list.length} 人</p>
                     <div id={`booking-details-${id}`}>
@@ -1088,24 +1088,25 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           </div>
                         )}
                         </div>
-                        {bookingDetails[id] && <div className="cp-booking-detail">
-                          <p>
+                        <div className="cp-booking-detail">
+                          <ul><li>
                             {b.unit === "TRIAL" ? `體驗 NT$ ${b.trialPrice} · ${b.trialPaid === null ? "尚未收款" : `已收款 NT$ ${b.trialPaid}`}` : b.planName}{b.expiresAt ? ` · ${courseDate(b.expiresAt)} 到期` : ""}
-                          </p>
-                          <p>
+                          </li>
+                          <li>
                             {b.unit === "TRIAL" ? "" : b.status === "ATTENDED"
                               ? "已扣除"
                               : b.status === "RESERVED"
                                 ? "本次使用"
                                 : b.status === "NO_SHOW" ? "本次額度" : "已釋放"}{" "}
                             {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}
-                          </p>
+                          </li>
                           {b.customerId !== p.customerId && (
-                            <p>預約人：{b.operatorName}</p>
+                            <li>預約人：{b.operatorName}</li>
                           )}
-                          {b.status === "RESERVED" && <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>}
-                          {b.notes && <p>備註：{b.notes}</p>}
-                        </div>}
+                          {b.status === "RESERVED" && <li>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</li>}
+                          </ul>
+                          {bookingDetails[id] && <p>備註：{b.notes || "無"}</p>}
+                        </div>
                       </div>
                     ))}
                     </div>
@@ -1152,7 +1153,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             <>
               {heading("我的方案")}
               <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計 · {balanceTotals.reduce((sum,total)=>sum+total.count,0)} 個</h2><p>{courseBalanceText(balanceTotals)}</p><p>{sharingVisible && "共卡為共同餘額；"}各方案期限與適用課程分開計算。</p></section>
-              <p>可用額度＝剩餘－預約保留；每張方案的期限分開計算。</p>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
               <a className="cp-btn" href={`${p.prefix}/book/reminders`}>額度提醒設定</a>
               {p.cards.filter(c=>cardHistory || (!c.expired && !c.closed)).map((c) => (
@@ -1163,24 +1163,20 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                       {c.available} {unit(c.unit)}可用
                     </strong>
                   </div>
-                  <p>
-                    {courseDate(c.expiresAt)} 到期{c.expired ? " · 已到期" : ""}
-                  </p>
-                  <p>
-                    剩餘 {c.remaining} · 已預約保留 {c.held}
-                  </p>
-                  <details>
-                    <summary>{c.members.length > 1 ? "方案詳情" : "適用課程"}</summary>
-                    <p>
+                  <ul>
+                    <li>到期日：{courseDate(c.expiresAt)}{c.expired ? " · 已到期" : ""}</li>
+                    <li>剩餘：{c.remaining} {unit(c.unit)}</li>
+                    <li>預約保留：{c.held} {unit(c.unit)}</li>
+                    <li>適用課程：
                       {c.templateIds.length
                         ? p.templates
                             .filter((t) => c.templateIds.includes(t.id))
                             .map((t) => t.name)
                             .join("、")
                         : "本店所有課程"}
-                    </p>
+                    </li>
+                  </ul>
                     {c.members.length > 1 && <><p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p><p>以上成員共用此方案餘額；代約僅代表協助預約，不會新增授權。</p></>}
-                  </details>
                   <details>
                     <summary>使用紀錄（最近 100 筆）</summary>
                     {c.entries.map((e) => (
