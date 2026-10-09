@@ -3,7 +3,7 @@ import { coursePortalGuides, findCoursePortalGuides } from "../lib/course-portal
 
 describe("course portal guide access and search", () => {
   it("keeps member and coach instructions separate", () => {
-    expect(findCoursePortalGuides("member", true)).toHaveLength(12);
+    expect(findCoursePortalGuides("member", true)).toHaveLength(13);
     expect(findCoursePortalGuides("coach", true)).toHaveLength(7);
     expect(findCoursePortalGuides("member", true).every(g => g.role === "member")).toBe(true);
     expect(findCoursePortalGuides("coach", true).every(g => g.role === "coach")).toBe(true);
@@ -15,7 +15,7 @@ describe("course portal guide access and search", () => {
     expect(findCoursePortalGuides("coach", false, "返還").map(g=>g.id)).not.toContain("CP21");
   });
   it("hides health instructions when the feature is unavailable", () => {
-    expect(findCoursePortalGuides("member", false)).toHaveLength(11);
+    expect(findCoursePortalGuides("member", false)).toHaveLength(12);
     expect(findCoursePortalGuides("member", false).some(g => g.healthOnly)).toBe(false);
   });
   it("finds transfer and correction instructions within the active role", () => {
