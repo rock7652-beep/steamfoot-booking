@@ -39,7 +39,7 @@
 /* In narrow split view, identity gets the full first band instead of colliding with counts. */
 @container sports-roster (max-width: 639px) {
   .row .identity { grid-column: 1 / -1; grid-row: 1; }
-  .row .reminders { grid-column: 1; grid-row: 2; }
+  .row .reminders { grid-column: 1 / -1; grid-row: 3; }
   .row .pointColumn { grid-column: 2; grid-row: 2; }
   .row .balanceColumn { grid-column: 3; grid-row: 2; }
   .row .more { grid-column: 4; grid-row: 2; }

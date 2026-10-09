@@ -59,6 +59,17 @@ it("shows private makeup and renewal without combining leave with paid lessons",
   expect(host.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
   expect(host.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
   expect(host.textContent).toContain("1. 2026-10-06 待上課");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員 更多操作"]')!.click());
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="預約紀錄")!.click());
+  const history=document.querySelector('[aria-labelledby="course-roster-history-title"]')!;
+  expect(history.textContent).toContain("學員 · 預約紀錄");
+  expect(history.textContent).toContain("2026-09-08 · 請假・不扣堂");
+  expect(history.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
+  expect(history.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
+  expect(history.textContent).not.toContain("編輯本次備註");
+  await act(async()=>[...history.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="關閉")!.click());
+  expect(document.querySelector('[aria-labelledby="course-roster-history-title"]')).toBeNull();
+  expect(host.textContent).toContain("下期已繳 8 堂");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it("signs in music learners as attended in one batch and gives no makeup coupon for absence",async()=>{
