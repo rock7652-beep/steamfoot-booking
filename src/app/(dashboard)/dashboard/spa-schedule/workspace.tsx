@@ -34,6 +34,7 @@ type Treatment = Named & {
   locationIds: string[];
 };
 type Props = {
+  storeId: string;
   initialCustomerId?: string;
   date: string;
   bookings: SpaScheduleBooking[];
@@ -63,8 +64,9 @@ const inputClass =
 
 export function SpaScheduleWorkspace(props: Props) {
   const {
+    storeId,
     date,
-    bookings,
+    bookings: initialBookings,
     staff,
     customers: initialCustomers,
     treatments,
@@ -73,6 +75,24 @@ export function SpaScheduleWorkspace(props: Props) {
     canUpdate,
     canCheckout,
   } = props;
+  const noteScope = JSON.stringify([storeId, date]);
+  const [savedNotes, setSavedNotes] = useState<Record<string, {
+    scope: string; notes: string; updatedAt: string; previousUpdatedAt: string;
+  }>>({});
+  const bookings = initialBookings.map(booking => {
+    const saved = savedNotes[booking.id];
+    // A stale server render cannot undo a completed save. A newer revision
+    // remains authoritative, including subsequent edits in the detail panel.
+    return saved?.scope === noteScope && saved.updatedAt >= booking.updatedAt
+      ? {
+          ...booking, notes: saved.notes,
+          // Do not bless stale service/status fields with the note revision.
+          // Full-detail editing retains its existing conflict check until fresh
+          // server props include any intervening changes.
+          updatedAt: booking.updatedAt === saved.previousUpdatedAt ? saved.updatedAt : booking.updatedAt,
+        }
+      : booking;
+  });
   const [addedCustomers, setAddedCustomers] = useState<Props["customers"]>([]);
   const customers = [
     ...initialCustomers,
@@ -618,7 +638,10 @@ export function SpaScheduleWorkspace(props: Props) {
         <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm">
           當日預約紀錄（{bookings.length}）
         </summary>
-        <SpaBookingRoster bookings={bookings} customers={customers} staff={staff} locations={locations} canUpdate={canUpdate} onOpen={openEdit} />
+        <SpaBookingRoster bookings={bookings} customers={customers} staff={staff} locations={locations} canUpdate={canUpdate} onOpen={openEdit}
+          storeId={storeId} date={date} onNotesSaved={(bookingId, notes, updatedAt, previousUpdatedAt) => {
+            setSavedNotes(previous => ({ ...previous, [bookingId]: { scope: noteScope, notes, updatedAt, previousUpdatedAt } }));
+          }} />
       </details>
       {checkout && (
         <SpaCheckoutPanel

@@ -30,6 +30,7 @@ import {
 import {
   createBookingDetailCache,
 } from "./booking-detail-cache";
+import { updateBookingNoteAction } from "@/server/actions/booking-note";
 import { applyBookingNotePatch, type BookingNotePatch } from "./booking-note-state";
 import { ACTIVE_BOOKING_STATUSES, PENDING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -163,6 +164,7 @@ export interface BookingsManagerProps {
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
   canManageHours?: boolean;
+  canEditBookingNote?: boolean;
   initialBookingId?: string | null;
 }
 
@@ -179,6 +181,7 @@ function BookingsManagerContent({
   servicePlans,
   readOnly = false,
   canManageHours = false,
+  canEditBookingNote = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
   const seedLabels=useSeedCustomerLabels();
@@ -193,8 +196,14 @@ function BookingsManagerContent({
     setMonthData(initialMonthData);
   }, [initialMonthData]);
 
+  const noteOwnerMounted = useRef(false);
+  useEffect(() => { noteOwnerMounted.current = true; return () => { noteOwnerMounted.current = false; }; }, []);
   const [selectedDate, setSelectedDate] = useRetainedState<string | null>(`steamfoot-bookings:date:${year}-${month}`, null,
     (value): value is string | null => value === null || (typeof value === "string" && value.startsWith(`${year}-${String(month).padStart(2, "0")}-`) && /^\d{4}-\d{2}-\d{2}$/.test(value)));
+  const noteScopeKey = `${storeId ?? "ALL"}:${year}-${month}:${selectedDate ?? ""}`;
+  const currentNoteScope = useRef({ key: noteScopeKey });
+  if (currentNoteScope.current.key !== noteScopeKey) currentNoteScope.current = { key: noteScopeKey };
+  const noteScope = currentNoteScope.current;
   // Slots cache, keyed by date string. Bookings are derived from monthData
   // (no per-day fetch); slots are still fetched on demand because they
   // require business-hours / duty / overrides resolution that isn't part of
@@ -244,6 +253,8 @@ function BookingsManagerContent({
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
+  const noteRevision = useRef(0);
+  const noteSaveVersions = useRef(new Map<string, symbol>());
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
   // The workspace already supplies SSR data or revalidates a month switch.
   // Avoid a second identical request as soon as this manager mounts.
@@ -257,13 +268,18 @@ function BookingsManagerContent({
     setSyncing(false);
     const controller = createBookingRefresh({
       gate: refreshGate.current,
-      paused: () => refreshPaused || document.hidden || !navigator.onLine ||
+      paused: () => refreshPaused || !!document.querySelector("[data-inline-roster-note]") || document.hidden || !navigator.onLine ||
         document.activeElement?.matches("input, textarea, select, [contenteditable='true']") === true ||
         Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
           dialog.getAttribute("aria-labelledby") !== "day-detail-sheet-title" &&
           !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
-      load: () => readBookingMonth({ year, month, storeId, date: selectedDate }),
-      apply: (snapshot) => {
+      load: async () => {
+        const revision = noteRevision.current;
+        const snapshot = await readBookingMonth({ year, month, storeId, date: selectedDate });
+        return { revision, snapshot };
+      },
+      apply: ({ revision, snapshot }) => {
+        if (revision !== noteRevision.current) return;
         if(snapshot.customerLabels)seedLabels?.(snapshot.customerLabels);
         setMonthData(snapshot.monthData);
         setMonthSchedule(snapshot.monthSchedule);
@@ -604,6 +620,9 @@ function BookingsManagerContent({
   );
 
   const handleNotesUpdated = useCallback((patch: BookingNotePatch) => {
+    // A newer detail-editor save also supersedes any delayed inline response.
+    if (patch.kind === "booking") noteSaveVersions.current.set(patch.bookingId, Symbol());
+    noteRevision.current += 1;
     monthNavigation?.invalidate();
     // A customer note applies to every booking for that customer.
     for (const day of monthData) {
@@ -802,6 +821,19 @@ function BookingsManagerContent({
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             key={selectedDate}
+            noteScope={`steam:${storeId ?? "ALL"}`}
+            canEditBookingNote={canEditBookingNote}
+            onSaveBookingNote={async (bookingId, notes, expectedNotes) => {
+              const request = Symbol();
+              noteSaveVersions.current.set(bookingId, request);
+              noteRevision.current += 1;
+              const result = await updateBookingNoteAction({ bookingId, notes, expectedNotes });
+              if (result.success && noteOwnerMounted.current && currentNoteScope.current === noteScope &&
+                  noteSaveVersions.current.get(bookingId) === request) {
+                handleNotesUpdated({ kind: "booking", bookingId, value: notes });
+              }
+              return result;
+            }}
             allBookings={dayBookings}
             batchResult={batchResult}
             onCreated={()=>{void refreshRef.current?.();}}

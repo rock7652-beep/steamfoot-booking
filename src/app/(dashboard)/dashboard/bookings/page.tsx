@@ -54,13 +54,14 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   // getActiveStoreForRead() already gives an authorized route-first store scope.
   // Reapplying the viewed-store cookie here can replace /s/:slug with a stale store.
-  const [activeStoreId, storeViewContext, canManageHours, accessibleStoreIds] = await Promise.all([
+  const [activeStoreId, storeViewContext, canManageHours, accessibleStoreIds, canEditBookingNote] = await Promise.all([
     timing.measure("activeStore", () => getActiveStoreForRead(user)),
     timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user)),
     timing.measure("hoursPermission", () => checkPermission(user.role, user.staffId, "business_hours.manage")),
     params.bookingId
       ? timing.measure("accessibleStores", () => getAccessibleStoreIds(user))
       : Promise.resolve([]),
+    timing.measure("notePermission", () => checkPermission(user.role, user.staffId, "booking.update")),
   ]);
   const fallbackStoreId = activeStoreId;
   // Booking ids are globally unique. Resolve legacy and current notification
@@ -142,6 +143,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           isViewMode={isViewMode}
           canManageHours={canManageHours}
           operationGuidePreview={operationGuidePreview}
+          canEditBookingNote={canEditBookingNote}
           initialBookingId={deepLinkedBooking?.id ?? null}
           logCtx={logCtx}
         />
@@ -154,7 +156,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
 async function BookingWorkspaceData({
   userId, bookingsStoreId, year, month, isViewMode, canManageHours,
-  operationGuidePreview, initialBookingId, logCtx,
+  operationGuidePreview, initialBookingId, logCtx, canEditBookingNote,
 }: {
   userId: string;
   bookingsStoreId: string | null;
@@ -162,6 +164,7 @@ async function BookingWorkspaceData({
   month: number;
   isViewMode: boolean;
   canManageHours: boolean;
+  canEditBookingNote: boolean;
   operationGuidePreview: boolean;
   initialBookingId: string | null;
   logCtx: Record<string, unknown>;
@@ -238,6 +241,7 @@ async function BookingWorkspaceData({
         servicePlans={servicePlans}
         readOnly={isViewMode}
         canManageHours={canManageHours}
+        canEditBookingNote={canEditBookingNote}
         initialBookingId={initialBookingId}
       />
   );

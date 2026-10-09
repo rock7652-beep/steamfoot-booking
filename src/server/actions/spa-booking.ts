@@ -32,6 +32,18 @@ export type CreateSpaBookingInput = z.infer<typeof inputSchema>;
 const editSchema = inputSchema.extend({ bookingId: z.string().min(1), expectedUpdatedAt: z.string().datetime() });
 export type UpdateSpaBookingInput = z.infer<typeof editSchema>;
 const cancelSchema = z.object({ bookingId: z.string().min(1), expectedUpdatedAt: z.string().datetime() });
+const noteSchema = z.object({
+  bookingId: z.string().min(1),
+  storeId: z.string().min(1),
+  notes: z.string().trim().max(500, "本次備註最多 500 字").nullable(),
+  expectedNotes: z.string().max(500, "本次備註最多 500 字").nullable(),
+});
+type SpaNoteResult = {
+  success: boolean;
+  error?: string;
+  currentValue?: string | null;
+  data?: { notes: string | null; updatedAt: string; previousUpdatedAt: string };
+};
 const active = ["PENDING", "CONFIRMED"] as const;
 
 async function authorizedStore(permission: "booking.create" | "booking.update") {
@@ -186,6 +198,58 @@ export async function updateSpaBookingAction(input: UpdateSpaBookingInput): Prom
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) { return actionError(e); }
+}
+
+/** Notes are independent of service snapshots, scheduling and payment fields. */
+export async function updateSpaBookingNoteAction(input: z.infer<typeof noteSchema>): Promise<SpaNoteResult> {
+  const parsed = noteSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "備註資料不完整" };
+  try {
+    const { storeId, user } = await authorizedStore("booking.update");
+    if (parsed.data.storeId !== storeId) throw new AppError("FORBIDDEN", "店家已切換，請重新開啟預約");
+    const result = await spaPrisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+      const where = { id: parsed.data.bookingId, storeId };
+      const booking = await tx.spaBooking.findFirst({
+        where,
+        select: { id: true, status: true, notes: true, updatedAt: true },
+      });
+      if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
+      if (!active.includes(booking.status as typeof active[number])) {
+        throw new AppError("CONFLICT", "預約已變更或無法修改，請重新確認");
+      }
+      const notes = parsed.data.notes || null;
+      const previousUpdatedAt = booking.updatedAt.toISOString();
+      // A completed write whose response was lost is a safe retry, even when
+      // its original expected note is no longer current.
+      if ((booking.notes ?? "") === (notes ?? "")) {
+        return { success: true, data: { notes, updatedAt: previousUpdatedAt, previousUpdatedAt } };
+      }
+      if ((booking.notes ?? "") !== (parsed.data.expectedNotes ?? "")) {
+        return { success: false, error: "本次備註已被更新，請確認目前內容後再儲存", currentValue: booking.notes };
+      }
+      // The predicate also prevents a concurrent checkout/status change from
+      // making a no-longer-editable booking writable while this action waits.
+      const updated = await tx.spaBooking.updateMany({
+        where: { ...where, status: { in: [...active] }, notes: booking.notes },
+        data: { notes },
+      });
+      if (updated.count !== 1) {
+        const current = await tx.spaBooking.findFirst({ where, select: { notes: true, status: true } });
+        return {
+          success: false,
+          error: "預約或本次備註已被更新，請重新確認",
+          ...(current && active.includes(current.status as typeof active[number]) ? { currentValue: current.notes } : {}),
+        };
+      }
+      const saved = await tx.spaBooking.findFirst({ where, select: { notes: true, updatedAt: true } });
+      if (!saved) throw new AppError("NOT_FOUND", "預約不存在");
+      await enqueueOperationAudit({ actorUserId: user.id, storeId, module: "SPA", targetType: "SpaBooking", targetId: booking.id, action: "UPDATE", summary: "修改服務預約本次備註" }, tx, `note:${booking.updatedAt.toISOString()}`);
+      return { success: true, data: { notes: saved.notes, updatedAt: saved.updatedAt.toISOString(), previousUpdatedAt } };
+    });
+    if (result.success) revalidatePath("/dashboard/spa-schedule");
+    return result;
+  } catch (e) { return handleActionError(e); }
 }
 
 export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>): Promise<ActionResult<{ bookingId: string }>> {
