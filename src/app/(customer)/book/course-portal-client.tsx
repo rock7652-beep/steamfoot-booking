@@ -227,6 +227,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const [requestedPage, setPage] = useState<Page>(p.initialView ?? "home"),
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
+    [courseFilter, setCourseFilter] = useState(""),
+    [teacherFilter, setTeacherFilter] = useState(""),
     [history, setHistory] = useState(false),
     [bookingDetails, setBookingDetails] = useState<Record<string, boolean>>({}),
     [cardHistory, setCardHistory] = useState(false),
@@ -973,16 +975,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
                   <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><p>{courseBalanceText(balanceTotals)}</p><button onClick={()=>go("plans")}>查看各方案與期限</button></section>
-                  <h2>常用功能</h2>
                   <section className="cp-card">
-                    {menu("我的預約", "bookings", "待上課與歷史紀錄")}
-                    {menu(
-                      "我的方案",
-                      "plans",
-                      p.cards.length
-                        ? `${p.cards.filter((c) => !c.expired && !c.closed).length} 個有效方案`
-                        : "尚無方案",
-                    )}
                     {p.healthEnabled && menu("健康追蹤", "health", "查看身體數據與趨勢")}
                     {menu("操作指南", "guide", sharingVisible ? "預約、取消、方案與共卡" : "預約、取消與方案")}
                   </section>
@@ -1002,6 +995,18 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   <div className="cp-actions">{!showWorkCalendar && <button disabled={pending} onClick={()=>workDate(today)}>今天</button>}<button aria-pressed={showWorkCalendar} onClick={()=>setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar?"切換週曆":"月曆"}</button></div>
                   {showWorkCalendar && calendar}
                 </> : calendar}
+                {!coach && <section className="cp-card cp-pad" aria-label="課表篩選">
+                  <p>篩選 {p.month} 課表；下方顯示所選日期的結果。</p>
+                  <label>課程<select value={courseFilter} onChange={event => setCourseFilter(event.target.value)}>
+                    <option value="">全部課程</option>
+                    {Array.from(new Map(p.sessions.map(s => [s.templateId, s.name])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                  </select></label>
+                  <label>教師／教練<select value={teacherFilter} onChange={event => setTeacherFilter(event.target.value)}>
+                    <option value="">全部教師／教練</option>
+                    {Array.from(new Set(p.sessions.map(s => s.coach))).map(name => <option key={name} value={name}>{name}</option>)}
+                  </select></label>
+                  {(courseFilter || teacherFilter) && <button onClick={() => { setCourseFilter(""); setTeacherFilter(""); }}>清除篩選</button>}
+                </section>}
                 <section ref={daily} className="cp-daily">
                   <h2>
                     {selected} · {coach ? "授課" : "當日課程"}
@@ -1015,7 +1020,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                       )
                     : lessonRows(
                         p.sessions.filter(
-                          (s) => courseDate(s.startsAt) === selected,
+                          (s) => courseDate(s.startsAt) === selected && (!courseFilter || s.templateId === courseFilter) && (!teacherFilter || s.coach === teacherFilter),
                         ),
                       )}
                 </section>
