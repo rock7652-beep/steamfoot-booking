@@ -38,7 +38,9 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
   const [reload,setReload]=useState(0);
-  const dirty=!!time || date!==initialDate || templateId!==(initialTemplateId??templates[0]?.id??"") || repeat;
+  const initialTemplate=templates.find(t=>t.id===(initialTemplateId??templates[0]?.id));
+  const initialDuration=([30,60,90,120] as number[]).includes(initialTemplate?.durationMinutes??60)?initialTemplate?.durationMinutes??60:60;
+  const dirty=!!time || date!==initialDate || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending);return()=>onGuard?.(false,false);},[dirty,pending,onGuard]);
   function resetSlot(){setSlots(null);setUnavailable([]);setTime("");setCoachId("");setPair(null);setError("");}

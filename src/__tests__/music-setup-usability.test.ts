@@ -39,3 +39,17 @@ it("blocks sidebar navigation with an unsaved draft but permits opening a repair
  const leave=new MouseEvent("click",{bubbles:true,cancelable:true});host.querySelector("a")!.dispatchEvent(leave);expect(leave.defaultPrevented).toBe(true);
  const repair=new MouseEvent("click",{bubbles:true,cancelable:true});host.querySelectorAll("a")[1].dispatchEvent(repair);expect(repair.defaultPrevented).toBe(false);expect(window.confirm).toHaveBeenCalledTimes(1);
 });
+
+it("protects drafts when only duration or capacity changes",async()=>{
+ m.slots.mockResolvedValue({success:true,data:[]});const guard=vi.fn();
+ await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,onGuard:guard})));
+ expect(guard).toHaveBeenLastCalledWith(false,false);
+ const duration=host.querySelectorAll<HTMLSelectElement>("select")[2];
+ await act(async()=>{duration.value="90";duration.dispatchEvent(new Event("change",{bubbles:true}));});
+ expect(guard).toHaveBeenLastCalledWith(true,false);
+ await act(async()=>{duration.value="60";duration.dispatchEvent(new Event("change",{bubbles:true}));});
+ expect(guard).toHaveBeenLastCalledWith(false,false);
+ const capacity=host.querySelector<HTMLInputElement>('input[type="number"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(capacity,"2");capacity.dispatchEvent(new Event("input",{bubbles:true}));});
+ expect(guard).toHaveBeenLastCalledWith(true,false);
+});
