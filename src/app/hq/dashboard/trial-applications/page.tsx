@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/db";
 import { isHqStoreView } from "@/lib/hq-store-view";
 import { trialApplicationDatabaseAllowed } from "@/server/services/trial-application-access";
 import { consultationDatabaseAllowed } from "@/server/services/consultation-lead-access";
@@ -18,6 +19,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Con
   const enabled = process.env.CONSULTATION_HQ_ENABLED === "true";
   const isConsultations = search.stage === "consultations";
   if (isConsultations && enabled && !consultationDatabaseAllowed()) return <p>諮詢測試資料庫尚未確認隔離，暫停讀取。</p>;
+  const legacyCount = enabled && consultationDatabaseAllowed()
+    ? await prisma.consultationLead.count({ where: { sheetStatus: "LEGACY_IMPORTED" } }) : null;
   return (
     <div className="w-full min-w-0 space-y-3 [overflow-wrap:anywhere]">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -29,7 +32,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Con
       </header>
       <ConsultationFilters search={search} />
       <p className="text-sm leading-6 text-earth-600">
-        歷史 Sheet 尚未匯入 HQ。{" "}
+        {legacyCount === null ? "歷史資料請核對原有 Sheet。" : legacyCount === 0
+          ? "歷史 Sheet 尚未匯入 HQ。" : `已匯入 ${legacyCount} 筆歷史諮詢；其他來源請核對 Sheet。`}{" "}
         <a href={LEGACY_CONSULTATION_SHEET} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center align-middle text-primary-800 underline">查看原有 Sheet ↗</a>
       </p>
       {isConsultations ? enabled ? <ConsultationLeadList {...search} /> : (

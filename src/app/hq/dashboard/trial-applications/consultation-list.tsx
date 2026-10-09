@@ -31,20 +31,26 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
     <p className="text-sm">共 {total} 件 · 第 {page} 頁{(lead || search.application) && <> · <Link href={consultationHref({ stage: "consultations", q })} className="underline">返回諮詢清單</Link></>}</p>
     {items.length > 0 && <IntakeList>{items.map(item => {
       const original = originalFields(item.originalPayload);
+      const legacy = item.sheetStatus === "LEGACY_IMPORTED";
+      const provenance = originalFields("legacyImport" in item ? item.legacyImport : null);
+      const phoneNeedsReview = legacy && provenance.phoneNeedsReview === true;
+      const importedAt = legacy && typeof provenance.importedAt === "string" && Number.isFinite(Date.parse(provenance.importedAt))
+        ? formatTWTime(new Date(provenance.importedAt)) : "待查核";
       const noContact = isConsultationNoContact(original);
-      const phoneHref = noContact ? null : suppliedPhoneHref(item.phone);
+      const phoneHref = noContact || phoneNeedsReview ? null : suppliedPhoneHref(item.phone);
       const lineHref = noContact ? null : suppliedLineHref(item.lineId);
       const statusLabel = CONSULTATION_LEAD_STATUSES[item.status as keyof typeof CONSULTATION_LEAD_STATUSES] ?? item.status;
       const test = intakeTestMarker(item.storeName, item.contactName, item.lineId);
       return <IntakeListRow key={item.id} open={lead === item.id}
         store={<>{item.storeName}<span className="block font-normal text-earth-600">{item.industry}</span>{test && <span className="block text-amber-900">測試紀錄 · 請勿聯繫</span>}</>}
-        contact={noContact ? "未提供（暫不考慮）" : <>{item.contactName || "尚未提供"}<span className="block text-earth-600">{item.phone || item.lineId || "未留聯絡方式"}</span></>}
+        contact={noContact ? "未提供（暫不考慮）" : <>{item.contactName || "尚未提供"}<span className="block text-earth-600">{item.phone || item.lineId || "未留聯絡方式"}</span>{phoneNeedsReview && <span className="block text-amber-900">電話格式待核對</span>}</>}
         demand={<>{requirementSummary(original)}<span className="block text-earth-600">{fieldText(original.contactWay)}</span></>}
         status={<span className={item.status === "CLOSED" ? "text-earth-600" : "text-primary-800"}>{statusLabel}</span>}
         next={<span className={noContact || test ? "text-amber-900" : "text-earth-700"}>{test ? "保留查核，請勿聯繫" : consultationNextStep(item.status, noContact, Boolean(item.trialApplicationId))}</span>}
         submitted={formatTWTime(item.createdAt)}>
           <p className="text-sm text-earth-600">諮詢編號：{item.id} · 修訂 {item.revision}<br />原始收件編號：{item.requestId}</p>
           {noContact && <p role="note" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">店家選擇「目前暫不考慮」。本筆不提供聯絡捷徑，請勿主動聯繫。</p>}
+          {phoneNeedsReview && <p role="note" className="text-sm text-amber-900">來源電話為數字格式，可能缺少開頭的 0；原值保留，請人工核對，暫不提供撥號捷徑。</p>}
           <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
             {Object.entries({
               店家類型: original.industry,
@@ -79,7 +85,7 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
               })}
             </div>
           </section>
-          <p className="text-sm text-earth-600">HQ 已收件 · HQ 收件：{formatTWTime(item.createdAt)}<br />Sheet：{sheetStatusLabels[item.sheetStatus] ?? "狀態待查核"}{item.sheetConfirmedAt ? ` · ${formatTWTime(item.sheetConfirmedAt)}` : ""}</p>
+          <p className="text-sm text-earth-600">{legacy ? <>原始填寫：{formatTWTime(item.createdAt)} · HQ 匯入：{importedAt}</> : <>HQ 已收件 · HQ 收件：{formatTWTime(item.createdAt)}</>}<br />Sheet：{sheetStatusLabels[item.sheetStatus] ?? "狀態待查核"}{item.sheetConfirmedAt ? ` · ${formatTWTime(item.sheetConfirmedAt)}` : ""}</p>
           <section className="space-y-3 border-t pt-4" aria-label="處理進度"><ConsultationStatusForm id={item.id} revision={item.revision} status={item.status} /></section>
           <section className="space-y-3 border-t pt-4" aria-label="聯繫紀錄">
             <h3 className="font-semibold">聯繫與處理紀錄</h3>

@@ -13,6 +13,19 @@ const lead = () => ({ id: "lead-id", requestId: "request-id", revision: 3, store
 const render = async (params: Record<string, string> = {}) => renderToStaticMarkup(await ConsultationLeadList(parseConsultationSearch(params)));
 beforeEach(() => { vi.resetAllMocks(); m.find.mockResolvedValue([lead()]); m.count.mockResolvedValue(21); });
 describe("consultation HQ lead details", () => {
+  it("distinguishes legacy source time from import time and flags unverified numeric phones", async () => {
+    const item = { ...lead(), phone: "900000001", sheetStatus: "LEGACY_IMPORTED",
+      legacyImport: { phoneNeedsReview: true, importedAt: "2026-10-08T16:00:00.000Z" },
+      originalPayload: { ...lead().originalPayload, phone: "900000001" } };
+    m.find.mockResolvedValue([item]);
+    const html = await render();
+    expect(html).toContain("電話格式待核對"); expect(html).toContain("原值保留");
+    expect(html).toContain("原始填寫："); expect(html).toContain("HQ 匯入：");
+    expect(html).toContain("歷史 Sheet 已匯入（未重新通知）");
+    expect(html).not.toContain("HQ 收件："); expect(html).not.toContain('href="tel:');
+    expect(html).toContain("900000001"); expect(html).not.toContain("0900000001");
+    expect(html).toContain("複製 LINE ID @actual-id");
+  });
   it("renders original needs, exact contact and separate HQ/Sheet statuses", async () => {
     const html = await render();
     for (const text of ["原始需求A", "原始補充", "原留聯絡人", "HQ 已收件", "Sheet 結果不明，請先查核，勿重送", "admin-123", "既有聯繫紀錄", "2026/10/8", "修訂 3"]) expect(html).toContain(text);
