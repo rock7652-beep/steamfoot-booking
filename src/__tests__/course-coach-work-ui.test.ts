@@ -278,7 +278,7 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
     expect(host.textContent).toContain("本人＋家人 · 共 2 位");
-    for (const label of ["立即預約","我的預約","我的方案","健康追蹤","操作指南"]) expect(host.textContent).toContain(label);
+    for (const label of ["立即預約","我的預約","查看各方案與期限","健康追蹤","操作指南"]) expect(host.textContent).toContain(label);
     expect(host.querySelector('[aria-label="身分"]')).toBeNull();
     expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
     expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(4);
@@ -296,12 +296,14 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",serverNow:Date.parse("2026-09-20T13:00:00+08:00")})));
     expect(host.querySelector(".cp-booking-location")?.textContent).toBe("林教練 · A 教室 · 共 1 人");
     expect(host.textContent).toContain("待確認出席");
-    expect(host.querySelector(".cp-booking-detail")).toBeNull();
-    await click("明細 ⌄");
+    expect(host.querySelector(".cp-booking-detail")).not.toBeNull();
+    expect(host.querySelector(".cp-booking-detail ul")).not.toBeNull();
+    await click("查看備註 ⌄");
     expect(host.querySelector(".cp-booking-detail")?.textContent).toContain("本次使用 2 點");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    await click("收合 ⌃");
-    expect(host.querySelector(".cp-booking-detail")).toBeNull();
+    await click("收合備註 ⌃");
+    expect(host.querySelector(".cp-booking-detail")?.textContent).toContain("本次使用 2 點");
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
   it("replaces late cancellation with store-contact guidance and keeps the deadline visible", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings"})));
@@ -311,8 +313,8 @@ describe("member plan and purchase navigation", () => {
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",cancellationLeadMinutes:30})));
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(true);
-    expect(host.textContent).not.toContain("自行取消截止");
-    await click("明細 ⌄");
+    expect(host.textContent).toContain("自行取消截止");
+    await click("查看備註 ⌄");
     expect(host.textContent).toContain("自行取消截止");
   });
   it("uses one action when the selected course has no eligible plan", async () => {
@@ -394,7 +396,7 @@ describe("member plan and purchase navigation", () => {
     expect(host.textContent).toContain("先前核帳購買");
     expect(host.textContent).not.toContain("等待確認購買");
     await click("我的方案");
-    expect(host.textContent).toContain("可用額度＝剩餘－預約保留");
+    expect(host.textContent).toContain("各方案期限與適用課程分開計算");
   });
 });
 
@@ -412,7 +414,8 @@ describe("simple companion booking", () => {
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     expect(host.querySelector('.cp-headcount button[aria-pressed="true"]')?.textContent).toBe("1 人");
     await click("3 人");
-    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("共 3 人，暫占 6 點額度");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：3 人");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次保留：6 點");
     expect(host.querySelector('.cp-headcount')?.parentElement?.querySelector('input[type="checkbox"]')).toBeNull();
     expect(host.querySelector('[role="dialog"]')?.textContent).not.toContain("下一步");
     await click("確認預約");
@@ -476,7 +479,8 @@ describe("simple companion booking", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
     expect(host.querySelector(".cp-headcount")).toBeNull();
     expect(host.querySelector('[role="dialog"]')?.textContent).not.toContain("同行姓名");
-    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("共 1 人，暫占 2 點額度");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：1 人");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("本次保留：2 點");
     await click("確認預約");
     expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({customerIds:["member"],companionNames:[]}));
   });
@@ -489,7 +493,8 @@ describe("simple companion booking", () => {
     const choices=[...host.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')];
     expect(choices).toHaveLength(2);
     await act(async()=>{choices[0].click();choices[1].click();});
-    await click("下一步");await click("確認預約");
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="下一步")).toBe(false);
+    await click("確認預約");
     expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({customerIds:["family"],companionNames:undefined}));
   });
   it("drops removed named authorizations from an open booking instead of submitting stale ids",async()=>{
@@ -501,7 +506,7 @@ describe("simple companion booking", () => {
     // Preserve named mode by keeping a different authorized family member in the latest snapshot.
     const latest={...data,cards:[{...data.cards[0],members:[{id:"member",name:"本人"},{id:"other",name:"另一位授權成員"}]}],sharedCardState:"HIDDEN" as const};
     await act(async()=>root.render(createElement(CoursePortalClient,latest)));
-    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("共 0 人");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：0 人");
     const submit=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="下一步")!;
     expect(submit.disabled).toBe(true);expect(m.booking).not.toHaveBeenCalled();
   });
