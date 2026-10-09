@@ -247,9 +247,11 @@
 }
 .cp-dots .shared {
   background: #dd883c;
+  border-radius: 0;
+  transform: rotate(45deg);
 }
 .cp-legend {
-  font-size: 11px !important;
+  font-size: 14px !important;
   padding: 6px 8px;
 }
 .cp-daily {
@@ -262,6 +264,49 @@
   gap: 12px;
   padding: 12px;
 }
+.cp-lesson-past { background: #f2f3ef; }
+.cp-lesson-details { flex: 1; min-width: 0; }
+.cp-lesson-details summary { cursor: pointer; min-height: 44px; padding-right: 12px; list-style: none; }
+.cp-lesson-details summary::after { content: "⌄"; }
+.cp-lesson-details[open] summary::after { content: "⌃"; }
+.cp-lesson-details strong, .cp-lesson-location, .cp-lesson-capacity { display: block; }
+.cp-lesson-location, .cp-lesson-capacity { font-size: 14px; color: #61715c; margin-top: 4px; }
+.cp-lesson-details ul { padding-left: 20px; font-size: 14px; }
+.cp-filters summary, .cp-profile > summary, .cp-purchase-history > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cp-filters summary::after, .cp-profile > summary::after, .cp-purchase-history > summary::after { content: "⌄"; flex-shrink: 0; }
+.cp-filters[open] summary::after, .cp-profile[open] > summary::after, .cp-purchase-history[open] > summary::after { content: "⌃"; }
+.cp-filters { padding: 4px 12px; }
+.cp-filter-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding-bottom: 8px; }
+.cp-filter-fields label { min-width: 0; }
+.cp-filter-fields select { display: block; width: 100%; }
+.cp-filter-fields > button { grid-column: 1 / -1; }
+.cp-profile > summary { padding: 4px 14px; }
+.cp-inline-confirm { padding: 8px; border: 1px solid #d4ddd0; border-radius: 8px; margin-top: 8px; }
+.cp-balances strong, .cp-balances span { display: block; }
+.cp-balances strong { display: inline; font-size: 16px; color: #244437; }
+.cp-plan-overview h2, .cp-plan h2 { margin: 0; }
+.cp-plan-expiry { color: #63756a; }
+.cp-plan-content > summary, .cp-ledger > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; gap: 8px; }
+.cp-plan-content > summary::after, .cp-ledger > summary::after { content: "⌄"; margin-left: auto; }
+.cp-plan-content[open] > summary::after, .cp-ledger[open] > summary::after { content: "⌃"; }
+.course-portal .cp-history-list, .course-portal .cp-ledger-list { list-style: none; padding: 0; margin: 0; }
+.cp-history-list { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cp-history-list caption { text-align: left; font-weight: 700; padding: 8px 0; }
+.cp-history-list th, .cp-history-list td { text-align: left; vertical-align: top; padding: 8px 4px 8px 0; border-bottom: 1px solid #e1e7de; overflow-wrap: anywhere; }
+.cp-history-list .cp-history-month th { padding: 6px 0; color: #63756a; font-weight: 400; }
+.cp-history-date-column { width: 40%; }
+.cp-history-usage-column { width: 23%; }
+.cp-history-date { font-variant-numeric: tabular-nums; }
+.cp-history-date span { white-space: nowrap; }
+.cp-history-course span { color: #63756a; }
+.cp-history-list .cp-history-usage, .cp-history-list thead th:last-child { text-align: right; padding-right: 0; white-space: nowrap; }
+.cp-history-empty { margin: 8px 0; color: #63756a; }
+.cp-history-toggle { width: 100%; min-height: 44px; margin-top: 8px; }
+.cp-ledger-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid #e1e7de; overflow-wrap: anywhere; }
+.cp-ledger-list time { grid-column: 1 / -1; color: #63756a; font-variant-numeric: tabular-nums; }
+.cp-plan-purchases p { margin: 4px 0; color: #63756a; }
+.cp-legend-self { color: #2c76c5; }
+.cp-legend-shared { color: #a75b17; }
 .cp-lesson > div {
   min-width: 0;
 }
@@ -619,7 +664,7 @@
 .cp-week-strip small { font-size:12px; }
 .cp-coach-options { position:relative; }
 .cp-coach-options > summary { cursor:pointer; min-width:44px; min-height:44px; display:grid; place-items:center; }
-.cp-coach-options form { position:absolute; right:0; top:100%; z-index:10; width:120px; background:white; border:1px solid #dce3d8; border-radius:12px; }
+.cp-coach-options form { position:absolute; right:0; top:100%; z-index:10; width:220px; background:white; border:1px solid #dce3d8; border-radius:12px; }
 
 /* Member bookings keep essential information visible, with inline details. */
 .course-portal .cp-booking-card { padding: 10px 14px; margin: 8px 0; }
@@ -649,3 +694,42 @@
 .cp-course-cost { display: block; }
 
 .course-portal .cp-menu small { font-size: 14px; }
+
+/* Account settings align with the adjacent menu rows, including in Safari. */
+.course-portal .cp-account-settings > .cp-profile > summary {
+  padding: 12px 14px;
+  min-height: 52px;
+  font-size: inherit;
+  font-weight: 600;
+  list-style: none;
+}
+.cp-account-settings > .cp-profile > summary::-webkit-details-marker { display: none; }
+.cp-account-settings > .cp-profile + .cp-profile { border-top: 1px solid #edf0e8; }
+.cp-account-settings > .cp-profile > summary::after { width: 14px; text-align: center; }
+.cp-account-settings > .cp-profile[open] > summary { border-bottom: 1px solid #edf0e8; }
+
+.cp-page-description { margin: 0 0 12px; }
+
+.cp-coach-options .cp-refresh { padding: 8px 12px; margin: 0; }
+.cp-coach-options .cp-refresh button { min-height: 44px; font-size: 14px; }
+
+/* Compact plan information without shrinking text or touch targets. */
+.cp-plan-overview.cp-pad, .cp-plan.cp-pad { padding: 12px; }
+.cp-plan-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cp-plan-summary .cp-balances { min-width: 0; }
+.cp-plan-summary .cp-balances p { margin: 0; }
+.cp-plan-summary > button { flex-shrink: 0; }
+.cp-plan .cp-plan-expiry { margin: 4px 0; }
+.cp-plan p.cp-plan-purchases, .cp-plan-purchases p { margin: 4px 0; color: #63756a; }
+.cp-history-course .cp-history-status { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: #edf1e9; }
+
+.cp-plan.cp-pad { margin: 6px 0; padding: 8px 12px; }
+.cp-plan-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 12px; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; list-style: none; }
+.cp-plan-row::-webkit-details-marker { display: none; }
+.cp-plan-row::after { content: "⌄"; grid-column: 4; grid-row: 1; }
+.cp-plan[open] > .cp-plan-row::after { content: "⌃"; }
+.cp-plan-row h2 { font-size: 16px; min-width: 0; }
+.cp-plan-row > strong, .cp-plan-row > span { white-space: nowrap; }
+.cp-plan-row > span { color: #63756a; }
+.cp-plan-held { grid-column: 1 / -1; font-size: inherit; color: #63756a; }
+.cp-plan-body { border-top: 1px solid #e1e7de; padding-top: 8px; margin-top: 4px; }

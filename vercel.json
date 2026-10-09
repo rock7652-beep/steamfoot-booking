@@ -65,6 +65,7 @@
       "feat/hq-legacy-consultation-import-20261009": false,
       "fix/hq-intake-compact-details-20261009": false,
       "feat/inline-booking-notes-local-20261009": false,
+      "feat/customer-course-portal-simplify-20261009": false,
       "fix/music-teacher-terminology-20261009": false
     }
   }

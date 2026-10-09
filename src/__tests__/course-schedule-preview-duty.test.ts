@@ -31,7 +31,7 @@ it("names both conflicting resources and excludes adjacent sessions from the pre
   {startsAt:new Date("2026-10-01T03:00:00Z"),endsAt:new Date("2026-10-01T04:00:00Z"),roomId:"room",coachId:"other",nameSnapshot:"接續課"},
  ]);
  const result=await previewCourseSchedule(input);
- expect(result).toMatchObject({success:true,data:{dates:[{conflict:true,conflicts:[{name:"伸展瑜珈",resource:"教室及教練",startsAt:"2026-10-01T01:00:00.000Z"}]}]}});
+ expect(result).toMatchObject({success:true,data:{dates:[{conflict:true,conflicts:[{name:"伸展瑜珈",resource:"教室及授課人員",startsAt:"2026-10-01T01:00:00.000Z"}]}]}});
  if(result.success) expect(result.data.dates[0].conflicts).toHaveLength(1);
  expect(mocks.sessions.mock.calls[0][0].where.storeId).toBe("shop");
 });
