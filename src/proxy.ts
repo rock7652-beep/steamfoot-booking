@@ -1,4 +1,4 @@
-import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -649,6 +649,9 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  if (req.nextUrl.pathname === "/single-pricing-preview" && !isSinglePricingUiPreview()) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   // Hide the synthetic-only URL before generic HQ authentication/redirects.
   if (req.nextUrl.pathname === "/hq-usage-preview" && !isHqUsageUiPreview()) {
     return new NextResponse("Not found", { status: 404 });
@@ -658,6 +661,11 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     if (req.method !== "GET" && req.method !== "HEAD")
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
+    if (isSinglePricingUiPreview()) {
+      return path === "/single-pricing-preview" || path.startsWith("/_next/static/")
+        ? NextResponse.next({ headers })
+        : new NextResponse("Not available in pricing preview", { status: 404, headers });
+    }
     if (isHqUsageUiPreview()) {
       return path === "/hq-usage-preview" || path.startsWith("/_next/static/")
         ? NextResponse.next({ headers })
