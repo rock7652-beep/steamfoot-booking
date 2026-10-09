@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { assertHqIntakeListPreviewEnvironment, assertReviewedReleaseEnvironment, HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertHqIntakeListPreviewEnvironment, assertReviewedReleaseEnvironment, HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, HQ_PHONE_REVIEW_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const valid = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: HQ_INTAKE_LIST_PREVIEW_BRANCH, VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", CONSULTATION_HQ_ENABLED: "true", CONSULTATION_PREVIEW_INTAKE_ENABLED: "false", DATABASE_URL: pool, DIRECT_URL: direct };
@@ -15,7 +15,7 @@ function run(patch: Record<string, string | undefined> = {}) {
   for (const secret of [env.DATABASE_URL, env.DIRECT_URL]) if (secret) expect(output).not.toContain(secret);
   return { status: result.status, output };
 }
-describe.each([HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH])("exact approved HQ intake preview: %s", branch => {
+describe.each([HQ_INTAKE_LIST_PREVIEW_BRANCH, HQ_INTAKE_DETAIL_PREVIEW_BRANCH, HQ_PHONE_REVIEW_PREVIEW_BRANCH])("exact approved HQ intake preview: %s", branch => {
   const validBranch = { ...valid, VERCEL_GIT_COMMIT_REF: branch };
   const runBranch = (patch: Record<string, string | undefined> = {}) => run({ VERCEL_GIT_COMMIT_REF: branch, ...patch });
   it("retains isolated DB checks and exits before any migration or client construction", () => {

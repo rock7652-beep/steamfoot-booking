@@ -7,7 +7,7 @@ import { IntakeList, IntakeListRow } from "./intake-list-row";
 import { IntakeDetailFields, IntakeSecondaryDetails, intakeDetailText } from "./intake-detail-fields";
 import { IntakeDisclosure } from "./intake-disclosure";
 import { consultationNextStep, intakeTestMarker, requirementSummary } from "./intake-summary";
-import { CONSULTATION_PAGE_SIZE, consultationHref, fieldText, originalFields, sheetStatusLabels, suppliedLineHref, suppliedPhoneHref, suppliedWebHref, type ConsultationSearch } from "./consultation-view";
+import { CONSULTATION_PAGE_SIZE, consultationHref, consultationPhoneReview, fieldText, originalFields, sheetStatusLabels, suppliedLineHref, suppliedPhoneHref, suppliedWebHref, type ConsultationSearch } from "./consultation-view";
 
 /** Called only after the page's HQ authorization, preview and rollout checks. */
 export async function ConsultationLeadList(search: ConsultationSearch) {
@@ -35,7 +35,7 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
       const original = originalFields(item.originalPayload);
       const legacy = item.sheetStatus === "LEGACY_IMPORTED";
       const provenance = originalFields("legacyImport" in item ? item.legacyImport : null);
-      const phoneNeedsReview = legacy && provenance.phoneNeedsReview === true;
+      const { needsReview: phoneNeedsReview, corrected: phoneCorrected } = consultationPhoneReview(legacy, provenance, original.phone, item.phone);
       const importedAt = legacy && typeof provenance.importedAt === "string" && Number.isFinite(Date.parse(provenance.importedAt))
         ? formatTWTime(new Date(provenance.importedAt)) : "待查核";
       const noContact = isConsultationNoContact(original);
@@ -55,8 +55,8 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
         submitted={formatTWTime(item.createdAt)}>
           {noContact && <p role="note" className="text-sm text-amber-900">店家選擇「目前暫不考慮」，請勿主動聯繫。</p>}
           {phoneNeedsReview && <p role="note" className="text-sm text-amber-900">電話原值保留，可能缺少開頭的 0；請人工核對後再聯繫。</p>}
-          {!noContact && !test && (phoneHref || item.lineId) && <div className="flex flex-wrap items-center gap-2 text-sm" aria-label="原始聯絡方式">
-            {phoneHref && <a href={phoneHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-800">撥打原留電話</a>}
+          {!noContact && !test && (phoneHref || item.lineId) && <div className="flex flex-wrap items-center gap-2 text-sm" aria-label="聯絡方式">
+            {phoneHref && <a href={phoneHref} className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-800">{phoneCorrected ? "撥打更正後電話" : "撥打原留電話"}</a>}
             {lineHref ? <a href={lineHref} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center rounded-lg border px-3 py-2 text-primary-800">開啟原留 LINE 連結 ↗</a> : item.lineId ? <CopyLineId value={item.lineId} showValue={Boolean(item.phone)} /> : null}
           </div>}
           <section aria-label="處理進度"><ConsultationStatusForm id={item.id} revision={item.revision} status={item.status} /></section>
@@ -92,6 +92,7 @@ export async function ConsultationLeadList(search: ConsultationSearch) {
             <IntakeDisclosure><summary className="min-h-11 cursor-pointer content-center text-sm text-primary-800">{item.trialApplicationId ? "更改人工關聯" : "人工核對並關聯"}</summary><ConsultationLinkForm id={item.id} revision={item.revision} applicationId={item.trialApplicationId} /></IntakeDisclosure>
           </section>
           <IntakeSecondaryDetails>
+            {!noContact && phoneCorrected && <p>原始匯入電話：{fieldText(original.phone)}（來源原值保留；聯絡電話已補正前導 0）</p>}
             <p>{legacy ? <>原始填寫：{formatTWTime(item.createdAt)} · HQ 匯入：{importedAt}</> : <>HQ 已收件 · HQ 收件：{formatTWTime(item.createdAt)}</>}</p>
             <p>Sheet：{sheetStatusLabels[item.sheetStatus] ?? "狀態待查核"}{item.sheetConfirmedAt ? ` · ${formatTWTime(item.sheetConfirmedAt)}` : ""}</p>
             <p>諮詢編號：{item.id} · 修訂 {item.revision}<br />原始收件編號：{item.requestId}</p>
