@@ -72,6 +72,15 @@ describe("student booking switch portal", () => {
     expect(host.querySelector('.cp-daily h2')?.textContent).toContain("1/20");
   });
 
+  it("dismisses an unsent inline cancellation when leaving the booking view", async () => {
+    const data=props();
+    data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
+    await render({...data,initialView:"bookings"} as unknown as typeof data);
+    await click("取消"); await click("首頁"); await click("我的預約");
+    expect(host.querySelector('.cp-inline-confirm')).toBeNull();
+    expect(m.cancel).not.toHaveBeenCalled();
+  });
+
   it("uses module-specific filters and makes course costs an inline disclosure", async () => {
     await render({...props(),musicStore:true});
     expect(host.querySelector('.cp-filters summary')?.textContent).toContain("教師：全部");

@@ -408,8 +408,10 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     requestAnimationFrame(() => window.scrollTo(0, coach ? 0 : memberPositions.current[next] ?? 0));
   }
   function leaveNote() {
+    if (busyRef.current) return false;
     if (editingNote && editingNote.value !== (editingNote.original ?? "") && !window.confirm("本次備註尚未儲存，要放棄修改嗎？")) return false;
     setEditingNote(null);
+    if (cancelId) { setCancelId(null); setError(""); }
     return true;
   }
   function workDate(next: string) {
@@ -420,6 +422,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     if (!next.startsWith(p.month)) month(next.slice(0, 7));
   }
   function back() {
+    if (!leaveNote()) return;
     const prev = trail.current.pop();
     setPage(prev?.page ?? "account");
     requestAnimationFrame(() => window.scrollTo(0, prev?.y ?? 0));
@@ -1063,13 +1066,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               <div className="cp-actions">
                 <button
                   className={!history ? "primary" : ""}
-                  onClick={() => setHistory(false)}
+                  onClick={() => leaveNote() && setHistory(false)}
                 >
                   待上課
                 </button>
                 <button
                   className={history ? "primary" : ""}
-                  onClick={() => setHistory(true)}
+                  onClick={() => leaveNote() && setHistory(true)}
                 >
                   歷史紀錄
                 </button>
