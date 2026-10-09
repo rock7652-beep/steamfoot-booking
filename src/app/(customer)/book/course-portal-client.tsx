@@ -316,7 +316,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     participantCount = companionMode ? companionHeadcount : authorizedLearners.length,
     waitlistMode = !!session && session.occupied + Math.max(1, participantCount) > session.capacity && session.waitlistAllowed,
     waitlistAlready = !!session?.waitlistPosition,
-    modal = !!(notification || session || attendance || cancelId || buy || (companionEditor && (!companionEditor.add || sharingEnabled)));
+    modal = !!(notification || session || attendance || buy || (companionEditor && (!companionEditor.add || sharingEnabled)));
   const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
   const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
   const todayWork = work.filter(s => courseDate(s.startsAt) === today);
@@ -329,8 +329,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const historyWork = monthlyWork.filter(s => isEnded(s) && (recordFilter !== "pending" || needsRoll(s)));
   const refreshGuard = useRef({ modal, pending });
   useEffect(() => {
-    refreshGuard.current = { modal: modal || !!editingNote, pending: pending || refreshing };
-  }, [modal, pending, refreshing, editingNote]);
+    refreshGuard.current = { modal: modal || !!cancelId || !!editingNote, pending: pending || refreshing };
+  }, [modal, cancelId, pending, refreshing, editingNote]);
   useEffect(() => {
     if (!editingNote || editingNote.value === (editingNote.original ?? "")) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -952,7 +952,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {message}
             </p>
           )}
-          {error && !modal && (
+          {error && !modal && !cancelId && (
             <p role="alert" className="cp-error">
               {error}
             </p>

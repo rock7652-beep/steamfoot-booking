@@ -51,6 +51,7 @@ describe("student booking switch portal", () => {
     data.bookings = [{ ...data.sessions[0], id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31" }] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
     await click("取消"); expect(dialog()).toBeNull();
+    expect(host.querySelector('.cp-inline-confirm')?.closest('[inert]')).toBeNull();
     m.cancel.mockResolvedValueOnce({success:false,error:"預約已變更"});
     await click("確認取消");
     expect(host.querySelector('.cp-inline-confirm')?.textContent).toContain("預約已變更");
