@@ -507,7 +507,7 @@ describe("simple companion booking", () => {
     const latest={...data,cards:[{...data.cards[0],members:[{id:"member",name:"本人"},{id:"other",name:"另一位授權成員"}]}],sharedCardState:"HIDDEN" as const};
     await act(async()=>root.render(createElement(CoursePortalClient,latest)));
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：0 人");
-    const submit=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="下一步")!;
+    const submit=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="確認預約")!;
     expect(submit.disabled).toBe(true);expect(m.booking).not.toHaveBeenCalled();
   });
   it("reopens a booking with a clean one-person selection",async()=>{
