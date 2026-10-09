@@ -4,7 +4,7 @@ export type GuideSection = { heading: string; paragraphs: readonly string[]; bul
 type GuideBase = { id: string; category: GuideCategory; title: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
-  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading: string; text: string; url?: string } }
+  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string } }
 );
 
 export const GUIDE_CATEGORIES = [
@@ -608,6 +608,54 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
   },
   "format": "article",
   "showSummary": false
+},
+{
+  "id": "music-school-leave-reschedule-notifications",
+  "category": "booking",
+  "title": "音樂教室請假與改課：別讓老師空等，行政一直追",
+  "summary": "音樂教室請假與改課，常讓老師空等、行政反覆聯絡。從示意情境整理試用時可核對的提醒、異動通知與發送紀錄，確認流程和通知條件是否符合教室需求。",
+  "status": "published",
+  "feature": "music",
+  "featureName": "音樂教室功能",
+  "format": "article",
+  "showSummary": false,
+  "disclosure": "以下為匿名示意情境，非特定店家的事件或老師訪談原話。",
+  "introduction": [
+    "上課時間到了，老師已經準備好今天要練的段落，學生卻還沒出現。櫃台撥了電話，沒人接；再傳訊息，也還沒回。老師問今天是不是請假，櫃台只能說，還在聯絡。"
+  ],
+  "sections": [
+    {
+      "heading": "老師空下的時間，不會因為沒上課就回來",
+      "paragraphs": [
+        "為了這堂課，老師留下了時段、準備教材，也可能已經特地到教室。現在不知道學生會晚到、臨時有事，還是今天不來，只能一邊等，一邊看時間過去。這段空檔，也很難臨時再安排別的工作。",
+        "如果類似情況反覆發生，老師可能會覺得，自己的準備和時間沒有被好好看待。電話沒接、訊息沒回，不一定是故意忽略；但對正在等的人來說，不確定本身就有成本。"
+      ]
+    },
+    {
+      "heading": "行政多追一次，也多一層為難",
+      "paragraphs": [
+        "櫃台也在擔心。再打一次，怕像在催促；先不打，又怕老師繼續等、下一堂的安排受到影響。原本只想知道今天還來不來，卻得在電話、訊息和課表之間來回確認。",
+        "換個方向想，如果是老師臨時需要改課，學生可能已經出門，家長也可能排開事情準備接送。任何一方都有遇到急事的時候，及時讓相關的人知道，才能讓對方有機會調整安排。",
+        "上課前的自動提醒，可以提醒學生確認行程；請假或改課後，也需要把異動通知相關的人。每一次人工提醒，都要有人記得、有人傳送。評估系統時，可以看自動提醒能否減少重複聯絡的人工作業，也要看看行政能否查核發送紀錄：哪些已送出、哪些失敗需要補聯絡。不必全靠記憶，也讓人力用在真正需要處理的事情上。"
+      ]
+    },
+    {
+      "heading": "請假與改課，讓下一步簡單一點",
+      "paragraphs": [
+        "挑音樂教室管理系統時，可以拿一次學生請假、一次老師改課來看，並把異動通知能否自動完成，列入試用時的評估項目。希望的流程其實很直接：",
+        "學生提出請假，老師與櫃台能知道是哪一堂、目前怎麼處理，不必再各自追問一次。",
+        "老師提出改課，受影響的學生與店家能得知變動；新時間還沒決定時，也看得出仍在安排中。",
+        "回到同一筆課程，就能看見最新安排和通知情形，知道還有誰需要聯繫，少跳幾個頁面找答案。",
+        "訊息送出，不代表對方已收到或看過；已讀，也不等於已確認新的安排。讓這些狀態分得清楚，行政才知道下一步該處理什麼，老師與學生也能少一點猜測。",
+        "拿教室最近一次請假或改課，試走一遍：誰提出、誰收到通知、哪裡查得到紀錄，就能看出哪些來回聯絡可以省下。以上為選型評估方向，實際功能與通知條件以試用確認為準。"
+      ]
+    }
+  ],
+  "callToAction": {
+    "text": "好的請假與異動流程，是讓每個人的時間都被好好對待。",
+    "label": "前往蒸管家，了解體驗與適用流程",
+    "url": "https://www.steamfoot.com/apply"
+  }
 }
 ];
 
