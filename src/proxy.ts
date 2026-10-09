@@ -649,6 +649,10 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  // Hide the synthetic-only URL before generic HQ authentication/redirects.
+  if (req.nextUrl.pathname === "/hq-usage-preview" && !isHqUsageUiPreview()) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   if (isGuideUiPreview()) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
     if (req.method !== "GET" && req.method !== "HEAD")
