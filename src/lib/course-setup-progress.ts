@@ -8,7 +8,12 @@ export function courseSetupSteps(counts:CourseSetupCounts, music = false) {
     {id:"plan",label:music ? "設定班型與學費" : "建立方案",done:counts.plans>0,href:"/dashboard/courses?view=plans&action=create",hint:music ? "選教學項目，設定課型、每堂學費、每期堂數、排課方式與效期。" : "選點數、堂數或期課，再填售價與效期；方案供學員購買與預約使用。"},
     {id:"coach",label:counts.coaches>0 ? `設定${provider}授課資格` : `新增${provider}與授課課程`,done:counts.coaches>0 && counts.qualifiedCoaches>0,href:counts.coaches>0 ? "/dashboard/teachers" : "/dashboard/teachers?action=create",hint:`填姓名、啟用身分並勾選可教授課程；未另設可授課時間時沿用營業時間。${counts.dutyEnabled ? "已啟用值班聯動，需先安排涵蓋整堂課的值班。" : ""}`},
     {id:"schedule",label:"排第一堂課",done:counts.sessions>0,href:"/dashboard/courses?action=schedule",hint:`選日期、課程、${provider}與空間，先預覽確認營業、公休、授課資格、可授課時間與撞期。`},
-  ];
+  ].map(step=>{
+    if (!step.done) return step;
+    const [path,query=""]=step.href.split("?");
+    const params=new URLSearchParams(query);params.delete("action");
+    return {...step,href:params.size?`${path}?${params.toString()}`:path};
+  });
 }
 export function setupReminderVisible(mode:"show"|"later"|"never", deferredLogin:string|undefined, login:string, completed:boolean) {
   return !completed && mode!=="never" && !(mode==="later"&&deferredLogin===login);

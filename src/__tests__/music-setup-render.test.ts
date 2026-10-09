@@ -42,4 +42,9 @@ it("shows the actual six setup actions with store hours first and teachers in mu
  counts.sessions=1;
  await act(async()=>root.render(createElement(CourseSetupGuide,{steps:courseSetupSteps(counts,true),preference:{mode:"show"},login:"fixture"})));
  expect(host.querySelector('[aria-label="開始設定"]')).toBeNull();
+ await act(async()=>root.render(createElement(CourseSetupGuide,{steps:courseSetupSteps(counts,true),preference:{mode:"show"},login:"fixture",manual:true})));
+ const reopen=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("開始設定 · 6/6"))!;
+ await act(async()=>reopen.click());
+ expect([...host.querySelectorAll<HTMLAnchorElement>("ol a")].every(a=>!a.href.includes("action="))).toBe(true);
+ expect(host.querySelectorAll("ol > li")).toHaveLength(6);
 });
