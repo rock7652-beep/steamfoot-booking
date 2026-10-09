@@ -12,6 +12,8 @@ interface StoreOption {
   name: string;
   isDefault: boolean;
   isArchived?: boolean;
+  industryModule?:string;
+  address?:string|null;
 }
 
 interface StoreSwitcherProps {
@@ -44,7 +46,7 @@ export default function StoreSwitcher({
   const availableStores = stores.filter(store => !store.isArchived);
   const [search, setSearch] = useState("");
   const visibleStores = stores.filter((store) =>
-    !store.isArchived && store.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+    !store.isArchived && `${store.name} ${store.address??""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
   );
 
   useEffect(() => {
@@ -124,7 +126,7 @@ export default function StoreSwitcher({
       if (result.success) {
         // A store change can switch the entire module layout and redirect.
         // Request a fresh document so the old router tree cannot leave a blank view.
-        window.location.assign(hqStoreSwitchDestination(window.location.search));
+        window.location.assign(hqStoreSwitchDestination(window.location.search,window.location.pathname,stores.find(store=>store.id===value)?.industryModule));
       } else {
         toast.error(result.error ?? "切換店舖失敗，已保留原店舖");
         router.refresh();
@@ -151,7 +153,8 @@ export default function StoreSwitcher({
       style={menuPosition}
       className="fixed z-[90] flex flex-col overflow-hidden rounded-lg border border-earth-200 bg-white shadow-lg">
       <div className="shrink-0 border-b border-earth-100 bg-white p-2">
-        <input ref={searchRef} aria-label="搜尋分店" placeholder="搜尋分店名稱" value={search}
+        <p className="mb-1 break-words px-1 text-sm text-primary-800">目前：{currentLabel}</p>
+        <input ref={searchRef} aria-label="搜尋分店" placeholder="搜尋店名或地址／地區" value={search}
           onChange={event=>{setSearch(event.target.value);if(listRef.current)listRef.current.scrollTop=0;}}
           className="min-h-11 w-full rounded-md border border-earth-200 px-3 text-base"/>
       </div>

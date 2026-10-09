@@ -5,7 +5,14 @@ export function isHqPlatformPath(pathname: string): boolean {
 }
 
 /** Start the new store at its home; retain the device studio's embedded mode. */
-export function hqStoreSwitchDestination(search: string): string {
+export function hqStoreSwitchDestination(search: string,pathname?:string,targetModule?:string): string {
+  const old=new URLSearchParams(search),next=new URLSearchParams();
+  if(old.get("devicePreview")==="1")next.set("devicePreview","1");
+  if(targetModule==="COURSE"&&(pathname==="/hq/dashboard/courses"||pathname==="/hq/dashboard/teachers")){
+    const view=old.get("view");
+    if(pathname.endsWith("/courses")&&view&&["catalog","plans","rooms","customers","settings","analytics"].includes(view))next.set("view",view);
+    return `${pathname}${next.size?`?${next}`:""}`;
+  }
   return new URLSearchParams(search).get("devicePreview") === "1"
     ? "/hq/dashboard?devicePreview=1"
     : "/hq/dashboard";

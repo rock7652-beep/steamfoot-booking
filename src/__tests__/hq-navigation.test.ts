@@ -14,6 +14,12 @@ describe("HQ store navigation", () => {
   it("retains the device iframe's embedded mode", () => {
     expect(hqStoreSwitchDestination("?view=plans&devicePreview=1")).toBe("/hq/dashboard?devicePreview=1");
   });
+  it("keeps the same course area for another course store without stale record or create parameters",()=>{
+    expect(hqStoreSwitchDestination("?view=plans&action=create&templateId=old&devicePreview=1","/hq/dashboard/courses","COURSE")).toBe("/hq/dashboard/courses?devicePreview=1&view=plans");
+    expect(hqStoreSwitchDestination("?action=create","/hq/dashboard/teachers","COURSE")).toBe("/hq/dashboard/teachers");
+    expect(hqStoreSwitchDestination("?view=plans","/hq/dashboard/courses","SPA")).toBe("/hq/dashboard");
+    expect(hqStoreSwitchDestination("?view=plans","/hq/dashboard/courses")).toBe("/hq/dashboard");
+  });
   it.each(["/hq/dashboard/stores", "/hq/dashboard/stores/a/features", "/hq/dashboard/stores/subscriptions", "/hq/dashboard/trial-applications"])("keeps platform navigation on %s", path => expect(isHqPlatformPath(path)).toBe(true));
   it.each(["/hq/dashboard", "/hq/dashboard/courses", "/hq/dashboard/stores-other", "/s/course/admin/dashboard"])("does not treat %s as platform management", path => expect(isHqPlatformPath(path)).toBe(false));
   it("highlights only the nested subscription item", () => {
