@@ -439,6 +439,9 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelector(".cp-history-list")?.textContent).not.toContain("2026-10-06");
     expect(host.querySelector(".cp-ledger-list")?.textContent).toContain("2026-10-06 16:21");
     expect(host.querySelector("[role=dialog]")).toBeNull();
+    data.cards[0].members = [{id:"member",name:"本人"}];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
+    expect(host.querySelector(".cp-history-list")?.textContent).toContain("已出席 · 家人");
   });
   it("shows pending orders first and exposes completed orders only in history", async () => {
     const order=(id:string,status:string)=>({id,name:id,status,price:500,listPrice:null,points:4,unit:"SESSION",termSizes:[],bonus:0,createdAt:"2026-09-20T00:00:00Z",refunds:[]});

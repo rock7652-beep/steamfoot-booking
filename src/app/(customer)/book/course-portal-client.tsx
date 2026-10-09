@@ -1218,7 +1218,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     <ul className="cp-history-list" aria-label={`${c.name}上課紀錄`}>
                       {(c.history?.lessons ?? []).map(lesson => <li key={lesson.id}>
                         <div className="cp-history-date"><time dateTime={lesson.startsAt}>{courseDate(lesson.startsAt)}</time><strong>{time(lesson.startsAt)}</strong></div>
-                        <div className="cp-history-course"><strong>{lesson.name}</strong><span>{lesson.status}{c.members.length > 1 ? ` · ${lesson.customerName}` : ""}</span></div>
+                        <div className="cp-history-course"><strong>{lesson.name}</strong><span>{lesson.status}{c.members.length > 1 || lesson.customerName !== p.customerName ? ` · ${lesson.customerName}` : ""}</span></div>
                         <strong className="cp-history-usage">{lesson.used ? `扣 ${lesson.used} ${unit(c.unit)}` : "未扣抵"}</strong>
                       </li>)}
                     </ul>
