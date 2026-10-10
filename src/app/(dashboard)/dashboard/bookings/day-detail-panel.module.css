@@ -56,7 +56,13 @@
 }
 
 @container booking-roster (min-width: 640px) and (max-width: 999px) {
-  .statusCell { grid-column: 2 / 4; }
-  .timeCell { grid-row: 1 / 4; }
+  /* iPad: identity on the first line, plan and reminders beside each other
+     on the second. Keep the 44px controls without stacking every field. */
+  .rowBody { grid-template-columns: 76px minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .statusCell { grid-column: 2; grid-row: 2; gap: 0.125rem 0.5rem; }
+  .noteCell { grid-column: 3; grid-row: 2; }
+  .timeCell { grid-row: 1 / 3; }
+  .planCell { flex-basis: auto; width: auto; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
+  .planCell > span { width: auto; }
   .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr) 148px; }
 }

@@ -240,7 +240,7 @@ export const liffMessages = {
 
     // card labels — 顧客語言（不用 staff badge 字串）
     typeFirstTrial: "體驗預約",
-    typePackage: "課程",
+    typePackage: "方案預約",
     typeSingle: "單次",
     typeMakeup: "補課",
 

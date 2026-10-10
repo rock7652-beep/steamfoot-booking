@@ -321,7 +321,7 @@ export function WalletReadyView({
       {activeTab === "plans" && showBookNow && (
         <Link
           href={dataSource === "spa" ? `/s/${storeSlug}/book/new` : `/s/${storeSlug}/liff/member-booking`}
-          className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+          className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary-700 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-800 active:scale-[0.98]"
         >
           {liffMessages.wallets.ctaBookNow}
         </Link>
@@ -333,7 +333,7 @@ export function WalletReadyView({
           href={contactUrl || undefined} aria-disabled={!contactUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+          className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-xl border border-earth-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 hover:bg-earth-50 active:scale-[0.98]"
         >
           <LineIcon />
           {liffMessages.bookings.contactStoreCta}
@@ -424,75 +424,29 @@ function WalletCard({
     return null; // active section 不顯示 badge（除非 expiringSoon 才顯紅字）
   })();
 
+  const records = wallet.usageRecords;
   return (
-    <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm">
-      {/* Header: plan name + 即將到期 / 過期 badge */}
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-base font-semibold text-earth-900">
-          {wallet.planName}
-        </p>
-        {expiringSoon && (
-          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-            {m.expiringSoonBadge}
-          </span>
-        )}
-        {statusBadge && (
-          <span className="shrink-0 rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
-            {statusBadge}
-          </span>
-        )}
+    <details className="group rounded-xl border border-earth-200 bg-white" open={records && records.length > 0 ? true : undefined}>
+      <summary className="min-h-12 cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <strong className="min-w-0 break-words text-base text-earth-900">{wallet.planName}</strong>
+          <strong className="shrink-0 text-base text-primary-800">{variant === "active" ? `還可預約 ${wallet.availableToBook} 堂` : statusBadge} <span aria-hidden className="inline-block transition-transform group-open:rotate-180">⌄</span></strong>
+        </div>
+        <p className="mt-1 text-sm text-earth-600">開卡 {wallet.totalSessions} 堂｜{formatDateLabel(wallet.startDate)} 開卡｜{wallet.expiryDate ? `${formatDateLabel(wallet.expiryDate)} 到期` : m.noExpiryLabel}</p>
+        {expiringSoon && <span className="mt-1 inline-block rounded bg-amber-50 px-2 py-1 text-sm text-amber-800">{m.expiringSoonBadge}</span>}
+        {wallet.pendingCount > 0 && <p className="mt-1 text-sm text-earth-600">剩餘 {wallet.remainingSessions} 堂｜已預約 {wallet.pendingCount} 堂</p>}
+      </summary>
+      <div className="border-t border-earth-100 px-4 pb-3">
+        <p className="py-3 text-sm text-earth-600">已使用 {wallet.usedCount} 堂{wallet.voidedCount > 0 ? `｜已註銷 ${wallet.voidedCount} 堂` : ""}</p>
+        {records && records.length > 0 ? <WalletUsageList records={records} /> : records ? <p className="text-sm text-earth-500">尚無使用紀錄</p> : null}
       </div>
-
-      {/* Hero 大字 — 可預約 X 堂（walletAvailableToBook 結果）*/}
-      {/* 過期 / 歷史方案不再顯示「可預約」hero，避免誤導 */}
-      {variant === "active" && (
-        <p className="mt-2">
-          <span className="text-3xl font-bold tabular-nums text-earth-900">
-            {wallet.availableToBook}
-          </span>
-          <span className="ml-1 text-sm font-medium text-earth-700">
-            {m.availableSuffix}
-          </span>
-        </p>
-      )}
-
-      {/* 拆分小字 — 方案剩餘 + 待到店 + 已使用 + 已註銷 */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600">
-        <span>
-          {m.remainingLabel}{" "}
-          <strong className="text-earth-900">
-            {wallet.remainingSessions} / {wallet.totalSessions}
-          </strong>{" "}
-          {m.sessionsUnit}
-        </span>
-        {wallet.pendingCount > 0 && (
-          <span>
-            {m.pendingLabel}{" "}
-            <strong className="text-blue-700">{wallet.pendingCount}</strong>
-          </span>
-        )}
-        {wallet.usedCount > 0 && (
-          <span>
-            {m.usedLabel}{" "}
-            <strong className="text-earth-900">{wallet.usedCount}</strong>
-          </span>
-        )}
-        {wallet.voidedCount > 0 && (
-          <span>
-            {m.voidedLabel}{" "}
-            <strong className="text-earth-900">{wallet.voidedCount}</strong>
-          </span>
-        )}
-      </div>
-
-      {/* Footer — 有效期 */}
-      <p className="mt-2 border-t border-earth-100 pt-2 text-xs text-earth-500">
-        {wallet.expiryDate
-          ? `${m.validUntilLabel} ${formatDateLabel(wallet.expiryDate)}`
-          : m.noExpiryLabel}
-      </p>
-    </div>
+    </details>
   );
+}
+
+function WalletUsageList({ records }: { records: NonNullable<LiffWalletRow["usageRecords"]> }) {
+  const [all, setAll] = useState(false);
+  return <section aria-label="方案使用紀錄"><ul className="divide-y divide-earth-100">{(all ? records : records.slice(0, 3)).map(row => <li key={row.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 py-3 text-sm"><div><p className="font-medium text-earth-900">{row.date ? formatDateLabel(row.date) : "日期未記錄"}{row.time ? ` ${row.time}` : ""}</p><p className="mt-1 text-earth-600">{row.label} · {row.status}</p></div><strong className="whitespace-nowrap text-earth-800">使用 {row.sessions} 堂</strong></li>)}</ul>{records.length > 3 && <button type="button" className="min-h-11 text-sm font-medium text-primary-700" aria-expanded={all} onClick={() => setAll(!all)}>{all ? "收合紀錄" : `查看全部 ${records.length} 筆`}</button>}</section>;
 }
 
 function MakeupCreditCard({ credit }: { credit: LiffMakeupCreditRow }) {
@@ -532,7 +486,7 @@ function EmptyState({
       {dataSource !== "spa" && (
         <Link
           href={`/s/${storeSlug}/liff/wallets/shop`}
-          className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
+          className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-800 active:scale-[0.98]"
         >
           {m.ctaPurchasePlan}
         </Link>
@@ -541,7 +495,7 @@ function EmptyState({
         href={contactUrl || undefined} aria-disabled={!contactUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-earth-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 hover:bg-earth-50 active:scale-[0.98]"
       >
         <LineIcon />
         {liffMessages.bookings.contactStoreCta}

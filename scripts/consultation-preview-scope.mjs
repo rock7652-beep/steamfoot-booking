@@ -71,6 +71,7 @@ export const INLINE_BOOKING_NOTES_PREVIEW_BRANCH = "feat/inline-booking-notes-lo
 export const CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH = "feat/customer-course-portal-simplify-20261009";
 export const ROOM_PERFORMANCE_PREVIEW_BRANCH = "fix/course-room-save-performance-20261010";
 export const MUSIC_SETUP_PREVIEW_BRANCH = "fix/music-teacher-terminology-20261009";
+export const STEAM_ROSTER_DENSITY_PREVIEW_BRANCH = "fix/steam-roster-ipad-density-20261010";
 
 export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261008";
 
@@ -142,7 +143,7 @@ export function assertSportsRosterPreviewEnvironment(env) {
  */
 export function assertModuleRosterPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
+      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
@@ -205,7 +206,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertOperationGuidePreviewEnvironment(env);
     return "operation-guide-preview";
   }
-  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertModuleRosterPreviewEnvironment(env);
     return "module-roster-preview";
   }

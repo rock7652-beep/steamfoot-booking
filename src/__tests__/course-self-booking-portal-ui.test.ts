@@ -50,7 +50,7 @@ describe("student booking switch portal", () => {
     const data = props();
     data.bookings = [{ ...data.sessions[0], id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31" }] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
-    await click("取消"); expect(dialog()).toBeNull();
+    await click("查看明細 ⌄"); await click("取消"); expect(dialog()).toBeNull();
     expect(host.querySelector('.cp-inline-confirm')?.closest('[inert]')).toBeNull();
     m.cancel.mockResolvedValueOnce({success:false,error:"預約已變更"});
     await click("確認取消");
@@ -77,7 +77,7 @@ describe("student booking switch portal", () => {
     const data=props();
     data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
-    await click("取消"); await click("首頁"); await click("我的預約");
+    await click("查看明細 ⌄"); await click("取消"); await click("首頁"); await click("我的預約");
     expect(host.querySelector('.cp-inline-confirm')).toBeNull();
     expect(m.cancel).not.toHaveBeenCalled();
   });
@@ -137,7 +137,7 @@ describe("student booking switch portal", () => {
     data.bookings = [{ ...data.sessions[0], id: "booking", sessionId: "session", status: "RESERVED", customerId: "member", customerName: "會員本人", operatorName: "本人", notes: "", unit: "POINT", planName: "十點方案", expiresAt: "2099-12-31", trialPaid: null, trialPrice: null }] as unknown as CoursePortalData["bookings"];
     await render({ ...data, initialView: "bookings" } as unknown as typeof data);
     expect(host.textContent).toContain("會員本人"); expect(button("改時段")).toBeUndefined();
-    await click("取消"); expect(dialog()).toBeNull(); await click("確認取消", host.querySelector(".cp-inline-confirm")!); expect(m.cancel).toHaveBeenCalledWith({ bookingId: "booking", status: "CANCELLED", member: true });
+    await click("查看明細 ⌄"); await click("取消"); expect(dialog()).toBeNull(); await click("確認取消", host.querySelector(".cp-inline-confirm")!); expect(m.cancel).toHaveBeenCalledWith({ bookingId: "booking", status: "CANCELLED", member: true });
     data.serverNow = Date.parse("2099-01-20T11:00:00+08:00"); await act(async () => root.render(el(CoursePortalClient, { ...data, initialView: "bookings", key: "after-cutoff" })));
     expect(button("取消")).toBeUndefined(); expect(host.textContent).toContain("已超過取消期限");
   });
