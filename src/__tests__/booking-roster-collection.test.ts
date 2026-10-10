@@ -2,6 +2,8 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-companion-editor", () => ({ BookingCompanionEditor: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-participant-checkout", () => ({ BookingParticipantCheckout: () => null }));
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn(), revert: vi.fn(),collect:vi.fn() }));
 vi.mock("@/server/actions/booking", () => ({ markCompleted: mocks.complete, markNoShow: vi.fn(), cancelBooking: vi.fn(), revertBookingStatus: vi.fn(), updateBooking: vi.fn() }));
@@ -91,6 +93,16 @@ function collectible(type="FIRST_TRIAL",people=1,collected=false):BookingDrawerP
  else payload.single={collected,collectedAmount:null,collectedOriginalAmount:null,collectedDiscountAmount:null,collectedMethod:null,collectedAt:null,defaultPrice:799};
  return payload;
 }
+it("keeps the participant collection shortcut in the detail without legacy nested modals", async () => {
+ const payload=collectible("FIRST_TRIAL",2);
+ payload.participantCheckout={canCollect:true,canResolve:true,canSell:false,canDiscount:false,settings:{allowEdit:false,defaultPrice:499,minPrice:499,maxPrice:499},plans:[],slots:[
+ {id:"a",position:1,revision:0,customerId:"primary",name:"預約者",service:"FIRST_TRIAL",status:"PENDING",collectedAmount:null},
+ {id:"b",position:2,revision:0,customerId:null,name:null,service:"FIRST_TRIAL",status:"PENDING",collectedAmount:null}]};
+ mocks.read.mockResolvedValue(payload);const host=document.createElement("div"),root=createRoot(host);
+ try {await act(async()=>root.render(React.createElement(BookingDetailDrawer,{open:true,bookingId:payload.booking.id,initialIntent:"collect",onClose:()=>{}})));
+ expect(host.querySelector("[data-payment]")).toBeNull();expect(mocks.complete).not.toHaveBeenCalled();}
+ finally {await act(async()=>root.unmount());}
+});
 it.each([["FIRST_TRIAL",1,"trial"],["FIRST_TRIAL",2,"attendance"],["SINGLE",1,"single"]])("routes %s %i people to the existing %s confirmation",async(type,people,modal)=>{
  const payload=collectible(String(type),Number(people));mocks.read.mockResolvedValue(payload);const host=document.createElement("div"),root=createRoot(host);
  try {await act(async()=>root.render(React.createElement(BookingDetailDrawer,{open:true,bookingId:payload.booking.id,initialIntent:"collect",onClose:()=>{}})));expect(host.querySelector(`[data-payment="${modal}"]`)).toBeTruthy();expect(mocks.complete).not.toHaveBeenCalled();}

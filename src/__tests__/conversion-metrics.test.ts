@@ -47,7 +47,7 @@ describe("buildConversionMetrics", () => {
     expect(metrics.trackedConversions.current).toBe(1);
     expect(metrics.convertedCustomers.current).toBe(selection.convertedCustomerIds.size);
   });
-  it("counts a later purchase in the same month and attributes a next-month purchase to next month", () => {
+  it("keeps revenue openings in the payment month but attributes conversion to the original trial month", () => {
     const metrics = buildConversionMetrics(
       "2026-07",
       [trial("same-day", "2026-07-10"), trial("later", "2026-07-10")],
@@ -59,8 +59,8 @@ describe("buildConversionMetrics", () => {
     );
 
     expect(metrics.convertedCustomers.current).toBe(1);
-    expect(metrics.conversionRate.current).toBe(50);
-    expect(metrics.unconvertedCustomers.current).toBe(1);
+    expect(metrics.conversionRate.current).toBe(100);
+    expect(metrics.unconvertedCustomers.current).toBe(0);
 
     const august = buildConversionMetrics(
       "2026-08",
@@ -118,7 +118,7 @@ describe("buildConversionMetrics", () => {
 
     expect(metrics.convertedCustomers.current).toBe(0);
     expect(metrics.conversionRate.current).toBe(0);
-    expect(metrics.unconvertedCustomers.current).toBe(2);
+    expect(metrics.unconvertedCustomers.current).toBe(1);
   });
 
   it("calculates MoM and YoY and handles zero baselines", () => {

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-companion-editor", () => ({ BookingCompanionEditor: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-participant-checkout", () => ({ BookingParticipantCheckout: () => null }));
 import type { ReactNode } from "react";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 

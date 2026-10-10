@@ -17,6 +17,7 @@ import { parseBusinessPeriods, type BusinessPeriod } from "./business-periods";
 export { parseBusinessPeriods, type BusinessPeriod } from "./business-periods";
 
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { generateSlots, type GeneratedSlot } from "@/lib/slot-generator";
 
 // ============================================================
@@ -421,14 +422,15 @@ export interface DayBusinessHoursContext {
 export async function loadDayBusinessHoursContext(
   storeId: string,
   dateStr: string,
+  client: Pick<Prisma.TransactionClient, "specialBusinessDay" | "businessHours" | "slotOverride"> = prisma,
 ): Promise<DayBusinessHoursContext> {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
   const [specialDay, businessHour, slotOverrides] = await Promise.all([
-    prisma.specialBusinessDay.findFirst({ where: { storeId, date: dateObj } }),
-    prisma.businessHours.findFirst({ where: { storeId, dayOfWeek: dow } }),
-    prisma.slotOverride.findMany({
+    client.specialBusinessDay.findFirst({ where: { storeId, date: dateObj } }),
+    client.businessHours.findFirst({ where: { storeId, dayOfWeek: dow } }),
+    client.slotOverride.findMany({
       where: { storeId, date: dateObj },
       orderBy: { startTime: "asc" },
     }),
