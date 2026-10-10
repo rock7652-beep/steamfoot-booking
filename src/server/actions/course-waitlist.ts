@@ -1,4 +1,7 @@
 "use server";
+import {waitlistValues,waitlistReceipt,waitlistRevision} from "@/lib/course-waitlist-save";
+import {settingsSaveUncertain} from "@/server/services/settings-save-error";
+import {AppError} from "@/lib/errors";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 
 import { after } from "next/server";
@@ -25,20 +28,25 @@ function refresh() {
 
 export async function saveCourseWaitlistSettings(input: unknown) {
   try {
-    const data = z.object({
-      enabled: z.boolean(),
-      defaultLimit: z.number().int().min(1).max(100),
-      autoPromoteStopMinutes: z.number().int().min(0).max(10080),
-    }).parse(input);
+    const data=waitlistValues.parse(input);
+    const receipt=z.object({receipt:waitlistReceipt.optional()}).parse(input).receipt;
     const { user, storeId } = await courseManager("business_hours.manage");
+    if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟候補設定。");
     await requireStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
-    await courseTransaction(storeId, async tx => {
-      await tx.courseWaitlistSetting.upsert({
+    const saved=await courseTransaction(storeId, async tx => {
+      if(receipt){
+        const before=await tx.courseWaitlistSetting.findUnique({where:{storeId}});
+        const current=waitlistValues.parse(before??{enabled:false,defaultLimit:5,autoPromoteStopMinutes:240});
+        if(waitlistRevision(current)===waitlistRevision(data))return {values:current,changed:false};
+        if(waitlistRevision(current)!==receipt.expectedRevision)throw new AppError("CONFLICT","候補設定已有更新，輸入已保留。請核對後再編輯。");
+      }
+      const row=await tx.courseWaitlistSetting.upsert({
         where: { storeId },
         create: { storeId, ...data },
         update: { ...data, updatedAt: new Date() },
       });
-    }, async (auditResult, tx) => { await enqueueOperationAudit({
+      return {values:receipt?waitlistValues.parse(row):data,changed:true};
+    }, async (auditResult, tx) => { if(auditResult.changed)await enqueueOperationAudit({
       actorUserId: user.id,
       actorNameSnapshot: user.name,
       storeId,
@@ -50,10 +58,12 @@ export async function saveCourseWaitlistSettings(input: unknown) {
       after: data,
     }, tx); });
 
-    refresh();
+    let syncWarning=false;
+    try{refresh();}catch(error){if(!receipt)throw error;syncWarning=true;}
+    if(receipt)return {success:true as const,storeId,data:saved.values,syncWarning};
     return { success: true as const };
   } catch (error) {
-    return handleActionError(error);
+    return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};
   }
 }
 

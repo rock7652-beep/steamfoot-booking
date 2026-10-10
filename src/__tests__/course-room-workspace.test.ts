@@ -16,6 +16,7 @@ vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+window.scrollTo=vi.fn();
 const props = { storeId: "store-a", selectedDate: "2026-10-10", today: "2026-10-10", nowIso: "2026-10-10T01:00:00Z", calendarDays: {}, rooms: [], templates: [], sessions: [], cancelledBookings: [], coaches: [], canCreate: true, canEdit: true, view: "rooms" as const, staffAvailability: [], staffAvailabilityExceptions: [] };
 it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, and preserves the next draft during props synchronization", async businessProfile => {
   vi.stubGlobal("fetch", m.fetch); m.refresh.mockReset(); m.fetch.mockReset();
@@ -41,4 +42,30 @@ it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, 
     expect(host.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe("下一間草稿");
     expect(host.querySelectorAll('[data-new-room="true"]')).toHaveLength(1);
   } finally { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); }
+});
+
+it("edits a confirmed room without refresh and preserves it through stale props",async()=>{
+ const {courseRoomRevision}=await import("@/lib/course-room-input");
+ vi.spyOn(window,"scrollTo").mockImplementation(()=>{});vi.stubGlobal("fetch",m.fetch);m.fetch.mockReset();m.refresh.mockReset();
+ const original={...courseRoomInput.parse({name:"教室 A"}),id:"room",isActive:true};
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const render=(rooms=[original])=>createElement(CourseWorkspace,{...props,businessProfile:"MUSIC",rooms});
+ try{
+  await act(async()=>root.render(render()));
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="查看教室")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="編輯教室")!.click());
+  host.querySelector<HTMLInputElement>('#course-edit-form input[name="name"]')!.value="改名教室";
+  m.fetch.mockResolvedValueOnce({json:async()=>{throw new Error("lost reply");}});
+  const submit=()=>host.querySelector("#course-edit-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));
+  await act(async()=>{submit();submit();});expect(m.fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(m.fetch.mock.calls[0][1].body).expectedRevision).toBe(courseRoomRevision(original));
+  expect(host.querySelector<HTMLFieldSetElement>('#course-edit-form fieldset')!.disabled).toBe(true);
+  const changed={...original,name:"改名教室"};m.fetch.mockResolvedValueOnce({json:async()=>({success:true,storeId:"store-a",data:changed})});
+  await act(async()=>{submit();});expect(m.fetch.mock.calls[1][1].body).toBe(m.fetch.mock.calls[0][1].body);
+  expect(host.querySelector("#course-edit-form")).toBeNull();expect(host.querySelector("tbody")!.textContent).toContain("改名教室");expect(m.refresh).not.toHaveBeenCalled();
+  await act(async()=>root.render(render([{...original}])));expect(host.querySelector("tbody")!.textContent).toContain("改名教室");
+  await act(async()=>root.render(render([changed])));
+  await act(async()=>root.render(render([{...changed,name:"之後修改"}])));expect(host.querySelector("tbody")!.textContent).toContain("之後修改");
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });

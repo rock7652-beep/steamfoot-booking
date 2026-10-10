@@ -1,10 +1,11 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({access:vi.fn(),transaction:vi.fn(),template:vi.fn(),createTemplate:vi.fn(),updateTemplate:vi.fn(),room:vi.fn(),duration:vi.fn(),plan:vi.fn(),createPlan:vi.fn(),updatePlan:vi.fn(),revalidate:vi.fn(),music:vi.fn(),term:vi.fn()}));
+const m=vi.hoisted(()=>({access:vi.fn(),transaction:vi.fn(),template:vi.fn(),createTemplate:vi.fn(),updateTemplate:vi.fn(),room:vi.fn(),updateRoom:vi.fn(),roomUse:vi.fn(),duration:vi.fn(),plan:vi.fn(),createPlan:vi.fn(),updatePlan:vi.fn(),revalidate:vi.fn(),music:vi.fn(),term:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:m.revalidate}));
 vi.mock("next/server",()=>({after:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.access,courseTransaction:m.transaction}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseTemplate:{count:async()=>0}}}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.music}}}));
+vi.mock("@/server/services/course-resources",()=>({assertNoCourseResourceUse:m.roomUse,handleCourseActionError:(error:Error)=>({success:false,error:error.message})}));
 vi.mock("@/server/services/course-availability",()=>({assertMusicCourseDuration:m.duration}));
 vi.mock("@/server/services/course-coach-notification-kick",()=>({kickCoachNotifications:vi.fn()}));
 vi.mock("@/server/services/course-term",()=>({validateCourseTerm:m.term}));
@@ -16,7 +17,7 @@ vi.mock("@/server/services/music-subject-rule",()=>({}));
 vi.mock("@/server/services/course-low-balance-schedule",()=>({}));
 vi.mock("@/server/services/course-assignment-checkout",()=>({}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({}));
-import {saveCourseTemplateSettings} from "@/server/actions/course";
+import {saveCourseRoomSettings,saveCourseTemplateSettings} from "@/server/actions/course";
 import {saveCoursePointPlan} from "@/server/actions/course-members";
 import {courseTemplateInput} from "@/lib/course-scheduling";
 import {courseTemplateRevision} from "@/lib/course-template-save";
@@ -32,7 +33,7 @@ beforeEach(()=>{
  m.createPlan.mockImplementation(async({data})=>savedPlan={...data,lowBalanceEnabled:false,lowBalanceThreshold:null});
  m.updateTemplate.mockImplementation(async({data})=>{savedTemplate={...savedTemplate,...data,updatedAt:new Date()};return {count:1};});
  m.updatePlan.mockImplementation(async({data})=>{savedPlan={...savedPlan,...data};return {count:1};});
- m.transaction.mockImplementation(async(_store,work)=>work({courseTemplate:{findFirst:m.template,findFirstOrThrow:m.template,create:m.createTemplate,updateMany:m.updateTemplate},courseRoom:{findFirst:m.room},coursePointPlan:{findFirst:m.plan,findFirstOrThrow:m.plan,create:m.createPlan,updateMany:m.updatePlan},coursePurchase:{count:async()=>0},$queryRaw:async()=>[]}));
+ m.transaction.mockImplementation(async(_store,work)=>work({courseTemplate:{findFirst:m.template,findFirstOrThrow:m.template,create:m.createTemplate,updateMany:m.updateTemplate},courseRoom:{findFirst:m.room,findFirstOrThrow:m.room,updateMany:m.updateRoom},coursePointPlan:{findFirst:m.plan,findFirstOrThrow:m.plan,create:m.createPlan,updateMany:m.updatePlan},coursePurchase:{count:async()=>0},$queryRaw:async()=>[]}));
 });
 it("confirms the same course create after a lost reply; changed retry cannot overwrite it",async()=>{
  const first=await saveCourseTemplateSettings({...template,...receipt});expect(first).toMatchObject({success:true,data:{name:"瑜珈",hasSessions:false}});
@@ -63,4 +64,23 @@ it("rejects cross-store requests before transactions; committed saves survive ca
  m.revalidate.mockImplementation(()=>{throw new Error("cache failed");});
  expect(await saveCourseTemplateSettings({...template,...receipt})).toMatchObject({success:true,syncWarning:true});
  expect(await saveCoursePointPlan({...plan,receipt})).toMatchObject({success:true,syncWarning:true});
+});
+
+it("confirms a lost room edit once and protects capacity and cross-store writes",async()=>{
+ const {courseRoomInput,courseRoomRevision}=await import("@/lib/course-room-input");
+ let room={...courseRoomInput.parse({name:"教室",capacity:10}),id:"room",storeId:"store",isActive:true};
+ m.room.mockImplementation(async()=>room);
+ m.updateRoom.mockImplementation(async({data})=>{room={...room,...data};return {count:1};});
+ const input={...courseRoomInput.parse(room),name:"更新教室",capacity:8,id:"room",expectedRevision:courseRoomRevision(room),...receipt};
+ const first=await saveCourseRoomSettings(input);expect(first).toMatchObject({success:true,data:{name:"更新教室",capacity:8}});
+ expect(await saveCourseRoomSettings(input)).toEqual(first);expect(m.updateRoom).toHaveBeenCalledTimes(1);expect(m.roomUse).toHaveBeenCalledTimes(1);
+ expect((await saveCourseRoomSettings({...input,name:"過期編輯"})).success).toBe(false);
+ m.roomUse.mockRejectedValueOnce(new Error("已排課容量超過上限"));
+ expect((await saveCourseRoomSettings({...input,capacity:1,expectedRevision:courseRoomRevision(room)})).success).toBe(false);expect(m.updateRoom).toHaveBeenCalledTimes(1);
+ m.transaction.mockClear();expect((await saveCourseRoomSettings({...input,expectedStoreId:"other"})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
+});
+it("does not report committed room edits as failures when cache invalidation fails",async()=>{
+ const {courseRoomInput,courseRoomRevision}=await import("@/lib/course-room-input");
+ const room={...courseRoomInput.parse({name:"教室"}),id:"room",storeId:"store",isActive:true};m.room.mockResolvedValue(room);m.updateRoom.mockResolvedValue({count:1});m.revalidate.mockImplementation(()=>{throw new Error("cache");});
+ expect(await saveCourseRoomSettings({...courseRoomInput.parse(room),id:"room",expectedRevision:courseRoomRevision(room),...receipt})).toMatchObject({success:true,syncWarning:true});
 });

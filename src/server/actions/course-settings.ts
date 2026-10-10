@@ -1,4 +1,5 @@
 "use server";
+import { selfBookingReceipt } from "@/lib/course-self-booking-save";
 import { z } from "zod";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
@@ -18,12 +19,14 @@ import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 /** This setting writes only its own field and shares the course store mutation lock. */
 export async function saveCourseSelfBookingSettings(input: unknown) {
   try {
-    const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(input);
+    const { enabled, receipt } = z.object({ enabled: z.boolean(), receipt:selfBookingReceipt.optional() }).strict().parse(input);
     const { user, storeId } = await courseManager("business_hours.manage");
+    if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
     await assertStoreSubscriptionWritable(storeId);
     const saved = await courseTransaction(storeId, async tx => {
       const before = await tx.courseBookingRule.findUnique({ where: { storeId } });
       if (courseSelfBookingEnabled(before) === enabled) return { enabled, revision: before?.selfBookingRevision ?? 0 };
+      if(receipt && (before?.selfBookingRevision??0)!==receipt.expectedRevision)throw new AppError("CONFLICT","設定已由其他人更新，請核對目前狀態後再編輯。");
       const updated = await tx.courseBookingRule.upsert({
         where: { storeId },
         create: { storeId, selfBookingEnabled: enabled, selfBookingRevision: 1 },
@@ -40,12 +43,13 @@ export async function saveCourseSelfBookingSettings(input: unknown) {
       }, tx);
       return { enabled, revision: updated.selfBookingRevision };
     });
-    revalidatePath("/dashboard", "layout");
-    revalidatePath("/book");
+    let syncWarning=false;
+    try{revalidatePath("/dashboard", "layout");revalidatePath("/book");}catch(error){if(!receipt)throw error;syncWarning=true;}
+    if(receipt)return {success:true as const,storeId,data:saved,syncWarning};
     return { success: true as const, ...saved };
   } catch (error) {
     const result = handleActionError(error);
-    return { success: false as const, error: result.success ? "儲存失敗，請重試" : result.error };
+    return { success: false as const, error: result.success ? "儲存失敗，請重試" : result.error,uncertain:settingsSaveUncertain(error) };
   }
 }
 

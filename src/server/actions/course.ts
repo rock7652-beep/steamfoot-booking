@@ -11,7 +11,7 @@ import { assertCourseSessionsFitHours } from "@/server/services/course-business-
 import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
 import { courseTransaction } from "@/server/services/course-access";
 import { z } from "zod";
-import { courseRoomInput } from "@/lib/course-room-input";
+import { courseRoomEditInput, savedCourseRoom, courseRoomRevision, courseRoomInput } from "@/lib/course-room-input";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { coursePrisma } from "@/lib/course-db";
@@ -150,6 +150,33 @@ export async function updateCourseRoom(input: unknown) {
   } catch (error) {
     return handleCourseActionError(error);
   }
+}
+
+/** Room edits return committed values without waiting for the dashboard RSC. */
+export async function saveCourseRoomSettings(input:unknown) {
+  try {
+    const {id,expectedStoreId,expectedRevision,requestKey,...fields}=courseRoomEditInput.parse(input);
+    void requestKey; // Transport keeps the exact edit payload for an ambiguous retry.
+    const {storeId}=await writableStore("booking.update");
+    if(storeId!==expectedStoreId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟空間設定。");
+    const saved=await courseTransaction(storeId,async tx=>{
+      const previous=await tx.courseRoom.findFirst({where:{id,storeId}});
+      if(!previous)throw new AppError("NOT_FOUND","找不到本店空間");
+      if(courseRoomRevision(previous)!==expectedRevision){
+        if(JSON.stringify(courseRoomInput.parse(previous))===JSON.stringify(fields))return previous;
+        throw new AppError("CONFLICT","空間已有更新，輸入已保留。請核對目前資料後再編輯。");
+      }
+      if(fields.capacity!==null&&(previous.capacity===null||fields.capacity<previous.capacity))
+        await assertNoCourseResourceUse(tx,storeId,{roomId:id,capacity:fields.capacity});
+      const updated=await tx.courseRoom.updateMany({where:{id,storeId,...courseRoomInput.parse(previous),isActive:previous.isActive},data:fields});
+      if(!updated.count)throw new AppError("CONFLICT","空間已有更新，請重新核對。");
+      return tx.courseRoom.findFirstOrThrow({where:{id,storeId}});
+    });
+    const data=savedCourseRoom.parse(saved);
+    let syncWarning=false;
+    try{revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/hq/dashboard/courses");revalidatePath("/book");}catch{syncWarning=true;}
+    return {success:true as const,storeId,data,syncWarning};
+  }catch(error){return {...handleCourseActionError(error),uncertain:settingsSaveUncertain(error)};}
 }
 
 export async function updateCourseTemplate(input: unknown) {
