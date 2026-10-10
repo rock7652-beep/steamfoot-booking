@@ -696,13 +696,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     ) : <p className="cp-empty">{closed(selected) ? "店家公休" : (courseFilter || teacherFilter) && p.sessions.some(s => courseDate(s.startsAt) === selected) ? "當天沒有符合篩選的課程" : "當天沒有課程"}</p>;
   }
   function workRows(list: Work[]) {
-    return [...list].sort((a, b) => (page === "home" ? Number(isEnded(a)) - Number(isEnded(b)) : 0) || a.startsAt.localeCompare(b.startsAt)).map((s) => {
+    return <div className="cp-work-list" role="list" aria-label="授課清單">{[...list].sort((a, b) => (page === "home" ? Number(isEnded(a)) - Number(isEnded(b)) : 0) || a.startsAt.localeCompare(b.startsAt)).map((s) => {
       const people = s.bookings.filter((b) => b.status !== "CANCELLED"),
         pendingPeople = people.filter((b) => b.status === "RESERVED"),
         filtered = people.filter((b) => b.customerName.includes(search)),
         readOnly = page === "records" && recordEdit !== s.id;
       return (
-        <article key={s.id} className="cp-card">
+        <article key={s.id} className="cp-card cp-work-lesson" role="listitem">
           <button
             className="cp-menu"
             disabled={!s.bookings.length}
@@ -715,25 +715,20 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             }}
           >
             <span>
-              <strong>
-                {time(s.startsAt)}–{time(s.endsAt)} · {s.name}
+              <strong className="cp-work-title">
+                <span className="cp-work-time">{time(s.startsAt)}–{time(s.endsAt)}</span><span>{s.name}</span>
               </strong>
-              <small className="cp-course-cost">{s.cost} 點／堂</small>
-              <small>
-                {s.room} · {people.length} 位學員 ·{" "}
-                {page === "records" ? `出席 ${people.filter(b=>b.status === "ATTENDED").length} 人／未到 ${people.filter(b=>b.status === "NO_SHOW").length} 人 · ${pendingPeople.length ? "待完成點名" : people.length ? "點名完成" : "無有效預約"}` : pendingPeople.length
-                  ? `待點名 ${pendingPeople.length} 位`
-                  : people.length
-                    ? "點名完成"
-                    : "尚無學員"}
+              <small className="cp-work-meta">
+                <span>{s.room} · {people.length} 位</span>
+                <span className="cp-work-status">{pendingPeople.length ? `待點名 ${pendingPeople.length} 位` : people.length ? "點名完成" : "尚無學員"}</span>
               </small>
             </span>
-            {s.bookings.length > 0 && <span>{roster === s.id ? "收合" : !people.length ? "已取消預約" : page === "records" ? "查看明細" : "名單／點名"}</span>}
+            {s.bookings.length > 0 && <span className="cp-work-toggle" aria-hidden="true">{roster === s.id ? "⌃" : "⌄"}</span>}{s.bookings.length > 0 && !people.length && <span className="sr-only">已取消預約</span>}
           </button>
           {roster === s.id && s.bookings.length > 0 && (
             <div className="cp-pad cp-roster-body">
               <div className="cp-actions cp-roster-actions">
-                <strong>學員名單 {people.length}</strong>
+                <div><strong>學員名單</strong><span className="cp-course-cost">每人 {s.cost} {unit(p.musicStore ? "SESSION" : "POINT")}</span></div>
                 {readOnly && <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button>}
                 {!readOnly && pendingPeople.length > 0 && (
                   <button
@@ -752,7 +747,6 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   </button>
                 )}
               </div>
-              {!readOnly && pendingPeople.length > 0 && <p className="cp-roster-hint">確認出席後扣抵額度。</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
                 <input
@@ -837,7 +831,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             ? `已出席・${b.unit === "TRIAL" ? "體驗不扣額度" : `已扣 ${b.cost} ${unit(b.unit)}`}`
                             : statusName(b.status)}
                       </span>
-                      <span className="cp-roster-note">{[b.notes && `本次：${b.notes}`, b.serviceNote && `店內：${b.serviceNote}`].filter(Boolean).join("；") || "無備註"}</span>
+                      <span className="cp-roster-note">{[b.notes && `本次：${b.notes}`, b.serviceNote && `店內：${b.serviceNote}`].filter(Boolean).join("；")}</span>
                       <span className="cp-roster-detail-label"><span className="cp-detail-closed">詳情</span><span className="cp-detail-open">收起</span></span>
                     </summary>
                     {b.companionIndex && <p>同行 · 預約人 {b.reserverName}</p>}
@@ -872,7 +866,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           )}
         </article>
       );
-    });
+    })}</div>;
   }
   const bookings = p.bookings
     .filter((b) =>
@@ -951,7 +945,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
-          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}>{refreshControl}<input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
+          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}>{p.incomeAvailable && <a className="cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}<input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
         </header>
         <nav className="cp-nav" aria-label="主要功能">
           {nav.map(([v, label, icon]) => (
@@ -966,7 +960,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           ))}
         </nav>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
-          {p.incomeAvailable && (coach || (!p.hasWork && page === "account")) && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入 · 查看已確認月結</a>}
+          {p.incomeAvailable && !coach && !p.hasWork && page === "account" && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}
           {!coach && !selfBookingEnabled && ["home", "schedule", "bookings"].includes(page) && <p className="cp-important">{COURSE_SELF_BOOKING_DISABLED_MESSAGE}</p>}
           {message && (
             <p role="status" className="cp-toast">

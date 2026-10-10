@@ -733,3 +733,20 @@
 .cp-plan-row > span { color: #63756a; }
 .cp-plan-held { grid-column: 1 / -1; font-size: inherit; color: #63756a; }
 .cp-plan-body { border-top: 1px solid #e1e7de; padding-top: 8px; margin-top: 4px; }
+
+/* Work courses are a single list; details and attendance stay on the same row. */
+.cp-work-list { margin: 10px 0; border: 1px solid #dce3d7; border-radius: 12px; background: white; overflow: hidden; }
+.cp-work-list:empty { display: none; }
+.cp-work-list > .cp-work-lesson { margin: 0; border: 0; border-radius: 0; overflow: visible; }
+.cp-work-lesson + .cp-work-lesson { border-top: 1px solid #e5eae2; }
+.cp-work-title { display: grid !important; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; font-size: 15px; }
+.cp-work-time { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 400; }
+.course-portal .cp-work-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 14px; }
+.cp-work-meta .cp-work-status { color: #315b49; }
+.cp-work-lesson .cp-work-toggle { width: 14px; text-align: center; }
+.cp-work-lesson .cp-roster-body { border-top: 1px solid #edf0e8; padding: 0 14px 10px; }
+.cp-roster-actions > div { min-width: 0; }
+.cp-roster-actions .cp-course-cost { display: block; margin-top: 2px; color: #697963; font-size: 14px; }
+.cp-coach-options { position: relative; }
+.cp-coach-options > form { position: absolute; right: 0; top: 100%; z-index: 30; width: 220px; max-width: calc(100vw - 32px); border: 1px solid #dce3d7; border-radius: 12px; background: white; box-shadow: 0 8px 24px #2444371a; overflow: hidden; }
+.cp-roster-details .cp-roster-note:empty { display: none; }

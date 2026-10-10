@@ -68,6 +68,24 @@ describe("coach daily work interactions", () => {
     expect(host.querySelector('.cp-main .cp-refresh')).toBeNull();
   });
 
+  it("keeps one income entry in the account menu across work pages", async () => {
+    await act(async () => root.render(createElement(CoursePortalClient, {...props(), incomeAvailable:true})));
+    for (const label of ["課表", "授課紀錄", "今日工作"]) {
+      await click(label);
+      const links = host.querySelectorAll('a[href^="/s/a/book/income"]');
+      expect(links).toHaveLength(1);
+      expect(links[0].closest(".cp-coach-options")).not.toBeNull();
+    }
+  });
+  it("shows the music lesson unit when expanding a work roster", async () => {
+    await act(async () => root.render(createElement(CoursePortalClient, {...props(), musicStore:true})));
+    expect(host.querySelector('[role="list"] [role="listitem"] button')?.textContent).toContain("伸展瑜珈");
+    expect(host.querySelector(".cp-course-cost")).toBeNull();
+    await click("伸展瑜珈");
+    expect(host.querySelector(".cp-course-cost")?.textContent).toBe("每人 2 堂");
+    expect(host.textContent).not.toContain("無備註");
+  });
+
   it("updates companion usage and the reserver balance from the saved receipt before refresh", async () => {
     const data = props(); data.companionBookingEnabled = true;
     data.work[0].bookings = [learner("本人", false), {...learner("同行者", false), customerId: null, companionIndex: 1, reserverName: "本人"}] as CoursePortalData["work"][number]["bookings"];
@@ -186,7 +204,7 @@ describe("coach daily work interactions", () => {
     expect(host.textContent).toContain("全班出席 2 人");
     expect(host.textContent).not.toContain("報到");
     expect(host.querySelectorAll(".cp-roster-person .cp-attendance-row")).toHaveLength(2);
-    expect(host.querySelector(".cp-course-cost")?.textContent).toContain("2 點／堂");
+    expect(host.querySelector(".cp-course-cost")?.textContent).toContain("每人 2 點");
     expect(host.querySelector(".cp-roster-balance")?.textContent).toBe("可用 6 點");
     expect([...host.querySelectorAll(".cp-roster-person")].every(row => row.querySelectorAll(".cp-attendance-actions button").length <= 2)).toBe(true);
   });
