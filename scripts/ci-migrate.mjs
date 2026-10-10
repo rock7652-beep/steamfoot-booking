@@ -1,3 +1,8 @@
+// Teacher editor review must not run database work or deploy before isolated preview setup.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/music-teacher-editor-ui-20261010")) {
+  throw new Error("Teacher editor review uses local component verification; isolated Preview setup is required.");
+}
+
 // Public article review must not trigger a preview build or database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
   throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
