@@ -90,4 +90,22 @@ describe("trial booking source outcomes", () => {
     ] });
     expect((await getTrialSourceMetrics("store-1", "2026-09-01", "2026-09-30")).find(row => row.source === "LINE")).toMatchObject({ bookings: 1, bookedPeople: 2, attendees: 1, attendanceRate: 50, assignedCustomers: 0, planRate: 0 });
   });
+  it("attributes the first same-day visit by service time, even when the later walk-in has a smaller booking id", async () => {
+    const date = new Date("2026-09-15");
+    mocks.bookings.mockResolvedValue([
+      { id: "z-original", customerId: "guest", bookingSource: "LINE", bookingDate: date, createdAt: date, bookingStatus: "COMPLETED", people: 1 },
+      { id: "a-walk-in", customerId: "other", bookingSource: "OTHER", bookingDate: date, createdAt: date, bookingStatus: "COMPLETED", people: 2 },
+    ]);
+    mocks.individual.mockResolvedValue({ groupIds: new Set(["z-original", "a-walk-in"]), originalPeopleByBooking: new Map([["z-original", 1], ["a-walk-in", 1]]), visits: [
+      { bookingId: "a-walk-in", customerId: "guest", bookingType: "FIRST_TRIAL", source: "WALK_IN", slotTime: "16:30", bookingDate: date },
+      { bookingId: "z-original", customerId: "guest", bookingType: "FIRST_TRIAL", source: "RESERVATION", slotTime: "14:30", bookingDate: date },
+    ] });
+    mocks.facts.mockResolvedValue({ trials: [
+      { bookingId: "a-walk-in", customerId: "guest", bookingDate: date, slotTime: "16:30" },
+      { bookingId: "z-original", customerId: "guest", bookingDate: date, slotTime: "14:30" },
+    ], purchases: [{ customerId: "guest", transactionDate: new Date("2026-09-16"), customerPlanWallet: { status: "ACTIVE" }, netAmount: 5990 }] });
+    const rows = await getTrialSourceMetrics("store-1", "2026-09-01", "2026-09-30");
+    expect(rows.find(row => row.source === "LINE")).toMatchObject({ assignedCustomers: 1, planRate: 100 });
+    expect(rows.find(row => row.source === "OTHER")).toMatchObject({ assignedCustomers: 0, planRate: 0 });
+  });
 });

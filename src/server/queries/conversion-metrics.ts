@@ -32,6 +32,7 @@ export type CompletedTrial = {
   bookingId?: string;
   customerId: string;
   bookingDate: Date;
+  slotTime?: string;
   people?: number;
   attendedPeople?: number | null;
 };
@@ -237,6 +238,7 @@ export async function loadConversionFacts(storeId: string, months: string[]): Pr
       id: true,
       customerId: true,
       bookingDate: true,
+      slotTime: true,
       people: true,
       attendedPeople: true,
     },

@@ -58,10 +58,11 @@ export async function getTrialSourceMetrics(
     loadConversionFacts(storeId, [toLocalDateStr(latestDate).slice(0, 7)]),
   ]);
   const firstTrialByCustomer = new Map<string, CompletedTrial>();
+  const sameDayOrder = (trial: CompletedTrial) => `${trial.slotTime?.slice(0, 5) ?? ""}|${trial.bookingId ?? trial.id ?? ""}`;
   for (const trial of facts.trials) {
     const previous = firstTrialByCustomer.get(trial.customerId);
     if (!previous || trial.bookingDate < previous.bookingDate ||
-      (trial.bookingDate.getTime() === previous.bookingDate.getTime() && (trial.bookingId ?? trial.id ?? "") < (previous.bookingId ?? previous.id ?? ""))) {
+      (trial.bookingDate.getTime() === previous.bookingDate.getTime() && sameDayOrder(trial) < sameDayOrder(previous))) {
       firstTrialByCustomer.set(trial.customerId, trial);
     }
   }
