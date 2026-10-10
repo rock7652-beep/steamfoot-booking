@@ -48,3 +48,8 @@ export async function completeBookingParticipantPlan(input: { position: number }
   person.status = "COMPLETED"; person.service = "PACKAGE_SESSION"; person.revision++;
   return { success: true, data: undefined };
 }
+
+export async function getBookingCustomerProfile(id: string) {
+ return { success: true, data: { id, name: state.slots.find(slot => slot.customerId === id)?.name ?? "顧客", phone: id === "booker" ? "0912345678" : "0911111111", serviceNote: null, bookings: [] } };
+}
+export async function updateCustomerServiceNoteAction() { return { success: true }; }

@@ -9,7 +9,7 @@ import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 type Candidate = { id: string; name: string; phoneMasked: string };
 type Slot = NonNullable<BookingDrawerPayload["companions"]>["slots"][number];
 
-function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, onUpdated }: { bookingId: string; slot: Slot; canEdit: boolean; canCreate: boolean; blocked: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void }) {
+export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, onUpdated, embedded = false }: { embedded?: boolean; bookingId: string; slot: Slot; canEdit: boolean; canCreate: boolean; blocked: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void }) {
   const reader = usePanelReader("booking-companion-phone", findBookingCompanionByPhone);
   const [phone, setPhone] = useRetainedState<string>(`companion-phone:${bookingId}:${slot.position}`, "",
     (value): value is string => typeof value === "string" && value.length <= 30);
@@ -40,9 +40,9 @@ function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, o
   const name = slot.name ?? linked?.name;
   return <div className="border-t border-earth-100 py-2">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
-      <p className="text-base font-medium text-earth-800">同行者 {slot.position - 1} · {name ?? "待建檔"}</p>
+      {!embedded && <p className="text-base font-medium text-earth-800">同行者 {slot.position - 1} · {name ?? "待建檔"}</p>}
       {canEdit && !slot.customerId && !linked && !editing && !phone && !newName && <button type="button"
-        onClick={() => setEditing(true)} className="min-h-11 px-3 text-base font-medium text-primary-700">建檔／選擇顧客</button>}
+        disabled={blocked || working} onClick={() => setEditing(true)} className="min-h-11 px-3 text-base font-medium text-primary-700">補資料</button>}
     </div>
     {canEdit && !slot.customerId && !linked && (editing || phone || newName) && <div className="mt-2 space-y-2">
       <form className="flex flex-wrap gap-2" onSubmit={event => {
@@ -93,8 +93,8 @@ function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, o
   </div>;
 }
 
-export function BookingCompanionEditor({ bookingId, companions, readOnly, blocked = false, onBusy, onUpdated }: {
-  bookingId: string; companions: NonNullable<BookingDrawerPayload["companions"]>; readOnly: boolean; blocked?: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void;
+export function BookingCompanionEditor({ bookingId, companions, readOnly, blocked = false, onBusy, onUpdated, addOnly = false }: {
+  addOnly?: boolean; bookingId: string; companions: NonNullable<BookingDrawerPayload["companions"]>; readOnly: boolean; blocked?: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
@@ -114,6 +114,6 @@ export function BookingCompanionEditor({ bookingId, companions, readOnly, blocke
         finally { pending.current = false; setAdding(false); onBusy?.(false); }
       }}>{adding ? "加入中…" : "＋ 臨時加人"}</button>}
     {error && <p role="alert" className="text-sm text-amber-800">{error}</p>}
-    {companions.slots.filter(slot => !slot.customerId && (!slot.status || slot.status === "PENDING")).map(slot => <CompanionSlot key={`${bookingId}:${slot.position}`} bookingId={bookingId} slot={slot} canEdit={companions.canEdit && !readOnly && (!slot.status || slot.status === "PENDING")} canCreate={companions.canCreate} blocked={blocked || adding} onBusy={onBusy} onUpdated={onUpdated} />)}
+    {!addOnly && companions.slots.filter(slot => !slot.customerId && (!slot.status || slot.status === "PENDING")).map(slot => <CompanionSlot key={`${bookingId}:${slot.position}`} bookingId={bookingId} slot={slot} canEdit={companions.canEdit && !readOnly && (!slot.status || slot.status === "PENDING")} canCreate={companions.canCreate} blocked={blocked || adding} onBusy={onBusy} onUpdated={onUpdated} />)}
   </div>;
 }

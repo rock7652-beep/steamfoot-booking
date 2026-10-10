@@ -3,14 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
-const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), plan: vi.fn() }));
-vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, completeBookingParticipantPlan: h.plan }));
+const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), plan: vi.fn(), profile: vi.fn() }));
+vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, completeBookingParticipantPlan: h.plan, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({
   AssignPlanForm: ({ customerId, onSuccess, onPendingChange }: { customerId: string; onSuccess: () => void; onPendingChange: (pending: boolean) => void }) =>
     createElement("div", { "data-plan-customer": customerId }, "本人方案表單", createElement("button", {
       onClick: () => { onPendingChange(true); onSuccess(); },
     }, "模擬方案成功")),
 }));
+vi.mock("@/server/actions/customer", () => ({ updateCustomerServiceNoteAction: vi.fn() }));
+vi.mock("@/server/actions/booking-customer-profile", () => ({ getBookingCustomerProfile: h.profile }));
 import { BookingParticipantCheckout } from "@/app/(dashboard)/dashboard/bookings/booking-participant-checkout";
 
 let root: Root; let container: HTMLDivElement;
@@ -46,22 +48,22 @@ describe("actual participant checkout component", () => {
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.plan).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, walletId: "own" });
     expect(h.collect).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("完成 1／2 · 已收 NT$ 0");
-    expect(buttons("收體驗費")).toHaveLength(1);
+    expect(container.textContent).toContain("已服務 1／2 人 · 已收 NT$ 0");
+    expect(buttons("收費 $499")).toHaveLength(1);
   });
 
   it("collects one named slot in one submit, leaving the friend pending", async () => {
-    await render(); await click(buttons("收體驗費")[0]);
+    await render(); await click(buttons("收費 $499")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.collect).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, amount: 499, paymentMethod: "CASH", note: "" });
     expect(container.textContent).toContain("已完成 · 體驗費 NT$ 499");
-    expect(container.textContent).toContain("完成 1／2 · 已收 NT$ 499");
-    expect(buttons("收體驗費")).toHaveLength(1); expect(updated).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("已服務 1／2 人 · 已收 NT$ 499");
+    expect(buttons("收費 $499")).toHaveLength(1); expect(updated).toHaveBeenCalledTimes(1);
     expect(onBusy.mock.calls.map(call => call[0])).toEqual([true, false]);
   });
   it("shows an error in the same row without completing anybody", async () => {
     h.collect.mockResolvedValue({ success: false, error: "金額不正確" });
-    await render(); await click(buttons("收體驗費")[0]);
+    await render(); await click(buttons("收費 $499")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("金額不正確");
     expect(container.textContent).not.toContain("已完成"); expect(updated).not.toHaveBeenCalled();
@@ -74,9 +76,9 @@ describe("actual participant checkout component", () => {
   });
   it("unknown companion has no payment button and read-only view has no writes", async () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
-    await render(data); expect(buttons("收體驗費")).toHaveLength(1);
+    await render(data); expect(buttons("收費 $499")).toHaveLength(1);
     expect(container.textContent).toContain("待建檔");
-    await render(data, true); expect(container.querySelectorAll("button")).toHaveLength(0);
+    await render(data, true); expect(buttons("收費 $499")).toHaveLength(0); expect(buttons("使用本人方案")).toHaveLength(0);
   });
   it("releases the group busy lock before unmounting a successful plan form", async () => {
     const data = checkout(); data.slots[0].status = "COMPLETED";
@@ -85,10 +87,10 @@ describe("actual participant checkout component", () => {
     expect(onBusy.mock.calls.map(call => call[0])).toEqual([true, false]);
     expect(container.querySelector('[data-plan-customer="primary"]')).toBeNull();
     expect(updated).toHaveBeenCalledTimes(1);
-    expect(buttons("收體驗費")[0].disabled).toBe(false);
+    expect(buttons("收費 $499")[0].disabled).toBe(false);
   });
   it("removes an already opened payment form when switched to read-only or collection permission is revoked", async () => {
-    await render(); await click(buttons("收體驗費")[0]); expect(container.querySelector("form")).not.toBeNull();
+    await render(); await click(buttons("收費 $499")[0]); expect(container.querySelector("form")).not.toBeNull();
     await render(checkout(), true); expect(container.querySelector("form")).toBeNull();
     const data = checkout(); data.canCollect = false;
     await render(data); expect(container.querySelector("form")).toBeNull();
@@ -100,13 +102,13 @@ describe("actual participant checkout component", () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
     await render(data); await click(buttons("取消名額")[1]);
     expect(h.resolve).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2, status: "CANCELLED" });
-    expect(container.textContent).toContain("已取消"); expect(buttons("收體驗費")).toHaveLength(1);
+    expect(container.textContent).toContain("已取消"); expect(buttons("收費 $499")).toHaveLength(1);
     expect(h.collect).not.toHaveBeenCalled(); confirm.mockRestore();
   });
   it("blocks a double submit while the receipt result is still pending", async () => {
     let finish!: (value: { success: boolean }) => void;
     h.collect.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-    await render(); await click(buttons("收體驗費")[0]);
+    await render(); await click(buttons("收費 $499")[0]);
     await act(async () => {
       container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -115,10 +117,21 @@ describe("actual participant checkout component", () => {
     await act(async () => finish({ success: true }));
   });
   it("uses refreshed authoritative amounts instead of the older local receipt", async () => {
-    await render(); await click(buttons("收體驗費")[0]);
+    await render(); await click(buttons("收費 $499")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     const data = checkout(); data.slots[0].revision = 2; data.slots[0].status = "COMPLETED"; data.slots[0].collectedAmount = 399;
     await render(data);
-    expect(container.textContent).toContain("完成 1／2 · 已收 NT$ 399");
+    expect(container.textContent).toContain("已服務 1／2 人 · 已收 NT$ 399");
   });
+});
+
+it("keeps each person's profile and history in their own row without navigation", async () => {
+  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id === "guest" ? "朋友" : "預約者", phone: id === "guest" ? "0900000002" : "0900000001", serviceNote: null, bookings: [] } }));
+  await render();
+  await click(buttons("資料與紀錄")[1]);
+  const friend = container.querySelector('[aria-label="朋友"]')!;
+  expect(friend.textContent).toContain("0900000002");
+  expect(friend.textContent).not.toContain("0900000001");
+  expect(h.profile).toHaveBeenCalledWith("guest");
+  expect(container.querySelectorAll("a:not([href^='tel:'])")).toHaveLength(0);
 });
