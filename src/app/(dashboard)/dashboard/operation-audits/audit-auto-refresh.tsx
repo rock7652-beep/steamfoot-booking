@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { PageHeader } from "@/components/desktop/page-header";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 /** Refresh server-owned HQ reads only; never reload the document or write audit rows. */
@@ -52,14 +53,14 @@ export function AuditAutoRefresh({ children, renderedAt, dateTo, followToday, pa
     };
   }, [router, pathname, dateTo, followToday, page]);
 
-  return <div ref={root} className="min-w-0 space-y-4" onChangeCapture={event => {
+  return <div ref={root} className="min-w-0 space-y-2" onChangeCapture={event => {
     if (event.target instanceof Element && event.target.closest("form")) dirtyFilter.current = true;
     // The native login filter form carries its date intent through submission.
     if (!(event.target instanceof HTMLInputElement) || event.target.name !== "dateTo") return;
     const mode = event.target.form?.elements.namedItem("dateMode");
     if (mode instanceof HTMLInputElement) mode.value = event.target.value === toLocalDateStr() ? "today" : "fixed";
   }}>
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-sm text-earth-500">
+    <PageHeader title="操作與登入紀錄" compact actions={<div className="flex items-center gap-2 text-sm text-earth-500">
       <span>更新於 {new Date(renderedAt).toLocaleTimeString("zh-TW", { timeZone: "Asia/Taipei", hour12: false, hour: "2-digit", minute: "2-digit" })}</span>
       <button type="button" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3" disabled={pending} onClick={() => {
         if (busy.current) return;
@@ -73,7 +74,7 @@ export function AuditAutoRefresh({ children, renderedAt, dateTo, followToday, pa
           } else router.refresh();
         });
       }}>{pending ? "更新中…" : "更新"}</button>
-    </div>
+    </div>} />
     {children}
   </div>;
 }

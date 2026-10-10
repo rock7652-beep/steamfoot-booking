@@ -5,7 +5,7 @@ import { resolveAuditPresentation } from "@/server/services/audit-presentation";
 import { AuditChanges } from "@/components/audit-changes";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { PageHeader, PageShell } from "@/components/desktop";
+import { PageShell } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission, isStaffRole } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -136,9 +136,8 @@ export default async function OperationAuditsPage({
   const renderedAt = Date.now();
   const columns = storeId ? "@[720px]:grid-cols-[96px_150px_minmax(0,1fr)_20px]" : "@[900px]:grid-cols-[96px_150px_minmax(0,1fr)_150px_20px]";
   return (
-    <PageShell>
+    <PageShell compact>
       <AuditAutoRefresh key={`${user.id}:${storeId ?? "all"}:operation`} renderedAt={renderedAt} dateTo={dateTo} followToday={followToday} page={page}>
-      <PageHeader title="操作與登入紀錄" compact />
       <nav className="flex gap-2 text-sm" aria-label="稽核分類">
         <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}&dateMode=${dateMode}`}>操作紀錄</Link>
         <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}&dateMode=${dateMode}`}>登入紀錄</Link>
@@ -171,7 +170,7 @@ export default async function OperationAuditsPage({
         ) : (
           <div className="divide-y divide-earth-100">
             {result.items.map((item, index) => (
-              <details key={item.id} data-record={item.id} className="group px-3 py-1 open:bg-earth-50/60">
+              <details key={item.id} data-record={item.id} className="group px-3 open:bg-earth-50/60">
                 <summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden ${columns}`}>
                   <time dateTime={item.createdAt.toISOString()} className="col-start-1 row-start-1 tabular-nums text-earth-500">{auditTimeLabel(item.createdAt, result.items[index - 1]?.createdAt)}</time>
                   <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
