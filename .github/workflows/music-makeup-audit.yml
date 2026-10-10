@@ -91,9 +91,19 @@ jobs:
       DIRECT_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/music_makeup_test
       BOOKING_CONCURRENCY_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/music_makeup_test
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Checkout exact public commit without credentials
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git init .
+          git remote add origin https://github.com/rock7652-beep/steamfoot-booking.git
+          git -c credential.helper= -c http.extraheader= fetch --no-tags --no-recurse-submodules --depth=1 origin "$EXPECTED_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: 24
