@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect, useId } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { switchActiveStore } from "@/server/actions/store-switch";
+import { switchHqStoreView } from "@/lib/hq-store-switch-client";
 import { hqStoreSwitchDestination } from "@/lib/hq-navigation";
 import { toast } from "sonner";
 import { requestCourseDraftLeave } from "@/components/admin/use-course-draft-guard";
@@ -124,7 +124,7 @@ export default function StoreSwitcher({
     if(isPending || !requestCourseDraftLeave())return;
     setOpen(false);
     startTransition(async () => {
-      const result = await switchActiveStore(value);
+      const result = await switchHqStoreView(value);
       if (result.success) {
         // A store change can switch the entire module layout and redirect.
         // Request a fresh document so the old router tree cannot leave a blank view.

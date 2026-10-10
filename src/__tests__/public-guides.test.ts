@@ -12,6 +12,7 @@ import { GET as robots } from "@/app/robots.txt/route";
 vi.mock("@/lib/auth", () => ({ auth: (handler: unknown) => handler }));
 import { proxy } from "@/proxy";
 
+const pilatesSlug = "pilates-studio-equipment-scheduling";
 const notificationSlug = "music-school-leave-reschedule-notifications";
 const waitlistSlug = "yoga-studio-waitlist-order";
 const musicSlug = "music-school-leave-makeup-lesson-balance";
@@ -27,7 +28,7 @@ describe("public editorial guides", () => {
   it("preserves the ten original IDs, category anchors, and article index links", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const originalIds = ["solo-store", "opening-checklist", "trial-booking", "arrival-reminder", "plan-expiry", "trial-follow-up", "closing-cash", "stock-check", "work-order-handoff"];
-    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug]);
+    expect(visiblePublicGuides().map(guide => guide.id)).toEqual([...originalIds, musicSlug, waitlistSlug, notificationSlug, pilatesSlug]);
     expect(new Set(PUBLIC_GUIDES.map(guide => guide.id)).size).toBe(PUBLIC_GUIDES.length);
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     for (const category of GUIDE_CATEGORIES) expect(index).toContain(`id="guides-${category.id}"`);
@@ -211,7 +212,7 @@ describe("public editorial guides", () => {
       }
 };
     expect(Object.keys(approved)).toHaveLength(10);
-    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug)) {
+    for (const guide of visiblePublicGuides().filter(guide => guide.id !== waitlistSlug && guide.id !== notificationSlug && guide.id !== pilatesSlug)) {
       expect(guide.format).toBe("article");
       if (guide.format !== "article") continue;
       const lock = approved[guide.id];
@@ -319,13 +320,49 @@ describe("public editorial guides", () => {
     const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
     expect(index).toContain(`href="/guides/${notificationSlug}"`);
     expect(index).toContain(guide.summary);
-    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug)) {
+    for (const previous of visiblePublicGuides().filter(item => item.id !== notificationSlug && item.id !== pilatesSlug)) {
       const previousHtml = renderToStaticMarkup(await GuideArticle(props(previous.id)));
       expect(previousHtml).toContain("申請免費試用 30 天 →");
       expect(previousHtml).not.toContain("前往蒸管家，了解體驗與適用流程");
     }
     vi.stubEnv("VERCEL_ENV", "preview");
     expect((await generateMetadata(props(notificationSlug))).robots).toEqual({ index: false, follow: false });
+  });
+
+  it("publishes the exact approved Pilates v2 body, one neutral trial CTA, and no private appendix", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const guide = findPublicGuide(pilatesSlug)!;
+    expect(guide.format).toBe("article");
+    if (guide.format !== "article") return;
+    const manuscript = [guide.title, guide.disclosure, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label, guide.callToAction.url].join("\n\n") + "\n";
+    expect(createHash("sha256").update(manuscript).digest("hex")).toBe("89d02e68129cee51e07a25038895e21c8697579d30ccc2901b5448b38a4154d0");
+    expect(guide.sections).toHaveLength(3);
+    expect(guide.showSummary).toBe(false);
+    const html = renderToStaticMarkup(await GuideArticle(props(pilatesSlug)));
+    const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/)![1];
+    expect(article.match(/href="https:\/\/www\.steamfoot\.com\/apply"/g)).toHaveLength(1);
+    expect(guide.callToAction.label).toBe("申請蒸管家 30 天免費體驗");
+    let cursor = 0;
+    for (const text of [guide.title, guide.disclosure!, ...guide.introduction, ...guide.sections.flatMap(section => [section.heading, ...section.paragraphs]), guide.callToAction.text, guide.callToAction.label!]) {
+      const position = article.indexOf(text, cursor);
+      expect(position, text).toBeGreaterThanOrEqual(cursor);
+      cursor = position + text.length;
+    }
+    expect(article).not.toContain(guide.summary);
+    expect(article).not.toMatch(/SEO|附錄|搜尋量|自動阻擋|零衝突|永久保留|免費無限/);
+    expect(article).toContain("註：以下為匿名示意情境，非特定教室的實際事件。");
+    expect(article).toContain("這半小時要同時用五台床，只有四台就排不下");
+    expect(article).toContain("管好一堂課的人數上限，和管好每台器械的占用，是不同的事");
+    expect(article).toContain("再決定是否申請體驗");
+    expect(html).toContain('href="/pricing/features/fitness"');
+    expect(route(`/guides/${pilatesSlug}`).status).toBe(200);
+    expect(route(`/guides/${pilatesSlug}`).headers.get("x-robots-tag")).toBeNull();
+    expect(PUBLISHED_GUIDE_PATHS).toContain(`/guides/${pilatesSlug}`);
+    const index = renderToStaticMarkup(await GuideIndex({ searchParams: Promise.resolve({}) }));
+    expect(index).toContain(`href="/guides/${pilatesSlug}"`);
+    expect(index).toContain(guide.summary);
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect((await generateMetadata(props(pilatesSlug))).robots).toEqual({ index: false, follow: false });
   });
 
   it("keeps a future unpublished fixture private without treating the published music article as draft", async () => {
@@ -381,8 +418,8 @@ describe("public editorial guides", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
-    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(12);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(25);
+    expect(PUBLISHED_GUIDE_PATHS).toHaveLength(13);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(26);
     for (const path of PUBLISHED_GUIDE_PATHS) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com${path}</loc>`);
       expect(rules).toContain(`Allow: ${path}$\n`);

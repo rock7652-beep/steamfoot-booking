@@ -13,8 +13,8 @@
  * 純函數：wallet list → active / expired / history 三段分類。
  *
  * 分類規則 (per PR-E2 拍板 B (b) — LIFF defensive 視角)：
- *   history  = status ∈ {USED_UP, CANCELLED}  OR  (status=ACTIVE AND availableToBook=0)
- *               ↑ ACTIVE+0 視同已用完 — 避免 race window 期間顧客看到「有方案卻不能用」
+ *   history  = status ∈ {USED_UP, CANCELLED} OR (status=ACTIVE AND no remaining sessions)
+ *               ↑ 已全數預約但仍有剩餘堂數的方案保留 active，availability 不變
  *   expired  = status = EXPIRED  OR  (status=ACTIVE AND expiryDate < nowMs)
  *               ↑ 防 race — 無 cron 自動轉 EXPIRED，本檔前端 defensive date check
  *   active   = 其餘（status=ACTIVE AND availableToBook>0 AND expiryDate >= now or null）
@@ -29,6 +29,7 @@ export function splitLiffWallets<
   T extends {
     status: string;
     availableToBook: number;
+    remainingSessions?: number;
     expiryDate: string | null;
   },
 >(wallets: T[], nowMs: number = Date.now()): {
@@ -63,8 +64,8 @@ export function splitLiffWallets<
         expired.push(w);
         continue;
       }
-      // Defensive：堂數用完但 status 還沒翻 → 視同 used up
-      if (w.availableToBook <= 0) {
+      // Display only: fully reserved remaining sessions are still an active plan.
+      if (w.availableToBook <= 0 && !(w.remainingSessions && w.remainingSessions > 0)) {
         history.push(w);
         continue;
       }

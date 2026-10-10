@@ -5,13 +5,32 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink, resolveDashboardHref } from "@/components/dashboard-link";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { saveCourseSetupReminder } from "@/server/actions/course-setup";
+import { COURSE_ROOM_SAVED } from "@/lib/course-room-input";
+import { saveCourseSetupReminder, readCourseSetupProgress } from "@/server/actions/course-setup";
 import { courseSetupHref, currentCourseSetupStep, setupReminderVisible, type CourseSetupStep } from "@/lib/course-setup-progress";
 
 type Preference = { mode: "show" | "later" | "never"; login?: string };
-export function CourseSetupGuide({ steps, preference, login, manual = false, studentHref }: {
-  steps: CourseSetupStep[]; preference: Preference; login: string; manual?: boolean; studentHref?: string;
+export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, login, manual = false, studentHref: sourceStudentHref }: {
+  storeId?: string; steps: CourseSetupStep[]; preference: Preference; login: string; manual?: boolean; studentHref?: string;
 }) {
+  const [updated, setUpdated] = useState<{ source: CourseSetupStep[]; steps: CourseSetupStep[]; studentHref?: string } | null>(null);
+  const steps = updated?.source === sourceSteps ? updated.steps : sourceSteps;
+  const studentHref = updated?.source === sourceSteps ? updated.studentHref : sourceStudentHref;
+  const [syncError, setSyncError] = useState(false);
+  useEffect(() => {
+    let active = true, generation = 0;
+    async function refreshProgress(event: Event) {
+      if (!storeId || (event as CustomEvent<{storeId: string}>).detail?.storeId !== storeId) return;
+      const requested = ++generation;
+      setSyncError(false);
+      const result = await readCourseSetupProgress(storeId);
+      if (!active || requested !== generation) return;
+      if (result.success && result.storeId === storeId) setUpdated({ source: sourceSteps, steps: result.steps, studentHref: result.studentHref });
+      else setSyncError(true);
+    }
+    window.addEventListener(COURSE_ROOM_SAVED, refreshProgress);
+    return () => { active = false; window.removeEventListener(COURSE_ROOM_SAVED, refreshProgress); };
+  }, [storeId, sourceSteps]);
   const completed = steps.every(s => s.done), count = steps.filter(s => s.done).length;
   const pathname = usePathname(), router = useRouter(), params = useSearchParams();
   const route = `${pathname}?${params.toString()}`, lastRoute = useRef(route);
@@ -71,6 +90,7 @@ export function CourseSetupGuide({ steps, preference, login, manual = false, stu
         <button type="button" className="ml-auto min-h-11 px-3 font-medium text-primary-800" onClick={() => setOpen(true)}>查看全部步驟 →</button>
         {!current && <><button type="button" disabled={pending} className="min-h-11 px-2 text-earth-600" onClick={() => remind("later")}>稍後設定</button><button type="button" disabled={pending} className="min-h-11 px-2 text-earth-600" onClick={() => remind("never")}>不再提醒</button></>}
       </section> : null}
+    {syncError && <p role="status" className="text-sm text-earth-600">空間已儲存，設定進度暫時無法更新。<button type="button" className="min-h-11 px-3 text-primary-800" onClick={() => window.dispatchEvent(new CustomEvent(COURSE_ROOM_SAVED, {detail: {storeId}}))}>重試更新</button></p>}
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     {open && <RightSheet open presentation="centered" fitContent width={720} labelledById="course-setup-title" onClose={() => { if (!pending) setOpen(false); }}>
       <header className="flex items-center justify-between border-b border-earth-100 px-4 py-2"><h2 id="course-setup-title" className="font-semibold text-primary-900">{completed ? "設定完成，可以開始上課了" : "開始設定"} · {count}/{steps.length}</h2><button type="button" disabled={pending} className="min-h-11 px-3 text-sm" onClick={() => setOpen(false)}>關閉</button></header>
