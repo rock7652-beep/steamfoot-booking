@@ -87,7 +87,7 @@ function rawWallet(overrides: Partial<{
   status: string;
   plan: { name: string; category: string };
   bookings: Array<{ bookingStatus: string; isMakeup: boolean }>;
-  sessions: Array<{ status: string }>;
+  sessions: Array<{ id?: string; status: string; completedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
 }> = {}) {
   return {
     id: "wlt-default",
@@ -482,7 +482,7 @@ describe("isExpiringSoon — pure helper (PR-E2)", () => {
       {id:"s3",status:"RESERVED",booking}, {id:"s4",status:"VOIDED",booking},
       {id:"s5",status:"COMPLETED",booking:{...booking,id:"other",customerId:"other-customer"}},
       {id:"s6",status:"BACKFILLED",completedAt:null,booking:null},
-    ]} as Parameters<typeof rawWallet>[0])]);
+    ]})]);
     const result = await fetchLiffWallets();
     expect(result.status).toBe("ok");
     if(result.status !== "ok") throw Error("unexpected failure");

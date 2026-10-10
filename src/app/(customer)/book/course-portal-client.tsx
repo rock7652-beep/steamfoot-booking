@@ -198,7 +198,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop" | "health"; initialCoach?: boolean }) {
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
   const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
