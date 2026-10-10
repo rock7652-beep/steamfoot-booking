@@ -172,7 +172,7 @@ export async function createBookingCompanion(input: {
       }, select: { id: true, name: true } });
       await linkBookingParticipantCustomer(tx, { storeId, participantId: slot.id, customerId: customer.id, revision: slotInput.revision });
       return { customerId: customer.id, name: customer.name };
-    });
+    }, { timeout: 15_000 });
     revalidateBookingMutation(result.customerId);
     return { success: true, data: result };
   } catch (error) { return handleActionError(error); }

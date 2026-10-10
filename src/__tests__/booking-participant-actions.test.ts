@@ -112,6 +112,7 @@ describe("companion actions authorization and identity", () => {
   it("new profile and slot assignment share one transaction and the correct store limits", async () => {
     expect(await createBookingCompanion(input)).toEqual({ success: true, data: { customerId: "new", name: "新朋友" } });
     expect(h.transaction).toHaveBeenCalledTimes(1);
+    expect(h.transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 15_000 });
     expect(h.usage).toHaveBeenCalledWith(10, "authorized-store");
     expect(h.link.mock.calls[0][1]).toMatchObject({ storeId: "authorized-store", participantId: "slot", customerId: "new" });
   });
