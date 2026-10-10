@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/hq-audit-auto-refresh-20261010": false,
       "fix/hq-reviewed-phone-prefix": false,
       "fix/public-seo-crawlers-20261007": false,
       "feat/public-guide-articles-20261007": false,
