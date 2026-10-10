@@ -86,6 +86,20 @@ describe("coach daily work interactions", () => {
     expect(host.textContent).not.toContain("無備註");
   });
 
+  it("omits empty week counts and shows recorded attendance in the date-grouped list", async () => {
+    const data = props();
+    data.work[0].bookings = [learner("出席學員", true, "ATTENDED"), learner("未到學員", false, "NO_SHOW")];
+    await act(async () => root.render(createElement(CoursePortalClient, data)));
+    await click("課表");
+    expect(host.querySelector(".cp-week-strip")?.textContent).not.toContain("0堂");
+    expect(host.querySelector(".cp-week-strip")?.textContent).toContain("1堂");
+    await click("授課紀錄");
+    expect(host.querySelector(".cp-work-result")?.textContent).toBe("出席 1 位 · 未到 1 位");
+    await click("伸展瑜珈");
+    expect(host.querySelectorAll(".cp-roster-person")).toHaveLength(2);
+    expect(m.attendance).not.toHaveBeenCalled();
+  });
+
   it("updates companion usage and the reserver balance from the saved receipt before refresh", async () => {
     const data = props(); data.companionBookingEnabled = true;
     data.work[0].bookings = [learner("本人", false), {...learner("同行者", false), customerId: null, companionIndex: 1, reserverName: "本人"}] as CoursePortalData["work"][number]["bookings"];

@@ -699,6 +699,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     return <div className="cp-work-list" role="list" aria-label="授課清單">{[...list].sort((a, b) => (page === "home" ? Number(isEnded(a)) - Number(isEnded(b)) : 0) || a.startsAt.localeCompare(b.startsAt)).map((s) => {
       const people = s.bookings.filter((b) => b.status !== "CANCELLED"),
         pendingPeople = people.filter((b) => b.status === "RESERVED"),
+        attendanceResult = [people.filter(b => b.status === "ATTENDED").length ? `出席 ${people.filter(b => b.status === "ATTENDED").length} 位` : "", people.filter(b => b.status === "NO_SHOW").length ? `未到 ${people.filter(b => b.status === "NO_SHOW").length} 位` : ""].filter(Boolean).join(" · "),
         filtered = people.filter((b) => b.customerName.includes(search)),
         readOnly = page === "records" && recordEdit !== s.id;
       return (
@@ -720,7 +721,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               </strong>
               <small className="cp-work-meta">
                 <span>{s.room} · {people.length} 位</span>
-                <span className="cp-work-status">{pendingPeople.length ? `待點名 ${pendingPeople.length} 位` : people.length ? "點名完成" : "尚無學員"}</span>
+                <span className={`cp-work-status ${pendingPeople.length ? "cp-work-pending" : people.length ? "cp-work-complete" : "cp-work-empty"}`}>{pendingPeople.length ? `待點名 ${pendingPeople.length} 位` : people.length ? "點名完成" : "尚無學員"}</span>
+                {page === "records" && attendanceResult && <span className="cp-work-result">{attendanceResult}</span>}
               </small>
             </span>
             {s.bookings.length > 0 && <span className="cp-work-toggle" aria-hidden="true">{roster === s.id ? "⌃" : "⌄"}</span>}{s.bookings.length > 0 && !people.length && <span className="sr-only">已取消預約</span>}
@@ -1035,7 +1037,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 {coach ? <>
                   {!showWorkCalendar && <>
                   <div className="cp-work-date"><button aria-label="上一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,-7,"DAY"))}>‹</button><strong>{weekDays[0].slice(5)} — {weekDays[6].slice(5)}</strong><button aria-label="下一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,7,"DAY"))}>›</button></div>
-                  <div className="cp-week-strip">{weekDays.map((d,i)=><button key={d} disabled={pending} aria-pressed={selected===d} className={selected===d?"primary":""} onClick={()=>workDate(d)}><span>{"一二三四五六日"[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{work.filter(s=>courseDate(s.startsAt)===d).length}堂</small></button>)}</div>
+                  <div className="cp-week-strip">{weekDays.map((d,i)=><button key={d} disabled={pending} aria-pressed={selected===d} className={selected===d?"primary":""} onClick={()=>workDate(d)}><span>{"一二三四五六日"[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{work.filter(s=>courseDate(s.startsAt)===d).length ? `${work.filter(s=>courseDate(s.startsAt)===d).length}堂` : "\u00a0"}</small></button>)}</div>
                   </>}
                   <div className="cp-actions">{!showWorkCalendar && <button disabled={pending} onClick={()=>workDate(today)}>今天</button>}<button aria-pressed={showWorkCalendar} onClick={()=>setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar?"切換週曆":"月曆"}</button></div>
                   {showWorkCalendar && calendar}
