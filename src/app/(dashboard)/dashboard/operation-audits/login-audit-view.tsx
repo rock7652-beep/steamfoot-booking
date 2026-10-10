@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { PageHeader, PageShell } from "@/components/desktop";
+import { PageShell } from "@/components/desktop";
 import { auditRoleLabel } from "@/lib/audit-presentation";
 import { AuditAutoRefresh } from "./audit-auto-refresh";
 import { AuditListState } from "./audit-list-state";
@@ -57,9 +57,8 @@ export async function LoginAuditView(input: {
   // eslint-disable-next-line react-hooks/purity
   const renderedAt = Date.now();
   const columns = input.storeId ? "@[720px]:grid-cols-[96px_160px_70px_minmax(0,1fr)_20px]" : "@[900px]:grid-cols-[96px_160px_70px_minmax(0,1fr)_150px_20px]";
-  return <PageShell>
+  return <PageShell compact>
     <AuditAutoRefresh key={`${input.viewerKey}:${input.storeId ?? "all"}:login`} renderedAt={renderedAt} dateTo={input.dateTo} followToday={Boolean(input.followToday)} page={input.page}>
-    <PageHeader title="操作與登入紀錄" compact />
     <nav className="flex gap-2 text-sm" aria-label="稽核分類">
       <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?dateFrom=${input.dateFrom}&dateTo=${input.dateTo}&dateMode=${input.followToday ? "today" : "fixed"}`}>操作紀錄</Link>
       <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${input.dateFrom}&dateTo=${input.dateTo}&dateMode=${input.followToday ? "today" : "fixed"}`}>登入紀錄</Link>
@@ -85,7 +84,7 @@ export async function LoginAuditView(input: {
       <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-sm text-earth-500"><span>共 {total} 筆</span><span>第 {input.page}／{pages} 頁</span></div>
       <div aria-hidden="true" className={`hidden gap-3 border-b border-earth-100 bg-earth-50/50 px-3 py-2 text-sm text-earth-500 ${input.storeId ? "@[720px]:grid" : "@[900px]:grid"} ${columns}`}><span>時間</span><span>人員</span><span>結果</span><span>裝置</span>{!input.storeId ? <span>店家</span> : null}<span /></div>
       <div className="divide-y divide-earth-100">
-      {!rows.length ? <p className="p-6 text-earth-500">沒有符合條件的資料</p> : rows.map((row, index) => <details data-record={row.id} className="group min-w-0 px-3 py-1 open:bg-earth-50/60" key={row.id}>
+      {!rows.length ? <p className="p-6 text-earth-500">沒有符合條件的資料</p> : rows.map((row, index) => <details data-record={row.id} className="group min-w-0 px-3 open:bg-earth-50/60" key={row.id}>
         <summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden ${columns}`}>
           <time dateTime={row.createdAt.toISOString()} className="col-start-1 row-start-1 tabular-nums text-earth-500">{auditTimeLabel(row.createdAt, rows[index - 1]?.createdAt)}</time>
           <span className="col-start-2 row-start-1 min-w-0 break-words font-medium text-earth-900">{row.actorNameSnapshot ?? "未識別帳號"}</span>
