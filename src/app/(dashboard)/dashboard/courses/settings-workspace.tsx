@@ -102,7 +102,9 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const sections=confirmed.rows.filter(row=>row.id!=="trial").map(row=>row.values);
   const waitlistSource=useMemo(()=>sourceProps.waitlistSettings?[{id:"waitlist",values:sourceProps.waitlistSettings}]:[],[sourceProps.waitlistSettings]);
   const confirmedWaitlist=useConfirmedSettingsRows(waitlistSource,row=>waitlistRevision(row.values));
-  const props:Props={...sourceProps,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
+  const dutySource=useMemo(()=>[{id:"duty",enabled:sourceProps.dutyEnabled??false}],[sourceProps.dutyEnabled]);
+  const confirmedDuty=useConfirmedSettingsRows(dutySource,row=>String(row.enabled));
+  const props:Props={...sourceProps,dutyEnabled:confirmedDuty.rows[0].enabled,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
   const onSaved=(row:CourseSettingsSectionInput)=>confirmed.confirm({id:row.section,values:row});
   const router = useRouter();
   const search = useSearchParams();
@@ -188,7 +190,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
           </Row>
         )}
         </FeatureEntry>
-        <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle enabled={props.dutyEnabled ?? false} course compact /> : undefined} />
+        <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle key={props.storeId} storeId={props.storeId} onSaved={enabled=>confirmedDuty.confirm({id:"duty",enabled})} enabled={props.dutyEnabled ?? false} course compact /> : undefined} />
       </SectionGuard></section>
       <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>
         {props.canPayment ? <Row title="銀行轉帳資訊" summary={props.bankAccountNumber ? `${props.bankName || "銀行帳戶"}・末四碼 ${props.bankAccountNumber.slice(-4)}` : "未設定"} expanded={expandedRow === "payment-bank"} onEdit={() => openRow("payment-bank")}>

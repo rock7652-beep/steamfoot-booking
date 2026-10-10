@@ -40,6 +40,17 @@ export function revalidateSpecialDays() {
 /** 切換 dutySchedulingEnabled 後呼叫 */
 export function revalidateDutyScheduling() {
   updateTag(CACHE_TAGS.dutyScheduling);
+  revalidateDutySchedulingPaths();
+}
+
+export function revalidateDutySchedulingInRoute(){
+  revalidateTag(CACHE_TAGS.dutyScheduling,{expire:0});
+  revalidateTag(CACHE_TAGS.shopConfig,{expire:0});
+  revalidateDutySchedulingPaths();
+  revalidatePath("/dashboard/courses");
+}
+
+function revalidateDutySchedulingPaths(){
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/duty");
   revalidatePath("/dashboard/settings/duty");
