@@ -996,11 +996,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   {!coach && p.nextBooking && <small>{nextParticipants.join("＋")} · 共 {nextParticipants.length} 位</small>}
                 </div>
                 {p.nextBooking && <button
-                  className="primary"
+                  className="cp-text-action"
                   onClick={() => {
                     go(coach || !p.nextBooking ? "schedule" : "bookings");
                     const next = coach ? p.nextWork : p.nextBooking;
                     if (next) {
+                      const reservation = p.bookings.find(b => b.startsAt === next.startsAt && b.name === next.name && b.status === "RESERVED");
+                      if (!coach && reservation) setBookingDetails(previous => ({...previous, [reservation.sessionId]: true}));
                       setDate(courseDate(next.startsAt));
                       if (!courseDate(next.startsAt).startsWith(p.month))
                         month(courseDate(next.startsAt).slice(0, 7), courseDate(next.startsAt));
@@ -1022,7 +1024,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               ) : (
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
-                  <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>{total.held > 0 ? `｜已預約 ${total.held} ${unit(total.unit)}` : ""}</p>)}</div><button onClick={()=>go("plans")}>我的方案</button></section>
+                  <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>還可預約 {total.available} {unit(total.unit)}</strong>{total.held > 0 && <small className="cp-balance-breakdown">剩餘 {total.remaining} {unit(total.unit)}｜已預約 {total.held} {unit(total.unit)}</small>}</p>)}</div><button onClick={()=>go("plans")}>我的方案</button></section>
                   {p.healthEnabled && <section className="cp-card">
                     {menu("健康追蹤", "health")}
                   </section>}
@@ -1100,8 +1102,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 return (
                   <article className="cp-card cp-pad cp-booking-card" key={id}>
                     <div className="cp-booking-heading">
-                      <h2>{formatTWDateTime(new Date(first.startsAt))} · {first.name}</h2>
-                      <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合備註 ⌃" : "查看備註 ⌄"}</button>
+                      <h2><time className="cp-booking-time" dateTime={first.startsAt}>{formatTWDateTime(new Date(first.startsAt))}</time><span>{first.name}</span></h2>
+                      <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合明細 ⌃" : "查看明細 ⌄"}</button>
                     </div>
                     <p className="cp-booking-location">{first.coach} · {first.room} · 共 {list.length} 人</p>
                     <div id={`booking-details-${id}`}>
@@ -1115,6 +1117,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           <span className="cp-badge" data-status={b.status}>
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
+                          {bookingDetails[id] && <>
                           {selfBookingEnabled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
                           {b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
                           {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
@@ -1128,6 +1131,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                               取消
                             </button>
                           )}
+                          </>}
                         {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
                           <div className="cp-late-cancel">
                             <span className="cp-muted">已超過取消期限</span>
@@ -1149,12 +1153,12 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                                 : b.status === "NO_SHOW" ? "本次額度" : "已釋放"}{" "}
                             {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}
                           </li>
-                          {b.customerId !== p.customerId && (
+                          {bookingDetails[id] && b.customerId !== p.customerId && (
                             <li>預約人：{b.operatorName}</li>
                           )}
                           {b.status === "RESERVED" && <li>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</li>}
                           </ul>
-                          {bookingDetails[id] && <p>備註：{b.notes || "無"}</p>}
+                          {bookingDetails[id] && b.notes && <p>備註：{b.notes}</p>}
                           {cancelId === b.id && <section className="cp-inline-confirm" aria-label={`取消 ${b.customerName} 的預約`}>
                             <p>取消這堂預約，釋放保留額度。</p>
                             <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>
@@ -1204,7 +1208,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
             <>
               {heading("我的方案")}
               <section className="cp-card cp-pad cp-plan-overview" aria-label="有效方案合計">
-                <div className="cp-plan-summary"><div className="cp-balances">{!balanceTotals.length && <p>尚無有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>可用 {total.available} {unit(total.unit)}</strong>{total.held > 0 ? `｜已預約 ${total.held} ${unit(total.unit)}` : ""}</p>)}</div><button className="primary" onClick={() => go("shop")}>購買方案</button></div>
+                <div className="cp-plan-summary"><div className="cp-balances">{!balanceTotals.length && <p>尚無有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>還可預約 {total.available} {unit(total.unit)}</strong>{total.held > 0 && <small className="cp-balance-breakdown">剩餘 {total.remaining} {unit(total.unit)}｜已預約 {total.held} {unit(total.unit)}</small>}</p>)}</div><button className="primary" onClick={() => go("shop")}>購買方案</button></div>
                 {!!p.orders.length && <details className="cp-purchase-history"><summary>購買紀錄{p.orders.some(o => o.status === "PENDING") ? ` · ${p.orders.filter(o => o.status === "PENDING").length} 筆待核帳` : ""}</summary>{purchaseHistory}</details>}
               </section>
               {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
@@ -1217,11 +1221,14 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 const recent = expanded ? lessons : lessons.slice(0, 3);
                 const months = [...new Set(recent.map(lesson => courseDate(lesson.startsAt).slice(0, 7)))];
                 const planDate = (value: string) => { const date = courseDate(value); return date.slice(0, 4) === today.slice(0, 4) ? `${Number(date.slice(5, 7))}/${Number(date.slice(8))}` : date; };
+                const identifyingPurchase = c.purchases?.[0];
+                const nearExpiry = !c.expired && !c.closed && Date.parse(c.expiresAt) >= now && Date.parse(c.expiresAt) - now <= 7 * 86400000;
                 const adjustments = c.entries.filter(entry => !["RESERVE", "DEBIT", "RELEASE"].includes(entry.kind));
                 return <details className="cp-card cp-pad cp-plan" key={c.id} open={!!expandedPlanCards[c.id]} onToggle={event => { const open = event.currentTarget.open; setExpandedPlanCards(previous => previous[c.id] === open ? previous : {...previous, [c.id]: open}); }}>
-                  <summary className="cp-plan-row"><h2>{c.name}</h2><strong>剩餘 {c.remaining} {unit(c.unit)}</strong><span>{planDate(c.expiresAt)} 到期{c.closed ? " · 已停用" : c.expired ? " · 已到期" : ""}</span>{c.held > 0 && <small className="cp-plan-held">已預約 {c.held} {unit(c.unit)}｜還能預約 {c.available} {unit(c.unit)}</small>}</summary>
+                  <summary className="cp-plan-row"><h2>{c.name}</h2><strong>剩餘 {c.remaining} {unit(c.unit)}</strong><span className="cp-plan-date">{identifyingPurchase ? <>購買 {identifyingPurchase.points} {unit(c.unit)}｜<time dateTime={identifyingPurchase.createdAt}>{planDate(identifyingPurchase.createdAt)}</time> 購買｜</> : c.history?.createdAt ? <><time dateTime={c.history.createdAt}>{planDate(c.history.createdAt)}</time> 開卡｜</> : null}<span className={`cp-plan-expiry${nearExpiry ? " cp-plan-near-expiry" : ""}`}><time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期{c.closed ? " · 已停用" : c.expired ? " · 已到期" : nearExpiry ? " · 快到期" : ""}</span></span>{c.held > 0 && <small className="cp-plan-held">已預約 {c.held} {unit(c.unit)}｜還可預約 {c.available} {unit(c.unit)}</small>}</summary>
                   <div className="cp-plan-body">
-                  <div className="cp-plan-purchases">{c.purchases?.length ? c.purchases.map(purchase => <p key={purchase.id}>購買 {purchase.points} {unit(c.unit)}｜<time dateTime={purchase.createdAt}>{planDate(purchase.createdAt)}</time> 購買｜<time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期{purchase.status === "REFUNDED" ? " · 已退款登記" : purchase.status === "VOIDED" ? " · 已作廢" : ""}</p>) : <p>{c.history?.createdAt && <><time dateTime={c.history.createdAt}>{formatTWDateTime(new Date(c.history.createdAt))}</time> 開卡｜</>}<time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期</p>}</div>
+                  {(c.purchases?.length ?? 0) > 1 && <div className="cp-plan-purchases">{c.purchases!.slice(1).map(purchase => <p key={purchase.id}>購買 {purchase.points} {unit(c.unit)}｜<time dateTime={purchase.createdAt}>{planDate(purchase.createdAt)}</time> 購買{purchase.status === "REFUNDED" ? " · 已退款登記" : purchase.status === "VOIDED" ? " · 已作廢" : ""}</p>)}</div>}
+                  {identifyingPurchase && identifyingPurchase.status !== "CONFIRMED" && <p>{identifyingPurchase.status === "REFUNDED" ? "已退款登記" : identifyingPurchase.status === "VOIDED" ? "已作廢" : "待核帳"}</p>}
                   {!lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
                   {!!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
                     <table className="cp-history-list">

@@ -763,3 +763,16 @@
 .cp-work-lesson .cp-attendance-actions { justify-content: flex-end; }
 .cp-work-lesson .cp-attendance-actions button:not(.primary) { background: white; }
 .cp-work-lesson .cp-roster-actions > div { margin-right: auto; }
+
+/* Member status colors accompany labels; balances keep their original meaning. */
+.cp-booking-card .cp-badge[data-status="RESERVED"] { color: #28587b; background: #eaf3fa; }
+.cp-booking-card .cp-badge[data-status="ATTENDED"] { color: #315b49; background: #edf5ef; }
+.cp-booking-card .cp-booking-time { display: block; font-size: 14px; font-weight: 400; color: #61715c; }
+.cp-booking-heading h2 > span { display: block; margin-top: 3px; font-size: 16px; }
+.course-portal .cp-booking-heading > button, .course-portal .cp-text-action { background: transparent; border-color: transparent; color: #315b49; min-height: 44px; font-size: 14px; }
+.cp-balance-breakdown { display: block; margin-top: 4px; color: #61715c; font-size: 14px; }
+.course-portal .cp-plan-row { grid-template-columns: minmax(0, 1fr) auto 12px; gap: 6px 8px; }
+.cp-plan-row::after { grid-column: 3; }
+.course-portal .cp-plan-row > .cp-plan-date { grid-column: 1 / -1; white-space: normal; font-size: 14px; line-height: 1.5; }
+.cp-plan-date .cp-plan-expiry { display: inline; }
+.cp-plan-date .cp-plan-near-expiry { color: #81501d; background: #fff3df; border-radius: 4px; padding: 1px 4px; }

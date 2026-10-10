@@ -317,6 +317,29 @@ describe("coach daily work interactions", () => {
 });
 
 describe("member plan and purchase navigation", () => {
+  it("opens the next booking details in place without a route change", async () => {
+    const data = memberProps();
+    data.bookings[0].startsAt = data.nextBooking!.startsAt;
+    await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    await act(async()=>host.querySelector<HTMLButtonElement>('.cp-next button')!.click());
+    expect(host.querySelector('.cp-booking-heading button')?.getAttribute('aria-expanded')).toBe('true');
+    expect(host.querySelector('.cp-booking-heading time')?.getAttribute('dateTime')).toBe(data.nextBooking!.startsAt);
+    expect(host.querySelectorAll('.cp-booking-person-line button')).not.toHaveLength(0);
+    expect(m.replace).not.toHaveBeenCalled();
+  });
+  it("marks only an active plan within seven days of expiry and keeps opening dates visible", async () => {
+    const data = memberProps();
+    const card = (id:string,expiresAt:string,closed=false) => ({id,name:id,unit:'POINT',available:8,remaining:10,held:2,expiresAt,expired:false,closed,members:[],entries:[],templateIds:[],history:{createdAt:'2026-09-01T00:00:00Z',count:0,lessons:[]}});
+    data.cards = [card('快到期','2026-09-23T00:00:00+08:00'),card('下個月','2026-10-20T00:00:00+08:00'),card('已停用','2026-09-23T00:00:00+08:00',true)] as unknown as CoursePortalData['cards'];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:'plans'})));
+    expect(host.querySelectorAll('.cp-plan-near-expiry')).toHaveLength(1);
+    expect(host.querySelector('.cp-plan-row')?.textContent).toContain('剩餘 10 點');
+    expect(host.querySelector('.cp-plan-row')?.textContent).toContain('9/1 開卡');
+    expect(host.querySelector('.cp-plan-row')?.textContent).toContain('已預約 2 點｜還可預約 8 點');
+    await click('查看已到期');
+    expect(host.querySelectorAll('.cp-plan-near-expiry')).toHaveLength(1);
+    expect(host.textContent).toContain('已停用');
+  });
   it("shows only one booking action on an empty member homepage", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),nextBooking:null})));
     expect(host.querySelector('.cp-next button')).toBeNull();
@@ -370,10 +393,10 @@ describe("member plan and purchase navigation", () => {
     expect(host.textContent).toContain("待確認出席");
     expect(host.querySelector(".cp-booking-detail")).not.toBeNull();
     expect(host.querySelector(".cp-booking-detail ul")).not.toBeNull();
-    await click("查看備註 ⌄");
+    await click("查看明細 ⌄");
     expect(host.querySelector(".cp-booking-detail")?.textContent).toContain("本次使用 2 點");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    await click("收合備註 ⌃");
+    await click("收合明細 ⌃");
     expect(host.querySelector(".cp-booking-detail")?.textContent).toContain("本次使用 2 點");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
@@ -384,10 +407,11 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelector(".cp-late-cancel")?.parentElement?.classList.contains("cp-booking-person-line")).toBe(true);
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",cancellationLeadMinutes:30})));
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
+    expect(host.textContent).toContain("自行取消截止");
+    await click("查看明細 ⌄");
+    expect(host.textContent).toContain("自行取消截止");
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(true);
-    expect(host.textContent).toContain("自行取消截止");
-    await click("查看備註 ⌄");
-    expect(host.textContent).toContain("自行取消截止");
   });
   it("uses one action when the selected course has no eligible plan", async () => {
     const data = {...memberProps(),initialDate:"2026-09-21",nextBooking:null,plans:[{id:"plan",name:"十點方案",points:10,price:2000,unit:"POINT",validDays:180,templateIds:[],termSessionIds:[]}]};
@@ -506,8 +530,8 @@ describe("member plan and purchase navigation", () => {
     data.cards = [card("舊方案課程","2026-08-01T00:00:00Z",2),card("續報課程","2026-09-01T00:00:00Z",0)] as unknown as CoursePortalData["cards"];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
     const plans = host.querySelectorAll(".cp-plan");
-    expect(plans[0].textContent).toContain("2026-08-01");
-    expect(plans[1].textContent).toContain("2026-09-01");
+    expect(plans[0].querySelector(".cp-plan-row time")?.getAttribute("dateTime")).toBe("2026-08-01T00:00:00Z");
+    expect(plans[1].querySelector(".cp-plan-row time")?.getAttribute("dateTime")).toBe("2026-09-01T00:00:00Z");
     expect(plans[0].textContent).toContain("2 點");
     expect(plans[1].textContent).toContain("未扣抵");
     expect(plans[0].textContent).not.toContain("續報課程");
@@ -597,10 +621,11 @@ describe("simple companion booking", () => {
     expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe('預約');
     await act(async () => ([...host.querySelectorAll("button")].find(b => b.textContent === "我的") as HTMLButtonElement).click());
     await click("我的方案");
-    expect(host.textContent).toContain("還能預約 4 點");
+    expect(host.textContent).toContain("還可預約 4 點");
+    expect(host.querySelector('.cp-balance-breakdown')?.textContent).toBe("剩餘 10 點｜已預約 6 點");
     const snapshot = {...data, serverNow: data.serverNow + 2000, bookings: updates.map(b => ({...b, name: "瑜珈", startsAt: data.sessions[0].startsAt, coach: "教練", room: "教室", notes: "", unit: "POINT", planName: "自由選課", trialPaid: null, trialPrice: null, expiresAt: data.cards[0].expiresAt})), cards: [{...data.cards[0], available: 4, held: 6}]} as unknown as CoursePortalData;
     await act(async () => root.render(createElement(CoursePortalClient, snapshot)));
-    expect(host.textContent).toContain("還能預約 4 點");
+    expect(host.textContent).toContain("還可預約 4 點");
     await click("我的預約");
     expect(host.querySelectorAll('.cp-booking-person-line')).toHaveLength(3);
   });
@@ -700,7 +725,11 @@ describe("simple companion booking", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"bookings",sharedCardState:"HIDDEN"})));
     const names=[...host.querySelectorAll(".cp-booking-person-line strong")].map(node=>node.textContent);
     expect(names).toEqual(["🔵 會員本人","🟠 家人"]);
+    expect([...host.querySelectorAll("button")].filter(button=>button.textContent==="取消")).toHaveLength(0);
+    await click("查看明細 ⌄");
     expect([...host.querySelectorAll("button")].filter(button=>button.textContent==="取消")).toHaveLength(2);
+    await click("收合明細 ⌃");
+    expect([...host.querySelectorAll("button")].filter(button=>button.textContent==="取消")).toHaveLength(0);
   });
 
 });
