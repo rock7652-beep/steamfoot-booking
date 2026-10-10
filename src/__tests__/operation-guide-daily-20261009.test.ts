@@ -20,7 +20,7 @@ describe("2026-10-09 operation guide inventory", () => {
     ]);
     expect(findOperationGuides("暫停 自動遞補", courseAccess).map(g => g.id)).toContain("C168");
     expect(findOperationGuides("需求諮詢 人工關聯", courseAccess).map(g => g.id)).toContain("I19");
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(198);
   });
 
   it("adds member guidance without claiming existing records are removed", () => {

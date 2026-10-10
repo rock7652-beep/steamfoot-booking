@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { availableGuides, findOperationGuides, operationGuides } from "../lib/operation-guide";
+import { availableGuides, findOperationGuides, operationGuides, retiredFrontendOperationGuides } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
 
-const guide = (id: string) => operationGuides.find(item => item.id === id)!;
+const guide = (id: string) => [...operationGuides, ...retiredFrontendOperationGuides].find(item => item.id === id)!;
 const course: GuideAccess = {
   module: "course",
   permissions: [

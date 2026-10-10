@@ -398,22 +398,13 @@ export const additionalGuides: OperationGuide[] = [
     "important": "畫面會先呈現預期狀態，再由伺服器確認；被拒絕會恢復原狀，結果不明時會鎖住該操作。先查紀錄，避免重複預約或收款。",
     "success": "看到已確認最新狀態，或重新讀取後能判斷上次操作是否成功。",
     "keywords": "刷新 重新整理 卡住 更新 正在確認最新狀態 暫時無法確認 查看最新狀態 連線中斷 回復原狀",
-    "details": [
-      "明確失敗會恢復原畫面；網路中斷等未知結果會先自動查核，不能把暫時顯示的完成狀態直接當成最終成功。",
-      "同一筆操作查核完成前會被阻擋；不要另開視窗重做。交易、預約與通知各自有紀錄，應回原紀錄確認。"
-    ],
+    "details": ["明確失敗會恢復原畫面；網路中斷等未知結果會先自動查核，不能把暫時顯示的完成狀態直接當成最終成功。", "同一筆操作查核完成前會被阻擋；不要另開視窗重做。交易、預約與通知各自有紀錄，應回原紀錄確認。", "當日名單會背景更新；重新讀取失敗時保留原清單並顯示重試。沒有方案或交易查看權限的人仍可能查看授權名單，但剩餘堂數及收款資訊會依權限省略，不能當作零堂或未收款。"],
     "modules": [
       "steamfoot"
     ],
     "permission": "booking.read",
     "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
-      "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
-      "src/app/(dashboard)/dashboard/bookings/booking-action-feedback.tsx",
-      "src/hooks/use-responsive-action.ts"
-    ],
+    "sources": ["src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx", "src/server/actions/booking-refresh.ts", "src/server/actions/slots.ts", "src/lib/booking-client-transport.ts", "src/app/(dashboard)/dashboard/bookings/booking-action-feedback.tsx"],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
     "answer": "先確認上一次是否已成功，再決定要不要重送，避免產生兩筆預約或收款。"

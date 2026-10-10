@@ -9,7 +9,7 @@ const access = (module: "steamfoot" | "spa" | "course", enabled = true): GuideAc
 
 describe("October 7 operation guide audit", () => {
   it("adds five work order guides and one course LINE guide", () => {
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(198);
     expect(guideCategoryForPath("/dashboard/work-orders")).toBe("work-orders");
     for (const id of ["W01", "W02", "W03", "W04", "W05", "C167"]) {
       expect(operationGuides.find((guide) => guide.id === id)?.verification).toBe("source-reviewed");

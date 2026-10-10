@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
-import { availableGuides, findOperationGuides, guideCategoryForPath, relatedOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
+import { availableGuides, findOperationGuides, guideCategoryForPath, relatedOperationGuides, operationGuides, guideCategories, retiredFrontendOperationGuides } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
 import { branchConnectionMonthlyFee, managementMonthlyFee } from "../lib/alliance-subscription";
 const access: GuideAccess = { module: "steamfoot", permissions: ["booking.read", "booking.update", "customer.read", "business_hours.manage", "business_hours.view"], features: { line_reminder: true } };
@@ -9,7 +9,7 @@ describe("guide catalogue", () => {
     const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
     const course: GuideAccess = { module: "course", permissions, features };
-    expect(availableGuides(course)).toHaveLength(114);
+    expect(availableGuides(course)).toHaveLength(112);
     expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
     expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
     expect(findOperationGuides("量測", course).some(g => g.id === "C135")).toBe(true);
@@ -20,7 +20,7 @@ describe("guide catalogue", () => {
   it("separates course workflows and respects course page modes and refund permissions", () => {
     const course: GuideAccess = {...access, module:"course"};
     expect(availableGuides(course).every(g => g.modules.includes("course"))).toBe(true);
-    expect(findOperationGuides("共卡", course).some(g => g.id === "C101")).toBe(true);
+    expect(findOperationGuides("共卡", course).some(g => g.id === "C101")).toBe(false);
     expect(availableGuides(course).some(g => g.id === "A01")).toBe(false);
     expect(availableGuides(course).some(g => g.id === "C105")).toBe(false);
     expect(availableGuides({...course,permissions:["transaction.refund","transaction.read"]}).some(g => g.id === "C105")).toBe(true);
@@ -39,11 +39,11 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(198);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
-      "C101", "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
+      "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",
-      "C118", "C119", "C120", "C121", "C122", "C123", "C124", "C125",
+      "C118", "C119", "C120", "C121", "C122", "C123", "C124",
       "C10", "I08",
     ]));
     expect(findOperationGuides("批次排課 整批", allCourse).some(g => g.id === "C109")).toBe(true);
@@ -59,9 +59,9 @@ describe("guide catalogue", () => {
     expect(findOperationGuides("低額度 到期天數", allCourse).some(g => g.id === "C120")).toBe(true);
     expect(findOperationGuides("未指派方案", allCourse).some(g => g.id === "C121")).toBe(true);
     expect(findOperationGuides("授課費 更正誤登", allCourse).some(g => g.id === "C122")).toBe(true);
-    expect(findOperationGuides("轉帳 後四碼", allCourse).some(g => g.id === "C125")).toBe(true);
+    expect(findOperationGuides("轉帳 後四碼", allCourse).some(g => g.id === "C125")).toBe(false);
     expect(availableGuides({...allCourse, permissions:["cashbook.read"]}).some(g => g.id === "C122")).toBe(false);
-    expect(availableGuides({...allCourse, permissions:["customer.read"]}).some(g => g.id === "C125")).toBe(true);
+    expect(availableGuides({...allCourse, permissions:["customer.read"]}).some(g => g.id === "C125")).toBe(false);
     for (const id of ["E08","E09","E10","E11"]) expect(operationGuides.find(g=>g.id===id)!.modules).toContain("course");
   });
   it("documents the current customer search, booking search, linked income, source analytics and device preview", () => {
@@ -156,11 +156,11 @@ describe("guide catalogue", () => {
   it("finds member navigation instructions without bypassing customer permissions", () => {
     for (const industry of ["steamfoot", "spa"] as const) {
       const scoped = {...access, module: industry};
-      expect(findOperationGuides("底部導覽", scoped).some(g => g.id === "C09")).toBe(true);
-      expect(findOperationGuides("立即預約", scoped).some(g => g.id === "C09")).toBe(true);
+      expect(findOperationGuides("底部導覽", scoped).some(g => g.id === "C09")).toBe(false);
+      expect(findOperationGuides("立即預約", scoped).some(g => g.id === "C09")).toBe(false);
       expect(availableGuides({...scoped, permissions: []}).some(g => g.id === "C09")).toBe(false);
     }
-    const guide = operationGuides.find(g => g.id === "C09")!;
+    const guide = retiredFrontendOperationGuides.find(g => g.id === "C09")!;
     expect(guide.feature).toBe(null);
     expect(guide.details.join(" ")).toContain("不會一律顯示相同導覽");
     expect(guide.important).toContain("不表示已完成預約");

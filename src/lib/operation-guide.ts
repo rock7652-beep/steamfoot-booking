@@ -47,19 +47,10 @@ export const bookingGuides = [
     title: "這次預約有事情要交代，怎麼記錄？",
     summary: "新增或修改本次備註，保留這次服務的提醒。",
     important: "本次備註最多 500 字，只用於這筆預約；看到儲存成功提示才算完成。",
-    keywords: "備註 本次備註 註記 晚到 修改 留言",
-    path: "預約管理 → 點選預約 → 本次備註",
-    steps: [
-      "點開要記錄的預約，找到「本次備註」；沒有內容時會顯示「尚無本次備註」。",
-      "點「＋新增」或「編輯」，輸入這次預約需要提醒的事情。",
-      "確認文字無誤後，點「儲存」。",
-    ],
-    details: [
-      "最多 500 字，僅適用這次預約。例如：今天會晚到 10 分鐘。顧客長期的服務需求請與顧客服務備註區分。",
-      "清空內容再儲存可移除本次備註；編輯時按「取消」會放棄這次修改。",
-      "服務完成後仍可修正本次備註，不會因此改變預約狀態或結帳。修改需要預約編輯權限，並受門市與訂閱狀態限制。",
-      "如果儲存失敗，請保留編輯畫面中的內容，確認錯誤後重試；成功提示出現前不要當作已儲存。",
-    ],
+    keywords: "備註 本次備註 註記 晚到 修改 留言 原列編輯 全文 標籤 草稿 取消 資料已有更新",
+    path: "預約管理 → 當日清單 → 該列本次備註鉛筆；預約明細 → 本次備註",
+    steps: ["在當日清單核對顧客與預約，點該列本次備註鉛筆，原地展開編輯；也可從原預約明細編輯。", "輸入本次提醒後點「儲存」；有未儲存內容時，取消或 Escape 會先詢問是否捨棄。", "成功後核對原列文字；摘要截斷時點標籤與備註區查看全文，完成後關閉返回原清單。"],
+    details: ["本次備註最多 500 字，僅適用這次預約；長期提醒請在顧客資料維護。原列鉛筆不會開啟整筆預約明細。", "清空並儲存可移除備註；Enter 用於換行，不能代替儲存。未儲存草稿只暫存在目前帳號、門市與瀏覽器的範圍，不代表已寫入。", "蒸足完成後仍可修正備註；需預約編輯權限並受門市及訂閱狀態限制，不能照搬到 SPA 已完成預約。", "失敗時保留內容並核對錯誤；遇資料已更新時先看目前備註，確認需保留自己的輸入後再儲存，不直接覆蓋。"],
     success: "出現「已儲存本次備註」，並顯示儲存後的文字。",
   },
 ] as const;
@@ -92,10 +83,11 @@ import { dailyOperationGuides20261004 } from "./operation-guide-daily-20261004";
 import { dailyOperationGuides20261006 } from "./operation-guide-daily-20261006";
 import { dailyOperationGuides20261007 } from "./operation-guide-daily-20261007";
 import { dailyOperationGuides20261009 } from "./operation-guide-daily-20261009";
+import { dailyOperationGuides20261010 } from "./operation-guide-daily-20261010";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
-export const operationGuides: OperationGuide[] = [
-  ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
+const catalogGuides: OperationGuide[] = [
+  ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: guide.id === "A03" ? ["src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx", "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/components/admin/inline-roster-note.tsx", "src/server/actions/booking-note.ts"] : ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
   ...courseOperationGuides,
   ...courseBasicOperationGuides,
@@ -111,7 +103,13 @@ export const operationGuides: OperationGuide[] = [
   ...dailyOperationGuides20261006,
   ...dailyOperationGuides20261007,
   ...dailyOperationGuides20261009,
+  ...dailyOperationGuides20261010,
 ];
+
+/** Historical frontend articles remain archived; backend search never returns them. */
+export const retiredFrontendGuideIds = ["C09", "J17", "J19", "J20", "J21", "C101", "C125", "C136"] as const;
+export const retiredFrontendOperationGuides = catalogGuides.filter(g => retiredFrontendGuideIds.some(id => id === g.id));
+export const operationGuides = catalogGuides.filter(g => !retiredFrontendGuideIds.some(id => id === g.id));
 import { courseDisplayText } from "./course-display-text";
 export function availableGuides(access: GuideAccess) {
   const sharingRestricted = access.module === "course" && access.sharedCardState !== undefined && access.sharedCardState !== "ENABLED";

@@ -8,14 +8,15 @@ const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "
 describe("incremental guide audit accounting", () => {
   it("counts unique existing articles and pending IDs without treating source review as acceptance", () => {
     expect(state.articleCount).toBe(operationGuides.length);
-    expect(state.frontendArticleCount).toBe(coursePortalGuides.length);
+    expect(state.frontendArticleCount).toBe(0);
+    expect(state.frontendGuideRetirement.articleCount).toBe(coursePortalGuides.length);
     const pending = new Set<string>(state.interactionPendingGuideIds);
     const frontendPending = new Set<string>(state.frontendInteractionPendingGuideIds);
     expect(pending.size).toBe(state.interactionPendingGuideIds.length);
     expect(frontendPending.size).toBe(state.frontendInteractionPendingGuideIds.length);
     expect(state.backendInteractionPendingCount).toBe(pending.size);
     expect(state.totalInteractionPendingCount).toBe(pending.size + frontendPending.size);
-    expect(state.totalInteractionPendingCount).toBe(155);
+    expect(state.totalInteractionPendingCount).toBe(17);
     expect(state.maintenanceScope).toBe("backend-only");
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
     expect(state.frontendGuideRetirement.status).toBe("retired-not-verified");
@@ -30,15 +31,15 @@ describe("incremental guide audit accounting", () => {
     expect(state.allSystemCoverageComplete).toBe(false);
   });
 
-  it("records the October 9 main diff without rewriting the historical baseline", () => {
-    expect(state.previousBatchReview.totalInteractionPendingCount).toBe(171);
-    expect(state.scopedCorrectionReview.newPendingGuideIds).toEqual(["O09", "O10", "F03"]);
-    expect(state.newGuideIds).toEqual(["C168", "I19"]);
-    expect(state.updatedGuideIds).toEqual(["I05", "I18", "C101", "C118"]);
-    expect(state.frontendNewGuideIds).toEqual(["CP22"]);
-    expect(state.lastInventoriedMainCommit).toBe("84aca95aa5ec3ce30c56a492037acf066ad10291");
-    expect(state.previousSuccessfulAuditCommit).toBe("51cab4ff29d858c9997b1ef7077112c1e47e11b0");
-    expect(state.reviewedMainPullRequests).toEqual(expect.arrayContaining([1249, 1251, 1257, 1262, 1264, 1265, 1267]));
-    expect(state.publishedGuidePullRequests).toContain(1184);
+  it("records the current main and attributes prior acceptance without clearing new revisions", () => {
+    expect(state.lastInventoriedMainCommit).toBe("e5cd20fe72c8d78258cb1637c0e8756d2947c567");
+    expect(state.previousSuccessfulAuditCommit).toBe("84aca95aa5ec3ce30c56a492037acf066ad10291");
+    expect(state.priorUserAcceptance.status).toBe("user-confirmed-passed");
+    expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
+    expect(state.backendCatalogFrontendRetirement.articleCount).toBe(8);
+    expect(state.frontendNewGuideIds).toEqual([]);
+    const history = JSON.parse(readFileSync(state.previousAuditSnapshot, "utf8"));
+    expect(history.lastInventoriedMainCommit).toBe(state.previousSuccessfulAuditCommit);
+    expect(history.totalInteractionPendingCount).toBe(155);
   });
 });
