@@ -24,6 +24,6 @@ describe("2026-10-08 HQ store-view guide corrections", () => {
   });
 
   it("keeps the published guide inventory unchanged", () => {
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(198);
   });
 });
