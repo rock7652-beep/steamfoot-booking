@@ -25,6 +25,17 @@ it("does not replay a same-key create with a different payload",async()=>{
  m.find.mockResolvedValue({...input,id:"receipt",name:"鋼琴",updatedAt:new Date()});
  await expect(saveMusicSubjectWithReceipt(input)).rejects.toThrow("內容不同");expect(m.create).not.toHaveBeenCalled();
 });
+it("confirms an already applied edit after a lost response without overwriting newer data",async()=>{
+ m.update.mockResolvedValue({count:0});
+ const saved={id:"s",storeId:"store-a",name:input.name,category:"",description:"",isActive:true,updatedAt:new Date("2026-10-10T00:00:00Z")};
+ m.find.mockResolvedValue(saved);
+ const edit={...input,id:"s",expectedUpdatedAt:"2026-10-09T00:00:00Z"};
+ expect(await saveMusicSubjectWithReceipt(edit)).toMatchObject({data:{id:"s",name:"吉他",updatedAt:saved.updatedAt.toISOString()}});
+ expect(m.update).toHaveBeenCalledTimes(1);expect(m.findSaved).not.toHaveBeenCalled();
+ m.find.mockResolvedValue({...saved,description:"另一位教師已更新"});
+ await expect(saveMusicSubjectWithReceipt(edit)).rejects.toThrow("已有更新");
+ expect(m.update).toHaveBeenCalledTimes(2);expect(m.create).not.toHaveBeenCalled();
+});
 it("still rejects unavailable music features",async()=>{
  m.feature.mockResolvedValue(null);await expect(saveMusicSubjectWithReceipt(input)).rejects.toThrow("僅適用音樂教室");expect(m.create).not.toHaveBeenCalled();
 });

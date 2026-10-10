@@ -18,7 +18,14 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     const row = await courseTransaction(storeId, async tx => {
       if (id) {
         const result = await tx.musicSubject.updateMany({where:{id,storeId,...(expectedUpdatedAt?{updatedAt:new Date(expectedUpdatedAt)}:{})},data:values});
-        if (!result.count) throw new AppError("CONFLICT", "課程資料已有更新，請重新開啟後再編輯");
+        if (!result.count) {
+          // A response may be lost after committing an edit. Confirm its current
+          // state without rewriting a newer revision or claiming key ownership.
+          const current = await tx.musicSubject.findFirst({where:{id,storeId}});
+          if (current && Object.entries(values).every(([key,value]) => current[key as keyof typeof current] === value))
+            return current;
+          throw new AppError("CONFLICT", "課程資料已有更新，請重新開啟後再編輯");
+        }
         return tx.musicSubject.findFirstOrThrow({where:{id,storeId}});
       }
       // The store transaction lock serializes same-key retries; the primary key
