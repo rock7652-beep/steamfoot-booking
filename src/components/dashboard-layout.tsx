@@ -285,5 +285,5 @@ export default async function DashboardLayout({
 async function CourseSetupProgress({storeId,userId}:{storeId:string;userId:string}) {
   let setup:Awaited<ReturnType<typeof getCourseSetup>>|null=null;
   try { setup=await getCourseSetup(storeId,userId); } catch { /* Daily operations remain accessible if progress cannot load. */ }
-  return setup ? <CourseSetupGuide key={storeId} {...setup}/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
+  return setup ? <CourseSetupGuide storeId={storeId} key={storeId} {...setup}/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
 }
