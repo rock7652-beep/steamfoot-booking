@@ -26,3 +26,9 @@ it("guards store, rights, feature and subscription before writes; keeps committe
  m.permission.mockRejectedValueOnce(new Error("denied"));expect((await saveSteamPlan(input)).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
  m.tag.mockImplementation(()=>{throw new Error("cache failed");});expect(await saveSteamPlan(input)).toMatchObject({success:true,syncWarning:true});expect(m.feature).toHaveBeenCalled();expect(m.writable).toHaveBeenCalledWith("store");
 });
+
+it("rejects TRIAL creation through the current settings API before database writes",async()=>{
+ const result=await saveSteamPlan({operation:"CREATE",values:{...values,category:"TRIAL",sessionCount:1},...receipt});
+ expect(result).toMatchObject({success:false,error:expect.stringContaining("建立體驗預約")});
+ expect(m.transaction).not.toHaveBeenCalled();expect(m.create).not.toHaveBeenCalled();expect(m.update).not.toHaveBeenCalled();
+});

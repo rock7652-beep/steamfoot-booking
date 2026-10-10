@@ -103,6 +103,10 @@ function PlanFormBody({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (saveLockRef.current || draft.stale) return;
+    if (!isEdit && category === "TRIAL") {
+      toast.error("體驗請使用「建立體驗預約」；此處請選擇單次或課程");
+      return;
+    }
     if (!name || !price || !sessionCount) {
       toast.error("請填寫名稱、價格與堂數");
       return;
@@ -176,7 +180,8 @@ function PlanFormBody({
               disabled={isEdit}
               className={`mt-1 ${inputCls} ${isEdit ? "cursor-not-allowed bg-earth-50 text-earth-500" : ""}`}
             >
-              <option value="TRIAL">體驗</option>
+              {isEdit && category === "TRIAL" && <option value="TRIAL">體驗</option>}
+              {!isEdit && category === "TRIAL" && <option value="TRIAL" disabled>請重新選擇類別</option>}
               <option value="SINGLE">單次</option>
               <option value="PACKAGE">課程</option>
             </select>
