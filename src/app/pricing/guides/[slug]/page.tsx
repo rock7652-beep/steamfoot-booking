@@ -27,6 +27,7 @@ export default async function PublicGuidePage({ params }: Props) {
   if (!guide) notFound();
   const category = GUIDE_CATEGORIES.find(item => item.id === guide.category)!;
   const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-leave-reschedule-notifications"].includes(guide.id);
+  const isFitnessGuide = guide.id === "pilates-studio-equipment-scheduling";
   const url = `${MARKETING_ORIGIN}${guidePath(guide)}`;
   // No invented byline, publication date, review, or customer-result claims.
   const structuredData = {
@@ -66,7 +67,7 @@ export default async function PublicGuidePage({ params }: Props) {
         </>}
       </article>
       <nav aria-label="文章延伸閱讀" className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[#153B31]/20 pt-5">
-        <Link href={isMusicGuide ? "/pricing/features/music" : "/pricing/features#" + guide.feature} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">查看{isMusicGuide ? "音樂教室功能" : guide.featureName} →</Link>
+        <Link href={isMusicGuide ? "/pricing/features/music" : isFitnessGuide ? "/pricing/features/fitness" : "/pricing/features#" + guide.feature} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">查看{isMusicGuide ? "音樂教室功能" : guide.featureName} →</Link>
         <Link href={`/guides#${guide.id}`} className="inline-flex min-h-11 items-center underline underline-offset-4">返回{category.name}文章列表 ↑</Link>
       </nav>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
