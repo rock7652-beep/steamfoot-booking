@@ -1105,7 +1105,7 @@ function DrawerContent({
 
         } customer={
         <Section readable={!spaMode} title="顧客資訊">
-          {!spaMode && payload.companions && <BookingCompanionEditor bookingId={booking.id} companions={payload.companions} readOnly={readOnly || isActing} onUpdated={onParticipantsUpdated} />}
+          {!spaMode && payload.companions && <BookingCompanionEditor bookingId={booking.id} companions={payload.companions} readOnly={readOnly} blocked={isActing} onBusy={onParticipantBusy} onUpdated={onParticipantsUpdated} />}
           {spaMode && <KV label="姓名" value={booking.customer.name} />}
           <KV readable={!spaMode}
             label="電話"

@@ -5,6 +5,7 @@ import { trialCollectionAmountError } from "@/lib/trial-collection-amount";
 import type { TrialSettings } from "@/lib/shop-config";
 import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
+import { refreshWalletCounter } from "@/server/services/wallet-session";
 import { awardPaidServiceAttendanceInTransaction } from "@/server/services/paid-booking-completion";
 
 type LockedParticipant = {
@@ -122,4 +123,55 @@ export async function resolveUnattendedParticipant(tx: Prisma.TransactionClient,
     "updatedAt" = CURRENT_TIMESTAMP WHERE id = ${person.id} AND "storeId" = ${input.storeId}`;
   await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
   return { bookingId: person.bookingId };
+}
+
+/** Use one AVAILABLE session owned by this exact person in this exact store.
+ * No whole-booking completeSessions/releaseSessions call can debit a companion.
+ */
+export async function completeParticipantOwnPlan(tx: Prisma.TransactionClient, input: {
+  storeId: string; participantId: string; revision: number; walletId: string; serviceStaffId?: string | null;
+}) {
+  const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
+  const [binding] = await tx.$queryRaw<{ walletSessionId: string | null }[]>`
+    SELECT "walletSessionId" FROM "BookingParticipant" WHERE id = ${person.id} AND "storeId" = ${input.storeId}`;
+  if (!person.customerId) throw new AppError("BUSINESS_RULE", "請先選擇這位顧客");
+  if (person.status === "COMPLETED" && binding?.walletSessionId) {
+    const session = await tx.walletSession.findFirst({ where: { id: binding.walletSessionId, walletId: input.walletId,
+      status: "COMPLETED", bookingId: person.bookingId, wallet: { customerId: person.customerId, storeId: input.storeId } }, select: { id: true } });
+    if (session) return { bookingId: person.bookingId, customerId: person.customerId, created: false };
+  }
+  if (person.status !== "PENDING" || person.revision !== input.revision || person.collectionTransactionId ||
+    !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) throw new AppError("CONFLICT", "這位顧客的狀態已變更，請重新確認");
+  // Lock the wallet before selecting its next session, including competing reservations/refunds.
+  const wallets = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "CustomerPlanWallet" WHERE id = ${input.walletId} AND "storeId" = ${input.storeId}
+      AND "customerId" = ${person.customerId} AND status = 'ACTIVE'
+      AND "startDate" <= ${person.bookingDate} AND ("expiryDate" IS NULL OR "expiryDate" >= ${person.bookingDate}) FOR UPDATE`;
+  if (!wallets.length) throw new AppError("BUSINESS_RULE", "本人方案已失效或不屬於這位顧客");
+  const sessions = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "WalletSession" WHERE "walletId" = ${input.walletId} AND status = 'AVAILABLE'
+      ORDER BY "sessionNo" ASC LIMIT 1 FOR UPDATE SKIP LOCKED`;
+  if (!sessions.length) throw new AppError("BUSINESS_RULE", "本人方案沒有可用堂數");
+  const sessionId = sessions[0].id;
+  const changed = await tx.walletSession.updateMany({ where: { id: sessionId, status: "AVAILABLE", walletId: input.walletId },
+    data: { status: "COMPLETED", bookingId: person.bookingId, completedAt: new Date() } });
+  if (changed.count !== 1) throw new AppError("CONFLICT", "堂數已被其他操作使用，請重新確認");
+  await tx.$executeRaw`UPDATE "BookingParticipant" SET service = 'PACKAGE_SESSION', "walletSessionId" = ${sessionId},
+    status = 'COMPLETED', "arrivedAt" = CURRENT_TIMESTAMP, "completedAt" = CURRENT_TIMESTAMP,
+    revision = revision + 1, "updatedAt" = CURRENT_TIMESTAMP WHERE id = ${person.id} AND "storeId" = ${input.storeId}`;
+  const customer = await tx.customer.findFirst({ where: { id: person.customerId, storeId: input.storeId, mergedIntoCustomerId: null },
+    select: { assignedStaffId: true } });
+  const revenueStaffId = customer?.assignedStaffId ?? input.serviceStaffId ?? null;
+  if (!customer || !revenueStaffId) throw new AppError("BUSINESS_RULE", "無法判定本人服務歸屬，請指派店長");
+  const staff = await tx.staff.findFirst({ where: { id: revenueStaffId, storeId: input.storeId }, select: { id: true } });
+  if (!staff) throw new AppError("BUSINESS_RULE", "服務歸屬店長不屬於本店");
+  await createFinancialTransaction(tx, { data: { customerId: person.customerId, storeId: input.storeId,
+    bookingId: person.bookingId, customerPlanWalletId: input.walletId, revenueStaffId,
+    serviceStaffId: input.serviceStaffId ?? null, transactionType: "SESSION_DEDUCTION", paymentMethod: "CASH",
+    amount: 0, quantity: 1, note: "本人方案出席扣 1 堂" } });
+  await refreshWalletCounter(tx, input.walletId);
+  await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
+    bookingDate: person.bookingDate, slotTime: person.slotTime });
+  await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
+  return { bookingId: person.bookingId, customerId: person.customerId, created: true };
 }

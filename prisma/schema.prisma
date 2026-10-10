@@ -3425,6 +3425,7 @@ model BookingParticipant {
   completedAt DateTime?
   expectedAmount Decimal? @db.Decimal(10, 0)
   collectionTransactionId String? @unique
+  walletSessionId String? @unique // exact personal deduction; never whole booking
   revision Int @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

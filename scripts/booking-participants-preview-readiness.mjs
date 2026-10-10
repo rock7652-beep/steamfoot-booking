@@ -4,7 +4,7 @@ import { assertBookingParticipantsPreviewEnvironment } from "./consultation-prev
 export function assertBookingParticipantsPreviewSchema(value) {
   if (!value || typeof value !== "object") throw new Error("Booking participants Preview schema is not ready.");
   const row = /** @type {Record<string, unknown>} */ (value);
-  if (row.tables_ready !== true || row.rls_enabled !== true || row.browser_access !== false || row.guards_ready !== true) {
+  if (row.tables_ready !== true || row.rls_enabled !== true || row.browser_access !== false || row.guards_ready !== true || row.personal_session_ready !== true || row.walk_in_guard_ready !== true) {
     throw new Error("Booking participants Preview schema protections are not ready.");
   }
 }
@@ -24,6 +24,9 @@ export async function verifyBookingParticipantsPreviewReadiness(env) {
       SELECT
         (SELECT count(*)=2 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('BookingParticipant','BookingParticipantGroup')) AS tables_ready,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BookingParticipant' AND column_name='walletSessionId')
+          AND EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='BookingParticipant_wallet_guard' AND tgenabled='O') AS personal_session_ready,
+        EXISTS(SELECT 1 FROM pg_proc WHERE proname='booking_participant_legacy_guard' AND prosrc LIKE '%app.booking_walk_in_group%') AS walk_in_guard_ready,
         (SELECT count(*)=2 AND bool_and(c.relrowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('BookingParticipant','BookingParticipantGroup')) AS rls_enabled,
         EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace

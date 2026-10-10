@@ -13,10 +13,12 @@ import { initializeBookingParticipants, linkBookingParticipantCustomer } from "@
 import type { BookingParticipantRow } from "@/server/services/booking-participants";
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit, getTrialSettings } from "@/lib/shop-config";
-import { collectParticipantTrialInTransaction, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
+import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
 import { paymentMethodValues } from "@/lib/payment-splits";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { checkCustomerLimitOrThrow } from "@/lib/usage-gate";
+import { recordOperationAudit } from "@/server/services/operation-audit";
+import { addBookingWalkIn } from "@/server/services/booking-participant-walk-in";
 import { createCustomerSchema } from "@/lib/validators/customer";
 
 // Keep the unfinished rollout inaccessible until the reviewed DDL is deployed.
@@ -128,7 +130,7 @@ export async function attachBookingCompanion(input: z.infer<typeof identitySchem
     const data = identitySchema.parse(input);
     const participants = await prisma.$transaction(async tx => {
       const slots = await initializeBookingParticipants(tx, { storeId, bookingId: data.bookingId });
-      const slot = slots.find(item => item.position === data.position && item.source === "RESERVATION");
+      const slot = slots.find(item => item.position === data.position);
       if (!slot) throw new AppError("NOT_FOUND", "本次預約沒有這個同行名額");
       await linkBookingParticipantCustomer(tx, {
         storeId, participantId: slot.id, customerId: data.customerId, revision: data.revision,
@@ -159,7 +161,7 @@ export async function createBookingCompanion(input: {
     if (!limit.allowed) throw new AppError("BUSINESS_RULE", `體驗版顧客上限 ${limit.limit} 位已達，請升級方案以繼續新增`);
     const result = await prisma.$transaction(async tx => {
       const slots = await initializeBookingParticipants(tx, { storeId, bookingId: slotInput.bookingId });
-      const slot = slots.find(item => item.position === slotInput.position && item.source === "RESERVATION");
+      const slot = slots.find(item => item.position === slotInput.position);
       if (!slot || slot.customerId || slot.status !== "PENDING" || slot.revision !== slotInput.revision) {
         throw new AppError("CONFLICT", "同行者資料已變更，請重新確認");
       }
@@ -175,5 +177,46 @@ export async function createBookingCompanion(input: {
     }, { timeout: 15_000 });
     revalidateBookingMutation(result.customerId);
     return { success: true, data: result };
+  } catch (error) { return handleActionError(error); }
+}
+
+/** Adds one stable WALK_IN slot; identity is filled in the same existing drawer. */
+export async function addBookingParticipant(input: { bookingId: string; requestId: string }): Promise<ActionResult<BookingParticipantRow>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    await requirePermission("customer.read");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = z.object({ bookingId: z.string().min(1).max(128), requestId: z.string().uuid() }).parse(input);
+    const person = await prisma.$transaction(async tx => {
+      const result = await addBookingWalkIn(tx, { ...data, storeId });
+      if (result.created) await recordOperationAudit({ actor: user, actorUserId: user.id, storeId, module: "STEAM",
+        targetType: "Booking", targetId: data.bookingId, action: "ADD_BOOKING_PARTICIPANT", summary: "在原預約臨時加入 1 位同行者",
+        after: { participantId: result.id, position: result.position, source: "WALK_IN" } }, tx);
+      return result;
+    }, { timeout: 15_000 });
+    revalidateBookingMutation();
+    return { success: true, data: person };
+  } catch (error) { return handleActionError(error); }
+}
+
+export async function completeBookingParticipantPlan(input: { bookingId: string; position: number; revision: number; walletId: string }): Promise<ActionResult<void>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = participantOperationSchema.extend({ walletId: z.string().min(1).max(128) }).parse(input);
+    const result = await prisma.$transaction(async tx => {
+      const slots = await initializeBookingParticipants(tx, { storeId, bookingId: data.bookingId });
+      const person = slots.find(slot => slot.position === data.position);
+      if (!person) throw new AppError("NOT_FOUND", "本次預約沒有這個名額");
+      const result = await completeParticipantOwnPlan(tx, { storeId, participantId: person.id, revision: data.revision, walletId: data.walletId, serviceStaffId: user.staffId ?? null });
+      if (result.created) await recordOperationAudit({ actor: user, actorUserId: user.id, storeId, module: "STEAM",
+        targetType: "Booking", targetId: data.bookingId, action: "COMPLETE_PARTICIPANT_PLAN", summary: "完成這位顧客的本人方案服務，扣 1 堂",
+        after: { participantId: person.id, customerId: result.customerId, walletId: data.walletId, sessions: 1 } }, tx);
+      return result;
+    }, { timeout: 15_000 });
+    revalidateBookingMutation(result.customerId); revalidateBookingTransactionMutation(result.customerId);
+    return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }

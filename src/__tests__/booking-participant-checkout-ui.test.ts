@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
-const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn() }));
-vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve }));
+const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), plan: vi.fn() }));
+vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, completeBookingParticipantPlan: h.plan }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({
   AssignPlanForm: ({ customerId, onSuccess, onPendingChange }: { customerId: string; onSuccess: () => void; onPendingChange: (pending: boolean) => void }) =>
     createElement("div", { "data-plan-customer": customerId }, "本人方案表單", createElement("button", {
@@ -39,6 +39,17 @@ async function click(button: HTMLElement) { await act(async () => button.click()
 const buttons = (label: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].filter(button => button.textContent === label);
 
 describe("actual participant checkout component", () => {
+  it("uses only this person's own wallet without recording a trial fee", async () => {
+    const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 9 }];
+    h.plan.mockResolvedValue({ success: true });
+    await render(data); await click(buttons("使用本人方案")[0]);
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(h.plan).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, walletId: "own" });
+    expect(h.collect).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("完成 1／2 · 已收 NT$ 0");
+    expect(buttons("收體驗費")).toHaveLength(1);
+  });
+
   it("collects one named slot in one submit, leaving the friend pending", async () => {
     await render(); await click(buttons("收體驗費")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));

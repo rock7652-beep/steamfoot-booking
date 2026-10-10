@@ -35,3 +35,16 @@ export async function resolveBookingParticipant(input: { position: number; statu
 export async function assignPlanToCustomer(input: { customerId: string; planId: string }) {
   sales.push(input); return { success: true, data: { walletId: `wallet-${input.customerId}`, transactionId: `plan-${sales.length}` } };
 }
+
+export async function addBookingParticipant() {
+  if (state.slots.length >= 4) return { success: false, error: "本組最多 4 人" };
+  const position = state.slots.length + 1;
+  state.slots.push({ id: `slot-${position}`, position, revision: 1, customerId: null, name: null,
+    service: "FIRST_TRIAL", source: "WALK_IN", status: "PENDING", collectedAmount: null });
+  return { success: true, data: state.slots.at(-1) };
+}
+export async function completeBookingParticipantPlan(input: { position: number }) {
+  const person = state.slots.find(slot => slot.position === input.position)!;
+  person.status = "COMPLETED"; person.service = "PACKAGE_SESSION"; person.revision++;
+  return { success: true, data: undefined };
+}

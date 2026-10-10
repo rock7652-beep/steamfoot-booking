@@ -76,6 +76,7 @@ export async function linkBookingParticipantCustomer(tx: Prisma.TransactionClien
   }
   const payments = await tx.$queryRaw<{ id: string }[]>`
     SELECT t.id FROM "Transaction" t WHERE t."bookingId" = ${bookings[0].id} AND t."storeId" = ${input.storeId}
+      AND t."transactionType"::text IN ('TRIAL_PURCHASE', 'SINGLE_PURCHASE')
       AND NOT EXISTS (SELECT 1 FROM "BookingParticipant" p WHERE p."collectionTransactionId" = t.id AND p."storeId" = ${input.storeId}) LIMIT 1`;
   if (payments.length) throw new AppError("BUSINESS_RULE", "已有整組交易，請先核對原收款，不能變更同行者");
   const customers = await tx.$queryRaw<{ id: string }[]>`

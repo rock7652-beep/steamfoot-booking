@@ -30,6 +30,7 @@ CREATE TABLE "BookingParticipant" (
   "completedAt" TIMESTAMP(3),
   "expectedAmount" DECIMAL(10,0) CHECK ("expectedAmount" >= 0),
   "collectionTransactionId" TEXT UNIQUE,
+  "walletSessionId" TEXT UNIQUE,
   revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -121,6 +122,7 @@ DECLARE arrived_count INTEGER;
 DECLARE cancelled_count INTEGER;
 DECLARE total_count INTEGER;
 DECLARE expected_status TEXT;
+DECLARE projected_people INTEGER;
 BEGIN
   IF TG_TABLE_NAME = 'Transaction' THEN
     IF NEW."bookingId" IS NULL OR NEW."transactionType"::text NOT IN ('TRIAL_PURCHASE','SINGLE_PURCHASE') THEN RETURN NEW; END IF;
@@ -138,8 +140,18 @@ BEGIN
   END IF;
   SELECT id INTO group_id FROM public."BookingParticipantGroup" WHERE "bookingId" = NEW.id AND "storeId" = NEW."storeId";
   IF group_id IS NULL THEN RETURN NEW; END IF;
-  IF NEW.people <> OLD.people OR NEW."customerId" <> OLD."customerId" OR NEW."bookingType" <> OLD."bookingType" THEN
+  IF NEW."customerId" <> OLD."customerId" OR NEW."bookingType" <> OLD."bookingType" THEN
     RAISE EXCEPTION 'Use individual participant operations, original reservation is immutable' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.people <> OLD.people THEN
+    SELECT g."originalPeople" + count(p.id)::int INTO projected_people
+      FROM public."BookingParticipantGroup" g LEFT JOIN public."BookingParticipant" p
+        ON p."groupId" = g.id AND p."storeId" = g."storeId" AND p.source = 'WALK_IN'
+      WHERE g.id = group_id GROUP BY g."originalPeople";
+    IF current_setting('app.booking_walk_in_group', true) IS DISTINCT FROM group_id
+      OR NEW.people IS DISTINCT FROM projected_people OR NEW.people > 4 THEN
+      RAISE EXCEPTION 'Use capacity-checked individual walk-in operation' USING ERRCODE = '23514';
+    END IF;
   END IF;
   IF (NEW."bookingDate" IS DISTINCT FROM OLD."bookingDate" OR NEW."slotTime" IS DISTINCT FROM OLD."slotTime")
     AND EXISTS (SELECT 1 FROM public."BookingParticipant" WHERE "groupId" = group_id AND "storeId" = NEW."storeId"
@@ -166,4 +178,27 @@ CREATE TRIGGER "Transaction_participant_guard" BEFORE INSERT ON "Transaction"
   FOR EACH ROW EXECUTE FUNCTION booking_participant_legacy_guard();
 CREATE TRIGGER "Booking_participant_guard" BEFORE UPDATE ON "Booking"
   FOR EACH ROW EXECUTE FUNCTION booking_participant_legacy_guard();
+CREATE OR REPLACE FUNCTION booking_participant_wallet_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND OLD."walletSessionId" IS NOT NULL
+    AND NEW."walletSessionId" IS DISTINCT FROM OLD."walletSessionId" THEN
+    RAISE EXCEPTION 'Personal session history cannot be reassigned' USING ERRCODE = '23514';
+  END IF;
+  IF NEW."walletSessionId" IS NOT NULL THEN
+    IF NEW.service <> 'PACKAGE_SESSION' OR NEW.status <> 'COMPLETED' OR NEW."collectionTransactionId" IS NOT NULL
+      OR NOT EXISTS (SELECT 1 FROM public."WalletSession" s
+        JOIN public."CustomerPlanWallet" w ON w.id = s."walletId"
+        JOIN public."BookingParticipantGroup" g ON g.id = NEW."groupId" AND g."storeId" = NEW."storeId"
+        WHERE s.id = NEW."walletSessionId" AND s.status::text = 'COMPLETED'
+          AND s."bookingId" = g."bookingId" AND w."storeId" = NEW."storeId" AND w."customerId" = NEW."customerId") THEN
+      RAISE EXCEPTION 'Session must belong to the actual participant' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION booking_participant_wallet_guard() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER "BookingParticipant_wallet_guard" BEFORE INSERT OR UPDATE ON "BookingParticipant"
+  FOR EACH ROW EXECUTE FUNCTION booking_participant_wallet_guard();
 COMMIT;

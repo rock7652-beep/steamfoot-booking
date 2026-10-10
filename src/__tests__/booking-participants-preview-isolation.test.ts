@@ -28,7 +28,7 @@ describe("individual checkout preview isolation", () => {
     expect(() => assertBookingParticipantsPreviewEnvironment({ ...valid, CONSULTATION_PREVIEW_INTAKE_ENABLED: "true" })).toThrow();
   });
   it("requires both protected tables and all four enabled guards", () => {
-    const ready = { tables_ready: true, rls_enabled: true, browser_access: false, guards_ready: true };
+    const ready = { tables_ready: true, rls_enabled: true, browser_access: false, guards_ready: true, personal_session_ready: true, walk_in_guard_ready: true };
     expect(() => assertBookingParticipantsPreviewSchema(ready)).not.toThrow();
     for (const key of Object.keys(ready)) expect(() => assertBookingParticipantsPreviewSchema({ ...ready, [key]: undefined })).toThrow();
     expect(() => assertBookingParticipantsPreviewSchema({ ...ready, browser_access: true })).toThrow();
@@ -37,7 +37,7 @@ describe("individual checkout preview isolation", () => {
     const ddl = readFileSync("docs/sql/booking-participants-draft.sql", "utf8");
     const readiness = readFileSync("scripts/booking-participants-preview-readiness.mjs", "utf8");
     const names = [...ddl.matchAll(/CREATE TRIGGER "([^"]+)"/g)].map(match => match[1]);
-    expect(names).toHaveLength(4);
+    expect(names).toHaveLength(5);
     for (const name of names) expect(readiness).toContain(`'${name}'`);
   });
   it("keeps external integrations blocked", () => {

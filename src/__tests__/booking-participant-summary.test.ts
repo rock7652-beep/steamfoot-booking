@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { summarizeBookingParticipants, summarizeParticipantConversion, type BookingParticipantFact, type ParticipantPurchaseFact } from "@/lib/booking-participant-summary";
+import { bookingCollectedNet } from "@/lib/booking-collected-net";
 import { trialCollectionAmountError } from "@/lib/trial-collection-amount";
 
 const fact = (id: string, patch: Partial<BookingParticipantFact> = {}): BookingParticipantFact => ({
@@ -66,5 +67,15 @@ describe("actual amount is never silently reduced", () => {
   });
   it("does not silently replace money when editing is disabled", () => {
     expect(trialCollectionAmountError(11980, 2, { ...settings, trialAllowPriceEdit: false })).toMatch(/固定/);
+  });
+});
+
+describe("receipt net amount remains consistent after individual refunds", () => {
+  it("keeps the other person's fee when one person receives a full refund", () => {
+    expect(bookingCollectedNet(499, 499) + bookingCollectedNet(499)).toBe(499);
+  });
+  it("subtracts linked partial refunds once and does not subtract their legacy mirror twice", () => {
+    expect(bookingCollectedNet(499, 100, [{ amount: -100 }])).toBe(399);
+    expect(bookingCollectedNet(499, 0, [{ amount: -100 }, { amount: -399 }])).toBe(0);
   });
 });
