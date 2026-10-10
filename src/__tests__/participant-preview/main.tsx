@@ -30,4 +30,19 @@ function Preview() {
     </RightSheet>
   </main></OperationScope>;
 }
-createRoot(document.getElementById("root")!).render(<Preview />);
+function DevicePreview() {
+  const [size, setSize] = useState([1366, 900]);
+  return <main className="min-h-screen bg-earth-100 p-3">
+    <h1 className="text-lg font-semibold">多人預約 · 隔離 UI 驗收</h1>
+    <p className="my-2 text-sm">模擬視窗尺寸，不連資料庫。切換尺寸會保留 iframe 內的操作狀態。</p>
+    <nav className="mb-3 flex flex-wrap gap-2" aria-label="驗收尺寸">
+      {[[1366, 900, "桌機"], [1024, 768, "iPad 橫向"], [768, 1024, "iPad 直向"], [390, 844, "窄螢幕"]].map(([width, height, label]) =>
+        <button key={label} type="button" className="min-h-11 rounded border border-earth-300 bg-white px-3" aria-pressed={size[0] === width}
+          onClick={() => setSize([Number(width), Number(height)])}>{label} {width}×{height}</button>)}
+    </nav>
+    <div className="max-w-full overflow-auto">
+      <iframe title="逐人体驗操作預覽" src="?frame=1" width={size[0]} height={size[1]} className="block border border-earth-300" />
+    </div>
+  </main>;
+}
+createRoot(document.getElementById("root")!).render(new URLSearchParams(window.location.search).has("frame") ? <Preview /> : <DevicePreview />);
