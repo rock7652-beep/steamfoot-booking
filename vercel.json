@@ -47,6 +47,7 @@
   "git": {
     "deploymentEnabled": {
       "fix/course-room-save-performance-20261010": false,
+      "fix/hq-audit-auto-refresh-20261010": false,
       "fix/hq-reviewed-phone-prefix": false,
       "fix/public-seo-crawlers-20261007": false,
       "feat/public-guide-articles-20261007": false,
@@ -60,6 +61,7 @@
       "fix/course-roster-two-line-20261008": false,
       "content/yoga-waitlist-management": false,
       "content/music-school-data-migration": false,
+      "content/pilates-equipment-scheduling-20261010": false,
       "codex/course-student-self-booking-switch": false,
       "fix/unify-module-notes-density": false,
       "feat/hq-intake-list-live-filter-20261008": false,

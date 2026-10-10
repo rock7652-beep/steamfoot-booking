@@ -3,19 +3,22 @@
 .rowBody {
   display: grid;
   min-width: 0;
-  grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: center;
   gap: 0.25rem 0.5rem;
 }
 .timeCell { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; grid-row: 1 / 3; align-self: start; padding-top: 0.5rem; }
 .identityCell { min-width: 0; grid-column: 2 / 4; }
-.statusCell { grid-column: 2; min-width: 0; }
-.noteCell { grid-column: 2 / 4; min-width: 0; grid-row: 3; }
+.statusCell { grid-column: 2; grid-row: 2; min-width: 0; gap: 0.125rem 0.5rem; }
+.noteCell { grid-column: 3; min-width: 0; grid-row: 2; }
 .staffCell { display: none; min-width: 0; }
 .inlineStaff { display: inline; }
-.planCell { flex-basis: 100%; min-width: 0; }
+.planCell { display: contents; }
+.planCell > span { width: auto; }
 .columnHeader { display: none; }
 @container booking-roster (min-width: 1000px) {
+  .planCell { display: flex; flex-basis: 100%; width: 100%; flex-direction: column; }
+  .planCell > span { width: 100%; }
   .rowBody { grid-template-columns: 70px minmax(300px, 1.5fr) 88px minmax(110px, 0.8fr) minmax(250px, 1.4fr); }
   .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
   .identityCell { grid-column: 2; }
@@ -65,4 +68,36 @@
   .planCell { flex-basis: auto; width: auto; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
   .planCell > span { width: auto; }
   .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr) 148px; }
+}
+
+/* Safari before 16 ignores container queries. Keep its roster compact with
+   viewport fallbacks; modern browsers continue to use actual container width. */
+@supports not (container-type: inline-size) {
+@media (max-width: 767px) {
+  .rosterRow { position: relative; align-items: start; gap: 0.25rem; padding: 0.25rem 0.5rem; }
+  .rosterRow > :first-child, .rosterRow > :last-child { align-self: start; }
+  .rowBody { grid-template-columns: 52px minmax(0, 1fr); gap: 0 0.25rem; }
+  .timeCell { grid-column: 1; grid-row: 1; padding-top: 0.75rem; }
+  .identityCell, .identityCell .identityLayout { display: contents; }
+  .identityCell .identityLayout > div:first-child { grid-column: 2; grid-row: 1; }
+  .statusCell, .noteCell { grid-column: 1 / -1; }
+  .noteCell { grid-row: auto; }
+  .identityCell .identityLayout > a { grid-column: 1 / -1; justify-self: start; }
+  .statusCell { gap: 0.125rem 0.5rem; }
+  .planCell { flex-basis: auto; width: auto; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
+  .planCell > span { width: auto; }
+}
+
+@media (min-width: 768px) {
+  /* iPad: identity on the first line, plan and reminders beside each other
+     on the second. Keep the 44px controls without stacking every field. */
+  .rowBody { grid-template-columns: 76px minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .statusCell { grid-column: 2; grid-row: 2; gap: 0.125rem 0.5rem; }
+  .noteCell { grid-column: 3; grid-row: 2; }
+  .timeCell { grid-row: 1 / 3; }
+  .planCell { flex-basis: auto; width: auto; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
+  .planCell > span { width: auto; }
+  .identityCell .identityLayout { grid-template-columns: minmax(0, 1fr) 148px; }
+}
+
 }

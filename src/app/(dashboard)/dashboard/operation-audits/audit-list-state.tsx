@@ -22,7 +22,7 @@ export function AuditListState({ viewKey, children }: { viewKey: string; childre
     } catch { /* Storage may be disabled; native back navigation still works. */ }
     return () => cancelAnimationFrame(frame);
   }, [storageKey]);
-  return <div ref={root} className="@container min-w-0" onClickCapture={event => {
+  return <div ref={root} data-audit-list className="@container min-w-0" onClickCapture={event => {
     if (!(event.target instanceof Element) || !event.target.closest("a")) return;
     try {
       const open = Array.from(root.current?.querySelectorAll<HTMLDetailsElement>("details[data-record][open]") ?? [], el => el.dataset.record);

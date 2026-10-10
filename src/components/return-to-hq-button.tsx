@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { switchActiveStore } from "@/server/actions/store-switch";
+import { switchHqStoreView } from "@/lib/hq-store-switch-client";
 import { hqStoreSwitchDestination } from "@/lib/hq-navigation";
 import { toast } from "sonner";
 
@@ -10,7 +10,7 @@ export function ReturnToHqButton({ collapsed = false }: { collapsed?: boolean })
   return <button type="button" disabled={pending} aria-label="返回 HQ 總部" title="返回 HQ 總部"
     className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
     onClick={() => startTransition(async () => {
-      const result = await switchActiveStore("__all__");
+      const result = await switchHqStoreView("__all__");
       if (result.success) window.location.assign(hqStoreSwitchDestination(window.location.search));
       else toast.error(result.error ?? "返回總部失敗，已保留目前店舖");
     })}>

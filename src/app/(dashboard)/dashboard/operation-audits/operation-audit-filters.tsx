@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveDashboardHref } from "@/components/dashboard-link";
 
 type ActorOption = { id: string; name: string };
@@ -18,12 +19,14 @@ const FILTER_NAMES = ["dateFrom", "dateTo", "actor", "module", "q"] as const;
 
 export function OperationAuditFilters({
   actors,
+  followToday,
   cacheKey,
   defaults,
   hasExplicitFilters,
   showModuleFilter,
   loginRecordId,
 }: {
+  followToday?: boolean;
   loginRecordId?: string;
   actors: ActorOption[];
   cacheKey: string;
@@ -46,8 +49,11 @@ export function OperationAuditFilters({
       if (values[name]) query.set(name, values[name]);
     });
 
+    query.set("dateMode", values.dateTo === toLocalDateStr() ? "today" : "fixed");
     if (loginRecordId) query.set("login", loginRecordId);
-    localStorage.setItem(cacheKey, JSON.stringify(values));
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ ...values, savedOn: toLocalDateStr(), followToday: values.dateTo === toLocalDateStr() }));
+    } catch { /* Filters remain usable when browser storage is unavailable. */ }
     const search = query.toString();
     router.replace(resolveDashboardHref(`/dashboard/operation-audits${search ? `?${search}` : ""}`, pathname), { scroll: false });
   };
@@ -56,17 +62,22 @@ export function OperationAuditFilters({
     if (restored.current || hasExplicitFilters || loginRecordId) return;
     restored.current = true;
     try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) ?? "null") as Partial<FilterValues> | null;
+      const cached = JSON.parse(localStorage.getItem(cacheKey) ?? "null") as (Partial<FilterValues> & { savedOn?: string; followToday?: boolean }) | null;
       if (!cached || !FILTER_NAMES.some((name) => cached[name])) return;
+      const today = toLocalDateStr();
+      // Old caches cannot distinguish historical searches from a stale "today".
+      // Keep non-date filters, but only restore dates with explicit versioned intent.
       const query = new URLSearchParams();
       FILTER_NAMES.forEach((name) => {
         if (name === "module" && !showModuleFilter) return;
-        const value = cached[name];
+        if ((name === "dateFrom" || name === "dateTo") && !cached.savedOn) return;
+        const value = name === "dateTo" && cached.followToday ? today : cached[name];
         if (typeof value === "string" && value) query.set(name, value);
       });
+      if (cached.savedOn) query.set("dateMode", cached.followToday ? "today" : "fixed");
       router.replace(resolveDashboardHref(`/dashboard/operation-audits?${query.toString()}`, pathname), { scroll: false });
     } catch {
-      localStorage.removeItem(cacheKey);
+      try { localStorage.removeItem(cacheKey); } catch { /* Storage may be disabled. */ }
     }
   }, [cacheKey, hasExplicitFilters, pathname, router, showModuleFilter, loginRecordId]);
 
@@ -99,11 +110,12 @@ export function OperationAuditFilters({
         applyFilters(form);
       }}
     >
+      <input type="hidden" name="dateMode" value={followToday ? "today" : "fixed"} />
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="text-earth-600">日期</span>
         <input aria-label="開始日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2 text-sm" type="date" name="dateFrom" defaultValue={defaults.dateFrom} />
         <span className="text-earth-400">至</span>
-        <input aria-label="結束日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2 text-sm" type="date" name="dateTo" defaultValue={defaults.dateTo} />
+        <input aria-label="結束日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2 text-sm" type="date" key={defaults.dateTo} name="dateTo" defaultValue={defaults.dateTo} />
       </div>
       <select aria-label="操作人" className="h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-2 text-sm sm:w-44" name="actor" defaultValue={defaults.actor}>
         <option value="">全部操作人</option>
@@ -111,7 +123,7 @@ export function OperationAuditFilters({
       </select>
       <button className="min-h-11 px-3 text-earth-600" type="button" onClick={() => {
         if (keywordTimer.current) clearTimeout(keywordTimer.current);
-        localStorage.removeItem(cacheKey);
+        try { localStorage.removeItem(cacheKey); } catch { /* Storage may be disabled. */ }
         router.replace(resolveDashboardHref("/dashboard/operation-audits", pathname), { scroll: false });
       }}>清除</button>
       <details className="open:basis-full" open={Boolean(defaults.module || defaults.q)}>
