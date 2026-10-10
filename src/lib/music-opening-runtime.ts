@@ -79,6 +79,7 @@ export function musicOpeningOperationIssue(state: OpeningState, card: OpeningCar
   if (state.kind === "NATIVE") return null;
   if (state.kind === "BLOCKED") return state.issue;
   const record = state.record;
+  if (record.expiryVerification?.kind === "NO_EXPIRY") return "已核實無期限；現有普通方案儲存格式尚未支援，暫不能變更課程";
   if (!record.activatedAt || !record.expiresAt) return "期初啟用日或到期日未確認，暫不能變更課程";
   if (record.balance.reservedAtCutoff > 0) return "切點時預約尚未完成來源連結核對，暫不能變更課程";
   if (record.balance.unresolvedMakeupLessons > 0) return "期初待補課尚未完成來源連結核對，暫不能變更課程";
@@ -101,6 +102,10 @@ export function readMusicOpeningLesson(state: OpeningState, booking: OpeningBook
   if (booking.customerId !== state.customerId || !booking.musicOpeningSourceLessonKey || !booking.musicOpeningTermKey || booking.musicOpeningLessonOrdinal == null) {
     return { kind: "BLOCKED" as const, issue: "期初課堂缺少來源堂次或學員關聯，請先核對" };
   }
+  if (state.record.ordinarySourceSlots && !state.record.ordinarySourceSlots.some(slot =>
+      slot.sourceLessonKey === booking.musicOpeningSourceLessonKey && slot.sourceTermKey === booking.musicOpeningTermKey && slot.originalLessonOrdinal === booking.musicOpeningLessonOrdinal)) {
+    return { kind: "BLOCKED" as const, issue: "課堂不屬於已核對的普通堂次，不能以普通餘堂處理補課" };
+  }
   try {
     const projection = projectMusicOpeningLesson(state.scope, state.record, {
       sourceTermKey: booking.musicOpeningTermKey,
@@ -117,6 +122,7 @@ export function readMusicOpeningLesson(state: OpeningState, booking: OpeningBook
 export function musicOpeningDateIssue(state: OpeningState, startsAt: Date): string | null {
   if (state.kind === "NATIVE") return null;
   if (state.kind === "BLOCKED") return state.issue;
+  if (state.record.expiryVerification?.kind === "NO_EXPIRY") return "已核實無期限；現有普通方案儲存格式尚未支援";
   if (!Number.isFinite(startsAt.getTime()) || startsAt < dayRange(state.scope.cutoffBusinessDate).start) return "期初方案不能新增或移至切點前課堂";
   if (!state.record.expiresAt || startsAt.getTime() > Date.parse(state.record.expiresAt)) return "課堂超過期初原有效期限，請先核對";
   return null;

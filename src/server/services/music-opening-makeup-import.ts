@@ -8,9 +8,18 @@ import type { CourseActor } from "./course-booking";
 import type { Prisma } from "../../../generated/course-client";
 
 /** Server adapter only: no public action, file upload, source sync or browser-supplied verification. */
-export async function importOpeningMakeupInTransaction(tx: Prisma.TransactionClient, actor: CourseActor, raw: unknown, verification: MusicOpeningMakeupVerification) {
+export async function importOpeningMakeupInTransaction(tx: Prisma.TransactionClient, actor: CourseActor, raw: unknown, verification: MusicOpeningMakeupVerification, sourceEnrollmentKeys?: readonly string[]) {
   const batch = musicOpeningMakeupBatchSchema.parse(raw);
   if (actor.customerId || batch.scope.targetStoreId !== actor.storeId) throw new AppError("FORBIDDEN", "期初來源不屬於本店");
+  // Optional trusted server batch boundary, including enrollments with zero
+  // current rights. Completeness is still required for every selected enrollment;
+  // unrelated learners' immutable receipts are not replayed or discarded.
+  const selected = sourceEnrollmentKeys ? new Set(sourceEnrollmentKeys) : null;
+  if (selected && (!selected.size || selected.size > 100 || selected.size !== sourceEnrollmentKeys!.length ||
+      [...selected].some(k => !k || k.length > 200 || k.trim() !== k) ||
+      batch.records.some(r => !selected.has(r.sourceEnrollmentKey)) ||
+      batch.manifest.cutoffCoverage.some(c => !selected.has(c.sourceEnrollmentKey)) ||
+      [...selected].some(k => batch.manifest.cutoffCoverage.filter(c => c.sourceEnrollmentKey === k).length !== 1))) throw new AppError("VALIDATION", "來源批次範圍未通過核對");
   await lockCourseStore(tx, actor.storeId);
   const music = await tx.$queryRaw<Array<{ featureKey: string }>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
   if (!music.length) throw new AppError("FORBIDDEN", "此功能僅適用於音樂教室");
@@ -20,8 +29,21 @@ export async function importOpeningMakeupInTransaction(tx: Prisma.TransactionCli
   // Stable namespace deliberately excludes cutoff/revision. Never hide remembered
   // exclusions when an upstream extract changes cutoff or renames a source ID.
   const sameNamespace = (scope: typeof batch.scope) => scope.version === batch.scope.version && scope.targetStoreId === batch.scope.targetStoreId && scope.sourceSystem === batch.scope.sourceSystem && scope.sourceTenantKey === batch.scope.sourceTenantKey;
-  const existing = stored.filter(row => sameNamespace(musicOpeningMakeupRecordSchema.parse(row.snapshot).scope));
-  const receipts = prior.map(row => row.afterJson.receipt).filter(receipt => sameNamespace(musicOpeningMakeupRecordSchema.parse(receipt.snapshot).scope));
+  const inScope = (snapshot: unknown) => {
+    const record = musicOpeningMakeupRecordSchema.parse(snapshot);
+    return sameNamespace(record.scope) && (!selected || selected.has(record.sourceEnrollmentKey));
+  };
+  const existing = stored.filter(row => inScope(row.snapshot));
+  const receipts = prior.map(row => row.afterJson.receipt).filter(receipt => inScope(receipt.snapshot));
+  if (selected) {
+    // The completed lesson identity was already namespace-global in the pure
+    // planner. A narrower validation batch must not weaken that uniqueness.
+    const outsideCompleted = new Set(prior.map(row => row.afterJson.receipt).filter(receipt => {
+      const record = musicOpeningMakeupRecordSchema.parse(receipt.snapshot);
+      return sameNamespace(record.scope) && !selected.has(record.sourceEnrollmentKey) && receipt.kind === "EXCLUDE_COMPLETED";
+    }).map(receipt => receipt.snapshot.completedPair!.sourceMakeupLessonKey));
+    if (batch.records.some(record => record.completedPair && outsideCompleted.has(record.completedPair.sourceMakeupLessonKey))) throw new AppError("VALIDATION", "DUPLICATE_COMPLETED_PAIR");
+  }
   const plan = planMusicOpeningMakeupBatch(batch, existing, receipts, verification);
   if (plan.status !== "READY") throw new AppError("VALIDATION", `期初補課仍須核對：${plan.issue}`);
   const priorKeys = new Set(receipts.map(receipt => receipt.sourceKey));
@@ -57,5 +79,7 @@ export async function importOpeningMakeupInTransaction(tx: Prisma.TransactionCli
     const payload = JSON.stringify({ receipt, manifestHash: plan.manifestHash, batchId: batch.batchId, cutoffCoverage: plan.cutoffCoverage });
     await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,"targetType","targetId",action,summary,"afterJson","createdAt") VALUES (${auditId},${actor.userId},${actor.name},${actor.storeId},'MUSIC','MusicOpeningMakeupManifest',${scopeKey},'OPENING_MAKEUP_DISPOSITION','期初補課來源核對',${payload}::jsonb,NOW())`;
   }
-  return { entitlementIds: ids, ...plan.counts };
+  return { entitlementIds: ids, ...plan.counts,
+    created: plan.entries.filter(entry => entry.action === "CREATE").length,
+    skipped: plan.entries.filter(entry => entry.action === "NO_OP").length };
 }

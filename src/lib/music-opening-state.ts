@@ -43,7 +43,7 @@ const termSchema = z.object({
   // A closed ordinal prefix is not an attendance or a debit event.
   closedBeforeCutoff: count,
 }).strict();
-const enrollmentSchema = z.object({
+export const musicOpeningEnrollmentSchema = z.object({
   entityKind: z.literal("MUSIC_ENROLLMENT"),
   sourceRecordKey: key,
   sourceRevision: key,
@@ -52,15 +52,28 @@ const enrollmentSchema = z.object({
   paidLessons: count,
   giftLessons: count,
   terms: z.array(termSchema).min(1).max(100),
+  ordinarySourceSlots: z.array(z.object({ sourceLessonKey: key, sourceTermKey: key,
+    originalLessonOrdinal: z.number().int().min(1).max(100_000) }).strict()).max(100_000).optional(),
   balance: z.object({
     consumedBeforeCutoff: count,
     remainingAtCutoff: count,
     reservedAtCutoff: count,
     unresolvedMakeupLessons: count,
+    // Verified, disjoint pre-cutoff rights. Never count a leave as consumption.
+    // Omitted on legacy snapshots, whose original hashes and blocking remain intact.
+    separatedMakeup: z.object({
+      verification: z.literal("VERIFIED_DISJOINT"),
+      sourceLessonKeys: z.array(key).max(100_000),
+    }).strict().optional(),
   }).strict(),
   originalUnitPrice: money.nullable(),
   activatedAt: instant.nullable(),
   expiresAt: instant.nullable(),
+  expiryVerification: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("UNKNOWN") }).strict(),
+    z.object({ kind: z.literal("NO_EXPIRY"), evidenceKey: key }).strict(),
+    z.object({ kind: z.literal("SPECIFIED"), evidenceKey: key }).strict(),
+  ]).optional(),
   tuition: z.object({
     currency: z.literal("TWD"),
     originalListPrice: money.nullable(),
@@ -86,7 +99,7 @@ const inventorySchema = z.object({
   reservedQuantity: count,
   unitCost: decimalCost.nullable(),
 }).strict();
-const recordSchema = z.discriminatedUnion("entityKind", [enrollmentSchema, inventorySchema]).superRefine((record, ctx) => {
+const recordSchema = z.discriminatedUnion("entityKind", [musicOpeningEnrollmentSchema, inventorySchema]).superRefine((record, ctx) => {
   const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
   if (record.entityKind === "INVENTORY_POSITION") {
     if (record.reservedQuantity > record.onHandQuantity) issue(["reservedQuantity"], "Reserved inventory exceeds on-hand quantity");
@@ -103,8 +116,24 @@ const recordSchema = z.discriminatedUnion("entityKind", [enrollmentSchema, inven
     ids.add(term.sourceTermKey); numbers.add(term.originalTermNumber);
     if (term.closedBeforeCutoff > term.totalLessons) issue(["terms", index, "closedBeforeCutoff"], "Closed prefix exceeds term size");
   });
-  if (record.balance.consumedBeforeCutoff + record.balance.remainingAtCutoff !== total) {
-    issue(["balance"], "Consumed plus remaining must reconcile to original purchased lessons");
+  const separate = record.balance.separatedMakeup?.sourceLessonKeys ?? [];
+  if (new Set(separate).size !== separate.length) issue(["balance", "separatedMakeup"], "Duplicate separate makeup source lesson");
+  if (record.balance.consumedBeforeCutoff + record.balance.remainingAtCutoff + separate.length !== total) {
+    issue(["balance"], "Consumed plus ordinary remaining plus separate makeup must reconcile to original purchased lessons");
+  }
+  if (record.expiryVerification && (record.expiryVerification.kind === "SPECIFIED") !== (record.expiresAt !== null)) {
+    issue(["expiryVerification"], "Verified expiry kind must agree with original expiresAt; never use a sentinel date");
+  }
+  if (record.balance.separatedMakeup && !record.ordinarySourceSlots) issue(["ordinarySourceSlots"], "Separated balances require an exact ordinary source-slot manifest");
+  if (record.ordinarySourceSlots) {
+    const slots = new Set<string>(), keys = new Set<string>();
+    if (record.ordinarySourceSlots.length !== record.balance.remainingAtCutoff) issue(["ordinarySourceSlots"], "Ordinary source-slot count must equal ordinary cutoff balance");
+    for (const slot of record.ordinarySourceSlots) {
+      const tuple = JSON.stringify([slot.sourceTermKey, slot.originalLessonOrdinal]);
+      const term = record.terms.find(t => t.sourceTermKey === slot.sourceTermKey);
+      if (!term || slot.originalLessonOrdinal <= term.closedBeforeCutoff || slot.originalLessonOrdinal > term.totalLessons || slots.has(tuple) || keys.has(slot.sourceLessonKey) || separate.includes(slot.sourceLessonKey)) issue(["ordinarySourceSlots"], "Invalid, duplicate or overlapping ordinary source slot");
+      slots.add(tuple); keys.add(slot.sourceLessonKey);
+    }
   }
   if (record.balance.reservedAtCutoff > record.balance.remainingAtCutoff) issue(["balance", "reservedAtCutoff"], "Reservations exceed remaining credit");
   if (record.activatedAt && record.expiresAt && Date.parse(record.expiresAt) < Date.parse(record.activatedAt)) issue(["expiresAt"], "Expiry precedes activation");
@@ -140,7 +169,7 @@ const appliedSchema = z.object({
 
 export type MusicOpeningScope = z.infer<typeof scopeSchema>;
 export type MusicOpeningRecord = z.infer<typeof recordSchema>;
-export type MusicOpeningEnrollment = z.infer<typeof enrollmentSchema>;
+export type MusicOpeningEnrollment = z.infer<typeof musicOpeningEnrollmentSchema>;
 export type MusicOpeningApplied = z.infer<typeof appliedSchema>;
 export type MusicOpeningIssue = {
   code: "INVALID_INPUT" | "SCOPE_MISMATCH" | "DUPLICATE_SOURCE" | "SOURCE_CONFLICT" | "LEDGER_CONFLICT";
@@ -180,7 +209,11 @@ function contentHash(scope: MusicOpeningScope, record: MusicOpeningRecord): stri
   const { sourceRevision: _revision, ...state } = record;
   void _revision; // Opaque audit metadata, never a source version ordering assumption.
   const normalized = state.entityKind === "MUSIC_ENROLLMENT"
-    ? { ...state, terms: [...state.terms].sort((a, b) => a.originalTermNumber - b.originalTermNumber) }
+    ? { ...state, terms: [...state.terms].sort((a, b) => a.originalTermNumber - b.originalTermNumber),
+        ...(state.balance.separatedMakeup ? { balance: { ...state.balance, separatedMakeup: {
+          ...state.balance.separatedMakeup, sourceLessonKeys: [...state.balance.separatedMakeup.sourceLessonKeys].sort(),
+        } } } : {}),
+        ...(state.ordinarySourceSlots ? { ordinarySourceSlots: [...state.ordinarySourceSlots].sort((a, b) => a.sourceTermKey.localeCompare(b.sourceTermKey) || a.originalLessonOrdinal - b.originalLessonOrdinal) } : {}) }
     : state;
   return createHash("sha256").update(canonical({ scope, state: normalized })).digest("hex");
 }

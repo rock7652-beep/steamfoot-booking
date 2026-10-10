@@ -32,7 +32,11 @@ export const musicOpeningMakeupRecordSchema = z.object({
     classType: z.enum(["PRIVATE", "SELF_ORGANIZED", "GROUP"]) }).strict(),
   balanceTreatment: z.enum(["SEPARATE_VERIFIED", "NATIVE_CARD_VERIFIED", "OVERLAPS", "UNVERIFIED"]),
   expiry: z.object({ verification: z.literal("VERIFIED"), value: date.nullable() }).strict(),
-  completedPair: z.object({ sourceMakeupLessonKey: key, attendance: z.literal("ATTENDED") }).strict().nullable(),
+  completedPair: z.object({ sourceMakeupLessonKey: key, attendance: z.literal("ATTENDED"),
+    // Optional only for legacy snapshots. New combined imports require the
+    // verified completion date, independently from the original leave date.
+    sourceDate: z.object({ value: date, verification: z.literal("VERIFIED") }).strict().optional(),
+  }).strict().nullable(),
   nativeSourceBooking: z.object({
     id: key, storeId: key, customerId: key, templateId: key, cardId: key,
     unit: z.literal("SESSION"), sourceLessonKey: key, status: z.literal("CANCELLED"),
@@ -48,6 +52,7 @@ export const musicOpeningMakeupRecordSchema = z.object({
   }
   if (r.sourceStatus === "COMPLETED") {
     if (!r.completedPair || r.nativeSourceBooking) issue("UNVERIFIED_COMPLETED_PAIR");
+    if (r.completedPair?.sourceDate && r.completedPair.sourceDate.value < r.sourceDate.value) issue("COMPLETION_PRECEDES_SOURCE_LESSON");
     return;
   }
   if (r.completedPair) issue("COMPLETED_PAIR_CANNOT_BE_OUTSTANDING");

@@ -87,4 +87,28 @@ describe("importer retains the stable source namespace across cutoff changes", (
     expect(m.create).toHaveBeenCalledTimes(1);
     expect(m.execute).toHaveBeenCalledTimes(1);
   });
+  it("scoped small batch preserves another enrollment's completed receipt", async () => {
+    const old = excluded("completed"); old.sourceEnrollmentKey = "unrelated-enrollment"; previous = [receipt(old)];
+    const batch = makeupBatch();
+    expect(await importOpeningMakeupInTransaction(tx, actor, batch, makeupVerification(batch), [batch.records[0].sourceEnrollmentKey])).toMatchObject({ created: 1 });
+    expect(previous[0].kind).toBe("EXCLUDE_COMPLETED");
+  });
+  it("scoped B cannot reuse enrollment A's completed target lesson", async () => {
+    const old = excluded("completed"); old.sourceEnrollmentKey = "enrollment-A"; previous = [receipt(old)];
+    const next = excluded("completed"), batch = makeupBatch([next]);
+    batch.manifest.cutoffCoverage = [{ sourceEnrollmentKey: next.sourceEnrollmentKey, customerId: next.mapping.customerId, expectedOutstandingAtCutoff: 0, openingSourceKeys: [] }];
+    await expect(importOpeningMakeupInTransaction(tx, actor, batch, makeupVerification(batch), [next.sourceEnrollmentKey])).rejects.toThrow("DUPLICATE_COMPLETED_PAIR");
+    expect(m.create).not.toHaveBeenCalled(); expect(m.execute).not.toHaveBeenCalled();
+  });
+  it.each(["completed", "no-show"] as const)("explicit zero coverage cannot forget scoped prior %s", kind => {
+    const old = excluded(kind); previous = [receipt(old)];
+    const batch = makeupBatch([]);
+    batch.manifest.cutoffCoverage = [{ sourceEnrollmentKey: old.sourceEnrollmentKey, customerId: old.mapping.customerId, expectedOutstandingAtCutoff: 0, openingSourceKeys: [] }];
+    return expect(importOpeningMakeupInTransaction(tx, actor, batch, makeupVerification(batch), [old.sourceEnrollmentKey])).rejects.toThrow("MANIFEST_LOST_PRIOR_SOURCE");
+  });
+  it.each([[], ["wrong-enrollment"], ["enrollment-9", "enrollment-9"]].map(scope => ({ scope })))("rejects incomplete or duplicate server batch scope $scope before querying", async ({ scope }) => {
+    const batch = makeupBatch();
+    await expect(importOpeningMakeupInTransaction(tx, actor, batch, makeupVerification(batch), scope)).rejects.toThrow("批次範圍");
+    expect(m.raw).not.toHaveBeenCalled(); expect(m.create).not.toHaveBeenCalled();
+  });
 });
