@@ -36,7 +36,7 @@ type Props = {
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
-  bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
+  bookingOpensAt?: string | null; bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
   selfBookingEnabled?: boolean; selfBookingRevision?: number;
   waitlistFeatureAvailable?: boolean;
@@ -170,7 +170,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>
         <CourseSelfBookingSettings storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} />
-        {props.today && <BookableUntilForm course direct initialDate={props.bookableUntilDate ?? null} initialDays={props.bookingWindowDays ?? 14} today={props.today} canManage={props.canEdit} />}
+        {props.today && <BookableUntilForm key={`booking-window:${props.storeId}`} storeId={props.storeId} initialOpensAt={props.bookingOpensAt??null} course direct initialDate={props.bookableUntilDate ?? null} initialDays={props.bookingWindowDays ?? 14} today={props.today} canManage={props.canEdit} />}
         <Row title="營業與公休" summary="每週營業時間・特殊公休" controls={props.canHours ? <><DashboardLink href={courseSettingsPanelHref("/dashboard/courses/hours?tab=weekly")} scroll={false} className="inline-flex min-h-10 min-w-20 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">營業時間</DashboardLink><DashboardLink href={courseSettingsPanelHref("/dashboard/courses/hours?tab=special")} scroll={false} className="inline-flex min-h-10 min-w-20 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">特殊公休</DashboardLink></> : undefined} />
         <Row title="預約與取消截止" summary={"預約 " + lead(props.bookingLeadMinutes) + "・取消 " + lead(props.cancellationLeadMinutes)} expanded={expandedRow === "booking-cutoff"} onEdit={props.canEdit ? () => openRow("booking-cutoff") : undefined}>
           {editor({ section: "booking", bookingLeadMinutes: props.bookingLeadMinutes, cancellationLeadMinutes: props.cancellationLeadMinutes }, props.canEdit)}

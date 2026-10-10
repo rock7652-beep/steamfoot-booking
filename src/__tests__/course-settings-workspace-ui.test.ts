@@ -33,7 +33,7 @@ async function input(name: string, value: string) {
 }
 async function submit() { await act(async () => [...host.querySelectorAll("form")].find(form => !form.closest("[hidden]"))!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); }
 beforeEach(() => {
-  vi.stubGlobal("fetch",async (_url:string,init:RequestInit)=>{const request=JSON.parse(String(init.body));const result=await (request.kind==="TRIAL"?m.trialSave:m.save)(request.values);return {json:async()=>result.success?{...result,storeId:"a",data:{values:request.values,revision:request.kind==="TRIAL"?JSON.stringify(request.values):courseSettingsSectionRevision(request.values)}}:result};});
+  vi.stubGlobal("fetch",async (_url:string,init:RequestInit)=>{const request=JSON.parse(String(init.body));if(_url.endsWith("/course/booking-window")){const result=await m.windowSave(request.values);return {json:async()=>result.success?{success:true,storeId:"a",data:{date:request.values.mode==="fixed"?request.values.date:null,days:request.values.days??14,opensAt:null}}:result};}const result=await (request.kind==="TRIAL"?m.trialSave:m.save)(request.values);return {json:async()=>result.success?{...result,storeId:"a",data:{values:request.values,revision:request.kind==="TRIAL"?JSON.stringify(request.values):courseSettingsSectionRevision(request.values)}}:result};});
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); window.scrollTo = vi.fn();
   window.history.replaceState(null, "", "/s/a/admin/dashboard/courses?view=settings&month=2026-09");
   host = document.createElement("div"); document.body.append(host); root = createRoot(host); m.save.mockResolvedValue({ success: true });
