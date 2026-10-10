@@ -94,7 +94,9 @@ export async function getTrialSourceMetrics(
     const source = TRIAL_BOOKING_SOURCES.find((item) => item === booking.bookingSource) ?? "OTHER";
     const row = rows.get(source)!;
     row.bookings += 1;
-    row.bookedPeople += booking.people;
+    // Booking.people includes walk-ins for capacity. The acquisition cohort
+    // keeps the original reservation denominator alongside reserved arrivals.
+    row.bookedPeople += individual.originalPeopleByBooking?.get(booking.id) ?? booking.people;
     if (individual.groupIds.has(booking.id)) {
       row.attendees += completedByBooking.get(booking.id) ?? 0;
     } else if (booking.bookingStatus === "COMPLETED") {
@@ -102,10 +104,15 @@ export async function getTrialSourceMetrics(
     }
   }
   const bookingById = new Map(bookings.map(booking => [booking.id, booking]));
+  const walkInVisits = new Set(individual.visits.filter(visit => visit.source === "WALK_IN")
+    .map(visit => JSON.stringify([visit.bookingId, visit.customerId])));
   const eligibleBySource = new Map<string, number>();
   for (const [customerId, trial] of firstTrialByCustomer) {
     const booking = bookingById.get(trial.bookingId ?? trial.id ?? "");
     if (!booking || !conversion.trialCustomerIds.has(customerId)) continue;
+    // Walk-ins remain in personal conversion metrics, but did not come through
+    // the original reservation's acquisition link.
+    if (walkInVisits.has(JSON.stringify([booking.id, customerId]))) continue;
     const source = TRIAL_BOOKING_SOURCES.find(item => item === booking.bookingSource) ?? "OTHER";
     eligibleBySource.set(source, (eligibleBySource.get(source) ?? 0) + 1);
     if (conversion.currentTrialConvertedCustomerIds.has(customerId)) rows.get(source)!.assignedCustomers += 1;

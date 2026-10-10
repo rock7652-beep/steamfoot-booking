@@ -78,4 +78,16 @@ describe("trial booking source outcomes", () => {
     ], purchases: [{ customerId: "guest", transactionDate: new Date("2026-10-01"), customerPlanWallet: { status: "ACTIVE" }, netAmount: 5990 }] });
     expect((await getTrialSourceMetrics("store-1", "2026-09-01", "2026-09-30")).find(row => row.source === "LINE")).toMatchObject({ assignedCustomers: 0, planRate: 0 });
   });
+  it("keeps the source attendance denominator at the original two reservations after two walk-ins", async () => {
+    mocks.bookings.mockResolvedValue([{ id: "mixed", customerId: "cardholder", bookingSource: "LINE", bookingDate: new Date("2026-09-15"), createdAt: new Date("2026-09-10"), bookingStatus: "COMPLETED", people: 4, attendedPeople: 3 }]);
+    mocks.individual.mockResolvedValue({ groupIds: new Set(["mixed"]), originalPeopleByBooking: new Map([["mixed", 2]]), visits: [
+      { bookingId: "mixed", customerId: "cardholder", bookingType: "PACKAGE_SESSION", source: "RESERVATION" },
+      { bookingId: "mixed", customerId: "trial-guest", bookingType: "FIRST_TRIAL", source: "RESERVATION" },
+      { bookingId: "mixed", customerId: "walk-in", bookingType: "FIRST_TRIAL", source: "WALK_IN" },
+    ] });
+    mocks.facts.mockResolvedValue({ trials: [{ bookingId: "mixed", customerId: "walk-in", bookingDate: new Date("2026-09-15") }], purchases: [
+      { customerId: "walk-in", transactionDate: new Date("2026-09-16"), customerPlanWallet: { status: "ACTIVE" }, netAmount: 5990 },
+    ] });
+    expect((await getTrialSourceMetrics("store-1", "2026-09-01", "2026-09-30")).find(row => row.source === "LINE")).toMatchObject({ bookings: 1, bookedPeople: 2, attendees: 1, attendanceRate: 50, assignedCustomers: 0, planRate: 0 });
+  });
 });

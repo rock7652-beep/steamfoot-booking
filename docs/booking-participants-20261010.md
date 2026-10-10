@@ -107,7 +107,17 @@
 - 原預約詳情、月曆清單退款後显示淨收款；legacy refundAmount 與 v2 linked refund 採較大退款總額，只扣一次。全退不刪除本人已完成歷史。
 - 本輪補充 SQL 是隔離 Preview 增量升級，不是正式 migration；僅測試庫套用 walletSessionId、外鍵與本人扣堂 guard。建置 readiness 必須核對新欄位及 guard，不自動變更資料庫。
 - 本機 PostgreSQL 測試涵蓋四人上限、重送、滿額／跨店拒絕、本人一堂／同行體驗獨立、本人方案重送、失敗原子回滾，以及已使用方案全退拒絕／剩餘退款額。
-- 退款測試中 computeRefundPlan 使用實際新扣堂後的 ledger，但尚不代表已完成新版 Preview 正常 UI 退款操作。
+- 新版 Preview 正常 UI 已驗收本人方案退款：已用1堂禁止 FULL_UNUSED；退剩餘9堂試算／成功登錄5,391元，保留1堂COMPLETED，其餘9堂VOIDED、本人方案CANCELLED；另兩位同行本人方案仍各10堂AVAILABLE。
+
+### 本輪隔離 Preview 實際操作證據
+
+- 907f4f02 的 staging deployment dpl_HPV9rmYB795XSf3nbcDMPCQuXAYn READY，原支線別名指向相同SHA。
+- 僅使用非營運門市 pr1276-participant-isolated-20261010 的合成顧客；原2人 FIRST_TRIAL 預約 cmv1wxq7n0003l506zrhzitcq 在同一面板加到4人，第5人入口消失；originalPeople=2，RESERVATION兩位、WALK_IN兩位。
+- 本人方案扣1堂且無體驗交易；兩位體驗同行各自一筆499元TRIAL_PURCHASE；第4位NO_SHOW；組完成、attendedPeople=3，畫面已收998元。原誤選PACKAGE_SESSION的合成預約已正常取消，預留堂數已全部釋放。
+- 退款前分析：完成服務6人次（原3＋本輪3）、體驗5人次（原3＋本輪2）、3位唯一來客、體驗收入2,495、總已收20,465；卡友不計入本輪體驗次數。
+- 現場核對發現 Booking.people 作為容量投影加人後，來源分析分母需改讀 immutable originalPeople；本輪補修保留原來源到店母數，WALK_IN個人的轉購仍計主要成交分析，但不歸入原預約連結轉購。
+- 退款後分析：淨營收15,074、退款5,391；完成服務仍6人次、體驗仍5人次；已退款取消本人方案不再算有效轉購，開卡2位、66.7%，沒有刪除歷史到店。
+- 已使用內建裝置預覽的768×1024平板直向檢查原預約逐人清單與本人方案表單；開在同行者本人名下，原地展開／收合、垂直捲動可用。這是瀏覽器尺寸模擬，不代表iPadOS Safari實機測試。
 - 容量設定／並發調整營業規則的全入口鎖定驗收仍需補齊；不能以這次 slot lock 測試宣稱所有排班更動競態已驗證。
 - 桌機／iPad／手機真實 Preview 與權限驗收仍待最新版部署；不得沿用舊版驗收結果。
 - 未授權正式合併；正式功能開關保持關閉。
