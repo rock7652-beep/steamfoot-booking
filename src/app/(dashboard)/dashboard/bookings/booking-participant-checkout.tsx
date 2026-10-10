@@ -16,9 +16,10 @@ function validDraft(value: unknown): value is Draft {
   return typeof draft.amount === "string" && draft.amount.length < 20 && paymentMethodValues.includes(draft.method) && typeof draft.note === "string" && draft.note.length <= 500;
 }
 
-function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdated, onBusy }: {
+function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdated, onBusy, onProgress }: {
   bookingId: string; slot: Checkout["slots"][number]; checkout: Checkout; readOnly: boolean; blocked: boolean;
   onUpdated: () => void; onBusy: (busy: boolean) => void;
+  onProgress: (position: number, revision: number, status: string, amount: number | null) => void;
 }) {
   const [draft, setDraft] = useRetainedState<Draft>(`participant-collect:${bookingId}:${slot.position}`,
     { amount: String(checkout.settings.defaultPrice), method: "CASH", note: "" }, validDraft);
@@ -47,6 +48,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
       if (!result.success) { setMessage(result.error ?? "尚未完成，請重試"); return; }
       setResolved(next);
       if (next === "COMPLETED") setReceipt(Number(draft.amount));
+      onProgress(slot.position, slot.revision, next, next === "COMPLETED" ? Number(draft.amount) : null);
       setExpanded(false); onUpdated();
     } catch { if (mounted.current) setMessage("連線中斷，輸入已保留；請確認收款結果後重試。"); }
     finally { busy.current = false; onBusy(false); if (mounted.current) setSaving(false); }
@@ -55,7 +57,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0 break-words text-base">
         <p className="font-semibold text-earth-900">{slot.name ?? `同行者 ${slot.position - 1}（待補資料）`}</p>
-        <p className="text-earth-600">{statusLabels[status] ?? status}{amount != null ? ` · 體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : ""}</p>
+        <p className="text-earth-600">{status === "PENDING" && !slot.customerId ? "待建檔" : statusLabels[status] ?? status}{amount != null ? ` · 體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : ""}</p>
       </div>
       {!readOnly && status === "PENDING" && <div className="flex flex-wrap gap-2">
         {checkout.canCollect && slot.customerId && <button type="button" disabled={blocked || saving} onClick={() => setExpanded(!expanded)}
@@ -103,8 +105,20 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
 
 export function BookingParticipantCheckout(props: { bookingId: string; checkout: Checkout; readOnly: boolean; blocked: boolean;
   onUpdated: () => void; onBusy: (busy: boolean) => void }) {
+  const [progress, setProgress] = useState<Record<string, { status: string; amount: number | null }>>({});
+  const keyFor = (position: number, revision: number) => `${props.bookingId}:${position}:${revision}`;
+  const slots = props.checkout.slots.map(slot => {
+    const result = progress[keyFor(slot.position, slot.revision)];
+    return result ? { ...slot, status: result.status, collectedAmount: result.amount } : slot;
+  });
+  const completed = slots.filter(slot => slot.status === "COMPLETED").length;
+  const noShow = slots.filter(slot => slot.status === "NO_SHOW").length;
+  const cancelled = slots.filter(slot => slot.status === "CANCELLED").length;
+  const collected = slots.reduce((total, slot) => total + (slot.collectedAmount ?? 0), 0);
   return <section className="border-b border-earth-100 p-4" aria-label="逐人體驗結帳">
     <h3 className="mb-2 text-base font-semibold text-earth-900">每位體驗收款</h3>
-    {props.checkout.slots.map(slot => <ParticipantRow key={`${props.bookingId}:${slot.position}`} {...props} slot={slot} />)}
+    <p role="status" className="mb-2 break-words text-sm text-earth-600">完成 {completed}／{slots.length} · 已收 NT$ {collected.toLocaleString("zh-TW")}{noShow ? ` · 未到 ${noShow}` : ""}{cancelled ? ` · 已取消 ${cancelled}` : ""}</p>
+    {props.checkout.slots.map(slot => <ParticipantRow key={`${props.bookingId}:${slot.position}`} {...props} slot={slot}
+      onProgress={(position, revision, status, amount) => setProgress(previous => ({ ...previous, [keyFor(position, revision)]: { status, amount } }))} />)}
   </section>;
 }

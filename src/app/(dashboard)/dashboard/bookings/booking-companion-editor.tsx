@@ -40,9 +40,9 @@ function CompanionSlot({ bookingId, slot, canEdit, canCreate, onUpdated }: { boo
   const name = slot.name ?? linked?.name;
   return <div className="border-t border-earth-100 py-2">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
-      <p className="text-base font-medium text-earth-800">同行者 {slot.position - 1} · {name ?? "待補資料"}</p>
+      <p className="text-base font-medium text-earth-800">同行者 {slot.position - 1} · {name ?? "待建檔"}</p>
       {canEdit && !slot.customerId && !linked && !editing && !phone && !newName && <button type="button"
-        onClick={() => setEditing(true)} className="min-h-11 px-3 text-base font-medium text-primary-700">補資料</button>}
+        onClick={() => setEditing(true)} className="min-h-11 px-3 text-base font-medium text-primary-700">建檔／選擇顧客</button>}
     </div>
     {canEdit && !slot.customerId && !linked && (editing || phone || newName) && <div className="mt-2 space-y-2">
       <form className="flex flex-wrap gap-2" onSubmit={event => {

@@ -44,6 +44,7 @@ describe("actual participant checkout component", () => {
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.collect).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, amount: 499, paymentMethod: "CASH", note: "" });
     expect(container.textContent).toContain("已完成 · 體驗費 NT$ 499");
+    expect(container.textContent).toContain("完成 1／2 · 已收 NT$ 499");
     expect(buttons("收體驗費")).toHaveLength(1); expect(updated).toHaveBeenCalledTimes(1);
     expect(onBusy.mock.calls.map(call => call[0])).toEqual([true, false]);
   });
@@ -63,6 +64,7 @@ describe("actual participant checkout component", () => {
   it("unknown companion has no payment button and read-only view has no writes", async () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
     await render(data); expect(buttons("收體驗費")).toHaveLength(1);
+    expect(container.textContent).toContain("待建檔");
     await render(data, true); expect(container.querySelectorAll("button")).toHaveLength(0);
   });
   it("releases the group busy lock before unmounting a successful plan form", async () => {
@@ -100,5 +102,12 @@ describe("actual participant checkout component", () => {
     });
     expect(h.collect).toHaveBeenCalledTimes(1);
     await act(async () => finish({ success: true }));
+  });
+  it("uses refreshed authoritative amounts instead of the older local receipt", async () => {
+    await render(); await click(buttons("收體驗費")[0]);
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    const data = checkout(); data.slots[0].revision = 2; data.slots[0].status = "COMPLETED"; data.slots[0].collectedAmount = 399;
+    await render(data);
+    expect(container.textContent).toContain("完成 1／2 · 已收 NT$ 399");
   });
 });

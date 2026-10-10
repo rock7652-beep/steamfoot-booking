@@ -287,7 +287,7 @@ export function BookingDetailDrawer({
         if(initialIntent === "collect" && !readOnly && collectionIntentHandled.current !== id && payload.booking.id === id) {
           collectionIntentHandled.current=id;
           const b=payload.booking;
-          if(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
+          if(!payload.participantCheckout && (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED")) {
             if(b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
               if(b.people>1 && b.attendedPeople==null) {setAttendanceIntent("collect");setAttendanceOpen(true);}
               else setCollectOpen(true);
@@ -413,7 +413,7 @@ export function BookingDetailDrawer({
   // 不重問，直接收款。
   function handleCollect() {
     const b = data?.booking;
-    if (readOnly) return;
+    if (readOnly || data?.participantCheckout) return;
     if (
       b &&
       b.bookingType === "FIRST_TRIAL" &&
@@ -430,7 +430,7 @@ export function BookingDetailDrawer({
   // 完成服務入口：多人首次體驗與套餐都先確認實到人數。
   function handleComplete() {
     const b = dataMatches ? data?.booking : prefill?.id === bookingId ? prefill : null;
-    if (readOnly) return;
+    if (readOnly || (dataMatches && data?.participantCheckout)) return;
     if (
       b &&
       (b.bookingType === "FIRST_TRIAL" ||
@@ -791,6 +791,7 @@ export function BookingDetailDrawer({
       )}
       {!readOnly &&
         data &&
+        !data.participantCheckout &&
         (data.booking.bookingType === "FIRST_TRIAL" ||
           data.booking.bookingType === "PACKAGE_SESSION") &&
         data.booking.people > 1 && (
@@ -817,7 +818,7 @@ export function BookingDetailDrawer({
           loading={isActing}
         />
       )}
-      {!readOnly && data && data.trial && !data.trial.collected && (
+      {!readOnly && data && !data.participantCheckout && data.trial && !data.trial.collected && (
         <CollectTrialModal
           saveAction={collectBookingTrialPayment}
           open={collectOpen}
