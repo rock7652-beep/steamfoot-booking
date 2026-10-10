@@ -2,12 +2,12 @@
 import { useMemo, useState } from "react";
 
 /** Keep confirmed writes through stale props; retire them once the server acknowledges them. */
-export function useConfirmedSettingsRows<T extends {id?:string}>(source:T[], revision:(row:T)=>string) {
+export function useConfirmedSettingsRows<T extends {id?:string}>(source:T[], revision:(row:T)=>string, acknowledged?:(current:T,receipt:T)=>boolean) {
   const [receipts,setReceipts]=useState<T[]>([]);
   const [previousSource,setPreviousSource]=useState(source);
   if(previousSource!==source){
     setPreviousSource(source);
-    const next=receipts.filter(row=>!source.some(current=>current.id===row.id&&revision(current)===revision(row)));
+    const next=receipts.filter(row=>!source.some(current=>current.id===row.id&&(revision(current)===revision(row)||acknowledged?.(current,row))));
     if(next.length!==receipts.length)setReceipts(next);
   }
   const rows=useMemo(()=>{

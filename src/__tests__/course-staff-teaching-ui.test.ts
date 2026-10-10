@@ -13,10 +13,13 @@ vi.mock("@/components/admin/course-status-button",()=>({CourseStatusButton:()=>n
 vi.mock("@/components/admin/course-display-order",()=>({useCourseDisplayOrder:()=>({compare:()=>0,rowProps:()=>({}),handle:()=>null})}));
 import {CourseStaffWorkspace} from "@/app/(dashboard)/dashboard/courses/staff-workspace";
 let host:HTMLDivElement,root:Root;
-const staff={id:"t",name:"老師",kind:"coach" as const,coachEnabled:true,qualificationIds:["y"],qualificationsConfirmed:true,coachLoginReady:false,birthday:"",emergencyContactRelation:"家人",assignments:[],email:"",phone:"0900000000",emergencyContactName:"聯絡人",emergencyContactPhone:"0900000001",active:true,memberEnabled:true,permissions:[],customerId:""};
-beforeEach(()=>{vi.resetAllMocks();m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
-afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
-async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
+const staff={updatedAt:"2026-09-21T00:00:00.000Z",id:"t",name:"老師",kind:"coach" as const,coachEnabled:true,qualificationIds:["y"],qualificationsConfirmed:true,coachLoginReady:false,birthday:"",emergencyContactRelation:"家人",assignments:[],email:"",phone:"0900000000",emergencyContactName:"聯絡人",emergencyContactPhone:"0900000001",active:true,memberEnabled:true,permissions:[],customerId:""};
+beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{
+ const body=JSON.parse(init.body);const result=await m.save({teachingFees:undefined,musicSettings:undefined,defaultClassFee:undefined,...body.values});
+ return {json:async()=>result.success?{success:true,storeId:"s",data:{rows:[{...staff,...body.values,id:body.values.id??"new",name:body.values.name,role:"CUSTOMER",canEdit:true,linkedStaffId:"",linkedStaffName:"",financeTeacherIds:null,contactEmail:"",notificationsEnabled:false,defaultClassFee:"",updatedAt:"2026-09-22T00:00:00.000Z"}]}}:result};
+}));m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
+async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
 async function click(text:string){
  let b=Array.from(document.querySelectorAll("button")).find(b=>b.textContent===text&&!b.closest("[hidden]"));
  if(!b){const menu=document.body.querySelector<HTMLButtonElement>('button[aria-label$="操作"]');if(menu)await act(async()=>menu.click());b=Array.from(document.querySelectorAll("button")).find(b=>b.textContent===text&&!b.closest("[hidden]"));}
@@ -32,7 +35,7 @@ it("read-only accounts cannot load or edit compensation",async()=>{await render(
 async function inputValue(input:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);input.dispatchEvent(new Event("input",{bubbles:true}));});}
 it("preserves fee edits across 100 courses and includes selections from other pages in one save",async()=>{
  const templates=[{id:"y",name:"瑜珈"},...Array.from({length:99},(_,i)=>({id:`course-${i}`,name:`課程${i}`}))];
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates,customers:[],canManage:true,permissionGroups:[]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates,customers:[],canManage:true,permissionGroups:[]})));
  await click("授課設定");
  await inputValue(document.body.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"650");
  await click("下一頁");
@@ -45,14 +48,14 @@ it("preserves fee edits across 100 courses and includes selections from other pa
 });
 it("blocks a negative fee on another page and reveals the course",async()=>{
  const templates=[{id:"y",name:"瑜珈"},...Array.from({length:30},(_,i)=>({id:`course-${i}`,name:`課程${i}`}))];
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates,customers:[],canManage:true,permissionGroups:[]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates,customers:[],canManage:true,permissionGroups:[]})));
  await click("授課設定");await inputValue(document.body.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"-1");await click("下一頁");await click("儲存");
  expect(m.save).not.toHaveBeenCalled();expect(document.body.textContent).toContain("請填寫「瑜珈」");expect(document.body.querySelector('[aria-label="瑜珈每堂授課費"]')).not.toBeNull();
 });
 
 it("filters legacy permissions so renaming a manager can be saved from the compact editor",async()=>{
  const manager={...staff,id:"manager",name:"蔡店長",kind:"manager" as const,coachEnabled:false,email:"manager@example.test",permissions:["customer.read","talent.read"]};
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[{label:"顧客管理",codes:[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"}]}]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[{label:"顧客管理",codes:[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"}]}]})));
  await click("編輯");
  const name=document.body.querySelector('input[name="name"]') as HTMLInputElement;
  await inputValue(name,"蔡店長（新）");
@@ -65,7 +68,7 @@ it("filters legacy permissions so renaming a manager can be saved from the compa
 });
 
 it("music qualification editors with read-only pay access can change qualifications without changing fees",async()=>{
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"},{id:"s",name:"鋼琴"}],customers:[],canManage:true,music:true,feeEnabled:true,canEditFees:false,permissionGroups:[]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"},{id:"s",name:"鋼琴"}],customers:[],canManage:true,music:true,feeEnabled:true,canEditFees:false,permissionGroups:[]})));
  await click("授課設定");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
  expect((document.body.querySelector('[aria-label="新增彈性拆帳課程"]') as HTMLSelectElement).disabled).toBe(true);
@@ -79,7 +82,7 @@ it("music qualification editors with read-only pay access can change qualificati
 
 it("finds a coach by their contact email and keeps the direct-call link", async () => {
  const coach={...staff,contactEmail:"coach@example.test"};
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
  await inputValue(document.body.querySelector('[aria-label="搜尋人員"]') as HTMLInputElement," COACH@EXAMPLE.TEST ");
  expect(document.body.querySelector('a[href="tel:0900000000"]')?.textContent).toBe("0900000000");
  expect(document.body.textContent).toContain("coach@example.test");
@@ -97,7 +100,7 @@ it("fitness coach keeps unsaved fees while switching the separate work tabs",asy
 
 it("view-only permission preset removes write access and respects allowed permissions",async()=>{
  const manager={...staff,id:"manager",name:"蔡店長",kind:"manager" as const,coachEnabled:false,email:"manager@example.test",permissions:["customer.read","customer.update","staff.manage"]};
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[{label:"顧客管理",codes:[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"}]},{label:"人員管理",codes:[{code:"staff.view",label:"查看人員"},{code:"staff.manage",label:"管理人員"}]}]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[{label:"顧客管理",codes:[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"}]},{label:"人員管理",codes:[{code:"staff.view",label:"查看人員"},{code:"staff.manage",label:"管理人員"}]}]})));
  await click("編輯");await click("後台帳號／權限");await click("套用僅查看");await click("儲存");
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({permissions:["customer.read","staff.view"]}));
 });
@@ -123,9 +126,17 @@ it("shows only time-specific saves on availability and no save on assignments, p
 
 it("shows assigned course dates, times and actual booking counts in a compact table",async()=>{
  const coach={...staff,assignments:[{id:"session",name:"肌力",startsAt:"2026-10-03T04:00:00.000Z",endsAt:"2026-10-03T04:30:00.000Z",capacity:10,bookedCount:3}]};
- await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
  await click("編輯");await click("已排課程");
  const table=document.body.querySelector('table[aria-label="已排課程"]');
  expect(table?.textContent).toContain("3／10");expect(table?.textContent).toContain("12:00–12:30");
  expect(table?.querySelector('a')?.getAttribute('href')).toContain("session=session");
+});
+
+it("adopts the confirmed server row immediately, without refresh, and keeps it through stale props",async()=>{
+ const saved={...staff,id:"t",name:"伺服器確認教師",role:"CUSTOMER",canEdit:true,linkedStaffId:"",linkedStaffName:"",financeTeacherIds:null,contactEmail:"",notificationsEnabled:false,defaultClassFee:"",updatedAt:"2026-10-10T00:00:00.000Z"};
+ vi.stubGlobal("fetch",vi.fn(async()=>({json:async()=>({success:true,storeId:"s",data:{rows:[saved]}})})));
+ await render();await click("編輯");await inputValue(document.body.querySelector('input[name="name"]') as HTMLInputElement,"輸入名稱");await click("儲存");
+ expect(host.textContent).toContain("伺服器確認教師");expect(host.textContent).not.toContain("輸入名稱");expect(m.refresh).not.toHaveBeenCalled();
+ await render();expect(host.textContent).toContain("伺服器確認教師");
 });

@@ -24,6 +24,10 @@ import {
   revalidateStaffPermissions,
 } from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
+import {courseStaffSaveInput} from "@/lib/course-staff-save";
+import {readSavedCourseStaff} from "@/server/services/course-staff-save-snapshot";
+import {settingsSaveUncertain} from "@/server/services/settings-save-error";
+import {revalidateStaffInRoute} from "@/lib/revalidation";
 const id = z.string().min(1).max(180);
 const teachingFee = z.object({
   templateId: id,
@@ -54,11 +58,17 @@ const colors = [
   "#2563eb",
   "#be185d",
 ];
-export async function saveCourseStaff(input: unknown) {
+export async function saveCourseStaff(input: unknown) {return saveCourseStaffWork(input);}
+export async function saveCourseStaffConfirmed(input:unknown){
+ try{const {values,...receipt}=courseStaffSaveInput.parse(input);return await saveCourseStaffWork({...values,requestKey:receipt.requestKey},receipt);}
+ catch(error){return {...handleCourseActionError(error),uncertain:settingsSaveUncertain(error)};}
+}
+async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof courseStaffSaveInput.parse>,"values">){
   try {
     const { user, storeId } = await courseManager("staff.manage");
     if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role))
       throw new AppError("FORBIDDEN", "無人員管理權限");
+    if(receipt&&receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟設定");
     await requireStoreFeature(storeId, FEATURES.STAFF_MANAGEMENT);
     const d = z
       .object({
@@ -112,11 +122,15 @@ export async function saveCourseStaff(input: unknown) {
     if (!d.id && d.kind === "manager" && (!d.email || !d.password))
       throw new AppError("VALIDATION", "建立店長必須填登入信箱與密碼");
     const passwordHash = d.password ? hashSync(d.password, 10) : null;
+    let relatedIds:string[]=[];
     await prisma.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${storeId}`}, 0))`;
         const staffId = d.id ?? `course-person:${storeId}:${d.requestKey}`;
+        const receiptId=`course-staff-receipt:${storeId}:${d.requestKey}`;
+        if(receipt){const confirmed=await tx.auditLog.findUnique({where:{id:receiptId}});if(confirmed){if(confirmed.actorUserId!==user.id||confirmed.targetId!==staffId)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");relatedIds=z.object({relatedIds:z.array(z.string()).optional()}).safeParse(confirmed.afterJson).data?.relatedIds??[];return;}}
+
         const existing = await tx.staff.findFirst({
           where: { id: staffId, storeId },
           include: { user: true },
@@ -124,6 +138,7 @@ export async function saveCourseStaff(input: unknown) {
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
         if (!d.id && existing) return;
+        if(receipt&&existing&&existing.updatedAt.toISOString()!==receipt.expectedVersion)throw new AppError("CONFLICT","人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(getEffectiveActorRole(user), existing.user.role))
           throw new AppError("FORBIDDEN", "店長只能管理門市人員");
         if (existing && !d.active) await assertStoreRetainsOwner(tx, storeId, existing.id);
@@ -287,6 +302,8 @@ export async function saveCourseStaff(input: unknown) {
           const prior=await tx.courseStaffPersonLink.findFirst({
             where:{storeId,OR:[{managerStaffId:staffId},{instructorStaffId:staffId}]},
           });
+          if(prior)relatedIds.push(prior.managerStaffId,prior.instructorStaffId);
+          if(d.linkedStaffId)relatedIds.push(d.linkedStaffId);
           const expectedManagerId=d.kind==="manager"?staffId:d.linkedStaffId;
           const expectedInstructorId=d.kind==="coach"?staffId:d.linkedStaffId;
           if(prior && d.linkedStaffId && (prior.managerStaffId!==expectedManagerId || prior.instructorStaffId!==expectedInstructorId))
@@ -392,17 +409,18 @@ export async function saveCourseStaff(input: unknown) {
             where: { staffId, storeId },
             data: { revokedAt: null },
           });
+        if(receipt)await tx.auditLog.create({data:{id:receiptId,actorUserId:user.id,targetType:"Staff",targetId:staffId,action:"SETTINGS_SAVE_CONFIRMED",afterJson:{storeId,relatedIds}}});
       },
       { timeout: 20000 },
     );
-    revalidateStaff();
-    revalidateStaffPermissions();
-    revalidatePath("/dashboard/teachers");
-    revalidatePath("/dashboard/coaches");
-    revalidatePath("/dashboard/courses");
-    revalidatePath("/book");
-    return { success: true as const };
+    const data=receipt?await readSavedCourseStaff(storeId,d.id??`course-person:${storeId}:${d.requestKey}`,user,relatedIds):undefined;
+    let syncWarning=false;
+    try{
+      if(receipt)revalidateStaffInRoute();else{revalidateStaff();revalidateStaffPermissions();}
+      revalidatePath("/dashboard/teachers");revalidatePath("/dashboard/coaches");revalidatePath("/dashboard/courses");revalidatePath("/book");
+    }catch(error){if(!receipt)throw error;syncWarning=true;}
+    return receipt?{success:true as const,storeId,data,syncWarning}:{success:true as const};
   } catch (e) {
-    return handleCourseActionError(e);
+    return {...handleCourseActionError(e),uncertain:!!receipt&&settingsSaveUncertain(e)};
   }
 }

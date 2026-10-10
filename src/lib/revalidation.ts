@@ -154,3 +154,14 @@ export function revalidateStoreFeatureEntitlements() {
   revalidatePath("/dashboard");
   revalidatePath("/hq/dashboard/stores");
 }
+
+export function revalidateStaffInRoute(){
+ revalidateTag(CACHE_TAGS.staff,{expire:0});
+ revalidateTag(CACHE_TAGS.staffPermissions,{expire:0});
+ revalidatePath("/dashboard/staff");revalidatePath("/dashboard/duty");
+}
+
+export function revalidateBusinessHoursInRoute(){
+ revalidateTag(CACHE_TAGS.businessHours,{expire:0});revalidateTag(CACHE_TAGS.specialDays,{expire:0});
+ revalidatePath("/dashboard/settings/hours");revalidatePath("/dashboard/duty");revalidatePath("/book");
+}

@@ -1,12 +1,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
-import { getMonthSpecialDays } from "@/server/actions/business-hours";
-import {
-  getCachedBusinessHours,
-  getCachedMonthScheduleSummary,
-} from "@/lib/query-cache";
-import { parseBusinessPeriods } from "@/lib/business-hours-resolver";
+import {loadServiceHoursForSettings} from "@/server/services/service-hours-read";
+
+
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
@@ -49,17 +46,9 @@ export default async function ScheduleSettingsPage() {
 
   const todayStr = toLocalDateStr();
   const [nowYear, nowMonth] = todayStr.split("-").map(Number);
-  // 全部走 unstable_cache（60s TTL + tag: business-hours / special-days）。
-  // 第一個進來的人付出 DB 成本，60s 內後續所有人秒開；
-  // 任一 mutation 都會打對應 tag 失效，看到的不會是 stale 資料。
-  // weeklyHours 缺 dayName 一欄，下方手動補。
-  // initialSummary 直接從 server cache 拿，傳給 client manager 當啟動值，
-  // 避免 client mount 後再打一次 server 補抓 summary。
-  const [weeklyRows, specialDays, currentStore, initialSummary, shopConfig] = await Promise.all([
-    getCachedBusinessHours(effectiveStoreId),
-    getMonthSpecialDays(nowYear, nowMonth),
+  const [hoursSnapshot,currentStore,shopConfig] = await Promise.all([
+    loadServiceHoursForSettings(effectiveStoreId,todayStr),
     prisma.store.findUnique({ where: { id: effectiveStoreId }, select: { isDefault: true } }),
-    getCachedMonthScheduleSummary(effectiveStoreId, nowYear, nowMonth),
     prisma.shopConfig.findUnique({
       where: { storeId: effectiveStoreId },
       select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
@@ -68,7 +57,8 @@ export default async function ScheduleSettingsPage() {
   const bookableUntilInitial = shopConfig?.bookableUntilDate
     ? shopConfig.bookableUntilDate.toISOString().slice(0, 10)
     : null;
-  const weeklyHours = weeklyRows.map((h) => ({
+  const specialDays=hoursSnapshot.specials,initialSummary=hoursSnapshot.summary;
+  const weeklyHours = hoursSnapshot.weekly.map((h) => ({
     ...h,
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
   }));
@@ -103,8 +93,7 @@ export default async function ScheduleSettingsPage() {
         canManage={canManage}
       />
 
-      <ScheduleManager
-            key={`schedule-${effectiveStoreId}`}
+      <ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
             weeklyHours={weeklyHours.map((h) => ({
               dayOfWeek: h.dayOfWeek,
               dayName: h.dayName,
@@ -113,7 +102,7 @@ export default async function ScheduleSettingsPage() {
               closeTime: h.closeTime,
               slotInterval: h.slotInterval,
               defaultCapacity: h.defaultCapacity,
-              periods: parseBusinessPeriods(h.segments, h),
+              periods: h.periods,
             }))}
             initialSpecialDays={specialDays}
             initialSummary={initialSummary}

@@ -22,9 +22,25 @@ import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
-import { requireSpaStore } from "@/lib/industry-module-server";
+import { getStoreIndustryModule, requireSpaStore } from "@/lib/industry-module-server";
 import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
 import { recordOperationAudit } from "@/server/services/operation-audit";
+
+import {staffSettingsSaveInput,staffSaveReceipt} from "@/lib/staff-settings-save";
+import {readSavedStaff} from "@/server/services/staff-save-snapshot";
+import {writeInitialSpaStaff} from "@/server/services/spa-initial-staff-write";
+import {settingsSaveUncertain} from "@/server/services/settings-save-error";
+import {revalidateStaffInRoute} from "@/lib/revalidation";
+type StaffReceipt=z.infer<typeof staffSaveReceipt>;
+async function confirmedStaffResponse(storeId:string,staffId:string,user:Awaited<ReturnType<typeof requireStaffManageSession>>){
+ const data=await readSavedStaff(storeId,staffId,user);let syncWarning=false;
+ try{revalidateStaffInRoute();}catch{syncWarning=true;}
+ return {success:true as const,storeId,data,syncWarning};
+}
+export async function saveStaffConfirmed(input:unknown){
+ try{const {id,values,...receipt}=staffSettingsSaveInput.parse(input);return id?await updateStaffWork(id,values,receipt):await createStaffWork(values,receipt);}
+ catch(error){return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};}
+}
 
 import { canManageStaffRole, canAssignStaffRole, assertStoreRetainsOwner, readStaffManagerGrants } from "@/lib/staff-role-policy";
 
@@ -143,12 +159,19 @@ const resetStaffPasswordSchema = z.object({
 export async function createStaff(
   input: z.infer<typeof createStaffSchema>
 ): Promise<ActionResult<{ staffId: string }>> {
+ return createStaffWork(input) as Promise<ActionResult<{staffId:string}>>;
+}
+async function createStaffWork(input:unknown,receipt?:StaffReceipt){
   try {
     const sessionUser = await requireStaffManageSession();
     const data = createStaffSchema.parse(input);
     const staffRole: UserRole = data.role ?? "STAFF";
     if (!canAssignStaffRole(getEffectiveActorRole(sessionUser), staffRole)) throw new AppError("FORBIDDEN", "店長只能建立門市人員帳號");
     const writeStoreId = await resolveWriteStoreId(sessionUser);
+    if(receipt){
+      if(receipt.expectedStoreId!==writeStoreId)throw new AppError("CONFLICT","門市已切換，請重新開啟設定");
+      if(await getStoreIndustryModule(writeStoreId)==="course")throw new AppError("FORBIDDEN","請使用課程人員設定");
+    }
     const hasSpaSetup = Boolean(data.spaCompensation || data.spaSkillKeys || data.spaWeeklyAvailability);
     if (hasSpaSetup) await requireSpaStore(writeStoreId);
     if (hasSpaSetup && !(await isSpaOperationalSchemaReady())) {
@@ -159,10 +182,17 @@ export async function createStaff(
     }
     await requireStoreFeature(writeStoreId, FEATURES.STAFF_MANAGEMENT);
 
+    const receiptId=receipt?`staff-save-receipt:${writeStoreId}:${receipt.requestKey}`:null;
+    const staffId=receipt?`staff-person:${writeStoreId}:${receipt.requestKey}`:null;
+    if(receiptId){
+      const committed=await prisma.auditLog.findUnique({where:{id:receiptId}});
+      if(committed){if(committed.actorUserId!==sessionUser.id||committed.targetId!==staffId)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return await confirmedStaffResponse(writeStoreId,staffId!,sessionUser);}
+    }
     const normalizedEmail = data.email ? normalizeEmail(data.email) : undefined;
 
     // 用量限制：檢查員工數量上限
     const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
+    if(!receipt){
     const currentStaffCount = await prisma.staff.count({
       where: { storeId: writeStoreId, status: "ACTIVE" },
     });
@@ -179,9 +209,10 @@ export async function createStaff(
     });
     if (existingPhone) throw new AppError("CONFLICT", "此手機號碼已建立相同身分的帳號");
 
+    }
     const passwordHash = hashSync(data.password, 10);
 
-    if (data.spaSkillKeys) {
+    if (data.spaSkillKeys && !receipt) {
       await spaPrisma.$transaction(async (tx) => {
         for (const [sortOrder, skill] of SPA_SKILLS.entries()) {
           if (!data.spaSkillKeys?.includes(skill.key)) continue;
@@ -197,11 +228,17 @@ export async function createStaff(
 
     const user = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      if(receiptId){const committed=await tx.auditLog.findUnique({where:{id:receiptId}});if(committed){if(committed.actorUserId!==sessionUser.id||committed.targetId!==staffId)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return {staff:{id:staffId!}};}}
       const managerGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
       await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId);
+      if(receipt){
+        if(normalizedEmail&&await tx.user.findUnique({where:{email:normalizedEmail}}))throw new AppError("CONFLICT","此 Email 已被使用");
+        if(await tx.user.findFirst({where:{phone:data.phone,role:staffRole},select:{id:true}}))throw new AppError("CONFLICT","此手機號碼已建立相同身分的帳號");
+      }
       const created = await tx.user.create({
         data: {
+          ...(receipt?{id:`staff-user:${writeStoreId}:${receipt.requestKey}`} : {}),
           name: data.name,
           email: normalizedEmail,
           phone: data.phone,
@@ -209,6 +246,7 @@ export async function createStaff(
           role: staffRole,
           staff: {
             create: {
+              ...(staffId?{id:staffId}:{}),
               displayName: data.displayName,
               colorCode: data.colorCode ?? "#6366f1",
               isOwner: false,
@@ -225,10 +263,14 @@ export async function createStaff(
         await tx.staffPermission.createMany({ data: ALL_PERMISSIONS.map(permission => ({ staffId: created.staff!.id, permission, granted: defaults.includes(permission) && (managerGrants === null || managerGrants.has(permission)) })) });
       }
       await recordOperationAudit({ actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId, module: "SYSTEM", targetType: "Staff", targetId: created.staff!.id, action: "CREATE", summary: "建立人員帳號", after: { role: staffRole } }, tx);
+      if(receiptId){
+        if(hasSpaSetup)await writeInitialSpaStaff(tx,writeStoreId,created.staff!.id,data);
+        await tx.auditLog.create({data:{id:receiptId,actorUserId:sessionUser.id,targetType:"Staff",targetId:created.staff!.id,action:"SETTINGS_SAVE_CONFIRMED",afterJson:{storeId:writeStoreId}}});
+      }
       return created;
-    });
+    },receipt?{maxWait:5000,timeout:20000}:undefined);
 
-    if (user.staff && hasSpaSetup) {
+    if (user.staff && hasSpaSetup && !receipt) {
       await spaPrisma.$transaction(async (tx) => {
         if (data.spaSkillKeys?.length) await tx.spaStaffSkill.createMany({ data: data.spaSkillKeys.map((key) => ({ storeId: writeStoreId, staffId: user.staff!.id, skillId: spaSkillId(writeStoreId, key) })) });
         if (data.spaWeeklyAvailability?.length) await tx.spaStaffAvailability.createMany({ data: data.spaWeeklyAvailability.map((availability) => ({ ...availability, storeId: writeStoreId, staffId: user.staff!.id })) });
@@ -236,10 +278,11 @@ export async function createStaff(
       });
     }
 
+    if(receipt)return await confirmedStaffResponse(writeStoreId,user.staff!.id,sessionUser);
     revalidateStaff();
-    return { success: true, data: { staffId: user.staff!.id } };
+    return { success: true as const, data: { staffId: user.staff!.id } };
   } catch (e) {
-    return handleActionError(e);
+    return {...handleActionError(e),uncertain:!!receipt&&settingsSaveUncertain(e)};
   }
 }
 
@@ -250,12 +293,15 @@ export async function createStaff(
 export async function updateStaff(
   staffId: string,
   input: z.infer<typeof updateStaffSchema>
-): Promise<ActionResult<void>> {
+): Promise<ActionResult<void>> {return updateStaffWork(staffId,input) as Promise<ActionResult<void>>;}
+async function updateStaffWork(staffId:string,input:unknown,receipt?:StaffReceipt){
   try {
     const sessionUser = await requireStaffManageSession();
     const data = updateStaffSchema.parse(input);
     const writeStoreId = await resolveWriteStoreId(sessionUser);
 
+    if(receipt){if(receipt.expectedStoreId!==writeStoreId)throw new AppError("CONFLICT","門市已切換，請重新開啟設定");if(await getStoreIndustryModule(writeStoreId)==="course")throw new AppError("FORBIDDEN","請使用課程人員設定");}
+    const receiptId=receipt?`staff-save-receipt:${writeStoreId}:${receipt.requestKey}`:null;
     const staff = await prisma.staff.findUnique({
       where: { id: staffId },
       include: { user: { select: { id: true, role: true } } },
@@ -278,7 +324,10 @@ export async function updateStaff(
     }
     await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${writeStoreId} FOR UPDATE`;
+      if(receiptId){const committed=await tx.auditLog.findUnique({where:{id:receiptId}});if(committed){if(committed.actorUserId!==sessionUser.id||committed.targetId!==staffId)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return;}}
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId }, include: { user: true } });
+      if(current.storeId!==writeStoreId)throw new AppError("FORBIDDEN","無權存取其他店舖的員工資料");
+      if(receipt&&current.updatedAt.toISOString()!==receipt.expectedVersion)throw new AppError("CONFLICT","人員資料已更新，請重新開啟核對；本次修改尚未儲存");
       const storedPermissions = (await tx.staffPermission.findMany({ where: { staffId, granted: true }, select: { permission: true } })).map(p => p.permission).sort();
       const actorGrants = await readStaffManagerGrants(tx, sessionUser, writeStoreId);
       if (current.userId === sessionUser.id || !canManageStaffRole(getEffectiveActorRole(sessionUser), current.user.role)) throw new AppError("FORBIDDEN", "無權管理此帳號");
@@ -319,12 +368,14 @@ export async function updateStaff(
         after: { status: data.status ?? current.status, role: newRole ?? current.user.role, applyRolePreset: Boolean(applyRolePreset),
           permissions: (newRole ?? current.user.role) === "OWNER" ? [...ALL_PERMISSIONS] : applyRolePreset ? getDefaultPermissionsForRole(newRole ?? current.user.role) : Array.from(resultingPermissions).sort() },
       }, tx);
+      if(receiptId)await tx.auditLog.create({data:{id:receiptId,actorUserId:sessionUser.id,targetType:"Staff",targetId:staffId,action:"SETTINGS_SAVE_CONFIRMED",afterJson:{storeId:writeStoreId}}});
     }, { maxWait: 5_000, timeout: 15_000 });
+    if(receipt)return await confirmedStaffResponse(writeStoreId,staffId,sessionUser);
     revalidateStaffPermissions();
     revalidateStaff();
-    return { success: true, data: undefined };
+    return { success: true as const, data: undefined };
   } catch (e) {
-    return handleActionError(e);
+    return {...handleActionError(e),uncertain:!!receipt&&settingsSaveUncertain(e)};
   }
 }
 

@@ -63,6 +63,11 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   // liff-consumption-boundary.test.ts verifies module and customer/store predicates.
   "src/server/actions/liff-consumption.ts",
   "src/server/actions/staff.ts",
+  // Settings receipts resolve the authoritative industry/store. SPA branches
+  // use only SpaBooking; shared personnel snapshots never select credentials.
+  "src/server/services/staff-save-snapshot.ts",
+  "src/server/services/service-hours-save.ts",
+  "src/server/services/service-hours-read.ts",
   "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",
   // Reviewed 2026-09-23: the shared finance adapter first resolves the
