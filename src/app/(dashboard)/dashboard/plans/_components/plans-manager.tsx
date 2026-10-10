@@ -23,7 +23,7 @@ const CATEGORY_COLOR: Record<PlanCategory, string> = {
 
 type StatusFilter = "active" | "all";
 type VisibilityFilter = "all" | "public" | "internal";
-type CategoryFilter = "all" | PlanCategory;
+type CategoryFilter = "all" | Exclude<PlanCategory, "TRIAL">;
 
 interface Props {
   initialPlans: PlanRow[];
@@ -46,7 +46,7 @@ export function PlansManager({
   const [visibilityFilter, setVisibilityFilter] =
     useRetainedState<VisibilityFilter>("plans:visibility", "all", (v): v is VisibilityFilter => v === "all" || v === "public" || v === "internal");
   const [categoryFilter, setCategoryFilter] =
-    useRetainedState<CategoryFilter>("plans:category", "all", (v): v is CategoryFilter => typeof v === "string" && ["all", "TRIAL", "SINGLE", "PACKAGE"].includes(v));
+    useRetainedState<CategoryFilter>("plans:category", "all", (v): v is CategoryFilter => typeof v === "string" && ["all", "SINGLE", "PACKAGE"].includes(v));
   const [drawer, setDrawer] = useState<{
     mode: "new" | "edit";
     plan: PlanRow | null;
@@ -148,7 +148,7 @@ export function PlansManager({
           }
         />
         <span className="mx-1 h-4 w-px bg-earth-200" />
-        {(["all", "TRIAL", "SINGLE", "PACKAGE"] as const).map((cat) => (
+        {(["all", "SINGLE", "PACKAGE"] as const).map((cat) => (
           <FilterPill
             key={cat}
             label={cat === "all" ? "全部類別" : CATEGORY_LABEL[cat]}

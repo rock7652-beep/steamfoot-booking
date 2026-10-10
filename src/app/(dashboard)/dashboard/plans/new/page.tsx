@@ -113,7 +113,6 @@ export default async function NewPlanPage() {
                     defaultValue="SINGLE"
                     className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
                   >
-                    <option value="TRIAL">體驗</option>
                     <option value="SINGLE">單次</option>
                     <option value="PACKAGE">課程</option>
                   </select>

@@ -6,6 +6,7 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getSpaServiceStaff } from "@/server/queries/spa-service-staff";
 import { SpaSkillsManager } from "./_components/spa-skills-manager";
 import { listPlans } from "@/server/queries/plan";
+import { selectOrdinaryServicePlans } from "@/lib/ordinary-service-plans";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -60,7 +61,7 @@ export default async function PlansPage() {
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
   const logCtx = { page: "plans" as const, userId: user.id, sessionRole: user.role };
   const [plans, storePlan] = await Promise.all([
-    listPlans(true, plansStoreId).catch((e) => {
+    listPlans(true, plansStoreId).then(selectOrdinaryServicePlans).catch((e) => {
       console.error("[plans] listPlans failed", {
         ...logCtx,
         step: "listPlans",
