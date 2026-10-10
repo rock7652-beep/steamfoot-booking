@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/course-room-save-performance-20261010": false,
       "fix/hq-reviewed-phone-prefix": false,
       "fix/public-seo-crawlers-20261007": false,
       "feat/public-guide-articles-20261007": false,

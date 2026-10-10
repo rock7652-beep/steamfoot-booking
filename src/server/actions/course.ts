@@ -8,6 +8,7 @@ import { assertCourseSessionsFitHours } from "@/server/services/course-business-
 import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
 import { courseTransaction } from "@/server/services/course-access";
 import { z } from "zod";
+import { courseRoomInput } from "@/lib/course-room-input";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { coursePrisma } from "@/lib/course-db";
@@ -320,18 +321,7 @@ export async function updateCourseSession(input: unknown) {
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const { name, category, capacity, details, equipment, location, rentalEnabled, rentalHourlyRate, rentalBufferMinutes } = z
-      .object({
-        name: z.string().trim().min(1, "請填寫教室名稱").max(80),
-        category: z.string().trim().max(40).default(""),
-        capacity: z.number().int().min(1).max(500).nullable().default(null),
-        details: z.string().trim().max(5000).default(""),
-        equipment: z.string().trim().max(1000).default(""),
-        location: z.string().trim().max(500).default(""),
-        rentalEnabled: z.boolean().default(false),
-        rentalHourlyRate: z.number().int().min(0).max(1000000).default(0),
-        rentalBufferMinutes: z.number().int().min(0).max(120).default(0),
-      })
+    const { name, category, capacity, details, equipment, location, rentalEnabled, rentalHourlyRate, rentalBufferMinutes } = courseRoomInput
       .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
       data: { name, category, capacity, details, equipment, location, storeId, rentalEnabled, rentalHourlyRate, rentalBufferMinutes },

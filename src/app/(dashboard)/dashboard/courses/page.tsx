@@ -1,3 +1,4 @@
+import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { EMPTY_LABELS } from "@/lib/customer-labels";
@@ -87,6 +88,7 @@ export default async function CoursesPage({
     query.view === "catalog" || query.view === "rooms"
       ? query.view
       : "schedule";
+  if (view === "rooms") return <CourseRoomsPage storeId={storeId} user={user} />;
   const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
@@ -340,6 +342,7 @@ export default async function CoursesPage({
         />
       )}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
+        storeId={storeId}
         key={`${storeId}:${view}`}
         view={view}
         selectedDate={selected}
