@@ -12,7 +12,6 @@ export default async function CoursePortalAcceptancePage({ searchParams }: { sea
   if (!p.storeId || !p.personId || (p.role !== "member" && p.role !== "work")) notFound();
   const { authorizeFrontendPreview } = await import("@/server/services/frontend-preview");
   const access = await authorizeFrontendPreview({ storeId: p.storeId, personId: p.personId, role: p.role });
-  if (access.moduleId !== "course") notFound();
   const query = new URLSearchParams({ storeId: access.storeId, personId: access.personId, role: p.role });
   for (const key of ["month", "date", "view"] as const) if (p[key]) query.set(key, p[key]);
   return <CoursePortalAcceptanceFrame src={`/frontend-preview?${query}`} />;

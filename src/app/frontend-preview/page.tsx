@@ -30,7 +30,7 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
   let content;
   if (access.moduleId === "course") {
     const data = await loadCoursePortal(p.month ?? p.date?.slice(0, 7), selection);
-    content = <CoursePortalClient key={`${access.storeId}:${access.personId}:${p.role}`} {...data} readOnly initialDate={p.date} initialCoach={p.role === "work"} initialView={p.role === "work" ? "schedule" : p.view === "bookings" ? "bookings" : p.view === "wallets" ? "plans" : "home"} />;
+    content = <CoursePortalClient key={`${access.storeId}:${access.personId}:${p.role}`} {...data} readOnly initialDate={p.date} initialCoach={p.role === "work"} initialView={p.role === "work" ? "schedule" : p.view === "bookings" ? "bookings" : p.view === "wallets" ? "plans" : p.view === "health" && data.healthEnabled ? "health" : "home"} />;
   } else if (p.role === "work") {
     const data = await readLiffStaffWork({ storeId: access.storeId, staffId: access.personId, staffName: access.name }, { date: p.date });
     content = data.status === "ok" ? <StaffWorkScreen storeName={store.name} storeSlug={store.slug} liffId="" today={toLocalDateStr()} preview={{ data, href }} /> : <p role="alert">目前無法讀取工作資料，請重新整理。</p>;
@@ -42,7 +42,7 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
     const lineStatus = customer.lineLinkStatus === "LINKED" && customer.lineUserId ? "linked" as const : customer.lineLinkStatus === "UNLINKED" && !customer.lineUserId ? "unlinked" as const : "needs_help" as const;
     const profile = { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email, lineStatus, lineName: customer.lineName, lineUserIdMasked: lineStatus === "linked" && customer.lineUserId && customer.lineUserId.length >= 7 ? `U******${customer.lineUserId.slice(-4)}` : null, storeName: store.name, storeSlug: store.slug };
     const [bookings, wallets] = await Promise.all(access.moduleId === "spa" ? [readFetchSpaLiffBookings(context), readFetchSpaLiffEntitlements(context)] : [readFetchLiffBookings(context), readFetchLiffWallets(context)]);
-    content = <PreviewMemberScreen bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} profile={profile} healthSummary={healthSummary} />;
+    content = <PreviewMemberScreen bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} profile={profile} healthSummary={healthSummary} healthEnabled={healthEnabled} />;
   }
   return <ReadOnlyPreviewBoundary><header className="sticky top-0 z-40 border-b border-amber-200 bg-amber-50 px-3 text-sm text-amber-900">
     <div className="flex min-h-11 items-center justify-between gap-2">

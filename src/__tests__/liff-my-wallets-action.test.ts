@@ -241,6 +241,7 @@ describe("fetchLiffWallets action (PR-E2)", () => {
         "startDate",
         "status",
         "totalSessions",
+        "usageRecords",
         "usedCount",
         "voidedCount",
       ]);
@@ -467,5 +468,28 @@ describe("isExpiringSoon — pure helper (PR-E2)", () => {
 
   it("expiryDate 10 天後 → false（> 7 days）", () => {
     expect(isExpiringSoon("2026-06-20", NOW_MS)).toBe(false);
+  });
+});
+
+ describe("wallet actual usage projection", () => {
+  it("groups actual ledger debits by booking, excludes reserved/voided and cross-customer relations", async () => {
+    mockRequireSession.mockResolvedValue(CUSTOMER_USER);
+    mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);
+    mockMakeupFindMany.mockResolvedValue([]);
+    const booking = {id:"booking-use", customerId:CANONICAL_CUSTOMER_ID, storeId:"store-zhubei", bookingDate:new Date("2026-09-18T00:00:00Z"), slotTime:"11:15", bookingStatus:"COMPLETED"};
+    mockWalletFindMany.mockResolvedValue([rawWallet({sessions: [
+      {id:"s1",status:"COMPLETED",booking}, {id:"s2",status:"COMPLETED",booking},
+      {id:"s3",status:"RESERVED",booking}, {id:"s4",status:"VOIDED",booking},
+      {id:"s5",status:"COMPLETED",booking:{...booking,id:"other",customerId:"other-customer"}},
+      {id:"s6",status:"BACKFILLED",completedAt:null,booking:null},
+    ]} as Parameters<typeof rawWallet>[0])]);
+    const result = await fetchLiffWallets();
+    expect(result.status).toBe("ok");
+    if(result.status !== "ok") throw Error("unexpected failure");
+    const wallet = [...result.active,...result.expired,...result.history][0];
+    expect(wallet.usageRecords).toEqual([
+      {id:"booking-use",date:"2026-09-18",time:"11:15",label:"蒸足",sessions:2,status:"已完成"},
+      {id:"s6",date:null,time:null,label:"補登使用",sessions:1,status:"補登"},
+    ]);
   });
 });

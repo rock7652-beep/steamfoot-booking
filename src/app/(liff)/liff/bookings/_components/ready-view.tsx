@@ -144,9 +144,9 @@ function EmptyState({ tab, bookingHref }: { tab: Tab; bookingHref: string }) {
       ? "點選立即預約，安排下一次到店。"
       : liffMessages.bookings.emptyHistoryBody;
   return (
-    <div className="rounded-xl border border-dashed border-earth-300 bg-white px-4 py-10 text-center">
+    <div className="rounded-xl border border-dashed border-earth-300 bg-white px-4 py-5 text-center">
       <p className="text-base font-semibold text-earth-900">{title}</p>
-      <p className="mt-1 text-sm text-earth-600">{body}</p>
+      {tab === "history" && <p className="mt-1 text-sm text-earth-600">{body}</p>}
       {tab === "upcoming" && (
         <Link href={bookingHref} className="mt-5 inline-flex min-h-12 items-center justify-center rounded-xl bg-primary-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-primary-700 active:scale-[0.98]">
           立即預約
