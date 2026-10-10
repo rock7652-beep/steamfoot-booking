@@ -29,7 +29,7 @@ it("ignores another store's event and response", async () => {
 });
 it("shows saved-but-progress-failed and retries without resubmitting the room", async () => {
   m.read.mockResolvedValueOnce({ success: false }); await act(async () => { event(); });
-  expect(host.textContent).toContain("空間已儲存，設定進度暫時無法更新");
+  expect(host.textContent).toContain("資料已儲存，設定進度暫時無法更新");
   m.read.mockResolvedValueOnce({ success: true, storeId: "store-a", steps: courseSetupSteps({ ...counts, rooms: 1 }, true) });
   await act(async () => [...host.querySelectorAll("button")].find(button => button.textContent === "重試更新")!.click());
   expect(host.textContent).toContain("已完成 2/6"); expect(m.refresh).not.toHaveBeenCalled();
