@@ -156,6 +156,24 @@ function expectExpiryDateISO(expected: string | null) {
   expect(created!.toISOString()).toBe(expected);
 }
 
+describe("assignPlanToCustomer — internal trial plans", () => {
+  it.each(["CONFIRMED", "PENDING"] as const)("rejects TRIAL before any writes for %s payment", async (paymentStatus) => {
+    mockServicePlanFindUnique.mockResolvedValue({ ...PLAN_90D, category: "TRIAL", sessionCount: 1 });
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    const result = await assignPlanToCustomer({
+      customerId: CUSTOMER_ID,
+      planId: PLAN_ID_90D,
+      paymentMethod: "CASH",
+      paymentStatus,
+    });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("建立體驗預約") });
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(mockWalletCreate).not.toHaveBeenCalled();
+    expect(mockTransactionCreate).not.toHaveBeenCalled();
+    expect(mockCustomerUpdate).not.toHaveBeenCalled();
+  });
+});
+
 describe("assignPlanToCustomer — PLAN_DEFAULT", () => {
   it("does not modify the customer name while assigning a plan", async () => {
     mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);

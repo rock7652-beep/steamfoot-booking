@@ -72,7 +72,8 @@
       "feat/inline-booking-notes-local-20261009": false,
       "feat/customer-course-portal-simplify-20261009": false,
       "fix/music-teacher-terminology-20261009": false,
-      "fix/music-teacher-editor-ui-20261010": false
+      "fix/music-teacher-editor-ui-20261010": false,
+      "fix/hide-trial-plan-options-20261010": false
     }
   }
 }

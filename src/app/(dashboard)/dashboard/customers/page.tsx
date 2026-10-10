@@ -6,6 +6,7 @@ import {SpaCustomers} from "./_components/spa-customers";
 import { listCustomersForUser } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
+import { selectOrdinaryServicePlans } from "@/lib/ordinary-service-plans";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -149,7 +150,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       // PR-5.5：快速指派 drawer 需要的資料 — 走 unstable_cache（60s TTL,
       // tag: "plans"）。同 store 的 plans 在 customers / 其他頁共享 cache。
       customersStoreId
-        ? getCachedPlans(customersStoreId).catch(() => [])
+        ? getCachedPlans(customersStoreId).then(selectOrdinaryServicePlans).catch(() => [])
         : Promise.resolve([]),
       isViewMode
         ? Promise.resolve(false)

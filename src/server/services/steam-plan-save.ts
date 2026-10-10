@@ -21,6 +21,7 @@ export async function saveSteamPlan(input:unknown) {
     const storeId=user.storeId;
     if(!storeId||storeId!==request.expectedStoreId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案。");
     await assertStoreSubscriptionWritable(storeId);
+    if(request.operation==="CREATE"&&request.values.category==="TRIAL")throw new AppError("BUSINESS_RULE","體驗由「建立體驗預約」處理，無需新增體驗方案");
     // Preserve the cuid shape accepted by existing paper-plan import validation.
     const rowId=request.operation==="UPDATE"?request.id:`c${createHash("sha256").update(JSON.stringify([storeId,request.requestKey])).digest("hex").slice(0,24)}`;
     const row=await prisma.$transaction(async tx=>{

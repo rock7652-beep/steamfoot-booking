@@ -36,88 +36,88 @@ jobs:
           start = s.index('        // B7-4: 若有 storeId，先從 Customer 表按店查找對應 User')
           end = s.index('        // Fallback（無 storeId）：舊流程 — 全域查 User', start)
           replacement = '''        // Store-scoped customer login resolves one central User through the
-        // legacy direct relation or provider-independent identity links.
-        if (storeId) {
-          const resolution = await resolveCentralUserForStoreCustomer({
-            storeId,
-            phone,
-          });
-          if (resolution.status !== "resolved") return null;
+                  // legacy direct relation or provider-independent identity links.
+                  if (storeId) {
+                    const resolution = await resolveCentralUserForStoreCustomer({
+                      storeId,
+                      phone,
+                    });
+                    if (resolution.status !== "resolved") return null;
 
-          const { customer, user: centralUser } = resolution;
-          if (
-            centralUser.role !== "CUSTOMER" ||
-            centralUser.status !== "ACTIVE" ||
-            !centralUser.passwordHash
-          ) return null;
-          if (!compareSync(password, centralUser.passwordHash)) return null;
+                    const { customer, user: centralUser } = resolution;
+                    if (
+                      centralUser.role !== "CUSTOMER" ||
+                      centralUser.status !== "ACTIVE" ||
+                      !centralUser.passwordHash
+                    ) return null;
+                    if (!compareSync(password, centralUser.passwordHash)) return null;
 
-          const identitySync = await syncVerifiedCentralIdentity({
-            entryPoint: "phone_password",
-            userId: centralUser.id,
-            storeId: customer.storeId,
-            customerId: customer.id,
-            provider: "phone",
-            providerAccountId: phone,
-            verifiedPhoneMatches: true,
-          });
-          if (
-            identitySync.status === "manual_review" ||
-            identitySync.status === "rejected"
-          ) {
-            console.warn("[auth][customer-phone] central identity rejected", {
-              userId: centralUser.id,
-              storeId: customer.storeId,
-              customerId: customer.id,
-              reason: identitySync.reason,
-            });
-            return null;
-          }
+                    const identitySync = await syncVerifiedCentralIdentity({
+                      entryPoint: "phone_password",
+                      userId: centralUser.id,
+                      storeId: customer.storeId,
+                      customerId: customer.id,
+                      provider: "phone",
+                      providerAccountId: phone,
+                      verifiedPhoneMatches: true,
+                    });
+                    if (
+                      identitySync.status === "manual_review" ||
+                      identitySync.status === "rejected"
+                    ) {
+                      console.warn("[auth][customer-phone] central identity rejected", {
+                        userId: centralUser.id,
+                        storeId: customer.storeId,
+                        customerId: customer.id,
+                        reason: identitySync.reason,
+                      });
+                      return null;
+                    }
 
-          if (customer.hasDirectUser) {
-            await repairCustomerIdentityOnLogin({
-              userId: centralUser.id,
-              storeId: customer.storeId,
-              phone,
-              email: centralUser.email ?? null,
-            });
-          }
+                    if (customer.hasDirectUser) {
+                      await repairCustomerIdentityOnLogin({
+                        userId: centralUser.id,
+                        storeId: customer.storeId,
+                        phone,
+                        email: centralUser.email ?? null,
+                      });
+                    }
 
-          return {
-            id: centralUser.id,
-            name: centralUser.name,
-            email: centralUser.email ?? null,
-            role: centralUser.role as UserRole,
-            staffId: null,
-            customerId: customer.id,
-            storeId: customer.storeId,
-            storeSlug: customer.store.slug,
-          };
-        }
+                    return {
+                      id: centralUser.id,
+                      name: centralUser.name,
+                      email: centralUser.email ?? null,
+                      role: centralUser.role as UserRole,
+                      staffId: null,
+                      customerId: customer.id,
+                      storeId: customer.storeId,
+                      storeSlug: customer.store.slug,
+                    };
+                  }
 
-'''
+          '''
           s = s[:start] + replacement + s[end:]
 
           old = '''        const customer = await prisma.customer.findFirst({
-          where: { id: bridge.customerId, storeId: bridge.storeId, userId: bridge.userId, mergedIntoCustomerId: null },
-          select: { id: true, storeId: true, store: { select: { slug: true } }, user: { select: { id: true, name: true, email: true, role: true, status: true } } },
-        });
-        if (!customer?.user || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER") return null;
-        return { id: customer.user.id, name: customer.user.name, email: customer.user.email ?? null, role: customer.user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
-'''
+                    where: { id: bridge.customerId, storeId: bridge.storeId, userId: bridge.userId, mergedIntoCustomerId: null },
+                    select: { id: true, storeId: true, store: { select: { slug: true } }, user: { select: { id: true, name: true, email: true, role: true, status: true } } },
+                  });
+                  if (!customer?.user || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER") return null;
+                  return { id: customer.user.id, name: customer.user.name, email: customer.user.email ?? null, role: customer.user.role, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
+          '''
           new = '''        const resolution = await resolveCentralUserForStoreCustomer({
-          customerId: bridge.customerId,
-          storeId: bridge.storeId,
-        });
-        if (resolution.status !== "resolved") return null;
-        const { customer, user: centralUser } = resolution;
-        if (
-          centralUser.id !== bridge.userId ||
-          centralUser.status !== "ACTIVE" ||
-          centralUser.role !== "CUSTOMER"
-        ) return null;
-        return { id: centralUser.id, name: centralUser.name, email: centralUser.email ?? null, role: centralUser.role as UserRole, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
-'''
+                    customerId: bridge.customerId,
+                    storeId: bridge.storeId,
+                  });
+                  if (resolution.status !== "resolved") return null;
+                  const { customer, user: centralUser } = resolution;
+                  if (
+                    centralUser.id !== bridge.userId ||
+                    centralUser.status !== "ACTIVE" ||
+                    centralUser.role !== "CUSTOMER"
+                  ) return null;
+                  return { id: centralUser.id, name: centralUser.name, email: centralUser.email ?? null, role: centralUser.role as UserRole, staffId: null, customerId: customer.id, storeId: customer.storeId, storeSlug: customer.store.slug };
+          '''
           if old not in s: raise SystemExit('coordinator block missing')
           s = s.replace(old, new, 1)
           p.write_text(s)
