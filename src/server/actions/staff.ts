@@ -1,5 +1,6 @@
 "use server";
 
+import {replaceStaffPermissionGrants,writeStaffPermissionChanges} from "@/server/services/staff-permission-write";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
@@ -303,23 +304,13 @@ export async function updateStaff(
       }
       if (data.status !== undefined && data.status !== current.status) await tx.user.update({ where: { id: current.userId }, data: { status: data.status === "ACTIVE" ? "ACTIVE" : "SUSPENDED" } });
       if (email !== undefined) await tx.user.update({ where: { id: current.userId }, data: { email: normalizeEmail(email) } });
-      if (permissions) {
-        for (const [permission, granted] of Object.entries(permissions)) {
-          if (storedPermissions.includes(permission) === granted) continue;
-          await tx.staffPermission.upsert({
-          where: { staffId_permission: { staffId, permission } },
-          create: { staffId, permission, granted }, update: { granted },
-          });
-        }
+      if (permissions && !applyRolePreset) {
+        await writeStaffPermissionChanges(tx,staffId,Object.entries(permissions).filter(([permission,granted])=>storedPermissions.includes(permission)!==granted).map(([permission,granted])=>({permission,granted})));
       }
       if (applyRolePreset) {
         if (sessionUser.role === "MANAGER") throw new AppError("FORBIDDEN", "請由老闆套用角色預設");
         const defaults = getDefaultPermissionsForRole(newRole ?? current.user.role);
-        for (const permission of ALL_PERMISSIONS) await tx.staffPermission.upsert({
-          where: { staffId_permission: { staffId, permission } },
-          create: { staffId, permission, granted: defaults.includes(permission) },
-          update: { granted: defaults.includes(permission) },
-        });
+        await replaceStaffPermissionGrants(tx,staffId,defaults);
       }
       await recordOperationAudit({
         actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
@@ -514,9 +505,8 @@ export async function updateStaffPermissionsAction(
       for (const [permission, granted] of Object.entries(permissions)) {
         if (actorGrants && before.has(permission) !== granted && !actorGrants.has(permission)) throw new AppError("FORBIDDEN", "只能調整自己已獲授權的功能");
         if (granted) after.add(permission); else after.delete(permission);
-        await tx.staffPermission.upsert({ where: { staffId_permission: { staffId, permission } },
-          create: { staffId, permission, granted }, update: { granted } });
       }
+      await writeStaffPermissionChanges(tx,staffId,Object.entries(permissions).map(([permission,granted])=>({permission,granted})));
       await recordOperationAudit({
         actorUserId: sessionUser.id, actorNameSnapshot: sessionUser.name, storeId: writeStoreId,
         module: "SYSTEM", targetType: "StaffPermission", targetId: staffId, action: "UPDATE", summary: "調整人員權限",

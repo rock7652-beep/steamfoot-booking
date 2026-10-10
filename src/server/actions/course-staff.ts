@@ -1,4 +1,5 @@
 "use server";
+import {replaceStaffPermissionGrants} from "@/server/services/staff-permission-write";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
@@ -357,12 +358,7 @@ export async function saveCourseStaff(input: unknown) {
             await tx.$executeRaw`INSERT INTO "CourseTeacherFinanceScope" ("storeId","staffId","teacherIds") VALUES (${storeId},${staffId},${teacherIds}::text[]) ON CONFLICT ("storeId","staffId") DO UPDATE SET "teacherIds"=EXCLUDED."teacherIds","updatedAt"=now()`;
             await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherFinanceScope',${staffId},'UPDATE',${JSON.stringify(before[0]??null)}::jsonb,${JSON.stringify({storeId,teacherIds})}::jsonb,now())`;
           }
-          for (const permission of ALL_PERMISSIONS)
-            await tx.staffPermission.upsert({
-              where: { staffId_permission: { staffId, permission } },
-              create: { staffId, permission, granted: granted.includes(permission) },
-              update: { granted: granted.includes(permission) },
-            });
+          await replaceStaffPermissionGrants(tx,staffId,granted);
           await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'StaffPermission',${staffId},'UPDATE',${JSON.stringify(priorPermissions)}::jsonb,${JSON.stringify({storeId,granted})}::jsonb,now())`;
         }
         if (memberUserId) {

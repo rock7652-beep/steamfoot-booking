@@ -111,6 +111,7 @@ const monthKey = (year: number, month: number) =>
   `${year}-${String(month).padStart(2, "0")}`;
 
 interface Props {
+  storeId?:string;
   weeklyHours: WeeklyHour[];
   initialSpecialDays: SpecialDay[];
   /**
@@ -140,6 +141,7 @@ function editablePeriods(periods: BusinessPeriod[], fallbackInterval: number, fa
 // ============================================================
 
 export function ScheduleManager({
+  storeId,
   weeklyHours: initialWeekly,
   initialSpecialDays,
   initialSummary,
@@ -1447,8 +1449,8 @@ export function ScheduleManager({
         ) : null}
       </div>
       <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
-        {isCourseStore ? <CourseWeeklyHoursEditor initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage} onSaved={async days => {
-          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
+        {isCourseStore ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage} onSaved={async days => {
+          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, persisted:updated.persisted, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
           dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
           await invalidateAndReloadCurrentMonth();
           if (selectedDate && !dayDraftDirty) await selectDate(selectedDate, { bypassCache: true });

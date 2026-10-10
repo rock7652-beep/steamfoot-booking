@@ -1,12 +1,16 @@
 "use server";
 
+import {weeklyReceipt,weeklyRevision} from "@/lib/course-weekly-hours-save";
+import {parseBusinessPeriods} from "@/lib/business-periods";
+import {settingsSaveUncertain} from "@/server/services/settings-save-error";
+import {CACHE_TAGS} from "@/lib/cache-tags";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { courseManager, courseManagerRead, courseTransaction } from "@/server/services/course-access";
 import { handleActionError, AppError } from "@/lib/errors";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
-import { revalidatePath } from "next/cache";
+import { revalidateTag,revalidatePath } from "next/cache";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { resolvedCourseHours, assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 import { toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
@@ -89,11 +93,22 @@ export async function saveCourseDayHours(input:unknown) {
   } catch(error) { return handleActionError(error); }
 }
 
+type WeeklyDatabaseRow={dayOfWeek:number;isOpen:boolean;openTime:string|null;closeTime:string|null;segments:unknown;slotInterval:number;defaultCapacity:number};
+async function readWeeklyReceipt(tx:Parameters<Parameters<typeof courseTransaction>[1]>[0],storeId:string){
+  const rows=await tx.$queryRaw<WeeklyDatabaseRow[]>`SELECT "dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity" FROM "BusinessHours" WHERE "storeId"=${storeId}`;
+  return ["週日","週一","週二","週三","週四","週五","週六"].map((dayName,dayOfWeek)=>{
+    const row=rows.find(r=>r.dayOfWeek===dayOfWeek);
+    return {dayName,dayOfWeek,persisted:!!row,isOpen:row?.isOpen??true,openTime:row?.openTime??null,closeTime:row?.closeTime??null,periods:row?parseBusinessPeriods(row.segments,row).map(({openTime,closeTime})=>({openTime,closeTime})):[]};
+  });
+}
+
 /** Save all edited weekdays atomically; special dates keep their existing overrides. */
 export async function saveCourseWeeklyHours(input: unknown) {
   try {
     const { storeId } = await courseManager("business_hours.manage");
-    const days = z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), isOpen: z.boolean(), periods: z.array(periodSchema).max(8) })).min(1).max(7).parse(input);
+    const receipt=Array.isArray(input)?undefined:z.object({receipt:weeklyReceipt}).parse(input).receipt;
+    if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟營業時間設定。");
+    const days = z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), isOpen: z.boolean(), periods: z.array(periodSchema).max(8) })).min(1).max(7).parse(Array.isArray(input)?input:z.object({days:z.unknown()}).parse(input).days);
     const weekdays = new Set(days.map(day => day.dayOfWeek));
     if (weekdays.size !== days.length) throw new AppError("VALIDATION", "同一星期不可重複設定");
     const normalized = days.map(day => {
@@ -102,7 +117,19 @@ export async function saveCourseWeeklyHours(input: unknown) {
       return { ...day, periods };
     });
     const interval=await courseStartInterval(storeId);
-    await courseTransaction(storeId, async tx => {
+    const saved=await courseTransaction(storeId, async tx => {
+      const current=receipt?await readWeeklyReceipt(tx,storeId):undefined;
+      if(receipt){
+        if(new Set(receipt.expected.map(day=>day.dayOfWeek)).size!==receipt.expected.length)throw new AppError("VALIDATION","修訂星期不可重複");
+        for(const day of normalized){
+          const before=current!.find(r=>r.dayOfWeek===day.dayOfWeek)!;
+          const expected=receipt.expected.find(r=>r.dayOfWeek===day.dayOfWeek);
+          if(!expected)throw new AppError("VALIDATION","缺少星期修訂資料");
+          const desired={...day,persisted:true};
+          if(weeklyRevision(before)!==weeklyRevision(expected) && weeklyRevision(before)!==weeklyRevision(desired))throw new AppError("CONFLICT","營業時間已有更新，輸入已保留。請核對後再編輯。");
+        }
+        if(normalized.every(day=>weeklyRevision(current!.find(r=>r.dayOfWeek===day.dayOfWeek))===weeklyRevision({...day,persisted:true})))return current!;
+      }
       for (const day of normalized) {
         const first = day.isOpen ? day.periods[0].openTime : null;
         const last = day.isOpen ? day.periods.at(-1)!.closeTime : null;
@@ -112,8 +139,14 @@ export async function saveCourseWeeklyHours(input: unknown) {
       const sessions = await tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: new Date() } }, select: { startsAt: true, endsAt: true } });
       await assertCourseSessionsFitHours(tx, storeId, sessions.filter(session => weekdays.has(new Date(toLocalDateStr(session.startsAt) + "T00:00:00Z").getUTCDay())));
       await assertCourseDutyCoverage(tx, storeId);
+      if(receipt)return readWeeklyReceipt(tx,storeId);
     });
-    revalidateBusinessHours(); revalidatePath("/dashboard/courses"); revalidatePath("/book");
+    let syncWarning=false;
+    try{
+      if(receipt){revalidateTag(CACHE_TAGS.businessHours,{expire:0});revalidateTag(CACHE_TAGS.specialDays,{expire:0});revalidatePath("/dashboard/settings/hours");revalidatePath("/dashboard/duty");}else revalidateBusinessHours();
+      revalidatePath("/dashboard/courses");revalidatePath("/dashboard/courses/hours");revalidatePath("/book");
+    }catch(error){if(!receipt)throw error;syncWarning=true;}
+    if(receipt)return {success:true as const,storeId,data:saved!,syncWarning};
     return { success: true as const };
-  } catch (error) { return handleActionError(error); }
+  } catch (error) { return {...handleActionError(error),uncertain:settingsSaveUncertain(error)}; }
 }
