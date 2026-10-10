@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState, useMemo } from "react";
+import { useState, useActionState, useMemo, useEffect } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
 import { toast } from "sonner";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
@@ -32,6 +32,7 @@ interface Props {
   alwaysOpen?: boolean;
   /** PR-5.5：drawer 成功時額外執行（如 router.refresh()） */
   onSuccess?: () => void;
+  onPendingChange?: (pending: boolean) => void;
   /** PR-5.5：預選方案（用於「續購同方案」）。改變時需要搭配 key 強制重 mount。 */
   defaultPlanId?: string;
 }
@@ -39,7 +40,7 @@ interface Props {
 type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID";
 type StaffPaymentStatus = "CONFIRMED" | "PENDING";
 
-export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, defaultPlanId }: Props) {
+export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, onPendingChange, defaultPlanId }: Props) {
   const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
@@ -163,6 +164,8 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
     },
     { error: null }
   );
+
+  useEffect(() => { onPendingChange?.(pending); }, [pending, onPendingChange]);
 
   if (!open && !alwaysOpen) {
     return (

@@ -1,4 +1,7 @@
 "use client";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
+import { savedCourseTemplate, courseTemplateRevision } from "@/lib/course-template-save";
 import { useCourseRoomCreate } from "@/components/admin/use-course-room-create";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import { courseDisplayText } from "@/lib/course-display-text";
@@ -39,10 +42,8 @@ import {
 } from "@/lib/date-utils";
 import {
   updateCourseSeries,
-  createCourseTemplate,
   createCourseSchedule,
   updateCourseRoom,
-  updateCourseTemplate,
   deleteUnusedCourseTemplate,
   updateCourseSession,
   moveCourseSessions,
@@ -225,7 +226,7 @@ export function CourseWorkspace({
   nowIso,
   calendarDays,
   rooms: sourceRooms,
-  templates: allTemplates,
+  templates: sourceTemplates,
   sessions,
   cancelledBookings,
   coaches: allCoaches,
@@ -254,10 +255,19 @@ export function CourseWorkspace({
   const mergedRooms = useMemo(() => [...sourceRooms, ...addedRooms.filter(room => !sourceRooms.some(source => source.id === room.id))], [sourceRooms, addedRooms]);
   const [allRooms,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(mergedRooms);
   const rooms = allRooms.filter((r) => r.isActive);
+  const confirmedTemplates = useConfirmedSettingsRows(sourceTemplates, courseTemplateRevision);
+  const allTemplates = confirmedTemplates.rows;
   const templates = allTemplates.filter((t) => t.isActive && t.musicSubject?.isActive !== false);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
+  const templateSave = useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/template`, storeId ?? "", savedCourseTemplate);
+  const [savedTemplateId,setSavedTemplateId] = useState<string|null>(null);
+  async function saveTemplate(input:Record<string,unknown>) {
+    const result = await templateSave.save(input);
+    if (result.success) { confirmedTemplates.confirm(result.data);setSavedTemplateId(result.data.id); }
+    return result;
+  }
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
@@ -291,7 +301,8 @@ export function CourseWorkspace({
   }, pathname);
   const [newRoomId, setNewRoomId] = useState<string | null>(null);
   const [transitionPending, startTransition] = useTransition();
-  const pending = transitionPending || roomCreate.pending;
+  const submitLock=useRef(false);
+  const pending = transitionPending || roomCreate.pending || templateSave.pending;
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pendingAttendance, setPendingAttendance] = useState<Record<string, "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED">>({});
   const [pendingLeaveIds,setPendingLeaveIds]=useState<string[]>([]);
@@ -362,7 +373,7 @@ export function CourseWorkspace({
     if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
     if(rentalGuard.current.pending)return;
     if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
-    if (roomCreate.uncertain || pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
+    if (roomCreate.uncertain || templateSave.uncertain || pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
     setDirty(false);
     setPanel(null);
   }
@@ -385,7 +396,7 @@ export function CourseWorkspace({
   const filteredItems = catalogItems
     .filter(
       (item) =>
-        (view === "rooms" && item.id === newRoomId) || (!hideTestData||!isCourseTestData(item.name)) && item.name
+        (view === "rooms" && item.id === newRoomId) || (view === "catalog" && item.id === savedTemplateId) || (!hideTestData||!isCourseTestData(item.name)) && item.name
           .toLocaleLowerCase()
           .includes(query.trim().toLocaleLowerCase()) &&
         (status === "all" || (view === "rooms" ? item.isActive === (status === "active") : (item.visibility ?? (item.isActive?"PUBLIC":"OFF")) === status)) &&
@@ -404,7 +415,7 @@ export function CourseWorkspace({
   const activeFilteredItems=filteredItems.filter(item=>!isInactiveItem(item));
   const inactiveFilteredItems=filteredItems.filter(isInactiveItem);
   const inactiveForced=status===(view==="rooms"?"inactive":"OFF")||!!query||category!=="all"||roomFilter!=="all"||classFilter!=="all"||rentalFilter!=="all";
-  const inactiveExpanded=inactiveForced||showInactive;
+  const inactiveExpanded=inactiveForced||showInactive||inactiveFilteredItems.some(item=>item.id===savedTemplateId);
   const visibleItems=[...activeFilteredItems,...(inactiveExpanded?inactiveFilteredItems:[])];
   function changeStatus(item: Room, visibility?:string) {
     if (pending) return;
@@ -506,7 +517,9 @@ export function CourseWorkspace({
   }
   function open(next: typeof panel) {
     if (pending) return;
+    if (templateSave.uncertain) return;
     if (next === "catalog") roomCreate.reset();
+    templateSave.reset();
     setConflicts([]);
     setDirty(false);
     setPanel(next);
@@ -677,11 +690,12 @@ export function CourseWorkspace({
     event: FormEvent<HTMLFormElement>,
     action: (
       data: FormData,
-    ) => Promise<{ success: boolean; error?: string; conflicts?:ConflictItem[]; data?: unknown }>,
+    ) => Promise<{ success: boolean; error?: string; conflicts?:ConflictItem[]; data?: unknown; syncWarning?: boolean }>,
     after?: (data: FormData) => void,
   ) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || submitLock.current) return;
+    submitLock.current=true;
     const form = event.currentTarget,
       data = new FormData(form);
     setError("");
@@ -699,7 +713,7 @@ export function CourseWorkspace({
             ? result.data.count
             : null;
         setNotice(
-          typeof count === "number" ? `已建立 ${count} 堂課程` : "已儲存",
+          result.syncWarning ? "已儲存；其他頁面更新失敗，請重新整理核對。" : typeof count === "number" ? `已建立 ${count} 堂課程` : "已儲存",
         );
         setDirty(false);
         form.reset();
@@ -713,7 +727,7 @@ export function CourseWorkspace({
         if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
-      }
+      } finally {submitLock.current=false;}
     });
   }
   const template = templates.find((t) => t.id === chosen);
@@ -1350,7 +1364,7 @@ export function CourseWorkspace({
             {
               <button
                 className={button}
-                disabled={pending}
+                disabled={pending || templateSave.uncertain}
                 onClick={closePanel}
               >
                 關閉
@@ -1572,7 +1586,7 @@ export function CourseWorkspace({
                         className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?"sm:grid-cols-6":""}`}
                         onSubmit={(e) =>
                           submit(e, (data) =>
-                            createCourseTemplate({
+                            saveTemplate({
                               name: data.get("name"),
                               category: data.get("category"),
                               defaultRoomId: data.get("roomId") || null,
@@ -1590,6 +1604,7 @@ export function CourseWorkspace({
                           )
                         }
                       >
+                        <fieldset disabled={templateSave.pending || templateSave.uncertain} className="contents">
                         <label className={businessProfile!=="MUSIC"?"sm:col-span-4":"col-span-full"}>
                           課程名稱{businessProfile!=="MUSIC"&&" *"}
                           <input
@@ -1666,6 +1681,7 @@ export function CourseWorkspace({
                             ))}
                           </select>
                         </label>:undefined} />
+                        </fieldset>
                       </form>
                     )}
                   </>
@@ -1714,8 +1730,10 @@ export function CourseWorkspace({
                         pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
                       };
                       if (editing.kind === "template")
-                        return (copyTemplate?createCourseTemplate:updateCourseTemplate)({
+                        return saveTemplate({
                           ...common,
+                          id:copyTemplate?undefined:editing.value.id,
+                          expectedRevision:copyTemplate?undefined:courseTemplateRevision(editing.value),
                           ...details,
                           ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {musicTrialMode:data.get("musicTrialMode") || null}),
                           defaultRoomId: data.get("roomId") || null,
@@ -1756,6 +1774,7 @@ export function CourseWorkspace({
                   )
                 }
               >
+                <fieldset disabled={pending || templateSave.uncertain} className="contents">
                 <p className="col-span-full text-sm text-earth-600">
                   {editing.kind === "session"
                     ? "修改範圍可選這堂或同一批次的這堂及後續，撞期時整批不會儲存。"
@@ -1977,6 +1996,7 @@ export function CourseWorkspace({
                     roomField={businessProfile!=="MUSIC"?<label className="block">預設空間<select className={field} name="roomId" defaultValue={editing.value.defaultRoomId??""}><option value="">不指定</option>{allRooms.filter(r=>r.isActive || r.id===editing.value.defaultRoomId).map(r=><option key={r.id} value={r.id}>{r.name}{!r.isActive?"（已停用）":""}</option>)}</select></label>:undefined}
                   />
                 )}
+                </fieldset>
               </form>
             )}
             {panel === "schedule" && businessProfile === "MUSIC" && (
@@ -2247,7 +2267,7 @@ export function CourseWorkspace({
             <footer className={businessProfile === "MUSIC" ? "flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3" : `${fitnessEditorFooter} flex items-center justify-end gap-2`}>
               <button
                 className={button}
-                disabled={pending}
+                disabled={pending || templateSave.uncertain}
                 onClick={() => {
                   if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
                   open(editing.kind === "session" ? "day" : null);
@@ -2262,7 +2282,7 @@ export function CourseWorkspace({
                 className={`${primary} ${businessProfile === "MUSIC" ? "" : fitnessEditorSave}`}
                 disabled={pending}
               >
-                {copyTemplate && editing.kind === "template" ? "建立課程" : "儲存"}
+                {templateSave.uncertain ? "重試確認儲存結果" : copyTemplate && editing.kind === "template" ? "建立課程" : "儲存"}
               </button>
             </footer>
           )}
@@ -2282,7 +2302,7 @@ export function CourseWorkspace({
                   ? "儲存中…"
                   : view === "rooms"
                     ? roomCreate.uncertain ? "重試確認儲存結果" : "儲存"
-                    : "建立課程"}
+                    : templateSave.uncertain ? "重試確認儲存結果" : "建立課程"}
               </button>
             </div>
           )}

@@ -26,6 +26,8 @@ import {
 } from "@/server/actions/booking";
 import { BookingNoteEditor } from "./booking-note-editor";
 import { BookingServiceNoteEditor } from "./booking-service-note-editor";
+import { BookingCompanionEditor } from "./booking-companion-editor";
+import { BookingParticipantCheckout } from "./booking-participant-checkout";
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
@@ -200,7 +202,8 @@ export function BookingDetailDrawer({
   useLayoutEffect(() => { currentBooking.current = bookingId; }, [bookingId]);
   const actionKey = bookingId ?? "";
   const actionState = saves.states[actionKey];
-  const isActing = saves.isBlocked(actionKey);
+  const [participantBusy, setParticipantBusy] = useState(false);
+  const isActing = saves.isBlocked(actionKey) || participantBusy;
   const checkingResult = actionState?.phase === "checking" || actionState?.phase === "unknown";
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partialAttendedPeople, setPartialAttendedPeople] = useState<
@@ -284,7 +287,7 @@ export function BookingDetailDrawer({
         if(initialIntent === "collect" && !readOnly && collectionIntentHandled.current !== id && payload.booking.id === id) {
           collectionIntentHandled.current=id;
           const b=payload.booking;
-          if(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") {
+          if(!payload.participantCheckout && (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED")) {
             if(b.bookingType === "FIRST_TRIAL" && payload.trial && !payload.trial.collected) {
               if(b.people>1 && b.attendedPeople==null) {setAttendanceIntent("collect");setAttendanceOpen(true);}
               else setCollectOpen(true);
@@ -410,7 +413,7 @@ export function BookingDetailDrawer({
   // 不重問，直接收款。
   function handleCollect() {
     const b = data?.booking;
-    if (readOnly) return;
+    if (readOnly || data?.participantCheckout) return;
     if (
       b &&
       b.bookingType === "FIRST_TRIAL" &&
@@ -427,7 +430,7 @@ export function BookingDetailDrawer({
   // 完成服務入口：多人首次體驗與套餐都先確認實到人數。
   function handleComplete() {
     const b = dataMatches ? data?.booking : prefill?.id === bookingId ? prefill : null;
-    if (readOnly) return;
+    if (readOnly || (dataMatches && data?.participantCheckout)) return;
     if (
       b &&
       (b.bookingType === "FIRST_TRIAL" ||
@@ -653,7 +656,7 @@ export function BookingDetailDrawer({
       <RightSheet
         presentation={spaMode ? "side" : "centered"}
         open={open}
-        onClose={onClose}
+        onClose={() => { if (!participantBusy) onClose(); }}
         labelledById="booking-drawer-title"
         width={spaMode ? undefined : 860}
       >
@@ -705,7 +708,13 @@ export function BookingDetailDrawer({
               setReloadNonce((n) => n + 1);
             }}
             isActing={isActing}
-            onClose={onClose}
+            onClose={() => { if (!participantBusy) onClose(); }}
+            onParticipantBusy={setParticipantBusy}
+            onParticipantsUpdated={() => {
+              if (!bookingId) return;
+              cache?.invalidate(bookingId); onUpdated?.(bookingId, null);
+              setReloadNonce(n => n + 1);
+            }}
             readOnly={readOnly}
             rebookHref={rebookHref}
             durationMinutes={durationMinutes}
@@ -782,6 +791,7 @@ export function BookingDetailDrawer({
       )}
       {!readOnly &&
         data &&
+        !data.participantCheckout &&
         (data.booking.bookingType === "FIRST_TRIAL" ||
           data.booking.bookingType === "PACKAGE_SESSION") &&
         data.booking.people > 1 && (
@@ -808,7 +818,7 @@ export function BookingDetailDrawer({
           loading={isActing}
         />
       )}
-      {!readOnly && data && data.trial && !data.trial.collected && (
+      {!readOnly && data && !data.participantCheckout && data.trial && !data.trial.collected && (
         <CollectTrialModal
           saveAction={collectBookingTrialPayment}
           open={collectOpen}
@@ -944,6 +954,8 @@ function DrawerContent({
   rebookHref,
   durationMinutes,
   spaMode = false,
+  onParticipantsUpdated,
+  onParticipantBusy,
 }: {
   payload: BookingDrawerPayload;
   onNoteSaved: (patch: BookingNotePatch) => void;
@@ -954,6 +966,8 @@ function DrawerContent({
   rebookHref?: string;
   durationMinutes?: number;
   spaMode?: boolean;
+  onParticipantsUpdated: () => void;
+  onParticipantBusy: (busy: boolean) => void;
 }) {
   const {
     booking,
@@ -1091,6 +1105,7 @@ function DrawerContent({
 
         } customer={
         <Section readable={!spaMode} title="顧客資訊">
+          {!spaMode && payload.companions && <BookingCompanionEditor bookingId={booking.id} companions={payload.companions} readOnly={readOnly} blocked={isActing} onBusy={onParticipantBusy} onUpdated={onParticipantsUpdated} />}
           {spaMode && <KV label="姓名" value={booking.customer.name} />}
           <KV readable={!spaMode}
             label="電話"
@@ -1147,6 +1162,8 @@ function DrawerContent({
         </Section>
 
         } payment={
+        !spaMode && payload.participantCheckout ? <BookingParticipantCheckout bookingId={booking.id} checkout={payload.participantCheckout}
+          readOnly={readOnly} blocked={isActing} onUpdated={onParticipantsUpdated} onBusy={onParticipantBusy} /> :
         <Section readable={!spaMode} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
           {!spaMode && booking.bookingType === "FIRST_TRIAL" ? (
             <KV readable label="金額" value={amount} />
@@ -1298,6 +1315,11 @@ function DrawerContent({
       {readOnly ? (
         <div className="border-t border-earth-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800">
           查看模式提供完整閱讀能力，完成服務、取消、收款與改期請由該店自行完成。
+        </div>
+      ) : payload.participantCheckout ? (
+        <div className="border-t border-earth-200 px-4 py-2">
+          {payload.canEditBookingNote && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && payload.participantCheckout.slots.every(slot => slot.status === "PENDING" && slot.collectedAmount === null) &&
+            <button type="button" disabled={isActing} onClick={actions.reschedule} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">改期</button>}
         </div>
       ) : (
         <ActionFooter

@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireStaffSession } from "@/lib/session";
 import { isSpaDemoStoreId, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
-import type { PricingPlan, Store } from "@prisma/client";
+import type { PricingPlan, Store, Prisma } from "@prisma/client";
 
 /** Store plan 查詢所需的 select 欄位 */
 export type StorePlanFields = Pick<
@@ -119,7 +119,10 @@ export async function getStorePlanById(storeId: string): Promise<PricingPlan> {
  * 不能走 getCurrentStoreForPlan（內含 requireStaffSession 會拒絕顧客）。
  * 改由呼叫端從 session/customer 拿到 storeId 後傳入此 helper。
  */
-export async function getStoreForPlanByStoreId(storeId: string): Promise<StorePlanFields> {
+export async function getStoreForPlanByStoreId(
+  storeId: string,
+  client: Pick<Prisma.TransactionClient, "store"> = prisma,
+): Promise<StorePlanFields> {
   if (isSpaDemoStoreId(storeId)) {
     return {
       id: SPA_DEMO_STORE.id,
@@ -133,7 +136,7 @@ export async function getStoreForPlanByStoreId(storeId: string): Promise<StorePl
       maxStoresOverride: null,
     };
   }
-  const store = await prisma.store.findUnique({
+  const store = await client.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
   });

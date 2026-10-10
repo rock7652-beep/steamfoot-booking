@@ -13,7 +13,7 @@
  *   tag 字串常數請從 cache-tags.ts 取，避免 typo。
  */
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 
 // ── 營業時間（週設定 + 時段） ──────────────────────────
@@ -114,6 +114,16 @@ export function revalidateBonusRules() {
 /** 店鋪方案異動後呼叫 */
 export function revalidateShopConfig() {
   updateTag(CACHE_TAGS.shopConfig);
+  revalidateShopConfigPaths();
+}
+
+/** Direct settings receipts use Route Handler supported immediate expiration. */
+export function revalidateShopConfigInRoute() {
+  revalidateTag(CACHE_TAGS.shopConfig,{expire:0});
+  revalidateShopConfigPaths();
+}
+
+function revalidateShopConfigPaths() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings/plan");
 }

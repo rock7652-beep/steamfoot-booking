@@ -13,6 +13,7 @@ import {
   type StorePlanFields,
 } from "@/lib/store-plan";
 import { getPlanLimits, PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import type { Prisma } from "@prisma/client";
 
 /**
  * 取得用量檢查所需的 store + limits。
@@ -53,8 +54,14 @@ export async function checkStaffLimitOrThrow(
 export async function checkCustomerLimitOrThrow(
   currentCount: number,
   storeId?: string,
+  client?: Pick<Prisma.TransactionClient, "store">,
 ): Promise<void> {
-  const { limits, store } = await resolveStoreContext(storeId);
+  // A transaction may own the only pool connection. Never query the global
+  // client while holding it: plan reads must use the same connection.
+  const context = storeId && client
+    ? await getStoreForPlanByStoreId(storeId, client).then(store => ({ store, limits: getPlanLimits(store) }))
+    : await resolveStoreContext(storeId);
+  const { limits, store } = context;
   if (limits.maxCustomers !== null && currentCount >= limits.maxCustomers) {
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(

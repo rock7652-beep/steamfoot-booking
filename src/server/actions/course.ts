@@ -1,4 +1,7 @@
 "use server";
+import { createHash } from "node:crypto";
+import { courseTemplateSaveInput, courseTemplateRevision, savedCourseTemplate } from "@/lib/course-template-save";
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -356,6 +359,42 @@ export async function createCourseTemplate(input: unknown) {
   } catch (error) {
     return handleCourseActionError(error);
   }
+}
+
+/** Direct catalog transport; the response contains only the committed configuration. */
+export async function saveCourseTemplateSettings(input: unknown) {
+  try {
+    const {id, expectedStoreId, requestKey, expectedRevision, ...fields} = courseTemplateSaveInput.parse(input);
+    const {storeId} = await writableStore(id ? "booking.update" : "booking.create");
+    if (storeId !== expectedStoreId) throw new AppError("CONFLICT", "目前門市已切換，請重新開啟課程設定。");
+    const rowId = id ?? `template_${createHash("sha256").update(JSON.stringify([storeId,requestKey])).digest("hex")}`;
+    const include = {musicSubject:{select:{id:true,name:true,isActive:true}},_count:{select:{sessions:true}}} as const;
+    const saved = await courseTransaction(storeId, async tx => {
+      const previous = await tx.courseTemplate.findFirst({where:{id:rowId,storeId},include});
+      if (id && !previous) throw new AppError("NOT_FOUND", "找不到本店課程，請重新開啟設定。");
+      if (previous && (!id || courseTemplateRevision(previous) !== expectedRevision)) {
+        if (JSON.stringify(courseTemplateInput.parse(previous)) === JSON.stringify(fields)) return previous;
+        throw new AppError("CONFLICT", "課程已有更新，輸入已保留。請核對目前資料後再編輯。");
+      }
+      await validateMusicTemplate(storeId,fields);
+      await assertMusicCourseDuration(tx,storeId,fields.durationMinutes);
+      if (previous && previous.classType !== fields.classType && previous._count.sessions)
+        throw new AppError("VALIDATION", "已排課的課型不能變更；請複製課程另建自組班或團體班");
+      if (fields.defaultRoomId && !await tx.courseRoom.findFirst({where:{id:fields.defaultRoomId,storeId,isActive:true},select:{id:true}}))
+        throw new AppError("VALIDATION", "請選擇本店可使用的教室");
+      if (!id) return tx.courseTemplate.create({data:{...fields,id:rowId,storeId},include});
+      // Also guard writers that do not acquire the store lock.
+      const updated = await tx.courseTemplate.updateMany({where:{id,storeId,updatedAt:previous!.updatedAt},data:fields});
+      if (!updated.count) throw new AppError("CONFLICT", "課程已有更新，輸入已保留。請重新核對。");
+      return tx.courseTemplate.findFirstOrThrow({where:{id,storeId},include});
+    });
+    const data = savedCourseTemplate.parse({...saved,hasSessions:saved._count.sessions>0,revision:courseTemplateRevision(saved)});
+    let syncWarning = false;
+    try {
+      revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/hq/dashboard/courses");revalidatePath("/book");
+    } catch { syncWarning = true; }
+    return {success:true as const,storeId,data,syncWarning};
+  } catch (error) { return {...handleCourseActionError(error),uncertain:settingsSaveUncertain(error)}; }
 }
 
 export async function createCourseSchedule(input: unknown) {

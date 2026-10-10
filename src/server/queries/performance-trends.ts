@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { bookingMonthRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
 import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 import { selectConversionCustomerIds } from "@/server/queries/conversion-metrics";
+import { loadIndividualBookingFacts, replaceGroupedBookingFacts } from "./booking-participant-facts";
 
 export type StorePerformanceTrend = {
   month: string;
@@ -45,7 +46,7 @@ export async function getStorePerformanceTrends(
   const firstTxRange = monthRange(months[0]);
   const lastTxRange = monthRange(months[5]);
 
-  const [bookings, transactions, cashbookEntries, conversionTrials, packagePurchases] = await Promise.all([
+  const [groupedBookings, transactions, cashbookEntries, groupedConversionTrials, packagePurchases] = await Promise.all([
     prisma.booking.findMany({
       where: {
         storeId,
@@ -53,6 +54,7 @@ export async function getStorePerformanceTrends(
         bookingDate: { gte: firstBookingRange.start, lte: lastBookingRange.end },
       },
       select: {
+        id: true,
         customerId: true,
         bookingDate: true,
         bookingType: true,
@@ -93,6 +95,7 @@ export async function getStorePerformanceTrends(
         bookingDate: { lte: lastBookingRange.end },
       },
       select: {
+        id: true,
         customerId: true,
         bookingDate: true,
         people: true,
@@ -106,16 +109,24 @@ export async function getStorePerformanceTrends(
         status: "SUCCESS",
         paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
         customerPlanWalletId: { not: null },
-        transactionDate: { lte: lastTxRange.end },
+        OR: [{ paidAt: { lte: new Date() } }, { paidAt: null, transactionDate: { lte: new Date() } }],
       },
       select: {
         customerId: true,
         transactionDate: true,
         paidAt: true,
+        amount: true,
+        refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } },
         customerPlanWallet: { select: { status: true } },
       },
     }),
   ]);
+  const individual = await loadIndividualBookingFacts(storeId, lastBookingRange.end);
+  const bookings = [...replaceGroupedBookingFacts(groupedBookings, individual.groupIds), ...individual.visits];
+  const conversionTrials = [...replaceGroupedBookingFacts(groupedConversionTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
+  const effectivePurchases = packagePurchases.map(purchase => ({ ...purchase,
+    netAmount: Number(purchase.amount) + purchase.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
+  }));
 
   return months.map((month) => {
     const trialRows = bookings.filter(
@@ -125,7 +136,7 @@ export async function getStorePerformanceTrends(
     const trialAttendees = trialRows.reduce((sum, row) => sum + attendance(row), 0);
     const completedServices = monthBookings.reduce((sum, row) => sum + attendance(row), 0);
 
-    const conversion = selectConversionCustomerIds(month, conversionTrials, packagePurchases);
+    const conversion = selectConversionCustomerIds(month, conversionTrials, effectivePurchases);
 
     const systemRevenue = transactions
       .filter((tx) => toLocalDateStr(tx.transactionDate).startsWith(`${month}-`))
@@ -143,9 +154,9 @@ export async function getStorePerformanceTrends(
       label: monthLabel(month),
       trialAttendees,
       convertedCustomers: conversion.convertedCustomerIds.size,
-      conversionRate: trialAttendees === 0
+      conversionRate: conversion.trialCustomerIds.size === 0
         ? 0
-        : (conversion.currentTrialConvertedCustomerIds.size / trialAttendees) * 100,
+        : (conversion.currentTrialConvertedCustomerIds.size / conversion.trialCustomerIds.size) * 100,
       completedServices,
       revenue: systemRevenue + manualIncome,
       retailRevenue,

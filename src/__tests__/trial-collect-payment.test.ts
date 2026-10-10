@@ -399,7 +399,7 @@ describe("collectTrialPayment — amount snapshot / clamp", () => {
     expect(lastTx().amount).toBe(400);
   });
 
-  it("allowEdit=false → forced to default, ignoring input amount", async () => {
+  it("allowEdit=false → rejects a changed amount when editing is disabled", async () => {
     h.getTrialSettings.mockResolvedValue({
       trialEnabled: true,
       trialDefaultPrice: 499,
@@ -407,13 +407,15 @@ describe("collectTrialPayment — amount snapshot / clamp", () => {
       trialMinPrice: 0,
       trialMaxPrice: 3000,
     });
-    await collectTrialPayment({ ...base, amount: 999 });
-    expect(lastTx().amount).toBe(499);
+    const result = await collectTrialPayment({ ...base, amount: 999 });
+    expect(result.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 
-  it("clamps over-max (5000 → 3000)", async () => {
-    await collectTrialPayment({ ...base, amount: 5000 });
-    expect(lastTx().amount).toBe(3000);
+  it("rejects over-max before writing money", async () => {
+    const result = await collectTrialPayment({ ...base, amount: 5000 });
+    expect(result.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -467,7 +469,7 @@ describe("collectTrialPayment — PR-3c people × amount", () => {
   });
 
   // 人數=2 時 clamp 上限 = 3000 × 2 = 6000
-  it("people=2 + 99999 → clamps to 6000 (max × people)", async () => {
+  it("people=2 + 11980 rejects instead of silently saving 6000", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_1",
       bookingType: "FIRST_TRIAL",
@@ -478,12 +480,13 @@ describe("collectTrialPayment — PR-3c people × amount", () => {
       people: 2,
       customer: { assignedStaffId: null },
     } as unknown as never);
-    await collectTrialPayment({ ...base, amount: 99999 });
-    expect(lastTx().amount).toBe(6000);
+    const result = await collectTrialPayment({ ...base, amount: 11980 });
+    expect(result.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 
   // allowEdit=false：people=2 強制 default × people = 998（忽略 input）
-  it("people=2 + allowEdit=false → forced to 998 ignoring input", async () => {
+  it("people=2 + allowEdit=false → rejects a changed two-person fixed price", async () => {
     h.getTrialSettings.mockResolvedValue({
       trialEnabled: true,
       trialDefaultPrice: 499,
@@ -501,8 +504,9 @@ describe("collectTrialPayment — PR-3c people × amount", () => {
       people: 2,
       customer: { assignedStaffId: null },
     } as unknown as never);
-    await collectTrialPayment({ ...base, amount: 1234 });
-    expect(lastTx().amount).toBe(998);
+    const result = await collectTrialPayment({ ...base, amount: 1234 });
+    expect(result.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -562,7 +566,7 @@ describe("collectTrialPayment — PR-3d partial attendance (effectivePeople = at
   });
 
   // clamp 範圍依 effectivePeople=1（max 3000），手動 99999 → 3000（非 6000）
-  it("people=2 + attendedPeople=1 + 99999 → clamps to 3000 (max × effectivePeople)", async () => {
+  it("people=2 + attendedPeople=1 + 99999 → rejects above the one-attendee limit", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_1",
       bookingType: "FIRST_TRIAL",
@@ -574,8 +578,9 @@ describe("collectTrialPayment — PR-3d partial attendance (effectivePeople = at
       attendedPeople: 1,
       customer: { assignedStaffId: null },
     } as unknown as never);
-    await collectTrialPayment({ ...base, amount: 99999 });
-    expect(lastTx().amount).toBe(3000);
+    const result = await collectTrialPayment({ ...base, amount: 99999 });
+    expect(result.success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 
   // attendedPeople=null（向後相容；沒記錄部分到店）→ 沿用 people 行為

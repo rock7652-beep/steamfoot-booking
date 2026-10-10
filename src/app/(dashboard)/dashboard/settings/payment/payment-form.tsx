@@ -1,13 +1,15 @@
 "use client";
 import styles from "@/components/settings/settings-form-layout.module.css";
 
-import { useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { updateShopBankInfo } from "@/server/actions/shop";
+import { usePathname } from "next/navigation";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
+import { savedPaymentSettings,paymentSettingsRevision } from "@/lib/shop-settings-save";
 
 interface Props {
   compact?: boolean;
-  saveAction?: typeof updateShopBankInfo;
   storeId: string;
   initial: {
     bankName: string | null;
@@ -22,13 +24,21 @@ const inputCls =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export function PaymentSettingsForm({ storeId, initial, compact = false, saveAction = updateShopBankInfo }: Props) {
+export function PaymentSettingsForm({ storeId, initial, compact = false }: Props) {
   const [bankName, setBankName] = useState(initial.bankName ?? "");
   const [bankCode, setBankCode] = useState(initial.bankCode ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(initial.bankAccountNumber ?? "");
   const [lineOfficialId, setLineOfficialId] = useState(initial.lineOfficialId ?? "");
   const [lineOfficialUrl, setLineOfficialUrl] = useState(initial.lineOfficialUrl ?? "");
-  const [pending, startTransition] = useTransition();
+  const pathname=usePathname();
+  const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/shop`,storeId,savedPaymentSettings);
+  const pending=mutation.pending;
+  const saving=useRef(false);
+  const revision=useRef(paymentSettingsRevision({...initial,lineOfficialId:initial.lineOfficialId??null}));
+  const values={bankName:bankName||null,bankCode:bankCode||null,bankAccountNumber:bankAccountNumber||null,lineOfficialUrl:lineOfficialUrl||null,lineOfficialId:lineOfficialId||null};
+  const [savedRevision,setSavedRevision]=useState(()=>paymentSettingsRevision({...initial,lineOfficialId:initial.lineOfficialId??null}));
+  const [error,setError]=useState("");
+  useSettingsPanelGuard(paymentSettingsRevision(values)!==savedRevision,pending||mutation.uncertain);
 
   const hasAnyInfo = Boolean(
     bankName || bankCode || bankAccountNumber || lineOfficialUrl,
@@ -36,22 +46,16 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    startTransition(async () => {
-      try {
-      const result = await saveAction({
-        bankName: bankName || null,
-        bankCode: bankCode || null,
-        bankAccountNumber: bankAccountNumber || null,
-        lineOfficialUrl: lineOfficialUrl || null,
-        lineOfficialId: lineOfficialId || null,
-      });
-      if (result.success) {
-        toast.success("付款資訊已更新，顧客現在可以看到轉帳資訊");
-      } else {
-        toast.error(result.error ?? "儲存失敗");
-      }
-      } catch { toast.error("連線失敗，已保留輸入內容，請重試"); }
-    });
+    if(saving.current)return;
+    saving.current=true;
+    setError("");
+    void mutation.save({kind:"PAYMENT",values,expectedRevision:revision.current}).then(result=>{
+      if(!result.success){setError(result.error);toast.error(result.error);return;}
+      revision.current=result.data.revision;setSavedRevision(result.data.revision);
+      const row=result.data.values;
+      setBankName(row.bankName??"");setBankCode(row.bankCode??"");setBankAccountNumber(row.bankAccountNumber??"");setLineOfficialId(row.lineOfficialId??"");setLineOfficialUrl(row.lineOfficialUrl??"");
+      toast.success(result.syncWarning?"付款資訊已儲存；其他頁面更新失敗，請重新整理核對。":"付款資訊已更新，顧客現在可以看到轉帳資訊");
+    }).finally(()=>{saving.current=false;});
   }
 
   function copyAccount() {
@@ -79,7 +83,8 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
             </p>
           </header>
 
-          <div className={`${styles.fields} space-y-4`}>
+          {error&&<p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
+          <fieldset disabled={pending||mutation.uncertain} className={`${styles.fields} space-y-4`}>
             <div className={styles.twoColumns}>
               <div>
                 <label className={labelCls}>銀行名稱</label>
@@ -140,18 +145,18 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
                 顧客轉帳後點此連結聯繫店長確認
               </p>
             </div>
-          </div>
+          </fieldset>
 
           <div className={`mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 pt-4 ${compact ? "sticky bottom-0 bg-white pb-3" : ""}`}>
             <span className="text-[11px] text-earth-400">
-              {pending ? "儲存中..." : "變更後請儲存"}
+              {pending ? "儲存中..." : paymentSettingsRevision(values)!==savedRevision ? "未儲存" : "已儲存 ✓"}
             </span>
             <button
               type="submit"
               disabled={pending}
               className="min-h-11 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
             >
-              {pending ? "儲存中..." : "儲存"}
+              {pending ? "儲存中..." : mutation.uncertain ? "重試確認儲存結果" : "儲存"}
             </button>
           </div>
         </section>

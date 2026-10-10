@@ -1,5 +1,7 @@
 "use client";
 
+import { trialSettingsRevision } from "@/lib/shop-settings-save";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { FeatureEntry } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
@@ -9,7 +11,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { InfoList } from "@/components/desktop";
-import { COURSE_SETTINGS_SECTIONS, courseSettingsSection, type CourseSettingsSection, type CourseSettingsSectionInput } from "@/lib/course-settings-sections";
+import { COURSE_SETTINGS_SECTIONS, courseSettingsSectionRevision,courseSettingsSection, type CourseSettingsSection, type CourseSettingsSectionInput } from "@/lib/course-settings-sections";
 import { CourseSettingsSectionEditor } from "./settings-section-editor";
 import type { UsageMetric } from "@/server/queries/usage";
 import { courseSettingsPanelHref, isCourseSettingsPanel } from "@/lib/course-settings-panels";
@@ -19,7 +21,6 @@ import { SettingsPanelContext, type SettingsPanelState } from "@/components/admi
 import { BookableUntilForm } from "../settings/hours/bookable-until-form";
 import { DutySchedulingToggle } from "../settings/duty/duty-toggle";
 import { TrialSettingsForm } from "../settings/trial/trial-form";
-import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import type { TrialSettings } from "@/lib/shop-config";
 import { CourseSelfBookingSettings } from "./course-self-booking-settings";
 import { CourseWaitlistSettings } from "./course-waitlist-settings";
@@ -88,7 +89,18 @@ const lead = (minutes: number) => {
   return `${minutes} 分鐘前`;
 };
 
-export function CourseSettingsWorkspace(props: Props) {
+export function CourseSettingsWorkspace(sourceProps: Props) {
+  type SectionRow={id:string;values:CourseSettingsSectionInput|TrialSettings};
+  const sources=useMemo<SectionRow[]>(()=>[
+    {id:"store",values:{section:"store",name:sourceProps.name,address:sourceProps.address,mapUrl:sourceProps.mapUrl,lineOfficialUrl:sourceProps.lineOfficialUrl,shopPhone:sourceProps.shopPhone??"",lineOfficialId:sourceProps.lineOfficialId??""}},
+    {id:"booking",values:{section:"booking",bookingLeadMinutes:sourceProps.bookingLeadMinutes,cancellationLeadMinutes:sourceProps.cancellationLeadMinutes}},
+    {id:"payment",values:{section:"payment",bankName:sourceProps.bankName,bankCode:sourceProps.bankCode,bankAccountNumber:sourceProps.bankAccountNumber}},
+    ...(sourceProps.trialSettings?[{id:"trial",values:sourceProps.trialSettings}]:[]),
+  ],[sourceProps]);
+  const confirmed=useConfirmedSettingsRows(sources,row=>"section" in row.values?courseSettingsSectionRevision(row.values):trialSettingsRevision(row.values));
+  const sections=confirmed.rows.filter(row=>row.id!=="trial").map(row=>row.values);
+  const props:Props={...sourceProps,...Object.assign({},...sections),trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
+  const onSaved=(row:CourseSettingsSectionInput)=>confirmed.confirm({id:row.section,values:row});
   const router = useRouter();
   const search = useSearchParams();
   const pathname = usePathname();
@@ -138,7 +150,7 @@ export function CourseSettingsWorkspace(props: Props) {
     const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
-  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
+  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
     nav={<>
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
@@ -185,7 +197,7 @@ export function CourseSettingsWorkspace(props: Props) {
           summary={`${props.trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${props.trialSettings.trialDefaultPrice}・調價 ${props.trialSettings.trialAllowPriceEdit ? `NT$ ${props.trialSettings.trialMinPrice}–${props.trialSettings.trialMaxPrice}` : "關閉"}`}
           expanded={expandedRow === "trial"}
           onEdit={() => openRow("trial")}
-        ><TrialSettingsForm storeId={props.storeId} initial={props.trialSettings} saveAction={saveCourseTrialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
+        ><TrialSettingsForm onSaved={values=>confirmed.confirm({id:"trial",values})} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
         <CustomerLabelsSettings />

@@ -12,6 +12,7 @@ vi.mock("@/components/desktop", () => ({ InfoList: ({ items }: { items: { label:
 vi.mock("@/server/actions/shop", () => ({ updateTrialSettings: vi.fn(), updateDutyScheduling: vi.fn(), updateBookableUntilDate: vi.fn(), updateCustomerBookingWindow: vi.fn() }));
 vi.mock("@/server/actions/course-booking-window", () => ({ saveCourseBookingWindow: m.windowSave }));
 vi.mock("@/server/actions/course-trial", () => ({ saveCourseTrialSettings: m.trialSave }));
+import { courseSettingsSectionRevision } from "@/lib/course-settings-sections";
 import { CourseSettingsWorkspace } from "@/app/(dashboard)/dashboard/courses/settings-workspace";
 let root: Root, host: HTMLDivElement;
 const defaults: ComponentProps<typeof CourseSettingsWorkspace> = { storeId: "a", name: "A 店", planLabel: "專業版", address: "地址", mapUrl: "", lineOfficialUrl: "https://line.me/a", bankName: "銀行", bankCode: "123", bankAccountNumber: "0001234567", bookingLeadMinutes: 10, cancellationLeadMinutes: 30, canEdit: true, canPayment: true, canStaff: true, canPlans: true, canHours: true, canDutyManage: true, canTrial: true, canReminders: true, canCare: true, subscriptionSummary: "使用中 · 到期日 2026-12-31" };
@@ -32,11 +33,12 @@ async function input(name: string, value: string) {
 }
 async function submit() { await act(async () => [...host.querySelectorAll("form")].find(form => !form.closest("[hidden]"))!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); }
 beforeEach(() => {
+  vi.stubGlobal("fetch",async (_url:string,init:RequestInit)=>{const request=JSON.parse(String(init.body));const result=await (request.kind==="TRIAL"?m.trialSave:m.save)(request.values);return {json:async()=>result.success?{...result,storeId:"a",data:{values:request.values,revision:request.kind==="TRIAL"?JSON.stringify(request.values):courseSettingsSectionRevision(request.values)}}:result};});
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); window.scrollTo = vi.fn();
   window.history.replaceState(null, "", "/s/a/admin/dashboard/courses?view=settings&month=2026-09");
   host = document.createElement("div"); document.body.append(host); root = createRoot(host); m.save.mockResolvedValue({ success: true });
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
+afterEach(async () => { await act(async () => root.unmount()); host.remove();vi.unstubAllGlobals(); });
 describe("five-section course settings", () => {
   it("shows one section at a time and retains store prefix and query parameters", async () => {
     await render(); expect(host.querySelectorAll("nav button")).toHaveLength(5); expect(host.querySelectorAll("section[hidden]")).toHaveLength(4);
@@ -50,7 +52,7 @@ describe("five-section course settings", () => {
     await select("店家資料未儲存"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存店名");
     m.save.mockResolvedValueOnce({ success: false, error: "暫時失敗" }); await submit();
     expect(host.textContent).toContain("暫時失敗"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存店名"); expect(m.refresh).not.toHaveBeenCalled();
-    await submit(); expect(m.refresh).toHaveBeenCalledOnce(); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存店名"); expect(host.textContent).toContain("已儲存");
+    await submit(); expect(m.refresh).not.toHaveBeenCalled(); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存店名"); expect(host.textContent).toContain("已儲存");
   });
   it("requires an explicit discard and does not discard another section", async () => {
     await render(); await input("name", "店名草稿"); await select("收款與體驗"); await input("bankCode", "999"); await click("取消");
@@ -85,9 +87,10 @@ describe("five-section course settings", () => {
   });
   it("preserves input when the connection throws and guards a browser reload", async () => {
     m.save.mockRejectedValueOnce(new Error("network")); await render(); await input("name", "斷線草稿"); await submit();
-    expect(host.textContent).toContain("連線失敗，輸入內容已保留"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("斷線草稿");
+    expect(host.textContent).toContain("尚未確認儲存結果"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("斷線草稿");
     const before = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(true);
-    await click("取消"); await click("捨棄本區修改"); const after = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(after); expect(after.defaultPrevented).toBe(false);
+    expect([...host.querySelectorAll("button")].find(b=>b.textContent==="取消"&&!b.closest("[hidden]"))?.disabled).toBe(true);
+    await submit();const after = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(after); expect(after.defaultPrevented).toBe(false);
   });
   it("shows enabled notification features at scoped destinations", async () => {
     await render({ ...defaults, canDigitalButler: true, canReferralShare: true });
@@ -117,7 +120,7 @@ it("edits trial price directly, keeps failed drafts and restores without losing 
  if(trialRow?.querySelector("button")) await act(async()=>trialRow!.querySelector("button")!.click());
  const price=host.querySelector('form[aria-label="體驗設定"] input[type="number"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(price,"400");price.dispatchEvent(new Event("input",{bubbles:true}));});
- m.trialSave.mockRejectedValueOnce(new Error("network")); await act(async()=>host.querySelector('form[aria-label="體驗設定"]')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ m.trialSave.mockResolvedValueOnce({success:false,error:"未儲存"}); await act(async()=>host.querySelector('form[aria-label="體驗設定"]')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
  expect((price as HTMLInputElement).value).toBe("400"); expect(m.trialSave).toHaveBeenCalledOnce(); await click("還原修改"); expect((price as HTMLInputElement).value).toBe("350"); expect((host.querySelector('input[name="bankCode"]') as HTMLInputElement).value).toBe("999");
 });
 

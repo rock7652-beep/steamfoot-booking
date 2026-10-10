@@ -20,7 +20,7 @@ export function useSettingsSave<T>(endpoint:string, storeId:string, rowSchema:z.
       const result=await response.json();
       if(!active.current||scope.current!==requestedStore)return {success:false as const,error:"頁面已切換"};
       if(result.success===false&&result.uncertain!==true&&typeof result.error==="string"){
-        attempt.current=null;setUncertain(false);return {success:false as const,error:result.error};
+        attempt.current=null;setUncertain(false);return {success:false as const,error:result.error,uncertain:false};
       }
       const receipt=z.object({success:z.literal(true),storeId:z.string(),syncWarning:z.boolean().optional()}).parse(result);
       if(receipt.storeId!==storeId)throw new Error("stale store response");
@@ -30,7 +30,7 @@ export function useSettingsSave<T>(endpoint:string, storeId:string, rowSchema:z.
       return {success:true as const,data,syncWarning:!!receipt.syncWarning};
     }catch{
       if(active.current)setUncertain(true);
-      return {success:false as const,error:"尚未確認儲存結果，請重試核對同一次送出；輸入已保留。"};
+      return {success:false as const,uncertain:true,error:"尚未確認儲存結果，請重試核對同一次送出；輸入已保留。"};
     }finally{lock.current=false;if(active.current)setPending(false);}
   }
   return {save,reset,pending,uncertain};

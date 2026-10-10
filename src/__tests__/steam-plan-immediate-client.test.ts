@@ -1,0 +1,32 @@
+// @vitest-environment jsdom
+import {act,createElement} from "react";
+import {createRoot,type Root} from "react-dom/client";
+import {afterEach,beforeEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({fetch:vi.fn(),refresh:vi.fn()}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/s/steam/admin/dashboard/plans",useRouter:()=>({refresh:m.refresh})}));
+vi.mock("@/server/actions/plan",()=>({}));
+vi.mock("sonner",()=>({toast:{success:vi.fn(),error:vi.fn()}}));
+vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({open,children}:{open:boolean;children:unknown})=>open?children:null}));
+vi.mock("@/components/operations/operation-scope",()=>({useRetainedState:(_key:string,value:unknown)=>requireReact.useState(value)}));
+import * as requireReact from "react";
+import {PlansManager} from "@/app/(dashboard)/dashboard/plans/_components/plans-manager";
+import type {PlanRow} from "@/app/(dashboard)/dashboard/plans/_components/plan-form-drawer";
+let host:HTMLDivElement,root:Root;
+const row={id:"c123456789012345678901234",storeId:"store",name:"十堂",category:"PACKAGE" as const,price:1000,sessionCount:10,validityDays:null,description:null,sortOrder:0,isActive:true,publicVisible:false,createdAt:"2026-10-10T00:00:00.000Z",updatedAt:"2026-10-10T00:00:00.000Z",_count:{wallets:0}};
+const source={...row,price:row.price as unknown as PlanRow["price"],createdAt:new Date(row.createdAt),updatedAt:new Date(row.updatedAt)};
+beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});sessionStorage.clear();vi.clearAllMocks();vi.stubGlobal("fetch",m.fetch);host=document.createElement("div");document.body.append(host);root=createRoot(host);});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
+it("shows only the committed plan, survives stale props, and accepts later server updates",async()=>{
+ const render=(initialPlans:PlanRow[]=[])=>createElement(PlansManager,{storeId:"store",initialPlans,canManage:true});await act(async()=>root.render(render()));
+ await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("新增方案"))!.click());
+ const input=async(name:string,value:string)=>act(async()=>{const field=name==="name"?host.querySelector<HTMLInputElement>('input[placeholder="例：入門課程方案"]')!:host.querySelectorAll<HTMLInputElement>('input[type="number"]')[name==="price"?0:1];Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(field,value);field.dispatchEvent(new Event("input",{bubbles:true}));});
+ await input("name","十堂");await input("price","1000");await input("sessionCount","10");
+ let done!:(value:unknown)=>void;m.fetch.mockReturnValueOnce(new Promise(resolve=>{done=resolve;}));
+ await act(async()=>{const form=host.querySelector("form")!;form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
+ expect(m.fetch).toHaveBeenCalledTimes(1);expect(host.querySelector("tbody")?.textContent??"").not.toContain("十堂");
+ await act(async()=>done({json:async()=>({success:true,storeId:"store",data:row})}));
+ expect(host.querySelector("form")).toBeNull();expect(host.querySelector("tbody")!.textContent).toContain("十堂");expect(m.refresh).not.toHaveBeenCalled();expect(m.fetch.mock.calls[0][0]).toBe("/s/steam/admin/dashboard/settings-save/steam-plan");
+ await act(async()=>root.render(render()));expect(host.querySelector("tbody")!.textContent).toContain("十堂");
+ await act(async()=>root.render(render([source])));expect(host.querySelectorAll("tbody tr")).toHaveLength(1);
+ await act(async()=>root.render(render([{...source,name:"後續更新",updatedAt:new Date("2026-10-11T00:00:00Z")}])));expect(host.querySelector("tbody")!.textContent).toContain("後續更新");
+});

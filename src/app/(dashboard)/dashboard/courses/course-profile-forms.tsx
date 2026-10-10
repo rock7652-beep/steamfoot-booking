@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
-import { useRouter } from "next/navigation";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { savedCoursePlan } from "@/lib/course-plan-save";
+import { usePathname, useRouter } from "next/navigation";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
-import { saveCourseCustomer, saveCoursePointPlan } from "@/server/actions/course-members";
+import { saveCourseCustomer } from "@/server/actions/course-members";
 import { formatTWDateTime } from "@/lib/date-utils";
 import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
 import { musicPlanQuote } from "@/lib/music-course-products";
@@ -29,16 +31,16 @@ export type Plan = {
 
 const field="min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-type Callbacks={onPending:(value:boolean)=>void;onSaved:()=>void;onDirtyChange?:(value:boolean)=>void};
+type Callbacks={onPending:(value:boolean)=>void;onSaved:(row?:Plan)=>void;onUncertain?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void};
 function useSaveForm(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|"mounted"|"stale"|"clear"|"dirty">, {onPending,onSaved,onDirtyChange}:Callbacks){
  useEffect(()=>{onDirtyChange?.(draft.dirty);},[draft.dirty,onDirtyChange]);
  const router=useRouter();const [error,setError]=useState("");const [pending,setPending]=useState(false);
- async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string}>){
+ async function submit(event:FormEvent<HTMLFormElement>,save:(data:FormData)=>Promise<{success:boolean;error?:string;uncertain?:boolean;data?:unknown;confirmedPlan?:Plan}>){
   event.preventDefault();if(draft.busy.current||draft.stale)return;
   const data=new FormData(event.currentTarget);draft.busy.current=true;setPending(true);onPending(true);setError("");
   try{const result=await save(data);if(!draft.mounted.current)return;
-   if(!result.success){setError(result.error??"儲存失敗，輸入已保留");router.refresh();return;}
-   draft.clear();onSaved();
+   if(!result.success){setError(result.error??"儲存失敗，輸入已保留");if(!result.uncertain)router.refresh();return;}
+   draft.clear();onSaved(result.confirmedPlan);
   }catch{if(draft.mounted.current)setError("連線中斷，輸入已保留，請稍後重試。");}
   finally{draft.busy.current=false;if(draft.mounted.current){setPending(false);onPending(false);}}
  }
@@ -87,7 +89,12 @@ export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...call
                 </fieldset>
               </fieldset></form>;
 }
-export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,profitEnabled,music=false,sharedCardState="ENABLED",initialTemplateId,...callbacks}:Callbacks&{subjects?:{id:string;name:string;category:string;isActive:boolean}[];plan:Plan|null;templates:{id:string;name:string;category:string;isActive:boolean;musicTeacherShare?:number|null;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicSubjectId?:string|null;classType?:string|null;musicScheduleMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean;sharedCardState?:FeaturePresentationState;initialTemplateId?:string}){
+export function CoursePlanDraftForm({storeId,plan,templates,subjects=[],termSessions,profitEnabled,music=false,sharedCardState="ENABLED",initialTemplateId,...callbacks}:Callbacks&{storeId:string;subjects?:{id:string;name:string;category:string;isActive:boolean}[];plan:Plan|null;templates:{id:string;name:string;category:string;isActive:boolean;musicTeacherShare?:number|null;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicSubjectId?:string|null;classType?:string|null;musicScheduleMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean;sharedCardState?:FeaturePresentationState;initialTemplateId?:string}){
+ async function savePlanInput(input:Record<string,unknown>) {const result=await mutation.save(input);return result.success?{...result,confirmedPlan:result.data}:result;}
+ const pathname=usePathname();
+ const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/plan`,storeId,savedCoursePlan);
+ const {onUncertain}=callbacks;
+ useEffect(()=>{onUncertain?.(mutation.uncertain);},[onUncertain,mutation.uncertain]);
  const initialRule=templates.find(t=>t.id===(plan?.templateIds[0]??initialTemplateId));
  const paidLessons=plan ? plan.points-(plan.musicBonusLessons??0) : 0;
  const savedPeriod=plan?.musicTermSizes?.[0]??(plan&&paidLessons%(plan.musicTerms??1)===0?paidLessons/(plan.musicTerms??1):null);
@@ -107,10 +114,10 @@ export function CoursePlanDraftForm({plan,templates,subjects=[],termSessions,pro
  const musicQuote=music&&draft.values.subjectId?(()=>{try{return musicPlanQuote({musicPricePerLesson:Number(draft.values.musicPricePerLesson),musicTermLessons:Number(draft.values.musicTermLessons),musicValidityDaysPerTerm:Number(draft.values.musicValidityDaysPerTerm)},1);}catch{return null;}})():null;
  const unitPrice=music?Number(draft.values.musicPricePerLesson):Math.round(Number(draft.values.price)/Math.max(1,Number(draft.values.points)));
  const estimatedProfit=(music?musicQuote?.price??0:Number(draft.values.price))-Number(draft.values.storeCost);
- return <form id="course-member-form" className="grid grid-cols-1 gap-3 sm:grid-cols-2" onInvalidCapture={e=>{const section=(e.target as HTMLElement).closest("details");if(section)section.open=true;(e.target as HTMLElement).scrollIntoView?.({block:"nearest"});}} onSubmit={e=>{if(!music&&((courseScope==="selected"&&!selectedTemplateIds.length)||(planKind==="TERM"&&selectedTerms.length!==Number(draft.values.points)))){e.preventDefault();const section=e.currentTarget.querySelector<HTMLDetailsElement>(courseScope==="selected"&&!selectedTemplateIds.length?'[data-plan-section="courses"]':'[data-plan-section="dates"]');if(section){section.open=true;section.scrollIntoView?.({block:"nearest"});}setSelectionError(courseScope==="selected"&&!selectedTemplateIds.length?"請選至少一門適用課程，或改為全部課程。":"上課日期數須與整期堂數一致。");return;}setSelectionError("");void submit(e,d=>saveCoursePointPlan({id:plan?.id,...(music?{musicSetup:{musicTeacherShare:Number(draft.values.musicTeacherShare),subjectId:draft.values.subjectId,classType:draft.values.classType,musicPricePerLesson:Number(draft.values.musicPricePerLesson),musicTermLessons:Number(draft.values.musicTermLessons),musicValidityDaysPerTerm:Number(draft.values.musicValidityDaysPerTerm),musicScheduleMode:draft.values.musicScheduleMode}}:{}),expectedSnapshot:draft.expectedRevision??undefined,name:d.get("name"),points:music?musicQuote?.lessons??0:Number(d.get("points")),price:music?musicQuote?.price??0:Number(d.get("price")),storeCost:music?0:profitEnabled?Number(d.get("storeCost")):(plan?.storeCost??0),termSessionIds:music||planKind==="TERM"?d.getAll("termSessionIds"):[],customerPurchasable:d.get("purchaseMode")==="customer",allowShared:!music&&sharedCardState!=="ENABLED"?!!plan?.allowShared:!music&&planKind==="TERM"?false:d.get("allowShared")==="yes",validDays:music?musicQuote?.validDays??0:Number(d.get("days")),musicTerms:music?1:null,musicBonusLessons:0,isActive:d.get("active")==="yes",unit:music?"SESSION":d.get("unit"),templateIds:music||courseScope==="selected"?d.getAll("templateIds"):[]}));}}>
+ return <form id="course-member-form" className="grid grid-cols-1 gap-3 sm:grid-cols-2" onInvalidCapture={e=>{const section=(e.target as HTMLElement).closest("details");if(section)section.open=true;(e.target as HTMLElement).scrollIntoView?.({block:"nearest"});}} onSubmit={e=>{if(!music&&((courseScope==="selected"&&!selectedTemplateIds.length)||(planKind==="TERM"&&selectedTerms.length!==Number(draft.values.points)))){e.preventDefault();const section=e.currentTarget.querySelector<HTMLDetailsElement>(courseScope==="selected"&&!selectedTemplateIds.length?'[data-plan-section="courses"]':'[data-plan-section="dates"]');if(section){section.open=true;section.scrollIntoView?.({block:"nearest"});}setSelectionError(courseScope==="selected"&&!selectedTemplateIds.length?"請選至少一門適用課程，或改為全部課程。":"上課日期數須與整期堂數一致。");return;}setSelectionError("");void submit(e,d=>savePlanInput({id:plan?.id,...(music?{musicSetup:{musicTeacherShare:Number(draft.values.musicTeacherShare),subjectId:draft.values.subjectId,classType:draft.values.classType,musicPricePerLesson:Number(draft.values.musicPricePerLesson),musicTermLessons:Number(draft.values.musicTermLessons),musicValidityDaysPerTerm:Number(draft.values.musicValidityDaysPerTerm),musicScheduleMode:draft.values.musicScheduleMode}}:{}),expectedSnapshot:draft.expectedRevision??undefined,name:d.get("name"),points:music?musicQuote?.lessons??0:Number(d.get("points")),price:music?musicQuote?.price??0:Number(d.get("price")),storeCost:music?0:profitEnabled?Number(d.get("storeCost")):(plan?.storeCost??0),termSessionIds:music||planKind==="TERM"?d.getAll("termSessionIds"):[],customerPurchasable:d.get("purchaseMode")==="customer",allowShared:!music&&sharedCardState!=="ENABLED"?!!plan?.allowShared:!music&&planKind==="TERM"?false:d.get("allowShared")==="yes",validDays:music?musicQuote?.validDays??0:Number(d.get("days")),musicTerms:music?1:null,musicBonusLessons:0,isActive:d.get("active")==="yes",unit:music?"SESSION":d.get("unit"),templateIds:music||courseScope==="selected"?d.getAll("templateIds"):[]}));}}>
  <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
  {selectionError&&<p role="alert" className="sm:col-span-2 text-sm text-red-700">{selectionError}</p>}
- <fieldset disabled={pending} className="contents">
+ <fieldset disabled={pending || mutation.uncertain} className="contents">
                 <label className={music ? "block" : "block sm:col-span-2"}>
                   {music ? "班型名稱（必填）" : "名稱 *"}
                   <input

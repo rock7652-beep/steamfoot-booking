@@ -2,9 +2,11 @@
 import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
 import { useState, useTransition } from "react";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { saveSpaPackage } from "@/server/actions/spa-commerce";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
+import { savedSpaPackage, spaPackageRevision } from "@/lib/spa-settings-save";
 type Package = {
   id: string;
   updatedAt?: Date | string;
@@ -17,14 +19,18 @@ type Package = {
   publicVisible: boolean;
 };
 export function SpaPackagesManager({
-  packages,
+  packages:sourcePackages,
+  storeId,
   services,
   canManage,
 }: {
+  storeId:string;
   packages: Package[];
   services: { id: string; name: string }[];
   canManage: boolean;
 }) {
+  const {rows:packages,confirm}=useConfirmedSettingsRows(sourcePackages,spaPackageRevision);
+  const [lastSavedId,setLastSavedId]=useState<string|null>(null);
   const [filter, setFilter] = useRetainedState("spa-packages:status", "ACTIVE", retainedString),
     [search, setSearch] = useRetainedState("spa-packages:search", "", retainedString),
     [service, setService] = useRetainedState("spa-packages:service", "", retainedString),
@@ -32,9 +38,9 @@ export function SpaPackagesManager({
     [pending,setPending] = useState(false);
   const visible = packages.filter(
     (p) =>
-      (filter === "ALL" || (filter === "ACTIVE" ? p.isActive : !p.isActive)) &&
+      p.id===lastSavedId || ((filter === "ALL" || (filter === "ACTIVE" ? p.isActive : !p.isActive)) &&
       (!service || p.treatmentId === service) &&
-      p.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+      p.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())),
   ).sort((a, b) => Number(b.isActive) - Number(a.isActive));
   return (
     <section className="space-y-4 rounded-xl border border-earth-200 bg-white p-5">
@@ -195,15 +201,16 @@ export function SpaPackagesManager({
           width={520}
           labelledById="package-title"
         >
-          <SpaPackageForm key={editing.id ?? "new"} original={packages.find(p=>p.id===editing.id) ?? editing} services={services} onPending={setPending} onClose={()=>setEditing(null)} onSaved={active=>{setFilter(active?"ACTIVE":"INACTIVE");setEditing(null);}} />
+          <SpaPackageForm storeId={storeId} key={editing.id ?? "new"} original={packages.find(p=>p.id===editing.id) ?? editing} services={services} onPending={setPending} onClose={()=>setEditing(null)} onSaved={row=>{confirm(row);setLastSavedId(row.id);setEditing(null);}} />
         </RightSheet>
       )}
     </section>
   );
 }
 
-function SpaPackageForm({original,services,onClose,onSaved,onPending}:{original:Partial<Package>;services:{id:string;name:string}[];onClose:()=>void;onPending:(value:boolean)=>void;onSaved:(active:boolean)=>void}) {
-  const router=useRouter();
+function SpaPackageForm({storeId,original,services,onClose,onSaved,onPending}:{storeId:string;original:Partial<Package>;services:{id:string;name:string}[];onClose:()=>void;onPending:(value:boolean)=>void;onSaved:(row:Package)=>void}) {
+  const router=useRouter(),pathname=usePathname(),prefix=pathname.slice(0,pathname.indexOf("/dashboard"));
+  const mutation=useSettingsSave(`${prefix}/dashboard/settings-save/spa/package`,storeId,savedSpaPackage);
   const [error,setError]=useState("");
   const [pending,start]=useTransition();
   const draft=useFormDraft(`spa-package:${original.id??"new"}`,{
@@ -214,10 +221,10 @@ function SpaPackageForm({original,services,onClose,onSaved,onPending}:{original:
     e.preventDefault();if(draft.busy.current||draft.stale)return;
     draft.busy.current=true;onPending(true);setError("");
     start(async()=>{try{
-      const result=await saveSpaPackage({...editing,id:original.id,price:Number(editing.price),uses:Number(editing.uses),validityDays:Number(editing.validityDays),expectedUpdatedAt:draft.expectedRevision??undefined});
+      const result=await mutation.save({...editing,id:original.id,price:Number(editing.price),uses:Number(editing.uses),validityDays:Number(editing.validityDays),expectedUpdatedAt:draft.expectedRevision??undefined});
       if(!draft.mounted.current)return;
-      if(!result.success){setError(result.error);router.refresh();return;}
-      draft.clear();onSaved(editing.isActive);
+      if(!result.success){setError(result.error);if(!("uncertain" in result&&result.uncertain))router.refresh();return;}
+      draft.clear();onSaved(result.data);
     }catch{if(draft.mounted.current)setError("連線中斷，輸入已保留，請稍後重試。");}finally{draft.busy.current=false;onPending(false);}});
   }}>
     <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()} />
@@ -225,7 +232,7 @@ function SpaPackageForm({original,services,onClose,onSaved,onPending}:{original:
             <h2 id="package-title" className="text-xl font-bold">
               {original.id ? "編輯方案" : "新增方案"}
             </h2>
-            <fieldset disabled={pending} className="space-y-4">
+            <fieldset disabled={pending||mutation.uncertain} className="space-y-4">
               <label className="block">
                 方案名稱
                 <input
