@@ -18,14 +18,17 @@ import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {CourseStaffAvailabilityEditor} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useCallback, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 
-import { readCourseStaffTeaching, saveCourseStaff } from "@/server/actions/course-staff";
+import {usePathname} from "next/navigation";
+import {useSettingsSave} from "@/components/admin/use-settings-save";
+import {useConfirmedSettingsRows} from "@/components/admin/use-confirmed-settings-rows";
+import {savedCourseStaff,courseStaffConflicts} from "@/lib/course-staff-save";
+import { readCourseStaffTeaching } from "@/server/actions/course-staff";
 type Person = {
   linkedStaffId?:string;
   linkedStaffName?:string;
@@ -65,10 +68,10 @@ const button =
 export function CourseStaffWorkspace({
   initialCreate=false,
   previewStoreId,
-  counterpartChoices=[],
+  counterpartChoices:sourceCounterpartChoices=[],
   displayOrder,
   financeScope=null,
-  teacherChoices=[],
+  teacherChoices:sourceTeacherChoices=[],
   accountKind,
   feeEnabled:feeAccess=true,
   canEditFees:editFeeAccess=true,
@@ -106,7 +109,21 @@ export function CourseStaffWorkspace({
 }) {
   const [staffPage,setStaffPage]=useState(0);
   const [showInactive,setShowInactive]=useState(false);
-  const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceStaff,"active");
+  const confirmed=useConfirmedSettingsRows<Person>(sourceStaff,row=>row.updatedAt??JSON.stringify(row), (current,receipt)=>!!current.updatedAt&&!!receipt.updatedAt&&current.updatedAt>=receipt.updatedAt);
+  const accountRows=useMemo(()=>confirmed.rows.filter(row=>!accountKind||row.kind===accountKind),[confirmed.rows,accountKind]);
+  const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(accountRows,"active");
+  const pathname=usePathname();
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/staff`,previewStoreId??"",savedCourseStaff);
+  const submitLock=useRef(false);
+  const [notice,setNotice]=useState("");
+  const counterpartChoices=sourceCounterpartChoices.map(choice=>{
+    const row=confirmed.rows.find(row=>row.id===choice.id);
+    return row?{...choice,name:row.name,phone:row.phone,birthday:row.birthday,emergencyContactName:row.emergencyContactName,emergencyContactPhone:row.emergencyContactPhone,emergencyContactRelation:row.emergencyContactRelation,linked:!!row.linkedStaffId}:choice;
+  });
+  const teacherChoices=sourceTeacherChoices.map(choice=>{
+    const row=confirmed.rows.find(row=>row.id===choice.id);
+    return row?{...choice,name:row.name}:choice;
+  });
   const [linkedStaffId,setLinkedStaffId]=useState("");
   const selectedCounterpart=counterpartChoices.find(c=>c.id===linkedStaffId);
  const [hideTestData,setHideTestData]=useState(false);
@@ -149,10 +166,10 @@ export function CourseStaffWorkspace({
   const [applyRolePreset, setApplyRolePreset] = useState(false);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [permissionSearch, setPermissionSearch] = useState("");
-  const [pending, start] = useTransition();
+  const [transitionPending, start] = useTransition();
+  const pending=transitionPending||request.pending,locked=pending||request.uncertain;
   const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
-  const router = useRouter();
-  useCourseDraftGuard(open&&(dirty||availabilityGuard.dirty),open&&(pending||availabilityGuard.pending));
+  useCourseDraftGuard(open&&(dirty||availabilityGuard.dirty),open&&(locked||availabilityGuard.pending));
   useEffect(() => {
     if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
     let active = true;
@@ -202,6 +219,7 @@ export function CourseStaffWorkspace({
   const currentStaffPage=Math.min(staffPage,staffPages-1);
   const visibleRows=[...activeRows.slice(currentStaffPage*20,(currentStaffPage+1)*20),...(inactiveExpanded?inactiveRows:[])];
   function edit(p: Person | null) {
+    if(locked)return;request.reset();
     setAvailabilityGuard({dirty:false,pending:false});
     setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
@@ -218,11 +236,12 @@ export function CourseStaffWorkspace({
     setOpen(true);
   }
   function close() {
-    if (pending || availabilityGuard.pending || ((dirty || availabilityGuard.dirty) && !window.confirm("尚有未儲存的修改，確定關閉？"))) return;
+    if (locked || availabilityGuard.pending || ((dirty || availabilityGuard.dirty) && !window.confirm("尚有未儲存的修改，確定關閉？"))) return;
     setOpen(false);
   }
   return (
     <div className={styles.workspace}>
+      {notice&&<p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{notice}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <label className="min-w-48 flex-1 sm:max-w-xs">
           <span className="sr-only">搜尋人員</span>
@@ -324,7 +343,7 @@ export function CourseStaffWorkspace({
             {person && person.coachEnabled && previewStoreId && <FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id} role="work" />}
             <button
               className={button}
-              disabled={pending}
+              disabled={locked}
               onClick={close}
             >
               關閉
@@ -355,7 +374,7 @@ export function CourseStaffWorkspace({
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (pending || (teachingDirty && !feesReady)) return;
+                if (pending || submitLock.current || (teachingDirty && !feesReady)) return;
 
                 const invalidFee=teachingDirty && coachEnabled && feeEnabled && canEditFees ? qualificationIds.find(id=>{if(!fees[id]||fees[id].mode==="INHERIT")return false;const raw=fees[id].value;const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
 
@@ -364,12 +383,13 @@ export function CourseStaffWorkspace({
                 if(invalid){const group=invalid.closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);setQualificationSearch("");requestAnimationFrame(()=>invalid.reportValidity());return;}
                 const d = new FormData(e.currentTarget);
                 const deactivating=person?.active && d.get("active")==="no";
-                if(person?.linkedStaffId && !linkedStaffId && !window.confirm("確定解除同一人連結？兩個身分及過往紀錄都會保留。"))return;
-                if(deactivating && !window.confirm(`確認停用？立即撤銷所有工作存取，${person.assignments.length} 堂未結束課次保留待交接；會員與歷史不變。`)) return;
-                if(person && kind === "manager" && backendRole !== (person.role ?? "STAFF") && !window.confirm(`確認將 ${person.name} 的後台角色改為 ${backendRole}？將依目前選定的權限儲存。`))return;
+                if(!request.uncertain && person?.linkedStaffId && !linkedStaffId && !window.confirm("確定解除同一人連結？兩個身分及過往紀錄都會保留。"))return;
+                if(!request.uncertain && deactivating && !window.confirm(`確認停用？立即撤銷所有工作存取，${person.assignments.length} 堂未結束課次保留待交接；會員與歷史不變。`)) return;
+                if(!request.uncertain && person && kind === "manager" && backendRole !== (person.role ?? "STAFF") && !window.confirm(`確認將 ${person.name} 的後台角色改為 ${backendRole}？將依目前選定的權限儲存。`))return;
+                submitLock.current=true;
                 start(async () => {
                   try {
-                    const r = await saveCourseStaff({
+                    const r = await request.save({expectedVersion:person?.updatedAt??null,values:{
                       id: person?.id,
                       linkedStaffId,
                       name: d.get("name"),
@@ -413,19 +433,21 @@ export function CourseStaffWorkspace({
                       permissions:
                         kind === "manager" ? permissions : undefined,
                       requestKey: key,
-                    });
-                    if (!r.success) {setError(r.error);setConflicts(r.conflicts ?? []);}
+                    }});
+                    if (!r.success) {setError(r.error);setConflicts(courseStaffConflicts.safeParse("conflicts" in r?r.conflicts:[]).data??[]);}
                     else {
+                      r.data.rows.forEach(row=>confirmed.confirm(row));
+                      r.data.rows.forEach(row=>readTeaching.invalidate(row.id));
+                      setNotice(r.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"");
                       setOpen(false);
-                      router.refresh();
                     }
                   } catch {
                     setError("儲存失敗，請重試");
-                  }
+                  }finally{submitLock.current=false;}
                 });
               }}
             >
-              <fieldset disabled={readOnly || pending} className="contents">
+              <fieldset disabled={readOnly || locked} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
               {music ? <>
               <label className="col-span-full block">連結同一人（選填）
@@ -590,12 +612,12 @@ export function CourseStaffWorkspace({
                 </label>
               )}
 
-                {music && person && coachEnabled && tab==="work" && <CourseStaffAvailabilityEditor staffId={person.id}/>}
+                {music && person && coachEnabled && tab==="work" && <CourseStaffAvailabilityEditor storeId={previewStoreId} staffId={person.id} onGuard={updateAvailabilityGuard}/>}
                 {music && person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {music && person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
               {!music && coachEnabled && <>
-                <div data-browse-control data-staff-tab="availability" hidden={tab!=="availability"}>{person ? <CourseStaffAvailabilityEditor staffId={person.id} fitness onGuard={updateAvailabilityGuard}/> : <p className="text-sm text-earth-600">{courseDisplayText("建立教練後即可設定可授課時間。", music)}</p>}</div>
+                <div data-browse-control data-staff-tab="availability" hidden={tab!=="availability"}>{person ? <CourseStaffAvailabilityEditor storeId={previewStoreId} staffId={person.id} fitness onGuard={updateAvailabilityGuard}/> : <p className="text-sm text-earth-600">{courseDisplayText("建立教練後即可設定可授課時間。", music)}</p>}</div>
                 <div data-staff-tab="assignments" hidden={tab!=="assignments"}>{person?.assignments.length ? <CourseStaffAssignments items={person.assignments} label={person.active?"已排課程":"待交接課次"} fitness/> : <p className="text-sm text-earth-500">目前沒有已排課程。</p>}</div>
               </>}
               <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
@@ -693,15 +715,15 @@ export function CourseStaffWorkspace({
             </form>
           </div>
           <footer className={fitnessEditorFooter}>
-            {!music && (tab==="availability" || tab==="assignments") ? <div className="flex justify-end"><button type="button" className={button} disabled={pending || availabilityGuard.pending} onClick={close}>關閉</button></div> : readOnly ? <button key="edit" type="button" className={button} disabled={!canManage || person?.canEdit === false} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <>
-            <div className={`flex items-center gap-2 ${music ? "" : "justify-end"}`}>{!music && (!!person && !dirty || availabilityGuard.dirty) && <span className="mr-auto text-sm text-earth-500">{availabilityGuard.dirty?"請先儲存授課時間":"尚未修改"}</span>}<button type="button" className={button} disabled={pending || availabilityGuard.pending} onClick={close}>取消</button>
+            {!music && (tab==="availability" || tab==="assignments") ? <div className="flex justify-end"><button type="button" className={button} disabled={locked || availabilityGuard.pending} onClick={close}>關閉</button></div> : readOnly ? <button key="edit" type="button" className={button} disabled={!canManage || person?.canEdit === false} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <>
+            <div className={`flex items-center gap-2 ${music ? "" : "justify-end"}`}>{!music && (!!person && !dirty || availabilityGuard.dirty) && <span className="mr-auto text-sm text-earth-500">{availabilityGuard.dirty?"請先儲存授課時間":"尚未修改"}</span>}<button type="button" className={button} disabled={locked || availabilityGuard.pending} onClick={close}>取消</button>
             <button
               form="course-staff-form"
               type="submit"
               className={`${button} ${music ? "min-w-0 flex-1" : fitnessEditorSave} !border-primary-700 !bg-primary-700 !text-white`}
               disabled={pending || availabilityGuard.pending || availabilityGuard.dirty || (teachingDirty && !feesReady) || (!!person && !dirty)}
             >
-              {pending ? "儲存中…" : "儲存"}
+              {pending ? "儲存中…" : request.uncertain?"重試確認儲存結果":"儲存"}
             </button>
             </div>
             </>}

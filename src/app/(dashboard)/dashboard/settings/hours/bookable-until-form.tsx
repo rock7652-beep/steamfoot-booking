@@ -3,17 +3,17 @@ import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { savedBookingWindow, bookingWindowRevision } from "@/lib/course-booking-window-save";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { saveCourseBookingWindow } from "@/server/actions/course-booking-window";
 import { addTaiwanDuration, formatDateZh } from "@/lib/date-utils";
-import {
-  updateBookableUntilDate,
-  updateCustomerBookingWindow,
-} from "@/server/actions/shop";
 
 interface Props {
   course?: boolean;
+  spa?: boolean;
+  storeId?: string;
+  initialOpensAt?: string | null;
   direct?: boolean;
   /** 目前 ShopConfig.bookableUntilDate（"YYYY-MM-DD"）；null = 未設定 */
   initialDate: string | null;
@@ -25,9 +25,12 @@ interface Props {
 export function BookableUntilForm({
   initialDate,
   initialDays,
+  storeId,
+  initialOpensAt = null,
   today,
   canManage,
   course = false,
+  spa = false,
   direct = false,
 }: Props) {
   const radioGroup = useId();
@@ -39,14 +42,31 @@ export function BookableUntilForm({
   const [savedDate, setSavedDate] = useState(initialDate);
   const [savedDays, setSavedDays] = useState(initialDays);
   const [expanded, setExpanded] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [legacyPending, startTransition] = useTransition();
+  const pathname=usePathname();
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/${course?"course/":spa?"spa/":""}booking-window`,storeId??"",savedBookingWindow);
+  const pending=legacyPending||request.pending;
+  const locked=pending||request.uncertain;
+  const [savedOpensAt,setSavedOpensAt]=useState(initialOpensAt);
+  const [error,setError]=useState("");
   const router = useRouter();
   const saving = useRef(false);
 
   const dirty = mode !== savedMode || (mode === "fixed" ? fixedDate !== savedDate : days !== savedDays);
-  useSettingsPanelGuard(dirty, pending);
+  const sourceRevision=bookingWindowRevision({date:initialDate,days:initialDays,opensAt:initialOpensAt});
+  const [previousSource,setPreviousSource]=useState(sourceRevision);
+  const [awaitingSource,setAwaitingSource]=useState<string|null>(null);
+  if(previousSource!==sourceRevision){
+    setPreviousSource(sourceRevision);
+    if(!awaitingSource||awaitingSource===sourceRevision){
+      setAwaitingSource(null);setSavedDate(initialDate);setSavedDays(initialDays);setSavedOpensAt(initialOpensAt);setSavedMode(initialMode);
+      if(!dirty&&!locked){setMode(initialMode);setFixedDate(initialDate??"");setDays(initialDays);}
+    }
+  }
+  useSettingsPanelGuard(dirty, locked);
 
   function cancel() {
+    if(locked)return;
     setMode(savedMode);
     setFixedDate(savedDate ?? "");
     setDays(savedDays);
@@ -54,7 +74,7 @@ export function BookableUntilForm({
   }
 
   function save() {
-    if (saving.current || !dirty) return;
+    if (saving.current || (!dirty && !request.uncertain) || !canManage) return;
     saving.current = true;
     startTransition(async () => {
       try {
@@ -62,23 +82,18 @@ export function BookableUntilForm({
         toast.error("請選擇開放預約的截止日期");
         return;
       }
-      const result = course ? await saveCourseBookingWindow(mode === "fixed" ? {mode,date:fixedDate} : {mode,days}) :
-        mode === "fixed"
-          ? await updateBookableUntilDate({ date: fixedDate })
-          : await updateCustomerBookingWindow({ opensAt: null, days });
-      if (result.success) {
-        setSavedMode(mode);
-        setSavedDate(mode === "fixed" ? fixedDate : null);
-        setSavedDays(days);
-        toast.success(
-          mode === "fixed"
-            ? `已開放預約至 ${formatDateZh(fixedDate)}`
-            : `已設定自動開放未來 ${days} 天`,
-        );
+      setError("");
+      {
+        if(!storeId) {setError("門市資料缺失，請重新開啟設定");return;}
+        const result=await request.save({values:mode==="fixed"?{mode,date:fixedDate}:{mode,days},expectedRevision:bookingWindowRevision({date:savedDate,days:savedDays,opensAt:savedOpensAt})});
+        if(!result.success){setError(result.error);if(!result.uncertain)router.refresh();return;}
+        const saved=result.data;
+        const revision=bookingWindowRevision(saved);setAwaitingSource(revision===sourceRevision?null:revision);
+        setSavedDate(saved.date);setSavedDays(saved.days);setSavedOpensAt(saved.opensAt);
+        setSavedMode(saved.date?"fixed":"rolling");setMode(saved.date?"fixed":"rolling");setFixedDate(saved.date??"");setDays(saved.days);
+        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
         setExpanded(false);
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "儲存失敗");
+        return;
       }
       } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
       finally { saving.current = false; }
@@ -95,7 +110,7 @@ export function BookableUntilForm({
             : `未來 ${savedDays} 天・自動延長`}
         </p>
         {canManage && (
-          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-10 min-w-24 shrink-0 justify-self-end rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">
+          <button type="button" disabled={locked} onClick={() => expanded ? cancel() : setExpanded(true)} className="min-h-10 min-w-24 shrink-0 justify-self-end rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">
             {expanded ? "取消" : "修改"}
           </button>
         )}
@@ -112,7 +127,7 @@ export function BookableUntilForm({
               type="radio"
               name={radioGroup}
               checked={mode === "fixed"}
-              disabled={!canManage || pending}
+              disabled={!canManage || locked}
               onChange={() => setMode("fixed")}
             />
             開放至指定日期
@@ -123,7 +138,7 @@ export function BookableUntilForm({
               aria-label="開放預約截止日期"
               min={today}
               value={fixedDate}
-              disabled={!canManage || pending}
+              disabled={!canManage || locked}
               onChange={(event) => setFixedDate(event.target.value)}
               className="mt-1.5 min-h-9 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1 text-sm text-earth-800 disabled:opacity-60"
             />
@@ -138,7 +153,7 @@ export function BookableUntilForm({
               type="radio"
               name={radioGroup}
               checked={mode === "rolling"}
-              disabled={!canManage || pending}
+              disabled={!canManage || locked}
               onChange={() => setMode("rolling")}
             />
             自動開放未來幾天
@@ -147,7 +162,7 @@ export function BookableUntilForm({
             <select
               aria-label="自動開放天數"
               value={days}
-              disabled={!canManage || pending}
+              disabled={!canManage || locked}
               onChange={(event) => setDays(Number(event.target.value))}
               className="mt-1.5 min-h-9 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1 text-sm text-earth-800 disabled:opacity-60"
             >
@@ -162,17 +177,19 @@ export function BookableUntilForm({
       </fieldset>}
       {canManage && expanded && (
         <div className={`${direct ? styles.indented : ""} mt-2 flex flex-wrap justify-end gap-2`}>
-          {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>}
+          {direct && <button type="button" disabled={locked || !dirty} onClick={cancel} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>}
           <button
             type="button"
-            disabled={pending || !dirty || (mode === "fixed" && !fixedDate)}
+            disabled={pending || (!dirty && !request.uncertain) || (mode === "fixed" && !fixedDate)}
             onClick={save}
             className="min-h-10 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
           >
-            {pending ? "儲存中..." : "儲存設定"}
+            {pending ? "儲存中..." : request.uncertain ? "重試確認儲存結果" : "儲存設定"}
           </button>
         </div>
       )}
+
+      {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
 
       {!direct && expanded && <p className="mt-2 text-[11px] text-earth-500">
         目前生效至 <span className="font-semibold text-earth-800">{formatDateZh(savedMode === "fixed" && savedDate ? savedDate : addTaiwanDuration(today, savedDays, "DAY"))}</span>

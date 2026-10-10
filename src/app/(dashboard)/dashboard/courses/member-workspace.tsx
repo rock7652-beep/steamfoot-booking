@@ -1,4 +1,6 @@
 "use client";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
+import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import { DashboardLink } from "@/components/dashboard-link";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
@@ -127,7 +129,10 @@ export function CourseMemberWorkspace({
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
 
 
-  const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourcePlans);
+  const confirmedPlans=useConfirmedSettingsRows(sourcePlans,row=>JSON.stringify(coursePlanSnapshot(row)));
+  const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(confirmedPlans.rows);
+  const [savedPlanId,setSavedPlanId]=useState<string|null>(null);
+  const [formUncertain,setFormUncertain]=useState(false);
  const [hideTestData,setHideTestData]=useState(false);
  const [showInactive,setShowInactive]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
@@ -151,7 +156,7 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
-  function canLeave() { return !pending && !formPending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
+  function canLeave() { return !pending && !formPending && !formUncertain && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
@@ -187,8 +192,8 @@ export function CourseMemberWorkspace({
 
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
-  useCourseDraftGuard(!!panel&&dirty,!!panel&&(pending||formPending));
-  function finishDraftForm(){if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  useCourseDraftGuard(!!panel&&dirty,!!panel&&(pending||formPending||formUncertain));
+  function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
@@ -227,7 +232,7 @@ export function CourseMemberWorkspace({
   const filteredPlans = plans
     .filter(
       (p) =>
-        (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        p.id===savedPlanId || (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" ")).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
         (templateFilter === "all" || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || purchaseFilter === "all" || (p.customerPurchasable !== false) === (purchaseFilter === "customer")) &&
@@ -237,7 +242,7 @@ export function CourseMemberWorkspace({
     .sort((a, b) => Number(b.isActive) - Number(a.isActive)||order.compare(a,b));
   const activeFilteredPlans=filteredPlans.filter(p=>p.isActive),inactiveFilteredPlans=filteredPlans.filter(p=>!p.isActive);
   const inactiveForced=status==="inactive"||!!search||templateFilter!=="all"||planUnit!=="all"||purchaseFilter!=="all"||sharedFilter!=="all";
-  const inactiveExpanded=inactiveForced||showInactive;
+  const inactiveExpanded=inactiveForced||showInactive||inactiveFilteredPlans.some(p=>p.id===savedPlanId);
   const totalRows = activeFilteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   const visiblePlans=[...activeFilteredPlans.slice(currentPage*20,(currentPage+1)*20),...(inactiveExpanded?inactiveFilteredPlans:[])];
@@ -498,7 +503,7 @@ export function CourseMemberWorkspace({
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 
-              <CoursePlanDraftForm key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
+              <CoursePlanDraftForm storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && (
@@ -605,13 +610,13 @@ export function CourseMemberWorkspace({
           {panel !== "health" && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || (canAssign && sharingVisible && card?.allowShared)) && (
             <footer className={panel === "plan" && !music ? fitnessEditorFooter : "shrink-0 border-t border-earth-100 bg-white px-4 py-3"}>
               {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
-              <div className={`flex gap-2 ${panel === "plan" && !music ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending} onClick={close}>取消</button>}<button
+              <div className={`flex gap-2 ${panel === "plan" && !music ? "justify-end" : ""}`}>{panel === "plan" && !music && <button type="button" className={button} disabled={pending || formPending || formUncertain} onClick={close}>取消</button>}<button
                 form="course-member-form"
                 type="submit"
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : "w-full"} !bg-primary-700 !text-white`}
                 disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
-                {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
+                {pending || formPending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : formUncertain ? "重試確認儲存結果" : "儲存"}
               </button></div>
             </footer>
           )}

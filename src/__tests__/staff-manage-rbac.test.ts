@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ session: vi.fn(), target: vi.fn(), actor: vi.fn(), findFirst: vi.fn(), count: vi.fn(), update: vi.fn(), userUpdate: vi.fn(), upsert: vi.fn(), audit: vi.fn(), permissions: vi.fn(), feature: vi.fn(), tx: vi.fn(), raw: vi.fn() }));
+const m = vi.hoisted(() => ({ session: vi.fn(), target: vi.fn(), actor: vi.fn(), findFirst: vi.fn(), count: vi.fn(), update: vi.fn(), userUpdate: vi.fn(), upsert: vi.fn(),permissionBatch:vi.fn(), audit: vi.fn(), permissions: vi.fn(), feature: vi.fn(), tx: vi.fn(), raw: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireStaffSession: m.session }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: async () => "store-a" }));
 vi.mock("@/lib/db", () => ({ prisma: { staff: { findUnique: m.target }, $transaction: (fn: (tx: unknown) => unknown) => m.tx(fn) } }));
@@ -17,7 +17,7 @@ beforeEach(() => {
   m.tx.mockImplementation(async fn => fn({ $queryRaw: m.raw, $executeRaw: m.raw,
     user: { findUnique: m.actor, update: m.userUpdate },
     staff: { findUniqueOrThrow: m.target, findFirst: m.findFirst, count: m.count, update: m.update },
-    staffPermission: { findMany: m.permissions, upsert: m.upsert },
+    staffPermission: { findMany: m.permissions, createMany: m.upsert,updateMany:m.permissionBatch },
   }));
 });
 describe("three-role account management", () => {
@@ -64,7 +64,7 @@ it("saves Staff promotion and chosen permissions in the same transaction", async
   expect((await updateStaff("target", { role: "MANAGER", displayName: "升任店長", permissions: { "inventory.read": true, "inventory.cost.read": true } })).success).toBe(true);
   expect(m.tx).toHaveBeenCalledTimes(1);
   expect(m.userUpdate).toHaveBeenCalledWith({ where: { id: "u-target" }, data: { role: "MANAGER" } });
-  expect(m.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: { granted: true } }));
+  expect(m.upsert).toHaveBeenCalledWith(expect.objectContaining({data:expect.arrayContaining([expect.objectContaining({permission:"inventory.read",granted:true})])}));
 });
 it("rejects an unauthorized combined grant before changing basic data", async () => {
   expect((await updateStaff("target", { displayName: "不可先儲存", permissions: { "inventory.cost.read": true } })).success).toBe(false);

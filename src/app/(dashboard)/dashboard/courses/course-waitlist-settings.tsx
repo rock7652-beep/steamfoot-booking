@@ -1,38 +1,46 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { saveCourseWaitlistSettings } from "@/server/actions/course-waitlist";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
+import { waitlistValues,waitlistRevision,type SavedWaitlistSettings } from "@/lib/course-waitlist-save";
+import {usePathname} from "next/navigation";
+import { useState } from "react";
 
 export function CourseWaitlistSettings({
   initial,
+  storeId,
+  onSaved,
   canEdit,
 }: {
+  storeId:string;
+  onSaved:(values:SavedWaitlistSettings)=>void;
   initial: { enabled: boolean; defaultLimit: number; autoPromoteStopMinutes: number };
   canEdit: boolean;
 }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [defaultLimit, setDefaultLimit] = useState(initial.defaultLimit);
   const [stopMinutes, setStopMinutes] = useState(initial.autoPromoteStopMinutes);
-  const [pending, startTransition] = useTransition();
+  const pathname=usePathname();
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/waitlist`,storeId,waitlistValues);
+  const pending=request.pending;
+  const [saved,setSaved]=useState(initial);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const dirty = enabled !== initial.enabled || defaultLimit !== initial.defaultLimit || stopMinutes !== initial.autoPromoteStopMinutes;
+  const dirty = enabled !== saved.enabled || defaultLimit !== saved.defaultLimit || stopMinutes !== saved.autoPromoteStopMinutes;
 
-  function save() {
-    setMessage("");
-    setError("");
-    startTransition(async () => {
-      const result = await saveCourseWaitlistSettings({
-        enabled,
-        defaultLimit,
-        autoPromoteStopMinutes: stopMinutes,
-      });
-      if (!result.success) {
-        setError(result.error ?? "儲存失敗");
-        return;
-      }
-      setMessage("已儲存");
-    });
+  const [previousInitial,setPreviousInitial]=useState(initial);
+  if(previousInitial!==initial){
+    setPreviousInitial(initial);setSaved(initial);
+    if(!dirty && !pending && !request.uncertain){setEnabled(initial.enabled);setDefaultLimit(initial.defaultLimit);setStopMinutes(initial.autoPromoteStopMinutes);}
+  }
+  useSettingsPanelGuard(dirty,pending || request.uncertain);
+  async function save() {
+    if(!canEdit || pending || (!dirty && !request.uncertain))return;
+    setMessage("");setError("");
+    const result=await request.save({enabled,defaultLimit,autoPromoteStopMinutes:stopMinutes,expectedRevision:waitlistRevision(saved)});
+    if(!result.success){setError(result.error??"儲存失敗");return;}
+    setEnabled(result.data.enabled);setDefaultLimit(result.data.defaultLimit);setStopMinutes(result.data.autoPromoteStopMinutes);setSaved(result.data);onSaved(result.data);
+    setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
   }
 
   return (
@@ -41,7 +49,7 @@ export function CourseWaitlistSettings({
         <input
           type="checkbox"
           checked={enabled}
-          disabled={!canEdit || pending}
+          disabled={!canEdit || pending || request.uncertain}
           onChange={(event) => { setEnabled(event.target.checked); setMessage(""); }}
         />
         啟用
@@ -54,7 +62,7 @@ export function CourseWaitlistSettings({
           min={1}
           max={100}
           value={defaultLimit}
-          disabled={!canEdit || pending || !enabled}
+          disabled={!canEdit || pending || request.uncertain || !enabled}
           onChange={(event) => { setDefaultLimit(Number(event.target.value)); setMessage(""); }}
         />
       </label>
@@ -63,7 +71,7 @@ export function CourseWaitlistSettings({
         <select
           className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm"
           value={stopMinutes}
-          disabled={!canEdit || pending || !enabled}
+          disabled={!canEdit || pending || request.uncertain || !enabled}
           onChange={(event) => { setStopMinutes(Number(event.target.value)); setMessage(""); }}
         >
           <option value={0}>不停止</option>
@@ -78,11 +86,11 @@ export function CourseWaitlistSettings({
       {canEdit && (
         <button
           type="button"
-          disabled={pending || !dirty}
+          disabled={pending || (!dirty && !request.uncertain)}
           onClick={save}
           className="min-h-10 min-w-24 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-white disabled:opacity-30"
         >
-          {pending ? "儲存中…" : "儲存"}
+          {pending ? "儲存中…" : request.uncertain ? "重試確認儲存結果" : "儲存"}
         </button>
       )}
       {error && <p role="alert" className="sm:col-span-4 text-sm text-red-700">{error}</p>}

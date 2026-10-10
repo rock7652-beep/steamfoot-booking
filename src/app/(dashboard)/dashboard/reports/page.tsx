@@ -342,7 +342,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           <div>
             <h2 id="conversion-analysis-title" className="text-sm font-semibold text-earth-800">成交分析</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
-              首次開卡依所選期間的有效購買日期統計；區分期間內體驗開卡與之前體驗、期間內開卡，不含續卡。
+              體驗開卡率按本人首次體驗期間計算，之後購買也回算原體驗期間；總開卡依實際付款期間統計，不含續卡。
             </p>
           </div>
           {conversionMetrics ? (
@@ -353,7 +353,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                 ["追蹤開卡", conversionMetrics.trackedConversions, "count", "monthly-tracked-converted", "位"],
                 [`${periodWord}總開卡`, conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
                 [`${periodWord}體驗開卡率`, conversionMetrics.conversionRate, "rate", null, "%"],
-                ["未開卡人次", conversionMetrics.unconvertedCustomers, "count", null, "人次"],
+                ["未開卡顧客", conversionMetrics.unconvertedCustomers, "count", "monthly-unconverted", "位"],
               ].map(([label, metric, kind, segment, unit]) => {
                 const value = metric as (typeof conversionMetrics)["convertedCustomers"];
                 const isRate = kind === "rate";
@@ -379,6 +379,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>
 
+        {conversionMetrics && conversionMetrics.unidentifiedTrialVisits.current > 0 && <p className="text-sm text-amber-800">
+          舊整組資料有 {conversionMetrics.unidentifiedTrialVisits.current} 人次未建檔同行者；開卡率只計算可辨識的顧客，這些人次不會被當成已建檔顧客。
+        </p>}
         {trialSourceMetrics ? (
           <section aria-labelledby="trial-source-title" className="rounded-xl border border-earth-200 bg-white p-3">
             <h2 id="trial-source-title" className="text-sm font-semibold text-earth-800">體驗預約來源</h2>

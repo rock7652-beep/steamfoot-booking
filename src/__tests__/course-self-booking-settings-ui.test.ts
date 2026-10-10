@@ -2,7 +2,7 @@
 import { act, createElement as el, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ save: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
+const m = vi.hoisted(() => ({ save: vi.fn(), fetch:vi.fn(), refresh: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => m, usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/server/actions/course-settings", () => ({ saveCourseSelfBookingSettings: m.save }));
 vi.mock("@/components/feature-presentation", () => ({ FeatureEntry: ({ children }: { children: unknown }) => children }));
@@ -29,13 +29,18 @@ async function click(label: string, scope?: ParentNode) { const node = button(la
 async function render(extra: Partial<typeof props> = {}) { await act(async () => root.render(el(CourseSettingsWorkspace, { ...props, ...extra }))); }
 async function toggle() { await act(async () => row().querySelector<HTMLInputElement>("input")!.click()); }
 beforeEach(() => {
-  vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.resetAllMocks();
+  vi.stubGlobal("fetch",m.fetch.mockImplementation(async (_url:string,init:RequestInit)=>{
+    const input=JSON.parse(String(init.body));const result=await m.save({enabled:input.enabled});
+    return {json:async()=>result.success?{success:true,storeId:input.expectedStoreId,data:{enabled:result.enabled,revision:result.revision}}:result};
+  }));
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.history.replaceState(null, "", "/s/a/admin/dashboard/courses?view=settings&section=booking");
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   let revision = 0;
   m.save.mockImplementation(async ({ enabled }) => ({ success: true, enabled, revision: ++revision }));
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
+afterEach(async () => { await act(async () => root.unmount()); host.remove();vi.unstubAllGlobals(); });
 
 describe("per-store student self-booking settings", () => {
   it("defaults on and uses the existing collapsed row with explicit edit/save/cancel", async () => {
@@ -74,7 +79,7 @@ describe("per-store student self-booking settings", () => {
     await click("修改"); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
     m.save.mockResolvedValueOnce({ success: true, enabled: true, revision: 2 });
     await toggle(); await click("儲存"); expect(m.save).toHaveBeenLastCalledWith({ enabled: true });
-    expect(row().querySelector("p")!.textContent).toBe("開啟"); expect(m.refresh).toHaveBeenCalledTimes(2);
+    expect(row().querySelector("p")!.textContent).toBe("開啟"); expect(m.refresh).not.toHaveBeenCalled();
   });
 
   it.each(["response", "network"])("keeps a failed %s save editable, dirty and recoverable", async mode => {
@@ -82,8 +87,11 @@ describe("per-store student self-booking settings", () => {
     else m.save.mockRejectedValueOnce(new Error("offline"));
     await render(); await click("修改"); await toggle(); await click("儲存");
     expect(row().querySelector('[role="alert"]')).not.toBeNull(); expect(row().textContent).toContain("未儲存");
-    expect(button("儲存").disabled).toBe(false); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
-    await click("儲存"); expect(row().querySelector("p")!.textContent).toBe("關閉");
+    const label=mode==="network"?"重試確認儲存結果":"儲存";
+    expect(button(label).disabled).toBe(false); expect(row().querySelector<HTMLInputElement>("input")!.checked).toBe(false);
+    if(mode==="network"){expect(button("取消").disabled).toBe(true);expect(row().querySelector<HTMLInputElement>("input")!.disabled).toBe(true);}
+    await click(label);
+    if(mode==="network")expect(m.fetch.mock.calls[0][1].body).toBe(m.fetch.mock.calls[1][1].body); expect(row().querySelector("p")!.textContent).toBe("關閉");
   });
 
   it("shows the saved status without edit permission and isolates a different store", async () => {

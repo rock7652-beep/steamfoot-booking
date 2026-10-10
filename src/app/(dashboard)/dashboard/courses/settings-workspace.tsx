@@ -1,5 +1,7 @@
 "use client";
 
+import { trialSettingsRevision } from "@/lib/shop-settings-save";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { FeatureEntry } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
@@ -9,7 +11,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { InfoList } from "@/components/desktop";
-import { COURSE_SETTINGS_SECTIONS, courseSettingsSection, type CourseSettingsSection, type CourseSettingsSectionInput } from "@/lib/course-settings-sections";
+import { COURSE_SETTINGS_SECTIONS, courseSettingsSectionRevision,courseSettingsSection, type CourseSettingsSection, type CourseSettingsSectionInput } from "@/lib/course-settings-sections";
 import { CourseSettingsSectionEditor } from "./settings-section-editor";
 import type { UsageMetric } from "@/server/queries/usage";
 import { courseSettingsPanelHref, isCourseSettingsPanel } from "@/lib/course-settings-panels";
@@ -19,9 +21,9 @@ import { SettingsPanelContext, type SettingsPanelState } from "@/components/admi
 import { BookableUntilForm } from "../settings/hours/bookable-until-form";
 import { DutySchedulingToggle } from "../settings/duty/duty-toggle";
 import { TrialSettingsForm } from "../settings/trial/trial-form";
-import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import type { TrialSettings } from "@/lib/shop-config";
 import { CourseSelfBookingSettings } from "./course-self-booking-settings";
+import {waitlistRevision} from "@/lib/course-waitlist-save";
 import { CourseWaitlistSettings } from "./course-waitlist-settings";
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@/components/settings";
 
@@ -34,7 +36,7 @@ type Props = {
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
-  bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
+  bookingOpensAt?: string | null; bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
   selfBookingEnabled?: boolean; selfBookingRevision?: number;
   waitlistFeatureAvailable?: boolean;
@@ -88,7 +90,22 @@ const lead = (minutes: number) => {
   return `${minutes} 分鐘前`;
 };
 
-export function CourseSettingsWorkspace(props: Props) {
+export function CourseSettingsWorkspace(sourceProps: Props) {
+  type SectionRow={id:string;values:CourseSettingsSectionInput|TrialSettings};
+  const sources=useMemo<SectionRow[]>(()=>[
+    {id:"store",values:{section:"store",name:sourceProps.name,address:sourceProps.address,mapUrl:sourceProps.mapUrl,lineOfficialUrl:sourceProps.lineOfficialUrl,shopPhone:sourceProps.shopPhone??"",lineOfficialId:sourceProps.lineOfficialId??""}},
+    {id:"booking",values:{section:"booking",bookingLeadMinutes:sourceProps.bookingLeadMinutes,cancellationLeadMinutes:sourceProps.cancellationLeadMinutes}},
+    {id:"payment",values:{section:"payment",bankName:sourceProps.bankName,bankCode:sourceProps.bankCode,bankAccountNumber:sourceProps.bankAccountNumber}},
+    ...(sourceProps.trialSettings?[{id:"trial",values:sourceProps.trialSettings}]:[]),
+  ],[sourceProps]);
+  const confirmed=useConfirmedSettingsRows(sources,row=>"section" in row.values?courseSettingsSectionRevision(row.values):trialSettingsRevision(row.values));
+  const sections=confirmed.rows.filter(row=>row.id!=="trial").map(row=>row.values);
+  const waitlistSource=useMemo(()=>sourceProps.waitlistSettings?[{id:"waitlist",values:sourceProps.waitlistSettings}]:[],[sourceProps.waitlistSettings]);
+  const confirmedWaitlist=useConfirmedSettingsRows(waitlistSource,row=>waitlistRevision(row.values));
+  const dutySource=useMemo(()=>[{id:"duty",enabled:sourceProps.dutyEnabled??false}],[sourceProps.dutyEnabled]);
+  const confirmedDuty=useConfirmedSettingsRows(dutySource,row=>String(row.enabled));
+  const props:Props={...sourceProps,dutyEnabled:confirmedDuty.rows[0].enabled,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
+  const onSaved=(row:CourseSettingsSectionInput)=>confirmed.confirm({id:row.section,values:row});
   const router = useRouter();
   const search = useSearchParams();
   const pathname = usePathname();
@@ -138,7 +155,7 @@ export function CourseSettingsWorkspace(props: Props) {
     const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
-  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
+  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
     nav={<>
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
@@ -154,8 +171,8 @@ export function CourseSettingsWorkspace(props: Props) {
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定")} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>
-        <CourseSelfBookingSettings music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} />
-        {props.today && <BookableUntilForm course direct initialDate={props.bookableUntilDate ?? null} initialDays={props.bookingWindowDays ?? 14} today={props.today} canManage={props.canEdit} />}
+        <CourseSelfBookingSettings storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} />
+        {props.today && <BookableUntilForm key={`booking-window:${props.storeId}`} storeId={props.storeId} initialOpensAt={props.bookingOpensAt??null} course direct initialDate={props.bookableUntilDate ?? null} initialDays={props.bookingWindowDays ?? 14} today={props.today} canManage={props.canEdit} />}
         <Row title="營業與公休" summary="每週營業時間・特殊公休" controls={props.canHours ? <><DashboardLink href={courseSettingsPanelHref("/dashboard/courses/hours?tab=weekly")} scroll={false} className="inline-flex min-h-10 min-w-20 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">營業時間</DashboardLink><DashboardLink href={courseSettingsPanelHref("/dashboard/courses/hours?tab=special")} scroll={false} className="inline-flex min-h-10 min-w-20 items-center justify-center rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">特殊公休</DashboardLink></> : undefined} />
         <Row title="預約與取消截止" summary={"預約 " + lead(props.bookingLeadMinutes) + "・取消 " + lead(props.cancellationLeadMinutes)} expanded={expandedRow === "booking-cutoff"} onEdit={props.canEdit ? () => openRow("booking-cutoff") : undefined}>
           {editor({ section: "booking", bookingLeadMinutes: props.bookingLeadMinutes, cancellationLeadMinutes: props.cancellationLeadMinutes }, props.canEdit)}
@@ -169,11 +186,11 @@ export function CourseSettingsWorkspace(props: Props) {
             expanded={expandedRow === "waitlist"}
             onEdit={props.canEdit ? () => openRow("waitlist") : undefined}
           >
-            <CourseWaitlistSettings initial={props.waitlistSettings} canEdit={props.canEdit} />
+            <CourseWaitlistSettings key={props.storeId} storeId={props.storeId} initial={props.waitlistSettings} canEdit={props.canEdit} onSaved={values=>confirmedWaitlist.confirm({id:"waitlist",values})} />
           </Row>
         )}
         </FeatureEntry>
-        <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle enabled={props.dutyEnabled ?? false} course compact /> : undefined} />
+        <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle key={props.storeId} storeId={props.storeId} onSaved={enabled=>confirmedDuty.confirm({id:"duty",enabled})} enabled={props.dutyEnabled ?? false} course compact /> : undefined} />
       </SectionGuard></section>
       <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>
         {props.canPayment ? <Row title="銀行轉帳資訊" summary={props.bankAccountNumber ? `${props.bankName || "銀行帳戶"}・末四碼 ${props.bankAccountNumber.slice(-4)}` : "未設定"} expanded={expandedRow === "payment-bank"} onEdit={() => openRow("payment-bank")}>
@@ -185,7 +202,7 @@ export function CourseSettingsWorkspace(props: Props) {
           summary={`${props.trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${props.trialSettings.trialDefaultPrice}・調價 ${props.trialSettings.trialAllowPriceEdit ? `NT$ ${props.trialSettings.trialMinPrice}–${props.trialSettings.trialMaxPrice}` : "關閉"}`}
           expanded={expandedRow === "trial"}
           onEdit={() => openRow("trial")}
-        ><TrialSettingsForm storeId={props.storeId} initial={props.trialSettings} saveAction={saveCourseTrialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
+        ><TrialSettingsForm onSaved={values=>confirmed.confirm({id:"trial",values})} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
         <CustomerLabelsSettings />

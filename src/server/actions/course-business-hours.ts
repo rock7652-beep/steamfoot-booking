@@ -1,12 +1,18 @@
 "use server";
 
+import {courseDayHoursValues,courseDayHoursReceipt} from "@/lib/course-day-hours-save";
+import {readCourseHoursState,courseHoursRevision,intendedCourseHours,courseDayDetail,courseHoursReceiptData} from "@/server/services/course-hours-save-receipt";
+import {weeklyReceipt,weeklyRevision} from "@/lib/course-weekly-hours-save";
+import {parseBusinessPeriods} from "@/lib/business-periods";
+import {settingsSaveUncertain} from "@/server/services/settings-save-error";
+import {CACHE_TAGS} from "@/lib/cache-tags";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { courseManager, courseManagerRead, courseTransaction } from "@/server/services/course-access";
 import { handleActionError, AppError } from "@/lib/errors";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
-import { revalidatePath } from "next/cache";
+import { revalidateTag,revalidatePath } from "next/cache";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { resolvedCourseHours, assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 import { toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
@@ -14,11 +20,7 @@ import { toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v, "日期無效");
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const periodSchema = z.object({ openTime: time, closeTime: time, slotInterval: z.number().optional(), defaultCapacity: z.number().optional() });
-const schema = z.object({
-  date: dateSchema, status: z.enum(["open", "closed", "training", "custom"]),
-  mode: z.enum(["day", "copy", "permanent", "template", "weekly"]), weeks: z.number().int().min(0).max(104),
-  reason: z.string().trim().max(300), periods: z.array(periodSchema).max(8),
-});
+const schema=courseDayHoursValues.extend({receipt:courseDayHoursReceipt.optional()});
 async function rows(storeId:string) {
   const [hours,specials] = await Promise.all([prisma.businessHours.findMany({where:{storeId}}),prisma.specialBusinessDay.findMany({where:{storeId}})]);
   return {hours,specials};
@@ -46,14 +48,13 @@ export async function getCourseMonthScheduleSummary(year:number,month:number) {
 }
 export async function getCourseDayHours(date:string) {
   dateSchema.parse(date); const {storeId}=await courseManagerRead("business_hours.view");
-  const {hours,specials}=await rows(storeId); const value=resolvedCourseHours(date,hours,specials);
-  return {...value,specialDayId:specials.find(s=>s.date.toISOString().slice(0,10)===date)?.id??null,
-    slots:[] as {startTime:string;capacity:number;templateCapacity:number;isEnabled:boolean;inRange:boolean;override:string|null;overrideReason:string|null}[],
-    slotInterval:await courseStartInterval(storeId), defaultCapacity:6, weeklyDefault:hours.find(h=>h.dayOfWeek===value.dayOfWeek)??null};
+  const {hours,specials}=await rows(storeId);
+  return courseDayDetail({hours,specials},date,await courseStartInterval(storeId));
 }
 export async function saveCourseDayHours(input:unknown) {
   try {
     const {storeId}=await courseManager("business_hours.manage"); const d=schema.parse(input);
+    if(d.receipt&&d.receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟營業設定");
     const open=d.status==="open"||d.status==="custom";
     const periods=[...d.periods].sort((a,b)=>a.openTime.localeCompare(b.openTime));
     if(open && (d.status==="custom"||d.mode==="permanent"||d.mode==="template"||d.mode==="weekly")) {
@@ -65,7 +66,12 @@ export async function saveCourseDayHours(input:unknown) {
     const affected=new Set<string>();
     const weeklyMode=["weekly","permanent","template"].includes(d.mode);
     const weekday=weeklyMode?new Date(d.date+"T00:00:00Z").getUTCDay():null;
-    await courseTransaction(storeId,async tx=>{
+    const saved=await courseTransaction(storeId,async tx=>{
+      if(d.receipt){
+        const state=await readCourseHoursState(tx,storeId),current=courseHoursRevision(state);
+        if(current===courseHoursRevision(intendedCourseHours(state,d,interval)))return courseHoursReceiptData(state,d.date,interval);
+        if(current!==d.receipt.expectedRevision)throw new AppError("CONFLICT","營業或特殊日期已有更新，輸入已保留。請核對後再編輯。");
+      }
       if(d.mode==="permanent"||d.mode==="template"||d.mode==="weekly") {
         const dow=new Date(d.date+"T00:00:00Z").getUTCDay();
         await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${dow},${open},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
@@ -77,23 +83,41 @@ export async function saveCourseDayHours(input:unknown) {
         if(d.mode==="permanent"||d.mode==="template"||d.status==="open") {
           await tx.$executeRaw`DELETE FROM "SpecialBusinessDay" WHERE "storeId"=${storeId} AND date=${date}::date`;
         } else {
-          await tx.$executeRaw`INSERT INTO "SpecialBusinessDay" (id,"storeId",date,type,reason,"openTime","closeTime",segments,"createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${date}::date,${d.status},${d.reason||null},${first},${last},${json}::jsonb,NOW(),NOW()) ON CONFLICT ("storeId",date) DO UPDATE SET type=EXCLUDED.type,reason=EXCLUDED.reason,"openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
+          await tx.$executeRaw`INSERT INTO "SpecialBusinessDay" (id,"storeId",date,type,reason,"openTime","closeTime",segments,"slotInterval","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${date}::date,${d.status},${d.reason||null},${first},${last},${json}::jsonb,${interval},NOW(),NOW()) ON CONFLICT ("storeId",date) DO UPDATE SET type=EXCLUDED.type,reason=EXCLUDED.reason,"openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
         }
       }
       const sessions=await tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gte:new Date()}},select:{startsAt:true,endsAt:true}});
       await assertCourseSessionsFitHours(tx,storeId,sessions.filter(s=>{const date=toLocalDateStr(s.startsAt);return affected.has(date)||(weekday!==null&&new Date(date+"T00:00:00Z").getUTCDay()===weekday);}));
       await assertCourseDutyCoverage(tx,storeId);
+      if(d.receipt)return courseHoursReceiptData(await readCourseHoursState(tx,storeId),d.date,interval);
     });
-    revalidateBusinessHours(); revalidateSpecialDays(); revalidatePath("/dashboard/courses"); revalidatePath("/book");
+    let syncWarning=false;
+    try{
+      if(d.receipt){revalidateTag(CACHE_TAGS.businessHours,{expire:0});revalidateTag(CACHE_TAGS.specialDays,{expire:0});revalidatePath("/dashboard/settings/hours");revalidatePath("/dashboard/duty");}
+      else {revalidateBusinessHours();revalidateSpecialDays();}
+      revalidatePath("/dashboard/courses");revalidatePath("/dashboard/courses/hours");revalidatePath("/book");
+    }catch(error){if(!d.receipt)throw error;syncWarning=true;}
+    if(d.receipt)return {success:true as const,storeId,data:saved!,syncWarning};
     return {success:true as const};
-  } catch(error) { return handleActionError(error); }
+  } catch(error) { return {...handleActionError(error),uncertain:settingsSaveUncertain(error)}; }
+}
+
+type WeeklyDatabaseRow={dayOfWeek:number;isOpen:boolean;openTime:string|null;closeTime:string|null;segments:unknown;slotInterval:number;defaultCapacity:number};
+async function readWeeklyReceipt(tx:Parameters<Parameters<typeof courseTransaction>[1]>[0],storeId:string){
+  const rows=await tx.$queryRaw<WeeklyDatabaseRow[]>`SELECT "dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity" FROM "BusinessHours" WHERE "storeId"=${storeId}`;
+  return ["週日","週一","週二","週三","週四","週五","週六"].map((dayName,dayOfWeek)=>{
+    const row=rows.find(r=>r.dayOfWeek===dayOfWeek);
+    return {dayName,dayOfWeek,persisted:!!row,isOpen:row?.isOpen??true,openTime:row?.openTime??null,closeTime:row?.closeTime??null,periods:row?parseBusinessPeriods(row.segments,row).map(({openTime,closeTime})=>({openTime,closeTime})):[]};
+  });
 }
 
 /** Save all edited weekdays atomically; special dates keep their existing overrides. */
 export async function saveCourseWeeklyHours(input: unknown) {
   try {
     const { storeId } = await courseManager("business_hours.manage");
-    const days = z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), isOpen: z.boolean(), periods: z.array(periodSchema).max(8) })).min(1).max(7).parse(input);
+    const receipt=Array.isArray(input)?undefined:z.object({receipt:weeklyReceipt}).parse(input).receipt;
+    if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟營業時間設定。");
+    const days = z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), isOpen: z.boolean(), periods: z.array(periodSchema).max(8) })).min(1).max(7).parse(Array.isArray(input)?input:z.object({days:z.unknown()}).parse(input).days);
     const weekdays = new Set(days.map(day => day.dayOfWeek));
     if (weekdays.size !== days.length) throw new AppError("VALIDATION", "同一星期不可重複設定");
     const normalized = days.map(day => {
@@ -102,7 +126,19 @@ export async function saveCourseWeeklyHours(input: unknown) {
       return { ...day, periods };
     });
     const interval=await courseStartInterval(storeId);
-    await courseTransaction(storeId, async tx => {
+    const saved=await courseTransaction(storeId, async tx => {
+      const current=receipt?await readWeeklyReceipt(tx,storeId):undefined;
+      if(receipt){
+        if(new Set(receipt.expected.map(day=>day.dayOfWeek)).size!==receipt.expected.length)throw new AppError("VALIDATION","修訂星期不可重複");
+        for(const day of normalized){
+          const before=current!.find(r=>r.dayOfWeek===day.dayOfWeek)!;
+          const expected=receipt.expected.find(r=>r.dayOfWeek===day.dayOfWeek);
+          if(!expected)throw new AppError("VALIDATION","缺少星期修訂資料");
+          const desired={...day,persisted:true};
+          if(weeklyRevision(before)!==weeklyRevision(expected) && weeklyRevision(before)!==weeklyRevision(desired))throw new AppError("CONFLICT","營業時間已有更新，輸入已保留。請核對後再編輯。");
+        }
+        if(normalized.every(day=>weeklyRevision(current!.find(r=>r.dayOfWeek===day.dayOfWeek))===weeklyRevision({...day,persisted:true})))return current!;
+      }
       for (const day of normalized) {
         const first = day.isOpen ? day.periods[0].openTime : null;
         const last = day.isOpen ? day.periods.at(-1)!.closeTime : null;
@@ -112,8 +148,14 @@ export async function saveCourseWeeklyHours(input: unknown) {
       const sessions = await tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: new Date() } }, select: { startsAt: true, endsAt: true } });
       await assertCourseSessionsFitHours(tx, storeId, sessions.filter(session => weekdays.has(new Date(toLocalDateStr(session.startsAt) + "T00:00:00Z").getUTCDay())));
       await assertCourseDutyCoverage(tx, storeId);
+      if(receipt)return readWeeklyReceipt(tx,storeId);
     });
-    revalidateBusinessHours(); revalidatePath("/dashboard/courses"); revalidatePath("/book");
+    let syncWarning=false;
+    try{
+      if(receipt){revalidateTag(CACHE_TAGS.businessHours,{expire:0});revalidateTag(CACHE_TAGS.specialDays,{expire:0});revalidatePath("/dashboard/settings/hours");revalidatePath("/dashboard/duty");}else revalidateBusinessHours();
+      revalidatePath("/dashboard/courses");revalidatePath("/dashboard/courses/hours");revalidatePath("/book");
+    }catch(error){if(!receipt)throw error;syncWarning=true;}
+    if(receipt)return {success:true as const,storeId,data:saved!,syncWarning};
     return { success: true as const };
-  } catch (error) { return handleActionError(error); }
+  } catch (error) { return {...handleActionError(error),uncertain:settingsSaveUncertain(error)}; }
 }

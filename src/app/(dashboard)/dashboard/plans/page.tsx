@@ -47,14 +47,14 @@ export default async function PlansPage() {
     : false;
   const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
 
-  const isSpa = plansStoreId ? await getStoreIndustryModule(plansStoreId) === "spa" : false;
-  const spaAssignments = isSpa && plansStoreId ? await getSpaServiceStaff(plansStoreId) : {people:[],services:[]};
-
-  const spaLocations = isSpa && plansStoreId ? await spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}) : [];
-
+  const isSpa = isSpaStore;
   if(isSpa && plansStoreId){
-    const packages=await spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}});
-    return <PageShell><PageHeader title="方案管理" subtitle="設定服務、人員與次數方案"/><SpaSkillsManager services={spaAssignments.services} people={spaAssignments.people} locations={spaLocations} canManage={canManage}/><SpaPackagesManager packages={packages.map(p=>({...p,price:Number(p.price)}))} services={spaAssignments.services} canManage={canManage}/></PageShell>;
+    const [spaAssignments, spaLocations, packages] = await Promise.all([
+      getSpaServiceStaff(plansStoreId),
+      spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}),
+      spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}}),
+    ]);
+    return <PageShell><PageHeader title="方案管理" subtitle="設定服務、人員與次數方案"/><SpaSkillsManager key={plansStoreId} storeId={plansStoreId} services={spaAssignments.services} people={spaAssignments.people} locations={spaLocations} canManage={canManage}/><SpaPackagesManager key={plansStoreId} storeId={plansStoreId} packages={packages.map(p=>({...p,price:Number(p.price)}))} services={spaAssignments.services} canManage={canManage}/></PageShell>;
   }
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
@@ -128,7 +128,7 @@ export default async function PlansPage() {
             療程資料功能更新中，待資料表就緒後即可儲存。
           </div>
         ) : null}
-        {isSpaStore ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage && spaSchemaReady} /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
+        {isSpaStore ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage && spaSchemaReady} /> : <PlansManager storeId={plansStoreId??""} key={plansStoreId} initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
       </PageShell>
     </FeatureGate>
   );

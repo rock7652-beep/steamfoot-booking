@@ -69,10 +69,29 @@ export const SPORTS_ROSTER_PREVIEW_BRANCH = "fix/course-roster-two-line-20261008
 export const MODULE_ROSTER_PREVIEW_BRANCH = "fix/unify-module-notes-density";
 export const INLINE_BOOKING_NOTES_PREVIEW_BRANCH = "feat/inline-booking-notes-local-20261009";
 export const CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH = "feat/customer-course-portal-simplify-20261009";
+export const SETTINGS_PERFORMANCE_PREVIEW_BRANCH = "fix/module-settings-save-latency-20261010";
 export const ROOM_PERFORMANCE_PREVIEW_BRANCH = "fix/course-room-save-performance-20261010";
 export const MUSIC_SETUP_PREVIEW_BRANCH = "fix/music-teacher-terminology-20261009";
+export const BOOKING_PARTICIPANTS_PREVIEW_BRANCH = "feat/booking-participants-20261010";
+
+/** @param {Readonly<Record<string, string | undefined>>} env */
+export function assertBookingParticipantsPreviewEnvironment(env) {
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== BOOKING_PARTICIPANTS_PREVIEW_BRANCH ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
+    throw new Error("Booking participants requires its exact authorized Vercel Preview branch and repository.");
+  }
+  if (env.BOOKING_PARTICIPANTS_ENABLED !== "true" || env.CONSULTATION_PREVIEW_INTAKE_ENABLED === "true") {
+    throw new Error("Booking participants Preview requires its own opt-in flag and no public consultation intake.");
+  }
+  if (![env.DATABASE_URL, env.DIRECT_URL].every(isIsolatedConsultationDatabaseUrl)) {
+    throw new Error("Booking participants Preview requires the existing isolated database for both connections.");
+  }
+}
 export const HQ_AUDIT_REFRESH_PREVIEW_BRANCH = "fix/hq-audit-auto-refresh-20261010";
 export const TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH = "fix/hide-trial-plan-options-20261010";
+export const TODO_DISMISS_PREVIEW_BRANCH = "fix/instant-todo-dismiss-20261010";
 export const STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH = "fix/steam-roster-legacy-ipad-20261010";
 export const STEAM_ROSTER_DENSITY_PREVIEW_BRANCH = "fix/steam-roster-ipad-density-20261010";
 
@@ -146,7 +165,7 @@ export function assertSportsRosterPreviewEnvironment(env) {
  */
 export function assertModuleRosterPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
+      ![MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TODO_DISMISS_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
@@ -195,7 +214,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview"}
+ * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
@@ -209,7 +228,11 @@ export function assertReviewedReleaseEnvironment(env) {
     assertOperationGuidePreviewEnvironment(env);
     return "operation-guide-preview";
   }
-  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+  if (env.VERCEL_GIT_COMMIT_REF === BOOKING_PARTICIPANTS_PREVIEW_BRANCH) {
+    assertBookingParticipantsPreviewEnvironment(env);
+    return "booking-participants-preview";
+  }
+  if ([MODULE_ROSTER_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TODO_DISMISS_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertModuleRosterPreviewEnvironment(env);
     return "module-roster-preview";
   }

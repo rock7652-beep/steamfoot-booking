@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { useRetainedState } from "@/components/operations/operation-scope";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -26,22 +27,20 @@ type VisibilityFilter = "all" | "public" | "internal";
 type CategoryFilter = "all" | Exclude<PlanCategory, "TRIAL">;
 
 interface Props {
+  storeId:string;
   initialPlans: PlanRow[];
   canManage: boolean;
   readOnly?: boolean;
 }
 
 export function PlansManager({
-  initialPlans,
+  storeId,initialPlans,
   canManage,
   readOnly = false,
 }: Props) {
-  // Lifted into client state so create/edit/toggle can patch in place
-  // without router.refresh — server still revalidates the cache, so a
-  // future navigation gets fresh data.
-  const [plans, setPlans] = useState<PlanRow[]>(initialPlans);
-  const [sourcePlans, setSourcePlans] = useState(initialPlans);
-  if (sourcePlans !== initialPlans) { setSourcePlans(initialPlans); setPlans(initialPlans); }
+  const confirmed=useConfirmedSettingsRows(initialPlans,row=>JSON.stringify([new Date(row.updatedAt).toISOString(),row.name,Number(row.price),row.sessionCount,row.validityDays,row.description,row.sortOrder,row.isActive,row.publicVisible]));
+  const plans=confirmed.rows;
+  const [savedPlanId,setSavedPlanId]=useState<string|null>(null);
   const [statusFilter, setStatusFilter] = useRetainedState<StatusFilter>("plans:status", "active", (v): v is StatusFilter => v === "active" || v === "all");
   const [visibilityFilter, setVisibilityFilter] =
     useRetainedState<VisibilityFilter>("plans:visibility", "all", (v): v is VisibilityFilter => v === "all" || v === "public" || v === "internal");
@@ -76,6 +75,7 @@ export function PlansManager({
 
   const visiblePlans = useMemo(() => {
     return plans.filter((p) => {
+      if(p.id===savedPlanId)return true;
       if (statusFilter === "active" && !p.isActive) return false;
       if (visibilityFilter === "public" && !(p.isActive && p.publicVisible))
         return false;
@@ -84,31 +84,13 @@ export function PlansManager({
       if (categoryFilter !== "all" && p.category !== categoryFilter)
         return false;
       return true;
-    }).sort((a, b) => Number(b.isActive) - Number(a.isActive));
-  }, [plans, statusFilter, visibilityFilter, categoryFilter]);
+    }).sort((a, b) => Number(b.isActive) - Number(a.isActive)||a.sortOrder-b.sortOrder||a.createdAt.getTime()-b.createdAt.getTime());
+  }, [plans, savedPlanId,statusFilter, visibilityFilter, categoryFilter]);
 
   function patchPlan(id: string, patch: Partial<PlanRow>) {
-    setPlans((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    const previous=plans.find(row=>row.id===id);if(previous)confirmed.confirm({...previous,...patch});
   }
-
-  function handleSaved(row: PlanRow) {
-    setPlans((prev) => {
-      const idx = prev.findIndex((p) => p.id === row.id);
-      if (idx === -1) {
-        // New plan — sort by sortOrder asc (matches server order). New plan
-        // with no sortOrder lands at end of its tier; close enough until
-        // next refresh.
-        return [...prev, row].sort(
-          (a, b) =>
-            a.sortOrder - b.sortOrder ||
-            a.createdAt.getTime() - b.createdAt.getTime(),
-        );
-      }
-      const next = [...prev];
-      next[idx] = row;
-      return next;
-    });
-  }
+  function handleSaved(row:PlanRow){confirmed.confirm(row);setSavedPlanId(row.id);}
 
   return (
     <>
@@ -326,7 +308,7 @@ export function PlansManager({
       )}
 
       {canManage && (
-        <PlanFormDrawer
+        <PlanFormDrawer storeId={storeId}
           open={!!drawer}
           mode={drawer?.mode ?? "new"}
           plan={plans.find(p => p.id === drawer?.plan?.id) ?? drawer?.plan ?? null}

@@ -2,7 +2,9 @@
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
-import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
+import { createHash } from "node:crypto";
+import { coursePlanValues,coursePlanReceipt,savedCoursePlan } from "@/lib/course-plan-save";
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
 import { resolveMusicSubjectRule } from "@/server/services/music-subject-rule";
 import { courseHistoryRange } from "@/lib/course-history-range";
 import {validateCourseTerm} from "@/server/services/course-term";
@@ -152,31 +154,13 @@ export async function saveCourseCustomer(input: unknown) {
 
 export async function saveCoursePointPlan(input: unknown) {
   try {
-    const schema = z
-      .object({
-        id: id.optional(),
-        expectedSnapshot: z.string().max(30000).optional(),
-        musicSetup: musicSubjectRuleSchema.optional(),
-        name: z.string().trim().min(1).max(80),
-        points: z.number().int().min(1).max(100000),
-        price: z.number().int().min(0).max(10000000),
-        storeCost: z.number().int().min(0).max(10000000).default(0),
-        termSessionIds:z.array(id).max(52).default([]),
-        customerPurchasable: z.boolean().default(true),
-        allowShared: z.boolean().optional(),
-        validDays: z.number().int().min(1).max(3650),
-        isActive: z.boolean().default(true),
-        unit: z.enum(["POINT", "SESSION"]).default("POINT"),
-        musicBonusLessons:z.number().int().min(0).max(1000).default(0),
-        musicTermSizes:z.array(z.number().int().min(1).max(1000)).max(100).default([]),
-        musicTerms:z.number().int().min(1).max(100).nullable().default(null),
-        templateIds: z.array(id).max(200).default([]),
-      })
-;
-    const { id: planId, expectedSnapshot, musicSetup, allowShared, ...fields } = schema.parse(input);
+    const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional(),receipt:coursePlanReceipt.optional()});
+    const { id: planId, expectedSnapshot, musicSetup, allowShared, receipt, ...fields } = schema.parse(input);
     const data = { ...fields, allowShared: allowShared ?? false };
-    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
+    const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true}).parse(JSON.parse(expectedSnapshot)) : null;
     const { storeId } = await courseManager("plans.edit");
+    if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
+    const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const isMusic = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.music", status: "ENABLED" },
       select: { storeId: true },
@@ -196,7 +180,7 @@ export async function saveCoursePointPlan(input: unknown) {
       if (data.termSessionIds.length) throw new AppError("VALIDATION","音樂固定時段由課表管理，購買方案不預先綁定指定課次");
     } else if (!isMusic && (musicSetup || data.musicBonusLessons || data.musicTermSizes.length || data.musicTerms!==null)) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
-    await courseTransaction(storeId,async tx=>{
+    const saved = await courseTransaction(storeId,async tx=>{
     if(isMusic && musicSetup){
       if(data.musicTerms===null || data.termSessionIds.length)throw new AppError("VALIDATION","請設定購買期數；實際上課日期由課表安排");
       const template=await resolveMusicSubjectRule(tx,storeId,musicSetup);
@@ -207,7 +191,8 @@ export async function saveCoursePointPlan(input: unknown) {
       data.musicTermSizes=Array(data.musicTerms).fill(template.musicTermLessons!);
       if(data.points>100000)throw new AppError("VALIDATION","總堂數超過上限");
     }
-    const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
+    const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;
+    if(receipt && planId && !previous)throw new AppError("NOT_FOUND","找不到本店方案");
     // Hidden/locked controls may be omitted by a form. Preserve an existing choice.
     if (previous && !isMusic && allowShared === undefined) data.allowShared = previous.allowShared;
     if (data.allowShared && !previous?.allowShared) {
@@ -224,19 +209,27 @@ export async function saveCoursePointPlan(input: unknown) {
     const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
     if(previous?.termSessionIds.length&&!sameTerm&&await tx.coursePurchase.count({where:{storeId,planId}}))throw new AppError("CONFLICT","此期課已有購買紀錄，請新增下一期方案，保留原期別課次。");
     data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
+    const snapshotSchema = coursePlanValues.omit({id:true,musicSetup:true});
+    const sameValues = previous && JSON.stringify(snapshotSchema.parse(previous)) === JSON.stringify(snapshotSchema.parse(data));
+    if (receipt && previous && (!planId || expected && JSON.stringify(snapshotSchema.parse(previous)) !== JSON.stringify(snapshotSchema.parse(expected)))) {
+      if(sameValues)return previous;
+      throw new AppError("CONFLICT","方案已有更新，輸入已保留。請核對目前資料後再編輯。");
+    }
     if (planId) {
       const result = await tx.coursePointPlan.updateMany({
         where: { id: planId, storeId, ...(expected ? {...expected,musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
         data,
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
+      if(receipt)return tx.coursePointPlan.findFirstOrThrow({where:{id:planId,storeId}});
     } else
-      await tx.coursePointPlan.create({ data: { ...data, storeId } });
+      return tx.coursePointPlan.create({ data: { ...data, storeId, ...(receiptId?{id:receiptId}:{}) } });
     });
-    refresh();
-    return { success: true as const };
+    let syncWarning=false;
+    try {refresh();}catch(error){if(!receipt)throw error;syncWarning=true;}
+    return { success: true as const, storeId, data: receipt?savedCoursePlan.parse(saved):undefined, syncWarning };
   } catch (error) {
-    return handleActionError(error);
+    return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};
   }
 }
 

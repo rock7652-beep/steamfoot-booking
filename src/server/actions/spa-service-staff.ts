@@ -1,4 +1,7 @@
 "use server";
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
+import { createHash } from "node:crypto";
+import { spaServiceValues, spaSaveReceipt, spaServiceRevision } from "@/lib/spa-settings-save";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { spaPrisma } from "@/lib/spa-db";
@@ -306,76 +309,44 @@ export async function getSpaAvailableProviders(input: {
   }
 }
 
-const serviceDetails = z.object({
-  id: z.string().min(1).optional(),
-  baseName: z.string().trim().min(1).max(100),
-  variantLabel: z.string().trim().max(100),
-  price: z.number().int().min(0).max(1000000),
-  serviceMinutes: z.number().int().min(1).max(1440),
-  bufferMinutes: z.number().int().min(0).max(240),
-  isActive: z.boolean(),
-  publicVisible: z.boolean(),
-  staffIds: z.array(z.string()).max(200),
-  locationIds: z.array(z.string()).max(200),
-});
-export async function saveSpaServiceDetails(
-  input: z.infer<typeof serviceDetails>,
-) {
+const serviceDetails = spaServiceValues.extend({receipt:spaSaveReceipt.optional()});
+export async function saveSpaServiceDetails(input:z.infer<typeof serviceDetails>) {
   try {
-    const storeId = await spaResourceStore("wallet.create");
-    const d = serviceDetails.parse(input);
-    await spaPrisma.$transaction(async (tx) => {
+    const storeId=await spaResourceStore("wallet.create");
+    const {receipt,...d}=serviceDetails.parse(input);
+    if(receipt&&receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","店舖已切換，請回原店確認後再操作。");
+    const saved=await spaPrisma.$transaction(async tx=>{
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
-      if (
-        d.id &&
-        !(await tx.spaTreatment.findFirst({ where: { storeId, id: d.id } }))
-      )
-        throw new AppError("FORBIDDEN", "找不到本店服務");
-      const staffIds = [...new Set(d.staffIds)],
-        locationIds = [...new Set(d.locationIds)];
-      if (
-        (await prisma.staff.count({
-          where: { storeId, id: { in: staffIds }, status: "ACTIVE" },
-        })) !== staffIds.length
-      )
-        throw new AppError("VALIDATION", "請選擇本店啟用人員");
-      if (
-        (await tx.spaServiceLocation.count({
-          where: { storeId, id: { in: locationIds } },
-        })) !== locationIds.length
-      )
-        throw new AppError("VALIDATION", "服務位置不屬於本店");
-      const data = {
-        name: d.baseName,
-        variantLabel: d.variantLabel,
-        price: d.price,
-        serviceMinutes: d.serviceMinutes,
-        bufferMinutes: d.bufferMinutes,
-        isActive: d.isActive,
-        publicVisible: d.publicVisible,
-      };
-      const service = d.id
-        ? await tx.spaTreatment.update({
-            where: { id_storeId: { id: d.id, storeId } },
-            data,
-          })
-        : await tx.spaTreatment.create({ data: { storeId, ...data } });
-      await setProviders(tx, storeId, service.id, staffIds);
-      await tx.spaTreatmentServiceLocation.deleteMany({
-        where: { storeId, treatmentId: service.id },
-      });
-      await tx.spaTreatmentServiceLocation.createMany({
-        data: locationIds.map((serviceLocationId) => ({
-          storeId,
-          treatmentId: service.id,
-          serviceLocationId,
-        })),
-      });
+      const staffIds=[...new Set(d.staffIds)],locationIds=[...new Set(d.locationIds)];
+      if(await prisma.staff.count({where:{storeId,id:{in:staffIds},status:"ACTIVE"}})!==staffIds.length)throw new AppError("VALIDATION","請選擇本店啟用人員");
+      if(await tx.spaServiceLocation.count({where:{storeId,id:{in:locationIds}}})!==locationIds.length)throw new AppError("VALIDATION","服務位置不屬於本店");
+      const receiptId=receipt?`service_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}`:undefined;
+      const previous=(d.id||receiptId)?await tx.spaTreatment.findFirst({where:{id:d.id??receiptId,storeId},include:{skills:true,serviceLocations:true}}):null;
+      if(d.id&&!previous)throw new AppError("FORBIDDEN","找不到本店服務");
+      if(previous&&receipt){
+        // Match the same provider eligibility as the existing catalog, including
+        // legacy category skills, while holding the SPA store mutation lock.
+        const [people,links]=await Promise.all([
+          prisma.staff.findMany({where:{storeId,status:"ACTIVE"},select:{id:true}}),
+          tx.spaStaffSkill.findMany({where:{storeId,skill:{isActive:true}}}),
+        ]);
+        const current={id:previous.id,name:[previous.name,previous.variantLabel].filter(Boolean).join(" · "),baseName:previous.name,variantLabel:previous.variantLabel??"",price:Number(previous.price),serviceMinutes:previous.serviceMinutes,bufferMinutes:previous.bufferMinutes,isActive:previous.isActive,publicVisible:previous.publicVisible,staffIds:people.filter(p=>previous.skills.every(s=>links.some(l=>l.staffId===p.id&&l.skillId===s.skillId))).map(p=>p.id),locationIds:previous.serviceLocations.map(l=>l.serviceLocationId)};
+        const revision=spaServiceRevision(current);
+        if(!d.id||(receipt.expectedRevision&&receipt.expectedRevision!==revision)){
+          if(revision!==spaServiceRevision(d))throw new AppError("CONFLICT","服務資料已有更新，請核對清單後再編輯。");
+          return {...current,revision};
+        }
+      }
+      const data={name:d.baseName,variantLabel:d.variantLabel,price:d.price,serviceMinutes:d.serviceMinutes,bufferMinutes:d.bufferMinutes,isActive:d.isActive,publicVisible:d.publicVisible};
+      const service=d.id?await tx.spaTreatment.update({where:{id_storeId:{id:d.id,storeId}},data}):await tx.spaTreatment.create({data:{...(receiptId?{id:receiptId}:{}),storeId,...data}});
+      await setProviders(tx,storeId,service.id,staffIds);
+      await tx.spaTreatmentServiceLocation.deleteMany({where:{storeId,treatmentId:service.id}});
+      await tx.spaTreatmentServiceLocation.createMany({data:locationIds.map(serviceLocationId=>({storeId,treatmentId:service.id,serviceLocationId}))});
+      if(!receipt)return undefined;
+      const row={id:service.id,name:[service.name,service.variantLabel].filter(Boolean).join(" · "),baseName:service.name,variantLabel:service.variantLabel??"",price:Number(service.price),serviceMinutes:service.serviceMinutes,bufferMinutes:service.bufferMinutes,isActive:service.isActive,publicVisible:service.publicVisible,staffIds,locationIds};
+      return {...row,revision:spaServiceRevision(row)};
     });
-    refresh();
-    revalidatePath("/dashboard/spa-resources");
-    return { success: true as const };
-  } catch (e) {
-    return handleActionError(e);
-  }
+    let syncWarning=false;try{refresh();revalidatePath("/dashboard/spa-resources");}catch{syncWarning=true;}
+    return {success:true as const,storeId,data:saved,syncWarning};
+  }catch(e){return {...handleActionError(e),uncertain:settingsSaveUncertain(e)};}
 }

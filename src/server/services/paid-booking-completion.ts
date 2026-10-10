@@ -44,6 +44,13 @@ export async function completePaidBookingInTransaction(
     },
   });
 
+  await awardPaidServiceAttendanceInTransaction(tx, input);
+}
+
+/** Reused by each actual participant; never award a companion to the booker. */
+export async function awardPaidServiceAttendanceInTransaction(tx: Prisma.TransactionClient, input: {
+  customerId: string; storeId: string; bookingDate: Date; slotTime: string;
+}) {
   try {
     const { awardPoints } = await import("@/server/actions/points");
     await awardPoints({
@@ -56,7 +63,7 @@ export async function completePaidBookingInTransaction(
   } catch {
     console.error(
       "[Points] Failed to award ATTENDANCE points for booking",
-      input.bookingId,
+      input.customerId,
     );
   }
 

@@ -1,10 +1,12 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),execute:vi.fn(),rules:vi.fn(),bank:vi.fn(),revalidate:vi.fn(),writable:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),execute:vi.fn(),rules:vi.fn(),bank:vi.fn(),revalidate:vi.fn(),writable:vi.fn(),read:vi.fn(),routeRevalidate:vi.fn()}));
 vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:m.writable}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
-vi.mock("@/lib/revalidation",()=>({revalidateShopConfig:m.revalidate}));
+vi.mock("@/lib/revalidation",()=>({revalidateShopConfig:m.revalidate,revalidateShopConfigInRoute:m.routeRevalidate}));
 vi.mock("@/server/actions/shop",()=>({updateShopBankInfo:m.bank}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
+vi.mock("@/server/services/course-settings-section-read",()=>({readCourseSettingsSection:m.read}));
+import {courseSettingsSectionRevision} from "@/lib/course-settings-sections";
 import {saveCourseSettings,saveCoursePaymentSettings,saveCourseSettingsSection} from "@/server/actions/course-settings";
 import {AppError} from "@/lib/errors";
 const input={name:"測試店",address:"測試地址",mapUrl:"",lineOfficialUrl:"",bookingLeadMinutes:0,cancellationLeadMinutes:30};
@@ -52,4 +54,18 @@ describe("isolated course settings sections",()=>{
   m.manager.mockRejectedValueOnce(new AppError("FORBIDDEN","無權限"));expect(await saveCourseSettingsSection(data)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
   m.writable.mockRejectedValueOnce(new AppError("FORBIDDEN","已到期"));expect(await saveCourseSettingsSection(data)).toMatchObject({success:false,error:"已到期"});expect(m.transaction).not.toHaveBeenCalled();
  });
+});
+
+it("returns the committed section, confirms an applied retry, and rejects a stale different edit",async()=>{
+ const old={section:"payment",bankName:"舊銀行",bankCode:"123",bankAccountNumber:"001"};const saved={...old,bankName:"新銀行"};
+ const receipt={expectedStoreId:"store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expectedRevision:courseSettingsSectionRevision(old)};
+ m.read.mockResolvedValueOnce(old).mockResolvedValue(saved);
+ const first=await saveCourseSettingsSection({...saved,receipt});expect(first).toMatchObject({success:true,data:{values:saved,revision:courseSettingsSectionRevision(saved)}});
+ expect(await saveCourseSettingsSection({...saved,receipt})).toEqual(first);expect(m.execute).toHaveBeenCalledTimes(1);
+ expect((await saveCourseSettingsSection({...saved,bankName:"過期",receipt})).success).toBe(false);expect(m.execute).toHaveBeenCalledTimes(1);
+ m.transaction.mockClear();expect((await saveCourseSettingsSection({...saved,receipt:{...receipt,expectedStoreId:"other"}})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
+});
+it("keeps a confirmed section successful when route invalidation fails",async()=>{
+ const values={section:"booking",bookingLeadMinutes:30,cancellationLeadMinutes:60};m.read.mockResolvedValue(values);m.routeRevalidate.mockImplementation(()=>{throw new Error("cache failed");});
+ expect(await saveCourseSettingsSection({...values,receipt:{expectedStoreId:"store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expectedRevision:courseSettingsSectionRevision(values)}})).toMatchObject({success:true,syncWarning:true});
 });

@@ -8,10 +8,11 @@ import { CourseConflicts, type ConflictItem } from "@/components/admin/course-co
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   getCourseStaffAvailability,
-  saveCourseStaffAvailabilityException,
-  saveCourseStaffWeeklyAvailability,
 } from "@/server/actions/course-availability";
 
+import {usePathname} from "next/navigation";
+import {useSettingsSave} from "@/components/admin/use-settings-save";
+import {savedCourseAvailability} from "@/lib/course-staff-availability-save";
 type Period={openTime:string;closeTime:string};
 type Day={dayOfWeek:number;periods:Period[]};
 const names=["日","一","二","三","四","五","六"];
@@ -32,7 +33,7 @@ function PeriodRows({periods,onChange,fitness=false,compact=false,label="時段"
   </div>;
 }
 
-export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
+export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,onGuard}:{storeId?:string;staffId:string;fitness?:boolean;onGuard?:(value:{dirty:boolean;pending:boolean})=>void}) {
   const [showWeeklyErrors,setShowWeeklyErrors]=useState(false);
   const [showExceptionErrors,setShowExceptionErrors]=useState(false);
   const [dirtyWeekly,setDirtyWeekly]=useState(false);
@@ -50,13 +51,27 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
   const outcomeRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(conflicts.length||retained.length)outcomeRef.current?.scrollIntoView?.({block:"nearest"});},[conflicts,retained]);
   const [message,setMessage]=useState("");
-  const [pending,start]=useTransition();
+  const [transitionPending,start]=useTransition();
+  const pathname=usePathname();
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/staff-availability`,storeId,savedCourseAvailability);
+  const pending=transitionPending||request.pending,locked=pending||request.uncertain;
+  const saveLock=useRef(false);
+  const attemptKind=useRef<"weekly"|"exception">("weekly");
+  const [revision,setRevision]=useState("");
+  function adopt(value:ReturnType<typeof savedCourseAvailability.parse>){setRevision(value.revision);setInherit(value.inheritStoreHours);setDays(names.map((_,dayOfWeek)=>({dayOfWeek,periods:value.weekly.find(row=>row.dayOfWeek===dayOfWeek)?.periods??[]})));setExceptions(value.exceptions);setRetained(value.retainedSessions);}
+  async function save(kind:"weekly"|"exception",values:Record<string,unknown>){
+   if(saveLock.current||!ready||!revision)return;
+   if(request.uncertain)kind=attemptKind.current;else attemptKind.current=kind;
+   saveLock.current=true;
+   try{const result=await request.save({kind,values,expectedRevision:revision});if(!result.success){setConflicts("conflicts" in result?result.conflicts??[]:[]);feedback(result.error);return;}adopt(result.data);if(kind==="weekly")setDirtyWeekly(false);else setDirtyException(false);feedback(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":kind==="weekly"?"授課時間已更新，已排課程不受影響":"單日例外已儲存",true);}finally{saveLock.current=false;}
+  }
 
-  useEffect(()=>{onGuard?.({dirty:dirtyWeekly||dirtyException,pending});},[dirtyWeekly,dirtyException,pending,onGuard]);
+  useEffect(()=>{onGuard?.({dirty:dirtyWeekly||dirtyException,pending:locked});},[dirtyWeekly,dirtyException,locked,onGuard]);
   useEffect(()=>{
     let active=true;
     getCourseStaffAvailability(staffId).then(value=>{
       if(!active)return;
+      setRevision(value.revision);
       setInherit(value.inheritStoreHours);
       if(value.weekly.length){
         setDays(names.map((_,dayOfWeek)=>({
@@ -80,38 +95,13 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
     setShowWeeklyErrors(true);
     const invalid=inherit?[]:days.filter(day=>Object.keys(availabilityPeriodErrors(day.periods)).length);
     if(invalid.length){feedback(`週${invalid.map(day=>names[day.dayOfWeek]).join("、週")}時段有誤，請修改紅框時間`);return;}
-    start(async()=>{
-      try{
-        const result=await saveCourseStaffWeeklyAvailability({staffId,inheritStoreHours:inherit,days:inherit?[]:days});
-        if(!result.success)setConflicts(result.conflicts??[]);else {setDirtyWeekly(false);setRetained(("retainedSessions" in result?result.retainedSessions:[]));}
-        feedback(result.success?"授課時間已更新，已排課程不受影響":result.error??"儲存失敗",result.success);
-      }catch{
-        feedback("儲存失敗，請重試；修改內容已保留");
-      }
-    });
+    start(async()=>{await save("weekly",{staffId,inheritStoreHours:inherit,days:inherit?[]:days});});
   }
   function saveException(){
     if(!exceptionDate){feedback("請先選擇例外日期");return;}
     setMessage("");setConflicts([]);setShowExceptionErrors(true);
     if(exceptionType==="CUSTOM"&&Object.keys(availabilityPeriodErrors(exceptionPeriods)).length){feedback("單日時段有誤，請修改紅框時間");return;}
-    start(async()=>{
-      try{
-        const result=await saveCourseStaffAvailabilityException({
-          staffId,date:exceptionDate,type:exceptionType,reason:exceptionReason,
-          periods:exceptionType==="CUSTOM"?exceptionPeriods:[],
-        });
-        if(!result.success){setConflicts(result.conflicts??[]);feedback(result.error??"儲存失敗");return;}
-        setDirtyException(false);feedback("單日例外已儲存",true);
-        try{
-          const value=await getCourseStaffAvailability(staffId);
-          setExceptions(value.exceptions);setReady(true);
-        }catch{
-          feedback("單日例外已儲存，紀錄更新失敗，請重新開啟查看");
-        }
-      }catch{
-        feedback("儲存失敗，請重試；修改內容已保留");
-      }
-    });
+    start(async()=>{await save("exception",{staffId,date:exceptionDate,type:exceptionType,reason:exceptionReason,periods:exceptionType==="CUSTOM"?exceptionPeriods:[]});});
   }
 
   return <section className={fitness?"space-y-3":"space-y-3 rounded-xl border border-earth-200 bg-earth-50/40 p-3"}>
@@ -122,7 +112,7 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
     <div>
       <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
     </div>
-    <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><div className={fitness?"flex flex-wrap items-center justify-between gap-3":"contents"}><label className="flex items-center gap-2 text-sm">
+    <fieldset disabled={locked || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><div className={fitness?"flex flex-wrap items-center justify-between gap-3":"contents"}><label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>
       沿用店家授課時間
     </label>{fitness&&<button type="button" disabled={pending} className={`${fitnessEditorSave} bg-primary-700 text-white disabled:opacity-50`} onClick={saveWeekly}>{pending?"儲存中…":"儲存時間"}</button>}</div>
@@ -139,7 +129,7 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
 
     <details className="rounded-lg border border-earth-200 bg-white p-2">
       <summary className="cursor-pointer text-sm font-medium text-primary-900">單日例外／請假／臨時加開</summary>
-      <fieldset disabled={pending || !ready} onChangeCapture={()=>setDirtyException(true)} className="mt-3 grid gap-2 sm:grid-cols-2">
+      <fieldset disabled={locked || !ready} onChangeCapture={()=>setDirtyException(true)} className="mt-3 grid gap-2 sm:grid-cols-2">
         <input className={field} type="date" value={exceptionDate} onChange={e=>setExceptionDate(e.target.value)}/>
         <select className={field} value={exceptionType} onChange={e=>setExceptionType(e.target.value as typeof exceptionType)}>
           <option value="UNAVAILABLE">當日不可授課／請假</option>
@@ -154,6 +144,7 @@ export function CourseStaffAvailabilityEditor({staffId,fitness=false,onGuard}:{s
         {exceptions.slice(0,6).map(item=><p key={item.date}>{item.date} · {item.type==="UNAVAILABLE"?"不可授課":item.type==="CUSTOM"?"自訂時段":"固定規則"}{item.reason?" · "+item.reason:""}</p>)}
       </div>}
     </details>
+    {request.uncertain&&<button type="button" disabled={pending} className={button} onClick={()=>start(async()=>{await save("weekly",{staffId});})}>重試確認儲存結果</button>}
     {message&&<p role="status" className="text-sm text-primary-800">{message}</p>}
   </section>;
 }

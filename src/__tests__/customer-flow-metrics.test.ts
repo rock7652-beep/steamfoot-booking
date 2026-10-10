@@ -102,7 +102,7 @@ describe("getCustomerFlowMetrics", () => {
           storeId: "store-active",
           bookingStatus: "COMPLETED",
         }),
-        select: { customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true },
+        select: { id: true, customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true },
       }),
     );
     expect(mockGroupBy).toHaveBeenCalledWith(

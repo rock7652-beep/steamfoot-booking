@@ -2,8 +2,8 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ create: vi.fn(), error: vi.fn(), category: "SINGLE" }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const m = vi.hoisted(() => ({ create: vi.fn(), fetch: vi.fn(), error: vi.fn(), category: "SINGLE" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/s/steam/admin/dashboard/plans", useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { error: m.error, success: vi.fn() } }));
 vi.mock("@/server/actions/plan", () => ({ createPlan: m.create, updatePlan: vi.fn() }));
 vi.mock("@/components/admin/right-sheet", () => ({ RightSheet: ({ children }: { children: React.ReactNode }) => children }));
@@ -29,15 +29,15 @@ import { CustomerDetailDrawerContent } from "@/app/(dashboard)/dashboard/custome
 
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
-  vi.clearAllMocks(); m.category = "SINGLE";
+  vi.clearAllMocks(); vi.stubGlobal("fetch", m.fetch); m.category = "SINGLE";
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   HTMLElement.prototype.scrollIntoView = vi.fn();
   host = document.createElement("div"); root = createRoot(host);
 });
-afterEach(async () => { await act(async () => root.unmount()); });
+afterEach(async () => { await act(async () => root.unmount()); vi.unstubAllGlobals(); });
 
 async function renderNewPlan() {
-  await act(async () => root.render(React.createElement(PlanFormDrawer, { open: true, mode: "new", plan: null, onClose: vi.fn(), onSaved: vi.fn() })));
+  await act(async () => root.render(React.createElement(PlanFormDrawer, { storeId: "store", open: true, mode: "new", plan: null, onClose: vi.fn(), onSaved: vi.fn() })));
 }
 it("new plan form offers only SINGLE and PACKAGE", async () => {
   await renderNewPlan();
@@ -49,6 +49,7 @@ it("retained TRIAL draft is shown as invalid and cannot submit or lose its input
   expect(host.querySelector<HTMLOptionElement>('option[value="TRIAL"]')?.disabled).toBe(true);
   await act(async () => { host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
   expect(m.create).not.toHaveBeenCalled();
+  expect(m.fetch).not.toHaveBeenCalled();
   expect(m.error).toHaveBeenCalledWith(expect.stringContaining("建立體驗預約"));
   expect(host.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe("保留的草稿");
 });
