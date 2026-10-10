@@ -12,7 +12,7 @@ const root=process.cwd(),out=path.resolve(process.env.QA_OUTPUT||"/tmp/music-tea
 mkdirSync(out,{recursive:true});
 const fontCss=process.env.QA_FONT_CSS?readFileSync(process.env.QA_FONT_CSS,"utf8").replace(/url\(([^)]+)\)/g,(_match,file)=>`url(data:font/woff2;base64,${readFileSync(path.resolve(path.dirname(process.env.QA_FONT_CSS),file)).toString("base64")})`)+"body{font-family:\"Noto Sans TC\",sans-serif!important}":null;
 const stub="\0pr1283-stub:";
-const server=await createServer({root,configFile:false,plugins:[react(),{
+const server=await createServer({root,cacheDir:"/tmp/music-teacher-simplify-vite",optimizeDeps:{include:["react","react-dom","react-dom/client","sonner","zod"]},configFile:false,plugins:[react(),{
  name:"synthetic-only-actions",
  configureServer(server){server.middlewares.use((req,res,next)=>{
  if(req.url==="/"||req.url?.startsWith("/?")){
@@ -49,16 +49,28 @@ try{
  await page.evaluate(()=>document.fonts.ready);
  await page.locator('input[name="phone"]').fill("0912345678");
  const boxes=[];
- for(const tab of ["基本資料","授課與拆帳","工作設定","基本資料"]){
+ for(const tab of ["基本資料","授課與拆帳","LINE 與權限","基本資料"]){
  await page.getByRole("button",{name:tab,exact:true}).click();
  await page.screenshot({path:path.join(out,`${width}x${height}-${tab}.png`)});
  boxes.push(await page.locator('[role="dialog"]').boundingBox());
  }
+ await page.getByRole("button",{name:"授課與拆帳",exact:true}).click();
+ await page.getByLabel("老師全科預設比例",{exact:true}).fill("40");
+ await page.getByRole("button",{name:"選擇課程",exact:true}).click();
+ await page.getByLabel("搜尋課程",{exact:true}).fill("30");
+ await page.getByRole("button",{name:"勾選這 1 項",exact:true}).click();
+ const courseSelected=await page.getByRole("checkbox",{name:"吉他個別課程 30",exact:true}).isChecked();
+ await page.getByRole("button",{name:"LINE 與權限",exact:true}).click();
+ await page.getByRole("button",{name:"授課與拆帳",exact:true}).click();
+ const feeRetained=await page.getByLabel("老師全科預設比例",{exact:true}).inputValue()==="40";
+ await page.getByRole("button",{name:"關閉",exact:true}).click();
+ await page.getByRole("button",{name:"繼續編輯",exact:true}).click();
+ await page.getByRole("button",{name:"基本資料",exact:true}).click();
  const metrics=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,bodyWidth:document.body.scrollWidth}));
  const draftRetained=await page.locator('input[name="phone"]').inputValue()==="0912345678";
  const stable=boxes.every(b=>Math.abs(b.height-boxes[0].height)<1&&Math.abs(b.y-boxes[0].y)<1&&Math.abs(b.width-boxes[0].width)<1);
  const submit=await page.locator('button[type="submit"]').boundingBox();
- results.push({width,height,stable,draftRetained,errors,...metrics,pass:stable&&draftRetained&&!errors.length&&metrics.scrollWidth<=width+1&&submit.y+submit.height<=height});
+ results.push({width,height,stable,draftRetained,feeRetained,courseSelected,errors,...metrics,pass:stable&&draftRetained&&feeRetained&&courseSelected&&!errors.length&&metrics.scrollWidth<=width+1&&submit.y+submit.height<=height});
  await page.screenshot({path:path.join(out,`${width}x${height}.png`)});await page.close();
  }
  writeFileSync(path.join(out,"results.json"),JSON.stringify(results,null,2));
