@@ -392,7 +392,8 @@ export function CourseMemberWorkspace({
         <RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open
           onClose={close}
-          width={customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
+          width={panel === "plan" && music ? 920 : customerPanel || panel === "assign" ? 880 : panel==="plan"&&!music?920:640}
+          fixedHeight={panel === "plan"}
           maxHeight={customerPanel ? 720 : panel === "plan" && !music ? 680 : undefined}
           fitContent={!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card")}
           labelledById="course-member-sheet"
