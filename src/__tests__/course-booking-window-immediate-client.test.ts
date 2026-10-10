@@ -40,3 +40,12 @@ it("definite conflict keeps the draft editable and never announces it as saved",
  m.fetch.mockResolvedValueOnce({json:async()=>({success:false,error:"已有課程預約"})});await click("儲存設定");
  expect(host.textContent).toContain("未來 14 天");expect(host.querySelector<HTMLSelectElement>("select")!.value).toBe("7");expect(host.querySelector<HTMLSelectElement>("select")!.disabled).toBe(false);expect(host.querySelector('[role="alert"]')!.textContent).toBe("已有課程預約");
 });
+it("retires acknowledged receipts and accepts later server changes without erasing a draft",async()=>{
+ m.fetch.mockResolvedValueOnce({json:async()=>({success:true,storeId:"s",data:{date:null,days:7,opensAt:null}})});await click("儲存設定");
+ await act(async()=>root.render(createElement(BookableUntilForm,{...props,initialDays:7,initialOpensAt:null})));
+ await click("修改");const select=host.querySelector<HTMLSelectElement>("select")!;
+ await act(async()=>{select.value="30";select.dispatchEvent(new Event("change",{bubbles:true}));});
+ await act(async()=>root.render(createElement(BookableUntilForm,{...props,initialDays:21,initialOpensAt:null})));
+ expect(host.textContent).toContain("未來 21 天");expect(host.querySelector<HTMLSelectElement>("select")!.value).toBe("30");
+ await click("還原修改");expect(host.textContent).toContain("未來 21 天");await click("修改");expect(host.querySelector<HTMLSelectElement>("select")!.value).toBe("21");
+});

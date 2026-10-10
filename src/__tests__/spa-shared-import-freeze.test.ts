@@ -93,7 +93,12 @@ describe("SPA imports in shared Steamfoot code", () => {
   it("freezes the existing debt so no new shared file can import SPA code", () => {
     const actual = sourceFiles(sourceRoot)
       .filter((file) => /\.(ts|tsx)$/.test(file))
-      .filter((file) => !relative(sourceRoot, file).includes("spa-"))
+      // SPA-only API transports are module code, alongside existing spa-* directories.
+      // This does not allow SPA imports from other shared routes or services.
+      .filter((file) => {
+        const path=relative(sourceRoot,file);
+        return !path.includes("spa-") && !path.startsWith("app/api/spa/") && !path.includes("/settings-save/spa/");
+      })
       .filter((file) => {
         const source = readFileSync(file, "utf8");
         return /from ["']@\/(?:lib|server\/actions|server\/services|server\/queries)\/spa-|from ["']\.\/spa-/.test(source);

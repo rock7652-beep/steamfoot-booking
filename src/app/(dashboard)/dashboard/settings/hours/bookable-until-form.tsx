@@ -55,6 +55,16 @@ export function BookableUntilForm({
   const saving = useRef(false);
 
   const dirty = mode !== savedMode || (mode === "fixed" ? fixedDate !== savedDate : days !== savedDays);
+  const sourceRevision=bookingWindowRevision({date:initialDate,days:initialDays,opensAt:initialOpensAt});
+  const [previousSource,setPreviousSource]=useState(sourceRevision);
+  const [awaitingSource,setAwaitingSource]=useState<string|null>(null);
+  if(previousSource!==sourceRevision){
+    setPreviousSource(sourceRevision);
+    if(!awaitingSource||awaitingSource===sourceRevision){
+      setAwaitingSource(null);setSavedDate(initialDate);setSavedDays(initialDays);setSavedOpensAt(initialOpensAt);setSavedMode(initialMode);
+      if(!dirty&&!locked){setMode(initialMode);setFixedDate(initialDate??"");setDays(initialDays);}
+    }
+  }
   useSettingsPanelGuard(dirty, locked);
 
   function cancel() {
@@ -78,8 +88,9 @@ export function BookableUntilForm({
       if(course) {
         if(!storeId) {setError("門市資料缺失，請重新開啟設定");return;}
         const result=await request.save({values:mode==="fixed"?{mode,date:fixedDate}:{mode,days},expectedRevision:bookingWindowRevision({date:savedDate,days:savedDays,opensAt:savedOpensAt})});
-        if(!result.success){setError(result.error);return;}
+        if(!result.success){setError(result.error);if(!result.uncertain)router.refresh();return;}
         const saved=result.data;
+        const revision=bookingWindowRevision(saved);setAwaitingSource(revision===sourceRevision?null:revision);
         setSavedDate(saved.date);setSavedDays(saved.days);setSavedOpensAt(saved.opensAt);
         setSavedMode(saved.date?"fixed":"rolling");setMode(saved.date?"fixed":"rolling");setFixedDate(saved.date??"");setDays(saved.days);
         toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
