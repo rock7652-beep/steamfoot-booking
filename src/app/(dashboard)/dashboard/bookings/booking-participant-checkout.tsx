@@ -63,8 +63,8 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
   return <div aria-label={slot.name ?? `同行者 ${slot.position - 1}`} className="border-t border-earth-100 py-3 first:border-0">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0 break-words text-base">
-        <p className="font-semibold text-earth-900">{slot.name ?? `同行者 ${slot.position - 1}（待補資料）`}{slot.source === "WALK_IN" ? " · 臨時加入" : ""}</p>
-        <p className="text-earth-600">{slot.position === 1 ? "預約人 · " : "同行者 · "}{status === "PENDING" && !slot.customerId ? "待建檔" : status === "COMPLETED" && (slot.service === "PACKAGE_SESSION" || usedOwnPlan) ? "已扣 1 堂" : statusLabels[status] ?? status}{amount != null ? ` · 體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : ""}</p>
+        <p className="font-semibold text-earth-900">{slot.name ?? `同行者 ${slot.position - 1}`}{slot.source === "WALK_IN" ? " · 臨時加入" : ""}</p>
+        {(slot.customerId || status !== "PENDING") && <p className="text-earth-600">{slot.position === 1 ? "預約人 · " : "同行者 · "}{status === "PENDING" && !slot.customerId ? "待建檔" : status === "COMPLETED" && (slot.service === "PACKAGE_SESSION" || usedOwnPlan) ? "已扣 1 堂" : statusLabels[status] ?? status}{amount != null ? ` · 體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : ""}</p>}
       </div>
       {!readOnly && status === "PENDING" && <div className="flex flex-wrap gap-2">
         {checkout.canCollect && slot.customerId && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setExpanded(!expanded); }}
