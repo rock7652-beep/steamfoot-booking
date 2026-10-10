@@ -395,7 +395,7 @@ export default async function DashboardHomePage() {
           </Link>
         ) : null}
         <div className={`grid items-start gap-2 ${showCustomerCare ? "@min-[56rem]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`}>
-          {(canViewBookings || canViewCustomers || canViewRevenue) && <StoreTodoCard items={visibleTodos} defaultVisible={3} readOnly={isViewMode} canCreateBooking={canCreateBooking && !isReadOnly} />}
+          {(canViewBookings || canViewCustomers || canViewRevenue) && <StoreTodoCard key={`${user.id}:${dashboardStoreId ?? "all"}:${isViewMode}`} items={visibleTodos} defaultVisible={3} readOnly={isViewMode} canCreateBooking={canCreateBooking && !isReadOnly} />}
           {showCustomerCare && (canViewCustomerCare
             ? <CustomerCareSummaryCard summary={customerWorkspaceSummary} />
             : <section className="rounded-xl border border-earth-200 bg-white px-4 py-3"><h2 className="text-sm font-semibold text-earth-800">今日顧客經營</h2><p className="mt-2 text-sm text-earth-500">顧客經營尚未開通。</p></section>)}
