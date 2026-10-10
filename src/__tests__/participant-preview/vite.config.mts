@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: { alias: [
     { find: "next/navigation", replacement: fileURLToPath(new URL("./navigation.ts", import.meta.url)) },
     { find: "@/server/actions/booking-participants", replacement: actions },
+    { find: "@/server/actions/booking-customer-profile", replacement: actions },
+    { find: "@/server/actions/customer", replacement: actions },
     { find: "@/server/actions/wallet", replacement: actions },
     { find: "@", replacement: source },
   ] },

@@ -12,7 +12,7 @@ it.each([false, true])("shows an inline identity entry only for an unlinked comp
   try {
     await act(async () => root.render(createElement(BookingCompanionEditor, { bookingId: "b", readOnly: false,
       companions: { canEdit: true, canCreate: true, slots: [{ position: 2, revision: 0, customerId: linked ? "c" : null, name: linked ? "朋友" : null, status: "PENDING" }] } })));
-    const button = [...host.querySelectorAll("button")].find(b => b.textContent === "建檔／選擇顧客");
+    const button = [...host.querySelectorAll("button")].find(b => b.textContent === "補資料");
     expect(Boolean(button)).toBe(!linked);
     if (button) {
       await act(async () => button.click());
