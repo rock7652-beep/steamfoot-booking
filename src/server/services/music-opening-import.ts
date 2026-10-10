@@ -41,7 +41,7 @@ async function notificationCounts(tx: Prisma.TransactionClient, storeId: string)
     ORDER BY kind`;
 }
 
-/** Internal transaction body, no route/CLI/upload. The wrapper below owns the
+/** Internal transaction body. The wrapper below owns the
  * transaction; every validation/readback failure must escape and roll it back.
  * Never catch an uncertain commit and blindly retry. Read the same source keys. */
 export async function importVerifiedMusicOpeningInTransaction(tx: Prisma.TransactionClient, actor: ImportActor, raw: unknown, proof: MusicOpeningImportProof) {
@@ -150,7 +150,7 @@ export async function importVerifiedMusicOpeningInTransaction(tx: Prisma.Transac
 
 /** Authenticated internal entrypoint. No new permission, endpoint, scheduler or
  * credential. Import capability is not approval to import any real entitlement. */
-export async function importVerifiedMusicOpening(raw: unknown, proof: MusicOpeningImportProof) {
+export async function authorizeMusicOpeningImport() {
   if (process.env.VERCEL !== "1") reject("MUSIC_PREVIEW_ONLY");
   assertMusicOpeningPreviewEnvironment(process.env);
   assertMusicOpeningImportWindow();
@@ -160,6 +160,11 @@ export async function importVerifiedMusicOpening(raw: unknown, proof: MusicOpeni
   assertScope(actor);
   const makeupAccess = await courseManager("booking.update");
   if (makeupAccess.storeId !== storeId || makeupAccess.user.id !== user.id) reject("IMPORT_ACTOR_SCOPE_MISMATCH");
+  return actor;
+}
+
+export async function importVerifiedMusicOpening(raw: unknown, proof: MusicOpeningImportProof) {
+  const actor = await authorizeMusicOpeningImport();
   const { coursePrisma } = await import("@/lib/course-db");
   // Never use courseTransaction: it kicks notifications after committing.
   return coursePrisma.$transaction(tx => importVerifiedMusicOpeningInTransaction(tx, actor, raw, proof), { isolationLevel: "Serializable", timeout: 30_000 });

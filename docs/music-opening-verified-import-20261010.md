@@ -2,8 +2,9 @@
 
 This continues the existing draft PR. It adds a server-only verified staging
 contract and a transactional ordinary-card importer composed with the existing
-opening make-up importer. There is no source scraper, upload, public action,
-schedule, new credential, schema change or production deployment.
+opening make-up importer. A restricted staff upload form now invokes that core
+at `/dashboard/courses/opening-import`, on the exact authorized Preview only.
+There is no source scraper, schedule, new credential or production deployment.
 
 ## Evidence and business rules
 
@@ -36,10 +37,10 @@ unsupported, incomplete or overlapping allocation is held for review.
 
 Expiry is explicitly `UNKNOWN`, `NO_EXPIRY` or `SPECIFIED` with evidence. The
 existing dedicated make-up model supports verified no expiry. The ordinary
-`CoursePointCard.expiresAt` column is currently required; verified no-expiry
-ordinary records therefore return `VERIFIED_NO_EXPIRY_TARGET_SCHEMA_UNSUPPORTED`.
-No sentinel such as 2099 is written and no DDL is added. Resolving this remaining
-storage limitation requires a separately reviewed model/runtime change.
+ordinary writer checks nullable-column and validated CHECK capabilities before
+accepting verified no-expiry records. This capability does not establish any
+Luby learner's right to unlimited validity. Unknown expiry remains held. No
+sentinel such as 2099 is written and the uploader applies no DDL.
 
 Post-cutoff student leave requires the *existing* exact ordinary card, a source
 slot which was ordinary at cutoff, and the actual original cancelled
@@ -92,7 +93,18 @@ rollback and wrong-store/production rejection. Existing PGlite schema suites
 remain relevant for SQL constraints; transactional mocks are not a claim of
 real Prisma/PostgreSQL concurrency or live-source acceptance.
 
-No real learner rights have been imported by this engineering change. No browser
-or device UI was changed. The existing generic opening-card booking restrictions
-remain; this internal importer does not itself create post-cutoff bookings or
-enable daily synchronization.
+The uploader checks existing permissions, role, store, exact Preview connections
+and the Taipei work window before reading the file. Its 500 KB envelope contains
+`data` and an independently verified `proof`; the server does not generate proof
+from the uploaded content. The operator must first reconcile actual source
+observations, identities, mappings, dates and cutoff accounting. The browser
+receives only status and readback counts, never raw evidence or source IDs.
+Pending submission disables controls. Unknown transaction/commit results block
+resubmission and require source-key readback; no automatic retry is added.
+
+The upload/action and existing importer suites passed 74 tests; TypeScript and
+targeted ESLint passed. These are synthetic engineering checks, not real-source
+acceptance or device verification. Preview desktop/iPad checks remain pending.
+No real learner rights have been imported by this engineering change. The
+generic opening-card booking restrictions remain; this importer does not itself
+create post-cutoff bookings or enable daily synchronization.
