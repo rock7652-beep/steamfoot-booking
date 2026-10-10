@@ -13,10 +13,12 @@
 .noteCell { grid-column: 3; min-width: 0; grid-row: 2; }
 .staffCell { display: none; min-width: 0; }
 .inlineStaff { display: inline; }
-.planCell { flex-basis: auto; width: auto; min-width: 0; flex-direction: row; flex-wrap: wrap; column-gap: 0.5rem; }
+.planCell { display: contents; }
 .planCell > span { width: auto; }
 .columnHeader { display: none; }
 @container booking-roster (min-width: 1000px) {
+  .planCell { display: flex; flex-basis: 100%; width: 100%; flex-direction: column; }
+  .planCell > span { width: 100%; }
   .rowBody { grid-template-columns: 70px minmax(300px, 1.5fr) 88px minmax(110px, 0.8fr) minmax(250px, 1.4fr); }
   .timeCell { grid-row: 1; align-self: center; padding-top: 0; }
   .identityCell { grid-column: 2; }
