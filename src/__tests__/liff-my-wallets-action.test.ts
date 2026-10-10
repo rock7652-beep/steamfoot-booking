@@ -493,3 +493,9 @@ describe("isExpiringSoon — pure helper (PR-E2)", () => {
     ]);
   });
 });
+
+it("keeps fully reserved remaining sessions in active plans without increasing availability", () => {
+  const reserved = {status:"ACTIVE",availableToBook:0,remainingSessions:2,expiryDate:"2099-12-31"};
+  const spent = {status:"ACTIVE",availableToBook:0,remainingSessions:0,expiryDate:"2099-12-31"};
+  expect(splitLiffWallets([reserved,spent])).toEqual({active:[reserved],expired:[],history:[spent]});
+});

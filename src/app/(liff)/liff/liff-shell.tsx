@@ -512,10 +512,11 @@ export function WelcomeBack({
   }
 
   const wallets = memberSummary?.activeWallets ?? [];
-  const { totalUsable, totalBooked, totalBookable } = getMemberPlanSummary(
+  const { totalUsable, totalBookable } = getMemberPlanSummary(
     wallets,
     memberSummary?.upcomingBookings ?? [],
   );
+  const planReserved = wallets.reduce((sum, wallet) => sum + wallet.pendingCount, 0);
   const nextBooking = memberSummary?.nextBooking ?? null;
   const makeupCredits = memberSummary?.makeupCredits ?? [];
   const nearestWalletExpiry = wallets.map((wallet) => wallet.expiryDate).find(Boolean) ?? null;
@@ -571,7 +572,7 @@ export function WelcomeBack({
               {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
             </div>
             <p className="mt-2 text-base font-medium text-primary-800">還可預約 <strong className="text-3xl font-bold tabular-nums">{totalBookable}</strong> {labels.sessionUnit}</p>
-            <p className="mt-1 text-sm text-earth-600">剩餘 {totalUsable} {labels.sessionUnit}｜已預約 {totalBooked} {labels.sessionUnit}</p>
+            <p className="mt-1 text-sm text-earth-600">剩餘 {totalUsable} {labels.sessionUnit}｜已預約 {planReserved} {labels.sessionUnit}</p>
             {makeupCredits.length > 0 && (
               <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
                 <span className="font-medium text-earth-800">{labels.makeupLabel} {makeupCredits.length} {labels.sessionUnit}</span>
@@ -624,7 +625,7 @@ export function WelcomeBack({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-primary-700">最近健康變化</p>
-              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange?.detail ?? (memberSummary.healthSummary ? "查看最近量測紀錄" : "尚無量測紀錄")}</p>
+              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange?.detail ?? (memberSummary.healthSummary?.latest ? "查看最近量測紀錄" : "尚無量測紀錄")}</p>
               {healthChange?.comparison && <p className="mt-1 text-xs text-earth-500">{healthChange.comparison}</p>}
             </div>
             <ChevronRightIcon />
