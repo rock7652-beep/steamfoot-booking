@@ -333,6 +333,7 @@ describe("member plan and purchase navigation", () => {
     data.cards = [card('快到期','2026-09-23T00:00:00+08:00'),card('下個月','2026-10-20T00:00:00+08:00'),card('已停用','2026-09-23T00:00:00+08:00',true)] as unknown as CoursePortalData['cards'];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:'plans'})));
     expect(host.querySelectorAll('.cp-plan-near-expiry')).toHaveLength(1);
+    expect(host.querySelectorAll('.cp-plan[open]')).toHaveLength(0);
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('剩餘 10 點');
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('9/1 開卡');
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('已預約 2 點｜還可預約 8 點');
@@ -506,8 +507,6 @@ describe("member plan and purchase navigation", () => {
       {id:"4",name:"瑜珈四",startsAt:"2026-08-30T04:00:00Z",customerId:"member",customerName:"會員本人",status:"已取消",used:0},
     ]}}] as unknown as CoursePortalData["cards"];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
-    expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(false);
-    await act(async()=>{ (host.querySelector(".cp-plan-row") as HTMLElement).click(); await new Promise(resolve=>setTimeout(resolve,0)); });
     expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(true);
     expect([...host.querySelectorAll(".cp-history-list thead th")].map(el=>el.textContent)).toEqual(["日期時間","課程","使用點數"]);
     expect(host.querySelectorAll(".cp-history-list tr[data-lesson]")).toHaveLength(3);
@@ -523,6 +522,10 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelectorAll(".cp-history-list tr[data-lesson]")).toHaveLength(4);
     expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(true);
     await click("收起紀錄"); expect(host.querySelectorAll(".cp-history-list tr[data-lesson]")).toHaveLength(3);
+    await act(async()=>{ (host.querySelector(".cp-plan-row") as HTMLElement).click(); await new Promise(resolve=>setTimeout(resolve,0)); });
+    expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(false);
+    await act(async()=>host.querySelector<HTMLButtonElement>(".cp-nav button:last-child")!.click()); await click("我的方案");
+    expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(false);
   });
   it("distinguishes same-name cards and shows the history limit and actual leave debit", async () => {
     const data = memberProps();
