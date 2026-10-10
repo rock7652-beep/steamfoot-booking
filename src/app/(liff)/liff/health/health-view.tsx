@@ -62,7 +62,7 @@ interface Props {
   contactUrl: string;
 }
 
-export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) {
+export function HealthView({ storeSlug, liffId, contactUrl }: Props) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
@@ -139,16 +139,7 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
   }, [liffId, storeSlug, router]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
-      <header className="text-center">
-        <p className="text-xs uppercase tracking-widest text-earth-500">
-          {storeName}
-        </p>
-        <h1 className="mt-1 text-xl font-bold text-earth-900">
-          {liffMessages.health.title}
-        </h1>
-      </header>
-
+    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 py-3">
       {state.kind === "initializing" && (
         <Loading text={liffMessages.health.initializing} />
       )}
@@ -228,8 +219,8 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
 }
 
 /** Read-only rendering uses the same health cards without LINE session initialization. */
-export function HealthPreviewView({ storeSlug, storeName, summary }: { storeSlug: string; storeName: string; summary: HealthSummary }) {
-  return <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6"><header className="text-center"><p className="text-xs uppercase tracking-widest text-earth-500">{storeName}</p><h1 className="mt-1 text-xl font-bold text-earth-900">{liffMessages.health.title}</h1></header><LinkedView storeSlug={storeSlug} summary={summary} verifiedStoreCount={1} contactUrl="" /><Disclaimer /></div>;
+export function HealthPreviewView({ storeSlug, summary }: { storeSlug: string; storeName: string; summary: HealthSummary }) {
+  return <div className="mx-auto flex max-w-md flex-col gap-3 px-4 py-3"><LinkedView storeSlug={storeSlug} summary={summary} verifiedStoreCount={1} contactUrl="" /><Disclaimer /></div>;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -255,9 +246,8 @@ function LinkedView({
   if (!summary.latest) {
     return (
       <>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-900">
+        <div className="rounded-xl border border-earth-200 bg-white px-4 py-4 text-sm text-earth-800">
           <p className="font-medium">{m.noMeasurementTitle}</p>
-          <p className="mt-2 text-xs text-amber-800/85">{m.noMeasurementBody}</p>
         </div>
         <StartHealthFlowButton storeSlug={storeSlug} />
         <ContactStoreButton contactUrl={contactUrl} />
@@ -637,7 +627,7 @@ function StartHealthFlowButton({
   return (
     <Link
       href={`/s/${storeSlug}/liff/health/new`}
-      className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
+      className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-primary-700 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-primary-800 active:scale-[0.98]"
     >
       {liffMessages.health.startHealthFlowCta}
     </Link>
@@ -650,7 +640,7 @@ function ContactStoreButton({ contactUrl }: { contactUrl: string }) {
       href={contactUrl || undefined} aria-disabled={!contactUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+      className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-earth-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 hover:bg-earth-50 active:scale-[0.98]"
     >
       <LineIcon />
       {liffMessages.health.contactStoreCta}

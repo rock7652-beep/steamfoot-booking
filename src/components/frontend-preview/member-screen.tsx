@@ -15,9 +15,9 @@ import { getIndustryModule, type IndustryModuleId } from "@/lib/industry-modules
 import type { FetchLiffBookingsResult } from "@/server/actions/liff-my-bookings";
 import type { FetchLiffWalletsResult } from "@/server/actions/liff-my-wallets";
 
-export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeName, storeSlug, href, view, profile, healthSummary }: {
+export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeName, storeSlug, href, view, profile, healthSummary, healthEnabled }: {
   bookings: FetchLiffBookingsResult; wallets: FetchLiffWalletsResult; moduleId: IndustryModuleId; name: string;
-  storeName: string; storeSlug: string; href: string; view: string; profile: LiffCustomerProfile; healthSummary: HealthSummary | null;
+  storeName: string; storeSlug: string; href: string; view: string; profile: LiffCustomerProfile; healthSummary: HealthSummary | null; healthEnabled: boolean;
 }) {
   const [tab, setTab] = useState<"upcoming" | "history">("upcoming");
   if (bookings.status !== "ok" || wallets.status !== "ok") return <p role="alert" className="p-5">目前無法讀取資料，請重新整理。</p>;
@@ -26,11 +26,11 @@ export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeNa
     <LiffBrandHeader home={view === "home"} />
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-4 pt-3">
     {view === "home" && <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><p className="mt-0.5 text-sm text-earth-500">會員專區</p></div><SteamButlerLogo compact /></header>}
-    {view === "health" && healthSummary ? <HealthPreviewView storeSlug={storeSlug} storeName={storeName} summary={healthSummary} /> : view === "profile" ? <><h1 className="text-center text-xl font-semibold text-earth-900">我的資料</h1><ProfileReadyView profile={profile} /></> :
+    {view === "health" && healthSummary ? <HealthPreviewView storeSlug={storeSlug} storeName={storeName} summary={healthSummary} /> : view === "profile" ? <ProfileReadyView profile={profile} /> :
     view === "bookings" ? <ReadyView upcoming={bookings.upcoming} history={bookings.history} tab={tab} onTabChange={setTab} storeName={storeName} storeSlug={storeSlug} onRequestCancel={() => window.alert("預覽中不會儲存")} contactUrl="" storeAddress="" storeMapUrl="" bookingHref="/preview-unavailable" />
       : view === "wallets" ? <WalletReadyView {...wallets} readOnly consumption={[]} storeSlug={storeSlug} contactUrl="" dataSource={moduleId} />
-      : <WelcomeBack storeSlug={storeSlug} displayName={name} memberDataSource={moduleId} terminology={getIndustryModule(moduleId).customer} healthAssessmentEnabled={healthSummary !== null} memberLinks={links} bookingHref="/preview-unavailable" memberSummary={{ walletsStatus: "ok", activeWallets: wallets.active, makeupCredits: wallets.makeupCredits, upcomingBookings: bookings.upcoming, nextBooking: bookings.upcoming[0] ?? null, healthSummary, referralShare: null }} compactHome />}
+      : <WelcomeBack storeSlug={storeSlug} displayName={name} memberDataSource={moduleId} terminology={getIndustryModule(moduleId).customer} healthAssessmentEnabled={healthEnabled} memberLinks={links} bookingHref="/preview-unavailable" memberSummary={{ walletsStatus: "ok", activeWallets: wallets.active, makeupCredits: wallets.makeupCredits, upcomingBookings: bookings.upcoming, nextBooking: bookings.upcoming[0] ?? null, healthSummary, referralShare: null }} compactHome />}
   </main>
-  <LiffBottomNavView base={`/s/${storeSlug}/liff`} activeKey={view} healthAssessmentEnabled={healthSummary !== null} links={{ home: `${href}&view=home`, bookings: links.bookings, wallets: links.wallets, profile: links.profile, health: `${href}&view=health` }} />
+  <LiffBottomNavView base={`/s/${storeSlug}/liff`} activeKey={view} healthAssessmentEnabled={healthEnabled} links={{ home: `${href}&view=home`, bookings: links.bookings, wallets: links.wallets, profile: links.profile, health: `${href}&view=health` }} />
   </LiffMemberFrame>;
 }

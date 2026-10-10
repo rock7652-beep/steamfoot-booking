@@ -776,3 +776,6 @@
 .course-portal .cp-plan-row > .cp-plan-date { grid-column: 1 / -1; white-space: normal; font-size: 14px; line-height: 1.5; }
 .cp-plan-date .cp-plan-expiry { display: inline; }
 .cp-plan-date .cp-plan-near-expiry { color: #81501d; background: #fff3df; border-radius: 4px; padding: 1px 4px; }
+
+/* Four or five destinations share the same touch area. */
+.cp-nav button { min-width: 0; min-height: 48px; padding-inline: 2px; white-space: nowrap; }
