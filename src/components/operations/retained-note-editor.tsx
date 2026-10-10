@@ -64,7 +64,7 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
   }
   return <div className={`${quiet ? "border-t border-earth-100 py-2" : `${tone === "gold" ? "steamfoot-brand-gold-accent" : "steamfoot-brand-green-accent"} rounded-xl border px-3 py-2.5`} col-span-2`}>
     <div className="flex min-h-11 items-center justify-between gap-3">
-      <p className="text-sm font-semibold text-earth-700">{!draft && !current?.trim() ? `尚無${title}` : title}</p>
+      <p className="text-sm font-semibold text-earth-700">{!quiet && !draft && !current?.trim() ? `尚無${title}` : title}</p>
       {canEdit && !draft && <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-700" onClick={() => {
         setDraft({ base: current, text: current ?? "" }); setMessage(""); setConflict(null); setUndo(null);
       }}>{current?.trim() ? "編輯" : "＋新增"}</button>}
@@ -73,7 +73,7 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
         setDraft(restore); void submit(restore, true);
       }}>復原</button>}
     </div>
-    {(draft || current?.trim()) && <p className="mb-2 text-xs text-earth-500">{hint}</p>}
+    {hint && (draft || current?.trim()) && <p className="mb-2 text-xs text-earth-500">{hint}</p>}
     {saving && optimistic && <p role="status" className="text-xs text-earth-500">儲存中…</p>}
     {draft && canEdit && !(saving && optimistic) ? <div className="space-y-2">
       <textarea aria-label={title} value={draft.text} maxLength={maxLength} rows={3} disabled={saving}
