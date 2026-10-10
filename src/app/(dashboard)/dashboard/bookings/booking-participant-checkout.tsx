@@ -95,7 +95,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         <p className="mb-2 text-base font-semibold">方案開在 {slot.name} 名下</p>
         <AssignPlanForm customerId={slot.customerId} plans={checkout.plans} canDiscount={checkout.canDiscount} alwaysOpen
           onPendingChange={onBusy}
-          onSuccess={() => { setSelling(false); onUpdated(); }} />
+          onSuccess={() => { onBusy(false); setSelling(false); onUpdated(); }} />
       </div>}
     </div>}
   </div>;

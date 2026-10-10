@@ -6,7 +6,10 @@ import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn() }));
 vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({
-  AssignPlanForm: ({ customerId }: { customerId: string }) => createElement("div", { "data-plan-customer": customerId }, "本人方案表單"),
+  AssignPlanForm: ({ customerId, onSuccess, onPendingChange }: { customerId: string; onSuccess: () => void; onPendingChange: (pending: boolean) => void }) =>
+    createElement("div", { "data-plan-customer": customerId }, "本人方案表單", createElement("button", {
+      onClick: () => { onPendingChange(true); onSuccess(); },
+    }, "模擬方案成功")),
 }));
 import { BookingParticipantCheckout } from "@/app/(dashboard)/dashboard/bookings/booking-participant-checkout";
 
@@ -61,6 +64,15 @@ describe("actual participant checkout component", () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
     await render(data); expect(buttons("收體驗費")).toHaveLength(1);
     await render(data, true); expect(container.querySelectorAll("button")).toHaveLength(0);
+  });
+  it("releases the group busy lock before unmounting a successful plan form", async () => {
+    const data = checkout(); data.slots[0].status = "COMPLETED";
+    await render(data); await click(buttons("購買本人方案")[0]);
+    await click(buttons("模擬方案成功")[0]);
+    expect(onBusy.mock.calls.map(call => call[0])).toEqual([true, false]);
+    expect(container.querySelector('[data-plan-customer="primary"]')).toBeNull();
+    expect(updated).toHaveBeenCalledTimes(1);
+    expect(buttons("收體驗費")[0].disabled).toBe(false);
   });
   it("removes an already opened payment form when switched to read-only or collection permission is revoked", async () => {
     await render(); await click(buttons("收體驗費")[0]); expect(container.querySelector("form")).not.toBeNull();
