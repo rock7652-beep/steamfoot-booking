@@ -2,12 +2,12 @@
 import { act, createElement, useLayoutEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { useCourseRoomCreate } from "@/components/admin/use-course-room-create";
+import { courseRoomCreateEndpoint, useCourseRoomCreate } from "@/components/admin/use-course-room-create";
 import { courseRoomInput } from "@/lib/course-room-input";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let hook: ReturnType<typeof useCourseRoomCreate>, root: Root, host: HTMLDivElement;
 const fetchMock = vi.fn(), saved = vi.fn();
-function Harness({ store = "store-a" }) { const current = useCourseRoomCreate(store, saved); useLayoutEffect(() => { hook = current; }); return null; }
+function Harness({ store = "store-a", pathname }: { store?: string; pathname?: string }) { const current = useCourseRoomCreate(store, saved, pathname); useLayoutEffect(() => { hook = current; }); return null; }
 const form = () => { const data = new FormData(); data.set("name", "教室 A"); return data; };
 const response = (storeId = "store-a") => ({ json: async () => ({ success: true, storeId, data: { ...courseRoomInput.parse({ name: "教室 A" }), id: "room-a", isActive: true } }) });
 beforeEach(async () => {
@@ -55,4 +55,17 @@ it("ignores a response after the workspace was unmounted", async () => {
   await act(async () => { pending = hook.save(form()); });
   await act(async () => root.render(null)); await act(async () => { resolve(response()); await pending; });
   expect(saved).not.toHaveBeenCalled();
+});
+it.each(["/s/music-test/admin/dashboard/courses", "/hq/dashboard/courses"])("preserves the authorized route on submission and retry: %s", async pathname => {
+  await act(async () => root.render(createElement(Harness, { pathname })));
+  fetchMock.mockRejectedValueOnce(new Error("network"));
+  await act(async () => hook.save(form()));
+  fetchMock.mockResolvedValueOnce(response());
+  await act(async () => hook.save(form()));
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([`${pathname}/rooms`, `${pathname}/rooms`]);
+  expect(fetchMock.mock.calls[1][1].body).toBe(fetchMock.mock.calls[0][1].body);
+});
+it("only derives scoped endpoints from canonical dashboard paths", () => {
+  expect(courseRoomCreateEndpoint("https://other.test/dashboard/courses")).toBe("/api/courses/rooms");
+  expect(courseRoomCreateEndpoint("/s/test/admin/dashboard/courses/rooms")).toBe("/api/courses/rooms");
 });

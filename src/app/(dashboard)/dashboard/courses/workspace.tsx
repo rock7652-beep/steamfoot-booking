@@ -288,7 +288,7 @@ export function CourseWorkspace({
     setDirty(false); setPanel(null); setError("");
     setNotice(warning ? `${room.name} · 已儲存，其他頁面更新失敗，請重新整理核對。` : `${room.name} · 已儲存`);
     setNewRoomId(room.id);
-  });
+  }, pathname);
   const [newRoomId, setNewRoomId] = useState<string | null>(null);
   const [transitionPending, startTransition] = useTransition();
   const pending = transitionPending || roomCreate.pending;

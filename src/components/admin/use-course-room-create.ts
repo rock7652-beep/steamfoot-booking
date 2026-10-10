@@ -6,7 +6,14 @@ import { courseRoomInput, COURSE_ROOM_SAVED, type CourseRoomCreateInput, type Cr
 const savedResponse = z.object({ success: z.literal(true), storeId: z.string(),
   data: courseRoomInput.extend({ id: z.string().min(1), isActive: z.boolean() }), syncWarning: z.boolean().optional() });
 
-export function useCourseRoomCreate(storeId: string | undefined, onSaved: (room: CreatedCourseRoom, warning: boolean) => void) {
+export function courseRoomCreateEndpoint(pathname?: string) {
+  // Keep the proxy-validated store route on POSTs, including HQ deep links
+  // whose active-store cookie may still point to another store or all stores.
+  return pathname && /^(?:\/s\/[^/]+\/admin|\/hq)\/dashboard\/courses\/?$/.test(pathname)
+    ? `${pathname.replace(/\/$/, "")}/rooms` : "/api/courses/rooms";
+}
+
+export function useCourseRoomCreate(storeId: string | undefined, onSaved: (room: CreatedCourseRoom, warning: boolean) => void, pathname?: string) {
   const lock = useRef(false), active = useRef(false);
   const attempt = useRef<CourseRoomCreateInput | null>(null);
   const [pending, setPending] = useState(false), [uncertain, setUncertain] = useState(false), [error, setError] = useState("");
@@ -25,7 +32,7 @@ export function useCourseRoomCreate(storeId: string | undefined, onSaved: (room:
       rentalEnabled: data.get("rentalEnabled") === "yes", rentalHourlyRate: Number(data.get("rentalHourlyRate") || 0), rentalBufferMinutes: Number(data.get("rentalBufferMinutes") || 0),
     };
     try {
-      const response = await fetch("/api/courses/rooms", { method: "POST", headers: { "Content-Type": "application/json" },
+      const response = await fetch(courseRoomCreateEndpoint(pathname), { method: "POST", headers: { "Content-Type": "application/json" },
         credentials: "same-origin", cache: "no-store", body: JSON.stringify(attempt.current), signal: AbortSignal.timeout(20000) });
       const result = await response.json();
       if (!active.current) return;

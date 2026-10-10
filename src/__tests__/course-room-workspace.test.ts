@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 import { courseRoomInput } from "@/lib/course-room-input";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/dashboard/courses", useSearchParams: () => new URLSearchParams("view=rooms&action=create") }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=rooms&action=create") }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
 vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
@@ -30,6 +30,7 @@ it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, 
     await act(async () => root.render(createElement(CourseWorkspace, { ...props, businessProfile })));
     await setName("教室 A"); m.fetch.mockResolvedValueOnce({ json: async () => ({ success: false, error: "同名空間" }) });
     await submit(); expect(host.textContent).toContain("同名空間"); expect(host.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe("教室 A");
+    expect(m.fetch.mock.calls[0][0]).toBe("/s/music-test/admin/dashboard/courses/rooms");
     const room = { ...courseRoomInput.parse({ name: "教室 A" }), id: "new-room", isActive: true };
     m.fetch.mockResolvedValueOnce({ json: async () => ({ success: true, storeId: "store-a", data: room }) });
     await submit(); expect(host.querySelector("#course-room-create-form")).toBeNull(); expect(host.textContent).toContain("教室 A · 已儲存");

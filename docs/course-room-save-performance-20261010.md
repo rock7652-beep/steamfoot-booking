@@ -6,6 +6,7 @@
 
 - rooms 提前進入獨立讀取：空間與每間最多20筆未結束課摘要、業務類型、排序、權限與店家視角。不讀月課表、顧客、教師或租借。
 - 同源 POST /api/courses/rooms 沿用 courseManager booking.create（權限、模組、subscription、當店職員）。expectedStoreId 只用來拒絕切店，不作授權來源。
+- 店家及 HQ 的工作台以目前 pathname + /rooms 送出，透過既有 proxy 保留經驗證的店家路由資訊；共用同一個 POST handler。直接進店家網址時不再依賴另一個店舖或全部店舖 cookie。expectedStoreId 仍須與後端授權結果相同，沒有放寬權限。
 - 只有已提交的完整空間才加入本機清單、收合視窗及顯示成功。Route Handler 將 canonical courses / HQ courses / dashboard 標為下次讀取更新，不讓回應等待 RSC 頁樹重載。
 - 原有 PK 與 storeId/name unique 保護並行；store/user/request UUID 雜湊產生同一次送出的固定ID。重試不更新原空間；同key不同內容、不同請求同名皆拒絕。無 schema/migration。
 - 同一畫面同步鎖防連點，儲存期間停用欄位，失败保留草稿。未知結果保留原內容/key，重試確認；尚未知前阻止關閉/切店，不把「背景更新失敗」誤報為儲存失敗。
@@ -22,4 +23,6 @@
 
 Preview 僅精確 fix/course-room-save-performance-20261010、既有隔離資料庫 ttworfzgwejdeolegkxl、既有 Vercel project/repository；沿用 shared dispatcher/client guard。跳過所有自動 migration，外發通知維持封鎖。自動部署先停用，手動建立精確 commit Preview。
 
-尚未完成：登入後 Preview 的新增、下一步排課可選新空間、設定進度、桌機/iPad視覺及真實 latency比較；不以 mock 測試代替這些驗收。不合併正式站。
+第一版 d41cceb3 已完成登入後音樂/運動新增、同名拒絕及修正重送、篩選保留、新列即時顯示、重入清單不重複、後續排課選單可見空間。已檢查 1363px 桌機、1440×900 裝置预覽、1024×768 與 768×1024 iPad 模擬尺寸。三次成功新增後端 totalMs 458、239、254；這不是完整畫面耗時，也沒有同條件舊版或正式站比較。
+
+接續驗收發現 HQ 從全部店舖直接開店家網址，舊根 API 會因缺少該路由資訊拒絕儲存，已補上上述 scoped route。補修需以最新 commit Preview 再驗這項與設定進度同步。Cloudflare bot 回報自動部署失敗，詳細日志因瀏覽器觀察限制未讀得；程式只允許指定 Vercel 隔離 Preview，不能將推論寫成實際 Cloudflare 失敗原因。Vercel 與 GitHub CI 的通過不代表該項已通過。不合併正式站。
