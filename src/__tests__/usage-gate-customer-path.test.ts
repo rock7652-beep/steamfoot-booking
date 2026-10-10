@@ -99,6 +99,17 @@ describe("checkMonthlyBookingLimitOrThrow — storeId path skips staff session",
 });
 
 describe("checkCustomerLimitOrThrow / checkStaffLimitOrThrow — storeId path 同樣不觸發 staff session", () => {
+  it("uses only the transaction connection and still enforces its customer override", async () => {
+    mockStoreFindUnique.mockRejectedValue(new Error("the only connection is held by the transaction"));
+    const findUnique = vi.fn().mockResolvedValue({ id: STORE_A, plan: "EXPERIENCE", maxCustomersOverride: 12 });
+    const { checkCustomerLimitOrThrow } = await import("@/lib/usage-gate");
+    const tx = { store: { findUnique } };
+    await expect(checkCustomerLimitOrThrow(11, STORE_A, tx)).resolves.not.toThrow();
+    await expect(checkCustomerLimitOrThrow(12, STORE_A, tx)).rejects.toThrow(/最多 12 位顧客/);
+    expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: STORE_A } }));
+    expect(mockStoreFindUnique).not.toHaveBeenCalled();
+    expect(mockRequireStaffSession).not.toHaveBeenCalled();
+  });
   it("checkCustomerLimitOrThrow 帶 storeId 不呼叫 requireStaffSession", async () => {
     const { checkCustomerLimitOrThrow } = await import("@/lib/usage-gate");
     await expect(checkCustomerLimitOrThrow(0, STORE_A)).resolves.not.toThrow();

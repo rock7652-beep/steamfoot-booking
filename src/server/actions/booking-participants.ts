@@ -165,7 +165,7 @@ export async function createBookingCompanion(input: {
       }
       const existing = await tx.customer.findFirst({ where: { storeId, phone: customerInput.phone }, select: { id: true } });
       if (existing) throw new AppError("BUSINESS_RULE", "此手機已在本店建檔，請重新查詢並確認同行者");
-      await checkCustomerLimitOrThrow(await tx.customer.count({ where: { storeId } }), storeId);
+      await checkCustomerLimitOrThrow(await tx.customer.count({ where: { storeId } }), storeId, tx);
       const customer = await tx.customer.create({ data: {
         storeId, name: customerInput.name, phone: customerInput.phone,
         customerStage: "LEAD", selfBookingEnabled: false, assignedStaffId: null,

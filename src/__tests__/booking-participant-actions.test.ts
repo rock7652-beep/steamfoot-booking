@@ -113,7 +113,7 @@ describe("companion actions authorization and identity", () => {
     expect(await createBookingCompanion(input)).toEqual({ success: true, data: { customerId: "new", name: "新朋友" } });
     expect(h.transaction).toHaveBeenCalledTimes(1);
     expect(h.transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 15_000 });
-    expect(h.usage).toHaveBeenCalledWith(10, "authorized-store");
+    expect(h.usage).toHaveBeenCalledWith(10, "authorized-store", expect.objectContaining({ customer: expect.any(Object) }));
     expect(h.link.mock.calls[0][1]).toMatchObject({ storeId: "authorized-store", participantId: "slot", customerId: "new" });
   });
 });
