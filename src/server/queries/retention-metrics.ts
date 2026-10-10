@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { bookingMonthRange } from "@/lib/date-utils";
+import { loadIndividualBookingFacts, replaceGroupedBookingFacts } from "./booking-participant-facts";
 import {
   hydrateCustomerSegment,
   type CustomerSegmentCustomer,
@@ -137,14 +138,16 @@ export async function getRetentionMetrics(
     shiftMonth(month, -13),
   ];
   const ranges = months.map(rangeForMonth);
-  const bookings = await prisma.booking.findMany({
+  const groupedBookings = await prisma.booking.findMany({
     where: {
       storeId,
       bookingStatus: "COMPLETED",
       OR: ranges.map(({ start, end }) => ({ bookingDate: { gte: start, lte: end } })),
     },
-    select: { customerId: true, bookingDate: true },
+    select: { id: true, customerId: true, bookingDate: true },
   });
+  const individual = await loadIndividualBookingFacts(storeId, ranges.reduce((latest, range) => range.end > latest ? range.end : latest, ranges[0].end));
+  const bookings = [...replaceGroupedBookingFacts(groupedBookings, individual.groupIds), ...individual.visits];
 
   return buildRetentionMetrics(month, bookings);
 }
@@ -155,14 +158,16 @@ export async function getRetentionCustomers(
   segment: RetentionCustomerSegment,
 ): Promise<CustomerSegmentCustomer[]> {
   const ranges = [rangeForMonth(month), rangeForMonth(shiftMonth(month, -1))];
-  const bookings = await prisma.booking.findMany({
+  const groupedBookings = await prisma.booking.findMany({
     where: {
       storeId,
       bookingStatus: "COMPLETED",
       OR: ranges.map(({ start, end }) => ({ bookingDate: { gte: start, lte: end } })),
     },
-    select: { customerId: true, bookingDate: true },
+    select: { id: true, customerId: true, bookingDate: true },
   });
+  const individual = await loadIndividualBookingFacts(storeId, ranges[0].end);
+  const bookings = [...replaceGroupedBookingFacts(groupedBookings, individual.groupIds), ...individual.visits];
   const selection = selectRetentionCustomerIds(month, bookings);
   const ids = segment === "monthly-returned"
     ? selection.returnedCustomerIds

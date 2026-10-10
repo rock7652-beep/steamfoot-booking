@@ -1,0 +1,125 @@
+import "server-only";
+import type { Prisma, PaymentMethod } from "@prisma/client";
+import { AppError } from "@/lib/errors";
+import { trialCollectionAmountError } from "@/lib/trial-collection-amount";
+import type { TrialSettings } from "@/lib/shop-config";
+import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
+import { createFinancialTransaction } from "@/server/services/financial-transaction";
+import { awardPaidServiceAttendanceInTransaction } from "@/server/services/paid-booking-completion";
+
+type LockedParticipant = {
+  id: string; groupId: string; customerId: string | null; service: string; status: string;
+  revision: number; collectionTransactionId: string | null;
+  bookingId: string; bookingStatus: string; bookingDate: Date; slotTime: string; servicePlanId: string | null;
+};
+
+export async function lockPaymentParticipant(tx: Prisma.TransactionClient, storeId: string, participantId: string) {
+  // Same order as identity, legacy checkout and group-level mutations.
+  const bookings = await tx.$queryRaw<{ id: string }[]>`
+    SELECT b.id FROM "Booking" b
+    JOIN "BookingParticipantGroup" g ON g."bookingId" = b.id AND g."storeId" = b."storeId"
+    JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
+    WHERE p.id = ${participantId} AND b."storeId" = ${storeId} FOR UPDATE OF b`;
+  if (!bookings[0]) throw new AppError("NOT_FOUND", "參與者不存在或不屬於本店");
+  await tx.$queryRaw`
+    SELECT g.id FROM "BookingParticipantGroup" g JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
+    WHERE p.id = ${participantId} AND g."storeId" = ${storeId} FOR UPDATE OF g`;
+  const participants = await tx.$queryRaw<LockedParticipant[]>`
+    SELECT p.id, p."groupId", p."customerId", p.service, p.status, p.revision, p."collectionTransactionId",
+      b.id AS "bookingId", b."bookingStatus", b."bookingDate", b."slotTime", b."servicePlanId"
+    FROM "BookingParticipant" p
+    JOIN "BookingParticipantGroup" g ON g.id = p."groupId" AND g."storeId" = p."storeId"
+    JOIN "Booking" b ON b.id = g."bookingId" AND b."storeId" = g."storeId"
+    WHERE p.id = ${participantId} AND p."storeId" = ${storeId} FOR UPDATE OF p`;
+  const participant = participants[0];
+  if (!participant) throw new AppError("NOT_FOUND", "參與者不存在或不屬於本店");
+  const legacy = await tx.$queryRaw<{ id: string }[]>`
+    SELECT t.id FROM "Transaction" t WHERE t."bookingId" = ${participant.bookingId} AND t."storeId" = ${storeId}
+      AND t."transactionType"::text IN ('TRIAL_PURCHASE', 'SINGLE_PURCHASE')
+      AND NOT EXISTS (SELECT 1 FROM "BookingParticipant" p WHERE p."collectionTransactionId" = t.id AND p."storeId" = ${storeId}) LIMIT 1`;
+  if (legacy.length) throw new AppError("BUSINESS_RULE", "已有整組收款，請先核對原款項");
+  return participant;
+}
+
+/** Receipt completion changes only this person. Group completes when all slots resolve. */
+export async function synchronizeParticipantBooking(tx: Prisma.TransactionClient, storeId: string, groupId: string, bookingId: string) {
+  const [counts] = await tx.$queryRaw<{ pending: number; completed: number; arrived: number; cancelled: number; total: number }[]>`
+    SELECT count(*)::int AS total,
+      count(*) FILTER (WHERE status = 'PENDING')::int AS pending,
+      count(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
+      count(*) FILTER (WHERE "arrivedAt" IS NOT NULL)::int AS arrived,
+      count(*) FILTER (WHERE status = 'CANCELLED')::int AS cancelled
+    FROM "BookingParticipant" WHERE "groupId" = ${groupId} AND "storeId" = ${storeId}`;
+  const resolved = counts.total > 0 && counts.pending === 0;
+  const nextStatus = counts.completed > 0 ? "COMPLETED" : counts.cancelled === counts.total ? "CANCELLED" : "NO_SHOW";
+  await tx.$executeRaw`
+    UPDATE "Booking" SET "attendedPeople" = ${counts.arrived}, "isCheckedIn" = ${counts.arrived > 0},
+      "bookingStatus" = CASE WHEN ${resolved} THEN ${nextStatus}::"BookingStatus" ELSE "bookingStatus" END,
+      "updatedAt" = CURRENT_TIMESTAMP WHERE id = ${bookingId} AND "storeId" = ${storeId}`;
+  return resolved;
+}
+
+export async function collectParticipantTrialInTransaction(tx: Prisma.TransactionClient, input: {
+  storeId: string; participantId: string; revision: number; amount: number;
+  paymentMethod: PaymentMethod; note?: string; serviceStaffId: string | null; settings: TrialSettings;
+}) {
+  const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
+  if (person.service !== "FIRST_TRIAL") throw new AppError("BUSINESS_RULE", "這位顧客不是體驗服務");
+  if (!person.customerId) throw new AppError("BUSINESS_RULE", "請先補齊這位顧客的姓名與電話");
+  if (person.collectionTransactionId) {
+    const receipt = await tx.transaction.findFirst({ where: {
+      id: person.collectionTransactionId, storeId: input.storeId, customerId: person.customerId,
+      transactionType: "TRIAL_PURCHASE", status: "SUCCESS", paymentStatus: "SUCCESS",
+    }, select: { id: true, amount: true, paymentMethod: true, note: true } });
+    if (person.status === "COMPLETED" && receipt && Number(receipt.amount) === input.amount &&
+      receipt.paymentMethod === input.paymentMethod && (receipt.note ?? "") === (input.note ?? "")) {
+      return { transactionId: receipt.id, customerId: person.customerId, bookingId: person.bookingId, created: false };
+    }
+    throw new AppError("CONFLICT", "這位顧客已有收款紀錄，不能再次收款");
+  }
+  if (person.status !== "PENDING" || person.revision !== input.revision || !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) {
+    throw new AppError("CONFLICT", "這位顧客的狀態已變更，請重新確認");
+  }
+  const amountError = trialCollectionAmountError(input.amount, 1, input.settings);
+  if (amountError) throw new AppError("VALIDATION", amountError);
+  const customer = await tx.customer.findFirst({ where: { id: person.customerId, storeId: input.storeId, mergedIntoCustomerId: null },
+    select: { assignedStaffId: true } });
+  if (!customer) throw new AppError("NOT_FOUND", "顧客不存在或已合併，請重新確認");
+  const revenueStaffId = customer.assignedStaffId ?? input.serviceStaffId;
+  if (!revenueStaffId) throw new AppError("BUSINESS_RULE", "無法判定營收歸屬，請指派店長");
+  const staff = await tx.staff.findFirst({ where: { id: revenueStaffId, storeId: input.storeId }, select: { id: true } });
+  if (!staff) throw new AppError("BUSINESS_RULE", "營收歸屬店長不屬於本店");
+  const snapshot = await buildTransactionSnapshot(tx, { customerId: person.customerId, storeId: input.storeId,
+    revenueStaffId, planId: person.servicePlanId, grossAmount: input.amount, netAmount: input.amount });
+  await tx.$queryRaw`SELECT set_config('app.booking_participant_id', ${person.id}, true)`;
+  const receipt = await createFinancialTransaction(tx, { data: {
+    ...snapshot, customerId: person.customerId, storeId: input.storeId, bookingId: person.bookingId,
+    revenueStaffId, serviceStaffId: input.serviceStaffId, soldByStaffId: input.serviceStaffId,
+    transactionType: "TRIAL_PURCHASE", paymentMethod: input.paymentMethod, paymentStatus: "SUCCESS",
+    paidAt: new Date(), amount: input.amount, note: input.note || null,
+  } });
+  await tx.$queryRaw`SELECT set_config('app.booking_participant_id', '', true)`;
+  const changed = await tx.$executeRaw`
+    UPDATE "BookingParticipant" SET status = 'COMPLETED', "collectionTransactionId" = ${receipt.id},
+      "arrivedAt" = CURRENT_TIMESTAMP, "completedAt" = CURRENT_TIMESTAMP, revision = revision + 1, "updatedAt" = CURRENT_TIMESTAMP
+    WHERE id = ${person.id} AND "storeId" = ${input.storeId} AND revision = ${input.revision} AND status = 'PENDING'`;
+  if (changed !== 1) throw new AppError("CONFLICT", "收款狀態已變更，請重新確認");
+  await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
+    bookingDate: person.bookingDate, slotTime: person.slotTime });
+  await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
+  return { transactionId: receipt.id, customerId: person.customerId, bookingId: person.bookingId, created: true };
+}
+
+export async function resolveUnattendedParticipant(tx: Prisma.TransactionClient, input: {
+  storeId: string; participantId: string; revision: number; status: "NO_SHOW" | "CANCELLED";
+}) {
+  const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
+  if (person.status === input.status && !person.collectionTransactionId) return { bookingId: person.bookingId };
+  if (person.status !== "PENDING" || person.revision !== input.revision || person.collectionTransactionId ||
+    !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) throw new AppError("CONFLICT", "已有服務或收款紀錄，不能直接改為未到／取消");
+  if (!["FIRST_TRIAL", "SINGLE"].includes(person.service)) throw new AppError("BUSINESS_RULE", "方案使用須依原扣堂規則處理");
+  await tx.$executeRaw`UPDATE "BookingParticipant" SET status = ${input.status}, revision = revision + 1,
+    "updatedAt" = CURRENT_TIMESTAMP WHERE id = ${person.id} AND "storeId" = ${input.storeId}`;
+  await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
+  return { bookingId: person.bookingId };
+}

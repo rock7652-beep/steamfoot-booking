@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { bookingMonthRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
+import { loadIndividualBookingFacts, replaceGroupedBookingFacts } from "./booking-participant-facts";
+import { bookingMonthRange, toLocalDateStr } from "@/lib/date-utils";
 import {
   hydrateCustomerSegment,
   type CustomerSegmentCustomer,
@@ -27,6 +28,8 @@ export type ConversionMetrics = {
 };
 
 export type CompletedTrial = {
+  id?: string;
+  bookingId?: string;
   customerId: string;
   bookingDate: Date;
   people?: number;
@@ -38,6 +41,7 @@ export type PackagePurchase = {
   transactionDate: Date;
   paidAt?: Date | null;
   customerPlanWallet: { status: string } | null;
+  netAmount?: number;
 };
 
 type ConversionCounts = {
@@ -92,8 +96,8 @@ function countsForMonth(
     currentTrialConversions,
     trackedConversions,
     convertedCustomers,
-    conversionRate: trialAttendees === 0 ? 0 : (currentTrialConversions / trialAttendees) * 100,
-    unconvertedCustomers: Math.max(trialAttendees - currentTrialConversions, 0),
+    conversionRate: selection.trialCustomerIds.size === 0 ? 0 : (currentTrialConversions / selection.trialCustomerIds.size) * 100,
+    unconvertedCustomers: selection.unconvertedCustomerIds.size,
   };
 }
 
@@ -106,12 +110,8 @@ export type ConversionCustomerSelection = {
 };
 
 /**
- * 開卡歸屬以正式方案實際購買月為準：
- * - 本月體驗開卡：首次體驗與首次有效正式方案購買都發生在本月。
- * - 追蹤開卡：首次體驗早於本月，首次有效正式方案購買發生在本月。
- *
- * 未開卡是「體驗月份結束時」的固定快照，只扣除同月已開卡者；後續月份成交不回寫
- * 已結算月份。同行者若未建檔，只能納入人次 KPI。
+ * 體驗轉換率按同一人的首次體驗月份歸屬，後續購買回到原體驗 cohort。
+ * 本月實際開卡／追蹤開卡仍按付款月份列出，不改變實際營收日期。
  */
 export function selectConversionCustomerIds(
   month: string,
@@ -129,13 +129,19 @@ export function selectConversionCustomerIds(
   const firstPurchaseByCustomer = new Map<string, PackagePurchase>();
   for (const purchase of purchases) {
     if (!purchase.customerPlanWallet || purchase.customerPlanWallet.status === "CANCELLED") continue;
+    if (purchase.netAmount != null && purchase.netAmount <= 0) continue;
     const trialDate = firstTrialDateByCustomer.get(purchase.customerId);
     const occurredAt = purchaseOccurredAt(purchase);
-    const purchaseDate = toLocalDateStr(occurredAt);
-    if (!trialDate || purchaseDate < trialDate) continue;
+    if (!trialDate) continue;
     const existing = firstPurchaseByCustomer.get(purchase.customerId);
     if (!existing || occurredAt < purchaseOccurredAt(existing)) {
       firstPurchaseByCustomer.set(purchase.customerId, purchase);
+    }
+  }
+  // A customer who already had a paid package is not a new trial conversion.
+  for (const [customerId, purchase] of firstPurchaseByCustomer) {
+    if (toLocalDateStr(purchaseOccurredAt(purchase)) < firstTrialDateByCustomer.get(customerId)!) {
+      firstTrialDateByCustomer.delete(customerId); firstPurchaseByCustomer.delete(customerId);
     }
   }
 
@@ -145,11 +151,11 @@ export function selectConversionCustomerIds(
   for (const [customerId, purchase] of firstPurchaseByCustomer) {
     const purchaseDate = toLocalDateStr(purchaseOccurredAt(purchase));
     const purchaseMonth = purchaseDate.slice(0, 7);
-    if (range ? purchaseDate < range.startDate || purchaseDate > range.endDate : purchaseMonth !== month) continue;
     const trialDate = firstTrialDateByCustomer.get(customerId)!;
     const trialMonth = trialDate.slice(0, 7);
     if (range ? trialDate >= range.startDate && trialDate <= range.endDate : trialMonth === month) currentTrialConvertedCustomerIds.add(customerId);
-    else if (range ? trialDate < range.startDate : trialMonth < month) trackedConvertedCustomerIds.add(customerId);
+    if (range ? purchaseDate < range.startDate || purchaseDate > range.endDate : purchaseMonth !== month) continue;
+    if (range ? trialDate < range.startDate : trialMonth < month) trackedConvertedCustomerIds.add(customerId);
     convertedCustomerIds.add(customerId);
   }
 
@@ -199,9 +205,8 @@ export function buildConversionMetrics(
 }
 
 /**
- * 體驗母數 = FIRST_TRIAL 完成時的實際到店人數（attendedPeople ?? people）。
- * 開卡事件 = 同店、完成 FIRST_TRIAL 後首次成功購買正式方案、且 Wallet 未取消的顧客；
- * 歸屬正式方案的實際購買月份，不回寫體驗月份。
+ * 體驗人次保留實際完成服務數；開卡率母數為可辨識的首次體驗顧客。
+ * 同店本人後續有效已收正式方案計回首次體驗月份；實際開卡數仍按付款月份。
  *
  * 同行者若沒有各自建立 Customer，系統只能把他計入「體驗人次」母數，無法在 CRM 名單
  * 顯示其個人身份；這是資料模型的既有限制，但不再把 2～4 人同行錯算成 1 次體驗。
@@ -215,13 +220,13 @@ export async function getConversionMetrics(
   return buildConversionMetrics(month, trials, purchases);
 }
 
-async function loadConversionFacts(storeId: string, months: string[]) {
+export async function loadConversionFacts(storeId: string, months: string[]): Promise<{ trials: CompletedTrial[]; purchases: PackagePurchase[] }> {
   const bookingRanges = months.map(bookingRangeForMonth);
   const latestBookingEnd = bookingRanges.reduce(
     (latest, range) => range.end > latest ? range.end : latest,
     bookingRanges[0].end,
   );
-  const trials = await prisma.booking.findMany({
+  const groupedTrials = await prisma.booking.findMany({
     where: {
       storeId,
       bookingStatus: "COMPLETED",
@@ -229,16 +234,19 @@ async function loadConversionFacts(storeId: string, months: string[]) {
       bookingDate: { lte: latestBookingEnd },
     },
     select: {
+      id: true,
       customerId: true,
       bookingDate: true,
       people: true,
       attendedPeople: true,
     },
   });
+  const individual = await loadIndividualBookingFacts(storeId, latestBookingEnd);
+  const trials = [...replaceGroupedBookingFacts(groupedTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
 
   const customerIds = [...new Set(trials.map((trial) => trial.customerId))];
-  const latestMonth = [...months].sort().at(-1)!;
-  const { end: latestTransactionEnd } = monthRange(latestMonth);
+  // As-of now, not the cohort month's end: later paid purchases update conversion.
+  const latestTransactionEnd = new Date();
   const purchases = customerIds.length
     ? await prisma.transaction.findMany({
         where: {
@@ -248,18 +256,22 @@ async function loadConversionFacts(storeId: string, months: string[]) {
           status: "SUCCESS",
           paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
           customerPlanWalletId: { not: null },
-          transactionDate: { lte: latestTransactionEnd },
+          OR: [{ paidAt: { lte: latestTransactionEnd } }, { paidAt: null, transactionDate: { lte: latestTransactionEnd } }],
         },
         select: {
           customerId: true,
           transactionDate: true,
           paidAt: true,
           customerPlanWallet: { select: { status: true } },
+          amount: true,
+          refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } },
         },
       })
     : [];
 
-  return { trials, purchases };
+  return { trials, purchases: purchases.map(purchase => ({ ...purchase,
+    netAmount: Number(purchase.amount) + purchase.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
+  })) };
 }
 
 export type MonthlyUnconvertedCustomer = {
@@ -284,7 +296,7 @@ export async function getMonthlyUnconvertedCustomers(
   if (customerIds.length === 0) return [];
 
   const customers = await prisma.customer.findMany({
-    where: { storeId, id: { in: customerIds }, convertedAt: null },
+    where: { storeId, id: { in: [...selection.unconvertedCustomerIds] } },
     select: {
       id: true,
       name: true,

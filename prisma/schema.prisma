@@ -1207,6 +1207,7 @@ model Customer {
 
   // 預約
   bookings Booking[]
+  bookingParticipants BookingParticipant[]
 
   // 補課資格
   makeupCredits MakeupCredit[]
@@ -1739,6 +1740,7 @@ model BookingSlot {
 // ============================================================
 
 model Booking {
+  participantGroup BookingParticipantGroup?
   id                      String               @id @default(cuid())
   customerId              String
   storeId                 String
@@ -1821,6 +1823,7 @@ model Booking {
   // 對應的單堂明細（一對一：RESERVED / COMPLETED 時掛上）
   walletSessions WalletSession[]
 
+  @@unique([id, storeId])
   @@unique([recurrenceGroupId, recurrenceIndex])
   @@index([storeId])
   @@index([bookingDate])
@@ -2074,7 +2077,9 @@ model Transaction {
   refunds             Transaction[]             @relation("TransactionRefunds")
   refundedBy          User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
   paymentSplits       TransactionPaymentSplit[]
+  collectedParticipant BookingParticipant? @relation("ParticipantCollection")
 
+  @@unique([id, storeId])
   @@index([storeId])
   @@index([customerId])
   @@index([revenueStaffId])
@@ -3391,4 +3396,43 @@ model StaffLoginRecord {
   @@index([storeId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([createdAt])
+}
+
+// No backfill: legacy group payments remain unsplit until explicitly reviewed.
+model BookingParticipantGroup {
+  id String @id @default(cuid())
+  bookingId String @unique
+  storeId String
+  originalPeople Int
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields: [bookingId, storeId], references: [id, storeId], onDelete: Restrict)
+  participants BookingParticipant[]
+  @@unique([bookingId, storeId])
+  @@unique([id, storeId])
+  @@index([storeId])
+}
+
+model BookingParticipant {
+  id String @id @default(cuid())
+  groupId String
+  storeId String
+  position Int
+  source String // RESERVATION / WALK_IN
+  customerId String?
+  service String // FIRST_TRIAL / SINGLE / PACKAGE_SESSION
+  status String @default("PENDING") // PENDING / COMPLETED / NO_SHOW / CANCELLED
+  arrivedAt DateTime?
+  completedAt DateTime?
+  expectedAmount Decimal? @db.Decimal(10, 0)
+  collectionTransactionId String? @unique
+  revision Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  group BookingParticipantGroup @relation(fields: [groupId, storeId], references: [id, storeId], onDelete: Restrict)
+  customer Customer? @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Restrict)
+  collectionTransaction Transaction? @relation("ParticipantCollection", fields: [collectionTransactionId, storeId], references: [id, storeId], onDelete: Restrict)
+  @@unique([collectionTransactionId, storeId])
+  @@unique([groupId, position])
+  @@unique([id, storeId])
+  @@index([storeId, customerId])
 }

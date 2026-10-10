@@ -48,6 +48,15 @@ async function findCollectedSingleTransaction(
 }
 
 export interface BookingDrawerPayload {
+  participantCheckout?: {
+    canCollect: boolean; canResolve: boolean;
+    canSell: boolean; canDiscount: boolean;
+    plans: Array<{ id: string; name: string; category: string; price: number; sessionCount: number; validityDays: number | null }>;
+    settings: { allowEdit: boolean; defaultPrice: number; minPrice: number; maxPrice: number };
+    slots: Array<{ id: string | null; position: number; revision: number; customerId: string | null; name: string | null;
+      service: string; status: string; collectedAmount: number | null }>;
+  };
+  companions?: { canEdit: boolean; canCreate: boolean; slots: Array<{ position: number; revision: number; customerId: string | null; name: string | null; status?: string }> };
   canEditServiceNote?: boolean;
   canEditBookingNote?: boolean;
   booking: {
@@ -403,9 +412,50 @@ async function fetchBookingDetailMeasured(
     !isViewMode ? checkPermission(user.role, user.staffId, "booking.update") : Promise.resolve(false),
   ]));
 
+  let participantCheckout: BookingDrawerPayload["participantCheckout"];
+  let companions: BookingDrawerPayload["companions"];
+  if (process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && isTrial && booking.people > 1 && !booking.isMakeup && trialSettings) {
+    const rows = await prisma.$queryRaw<NonNullable<BookingDrawerPayload["participantCheckout"]>["slots"]>`
+      SELECT p.id, p.position, p.revision, p."customerId", c.name, p.service, p.status,
+        t.amount::integer AS "collectedAmount"
+      FROM "BookingParticipantGroup" g JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
+      LEFT JOIN "Customer" c ON c.id = p."customerId" AND c."storeId" = p."storeId"
+      LEFT JOIN "Transaction" t ON t.id = p."collectionTransactionId" AND t."storeId" = p."storeId"
+      WHERE g."bookingId" = ${booking.id} AND g."storeId" = ${booking.storeId} ORDER BY p.position`;
+    // Never reinterpret an old grouped receipt as somebody's individual payment.
+    if (rows.length || (!collectedTx && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus))) {
+      const slots = rows.length ? rows : Array.from({ length: booking.people }, (_, index) => ({
+        id: null, position: index + 1, revision: 1, customerId: index === 0 ? booking.customerId : null,
+        name: index === 0 ? booking.customer.name : null, service: "FIRST_TRIAL", status: "PENDING", collectedAmount: null,
+      }));
+      const [canCollect, canSell, canDiscount, canCreate, canRead, plans] = await Promise.all([
+        !isViewMode && canEditBookingNote ? checkPermission(user.role, user.staffId, "trial.confirm") : false,
+        !isViewMode ? checkPermission(user.role, user.staffId, "wallet.create") : false,
+        !isViewMode ? checkPermission(user.role, user.staffId, "transaction.discount") : false,
+        !isViewMode ? checkPermission(user.role, user.staffId, "customer.create") : false,
+        !isViewMode && canEditBookingNote ? checkPermission(user.role, user.staffId, "customer.read") : false,
+        prisma.servicePlan.findMany({ where: { storeId: booking.storeId, isActive: true, category: "PACKAGE" },
+          select: { id: true, name: true, category: true, price: true, sessionCount: true, validityDays: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+      ]);
+      participantCheckout = { slots,
+        canCollect,
+        canResolve: !isViewMode && canEditBookingNote,
+        canSell, canDiscount,
+        plans: plans.map(plan => ({ ...plan, price: Number(plan.price) })),
+        settings: { allowEdit: trialSettings.trialAllowPriceEdit, defaultPrice: trialSettings.trialDefaultPrice,
+          minPrice: trialSettings.trialMinPrice, maxPrice: trialSettings.trialMaxPrice },
+      };
+      companions = { slots: slots.filter(slot => slot.position > 1),
+        canCreate,
+        canEdit: canRead && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus),
+      };
+    }
+  }
+
   return {
     canEditServiceNote,
     canEditBookingNote,
+    ...(participantCheckout ? { participantCheckout, companions } : {}),
     booking: {
       id: booking.id,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),

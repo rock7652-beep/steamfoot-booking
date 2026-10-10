@@ -1,6 +1,7 @@
 "use server";
 
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
+import { trialCollectionAmountError } from "@/lib/trial-collection-amount";
 
 import type { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -353,6 +354,8 @@ export async function collectTrialPayment(
     const people = booking.people || 1;
     const effectivePeople =
       data.attendedPeople ?? booking.attendedPeople ?? people;
+    const amountError = trialCollectionAmountError(data.amount, effectivePeople, settings);
+    if (amountError) throw new AppError("VALIDATION", amountError);
     const baseAmount =
       data.amount ??
       (booking.expectedAmount == null
@@ -510,7 +513,7 @@ export async function correctTrialCollection(
 
     const booking = await prisma.booking.findFirst({
       where: { id: data.bookingId, storeId },
-      select: { id: true, bookingType: true, bookingStatus: true },
+      select: { id: true, bookingType: true, bookingStatus: true, people: true, attendedPeople: true },
     });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
     if (booking.bookingType !== "FIRST_TRIAL") {
@@ -548,6 +551,13 @@ export async function correctTrialCollection(
         "原收款交易不符（需為此預約的有效體驗收款）",
       );
     }
+
+    // Reject an invalid replacement before voiding the original payment.
+    const settings = await getTrialSettings(storeId);
+    const amountError = trialCollectionAmountError(
+      data.amount, booking.attendedPeople ?? booking.people ?? 1, settings,
+    );
+    if (amountError) throw new AppError("VALIDATION", amountError);
 
     // 1) 作廢原交易（含 CAS + TransactionAuditLog + voidReason）
     const voided = await voidTransaction({

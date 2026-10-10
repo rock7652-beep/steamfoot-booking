@@ -46,13 +46,13 @@ describe("selected-period facts", () => {
   it("distinguishes new conversion, tracked conversion and renewal and ignores cancelled wallets", () => {
     const purchases = [purchase("a", "2026-09-22"), purchase("a", "2026-09-24"), purchase("b", "2026-09-25"), purchase("c", "2026-09-24", "CANCELLED")];
     const result = selectPeriodFacts(range, previous, visits, first, trials, purchases);
-    expect(result.counts).toMatchObject({ currentTrialConversions: 1, trackedConversions: 1, convertedCustomers: 2, conversionRate: 50, unconvertedCustomers: 1 });
+    expect(result.counts).toMatchObject({ currentTrialConversions: 1, trackedConversions: 1, convertedCustomers: 2, conversionRate: 100, unconvertedCustomers: 0 });
     expect(result.segments["monthly-converted"].size).toBe(result.counts.convertedCustomers);
   });
-  it("does not rewrite completed period when purchase happens later", () => {
+  it("updates the original trial cohort when a purchase happens later, without moving the payment date", () => {
     const result = selectConversionCustomerIds("2026-09", trials, [purchase("a", "2026-09-27")], range);
     expect(result.convertedCustomerIds.size).toBe(0);
-    expect(result.unconvertedCustomerIds.has("a")).toBe(true);
+    expect(result.unconvertedCustomerIds.has("a")).toBe(false);
   });
   it("uses Taiwan paid date at midnight and rejects renewal before the selected range", () => {
     const result = selectConversionCustomerIds("2026-09", trials, [purchase("b", "2026-09-20"), purchase("b", "2026-09-25"), { ...purchase("a", "2026-09-22"), paidAt: new Date("2026-09-26T16:00:00Z") }], range);
