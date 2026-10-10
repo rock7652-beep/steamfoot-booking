@@ -1172,7 +1172,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                     </strong>
                   </div>
                   <p>
-                    {c.expiresAt ? `${courseDate(c.expiresAt)} 到期` : "期初效期待核對"}{c.expired ? " · 已到期" : ""}
+                    {c.expiryKind === "NO_EXPIRY" ? "無期限" : c.expiresAt ? `${courseDate(c.expiresAt)} 到期` : "期初效期待核對"}{c.expired ? " · 已到期" : ""}
                   </p>
                   {c.openingImported && <p>{c.openingIssue ?? "期初方案新增預約須先連結來源堂次"}</p>}
                   <p>
@@ -1494,7 +1494,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                   {eligible(session).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} · 可用 {c.available}
-                      {unit(c.unit)} · {c.expiresAt ? `${courseDate(c.expiresAt)} 到期` : "期初效期待核對"}
+                      {unit(c.unit)} · {c.expiryKind === "NO_EXPIRY" ? "無期限" : c.expiresAt ? `${courseDate(c.expiresAt)} 到期` : "期初效期待核對"}
                     </option>
                   ))}
                 </select>

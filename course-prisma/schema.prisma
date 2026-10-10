@@ -201,7 +201,9 @@ model CoursePointCard {
   templateIds String[] @default([])
   remaining Int
   closedAt DateTime? @db.Timestamptz(3)
-  expiresAt DateTime @db.Timestamptz(3)
+  // null is permitted only for source-verified NO_EXPIRY opening cards.
+  // Unknown expiry stays staged; native first-use 2099 semantics are unchanged.
+  expiresAt DateTime? @db.Timestamptz(3)
   requestKey String
   createdAt DateTime @default(now())
   plan CoursePointPlan @relation(fields: [planId, storeId], references: [id, storeId])

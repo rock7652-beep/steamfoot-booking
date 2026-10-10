@@ -51,6 +51,19 @@ export async function importVerifiedMusicOpeningInTransaction(tx: Prisma.Transac
   const { data, ordinary } = initial;
   if (ordinary.scope.targetStoreId !== actor.storeId || ordinary.scope.sourceTenantKey !== sourceTenant || ordinary.scope.cutoffBusinessDate !== "2026-10-01") reject("IMPORT_SOURCE_SCOPE_MISMATCH");
   await lockCourseStore(tx, actor.storeId);
+  if (data.enrollments.some(item => item.record.expiryVerification?.kind === "NO_EXPIRY")) {
+    // Read capability, never apply DDL here. Old isolated Preview stays usable for
+    // finite records until its separately approved migration has been applied.
+    const capability = await tx.$queryRaw<Array<{ supported: boolean }>>`
+      SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema()
+        AND table_name='CoursePointCard' AND column_name='expiresAt' AND is_nullable='YES')
+      AND EXISTS(SELECT 1 FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid
+        JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema()
+        AND c.relname='CoursePointCard' AND p.conname='CoursePointCard_opening_no_expiry'
+        AND p.convalidated AND pg_get_constraintdef(p.oid) LIKE '%musicOpeningStateRequired%'
+        AND pg_get_constraintdef(p.oid) LIKE '%musicValidityDays%') AS supported`;
+    if (capability.length !== 1 || capability[0].supported !== true) return { status: "HOLD" as const, issue: "VERIFIED_NO_EXPIRY_TARGET_SCHEMA_UNSUPPORTED" };
+  }
   const notificationsBefore = await notificationCounts(tx, actor.storeId);
   if (notificationsBefore.length !== 6) reject("NOTIFICATION_GUARD_UNAVAILABLE");
   const stored = await tx.courseMusicOpeningState.findMany({ where: { storeId: actor.storeId, sourceKey: { in: ordinary.entries.map(e => e.key) } }, include: { card: { include: { members: true } } } });
@@ -71,7 +84,7 @@ export async function importVerifiedMusicOpeningInTransaction(tx: Prisma.Transac
     // Concurrent identical ABSENT requests converge through the source unique
     // key and locked content comparison; a differing prevalue never overwrites.
     if (item.expected.kind === "EXISTING" && (!row || row.cardId !== item.expected.cardId || row.contentHash !== item.expected.contentHash)) reject("SOURCE_CAS_CONFLICT");
-    if (row && (row.customerId !== item.mapping.customerId || !row.card.musicOpeningStateRequired || row.card.unit !== "SESSION" || row.card.planId !== item.mapping.planId || row.card.members.length !== 1 || row.card.members[0].customerId !== item.mapping.customerId || row.card.templateIds.length !== 1 || row.card.templateIds[0] !== item.mapping.templateId || row.card.expiresAt.toISOString() !== item.record.expiresAt || row.card.musicActivatedAt?.toISOString() !== item.record.activatedAt)) reject("EXISTING_TARGET_MAPPING_CONFLICT");
+    if (row && (row.customerId !== item.mapping.customerId || !row.card.musicOpeningStateRequired || row.card.unit !== "SESSION" || row.card.planId !== item.mapping.planId || row.card.members.length !== 1 || row.card.members[0].customerId !== item.mapping.customerId || row.card.templateIds.length !== 1 || row.card.templateIds[0] !== item.mapping.templateId || (row.card.expiresAt?.toISOString() ?? null) !== item.record.expiresAt || row.card.musicActivatedAt?.toISOString() !== item.record.activatedAt)) reject("EXISTING_TARGET_MAPPING_CONFLICT");
     const marker = `SOURCE_REPLICA|YINJIAOYUN|${sourceTenant}|STUDENT|${item.record.sourceStudentKey}`;
     const [customers, plan, template] = await Promise.all([
       tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Customer" WHERE id=${item.mapping.customerId} AND "storeId"=${actor.storeId} AND "serviceNote"=${marker} AND "mergedIntoCustomerId" IS NULL`,
@@ -103,7 +116,7 @@ export async function importVerifiedMusicOpeningInTransaction(tx: Prisma.Transac
     await tx.coursePointCard.create({ data: {
       id, storeId: actor.storeId, planId: item.mapping.planId, nameSnapshot: mappings.get(entry.key)!.planName,
       unit: "SESSION", templateIds: [item.mapping.templateId], remaining: record.balance.remainingAtCutoff,
-      expiresAt: new Date(record.expiresAt!), musicActivatedAt: new Date(record.activatedAt!),
+      expiresAt: record.expiresAt === null ? null : new Date(record.expiresAt), musicActivatedAt: new Date(record.activatedAt!),
       musicValidityDays: null, musicTermSizes: record.terms.map(t => t.totalLessons), musicBonusLessons: record.giftLessons,
       musicOpeningStateRequired: true, requestKey: `opening:${musicOpeningMakeupHash(entry.key)}`,
       members: { create: { customerId: item.mapping.customerId } },
@@ -123,7 +136,7 @@ export async function importVerifiedMusicOpeningInTransaction(tx: Prisma.Transac
   for (let i = 0; i < checked.ordinary.entries.length; i++) {
     const entry = checked.ordinary.entries[i], item = data.enrollments[i], row = readback.find(r => r.sourceKey === entry.key);
     const expectedSnapshot = entry.action === "NO_OP" ? stored.find(s => s.sourceKey === entry.key)!.snapshot : { scope: ordinary.scope, record: entry.record };
-    if (!row || row.cardId !== cardIds[i] || row.customerId !== item.mapping.customerId || row.contentHash !== entry.contentHash || musicOpeningMakeupHash(row.snapshot) !== musicOpeningMakeupHash(expectedSnapshot) || !row.card.musicOpeningStateRequired || row.card.members.length !== 1 || row.card.members[0].customerId !== item.mapping.customerId || row.card.storeId !== actor.storeId || row.card.planId !== item.mapping.planId || row.card.expiresAt.toISOString() !== item.record.expiresAt || row.card.musicActivatedAt?.toISOString() !== item.record.activatedAt || (entry.action === "CREATE" && row.card.remaining !== item.record.balance.remainingAtCutoff)) reject("IMPORT_READBACK_MISMATCH");
+    if (!row || row.cardId !== cardIds[i] || row.customerId !== item.mapping.customerId || row.contentHash !== entry.contentHash || musicOpeningMakeupHash(row.snapshot) !== musicOpeningMakeupHash(expectedSnapshot) || !row.card.musicOpeningStateRequired || row.card.members.length !== 1 || row.card.members[0].customerId !== item.mapping.customerId || row.card.storeId !== actor.storeId || row.card.planId !== item.mapping.planId || (row.card.expiresAt?.toISOString() ?? null) !== item.record.expiresAt || row.card.musicActivatedAt?.toISOString() !== item.record.activatedAt || (entry.action === "CREATE" && row.card.remaining !== item.record.balance.remainingAtCutoff)) reject("IMPORT_READBACK_MISMATCH");
   }
   const rights = await tx.courseMusicOpeningMakeupEntitlement.findMany({ where: { storeId: actor.storeId, sourceKey: { in: checked.makeup.entries.map(e => e.sourceKey) } } });
   for (const entry of checked.makeup.entries) {

@@ -102,7 +102,8 @@ export async function joinCourseWaitlist(
       fail("本課程目前不開放候補");
     if (activeSession.startsAt <= new Date()) fail("課程已開始，不能加入候補");
     if (activeCard.closedAt) fail("方案已退款或結清，不能候補");
-    if (activeCard.expiresAt < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
+    if (activeCard.musicOpeningStateRequired || activeCard.expiresAt === null) fail("期初方案須由店家使用已核對的來源堂次流程安排");
+    if (activeCard.expiresAt! < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
     if (activeCard.templateIds.length && !activeCard.templateIds.includes(activeSession.templateId))
       fail("此方案不適用本堂課");
     if (activeCard.termSessionIds.length && !activeCard.termSessionIds.includes(activeSession.id))

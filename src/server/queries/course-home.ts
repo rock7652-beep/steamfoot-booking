@@ -1,3 +1,4 @@
+import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import "server-only";
 import { Prisma } from "@prisma/client";
@@ -55,6 +56,7 @@ export async function getCourseCareCounts(storeId: string, scope: string | null,
   const date = toLocalDateStr(now), month = Number(date.slice(5, 7));
   const expiry = dayRange(addTaiwanDuration(date, 14, "DAY")).end;
   const inactive = dayRange(addTaiwanDuration(date, -30, "DAY")).start;
+  const noExpiry = await readCourseNoExpiryProofs(storeId, now);
   const [row] = await prisma.$queryRaw<Array<Record<CourseCareKind, number>>>(Prisma.sql`
     WITH held AS (
       SELECT "cardId", sum("pointCost") amount FROM "CourseBooking" WHERE "storeId"=${storeId} AND status='RESERVED' GROUP BY "cardId"
@@ -64,7 +66,7 @@ export async function getCourseCareCounts(storeId: string, scope: string | null,
       FROM "CoursePointCard" c JOIN "CoursePointPlan" p ON p.id=c."planId" AND p."storeId"=c."storeId"
       JOIN "CourseCardMember" m ON m."cardId"=c.id AND m."storeId"=c."storeId"
       LEFT JOIN held h ON h."cardId"=c.id
-      WHERE c."storeId"=${storeId} AND c."closedAt" IS NULL AND c."expiresAt">${now}
+      WHERE c."storeId"=${storeId} AND c."closedAt" IS NULL AND ${courseCardActiveExpirySql(now, false, noExpiry)}
     ), visits AS (
       SELECT b."customerId", max(s."startsAt") last FROM "CourseBooking" b
       JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"

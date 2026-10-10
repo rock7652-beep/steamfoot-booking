@@ -1,3 +1,4 @@
+import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue, musicOpeningDateIssue, type OpeningCard, type OpeningBooking } from "@/lib/music-opening-runtime";
 import { assertCourseSelfBookingEnabled } from "./course-self-booking";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
@@ -300,7 +301,7 @@ export async function reserveCourseInTransaction(
   const sessionDay = toLocalDateStr(session.startsAt);
   const closed = await tx.$queryRaw<Array<{closed:boolean}>>`SELECT COALESCE((SELECT type <> 'custom' FROM "SpecialBusinessDay" WHERE "storeId"=${storeId} AND date=${new Date(sessionDay+'T00:00:00Z')}::date), (SELECT NOT "isOpen" FROM "BusinessHours" WHERE "storeId"=${storeId} AND "dayOfWeek"=EXTRACT(DOW FROM ${new Date(sessionDay+'T00:00:00Z')}::date)::int), false) AS closed`;
   if (closed[0]?.closed) return fail("店家公休日無法新增預約");
-  if (card && (card.expiresAt < now || card.expiresAt < session.startsAt))
+  if (card && (!courseCardCoversDate(card, storeId, now) || !courseCardCoversDate(card, storeId, session.startsAt)))
     return fail("方案已到期或不涵蓋上課日期");
   if(card?.musicValidityDays && !card.musicActivatedAt) {
     const [earliest,latest]=await Promise.all([
@@ -422,7 +423,7 @@ export async function settleCourseBooking(
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (booking.cardId) {
     const expiry=opening.kind === "NATIVE" && booking.card?.musicValidityDays && !booking.card.musicActivatedAt ? musicCourseExpiry(booking.session.startsAt,booking.card.musicValidityDays) : null;
-    if(booking.card?.musicValidityDays && booking.card.musicActivatedAt && booking.card.expiresAt < booking.session.startsAt)
+    if(booking.card?.musicValidityDays && booking.card.musicActivatedAt && !courseCardCoversDate(booking.card, actor.storeId, booking.session.startsAt))
       return fail("這堂課超過方案有效期限，請核對補課日期");
     const updated = await tx.coursePointCard.updateMany({
       where: {
@@ -537,7 +538,7 @@ export async function correctCourseAttendance(
     ]);
     if (occupied >= b.session.capacity) return fail("本堂課名額已滿，無法恢復請假；請先處理名額");
     if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");
-    if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
+    if (b.card && !courseCardCoversDate(b.card, actor.storeId, b.session.startsAt)) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
   if (b.absenceKind === "TEACHER_ABSENT") await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,summary,"targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},${actor.name},${actor.storeId},'COURSE','恢復授課：學員回到待點名，未重扣','CourseBooking',${b.id},'COURSE_TEACHER_ABSENCE_RESTORE',${JSON.stringify({status:b.status,absenceKind:b.absenceKind})}::jsonb,${JSON.stringify({status:target,pointsUsed:0})}::jsonb,NOW())`;
   if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }

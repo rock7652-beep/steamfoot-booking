@@ -1,4 +1,5 @@
 "use server";
+import { courseCardActiveExpiryWhere } from "@/lib/course-card-expiry";
 
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -44,7 +45,7 @@ export async function browseCourseCards(input: unknown) {
     const cards = await getCourseCards(storeId,data.customerId,{
       where:{
         ...(musicStore ? { unit: "SESSION" } : {}),
-        ...(data.cardId ? {id:data.cardId} : data.history ? {OR:[{closedAt:{not:null}},{expiresAt:{lt:new Date()}}]} : {closedAt:null,expiresAt:{gte:new Date()}}),
+        ...(data.cardId ? {id:data.cardId} : data.history ? {OR:[{closedAt:{not:null}},{expiresAt:{lt:new Date()}}]} : {closedAt:null,...courseCardActiveExpiryWhere(new Date(), true)}),
         AND:[...(visibleIds ? [{members:{some:{customerId:{in:visibleIds},storeId}}}] : []),
           ...(data.search ? [{OR:[{nameSnapshot:{contains:data.search,mode:"insensitive" as const}},{members:{some:{customerId:{in:matchingIds},storeId}}}]}] : [])],
       }, skip:data.cardId ? 0 : data.page*20, take:data.cardId ? 1 : 21, entries:!!data.cardId,

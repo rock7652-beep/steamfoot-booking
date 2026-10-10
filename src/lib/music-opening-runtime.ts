@@ -15,7 +15,8 @@ export type OpeningCard = {
   musicOpeningStateRequired?: boolean;
   musicOpeningState?: unknown;
   musicActivatedAt?: Date | null;
-  expiresAt?: Date;
+  musicValidityDays?: number | null;
+  expiresAt?: Date | null;
   members?: { customerId: string }[];
 };
 export type OpeningState =
@@ -76,15 +77,16 @@ export function readMusicOpeningCard(card: OpeningCard | null | undefined, store
 
 /** Until their source links are materialized, do not guess opening holds or makeup. */
 export function musicOpeningOperationIssue(state: OpeningState, card: OpeningCard): string | null {
-  if (state.kind === "NATIVE") return null;
+  if (state.kind === "NATIVE") return card.expiresAt === null ? "方案期限資料缺漏，請先核對" : null;
   if (state.kind === "BLOCKED") return state.issue;
   const record = state.record;
-  if (record.expiryVerification?.kind === "NO_EXPIRY") return "已核實無期限；現有普通方案儲存格式尚未支援，暫不能變更課程";
-  if (!record.activatedAt || !record.expiresAt) return "期初啟用日或到期日未確認，暫不能變更課程";
+  const noExpiry = record.expiryVerification?.kind === "NO_EXPIRY";
+  if (record.expiryVerification?.kind === "UNKNOWN" || !record.activatedAt || (!noExpiry && !record.expiresAt)) return "期初啟用日或到期日未確認，暫不能變更課程";
   if (record.balance.reservedAtCutoff > 0) return "切點時預約尚未完成來源連結核對，暫不能變更課程";
   if (record.balance.unresolvedMakeupLessons > 0) return "期初待補課尚未完成來源連結核對，暫不能變更課程";
-  if (!(card.musicActivatedAt instanceof Date) || !(card.expiresAt instanceof Date) ||
-      card.musicActivatedAt.getTime() !== Date.parse(record.activatedAt) || card.expiresAt.getTime() !== Date.parse(record.expiresAt)) {
+  if (!(card.musicActivatedAt instanceof Date) ||
+      card.musicActivatedAt.getTime() !== Date.parse(record.activatedAt) ||
+      (noExpiry ? card.expiresAt !== null || card.musicValidityDays !== null : !(card.expiresAt instanceof Date) || card.expiresAt.getTime() !== Date.parse(record.expiresAt!))) {
     return "方案效期與期初基準不一致，請先核對";
   }
   return null;
@@ -122,15 +124,15 @@ export function readMusicOpeningLesson(state: OpeningState, booking: OpeningBook
 export function musicOpeningDateIssue(state: OpeningState, startsAt: Date): string | null {
   if (state.kind === "NATIVE") return null;
   if (state.kind === "BLOCKED") return state.issue;
-  if (state.record.expiryVerification?.kind === "NO_EXPIRY") return "已核實無期限；現有普通方案儲存格式尚未支援";
   if (!Number.isFinite(startsAt.getTime()) || startsAt < dayRange(state.scope.cutoffBusinessDate).start) return "期初方案不能新增或移至切點前課堂";
-  if (!state.record.expiresAt || startsAt.getTime() > Date.parse(state.record.expiresAt)) return "課堂超過期初原有效期限，請先核對";
+  if (state.record.expiryVerification?.kind === "NO_EXPIRY") return null;
+  if (state.record.expiryVerification?.kind === "UNKNOWN" || !state.record.expiresAt || startsAt.getTime() > Date.parse(state.record.expiresAt)) return "課堂超過期初原有效期限，請先核對";
   return null;
 }
 
 /** Shared select for calendar edits; callers keep their existing native checks. */
 export const MUSIC_OPENING_CARD_SELECT = {
-  id: true, storeId: true, unit: true, expiresAt: true, musicActivatedAt: true,
+  id: true, storeId: true, unit: true, expiresAt: true, musicActivatedAt: true, musicValidityDays: true,
   musicOpeningStateRequired: true, musicOpeningState: { select: MUSIC_OPENING_SELECT },
   members: { select: { customerId: true } },
 } as const;

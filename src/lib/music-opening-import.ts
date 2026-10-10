@@ -80,8 +80,8 @@ export function planVerifiedMusicOpeningImport(raw: unknown, proofInput: unknown
     if (item.rules.ordinaryBalance !== "EXCLUDES_MAKEUP_VERIFIED" || !item.rules.evidenceKey) return hold("ORDINARY_BALANCE_RULE_UNVERIFIED");
     if (r.balance.unresolvedMakeupLessons || r.balance.reservedAtCutoff) return hold("UNRESOLVED_MAKEUP_OR_RESERVATIONS");
     if (item.dates.activationVerification !== "VERIFIED" || !item.dates.activationEvidenceKey || !r.activatedAt || !r.expiryVerification || r.expiryVerification.kind === "UNKNOWN") return hold("SOURCE_DATE_UNVERIFIED");
-    // CoursePointCard.expiresAt is NOT NULL. No far-future sentinel or DDL here.
-    if (r.expiryVerification.kind === "NO_EXPIRY") return hold("VERIFIED_NO_EXPIRY_TARGET_SCHEMA_UNSUPPORTED");
+    // NO_EXPIRY is explicit and evidence-backed. The service verifies the target
+    // nullable capability before writing; UNKNOWN never reaches materialization.
     const rights = makeup.entries.filter(e => e.snapshot.sourceEnrollmentKey === r.sourceRecordKey);
     const related = data.makeup.records.filter(e => e.sourceEnrollmentKey === r.sourceRecordKey);
     if (related.length && item.rules.makeupExpiry !== "SOURCE_VERIFIED") return hold("MAKEUP_EXPIRY_RULE_UNVERIFIED");

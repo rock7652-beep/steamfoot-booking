@@ -68,7 +68,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       reserved: held.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
       attended: attended.find((b) => b.cardId === order.cardId)?._count ?? 0,
       usedQuota: attended.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
-      expiresAt: card ? formatTWTime(card.expiresAt, { dateOnly: true }) : null,
+      expiresAt: card?.expiresAt ? formatTWTime(card.expiresAt, { dateOnly: true }) : null,
       refunds: order.refunds.map((r) => ({ amount: r.amount, reason: r.reason, method: r.method, date: formatTWTime(r.createdAt, { dateOnly: true }) })),
     };
   });

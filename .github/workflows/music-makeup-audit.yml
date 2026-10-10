@@ -1,32 +1,78 @@
 name: Music makeup isolated database audit
 on:
   pull_request:
-    branches: [main]
+    branches: ['main']
     paths:
       - 'src/server/services/course-booking.ts'
+      - 'src/server/services/course-store-lock.ts'
       - 'src/server/actions/course-members.ts'
       - 'src/lib/music-opening-*.ts'
-      - 'src/server/services/music-opening-makeup*.ts'
+      - 'src/lib/course-card-expiry.ts'
+      - 'src/server/queries/course-card-expiry-sql.ts'
+      - 'src/server/services/music-opening-*.ts'
       - 'src/server/queries/music-opening-makeup.ts'
       - 'src/server/actions/music-opening-makeup.ts'
-      - 'src/__tests__/music-opening-makeup*.test.ts'
-      - 'src/__tests__/fixtures/music-opening-makeup.ts'
-      - 'docs/sql/music-opening-makeup-20261008.sql'
+      - 'src/__tests__/music-opening-*.test.ts'
+      - 'src/__tests__/course-card-expiry*.test.ts'
+      - 'src/__tests__/course-customer-page.pg.test.ts'
+      - 'src/server/queries/course-customer-page.ts'
+      - 'src/__tests__/fixtures/music-opening*.ts'
+      - 'docs/sql/music-opening-*.sql'
       - 'course-prisma/schema.prisma'
       - 'src/server/actions/course-booking-notification.ts'
       - 'src/__tests__/course-booking-notification.pg.test.ts'
       - 'src/__tests__/course-student-makeup.pg.test.ts'
-      - 'src/__tests__/music-opening-transactions.pg.test.ts'
       - 'src/__tests__/helpers/booking-concurrency-test-db.ts'
-      - 'src/__tests__/fixtures/music-opening.ts'
+      - 'src/__tests__/helpers/audit-outbox-test-schema.ts'
       - 'supabase/migrations/20260928101128_course_student_makeup_link.sql'
       - 'supabase/migrations/20261002093141_course_coach_notifications.sql'
       - 'prisma/migrations/20260929140000_course_staff_person_link/migration.sql'
+      - 'prisma/migrations/20260925191000_course_music_absence/migration.sql'
+      - 'prisma/migrations/20261001093000_course_teacher_absence_refund/migration.sql'
+      - 'prisma/migrations/20261007002000_verified_audit_actor/migration.sql'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.ts'
+      - '.github/workflows/music-makeup-audit.yml'
+  push:
+    branches: ['feat/music-opening-state-20261007']
+    paths:
+      - 'src/server/services/course-booking.ts'
+      - 'src/server/services/course-store-lock.ts'
+      - 'src/server/actions/course-members.ts'
+      - 'src/lib/music-opening-*.ts'
+      - 'src/lib/course-card-expiry.ts'
+      - 'src/server/queries/course-card-expiry-sql.ts'
+      - 'src/server/services/music-opening-*.ts'
+      - 'src/server/queries/music-opening-makeup.ts'
+      - 'src/server/actions/music-opening-makeup.ts'
+      - 'src/__tests__/music-opening-*.test.ts'
+      - 'src/__tests__/course-card-expiry*.test.ts'
+      - 'src/__tests__/course-customer-page.pg.test.ts'
+      - 'src/server/queries/course-customer-page.ts'
+      - 'src/__tests__/fixtures/music-opening*.ts'
+      - 'docs/sql/music-opening-*.sql'
+      - 'course-prisma/schema.prisma'
+      - 'src/server/actions/course-booking-notification.ts'
+      - 'src/__tests__/course-booking-notification.pg.test.ts'
+      - 'src/__tests__/course-student-makeup.pg.test.ts'
+      - 'src/__tests__/helpers/booking-concurrency-test-db.ts'
+      - 'src/__tests__/helpers/audit-outbox-test-schema.ts'
+      - 'supabase/migrations/20260928101128_course_student_makeup_link.sql'
+      - 'supabase/migrations/20261002093141_course_coach_notifications.sql'
+      - 'prisma/migrations/20260929140000_course_staff_person_link/migration.sql'
+      - 'prisma/migrations/20260925191000_course_music_absence/migration.sql'
+      - 'prisma/migrations/20261001093000_course_teacher_absence_refund/migration.sql'
+      - 'prisma/migrations/20261007002000_verified_audit_actor/migration.sql'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.ts'
       - '.github/workflows/music-makeup-audit.yml'
 permissions:
   contents: read
 jobs:
   music-makeup-postgres:
+    if: github.repository == 'rock7652-beep/steamfoot-booking' && (github.event_name != 'push' || github.ref == 'refs/heads/feat/music-opening-state-20261007')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     services:
@@ -46,6 +92,8 @@ jobs:
       BOOKING_CONCURRENCY_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/music_makeup_test
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -87,6 +135,24 @@ jobs:
             const r = JSON.parse(readFileSync("music-opening-makeup-pg-results.json", "utf8"));
             if (!r.success || r.numTotalTests !== 12 || r.numPassedTests !== r.numTotalTests || r.numPendingTests !== 0) throw new Error("All opening entitlement database scenarios must pass without skips");
           '
+      - name: Exercise verified opening imports, replay, real overlaps and atomic rollback
+        run: npx vitest run src/__tests__/music-opening-import-transactions.pg.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile=music-opening-import-pg-results.json
+      - name: Require all nineteen combined importer database scenarios without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("music-opening-import-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 19 || r.numPassedTests !== 19 || r.numPendingTests !== 0) throw new Error("All nineteen combined importer PostgreSQL scenarios must pass without skips");
+          '
+      - name: Exercise nullable customer balance aggregation against PostgreSQL
+        run: npx vitest run src/__tests__/course-customer-page.pg.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile=music-no-expiry-report-pg-results.json
+      - name: Require all five report database scenarios without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("music-no-expiry-report-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 5 || r.numPassedTests !== 5 || r.numPendingTests !== 0) throw new Error("All five nullable report PostgreSQL scenarios must pass without skips");
+          '
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -96,4 +162,6 @@ jobs:
             course-notification-pg-results.json
             music-opening-pg-results.json
             music-opening-makeup-pg-results.json
+            music-opening-import-pg-results.json
+            music-no-expiry-report-pg-results.json
           retention-days: 7

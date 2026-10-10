@@ -64,9 +64,9 @@ export async function saveCourseCompanionUsage(input: unknown) {
       const before = await tx.courseBooking.findFirstOrThrow({where: {id: data.bookingId, storeId}, select: {cardId: true, pointCost: true}});
       const updated = await changeCompanionUsage(tx, {storeId, userId: user.id, name: user.name ?? "教練"}, {...data, trialPrice});
       const cards = await tx.coursePointCard.findMany({where: {storeId, id: {in: [before.cardId, updated.cardId].filter((id): id is string => !!id)}}, include: {bookings: {where: {status: "RESERVED"}, select: {pointCost: true}}}});
-      const balances = cards.map(card => ({id: card.id, available: card.closedAt || card.expiresAt < new Date() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((sum, b) => sum + b.pointCost, 0))}));
+      const balances = cards.map(card => ({id: card.id, available: card.closedAt || card.musicOpeningStateRequired || card.expiresAt === null || card.expiresAt < new Date() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((sum, b) => sum + b.pointCost, 0))}));
       const card = cards.find(card => card.id === updated.cardId);
-      return {booking: {id: updated.id, cardId: updated.cardId, customerId: updated.customerId, customerName: updated.customerName, updatedAt: updated.updatedAt.toISOString(), cost: updated.pointCost, unit: card?.unit ?? "TRIAL", planName: card?.nameSnapshot ?? "體驗（不使用方案）", available: balances.find(b => b.id === updated.cardId)?.available ?? null, expiresAt: card?.expiresAt.toISOString() ?? null}, balances,
+      return {booking: {id: updated.id, cardId: updated.cardId, customerId: updated.customerId, customerName: updated.customerName, updatedAt: updated.updatedAt.toISOString(), cost: updated.pointCost, unit: card?.unit ?? "TRIAL", planName: card?.nameSnapshot ?? "體驗（不使用方案）", available: balances.find(b => b.id === updated.cardId)?.available ?? null, expiresAt: card?.expiresAt?.toISOString() ?? null}, balances,
         returned: before.cardId && before.cardId !== updated.cardId ? {amount: before.pointCost, unit: cards.find(card => card.id === before.cardId)?.unit ?? "POINT"} : null, confirmedAt: Date.now()};
     });
     after(() => refresh());

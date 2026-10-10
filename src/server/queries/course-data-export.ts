@@ -1,3 +1,5 @@
+import { courseCardActiveExpiryWhere, courseCardCoversDate, courseCardHasVerifiedNoExpiry } from "@/lib/course-card-expiry";
+import { MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
 import "server-only";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
@@ -40,14 +42,15 @@ export async function getCourseDataExport(storeId: string, type: DataExportType,
     ];
   }
   if (type === "bookings") {
-    const rows = await coursePrisma.courseBooking.findMany({ where: { storeId, session: { startsAt: period }, ...(status ? { status } : {}) }, include: { session: true, card: true }, orderBy: [{ session: { startsAt: "desc" } }, { createdAt: "desc" }], take });
-    return [{ name: COURSE_EXPORT_LABELS[type], headers: ["上課時間", "課程", "實際上課者（預約時姓名）", "操作人（預約時姓名）", "本人／代約", "使用方案", "方案到期", "額度", "單位", "預約狀態", "報到時間", "課次狀態"], rows: rows.map(row => [stamp(row.session.startsAt), row.session.nameSnapshot, row.customerName, row.operatorName, row.operatorCustomerId === row.customerId ? "本人預約" : "代約", row.card?.nameSnapshot ?? "體驗（不使用方案）", stamp(row.card?.expiresAt ?? null), row.pointCost, row.card ? unit(row.card.unit) : "不使用額度", courseExportStatusLabel(type, row.status), stamp(row.checkedInAt), row.session.cancelledAt ? "已取消課程" : "已排課"]) }];
+    const rows = await coursePrisma.courseBooking.findMany({ where: { storeId, session: { startsAt: period }, ...(status ? { status } : {}) }, include: { session: true, card: { include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT } } } }, orderBy: [{ session: { startsAt: "desc" } }, { createdAt: "desc" }], take });
+    return [{ name: COURSE_EXPORT_LABELS[type], headers: ["上課時間", "課程", "實際上課者（預約時姓名）", "操作人（預約時姓名）", "本人／代約", "使用方案", "方案到期", "額度", "單位", "預約狀態", "報到時間", "課次狀態"], rows: rows.map(row => [stamp(row.session.startsAt), row.session.nameSnapshot, row.customerName, row.operatorName, row.operatorCustomerId === row.customerId ? "本人預約" : "代約", row.card?.nameSnapshot ?? "體驗（不使用方案）", (row.card?.expiresAt ? stamp(row.card.expiresAt) : row.card && courseCardHasVerifiedNoExpiry(row.card, storeId) ? "無期限" : row.card ? "效期待核對" : ""), row.pointCost, row.card ? unit(row.card.unit) : "不使用額度", courseExportStatusLabel(type, row.status), stamp(row.checkedInAt), row.session.cancelledAt ? "已取消課程" : "已排課"]) }];
   }
-  const cards = await coursePrisma.coursePointCard.findMany({ where: { storeId, createdAt: period, ...(status === "CLOSED" ? { closedAt: { not: null } } : status === "EXPIRED" ? { closedAt: null, expiresAt: { lte: now } } : status === "ACTIVE" ? { closedAt: null, expiresAt: { gt: now } } : {}) }, include: { members: true, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } }, orderBy: { createdAt: "desc" }, take });
+  const cards = await coursePrisma.coursePointCard.findMany({ where: { storeId, createdAt: period, ...(status === "CLOSED" ? { closedAt: { not: null } } : status === "EXPIRED" ? { closedAt: null, expiresAt: { lte: now } } : status === "ACTIVE" ? { closedAt: null, ...courseCardActiveExpiryWhere(now) } : {}) }, include: { musicOpeningState: { select: MUSIC_OPENING_SELECT }, members: true, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } }, orderBy: { createdAt: "desc" }, take });
   const names = await namesFor(cards.flatMap(card => card.members.map(member => member.customerId).filter((id): id is string => !!id)));
   return [{ name: COURSE_EXPORT_LABELS[type], headers: ["卡片編號", "方案", "共卡授權成員", "剩餘", "已預約占用", "可用", "單位", "到期日", "狀態", "發卡時間", "說明"], rows: cards.map(card => {
     const held = card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0);
-    const state = card.closedAt ? "CLOSED" : card.expiresAt <= now ? "EXPIRED" : "ACTIVE";
-    return [card.id, card.nameSnapshot, card.members.map(member => names.get(member.customerId) ?? "顧客待核對").join("、"), card.remaining, held, state === "ACTIVE" ? Math.max(0, card.remaining - held) : 0, unit(card.unit), stamp(card.expiresAt), courseExportStatusLabel("wallets", state), stamp(card.createdAt), "每張卡只列一次，共卡不可按人重複加總；占用不是正式使用"];
+    const usable = courseCardCoversDate(card, storeId, now);
+    const state = card.closedAt ? "CLOSED" : card.expiresAt && card.expiresAt <= now ? "EXPIRED" : usable ? "ACTIVE" : "UNVERIFIED";
+    return [card.id, card.nameSnapshot, card.members.map(member => names.get(member.customerId) ?? "顧客待核對").join("、"), card.remaining, held, state === "ACTIVE" ? Math.max(0, card.remaining - held) : 0, unit(card.unit), (card.expiresAt ? stamp(card.expiresAt) : courseCardHasVerifiedNoExpiry(card, storeId) ? "無期限" : "效期待核對"), state === "UNVERIFIED" ? "待核對" : courseExportStatusLabel("wallets", state), stamp(card.createdAt), "每張卡只列一次，共卡不可按人重複加總；占用不是正式使用"];
   }) }];
 }

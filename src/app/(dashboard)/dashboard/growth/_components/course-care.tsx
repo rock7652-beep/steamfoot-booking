@@ -16,8 +16,8 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
   const mode = { staffLabel, courseMode: true, readOnly, canFollowUp, canBook };
   const phone = (value: string | null) => value || "未提供電話";
   const rows = (kind: "low" | "inactive" | "expiring"): CareItem[] => overview[kind].map(customer => {
-    const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0).sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
-    const details = cards.map(card => `${card.name}：剩餘 ${card.remaining}／已預約 ${card.held}／可用 ${card.available} ${card.unit}，${formatTWTime(card.expiresAt, { dateOnly: true })} 到期`);
+    const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0).sort((a, b) => (a.expiresAt?.getTime() ?? Infinity) - (b.expiresAt?.getTime() ?? Infinity));
+    const details = cards.map(card => `${card.name}：剩餘 ${card.remaining}／已預約 ${card.held}／可用 ${card.available} ${card.unit}，${card.expiresAt ? `${formatTWTime(card.expiresAt, { dateOnly: true })} 到期` : "無期限"}`);
     return {
       ...mode, customerId: customer.id, name: customer.name, phoneLabel: phone(customer.phone), staffName: customer.assignedStaff?.displayName ?? null,
       lastFollowUpText: customer.followUps[0] ? `最後追蹤：${customer.followUps[0].createdBy.name}・${formatTWTime(customer.followUps[0].createdAt)}` : null,

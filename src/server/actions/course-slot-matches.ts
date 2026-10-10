@@ -1,4 +1,6 @@
 "use server";
+import { courseCardCoversDate } from "@/lib/course-card-expiry";
+import { MUSIC_OPENING_CARD_SELECT } from "@/lib/music-opening-runtime";
 
 import { z } from "zod";
 import { courseManager } from "@/server/services/course-access";
@@ -29,7 +31,7 @@ export async function getMusicSlotMatches(input: unknown) {
 
     const source = data.moveSessionId ? await coursePrisma.courseSession.findFirst({
       where: { id: data.moveSessionId, storeId, cancelledAt: null },
-      include: { bookings: { where: { status: { not: "CANCELLED" } }, select: { card: { select: { expiresAt: true } } } } },
+      include: { bookings: { where: { status: { not: "CANCELLED" } }, select: { card: { select: MUSIC_OPENING_CARD_SELECT } } } },
     }) : null;
     if (data.moveSessionId && (!source || source.templateId !== data.templateId))
       return { success: false as const, error: "找不到要調整的課，請重新整理" };
@@ -42,7 +44,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const series = source && data.scope !== "SINGLE"
       ? await coursePrisma.courseSession.findMany({
           where: { storeId, requestKey: source.requestKey, startsAt: { gte: source.startsAt }, cancelledAt: null },
-          include: { bookings: { where: { status: { not: "CANCELLED" } }, select: { card: { select: { expiresAt: true } } } } },
+          include: { bookings: { where: { status: { not: "CANCELLED" } }, select: { card: { select: MUSIC_OPENING_CARD_SELECT } } } },
           orderBy: { startsAt: "asc" },
         })
       : source ? [source] : [];
@@ -91,7 +93,7 @@ export async function getMusicSlotMatches(input: unknown) {
         if (toLocalDateStr(endsAt) !== date || store.status === "closed" || store.status === "training" ||
             (store.periods.length > 0 && !periodContains(store.periods, start, data.durationMinutes))) return false;
         if (!periodContains(teacherPeriods(coachId, date), start, data.durationMinutes)) return false;
-        if (bookings.some(b => b.card && b.card.expiresAt < startsAt)) return false;
+        if (bookings.some(b => b.card && !courseCardCoversDate(b.card, storeId, startsAt))) return false;
         if (dutyConfig[0]?.dutySchedulingEnabled && !dutyCoversCourse(start, end,
           courseDutyIntervals(date, hours, specials),
           assignments.filter(a => a.staffId === coachId && a.date.toISOString().slice(0, 10) === date).map(a => a.slotTime))) return false;

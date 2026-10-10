@@ -1,3 +1,6 @@
+import { courseCardActiveExpiryWhere, courseCardCoversDate, courseCardHasVerifiedNoExpiry } from "@/lib/course-card-expiry";
+import { MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
+import { courseCardActiveExpirySql, courseNoExpiryProofs } from "@/server/queries/course-card-expiry-sql";
 import "server-only";
 import { formatTWDateTime } from "@/lib/date-utils";
 import { courseReminderAlreadySent } from "./course-reminder-merge-dedupe";
@@ -34,10 +37,11 @@ export async function runCourseLowBalanceReminders(now=new Date(),onlyStoreId?:s
   const stores=await prisma.store.findMany({where:{industryModule:"COURSE",...(onlyStoreId?{id:onlyStoreId}: {})},select:{id:true,slug:true,name:true}});
   for(const store of stores) {
     if(!(await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))) continue;
-    const cards=await coursePrisma.coursePointCard.findMany({where:{storeId:store.id,...(cardIds?{id:{in:cardIds}}:{}),closedAt:null,expiresAt:{gt:now},plan:{lowBalanceEnabled:true,lowBalanceThreshold:{not:null}}},include:{plan:true,members:true,bookings:{where:{storeId:store.id,status:"RESERVED"},select:{pointCost:true}}}});
+    const cards=await coursePrisma.coursePointCard.findMany({where:{storeId:store.id,...(cardIds?{id:{in:cardIds}}:{}),closedAt:null,...courseCardActiveExpiryWhere(now),plan:{lowBalanceEnabled:true,lowBalanceThreshold:{not:null}}},include:{musicOpeningState:{select:MUSIC_OPENING_SELECT},plan:true,members:true,bookings:{where:{storeId:store.id,status:"RESERVED"},select:{pointCost:true}}}});
     for(const card of cards) {
+      if (!courseCardCoversDate(card, store.id, now)) continue;
       const held=card.bookings.reduce((n,b)=>n+b.pointCost,0);
-      if(!courseCardIsLow({enabled:card.plan.lowBalanceEnabled,threshold:card.plan.lowBalanceThreshold,remaining:card.remaining,held,closed:!!card.closedAt,expiresAt:card.expiresAt},now)) continue;
+      if(!courseCardIsLow({enabled:card.plan.lowBalanceEnabled,threshold:card.plan.lowBalanceThreshold,remaining:card.remaining,held,closed:!!card.closedAt,expiresAt:card.expiresAt,verifiedNoExpiry:courseCardHasVerifiedNoExpiry(card,store.id)},now)) continue;
       const people=await prisma.customer.findMany({where:{storeId:store.id,id:{in:card.members.map(m=>m.customerId)},mergedIntoCustomerId:null},select:{id:true,lineUserId:true,lineLinkStatus:true}});
       for(const person of people) {
         summary.total++;
@@ -52,7 +56,7 @@ export async function runCourseLowBalanceReminders(now=new Date(),onlyStoreId?:s
             const current=await tx.$queryRaw<{remaining:number;held:number;unit:string;nameSnapshot:string;nextStartsAt:Date|null}[]>`
               SELECT (SELECT MIN(s."startsAt") FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED' AND s."cancelledAt" IS NULL) AS "nextStartsAt",c.remaining,c.unit,c."nameSnapshot",COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held
               FROM "CoursePointCard" c JOIN "CoursePointPlan" p ON p.id=c."planId" AND p."storeId"=c."storeId"
-              WHERE c.id=${card.id} AND c."storeId"=${store.id} AND c."closedAt" IS NULL AND c."expiresAt">${now}
+              WHERE c.id=${card.id} AND c."storeId"=${store.id} AND c."closedAt" IS NULL AND ${courseCardActiveExpirySql(now, false, courseNoExpiryProofs([card], store.id, now))}
               AND p."lowBalanceEnabled" AND p."lowBalanceThreshold" IS NOT NULL
               AND c.remaining-COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)<=p."lowBalanceThreshold"
               AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;

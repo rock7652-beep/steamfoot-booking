@@ -816,7 +816,7 @@ export function CourseRoster({
                 {eligibleCards.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name} · 可用 {item.available} {item.unit === "SESSION" ? "堂" : "點"} · 到期{" "}
-                    {item.expiresAt ? formatTWDateTime(new Date(item.expiresAt)).slice(0, 10) : "期初效期待核對"}
+                    {item.expiryKind === "NO_EXPIRY" ? "無期限" : item.expiresAt ? formatTWDateTime(new Date(item.expiresAt)).slice(0, 10) : "期初效期待核對"}
                   </option>
                 ))}
               </select>

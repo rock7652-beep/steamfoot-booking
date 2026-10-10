@@ -28,9 +28,9 @@ export async function loadCustomerCareBooking(customerId: string) {
       const now = new Date();
       const [sessions, cards] = await Promise.all([
         coursePrisma.courseSession.findMany({ where: { storeId, cancelledAt: null, releasedAt: null, startsAt: { gt: now, lte: dayRange(addTaiwanDuration(today, 60, "DAY")).end }, template: { storeId, isActive: true, visibility: { not: "OFF" } } }, select: { id: true, nameSnapshot: true, startsAt: true, templateId: true }, orderBy: { startsAt: "asc" }, take: 200 }),
-        coursePrisma.coursePointCard.findMany({ where: { storeId, closedAt: null, remaining: { gt: 0 }, expiresAt: { gt: now }, members: { some: { storeId, customerId } } }, select: { id: true, nameSnapshot: true, expiresAt: true, templateIds: true, termSessionIds: true }, orderBy: { expiresAt: "asc" } }),
+        coursePrisma.coursePointCard.findMany({ where: { storeId, closedAt: null, remaining: { gt: 0 }, musicOpeningStateRequired: false, expiresAt: { gt: now }, members: { some: { storeId, customerId } } }, select: { id: true, nameSnapshot: true, expiresAt: true, templateIds: true, termSessionIds: true }, orderBy: { expiresAt: "asc" } }),
       ]);
-      return { success: true as const, data: { module: "course" as const, sessions: sessions.map(s => ({ id: s.id, name: s.nameSnapshot, at: s.startsAt.toISOString(), cardIds: cards.filter(c => c.expiresAt >= s.startsAt && (!c.templateIds.length || c.templateIds.includes(s.templateId)) && (!c.termSessionIds.length || c.termSessionIds.includes(s.id))).map(c => c.id) })).filter(s => s.cardIds.length), cards: cards.map(c => ({ id: c.id, name: c.nameSnapshot })) } };
+      return { success: true as const, data: { module: "course" as const, sessions: sessions.map(s => ({ id: s.id, name: s.nameSnapshot, at: s.startsAt.toISOString(), cardIds: cards.filter(c => c.expiresAt !== null && c.expiresAt >= s.startsAt && (!c.templateIds.length || c.templateIds.includes(s.templateId)) && (!c.termSessionIds.length || c.termSessionIds.includes(s.id))).map(c => c.id) })).filter(s => s.cardIds.length), cards: cards.map(c => ({ id: c.id, name: c.nameSnapshot })) } };
     }
     if (industry !== "spa") throw new AppError("VALIDATION", "請使用蒸足預約表單");
     const [config, treatments] = await Promise.all([

@@ -622,7 +622,7 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
         {!card.closed && !card.expired && <> · {card.unit === "SESSION" ? `還可預約 ${card.available} 堂` : `可用 ${card.available} 點`}</>}
       </p>
       <p>
-        期限：{!card.expiresAt || (card.openingImported && !card.musicActivatedAt) ? "期初效期待核對" : card.musicValidityDays && !card.musicActivatedAt ? `首次上課起 ${card.musicValidityDays} 天` : toLocalDateStr(new Date(card.expiresAt))}
+        期限：{card.expiryKind === "NO_EXPIRY" ? "無期限" : !card.expiresAt || (card.openingImported && !card.musicActivatedAt) ? "期初效期待核對" : card.musicValidityDays && !card.musicActivatedAt ? `首次上課起 ${card.musicValidityDays} 天` : toLocalDateStr(new Date(card.expiresAt))}
         {card.expiresAt && new Date(card.expiresAt) < new Date() ? "（已到期）" : ""}
       </p>
       {card.openingIssue && <p className="text-amber-800">{card.openingIssue}</p>}

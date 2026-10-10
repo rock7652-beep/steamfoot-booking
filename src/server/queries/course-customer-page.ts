@@ -1,3 +1,4 @@
+import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import "server-only";
 import { Prisma } from "@prisma/client";
@@ -34,6 +35,7 @@ export async function getCourseCustomerPage(
   const order = sort === "points" && canReadCards ? (music ? Prisma.sql`sessions DESC` : Prisma.sql`points DESC`)
     : sort === "created" ? Prisma.sql`"createdAt" DESC`
       : Prisma.sql`"lastVisitAt" DESC NULLS LAST`;
+  const noExpiry = canReadCards ? await readCourseNoExpiryProofs(storeId, now) : [];
   const [result] = await prisma.$queryRaw<CourseCustomerPage[]>(Prisma.sql`
     WITH attendance AS (
       SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
@@ -49,7 +51,7 @@ export async function getCourseCustomerPage(
         SUM(CASE WHEN c.unit='SESSION' THEN GREATEST(0,c.remaining-COALESCE(h.amount,0)) ELSE 0 END)::int AS sessions
       FROM "CoursePointCard" c JOIN "CourseCardMember" m ON m."cardId"=c.id AND m."storeId"=c."storeId"
       LEFT JOIN held h ON h."cardId"=c.id
-      WHERE c."storeId"=${storeId} AND ${canReadCards} AND c."closedAt" IS NULL AND c."expiresAt">=${now}
+      WHERE c."storeId"=${storeId} AND ${canReadCards} AND c."closedAt" IS NULL AND ${courseCardActiveExpirySql(now, true, noExpiry)}
       GROUP BY m."customerId"
     ), filtered AS (
       SELECT c.id,c.name,c."createdAt",a."lastVisitAt",COALESCE(b.points,0) AS points,

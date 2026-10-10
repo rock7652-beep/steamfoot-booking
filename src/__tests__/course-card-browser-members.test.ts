@@ -34,8 +34,8 @@ it("shows shared-card members directly on an active plan row", async () => {
       expired: false,
       expiresAt: "2026-12-31T00:00:00.000Z",
       members: [
-        { id: "customer-a", name: "王小美", phone: "0911111111" },
-        { id: "customer-b", name: "陳小樂", phone: "0922222222" },
+        { id: "customer-a", name: "Synthetic member A", phone: "SYNTHETIC-CONTACT-A" },
+        { id: "customer-b", name: "Synthetic member B", phone: "SYNTHETIC-CONTACT-B" },
       ],
       entries: [],
     }],
@@ -57,7 +57,7 @@ it("shows shared-card members directly on an active plan row", async () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
     });
-    expect(host.textContent).toContain("共卡人：王小美、陳小樂");
+    expect(host.textContent).toContain("共卡人：Synthetic member A、Synthetic member B");
     expect(host.textContent).toContain("剩餘 8 點");
     expect(host.textContent).toContain("已預約 2 點額度");
     expect(host.textContent).toContain("共同餘額");
@@ -68,4 +68,16 @@ it("shows shared-card members directly on an active plan row", async () => {
     await act(async () => root.unmount());
     host.remove();
   }
+});
+
+it.each(["NO_EXPIRY","UNKNOWN"])("labels %s without treating a missing date as unlimited",async kind=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  mocks.browse.mockResolvedValue({success:true,rows:[{id:"synthetic-opening",name:"Synthetic ordinary plan",unit:"SESSION",remaining:2,held:0,available:kind==="NO_EXPIRY"?2:0,closed:false,expired:false,expiresAt:null,expiryKind:kind==="NO_EXPIRY"?kind:undefined,openingImported:true,musicActivatedAt:"2026-09-01",members:[{id:"synthetic-student",name:"Synthetic",phone:""}],entries:[]}],hasMore:false});
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(CourseCardBrowser,{customerId:"synthetic-student",state:{search:"",history:false,page:0},onChange:vi.fn(),onSelect:vi.fn()})));
+    await act(async()=>{await new Promise(resolve=>setTimeout(resolve,300));});
+    expect(host.textContent).toContain(kind==="NO_EXPIRY"?"無期限":"期初效期待核對");
+    expect(host.textContent).not.toContain("2099");
+  }finally{await act(async()=>root.unmount());host.remove();}
 });

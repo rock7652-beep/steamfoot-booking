@@ -1,3 +1,5 @@
+import { courseCardCoversDate, courseCardHasVerifiedNoExpiry } from "@/lib/course-card-expiry";
+import { MUSIC_OPENING_CARD_SELECT } from "@/lib/music-opening-runtime";
 import "server-only";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
@@ -13,8 +15,8 @@ export async function getCourseCustomerCsv(storeId: string, access: {cards: bool
   });
   const cards = access.cards ? await coursePrisma.coursePointCard.findMany({
     where:{storeId,closedAt:null},
-    select:{nameSnapshot:true,unit:true,remaining:true,expiresAt:true,members:{select:{customerId:true}},bookings:{where:{storeId,status:"RESERVED"},select:{pointCost:true}}},
-    orderBy:{expiresAt:"asc"},
+    select:{...MUSIC_OPENING_CARD_SELECT,nameSnapshot:true,remaining:true,expiresAt:true,members:{select:{customerId:true}},bookings:{where:{storeId,status:"RESERVED"},select:{pointCost:true}}},
+    orderBy:{expiresAt:{sort:"asc",nulls:"last"}},
   }) : [];
   const classes = access.bookings ? await coursePrisma.$queryRaw<Array<{customerId:string;participations:bigint;completed:bigint;lastVisitAt:Date|null}>>`
     SELECT b."customerId",COUNT(*) AS participations,
@@ -30,14 +32,14 @@ export async function getCourseCustomerCsv(storeId: string, access: {cards: bool
     const memberCards = cards.filter(card=>card.members.some(m=>m.customerId===c.id));
     const balances = memberCards.map(card=>{
       const held=card.bookings.reduce((sum,b)=>sum+b.pointCost,0);
-      return {...card,held,available:card.expiresAt<now?0:Math.max(0,card.remaining-held)};
+      return {...card,held,available:!courseCardCoversDate(card,storeId,now)?0:Math.max(0,card.remaining-held)};
     });
     const attendance=classes.find(row=>row.customerId===c.id);
     const unread="無檢視權限";
     rows.push([
       c.name,c.phone,c.email??"",c.lineName??"",stages[c.customerStage]??c.customerStage,
       c.assignedStaff?.storeId===storeId?c.assignedStaff.displayName:"未指派",c.address??"",c.emergencyContactName??"",c.emergencyContactPhone??"",c.notes??"",
-      access.cards?balances.map(card=>`${card.nameSnapshot}${card.members.length>1?"（共卡）":""}：剩餘${card.remaining}／占用${card.held}／可用${card.available}${card.unit==="SESSION"?"堂":"點"}／${toLocalDateStr(card.expiresAt)}${card.expiresAt<now?"（已到期）":""}`).join("；"):unread,
+      access.cards?balances.map(card=>`${card.nameSnapshot}${card.members.length>1?"（共卡）":""}：剩餘${card.remaining}／占用${card.held}／可用${card.available}${card.unit==="SESSION"?"堂":"點"}／${card.expiresAt ? toLocalDateStr(card.expiresAt) : courseCardHasVerifiedNoExpiry(card,storeId) ? "無期限" : "效期待核對"}${card.expiresAt && card.expiresAt<now?"（已到期）":""}`).join("；"):unread,
       access.cards?balances.filter(card=>card.unit==="POINT").reduce((sum,card)=>sum+card.available,0):unread,
       access.cards?balances.filter(card=>card.unit==="SESSION").reduce((sum,card)=>sum+card.available,0):unread,
       access.bookings?String(attendance?.participations??0):unread,access.bookings?String(attendance?.completed??0):unread,

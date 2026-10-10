@@ -44,7 +44,7 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   if (input.mode === "MEMBER" && (!customerId || !cardId)) return fail("請選擇學員與本人方案");
   const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true}}) : null;
   if (input.mode !== "TRIAL") {
-    if (!card || card.closedAt || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length || (card.templateIds.length && !card.templateIds.includes(booking.session.templateId)))
+    if (!card || card.closedAt || card.musicOpeningStateRequired || card.expiresAt === null || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length || (card.templateIds.length && !card.templateIds.includes(booking.session.templateId)))
       return fail("此方案無法使用本堂課");
     // This corrects an existing seat. Its original reserver authorization survives
     // later changes to the shared-card feature or the plan's new-sharing setting.

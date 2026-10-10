@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m=vi.hoisted(()=>({raw:vi.fn(),session:vi.fn(),live:vi.fn(),scope:vi.fn(),permission:vi.fn(),blocked:vi.fn(),finance:vi.fn()}));
 vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:m.finance}));
 vi.mock("server-only",()=>({}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{coursePointCard:{findMany:vi.fn().mockResolvedValue([])}}}));
 vi.mock("@/lib/db",()=>({prisma:{$queryRaw:m.raw,cashDrawerSession:{findFirst:m.session}}}));
 vi.mock("@/lib/manager-visibility",()=>({getManagerCustomerWhere:m.scope}));
 vi.mock("@/server/queries/cash-drawer",()=>({computeLiveTotalsForOpenSession:m.live}));

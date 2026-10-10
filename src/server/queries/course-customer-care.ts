@@ -1,3 +1,5 @@
+import { courseCardActiveExpiryWhere, courseCardCoversDate } from "@/lib/course-card-expiry";
+import { MUSIC_OPENING_SELECT } from "@/lib/music-opening-runtime";
 import "server-only";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
@@ -14,9 +16,9 @@ export async function getCourseCustomerCare(storeId: string, now = new Date(), s
       orderBy: { name: "asc" },
     }),
     coursePrisma.coursePointCard.findMany({
-      where: { storeId, closedAt: null, expiresAt: { gt: now } },
-      include: { plan: { select: { lowBalanceEnabled: true, lowBalanceThreshold: true } }, members: { where: { storeId } }, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } },
-      orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+      where: { storeId, closedAt: null, ...courseCardActiveExpiryWhere(now) },
+      include: { musicOpeningState: { select: MUSIC_OPENING_SELECT }, plan: { select: { lowBalanceEnabled: true, lowBalanceThreshold: true } }, members: { where: { storeId } }, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } },
+      orderBy: [{ expiresAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
     }),
     coursePrisma.$queryRaw<Array<{ customerId: string; lastVisitAt: Date }>>`
       SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
@@ -28,11 +30,12 @@ export async function getCourseCustomerCare(storeId: string, now = new Date(), s
   const converted = new Set(purchases.map(p=>p.customerId));
   const trialByCustomer = new Map(trialPayments.slice().reverse().map(p=>[p.booking.customerId,p]));
   const lastVisit = new Map(attendance.map(row => [row.customerId, row.lastVisitAt]));
-  const byMember = new Map<string, Array<{ id: string; name: string; unit: string; remaining: number; held: number; available: number; expiresAt: Date; low: boolean; expiring: boolean }>>();
+  const byMember = new Map<string, Array<{ id: string; name: string; unit: string; remaining: number; held: number; available: number; expiresAt: Date | null; low: boolean; expiring: boolean }>>();
   for (const card of cards) {
+    if (!courseCardCoversDate(card, storeId, now)) continue;
     const held = card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0);
     const available = Math.max(0, card.remaining - held);
-    const summary = { id: card.id, name: card.nameSnapshot, unit: card.unit === "SESSION" ? "堂" : "點", remaining: card.remaining, held, available, expiresAt: card.expiresAt, low: card.plan.lowBalanceEnabled && card.plan.lowBalanceThreshold !== null && available <= card.plan.lowBalanceThreshold, expiring: card.remaining > 0 && card.expiresAt <= expiryEnd };
+    const summary = { id: card.id, name: card.nameSnapshot, unit: card.unit === "SESSION" ? "堂" : "點", remaining: card.remaining, held, available, expiresAt: card.expiresAt, low: card.plan.lowBalanceEnabled && card.plan.lowBalanceThreshold !== null && available <= card.plan.lowBalanceThreshold, expiring: card.remaining > 0 && card.expiresAt !== null && card.expiresAt <= expiryEnd };
     for (const member of card.members) byMember.set(member.customerId, [...(byMember.get(member.customerId) ?? []), summary]);
   }
   const rows = customers.map(customer => ({ ...customer, cards: byMember.get(customer.id) ?? [], lastVisitAt: lastVisit.get(customer.id) ?? null }));

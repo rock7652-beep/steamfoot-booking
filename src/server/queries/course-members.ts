@@ -1,3 +1,4 @@
+import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_SELECT, readMusicOpeningCard, readMusicOpeningLesson, musicOpeningOperationIssue } from "@/lib/music-opening-runtime";
 import "server-only";
 import { getCourseSharedCardState } from "@/server/services/course-shared-card";
@@ -21,7 +22,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       entries: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: page && !page.entries ? 0 : 100 },
     },
     ...(page ? { skip: page.skip, take: page.take } : {}),
-    orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+    orderBy: [{ expiresAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
   });
   const people = await prisma.customer.findMany({
     where: {
@@ -57,6 +58,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       openingIssue,
       openingImported: opening.kind !== "NATIVE",
       expiresAt: originalExpiry?.toISOString() ?? null,
+      ...(opening.kind === "OPENING" && opening.record.expiryVerification?.kind === "NO_EXPIRY" && !openingIssue ? { expiryKind: "NO_EXPIRY" as const } : {}),
       members: c.members.map((m) => ({
         id: m.customerId,
         name: people.find((p) => p.id === m.customerId)?.name ?? "學員",
@@ -99,7 +101,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { id:true,storeId:true,musicActivatedAt:true,musicOpeningStateRequired:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { allowShared: true, points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { bookingKind:true,musicOpeningMakeupEntitlementId:true,companionIndex:true,musicOpeningTermKey:true,musicOpeningLessonOrdinal:true,musicOpeningSourceLessonKey:true,id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
+      card: { select: { id:true,storeId:true,musicActivatedAt:true,musicValidityDays:true,musicOpeningStateRequired:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},musicTermSizes:true,musicBonusLessons:true,templateIds:true,unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, createdAt: true, plan: { select: { allowShared: true, points: true, musicTerms: true, templateIds: true } }, entries: { where: { kind: "GRANT" }, select: { points: true }, take: 1 }, members: { select: { customerId: true } }, bookings: { select: { bookingKind:true,musicOpeningMakeupEntitlementId:true,companionIndex:true,musicOpeningTermKey:true,musicOpeningLessonOrdinal:true,musicOpeningSourceLessonKey:true,id: true, makeupForBookingId: true, sessionId: true, customerId: true, pointCost: true, status: true, absenceKind: true, session: { select: { startsAt: true, templateId: true } } } } } },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
@@ -232,12 +234,12 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         ? "本人預約"
         : `${b.operatorName ?? "共卡成員"}代約`
       : "店長建立",
-    available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
+    available: !card || !courseCardCoversDate(card, storeId, new Date()) ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
     cardId: b.cardId,
     cardRemaining: card?.remaining ?? null,
     assignedCoachId: customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.id ?? null : null,
     assignedCoachName: (customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.displayName : "") ?? "",
-    expiresAt: card?.expiresAt.toISOString() ?? null,
+    expiresAt: card?.expiresAt?.toISOString() ?? null,
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
     absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind ?? "") ? "請假" : "曠課"})),
@@ -267,7 +269,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       termNoShowCount:!openingIssue?currentSourceLessons.filter(({item})=>item.status==="NO_SHOW").length:0,
       termPrivateLeaves:[],termMakeups:[],
       canAddCompanion:false,
-      available:openingIssue||openingOperationWarning?0:(!card||card.expiresAt.getTime()<Date.now()?0:Math.max(0,card.remaining-card.bookings.filter(item=>item.status==="RESERVED").reduce((n,item)=>n+item.pointCost,0))),
+      available:openingIssue||openingOperationWarning?0:(!card||!courseCardCoversDate(card,storeId,new Date())?0:Math.max(0,card.remaining-card.bookings.filter(item=>item.status==="RESERVED").reduce((n,item)=>n+item.pointCost,0))),
     } : {}),
   });
   });

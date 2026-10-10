@@ -21,11 +21,12 @@ type Row = Record<string, unknown>;
 function setup() {
   const data = importFixture();
   const cards: Row[] = [], states: Row[] = [], rights: Row[] = [], receipts: Row[] = [];
-  let corruptReadback = false, queueDelta = false, wrongCustomer = false;
+  let corruptReadback = false, queueDelta = false, wrongCustomer = false, nullableCapability = true;
   let readCount = 0;
   const tx = {
     $queryRaw: vi.fn(async (parts: TemplateStringsArray) => {
       const sql = parts.join("?");
+      if (sql.includes("information_schema.columns")) return [{ supported: nullableCapability }];
       if (sql.includes("UNION ALL")) return ["audit-outbox", "balance", "coach", "manager", "message", "monthly"].map(kind => ({ kind, n: queueDelta && states.length ? 1 : 0 }));
       if (sql.includes('FROM "Store"')) return [{ id: actor.storeId }];
       if (sql.includes('FROM "StoreFeatureEntitlement"')) return [{ featureKey: "business.music" }];
@@ -56,9 +57,24 @@ function setup() {
     try { return await importVerifiedMusicOpeningInTransaction(tx as unknown as Prisma.TransactionClient, targetActor, input, importProof(input)); }
     catch (e) { cards.splice(0, cards.length, ...before.cards); states.splice(0, states.length, ...before.states); rights.splice(0, rights.length, ...before.rights); receipts.splice(0, receipts.length, ...before.receipts); throw e; }
   };
-  return { data, tx, cards, states, rights, receipts, run, corrupt: () => { corruptReadback = true; }, queue: () => { queueDelta = true; }, wrongCustomer: () => { wrongCustomer = true; } };
+  return { data, tx, cards, states, rights, receipts, run, corrupt: () => { corruptReadback = true; }, queue: () => { queueDelta = true; }, wrongCustomer: () => { wrongCustomer = true; }, oldSchema: () => { nullableCapability = false; } };
 }
 describe("isolated verified ordinary + makeup importer", () => {
+  it("materializes explicit no-expiry as null and replays without resetting rights", async () => {
+    const f = setup(); f.data.enrollments[0].record.expiresAt = null;
+    f.data.enrollments[0].record.expiryVerification = { kind: "NO_EXPIRY", evidenceKey: "synthetic-no-expiry-proof" };
+    expect(await f.run()).toMatchObject({ status: "IMPORTED", created: 1 });
+    expect(f.cards[0]).toMatchObject({ expiresAt: null, musicValidityDays: null });
+    expect(await f.run()).toMatchObject({ created: 0, skipped: 1 });
+  });
+  it("old NOT NULL target holds no-expiry before any mutation", async () => {
+    const f = setup(); f.data.enrollments[0].record.expiresAt = null;
+    f.data.enrollments[0].record.expiryVerification = { kind: "NO_EXPIRY", evidenceKey: "synthetic-no-expiry-proof" };
+    f.oldSchema();
+    expect(await f.run()).toEqual({ status: "HOLD", issue: "VERIFIED_NO_EXPIRY_TARGET_SCHEMA_UNSUPPORTED" });
+    expect(f.cards).toEqual([]); expect(f.rights).toEqual([]); expect(f.receipts).toEqual([]);
+    expect(f.tx.coursePointCard.create).not.toHaveBeenCalled();
+  });
   it("atomically projects 2 ordinary and 1 independent makeup with no fake debit/payment/booking", async () => {
     const f = setup(); expect(await f.run()).toMatchObject({ status: "IMPORTED", created: 1, skipped: 0, updated: 0, makeup: { openingSourceRights: 1 } });
     expect(f.cards).toHaveLength(1); expect(f.cards[0]).toMatchObject({ remaining: 2, musicOpeningStateRequired: true, musicValidityDays: null });

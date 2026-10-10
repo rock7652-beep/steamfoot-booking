@@ -434,7 +434,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
         updatedAt: b.updatedAt.toISOString(),
         notes: b.notes,
         serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
-        available: cardProjectionById.get(b.cardId??"")?.available ?? (b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null),
+        available: cardProjectionById.get(b.cardId??"")?.available ?? (b.card ? (b.card.closedAt || b.card.expiresAt === null || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null),
         cost: b.pointCost,
         unit: isMusicOpeningMakeupBooking(b) ? "SESSION" : b.card?.unit ?? "TRIAL",
         planName: isMusicOpeningMakeupBooking(b) ? "期初補課（獨立權益，請由店家處理）" : b.card?.nameSnapshot ?? "體驗（不使用方案）",

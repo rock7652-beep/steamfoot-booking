@@ -33,10 +33,11 @@ describe("verified opening import contract", () => {
   it("represents verified no expiry but refuses a fake finite ordinary-card date", () => {
     const data = importFixture(), r = data.enrollments[0].record;
     r.expiresAt = null; r.expiryVerification = { kind: "NO_EXPIRY", evidenceKey: "synthetic-no-expiry" };
-    expect(planVerifiedMusicOpeningImport(data, importProof(data))).toMatchObject({ status: "HOLD", issue: "VERIFIED_NO_EXPIRY_TARGET_SCHEMA_UNSUPPORTED" });
-    const card = syntheticOpeningCard(r), state = readMusicOpeningCard(card, card.storeId);
-    expect(musicOpeningOperationIssue(state, card)).toContain("已核實無期限");
-    expect(musicOpeningDateIssue(state, new Date("2026-10-20T02:00:00Z"))).toContain("已核實無期限");
+    expect(planVerifiedMusicOpeningImport(data, importProof(data))).toMatchObject({ status: "READY" });
+    const card = { ...syntheticOpeningCard(r), expiresAt: null, musicValidityDays: null }, state = readMusicOpeningCard(card, card.storeId);
+    expect(musicOpeningOperationIssue(state, card)).toBeNull();
+    expect(musicOpeningDateIssue(state, new Date("2026-10-20T02:00:00Z"))).toBeNull();
+    expect(musicOpeningDateIssue(state, new Date("2026-09-30T02:00:00Z"))).toContain("切點前");
     r.expiresAt = "2099-12-31T15:59:59.999Z";
     expect(planVerifiedMusicOpeningImport(data, importProof(data)).status).toBe("HOLD");
   });
@@ -98,7 +99,7 @@ describe("verified opening import contract", () => {
     r.terms[0].closedBeforeCutoff = 1; right.originalLessonOrdinal = 3;
     r.ordinarySourceSlots![0].originalLessonOrdinal = 2;
     const plan = planVerifiedMusicOpeningImport(data, importProof(data)); expect(plan.status).toBe("READY");
-    const card = syntheticOpeningCard(r), state = readMusicOpeningCard(card, card.storeId);
+    const card = { ...syntheticOpeningCard(r), expiresAt: null, musicValidityDays: null }, state = readMusicOpeningCard(card, card.storeId);
     const booking = syntheticOpeningBooking();
     booking.musicOpeningSourceLessonKey = right.sourceLessonKey; booking.musicOpeningLessonOrdinal = 3;
     expect(readMusicOpeningLesson(state, booking).kind).toBe("BLOCKED");

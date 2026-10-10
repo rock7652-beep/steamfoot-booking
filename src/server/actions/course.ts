@@ -1,4 +1,5 @@
 "use server";
+import { courseCardCoversDate } from "@/lib/course-card-expiry";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE, MUSIC_OPENING_CARD_SELECT, MUSIC_OPENING_CALENDAR_BOOKINGS, musicOpeningSessionChangeIssue } from "@/lib/music-opening-runtime";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
@@ -263,7 +264,7 @@ export async function updateCourseSession(input: unknown) {
             "CONFLICT",
             "已完成點名的課程保留歷史，不可修改排課",
           );
-        if (bookings.some((b) => b.card && b.card.expiresAt < range.startsAt))
+        if (bookings.some((b) => b.card && !courseCardCoversDate(b.card, storeId, range.startsAt)))
           throw new AppError(
             "CONFLICT",
             "新日期超過已預約方案期限，尚未修改排課",
@@ -653,7 +654,7 @@ export async function moveCourseSessions(input: unknown) {
         }
         if (change.session.bookings.some((booking) => booking.status === "ATTENDED"))
           throw new AppError("CONFLICT", "已完成的課程不可調整");
-        if (change.session.bookings.some((booking) => booking.card && booking.card.expiresAt < change.startsAt))
+        if (change.session.bookings.some((booking) => booking.card && !courseCardCoversDate(booking.card, storeId, change.startsAt)))
           throw new AppError("CONFLICT", "新日期超過方案期限");
 
         const conflict = await tx.courseSession.findFirst({
@@ -929,7 +930,7 @@ export async function updateCourseSeries(input: unknown) {
           throw new AppError("CONFLICT", "包含已完成點名的課程，整批尚未修改");
         if (
           change.session.bookings.some(
-            (b) => b.card && b.card.expiresAt < change.startsAt,
+            (b) => b.card && !courseCardCoversDate(b.card, storeId, change.startsAt),
           )
         )
           throw new AppError(

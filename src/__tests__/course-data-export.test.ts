@@ -1,3 +1,5 @@
+import { courseCardActiveExpiryWhere } from "@/lib/course-card-expiry";
+import { syntheticOpeningCard, syntheticOpeningRecord } from "./fixtures/music-opening";
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ trials:vi.fn(), staff:vi.fn(), customers: vi.fn(), cards: vi.fn(), bookings: vi.fn(), orders: vi.fn(), refunds: vi.fn(), visits: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { staff:{findMany:m.staff}, customer: { findMany: m.customers } } }));
@@ -9,7 +11,7 @@ it("exports one row per shared card with reserved quota and separate unit/expiry
   m.cards.mockResolvedValue([{ id: "card", nameSnapshot: "共卡", remaining: 10, closedAt: null, expiresAt: new Date("2026-10-01"), createdAt: now, unit: "SESSION", members: [{ customerId: "a" }, { customerId: "b" }], bookings: [{ pointCost: 3 }] }]);
   const [sheet] = await getCourseDataExport("own", "wallets", period, "ACTIVE", 100, { now });
   expect(sheet.rows).toHaveLength(1); expect(sheet.rows[0].slice(0, 7)).toEqual(["card", "共卡", "A、B", 10, 3, 7, "堂"]);
-  expect(m.cards).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", createdAt: period, closedAt: null, expiresAt: { gt: now } }, take: 101 }));
+  expect(m.cards).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", createdAt: period, closedAt: null, ...courseCardActiveExpiryWhere(now) }, take: 101 }));
   expect(m.customers).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", id: { in: ["a", "b"] } } }));
 });
 it("keeps purchase dates separate from refund dates and applies manager visibility to both", async () => {
@@ -28,11 +30,20 @@ it("exports actual learner, operator and class-date filter without counting book
   expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", session: { startsAt: period }, status: "RESERVED" } }));
 });
 it("uses course attendance for first/last visit and excludes archived customer rows", async () => {
-  m.customers.mockResolvedValue([{ id: "a", name: "A", phone: "0999", email: null, createdAt: now, assignedStaff: null }]);
+  m.customers.mockResolvedValue([{ id: "a", name: "A", phone: "SYNTHETIC-NON-CONTACT", email: null, createdAt: now, assignedStaff: null }]);
   m.visits.mockResolvedValue([{ customerId: "a", first: now, last: now }]);
   const [sheet] = await getCourseDataExport("own", "customers", period, undefined, 100);
   expect(sheet.rows[0][4]).toBeTruthy();
   expect(m.customers).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", mergedIntoCustomerId: null, createdAt: period } }));
   const sql = m.visits.mock.calls[0][0].join("?");
   expect(sql).toContain('"CourseBooking"'); expect(sql).toContain("b.status='ATTENDED'");
+});
+
+it("exports explicit unlimited and unknown states separately", async () => {
+  const record=syntheticOpeningRecord();record.expiresAt=null;record.expiryVerification={kind:"NO_EXPIRY",evidenceKey:"synthetic-proof"};
+  const card={...syntheticOpeningCard(record),expiresAt:null,musicValidityDays:null,bookings:[]};
+  m.cards.mockResolvedValue([card,{...card,id:"synthetic-corrupt",musicOpeningState:null}]);
+  const [sheet]=await getCourseDataExport(card.storeId,"wallets",period,undefined,100,{now:new Date("2026-10-08")});
+  expect(sheet.rows[0][5]).toBe(2);expect(sheet.rows[0][7]).toBe("無期限");
+  expect(sheet.rows[1][5]).toBe(0);expect(sheet.rows[1][7]).toBe("效期待核對");expect(sheet.rows[1][8]).toBe("待核對");
 });
