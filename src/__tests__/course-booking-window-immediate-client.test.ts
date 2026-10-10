@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
-import {afterEach,beforeEach,expect,it,vi} from "vitest";
+import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({fetch:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/s/a/admin/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
 vi.mock("@/server/actions/shop",()=>({updateBookableUntilDate:vi.fn(),updateCustomerBookingWindow:vi.fn()}));
 vi.mock("sonner",()=>({toast:{success:vi.fn(),error:vi.fn()}}));
 import {BookableUntilForm} from "@/app/(dashboard)/dashboard/settings/hours/bookable-until-form";
 let root:Root,host:HTMLDivElement;
-const props={course:true,direct:true,storeId:"s",initialDate:null,initialDays:14,initialOpensAt:"2026-10-12T00:00:00.000Z",today:"2026-10-10",canManage:true};
+describe.each([{course:true,spa:false,path:"course/"},{course:false,spa:false,path:""},{course:false,spa:true,path:"spa/"}])("confirmed window transport %j",variant=>{
+const props={course:variant.course,spa:variant.spa,direct:true,storeId:"s",initialDate:null,initialDays:14,initialOpensAt:"2026-10-12T00:00:00.000Z",today:"2026-10-10",canManage:true};
 beforeEach(async()=>{
  vi.resetAllMocks();vi.stubGlobal("fetch",m.fetch);Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  host=document.createElement("div");document.body.append(host);root=createRoot(host);
@@ -25,7 +26,7 @@ it("confirms persisted state without refreshing and sends only once for same-tic
  await act(async()=>{button.click();button.click();});expect(m.fetch).toHaveBeenCalledTimes(1);
  expect(host.querySelector<HTMLSelectElement>("select")!.disabled).toBe(true);
  const body=JSON.parse(m.fetch.mock.calls[0][1].body);expect(body.expectedRevision).toBe(JSON.stringify([null,14,props.initialOpensAt]));expect(body.expectedStoreId).toBe("s");
- expect(m.fetch.mock.calls[0][0]).toBe("/s/a/admin/dashboard/settings-save/course/booking-window");
+ expect(m.fetch.mock.calls[0][0]).toBe(`/s/a/admin/dashboard/settings-save/${variant.path}booking-window`);
  await act(async()=>finish({json:async()=>({success:true,storeId:"s",data:{date:null,days:7,opensAt:null}})}));
  expect(host.textContent).toContain("未來 7 天");expect(host.querySelector("select")).toBeNull();expect(m.refresh).not.toHaveBeenCalled();
  await act(async()=>root.render(createElement(BookableUntilForm,{...props})));expect(host.textContent).toContain("未來 7 天");
@@ -48,4 +49,6 @@ it("retires acknowledged receipts and accepts later server changes without erasi
  await act(async()=>root.render(createElement(BookableUntilForm,{...props,initialDays:21,initialOpensAt:null})));
  expect(host.textContent).toContain("未來 21 天");expect(host.querySelector<HTMLSelectElement>("select")!.value).toBe("30");
  await click("還原修改");expect(host.textContent).toContain("未來 21 天");await click("修改");expect(host.querySelector<HTMLSelectElement>("select")!.value).toBe("21");
+});
+
 });

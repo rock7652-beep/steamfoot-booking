@@ -94,6 +94,9 @@ export default async function ScheduleSettingsPage() {
       {/* 顧客可預約到日期 */}
       <BookableUntilForm
         key={`bookable-until-${effectiveStoreId}`}
+        storeId={effectiveStoreId}
+        spa={isSpaStore}
+        initialOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
         initialDate={bookableUntilInitial}
         initialDays={shopConfig?.bookingWindowDays ?? 14}
         today={todayStr}

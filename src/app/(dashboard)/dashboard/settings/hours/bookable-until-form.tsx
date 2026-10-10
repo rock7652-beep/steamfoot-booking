@@ -8,13 +8,10 @@ import { savedBookingWindow, bookingWindowRevision } from "@/lib/course-booking-
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { addTaiwanDuration, formatDateZh } from "@/lib/date-utils";
-import {
-  updateBookableUntilDate,
-  updateCustomerBookingWindow,
-} from "@/server/actions/shop";
 
 interface Props {
   course?: boolean;
+  spa?: boolean;
   storeId?: string;
   initialOpensAt?: string | null;
   direct?: boolean;
@@ -33,6 +30,7 @@ export function BookableUntilForm({
   today,
   canManage,
   course = false,
+  spa = false,
   direct = false,
 }: Props) {
   const radioGroup = useId();
@@ -46,7 +44,7 @@ export function BookableUntilForm({
   const [expanded, setExpanded] = useState(false);
   const [legacyPending, startTransition] = useTransition();
   const pathname=usePathname();
-  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/booking-window`,storeId??"",savedBookingWindow);
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/${course?"course/":spa?"spa/":""}booking-window`,storeId??"",savedBookingWindow);
   const pending=legacyPending||request.pending;
   const locked=pending||request.uncertain;
   const [savedOpensAt,setSavedOpensAt]=useState(initialOpensAt);
@@ -85,7 +83,7 @@ export function BookableUntilForm({
         return;
       }
       setError("");
-      if(course) {
+      {
         if(!storeId) {setError("門市資料缺失，請重新開啟設定");return;}
         const result=await request.save({values:mode==="fixed"?{mode,date:fixedDate}:{mode,days},expectedRevision:bookingWindowRevision({date:savedDate,days:savedDays,opensAt:savedOpensAt})});
         if(!result.success){setError(result.error);if(!result.uncertain)router.refresh();return;}
@@ -96,24 +94,6 @@ export function BookableUntilForm({
         toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
         setExpanded(false);
         return;
-      }
-      const result =
-        mode === "fixed"
-          ? await updateBookableUntilDate({ date: fixedDate })
-          : await updateCustomerBookingWindow({ opensAt: null, days });
-      if (result.success) {
-        setSavedMode(mode);
-        setSavedDate(mode === "fixed" ? fixedDate : null);
-        setSavedDays(days);
-        toast.success(
-          mode === "fixed"
-            ? `已開放預約至 ${formatDateZh(fixedDate)}`
-            : `已設定自動開放未來 ${days} 天`,
-        );
-        setExpanded(false);
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "儲存失敗");
       }
       } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
       finally { saving.current = false; }
