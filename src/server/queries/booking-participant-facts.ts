@@ -23,3 +23,24 @@ export async function loadIndividualBookingFacts(storeId: string, latestDate: Da
 export function replaceGroupedBookingFacts<T extends { id?: string; bookingId?: string }>(rows: T[], groupIds: Set<string>) {
   return rows.filter(row => !groupIds.has(row.bookingId ?? row.id ?? ""));
 }
+
+/** Personal history must not inherit a companion's completed group status. */
+export async function loadIndividualCustomerVisitSummary(storeId: string, customerId: string, excludeBookingId: string) {
+  const [summary] = await prisma.$queryRaw<Array<{ totalBookings: number; lastVisit: Date | null }>>`
+    WITH visits AS (
+      SELECT b.id AS "bookingId", b."bookingDate"
+      FROM "Booking" b
+      WHERE b."storeId" = ${storeId} AND b."customerId" = ${customerId} AND b."bookingStatus" = 'COMPLETED'
+        AND NOT EXISTS (SELECT 1 FROM "BookingParticipantGroup" g WHERE g."bookingId" = b.id AND g."storeId" = b."storeId")
+      UNION ALL
+      SELECT g."bookingId", b."bookingDate"
+      FROM "BookingParticipant" p
+      JOIN "BookingParticipantGroup" g ON g.id = p."groupId" AND g."storeId" = p."storeId"
+      JOIN "Booking" b ON b.id = g."bookingId" AND b."storeId" = g."storeId"
+      WHERE p."storeId" = ${storeId} AND p."customerId" = ${customerId} AND p.status = 'COMPLETED'
+    )
+    SELECT count(*)::integer AS "totalBookings",
+      max("bookingDate") FILTER (WHERE "bookingId" <> ${excludeBookingId}) AS "lastVisit"
+    FROM visits`;
+  return summary;
+}

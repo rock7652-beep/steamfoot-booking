@@ -14,6 +14,7 @@ import {
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { getBookingDetailForUser } from "@/server/queries/booking";
+import { loadIndividualCustomerVisitSummary } from "@/server/queries/booking-participant-facts";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
@@ -323,6 +324,9 @@ async function fetchBookingDetailMeasured(
   const isSingle = booking.bookingType === "SINGLE";
   const isPackage = booking.bookingType === "PACKAGE_SESSION";
   const storeFilter = getStoreFilter(readUser, bookingStoreId);
+  const personalVisits = process.env.BOOKING_PARTICIPANTS_ENABLED === "true"
+    ? loadIndividualCustomerVisitSummary(booking.storeId, booking.customerId, bookingId)
+    : null;
 
   // 拿到 booking 後，下列查詢彼此獨立（只依賴 booking.id / storeId / customerId），
   // 一次並行避免「收款查詢 → 顧客近況查詢」串成 waterfall：
@@ -384,14 +388,14 @@ async function fetchBookingDetailMeasured(
           },
         })
       : Promise.resolve([]),
-    prisma.booking.count({
+    personalVisits ? personalVisits.then(summary => summary.totalBookings) : prisma.booking.count({
       where: {
         customerId: booking.customerId,
         bookingStatus: "COMPLETED",
         ...storeFilter,
       },
     }),
-    prisma.booking.findFirst({
+    personalVisits ? personalVisits.then(summary => summary.lastVisit ? { bookingDate: summary.lastVisit } : null) : prisma.booking.findFirst({
       where: {
         customerId: booking.customerId,
         bookingStatus: "COMPLETED",
