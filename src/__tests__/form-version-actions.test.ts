@@ -27,7 +27,7 @@ const stamp="2026-09-27T00:00:00.000Z";
 const profile={name:"顧客",phone:"0912345678",expectedUpdatedAt:stamp};
 const pack={id:"p",treatmentId:"t",name:"方案",price:100,uses:10,validityDays:90,isActive:true,expectedUpdatedAt:stamp};
 const course={name:"課程方案",points:10,price:1000,validDays:90,isActive:true,unit:"SESSION",templateIds:[],termSessionIds:[]};
-beforeEach(()=>{vi.resetAllMocks();m.guard.mockResolvedValue({id:"u",storeId:"s",role:"OWNER"});m.customer.mockResolvedValue({id:"c",storeId:"s",phone:profile.phone});m.plan.mockResolvedValue({...course,id:"p",storeId:"s"});for(const fn of [m.compareCustomer,m.comparePlan,m.compareSpa,m.compareCourse])fn.mockResolvedValue({count:1});});
+beforeEach(()=>{vi.resetAllMocks();m.guard.mockResolvedValue({id:"u",storeId:"s",role:"OWNER"});m.customer.mockResolvedValue({id:"c",storeId:"s",phone:profile.phone});m.plan.mockResolvedValue({...course,id:"p",storeId:"s",updatedAt:new Date(stamp)});for(const fn of [m.compareCustomer,m.comparePlan,m.compareSpa,m.compareCourse])fn.mockResolvedValue({count:1});});
 it("customer forms compare the original version atomically inside the authorized store",async()=>{
  expect((await updateCustomer("c",profile)).success).toBe(true);
  expect(m.compareCustomer.mock.calls[0][0].where).toEqual({id:"c",storeId:"s",updatedAt:new Date(stamp)});expect(m.legacy).not.toHaveBeenCalled();

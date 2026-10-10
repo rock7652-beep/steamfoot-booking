@@ -4,7 +4,7 @@ const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),raw:vi.fn(),write:v
 vi.mock("@/lib/db",()=>({prisma:{businessHours:{findMany:m.hours},specialBusinessDay:{findMany:m.special},storeFeatureEntitlement:{findFirst:m.entitlement}}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseManagerRead:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/lib/revalidation",()=>({revalidateBusinessHours:vi.fn(),revalidateSpecialDays:vi.fn()}));
-vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn(),revalidateTag:vi.fn()}));
 import { saveCourseWeeklyHours,saveCourseDayHours,getCourseMonthScheduleSummary } from "@/server/actions/course-business-hours";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 const input={date:"2026-10-01",status:"closed",mode:"copy",weeks:2,reason:"測試公休",periods:[]};
@@ -67,4 +67,19 @@ it("rolls back all weekdays when any affected class conflicts", async () => {
 it("rejects unauthorized weekday batches", async () => {
  m.manager.mockRejectedValue(new Error("denied"));
  expect(await saveCourseWeeklyHours([{dayOfWeek:1,isOpen:false,periods:[]}])).toMatchObject({success:false}); expect(m.transaction).not.toHaveBeenCalled();
+});
+
+it("confirms weekly receipts, skips lost-response repeats and rejects stale or foreign edits",async()=>{
+ const {weeklyRevision}=await import("@/lib/course-weekly-hours-save");
+ const before={dayOfWeek:1,isOpen:true,persisted:true,periods:[{openTime:"09:00",closeTime:"18:00"}]};
+ let stored={...before,openTime:"09:00",closeTime:"18:00",segments:before.periods,slotInterval:60,defaultCapacity:6};
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join("").includes('"BusinessHours"')?[stored]:[]);
+ m.write.mockImplementation(async(_strings:TemplateStringsArray,...values:unknown[])=>{stored={...stored,isOpen:Boolean(values[3]),openTime:String(values[4]),closeTime:String(values[5]),segments:JSON.parse(String(values[6]))};return 1;});
+ const receipt={expectedStoreId:"course-store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expected:[before]};
+ const input={days:[{...before,periods:[{openTime:"10:00",closeTime:"18:00"}]}],receipt};
+ const first=await saveCourseWeeklyHours(input);expect(first).toMatchObject({success:true,storeId:"course-store",data:expect.arrayContaining([expect.objectContaining({dayOfWeek:1,periods:[{openTime:"10:00",closeTime:"18:00"}]})])});
+ expect(await saveCourseWeeklyHours(input)).toEqual(first);expect(m.write).toHaveBeenCalledTimes(1);
+ expect((await saveCourseWeeklyHours({...input,days:[{...before,isOpen:false}]})).success).toBe(false);expect(m.write).toHaveBeenCalledTimes(1);
+ expect(weeklyRevision({...before,periods:[{openTime:"10:00",closeTime:"18:00"}]})).not.toBe(weeklyRevision(before));
+ m.transaction.mockClear();expect((await saveCourseWeeklyHours({...input,receipt:{...receipt,expectedStoreId:"other"}})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
 });

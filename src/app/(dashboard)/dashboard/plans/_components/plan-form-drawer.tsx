@@ -1,12 +1,13 @@
 "use client";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { savedSteamPlan } from "@/lib/steam-plan-save";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { createPlan, updatePlan } from "@/server/actions/plan";
 import type { PlanCategory, ServicePlan } from "@prisma/client";
 
 export type PlanRow = ServicePlan & { _count: { wallets: number } };
@@ -14,6 +15,7 @@ export type PlanRow = ServicePlan & { _count: { wallets: number } };
 type Mode = "new" | "edit";
 
 interface Props {
+  storeId:string;
   open: boolean;
   mode: Mode;
   plan: PlanRow | null;
@@ -26,7 +28,7 @@ const inputCls =
   "block w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
+export function PlanFormDrawer({ storeId,open, mode, plan, onClose, onSaved }: Props) {
   const [saving,setSaving]=useState(false);
   const close=()=>{if(!saving)onClose();};
   // Re-mount the inner form whenever the drawer opens for a different
@@ -49,6 +51,7 @@ export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
     >
       <PlanFormBody
         key={formKey}
+        storeId={storeId}
         isEdit={isEdit}
         plan={plan}
         onClose={onClose}
@@ -60,19 +63,19 @@ export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
 }
 
 function PlanFormBody({
-  isEdit,
+  storeId,isEdit,
   plan,
   onClose,
   onSaved, onPending,
 }: {
+  storeId:string;
   isEdit: boolean;
   plan: PlanRow | null;
   onClose: () => void;
   onSaved: (row: PlanRow) => void;
   onPending: (pending:boolean)=>void;
 }) {
-  // Controlled form state — keeps the right-side preview live and lets
-  // us compose the optimistic PlanRow from the same source of truth.
+  // The preview follows the draft; confirmed rows come from the committed receipt.
   const router = useRouter();
   const draft = useFormDraft(`steamfoot-plan:${isEdit && plan ? plan.id : "new"}`, {
     name: isEdit && plan ? plan.name : "", category: isEdit && plan ? plan.category : "SINGLE",
@@ -84,8 +87,13 @@ function PlanFormBody({
     isActive: isEdit && plan ? plan.isActive : true,
     publicVisible: isEdit && plan ? plan.publicVisible : false,
   }, isEdit && plan ? new Date(plan.updatedAt).toISOString() : null);
+  const {busy:saveLockRef,mounted}=draft;
   const { name, category, price, sessionCount, validityDays, description, sortOrder, isActive, publicVisible } = draft.values;
-  const [pending, startAction] = useTransition();
+  const pathname=usePathname();
+  const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/steam-plan`,storeId,savedSteamPlan);
+  const pending=mutation.pending;
+  const [error,setError]=useState("");
+  useEffect(()=>{onPending(pending||mutation.uncertain);},[onPending,pending,mutation.uncertain]);
 
   const priceNum = Number(price) || 0;
   const sessionCountNum = Number(sessionCount) || 0;
@@ -94,7 +102,7 @@ function PlanFormBody({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (draft.busy.current || draft.stale) return;
+    if (saveLockRef.current || draft.stale) return;
     if (!name || !price || !sessionCount) {
       toast.error("請填寫名稱、價格與堂數");
       return;
@@ -102,86 +110,18 @@ function PlanFormBody({
     const validityDaysNum = validityDays ? Number(validityDays) : null;
     const sortOrderNum = sortOrder ? Number(sortOrder) : 0;
 
-    draft.busy.current = true; onPending(true);
-    startAction(async () => {
-      try {
-      if (isEdit && plan) {
-        const result = await updatePlan(plan.id, {
-          expectedUpdatedAt: draft.expectedRevision ?? undefined,
-          name,
-          price: priceNum,
-          sessionCount: sessionCountNum,
-          validityDays: validityDaysNum,
-          description: description || null,
-          sortOrder: sortOrderNum,
-          isActive,
-          // 下架時禁止顧客可購買 — server 也會擋，但 UI 提早處理避免 confusion
-          publicVisible: isActive ? publicVisible : false,
-        });
-        if (!draft.mounted.current) return;
-        if (!result.success) {
-          router.refresh();
-          toast.error(result.error ?? "儲存失敗");
-          return;
-        }
-        draft.clear();
-        toast.success("已更新方案");
-        onSaved({
-          ...plan,
-          name,
-          price: priceNum as unknown as PlanRow["price"],
-          sessionCount: sessionCountNum,
-          validityDays: validityDaysNum,
-          description: description || null,
-          sortOrder: sortOrderNum,
-          isActive,
-          publicVisible: isActive ? publicVisible : false,
-          updatedAt: result.data ? new Date(result.data.updatedAt) : plan.updatedAt,
-        });
-        onClose();
-      } else {
-        const result = await createPlan({
-          name,
-          category: category as PlanCategory,
-          price: priceNum,
-          sessionCount: sessionCountNum,
-          validityDays: validityDaysNum ?? undefined,
-          description: description || undefined,
-          sortOrder: sortOrderNum,
-          publicVisible,
-        });
-        if (!draft.mounted.current) return;
-        if (!result.success) {
-          toast.error(result.error ?? "新增失敗");
-          return;
-        }
-        draft.clear();
-        toast.success("已新增方案");
-        const now = new Date();
-        // Optimistic row — server-derived fields (storeId is filled by the
-        // action from the session). We use a placeholder; the parent's next
-        // navigation / refresh will canonicalise. _count.wallets starts at 0.
-        onSaved({
-          id: result.data!.planId,
-          storeId: plan?.storeId ?? "",
-          name,
-          category: category as PlanCategory,
-          price: priceNum as unknown as PlanRow["price"],
-          sessionCount: sessionCountNum,
-          validityDays: validityDaysNum,
-          description: description || null,
-          sortOrder: sortOrderNum,
-          isActive: true,
-          publicVisible,
-          createdAt: now,
-          updatedAt: result.data?.updatedAt ? new Date(result.data.updatedAt) : now,
-          _count: { wallets: 0 },
-        });
-        onClose();
-      }
-      } catch { if (draft.mounted.current) toast.error("連線中斷，輸入已保留，請稍後重試。"); }
-      finally { draft.busy.current = false; onPending(false); }
-    });
+    saveLockRef.current = true;setError("");
+    const values={name,price:priceNum,sessionCount:sessionCountNum,description:description||null,validityDays:validityDaysNum,sortOrder:sortOrderNum,publicVisible:isActive?publicVisible:false};
+    const input=isEdit&&plan?{operation:"UPDATE",id:plan.id,values:{...values,isActive,expectedUpdatedAt:draft.expectedRevision}}:{operation:"CREATE",values:{...values,category,validityDays:validityDaysNum??undefined,description:description||undefined}};
+    void mutation.save(input).then(result=>{
+      if(!mounted.current)return;
+      if(!result.success){if(!result.uncertain&&isEdit)router.refresh();setError(result.error);toast.error(result.error);return;}
+      const row=result.data;
+      draft.clear();
+      onSaved({...row,price:row.price as unknown as PlanRow["price"],createdAt:new Date(row.createdAt),updatedAt:new Date(row.updatedAt)});
+      toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":isEdit?"已更新方案":"已新增方案");
+      onClose();
+    }).finally(()=>{saveLockRef.current=false;});
   }
 
   return (
@@ -202,7 +142,7 @@ function PlanFormBody({
         </div>
         <button
           type="button"
-          onClick={()=>{if(!draft.busy.current)onClose();}}
+          onClick={()=>{if(!saveLockRef.current&&!mutation.uncertain)onClose();}}
           className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100"
           aria-label="關閉"
         >
@@ -210,7 +150,8 @@ function PlanFormBody({
         </button>
       </div>
 
-        <fieldset disabled={pending} className={`${styles.fieldsContainer} min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4`}>
+        {error&&<p role="alert" className="px-5 text-sm text-red-700">{error}</p>}
+        <fieldset disabled={pending||mutation.uncertain} className={`${styles.fieldsContainer} min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4`}>
           <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
           <div>
             <label className={labelCls}>
@@ -385,8 +326,8 @@ function PlanFormBody({
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-earth-200 bg-earth-50 px-5 py-3">
           <button
             type="button"
-            onClick={()=>{if(!draft.busy.current)onClose();}}
-            disabled={pending}
+            onClick={()=>{if(!saveLockRef.current&&!mutation.uncertain)onClose();}}
+            disabled={pending||mutation.uncertain}
             className="inline-flex min-h-11 items-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-50"
           >
             取消
@@ -396,7 +337,7 @@ function PlanFormBody({
             disabled={pending}
             className="inline-flex min-h-11 items-center rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
-            {pending ? "儲存中..." : isEdit ? "儲存變更" : "新增"}
+            {pending ? "儲存中..." : mutation.uncertain ? "重試確認儲存結果" : isEdit ? "儲存變更" : "新增"}
         </button>
       </div>
     </form>

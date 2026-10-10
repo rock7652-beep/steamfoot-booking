@@ -89,7 +89,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(staffWorkspace).toContain("不必逐時段新增");
     expect(staffWorkspace).toContain("緊急聯絡人");
     expect(staffWorkspace).toContain("showSpaCompensation");
-    expect(staffWorkspace).toContain("saveSpaStaffSetup");
+    expect(staffWorkspace).toContain("/dashboard/settings-save/spa/staff");
+    expect(staffWorkspace).toContain('saveSpaPerson("setup"');
     expect(staffWorkspace).toContain("不計抽成");
     expect(staffWorkspace).toContain("抽成比例（%）");
     expect(staffWorkspace).toContain("儲存人員設定");

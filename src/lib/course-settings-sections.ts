@@ -18,3 +18,11 @@ export const courseSettingsSectionSchema = z.discriminatedUnion("section", [
   z.object({ section: z.literal("payment"), bankName: z.string().trim().max(100), bankCode: z.string().trim().max(20), bankAccountNumber: z.string().trim().max(50) }),
 ]);
 export type CourseSettingsSectionInput = z.infer<typeof courseSettingsSectionSchema>;
+
+export function courseSettingsSectionRevision(input:unknown) {
+  const row=courseSettingsSectionSchema.parse(input);
+  return JSON.stringify(row.section==="store"?{...row,lineOfficialId:row.lineOfficialId??""}:row);
+}
+export const courseSettingsSectionReceipt=z.object({expectedStoreId:z.string().min(1).max(100),requestKey:z.string().uuid(),expectedRevision:z.string().min(1).max(10000)});
+export const courseSettingsSectionSaveInput=z.object({values:courseSettingsSectionSchema}).merge(courseSettingsSectionReceipt);
+export const savedCourseSettingsSection=z.object({values:courseSettingsSectionSchema,revision:z.string()});

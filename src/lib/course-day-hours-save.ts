@@ -1,0 +1,12 @@
+import {z} from "zod";
+const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,"日期無效");
+const time=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const period=z.object({openTime:time,closeTime:time,slotInterval:z.number().optional(),defaultCapacity:z.number().optional()});
+const status=z.enum(["open","closed","training","custom"]);
+export const courseDayHoursValues=z.object({date,status,mode:z.enum(["day","copy","permanent","template","weekly"]),weeks:z.number().int().min(0).max(104),reason:z.string().trim().max(300),periods:z.array(period).max(8)});
+export const courseDayHoursReceipt=z.object({expectedStoreId:z.string().min(1).max(100),requestKey:z.string().uuid(),expectedRevision:z.string().regex(/^[a-f0-9]{64}$/)});
+export const courseDayHoursSaveInput=z.object({values:courseDayHoursValues}).merge(courseDayHoursReceipt);
+const fullPeriod=period.extend({slotInterval:z.number(),defaultCapacity:z.number()});
+const weeklyDefault=z.object({isOpen:z.boolean(),openTime:z.string().nullable(),closeTime:z.string().nullable(),slotInterval:z.number(),defaultCapacity:z.number()});
+export const savedCourseDayDetail=z.object({status,openTime:z.string().nullable(),closeTime:z.string().nullable(),reason:z.string().nullable(),specialDayId:z.string().nullable(),dayOfWeek:z.number(),dayName:z.string(),slots:z.array(z.object({startTime:z.string(),capacity:z.number(),templateCapacity:z.number(),isEnabled:z.boolean(),inRange:z.boolean(),override:z.string().nullable(),overrideReason:z.string().nullable()})),slotInterval:z.number(),defaultCapacity:z.number(),periods:z.array(fullPeriod),weeklyDefault:weeklyDefault.nullable(),hoursRevision:z.string()});
+export const savedCourseDayHours=z.object({date,day:savedCourseDayDetail,weekly:z.array(weeklyDefault.extend({dayOfWeek:z.number(),dayName:z.string(),persisted:z.boolean(),periods:z.array(fullPeriod)})),specials:z.array(z.object({id:z.string(),date,type:z.string(),reason:z.string().nullable(),openTime:z.string().nullable(),closeTime:z.string().nullable()})),summary:z.record(z.object({status,openTime:z.string().nullable(),closeTime:z.string().nullable(),slotCount:z.number(),overrideCount:z.number()}))});

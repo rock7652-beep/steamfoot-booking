@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StaffWorkspace, type StaffWorkspacePerson } from "@/app/(dashboard)/dashboard/staff/staff-workspace";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }),usePathname:()=>"/dashboard/staff" }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: "a" }));
 vi.mock("@/server/actions/staff", () => ({ updateStaff: vi.fn(), activateStaff: vi.fn(), deactivateStaff: vi.fn(), resetStaffPasswordAction: vi.fn() }));
 vi.mock("@/server/actions/spa-operations", () => ({ saveSpaAvailabilityException: vi.fn(), saveSpaStaffCompensation: vi.fn(), saveSpaStaffSetup: vi.fn(), saveSpaStaffSkills: vi.fn(), saveSpaWeeklyAvailability: vi.fn() }));
@@ -18,7 +18,7 @@ const person: StaffWorkspacePerson = {
   canResetPassword: false, compensationMode: null, compensationValue: null,
 };
 
-afterEach(() => { document.body.innerHTML = ""; });
+afterEach(() => { document.body.innerHTML = ""; vi.unstubAllGlobals(); });
 
 describe("staff workspace authoritative refresh", () => {
   it("updates the open drawer and card after activation and deactivation without remounting", async () => {
@@ -95,6 +95,7 @@ it("keeps role and permission edits in the same panel and submits once", async (
   const { StaffAccountEditor } = await import("@/app/(dashboard)/dashboard/staff/staff-account-editor");
   const { updateStaff } = await import("@/server/actions/staff");
   vi.mocked(updateStaff).mockResolvedValue({ success: false, error: "權限已變更" });
+  vi.stubGlobal("fetch",vi.fn(async (_url,init)=>{const body=JSON.parse(init.body);return {json:async()=>await updateStaff(body.id,body.values)};}));
   vi.spyOn(window, "confirm").mockReturnValue(true);
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(createElement(StaffAccountEditor, { person: { ...person, role: "STAFF", permissions: ["inventory.read"] }, policy: {

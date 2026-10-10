@@ -18,3 +18,12 @@ export const courseRoomCreateInput = courseRoomInput.extend({
 export type CourseRoomCreateInput = z.infer<typeof courseRoomCreateInput>;
 export type CreatedCourseRoom = z.infer<typeof courseRoomInput> & { id: string; isActive: boolean };
 export const COURSE_ROOM_SAVED = "course-room-saved";
+
+export const courseRoomEditInput = courseRoomCreateInput.extend({
+  id: z.string().min(1).max(100),
+  expectedRevision: z.string().min(1).max(30000),
+});
+export const savedCourseRoom = courseRoomInput.extend({id:z.string(),isActive:z.boolean()});
+export function courseRoomRevision(row:unknown) {
+  return JSON.stringify(courseRoomInput.extend({isActive:z.boolean()}).parse(row));
+}

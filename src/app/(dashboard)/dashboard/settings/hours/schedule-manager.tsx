@@ -1,26 +1,21 @@
 "use client";
+import {useSettingsSave} from "@/components/admin/use-settings-save";
+import {savedServiceHours} from "@/lib/service-hours-save";
+import {savedCourseDayHours} from "@/lib/course-day-hours-save";
+import {usePathname} from "next/navigation";
 import { CourseWeeklyHoursEditor } from "../../courses/hours/weekly-hours-editor";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useTransition, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import {
-  updateBusinessHours,
-  addSpecialDay,
-  removeSpecialDayByDate,
   getMonthSpecialDays,
   getMonthScheduleSummary,
   getDaySlotDetails,
-  copySettingsToFutureWeeks,
-  copySettingsToDates,
-  undoCopySettingsToDates,
-  toggleSlotOverride,
-  overrideSlotCapacity,
-  applyWeeklyTemplate,
   syncFromHeadquarters,
 } from "@/server/actions/business-hours";
-import {getCourseMonthSpecialDays,getCourseMonthScheduleSummary,getCourseDayHours,saveCourseDayHours} from "@/server/actions/course-business-hours";
-import {toLocalDateStr,addTaiwanDuration} from "@/lib/date-utils";
+import {getCourseMonthSpecialDays,getCourseMonthScheduleSummary,getCourseDayHours} from "@/server/actions/course-business-hours";
+import {toLocalDateStr} from "@/lib/date-utils";
 import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
 
 // ============================================================
@@ -65,6 +60,7 @@ interface SpecialDay {
 }
 
 interface DayDetail {
+  hoursRevision?:string;
   status: "open" | "closed" | "training" | "custom";
   openTime: string | null;
   closeTime: string | null;
@@ -111,6 +107,8 @@ const monthKey = (year: number, month: number) =>
   `${year}-${String(month).padStart(2, "0")}`;
 
 interface Props {
+  storeId?:string;
+  initialHoursRevision?:string;
   weeklyHours: WeeklyHour[];
   initialSpecialDays: SpecialDay[];
   /**
@@ -140,6 +138,8 @@ function editablePeriods(periods: BusinessPeriod[], fallbackInterval: number, fa
 // ============================================================
 
 export function ScheduleManager({
+  storeId,
+  initialHoursRevision,
   weeklyHours: initialWeekly,
   initialSpecialDays,
   initialSummary,
@@ -160,7 +160,14 @@ export function ScheduleManager({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
   const [weeklyHours, setWeeklyHours] = useState(initialWeekly);
-  const [isPending, startTransition] = useTransition();
+  const [legacyPending, startTransition] = useTransition();
+  const pathname=usePathname();
+  const serviceRequest=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/service-hours`,storeId??"",savedServiceHours);
+  const serviceAttempt=useRef<{mode:string;dow?:number}|null>(null);
+  const [serviceRevision,setServiceRevision]=useState(initialHoursRevision);
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/day-hours`,storeId??"",savedCourseDayHours);
+  const isPending=legacyPending||request.pending||serviceRequest.pending,locked=isPending||request.uncertain||serviceRequest.uncertain;
+  const daySaveLock=useRef(false);
   const [loadingDay, setLoadingDay] = useState(false);
   const [saveError,setSaveError]=useState<string|null>(null);
   const [reviewedDraft, setReviewedDraft] = useState<string | null>(null);
@@ -180,7 +187,7 @@ export function ScheduleManager({
   const [dateSelectionAttempted, setDateSelectionAttempted] = useState(false);
   const [pickerYear, setPickerYear] = useState(initialYear);
   const [pickerMonth, setPickerMonth] = useState(initialMonth);
-  const [editInterval, setEditInterval] = useState(60);
+  const [, setEditInterval] = useState(60);
   const [editCapacity, setEditCapacity] = useState(6);
   const [editPeriods, setEditPeriods] = useState<BusinessPeriod[]>([
     { openTime: "10:00", closeTime: "22:00", slotInterval: 60, defaultCapacity: 6 },
@@ -219,7 +226,7 @@ export function ScheduleManager({
       || editReason !== (dayDetail.reason ?? "")
       || JSON.stringify(editPeriods) !== JSON.stringify(editablePeriods(dayDetail.periods, dayDetail.slotInterval, dayDetail.defaultCapacity));
   }, [applyMode, dayDetail, editPeriods, editReason, editStatus]);
-  useSettingsPanelGuard(dayDraftDirty, isPending);
+  useSettingsPanelGuard(dayDraftDirty, locked);
 
   const draftSlotPreview = useMemo(() => {
     if (editStatus !== "custom") return [];
@@ -441,6 +448,7 @@ export function ScheduleManager({
 
   // ── 換月 ──
   const changeMonth = useCallback(async (dir: 1 | -1) => {
+    if(locked||daySaveLock.current)return;
     if (dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換月份嗎？")) return;
     let newMonth = month + dir;
     let newYear = year;
@@ -452,7 +460,7 @@ export function ScheduleManager({
     setDayDetail(null);
     // cache hit: 立即同步顯示；cache miss: loadMonth 內部走 server + race guard
     await loadMonth(newYear, newMonth);
-  }, [year, month, loadMonth, dayDraftDirty]);
+  }, [year, month, loadMonth, dayDraftDirty,locked]);
 
   // ── 選擇日期 ──
   // 流程：
@@ -463,6 +471,7 @@ export function ScheduleManager({
   //     回來後 race-guard 過濾、寫 cache、覆蓋 dayDetail
   const selectDate = useCallback(
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
+      if((locked||daySaveLock.current)&&!opts.bypassCache)return;
       if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
       setSaveError(null);
@@ -516,6 +525,7 @@ export function ScheduleManager({
         const detail = await (isCourseStore ? getCourseDayHours : getDaySlotDetails)(dateStr);
         // 慢回來的舊請求 — 使用者已經切到別的日期，丟掉結果
         if (requestId !== dayRequestIdRef.current) return;
+        if(!isCourseStore)setServiceRevision(detail.hoursRevision);
         dayDetailCacheRef.current.set(dateStr, detail);
         setDayDetail(detail);
         setEditStatus(detail.status);
@@ -533,248 +543,71 @@ export function ScheduleManager({
         if (requestId === dayRequestIdRef.current) setLoadingDay(false);
       }
     },
-    [buildPreviewDayDetail, dayDraftDirty, selectedDate, isCourseStore],
+    [buildPreviewDayDetail, dayDraftDirty, selectedDate, isCourseStore,locked],
   );
 
   // ── 儲存日設定 ──
-  const saveDay = useCallback(async () => {
-    if (!selectedDate || !canManage || isPending || loadingDay || !periodValidation.valid || !dateSelectionValid) return;
+  function adoptServiceReceipt(saved:ReturnType<typeof savedServiceHours.parse>){
+    ++dayRequestIdRef.current;++monthRequestIdRef.current;
+    dayDetailCacheRef.current.clear();monthCacheRef.current.clear();
+    dayDetailCacheRef.current.set(saved.date,saved.day);
+    setServiceRevision(saved.day.hoursRevision);setWeeklyHours(saved.weekly);
+    const savedMonth=saved.date.slice(0,7);
+    monthCacheRef.current.set(savedMonth,{summary:saved.summary,specialDays:saved.specials});
+    if(savedMonth===monthKey(year,month)){setMonthSummary(saved.summary);setSpecialDays(saved.specials);}
+    if(selectedDate===saved.date){setDayDetail(saved.day);setEditStatus(saved.day.status);setEditReason(saved.day.reason??"");setEditOpenTime(saved.day.openTime??"10:00");setEditCloseTime(saved.day.closeTime??"22:00");setEditInterval(saved.day.slotInterval);setEditCapacity(saved.day.defaultCapacity);setEditPeriods(editablePeriods(saved.day.periods,saved.day.slotInterval,saved.day.defaultCapacity));}
+    setCopyWeeks(0);setApplyMode("day");setTargetDates([]);setLoadingDay(false);setIsMonthLoading(false);setSaveError(null);setReviewedDraft(null);
+  }
+  async function undoServiceDates(operationId:string,expectedRevision:string){
+    if(daySaveLock.current||!selectedDate)return;daySaveLock.current=true;
+    try{const result=await serviceRequest.save({expectedRevision,values:{date:selectedDate,status:"open",mode:"undo",weeks:0,reason:"",periods:[],operationId}});if(!result.success){setSaveError(result.error);toast.error(result.error);return;}adoptServiceReceipt(result.data);toast.success("已復原套用日期");}finally{daySaveLock.current=false;}
+  }
+  async function saveServiceSlot(action:"capacity"|"reset"){
+    if(daySaveLock.current||!selectedDate||!selectedSlot||!dayDetail?.hoursRevision)return;daySaveLock.current=true;
+    try{const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:dayDetail.status,mode:"slots",weeks:0,reason:"",periods:[],changes:[{startTime:selectedSlot,action,...(action==="capacity"?{capacity:slotCapacityInput}:{})}]}});if(!result.success){setSaveError(result.error);toast.error(result.error);return;}adoptServiceReceipt(result.data);setSelectedSlot(null);toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"時段設定已儲存");}finally{daySaveLock.current=false;}
+  }
+  const saveDay = async () => {
+    if (daySaveLock.current || !selectedDate || !canManage || isPending || loadingDay || !periodValidation.valid || !dateSelectionValid) return;
 
+    daySaveLock.current=true;
     startTransition(async () => {
       try {
         const sortedPeriods = [...editPeriods].sort((a, b) => a.openTime.localeCompare(b.openTime));
-        const firstPeriod = sortedPeriods[0];
-        const lastPeriod = sortedPeriods.at(-1);
         if (isCourseStore) {
-          const result=await saveCourseDayHours({date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods});
-          if(!result.success){setSaveError(result.error??"儲存失敗");toast.error(result.error);return;}
-          setSaveError(null);
-          if(applyMode==="permanent"||applyMode==="template") setWeeklyHours(prev=>prev.map(w=>w.dayOfWeek===dayDetail?.dayOfWeek?{...w,isOpen:editStatus==="open"||editStatus==="custom",openTime:firstPeriod?.openTime??null,closeTime:lastPeriod?.closeTime??null,periods:sortedPeriods}:w));
-          dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
-          await invalidateAndReloadCurrentMonth(); await selectDate(selectedDate,{bypassCache:true});setReviewedDraft(null);toast.success("營業設定已儲存");return;
+          if(!storeId||!dayDetail?.hoursRevision){setSaveError("日期資料尚未確認，請重新核對日期");return;}
+          const result=await request.save({values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods},expectedRevision:dayDetail.hoursRevision});
+          if(!result.success){setSaveError(result.error);toast.error(result.error);return;}
+          const saved=result.data;
+          ++dayRequestIdRef.current;++monthRequestIdRef.current;
+          dayDetailCacheRef.current.clear();monthCacheRef.current.clear();
+          dayDetailCacheRef.current.set(saved.date,saved.day);
+          monthCacheRef.current.set(monthKey(year,month),{summary:saved.summary,specialDays:saved.specials});
+          setMonthSummary(saved.summary);setSpecialDays(saved.specials);setWeeklyHours(saved.weekly);setDayDetail(saved.day);
+          setEditStatus(saved.day.status);setEditReason(saved.day.reason??"");setEditOpenTime(saved.day.openTime??"10:00");setEditCloseTime(saved.day.closeTime??"22:00");
+          setEditInterval(saved.day.slotInterval);setEditCapacity(saved.day.defaultCapacity);setEditPeriods(editablePeriods(saved.day.periods,saved.day.slotInterval,saved.day.defaultCapacity));
+          setCopyWeeks(0);setApplyMode("day");setTargetDates([]);setLoadingDay(false);setIsMonthLoading(false);setSaveError(null);setReviewedDraft(null);
+          toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"營業設定已儲存");return;
         }
-        // 「排班模板」模式 → 營業時間 + 時段開關一起複製到未來
-        if (applyMode === "template" && dayDetail) {
-          const isOpen = editStatus === "open" || editStatus === "custom";
-          const result = await applyWeeklyTemplate({
-            sourceDate: selectedDate,
-            isOpen,
-            openTime: isOpen ? firstPeriod?.openTime ?? editOpenTime : null,
-            closeTime: isOpen ? lastPeriod?.closeTime ?? editCloseTime : null,
-            slotInterval: editInterval,
-            defaultCapacity: editCapacity,
-            periods: isOpen ? sortedPeriods : undefined,
-            weeks: templateWeeks,
-          });
-          if (!result.success) {
-            toast.error(result.error);
-            return;
-          }
-          // 同步更新本地 weeklyHours
-          setWeeklyHours((prev) =>
-            prev.map((w) => w.dayOfWeek === dayDetail.dayOfWeek ? {
-              ...w,
-              isOpen,
-              openTime: isOpen ? editOpenTime : null,
-              closeTime: isOpen ? editCloseTime : null,
-              slotInterval: editInterval,
-              defaultCapacity: editCapacity,
-              periods: isOpen ? sortedPeriods : [],
-            } : w)
-          );
-          toast.success(`每週${dayDetail.dayName}固定排班已設定（套用 ${result.data.count} 週）`);
-        }
-        // 「設為每週固定規則」模式 → 只更新營業時間
-        else if (applyMode === "permanent" && dayDetail) {
-          const dow = dayDetail.dayOfWeek;
-          const isOpen = editStatus === "open" || editStatus === "custom";
-          const payload = {
-            isOpen,
-            openTime: isOpen ? firstPeriod?.openTime ?? editOpenTime : null,
-            closeTime: isOpen ? lastPeriod?.closeTime ?? editCloseTime : null,
-            slotInterval: editInterval,
-            defaultCapacity: editCapacity,
-            periods: isOpen ? sortedPeriods : undefined,
-          };
-
-          const result = await updateBusinessHours(dow, payload);
-          if (!result.success) {
-            toast.error(result.error);
-            return;
-          }
-          // ① 每週固定規則已成功更新 → 才移除該日特殊設定（順序不可反）
-          try {
-            await removeSpecialDayByDate(selectedDate);
-          } catch {
-            // 刪除特殊設定失敗不影響每週固定規則已更新，僅提醒
-            toast.warning("每週固定規則已更新，但該日特殊設定移除失敗，可手動移除");
-          }
-          // 同步更新本地 weeklyHours
-          setWeeklyHours((prev) =>
-            prev.map((w) => w.dayOfWeek === dow ? {
-              ...w,
-              isOpen,
-              openTime: isOpen ? firstPeriod?.openTime ?? editOpenTime : null,
-              closeTime: isOpen ? lastPeriod?.closeTime ?? editCloseTime : null,
-              slotInterval: editInterval,
-              defaultCapacity: editCapacity,
-            } : w)
-          );
-          toast.success(`${dayDetail.dayName} 每週固定規則已更新`);
-        } else {
-          // 任選日期由單一交易同時寫入來源日與目標日，避免只成功一半。
-          if (applyMode === "dates" && targetDates.length > 0) {
-            const copyResult = await copySettingsToDates({
-              sourceDate: selectedDate,
-              targetDates,
-              type: editStatus === "open" || editStatus === "custom" ? "custom" : editStatus,
-              reason: editReason || undefined,
-              openTime: editStatus === "open" || editStatus === "custom" ? firstPeriod?.openTime : undefined,
-              closeTime: editStatus === "open" || editStatus === "custom" ? lastPeriod?.closeTime : undefined,
-              defaultCapacity: editStatus === "open" || editStatus === "custom" ? editCapacity : undefined,
-              periods: editStatus === "open" || editStatus === "custom" ? sortedPeriods : undefined,
-              conflictMode: dateConflictMode,
-              includeSlotOverrides,
-            });
-            if (!copyResult.success) {
-              setSaveError(copyResult.error ?? "套用日期失敗");
-              toast.error(copyResult.error);
-              return;
-            }
-            const skippedText = copyResult.data.skipped.length > 0
-              ? `；略過：${copyResult.data.skipped.map((item) => `${item.date.slice(5).replace("-", "/")}（${item.reason}）`).join("、")}`
-              : "";
-            const operationId = copyResult.data.operationId;
-            toast.success(`來源日與 ${copyResult.data.count} 個日期已完成${skippedText}`, {
-              duration: 10000,
-              action: {
-                label: "復原",
-                onClick: () => startTransition(async () => {
-                  const undoResult = await undoCopySettingsToDates(operationId);
-                  if (!undoResult.success) {
-                    toast.error(undoResult.error);
-                    return;
-                  }
-                  dayDetailCacheRef.current.clear();
-                  monthCacheRef.current.clear();
-                  await invalidateAndReloadCurrentMonth();
-                  await selectDate(selectedDate, { bypassCache: true });
-                  toast.success(`已復原 ${undoResult.data.count} 個日期`);
-                }),
-              },
-            });
-          } else {
-            // 其他非永久模式先儲存來源日，再視需要複製到後續週次。
-            if (editStatus === "open") {
-              await removeSpecialDayByDate(selectedDate);
-            } else {
-              const result = await addSpecialDay({
-                date: selectedDate,
-                type: editStatus === "custom" ? "custom" : editStatus,
-                reason: editReason || undefined,
-                openTime: editStatus === "custom" ? firstPeriod?.openTime : undefined,
-                closeTime: editStatus === "custom" ? lastPeriod?.closeTime : undefined,
-                defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
-                periods: editStatus === "custom" ? sortedPeriods : undefined,
-                resetSlotOverrides: true,
-              });
-              if (!result.success) {
-                toast.error(result.error);
-                return;
-              }
-            }
-
-            if (applyMode === "copy" && copyWeeks > 0 && editStatus !== "open") {
-            const copyResult = await copySettingsToFutureWeeks({
-              sourceDate: selectedDate,
-              type: editStatus === "custom" ? "custom" : editStatus,
-              reason: editReason || undefined,
-              openTime: editStatus === "custom" ? firstPeriod?.openTime : undefined,
-              closeTime: editStatus === "custom" ? lastPeriod?.closeTime : undefined,
-              defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
-              periods: editStatus === "custom" ? sortedPeriods : undefined,
-              weeks: copyWeeks,
-              resetSlotOverrides: editStatus === "custom",
-            });
-            if (copyResult.success) {
-              toast.success(`已套用到未來 ${copyResult.data.count} 週`);
-            }
-            } else {
-              toast.success("設定已儲存");
-            }
-          }
-        }
-
-        // Day-detail cache 失效：
-        //  - applyMode=day → 只清這一天（其他天的 detail 沒被影響）
-        //  - copy / permanent / template → 多天或週規則被改，blast radius 大，清光
-        if (applyMode === "day") {
-          dayDetailCacheRef.current.delete(selectedDate);
-        } else {
-          dayDetailCacheRef.current.clear();
-        }
-        // 任選日期可能跨月；已看過月份的摘要也必須失效，避免切回時顯示舊時段。
-        if (applyMode === "dates") monthCacheRef.current.clear();
-        // 失效當月 cache 並重抓（其他月份保留 cache，不必清）
-        await invalidateAndReloadCurrentMonth();
-        await selectDate(selectedDate, { bypassCache: true });
-        setReviewedDraft(null);
+        if(!dayDetail?.hoursRevision){setSaveError("日期資料尚未確認，請重新核對日期");return;}
+        const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates,conflictMode:dateConflictMode,includeSlotOverrides}});
+        if(!result.success){setSaveError(result.error);toast.error(result.error);return;}
+        adoptServiceReceipt(result.data);
+        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":result.data.skipped.length?`設定已儲存；略過 ${result.data.skipped.length} 個已有設定的日期`:"營業設定已儲存",result.data.operationId?{duration:10000,action:{label:"復原",onClick:()=>void undoServiceDates(result.data.operationId!,result.data.day.hoursRevision)}}:undefined);
       } catch {
         toast.error("儲存失敗");
-      }
+      } finally {daySaveLock.current=false;}
     });
-  }, [isCourseStore, selectedDate, canManage, isPending, loadingDay, periodValidation.valid, dateSelectionValid, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, targetDates, dateConflictMode, includeSlotOverrides, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
+  };
 
   // ── 儲存每週固定設定 ──
-  const saveWeeklyDay = useCallback(async (
-    dow: number, isOpen: boolean, periods: BusinessPeriod[],
-  ) => {
-    if (!canManage || (isOpen && !validateServicePeriods(periods,isCourseStore).valid)) return false;
-    try {
-      const sorted = [...periods].sort((a, b) => a.openTime.localeCompare(b.openTime));
-      const first = sorted[0];
-      const last = sorted.at(-1);
-      const payload = {
-        isOpen,
-        openTime: isOpen ? first?.openTime ?? null : null,
-        closeTime: isOpen ? last?.closeTime ?? null : null,
-        slotInterval: first?.slotInterval ?? 60,
-        defaultCapacity: first?.defaultCapacity ?? 6,
-        periods: isOpen ? sorted : undefined,
-      };
-
-      const today=toLocalDateStr();
-      const weekDate=addTaiwanDuration(today,(dow-new Date(today+"T00:00:00Z").getUTCDay()+7)%7,"DAY");
-      const result = isCourseStore ? await saveCourseDayHours({date:weekDate,status:isOpen?"custom":"closed",mode:"weekly",weeks:0,reason:"",periods:sorted}) : await updateBusinessHours(dow, payload);
-      if (result.success) {
-        toast.success("每週預設已更新");
-        setWeeklyHours((prev) =>
-          prev.map((w) => w.dayOfWeek === dow ? {
-            ...w, isOpen,
-            openTime: isOpen ? first?.openTime ?? null : null,
-            closeTime: isOpen ? last?.closeTime ?? null : null,
-            slotInterval: first?.slotInterval ?? 60,
-            defaultCapacity: first?.defaultCapacity ?? 6,
-            periods: isOpen ? sorted : [],
-          } : w)
-        );
-        // 每週規則改動會影響所有同 dow 的日期 → blast radius 是整個 cache
-        dayDetailCacheRef.current.clear();
-        // 失效當月 cache 並重抓（每週規則改動會反映到本月所有同 dow 的日期）
-        await invalidateAndReloadCurrentMonth();
-        if (selectedDate) {
-          await selectDate(selectedDate, { bypassCache: true });
-        }
-        return true;
-      } else {
-        toast.error(result.error);
-        return false;
-      }
-    } catch {
-      toast.error("儲存失敗，請重試");
-      return false;
-    }
-  }, [canManage, selectedDate, selectDate, invalidateAndReloadCurrentMonth, isCourseStore]);
+  const saveWeeklyDay = async(dow:number,isOpen:boolean,periods:BusinessPeriod[])=>{
+    if(!canManage||isPending||daySaveLock.current||(isOpen&&!validateServicePeriods(periods,isCourseStore).valid)||!serviceRevision)return false;
+    if(serviceRequest.uncertain&&(serviceAttempt.current?.mode!=="weekly"||serviceAttempt.current.dow!==dow))return false;
+    const date=selectedDate??`${monthKey(year,month)}-01`;
+    serviceAttempt.current={mode:"weekly",dow};
+    daySaveLock.current=true;
+    try{const result=await serviceRequest.save({expectedRevision:serviceRevision,values:{date,dayOfWeek:dow,status:isOpen?"open":"closed",mode:"weekly",weeks:0,reason:"",periods:isOpen?periods:[]}});if(!result.success){setSaveError(result.error);toast.error(result.error);return false;}adoptServiceReceipt(result.data);if(result.syncWarning)toast.warning("已儲存；其他頁面更新失敗，請重新整理核對。");return true;}finally{daySaveLock.current=false;}
+  };
 
   const selectedSlotDetail=dayDetail?.slots.find(s=>s.startTime===selectedSlot);
   // ── 渲染 ──
@@ -807,7 +640,7 @@ export function ScheduleManager({
           <div className="mb-3 flex items-center justify-between">
             <button
               onClick={() => changeMonth(-1)}
-              disabled={isMonthLoading}
+              disabled={isMonthLoading || locked}
               className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
             >
               ← 上月
@@ -815,7 +648,7 @@ export function ScheduleManager({
             <h2 className="text-base font-bold text-earth-900">{year} 年 {month} 月</h2>
             <button
               onClick={() => changeMonth(1)}
-              disabled={isMonthLoading}
+              disabled={isMonthLoading || locked}
               className="rounded-lg px-3 py-1.5 text-sm text-earth-600 hover:bg-earth-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
             >
               下月 →
@@ -861,6 +694,7 @@ export function ScheduleManager({
                 <button
                   key={day}
                   type="button"
+                  disabled={locked}
                   onClick={() => selectDate(dateStr)}
                   className={`relative flex h-14 flex-col items-center justify-center rounded-lg text-sm font-medium transition ${color} ${
                     isSelected ? "ring-2 ring-primary-500 ring-offset-1" : "hover:ring-1 hover:ring-earth-300"
@@ -932,7 +766,7 @@ export function ScheduleManager({
                 {applyMode === "day" ? "只改這天，其他日期不變" : "已選擇多日套用"}
               </p>
 
-              <fieldset disabled={isPending || loadingDay} className="min-w-0">
+              <fieldset disabled={locked || loadingDay} className="min-w-0">
               {/* 狀態選擇 */}
               <div className="mb-3">
                 <label className="mb-1 block text-xs font-medium text-earth-600">當日狀態</label>
@@ -1089,7 +923,7 @@ export function ScheduleManager({
                         editStatus={editStatus}
                         editOpenTime={editOpenTime}
                         editCloseTime={editCloseTime}
-                        canManage={canManage}
+                        canManage={canManage&&!locked}
                         isSelected={selectedSlot === s.startTime}
                         onSelect={(startTime) => {
                           if (selectedSlot === startTime) {
@@ -1115,6 +949,7 @@ export function ScheduleManager({
                           min={0}
                           max={99}
                           value={slotCapacityInput}
+                          disabled={locked}
                           onChange={(e) => setSlotCapacityInput(Number(e.target.value))}
                           className="w-14 rounded border border-earth-300 px-1.5 py-0.5 text-center text-xs"
                         />
@@ -1122,24 +957,7 @@ export function ScheduleManager({
                         <button
                           type="button"
                           disabled={isPending}
-                          onClick={async () => {
-                            startTransition(async () => {
-                              const result = await overrideSlotCapacity({
-                                date: selectedDate,
-                                startTime: selectedSlot,
-                                capacity: slotCapacityInput,
-                              });
-                              if (result.success) {
-                                toast.success(`${selectedSlot} 名額已調整為 ${slotCapacityInput} 位`);
-                                setSelectedSlot(null);
-                                // 先更新當日時段，讓店長立即看到結果；整月摘要改為背景更新。
-                                await selectDate(selectedDate, { bypassCache: true });
-                                void invalidateAndReloadCurrentMonth();
-                              } else {
-                                toast.error(result.error);
-                              }
-                            });
-                          }}
+                          onClick={()=>startTransition(async()=>{await saveServiceSlot("capacity");})}
                           className="rounded bg-primary-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                         >
                           {isPending ? "..." : "儲存"}
@@ -1148,25 +966,8 @@ export function ScheduleManager({
                           <button
                             type="button"
                             disabled={isPending}
-                            onClick={async () => {
-                              startTransition(async () => {
-                                const result = await toggleSlotOverride({
-                                  date: selectedDate,
-                                  startTime: selectedSlot,
-                                  action: "remove",
-                                });
-                                if (result.success) {
-                                  toast.success(`${selectedSlot} 已回復預設名額`);
-                                  setSelectedSlot(null);
-                                  // 先更新當日時段，讓店長立即看到結果；整月摘要改為背景更新。
-                                  await selectDate(selectedDate, { bypassCache: true });
-                                  void invalidateAndReloadCurrentMonth();
-                                } else {
-                                  toast.error(result.error);
-                                }
-                              });
-                            }}
-                            className="rounded border border-earth-300 px-2 py-0.5 text-[10px] text-earth-500 hover:bg-earth-50 disabled:opacity-60"
+                            onClick={()=>startTransition(async()=>{await saveServiceSlot("reset");})}
+                          className="rounded border border-earth-300 px-2 py-0.5 text-[10px] text-earth-500 hover:bg-earth-50 disabled:opacity-60"
                           >
                             回復預設
                           </button>
@@ -1440,6 +1241,12 @@ export function ScheduleManager({
                 </div>
               )}
               </fieldset>
+              {(request.uncertain||serviceRequest.uncertain) && <button type="button" disabled={isPending} onClick={()=>void saveDay()} className="mt-3 min-h-11 rounded border px-3 text-sm">重試確認儲存結果</button>}
+              {isCourseStore && saveError && !request.uncertain && <button type="button" disabled={isPending||loadingDay} onClick={async()=>{
+                if(!selectedDate)return;setLoadingDay(true);const id=++dayRequestIdRef.current;
+                try{const detail=await getCourseDayHours(selectedDate);if(id!==dayRequestIdRef.current)return;setDayDetail(detail);dayDetailCacheRef.current.set(selectedDate,detail);setSaveError(null);}
+                catch{setSaveError("重新核對日期失敗，輸入已保留");}finally{if(id===dayRequestIdRef.current)setLoadingDay(false);}
+              }} className="mt-3 min-h-11 rounded border px-3 text-sm">重新核對日期</button>}
             </div>
 
 
@@ -1447,8 +1254,8 @@ export function ScheduleManager({
         ) : null}
       </div>
       <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
-        {isCourseStore ? <CourseWeeklyHoursEditor initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage} onSaved={async days => {
-          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
+        {isCourseStore ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage&&!locked} onSaved={async days => {
+          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, persisted:updated.persisted, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
           dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
           await invalidateAndReloadCurrentMonth();
           if (selectedDate && !dayDraftDirty) await selectDate(selectedDate, { bypassCache: true });
@@ -1477,6 +1284,7 @@ export function ScheduleManager({
                     day={w}
                     canManage={canManage}
                     isPending={isPending}
+                    uncertain={serviceRequest.uncertain}
                     isSpaStore={isSpaStore} isCourseStore={isCourseStore}
                     onSave={saveWeeklyDay}
                   />
@@ -1517,6 +1325,7 @@ export function ScheduleManager({
 // ============================================================
 
 function WeeklyDayRow({
+  uncertain=false,
   day,
   canManage,
   isPending,
@@ -1524,6 +1333,7 @@ function WeeklyDayRow({
   isCourseStore = false,
   onSave,
 }: {
+  uncertain?:boolean;
   day: WeeklyHour;
   canManage: boolean;
   isPending: boolean;
@@ -1559,7 +1369,7 @@ function WeeklyDayRow({
 
         <button
           type="button"
-          disabled={!canManage}
+          disabled={!canManage||uncertain}
           onClick={handleToggle}
           className={`relative h-5 w-9 shrink-0 rounded-full transition ${isOpen ? "bg-green-500" : "bg-earth-300"} disabled:opacity-50`}
         >
@@ -1573,6 +1383,7 @@ function WeeklyDayRow({
             </span>
             <button
               type="button"
+              disabled={uncertain}
               onClick={() => setExpanded(!expanded)}
               className="ml-auto shrink-0 whitespace-nowrap text-xs text-earth-400 hover:text-earth-600"
               title="調整每週固定時段"
@@ -1593,7 +1404,7 @@ function WeeklyDayRow({
             })}
             className={`${isOpen && !expanded ? "" : "ml-auto"} shrink-0 rounded bg-primary-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-700 disabled:opacity-60`}
           >
-            {saving ? "儲存中…" : "儲存"}
+            {saving ? "儲存中…" : uncertain?"重試確認":"儲存"}
           </button>
         )}
       </div>
@@ -1606,20 +1417,20 @@ function WeeklyDayRow({
           <p className="text-[10px] text-earth-500">中間未設定的時間會自動視為休息。</p>
           {periods.map((period, index) => (
             <div key={index} className="grid min-w-0 grid-cols-2 gap-2 overflow-hidden rounded border border-earth-200 bg-white p-2">
-              <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="開始時間" value={period.openTime} disabled={!canManage} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
+              <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="開始時間" value={period.openTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item)); setDirty(true); }} />
-              <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
+              <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item)); setDirty(true); }} />
-              <select hidden={isCourseStore} value={period.slotInterval} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
+              <select hidden={isCourseStore} value={period.slotInterval} disabled={!canManage||uncertain} className="rounded border px-1 py-1 text-[11px]"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }}>
                 {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value}分鐘</option>)}
               </select>
               <div className="flex gap-1">
-                <select hidden={isCourseStore} value={period.defaultCapacity} disabled={!canManage} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
+                <select hidden={isCourseStore} value={period.defaultCapacity} disabled={!canManage||uncertain} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
                   onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item)); setDirty(true); }}>
                   {CAPACITY_OPTIONS.map((capacity) => <option key={capacity} value={capacity}>{capacity}位</option>)}
                 </select>
-                {periods.length > 1 && <button type="button" className="text-[10px] text-red-600" onClick={() => { setPeriods((items) => items.filter((_, itemIndex) => itemIndex !== index)); setDirty(true); }}>刪除</button>}
+                {periods.length > 1 && <button type="button" disabled={uncertain} className="text-[10px] text-red-600" onClick={() => { setPeriods((items) => items.filter((_, itemIndex) => itemIndex !== index)); setDirty(true); }}>刪除</button>}
               </div>
             </div>
           ))}

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { expect, it } from "vitest";
-import { assertReviewedReleaseEnvironment, ROOM_PERFORMANCE_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertReviewedReleaseEnvironment, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 
 const isolated = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const env = {
@@ -22,4 +22,10 @@ it.each(["DATABASE_URL", "DIRECT_URL"])("rejects a non-isolated %s before creati
 });
 it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects wrong provenance in %s", key => {
   expect(() => assertReviewedReleaseEnvironment({...env, [key]: "wrong"})).toThrow();
+});
+
+it("accepts the settings performance preview only with the existing isolated connections", () => {
+  const settings = {...env, VERCEL_GIT_COMMIT_REF: SETTINGS_PERFORMANCE_PREVIEW_BRANCH};
+  expect(assertReviewedReleaseEnvironment(settings)).toBe("module-roster-preview");
+  expect(() => assertReviewedReleaseEnvironment({...settings, DATABASE_URL: "postgresql://production.invalid/db"})).toThrow();
 });

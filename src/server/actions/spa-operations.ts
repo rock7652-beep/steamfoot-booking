@@ -1,5 +1,10 @@
 "use server";
 
+import {spaStaffSettingsSaveInput} from "@/lib/staff-settings-save";
+import {settingsSaveUncertain} from "@/server/services/settings-save-error";
+import {writeInitialSpaStaff} from "@/server/services/spa-initial-staff-write";
+import {readSavedStaff} from "@/server/services/staff-save-snapshot";
+import {revalidateStaffInRoute} from "@/lib/revalidation";
 import { z } from "zod";
 import type { Prisma as SpaPrisma } from "@spa-client";
 import { revalidatePath } from "next/cache";
@@ -318,4 +323,50 @@ export async function saveSpaStaffSetup(input: z.infer<typeof staffSetupSchema>)
     revalidatePath("/liff/staff-preview");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
+}
+
+/** Direct, atomic SPA personnel settings; committed retries read authority. */
+export async function saveSpaStaffConfirmed(input:unknown){
+ try{
+  const {user,storeId}=await requireSpaWrite("staff.manage"),{kind,id,values,...receipt}=spaStaffSettingsSaveInput.parse(input);
+  if(receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟設定");
+  const payload={...values,staffId:id};
+  const setup=kind==="setup"?staffSetupSchema.parse(payload):null;
+  const skills=kind==="skills"?staffSkillsSchema.parse(payload):null;
+  const weekly=kind==="weekly"?weeklyAvailabilitySchema.parse(payload):null;
+  const compensation=kind==="compensation"?compensationSchema.parse(payload):null;
+  const exception=kind==="exception"?exceptionSchema.parse(payload):null;
+  if((setup||compensation)&&!await isSpaCompensationSchemaReady())throw new AppError("CONFLICT","抽成設定功能更新中，請稍後再試");
+  if(weekly&&(new Set(weekly.availability.map(a=>a.dayOfWeek)).size!==weekly.availability.length||weekly.availability.some(a=>a.startTime>=a.endTime)))throw new AppError("VALIDATION","固定班表日期重複或結束時間不正確");
+  if(exception){if(new Date(exception.date+"T00:00:00Z").toISOString().slice(0,10)!==exception.date)throw new AppError("VALIDATION","日期格式不正確");if(!!exception.startTime!==!!exception.endTime||exception.startTime&&exception.endTime&&exception.startTime>=exception.endTime||exception.type==="AVAILABLE"&&(!exception.startTime||!exception.endTime))throw new AppError("VALIDATION","請確認開始與結束時間");}
+  const key=`spa-staff-receipt:${storeId}:${receipt.requestKey}`;
+  await spaPrisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
+   const [record]=await tx.$queryRaw<Array<{actorUserId:string;targetId:string;afterJson:{kind:string}}>>`SELECT "actorUserId","targetId","afterJson" FROM "AuditLog" WHERE id=${key}`;
+   if(record){if(record.actorUserId!==user.id||record.targetId!==id||record.afterJson.kind!==kind)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return;}
+   const [staff]=await tx.$queryRaw<Array<{userId:string;updatedAt:Date}>>`SELECT "userId","updatedAt" FROM "Staff" WHERE id=${id} AND "storeId"=${storeId} FOR UPDATE`;
+   if(!staff)throw new AppError("NOT_FOUND","找不到本店人員");
+   if(staff.updatedAt.toISOString()!==receipt.expectedVersion)throw new AppError("CONFLICT","人員設定已更新，請重新開啟核對；本次修改尚未儲存");
+   if(setup){
+    const email=setup.email?normalizeEmail(setup.email):null;
+    const [duplicate]=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "User" WHERE id<>${staff.userId} AND (phone=${setup.phone} OR (${email}::text IS NOT NULL AND email=${email})) LIMIT 1`;
+    if(duplicate)throw new AppError("CONFLICT","手機或 Email 已被其他帳號使用");
+    await tx.$executeRaw`UPDATE "User" SET name=${setup.legalName},phone=${setup.phone},email=${email},"updatedAt"=now() WHERE id=${staff.userId}`;
+    await tx.$executeRaw`UPDATE "Staff" SET "displayName"=${setup.displayName},"colorCode"=${setup.colorCode},phone=${setup.phone},"updatedAt"=now() WHERE id=${id} AND "storeId"=${storeId}`;
+   }
+   if(setup||skills)await tx.spaStaffSkill.deleteMany({where:{storeId,staffId:id}});
+   if(setup||weekly)await tx.spaStaffAvailability.deleteMany({where:{storeId,staffId:id}});
+   await writeInitialSpaStaff(tx,storeId,id,{spaSkillKeys:setup?.skillKeys??skills?.skillKeys,spaWeeklyAvailability:setup?.availability??weekly?.availability,spaCompensation:setup?.compensation??(compensation?{mode:compensation.mode,value:compensation.value}:undefined)});
+   if(exception){
+    if(exception.type==="UNAVAILABLE"){
+     const bookings=await tx.spaBooking.findMany({where:{storeId,serviceStaffId:id,bookingDate:parseTaiwanDateToDbDate(exception.date),status:{in:["PENDING","CONFIRMED"]}},select:{startTime:true,items:{select:{serviceMinutes:true,bufferMinutes:true}}}});
+     if(bookings.some(b=>!exception.startTime||!exception.endTime||timeToMinutes(b.startTime)<timeToMinutes(exception.endTime)&&timeToMinutes(exception.startTime)<timeToMinutes(b.startTime)+b.items.reduce((sum,i)=>sum+i.serviceMinutes+i.bufferMinutes,0)))throw new AppError("CONFLICT","此時段已有預約，請先更換芳療師後再設定請假");
+    }
+    await tx.spaStaffAvailabilityException.create({data:{id:`spa-staff-exception:${storeId}:${receipt.requestKey}`,storeId,staffId:id,date:parseTaiwanDateToDbDate(exception.date),type:exception.type,startTime:exception.startTime,endTime:exception.endTime,reason:exception.reason}});
+   }
+   await tx.$executeRaw`UPDATE "Staff" SET "updatedAt"=now() WHERE id=${id} AND "storeId"=${storeId}`;
+   await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"afterJson","createdAt") VALUES (${key},${user.id},'Staff',${id},'SETTINGS_SAVE_CONFIRMED',${JSON.stringify({storeId,kind})}::jsonb,now())`;
+  },{timeout:20000});
+  const data=await readSavedStaff(storeId,id,user);let syncWarning=false;try{revalidateStaffInRoute();revalidatePath("/liff/design-preview/booking");revalidatePath("/liff/manager-preview");revalidatePath("/liff/staff-preview");}catch{syncWarning=true;}return {success:true as const,storeId,data,syncWarning};
+ }catch(error){return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};}
 }

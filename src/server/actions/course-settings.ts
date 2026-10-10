@@ -1,27 +1,32 @@
 "use server";
+import { selfBookingReceipt } from "@/lib/course-self-booking-save";
 import { z } from "zod";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
 import { revalidatePath } from "next/cache";
-import { revalidateShopConfig } from "@/lib/revalidation";
+import { revalidateShopConfig, revalidateShopConfigInRoute } from "@/lib/revalidation";
 import {
   courseManager,
   courseTransaction,
 } from "@/server/services/course-access";
 import { updateShopBankInfo } from "./shop";
-import { handleActionError } from "@/lib/errors";
-import { courseSettingsSectionSchema } from "@/lib/course-settings-sections";
+import { AppError, handleActionError } from "@/lib/errors";
+import { readCourseSettingsSection } from "@/server/services/course-settings-section-read";
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
+import { courseSettingsSectionReceipt, courseSettingsSectionRevision, courseSettingsSectionSchema } from "@/lib/course-settings-sections";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 
 /** This setting writes only its own field and shares the course store mutation lock. */
 export async function saveCourseSelfBookingSettings(input: unknown) {
   try {
-    const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(input);
+    const { enabled, receipt } = z.object({ enabled: z.boolean(), receipt:selfBookingReceipt.optional() }).strict().parse(input);
     const { user, storeId } = await courseManager("business_hours.manage");
+    if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
     await assertStoreSubscriptionWritable(storeId);
     const saved = await courseTransaction(storeId, async tx => {
       const before = await tx.courseBookingRule.findUnique({ where: { storeId } });
       if (courseSelfBookingEnabled(before) === enabled) return { enabled, revision: before?.selfBookingRevision ?? 0 };
+      if(receipt && (before?.selfBookingRevision??0)!==receipt.expectedRevision)throw new AppError("CONFLICT","設定已由其他人更新，請核對目前狀態後再編輯。");
       const updated = await tx.courseBookingRule.upsert({
         where: { storeId },
         create: { storeId, selfBookingEnabled: enabled, selfBookingRevision: 1 },
@@ -38,22 +43,26 @@ export async function saveCourseSelfBookingSettings(input: unknown) {
       }, tx);
       return { enabled, revision: updated.selfBookingRevision };
     });
-    revalidatePath("/dashboard", "layout");
-    revalidatePath("/book");
+    let syncWarning=false;
+    try{revalidatePath("/dashboard", "layout");revalidatePath("/book");}catch(error){if(!receipt)throw error;syncWarning=true;}
+    if(receipt)return {success:true as const,storeId,data:saved,syncWarning};
     return { success: true as const, ...saved };
   } catch (error) {
     const result = handleActionError(error);
-    return { success: false as const, error: result.success ? "儲存失敗，請重試" : result.error };
+    return { success: false as const, error: result.success ? "儲存失敗，請重試" : result.error,uncertain:settingsSaveUncertain(error) };
   }
 }
 
 /** Each editor writes only its own fields: stale drafts cannot overwrite another section. */
 export async function saveCourseSettingsSection(input: unknown) {
   try {
+    const receipt=z.object({receipt:courseSettingsSectionReceipt.optional()}).parse(input).receipt;
     const d = courseSettingsSectionSchema.parse(input);
     const { storeId } = await courseManager(d.section === "payment" ? "plans.edit" : "business_hours.manage");
+    if(receipt&&receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
     await assertStoreSubscriptionWritable(storeId);
-    await courseTransaction(storeId, async tx => {
+    const saved=await courseTransaction(storeId, async tx => {
+      if(receipt){const current=await readCourseSettingsSection(tx,storeId,d.section);if(courseSettingsSectionRevision(current)!==receipt.expectedRevision){if(courseSettingsSectionRevision(current)===courseSettingsSectionRevision(d))return current;throw new AppError("CONFLICT","設定已有更新，輸入已保留。請重新開啟後核對。");}}
       if (d.section === "booking") {
         const rules = { bookingLeadMinutes: d.bookingLeadMinutes, cancellationLeadMinutes: d.cancellationLeadMinutes };
         await tx.courseBookingRule.upsert({ where: { storeId }, create: { storeId, ...rules }, update: rules });
@@ -64,12 +73,16 @@ export async function saveCourseSettingsSection(input: unknown) {
       } else {
         await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","bankName","bankCode","bankAccountNumber","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.bankName || null},${d.bankCode || null},${d.bankAccountNumber || null},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "bankName"=EXCLUDED."bankName","bankCode"=EXCLUDED."bankCode","bankAccountNumber"=EXCLUDED."bankAccountNumber","updatedAt"=NOW()`;
       }
+      if(receipt)return readCourseSettingsSection(tx,storeId,d.section);
     });
-    revalidateShopConfig();
+    let syncWarning=false;
+    try {
+    if(receipt)revalidateShopConfigInRoute();else revalidateShopConfig();
     revalidatePath("/dashboard", "layout");
     revalidatePath("/book");
-    return { success: true as const };
-  } catch (error) { return handleActionError(error); }
+    }catch(error){if(!receipt)throw error;syncWarning=true;}
+    return { success: true as const,storeId,data:receipt?{values:saved!,revision:courseSettingsSectionRevision(saved)}:undefined,syncWarning };
+  } catch (error) { return {...handleActionError(error),uncertain:settingsSaveUncertain(error)}; }
 }
 export async function saveCourseSettings(input: unknown) {
   try {
