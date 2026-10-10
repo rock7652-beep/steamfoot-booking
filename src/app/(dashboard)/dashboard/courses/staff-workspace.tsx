@@ -18,7 +18,7 @@ import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {CourseStaffAvailabilityEditor} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -110,7 +110,8 @@ export function CourseStaffWorkspace({
   const [staffPage,setStaffPage]=useState(0);
   const [showInactive,setShowInactive]=useState(false);
   const confirmed=useConfirmedSettingsRows<Person>(sourceStaff,row=>row.updatedAt??JSON.stringify(row), (current,receipt)=>!!current.updatedAt&&!!receipt.updatedAt&&current.updatedAt>=receipt.updatedAt);
-  const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(confirmed.rows.filter(row=>!accountKind||row.kind===accountKind),"active");
+  const accountRows=useMemo(()=>confirmed.rows.filter(row=>!accountKind||row.kind===accountKind),[confirmed.rows,accountKind]);
+  const [staff,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(accountRows,"active");
   const pathname=usePathname();
   const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/staff`,previewStoreId??"",savedCourseStaff);
   const submitLock=useRef(false);

@@ -9,7 +9,8 @@ vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:
 vi.mock("@/server/actions/course-staff",()=>({readCourseStaffTeaching:m.read,saveCourseStaff:m.save}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-status",()=>({setCourseStatus:vi.fn()}));
-vi.mock("@/components/admin/course-status-button",()=>({CourseStatusButton:()=>null,useCourseStatusRows:(rows:unknown)=>[rows,vi.fn(),[],vi.fn()]}));
+vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));
+vi.mock("@/components/admin/course-status-button",async(importOriginal)=>{const actual=await importOriginal<typeof import("@/components/admin/course-status-button")>();return {...actual,CourseStatusButton:()=>null};});
 vi.mock("@/components/admin/course-display-order",()=>({useCourseDisplayOrder:()=>({compare:()=>0,rowProps:()=>({}),handle:()=>null})}));
 import {CourseStaffWorkspace} from "@/app/(dashboard)/dashboard/courses/staff-workspace";
 let host:HTMLDivElement,root:Root;
