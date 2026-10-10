@@ -26,3 +26,17 @@ it("uses percentages while keeping the stored default ratio and exception rule u
   } finally {await act(async()=>flexRoot.unmount());}
  } finally {host.remove();}
 });
+
+it("selects courses before showing fees, preserves per-course exceptions, and previews the configured price",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const onSettings=vi.fn(),onFees=vi.fn();
+ const props={templates:[{id:"p",name:"吉他",musicPricePerLesson:800,musicTeacherShare:0.6}],qualificationIds:[] as string[],fees:{p:{mode:"SHARE" as const,value:"40",revision:2}},settings:{defaultRatio:0.6,subjectRules:{},revision:1},onSettings,onFees,onQualification:vi.fn()};
+ try {
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));expect(host.textContent).not.toContain("老師分潤");expect(host.querySelector('[aria-label="搜尋課程"]')).not.toBeNull();
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,qualificationIds:["p"]})));
+  const done=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="完成選擇")!;await act(async()=>done.click());
+  expect(host.textContent).toContain("老師 40% · 定價試算 $320／堂");
+  const ratio=host.querySelector('[aria-label="老師全科預設比例"]') as HTMLInputElement;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(ratio,"50");ratio.dispatchEvent(new Event("input",{bubbles:true}));});
+  expect(onSettings).toHaveBeenLastCalledWith(expect.objectContaining({defaultRatio:0.5}));expect(onFees).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
