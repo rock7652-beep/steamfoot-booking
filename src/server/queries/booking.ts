@@ -543,7 +543,7 @@ async function computeMonthBookingSummaryMeasured(
   const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
     if (!t.bookingId) continue;
-    collectedMap.set(t.bookingId, Number(t.amount));
+    collectedMap.set(t.bookingId, (collectedMap.get(t.bookingId) ?? 0) + Number(t.amount));
     if (t.transactionType === "SESSION_DEDUCTION" && t.customerPlanWallet) {
       const names = deductedPlanNamesByBooking.get(t.bookingId) ?? new Set<string>();
       names.add(t.customerPlanWallet.plan.name);
