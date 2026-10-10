@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { collectTrialPayment } from "@/server/actions/trial-booking";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
 import type { PaymentSplitInput } from "@/lib/payment-splits";
+import { trialCollectionAmountError } from "@/lib/trial-collection-amount";
 
 /**
  * 體驗 499 PR-3：現場收款確認 Modal（drawer-only 入口）。
@@ -119,6 +120,15 @@ export function CollectTrialModal({
     const amountNum = settings.allowEdit
       ? Math.round(Number(amount))
       : totalDefaultByActual;
+    if (!courseMode) {
+      const error = trialCollectionAmountError(amountNum, effectivePeople, {
+        trialAllowPriceEdit: settings.allowEdit,
+        trialDefaultPrice: settings.defaultPrice,
+        trialMinPrice: settings.minPrice,
+        trialMaxPrice: settings.maxPrice,
+      });
+      if (error) { setSubmitError(error); return; }
+    }
     runCheckout(async () => {
       const r = await saveAction({
         bookingId,

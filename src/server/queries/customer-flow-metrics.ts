@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { bookingMonthRange } from "@/lib/date-utils";
+import { loadIndividualBookingFacts, replaceGroupedBookingFacts } from "./booking-participant-facts";
 import {
   hydrateCustomerSegment,
   type CustomerSegmentCustomer,
@@ -36,9 +37,11 @@ export type CustomerFlowMetrics = {
 };
 
 type CompletedBooking = {
+  id?: string;
+  bookingId?: string;
   customerId: string;
   bookingDate: Date;
-  bookingType: "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
+  bookingType: string;
   people?: number;
   attendedPeople?: number | null;
 };
@@ -119,7 +122,7 @@ function countsForMonth(
     returningVisitors: selection.returningVisitorIds.size,
     trialCustomers: selection.trialCustomerIds.size,
     trialAttendees: trialBookings.reduce((sum, booking) => sum + actualAttendance(booking), 0),
-    trialBookingGroups: trialBookings.length,
+    trialBookingGroups: new Set(trialBookings.map((row, index) => row.bookingId ?? row.id ?? `legacy-${index}`)).size,
   };
 }
 
@@ -168,13 +171,14 @@ export async function getCustomerFlowMetrics(
 ): Promise<CustomerFlowMetrics> {
   const months = [month, shiftMonth(month, -1), shiftMonth(month, -12)];
   const ranges = months.map(rangeForMonth);
-  const periodBookings = await prisma.booking.findMany({
+  const groupedPeriodBookings = await prisma.booking.findMany({
     where: {
       storeId,
       bookingStatus: "COMPLETED",
       OR: ranges.map(({ start, end }) => ({ bookingDate: { gte: start, lte: end } })),
     },
     select: {
+      id: true,
       customerId: true,
       bookingDate: true,
       bookingType: true,
@@ -182,6 +186,8 @@ export async function getCustomerFlowMetrics(
       attendedPeople: true,
     },
   });
+  const individual = await loadIndividualBookingFacts(storeId, ranges.reduce((latest, range) => range.end > latest ? range.end : latest, ranges[0].end));
+  const periodBookings = [...replaceGroupedBookingFacts(groupedPeriodBookings, individual.groupIds), ...individual.visits];
 
   const customerIds = [...new Set(periodBookings.map((booking) => booking.customerId))];
   const firstCompleted = customerIds.length
@@ -191,6 +197,7 @@ export async function getCustomerFlowMetrics(
           storeId,
           customerId: { in: customerIds },
           bookingStatus: "COMPLETED",
+          ...(individual.groupIds.size ? { id: { notIn: [...individual.groupIds] } } : {}),
         },
         _min: { bookingDate: true },
       })
@@ -200,6 +207,7 @@ export async function getCustomerFlowMetrics(
       row._min.bookingDate ? [[row.customerId, row._min.bookingDate] as const] : [],
     ),
   );
+  for (const visit of individual.visits) if (!firstCompletedByCustomer.has(visit.customerId) || visit.bookingDate < firstCompletedByCustomer.get(visit.customerId)!) firstCompletedByCustomer.set(visit.customerId, visit.bookingDate);
 
   return buildCustomerFlowMetrics(month, periodBookings, firstCompletedByCustomer);
 }
@@ -210,15 +218,18 @@ export async function getCustomerFlowCustomers(
   segment: CustomerFlowSegment,
 ): Promise<CustomerSegmentCustomer[]> {
   const { start, end } = rangeForMonth(month);
-  const bookings = await prisma.booking.findMany({
+  const groupedBookings = await prisma.booking.findMany({
     where: { storeId, bookingStatus: "COMPLETED", bookingDate: { gte: start, lte: end } },
-    select: { customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true },
+    select: { id: true, customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true },
   });
+  const individual = await loadIndividualBookingFacts(storeId, end);
+  const bookings = [...replaceGroupedBookingFacts(groupedBookings, individual.groupIds), ...individual.visits];
   const customerIds = [...new Set(bookings.map((booking) => booking.customerId))];
   const firstCompleted = customerIds.length
     ? await prisma.booking.groupBy({
         by: ["customerId"],
-        where: { storeId, customerId: { in: customerIds }, bookingStatus: "COMPLETED" },
+        where: { storeId, customerId: { in: customerIds }, bookingStatus: "COMPLETED",
+          ...(individual.groupIds.size ? { id: { notIn: [...individual.groupIds] } } : {}) },
         _min: { bookingDate: true },
       })
     : [];
@@ -227,6 +238,7 @@ export async function getCustomerFlowCustomers(
       row._min.bookingDate ? [[row.customerId, row._min.bookingDate] as const] : [],
     ),
   );
+  for (const visit of individual.visits) if (!firstCompletedByCustomer.has(visit.customerId) || visit.bookingDate < firstCompletedByCustomer.get(visit.customerId)!) firstCompletedByCustomer.set(visit.customerId, visit.bookingDate);
   const selection = selectCustomerFlowCustomerIds(month, bookings, firstCompletedByCustomer);
   const idsBySegment: Record<CustomerFlowSegment, Set<string>> = {
     "monthly-customers": selection.uniqueVisitorIds,

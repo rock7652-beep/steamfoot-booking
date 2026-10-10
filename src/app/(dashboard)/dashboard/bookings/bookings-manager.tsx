@@ -582,7 +582,10 @@ function BookingsManagerContent({
       // 下次打開 / 背景 revalidate 一定取得最新 authoritative payload。
       monthNavigation?.invalidate();
       detailCache.invalidate(bookingId);
-      refreshGate.current.nextAutomaticAt = Date.now() + 2_000;
+      // A partial-person payment has no group status to project. Refresh its
+      // authoritative amounts as soon as the drawer closes, without a stale
+      // unpaid row during the usual mutation quiet period.
+      refreshGate.current.nextAutomaticAt = Date.now() + (newStatus ? 2_000 : 0);
       if (!newStatus) return;
       setMonthData((prev) =>
         prev.map((day) => {

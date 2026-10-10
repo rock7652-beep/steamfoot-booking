@@ -14,6 +14,7 @@ import {
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { getBookingDetailForUser } from "@/server/queries/booking";
+import { loadIndividualCustomerVisitSummary } from "@/server/queries/booking-participant-facts";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
@@ -48,6 +49,16 @@ async function findCollectedSingleTransaction(
 }
 
 export interface BookingDrawerPayload {
+  participantCheckout?: {
+    canCollect: boolean; canResolve: boolean;
+    canSell: boolean; canDiscount: boolean;
+    plans: Array<{ id: string; name: string; category: string; price: number; sessionCount: number; validityDays: number | null }>;
+    settings: { allowEdit: boolean; defaultPrice: number; minPrice: number; maxPrice: number };
+    slots: Array<{ id: string | null; position: number; revision: number; customerId: string | null; name: string | null;
+      service: string; status: string; source?: string; collectedAmount: number | null;
+      wallets?: Array<{ id: string; name: string; available: number }> }>;
+  };
+  companions?: { canAdd?: boolean; canEdit: boolean; canCreate: boolean; slots: Array<{ position: number; revision: number; customerId: string | null; name: string | null; status?: string }> };
   canEditServiceNote?: boolean;
   canEditBookingNote?: boolean;
   booking: {
@@ -314,6 +325,9 @@ async function fetchBookingDetailMeasured(
   const isSingle = booking.bookingType === "SINGLE";
   const isPackage = booking.bookingType === "PACKAGE_SESSION";
   const storeFilter = getStoreFilter(readUser, bookingStoreId);
+  const personalVisits = process.env.BOOKING_PARTICIPANTS_ENABLED === "true"
+    ? loadIndividualCustomerVisitSummary(booking.storeId, booking.customerId, bookingId)
+    : null;
 
   // 拿到 booking 後，下列查詢彼此獨立（只依賴 booking.id / storeId / customerId），
   // 一次並行避免「收款查詢 → 顧客近況查詢」串成 waterfall：
@@ -375,14 +389,14 @@ async function fetchBookingDetailMeasured(
           },
         })
       : Promise.resolve([]),
-    prisma.booking.count({
+    personalVisits ? personalVisits.then(summary => summary.totalBookings) : prisma.booking.count({
       where: {
         customerId: booking.customerId,
         bookingStatus: "COMPLETED",
         ...storeFilter,
       },
     }),
-    prisma.booking.findFirst({
+    personalVisits ? personalVisits.then(summary => summary.lastVisit ? { bookingDate: summary.lastVisit } : null) : prisma.booking.findFirst({
       where: {
         customerId: booking.customerId,
         bookingStatus: "COMPLETED",
@@ -403,9 +417,64 @@ async function fetchBookingDetailMeasured(
     !isViewMode ? checkPermission(user.role, user.staffId, "booking.update") : Promise.resolve(false),
   ]));
 
+  let participantCheckout: BookingDrawerPayload["participantCheckout"];
+  let companions: BookingDrawerPayload["companions"];
+  if (process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && isTrial && booking.people >= 1 && !booking.isMakeup && trialSettings) {
+    const rows = await prisma.$queryRaw<NonNullable<BookingDrawerPayload["participantCheckout"]>["slots"]>`
+      SELECT p.id, p.position, p.revision, p."customerId", c.name, p.service, p.status, p.source,
+        CASE WHEN t.id IS NULL THEN NULL WHEN t.status::text IN ('VOIDED','CANCELLED') THEN 0
+          ELSE GREATEST(0, t.amount - GREATEST(COALESCE(t."refundAmount",0),
+            COALESCE((SELECT SUM(-r.amount) FROM "Transaction" r WHERE r."refundOfTransactionId" = t.id
+              AND r."storeId" = t."storeId" AND r.status::text = 'SUCCESS'
+              AND r."paymentStatus"::text IN ('SUCCESS','CONFIRMED')),0)))::integer END AS "collectedAmount"
+      FROM "BookingParticipantGroup" g JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
+      LEFT JOIN "Customer" c ON c.id = p."customerId" AND c."storeId" = p."storeId"
+      LEFT JOIN "Transaction" t ON t.id = p."collectionTransactionId" AND t."storeId" = p."storeId"
+      WHERE g."bookingId" = ${booking.id} AND g."storeId" = ${booking.storeId} ORDER BY p.position`;
+    // Never reinterpret an old grouped receipt as somebody's individual payment.
+    if (rows.length || (!collectedTx && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus))) {
+      const slots = rows.length ? rows : Array.from({ length: booking.people }, (_, index) => ({
+        id: null, position: index + 1, revision: 1, customerId: index === 0 ? booking.customerId : null,
+        name: index === 0 ? booking.customer.name : null, service: "FIRST_TRIAL", status: "PENDING", collectedAmount: null,
+      }));
+      const [canCollect, canSell, canDiscount, canCreate, canRead, plans] = await Promise.all([
+        !isViewMode && canEditBookingNote ? checkPermission(user.role, user.staffId, "trial.confirm") : false,
+        !isViewMode ? checkPermission(user.role, user.staffId, "wallet.create") : false,
+        !isViewMode ? checkPermission(user.role, user.staffId, "transaction.discount") : false,
+        !isViewMode ? checkPermission(user.role, user.staffId, "customer.create") : false,
+        !isViewMode && canEditBookingNote ? checkPermission(user.role, user.staffId, "customer.read") : false,
+        prisma.servicePlan.findMany({ where: { storeId: booking.storeId, isActive: true, category: "PACKAGE" },
+          select: { id: true, name: true, category: true, price: true, sessionCount: true, validityDays: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+      ]);
+      const customerIds = slots.flatMap(person => person.customerId ? [person.customerId] : []);
+      const ownWallets = await prisma.customerPlanWallet.findMany({ where: {
+        storeId: booking.storeId, customerId: { in: customerIds }, status: "ACTIVE",
+        startDate: { lte: booking.bookingDate }, OR: [{ expiryDate: null }, { expiryDate: { gte: booking.bookingDate } }],
+      }, select: { id: true, customerId: true, plan: { select: { name: true } },
+        _count: { select: { sessions: { where: { status: "AVAILABLE" } } } } },
+        orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }] });
+      participantCheckout = { slots: slots.map(person => ({ ...person,
+        wallets: ownWallets.filter(wallet => wallet.customerId === person.customerId && wallet._count.sessions > 0)
+          .map(wallet => ({ id: wallet.id, name: wallet.plan.name, available: wallet._count.sessions })),
+      })),
+        canCollect,
+        canResolve: !isViewMode && canEditBookingNote,
+        canSell, canDiscount,
+        plans: plans.map(plan => ({ ...plan, price: Number(plan.price) })),
+        settings: { allowEdit: trialSettings.trialAllowPriceEdit, defaultPrice: trialSettings.trialDefaultPrice,
+          minPrice: trialSettings.trialMinPrice, maxPrice: trialSettings.trialMaxPrice },
+      };
+      companions = { canAdd: canRead && slots.length < 4 && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus), slots: slots.filter(slot => slot.position > 1),
+        canCreate,
+        canEdit: canRead && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus),
+      };
+    }
+  }
+
   return {
     canEditServiceNote,
     canEditBookingNote,
+    ...(participantCheckout ? { participantCheckout, companions } : {}),
     booking: {
       id: booking.id,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
