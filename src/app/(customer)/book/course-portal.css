@@ -660,7 +660,7 @@
 .cp-coach-main h1 { margin: 12px 0; }
 .cp-coach-main .cp-refresh { margin-bottom: 8px; }
 .cp-week-strip { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; margin:12px 0; }
-.cp-week-strip button { min-width:0; min-height:88px; padding:8px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.cp-week-strip button { min-width:0; min-height:72px; padding:5px 2px; display:flex; flex-direction:column; align-items:center; gap:2px; }
 .cp-week-strip small { font-size:12px; }
 .cp-coach-options { position:relative; }
 .cp-coach-options > summary { cursor:pointer; min-width:44px; min-height:44px; display:grid; place-items:center; }
@@ -733,3 +733,46 @@
 .cp-plan-row > span { color: #63756a; }
 .cp-plan-held { grid-column: 1 / -1; font-size: inherit; color: #63756a; }
 .cp-plan-body { border-top: 1px solid #e1e7de; padding-top: 8px; margin-top: 4px; }
+
+/* Work courses are a single list; details and attendance stay on the same row. */
+.cp-work-list { margin: 10px 0; border: 1px solid #dce3d7; border-radius: 12px; background: white; overflow: hidden; }
+.cp-work-list:empty { display: none; }
+.cp-work-list > .cp-work-lesson { margin: 0; border: 0; border-radius: 0; overflow: visible; }
+.cp-work-lesson + .cp-work-lesson { border-top: 1px solid #e5eae2; }
+.cp-work-title { display: grid !important; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; font-size: 15px; }
+.cp-work-time { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 400; }
+.course-portal .cp-work-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 14px; }
+.cp-work-meta .cp-work-status { color: #315b49; }
+.cp-work-lesson .cp-work-toggle { width: 14px; text-align: center; }
+.cp-work-lesson .cp-roster-body { border-top: 1px solid #edf0e8; padding: 0 14px 10px; }
+.cp-roster-actions > div { min-width: 0; }
+.cp-roster-actions .cp-course-cost { display: block; margin-top: 2px; color: #697963; font-size: 14px; }
+.cp-coach-options { position: relative; }
+.cp-coach-options > form { position: absolute; right: 0; top: 100%; z-index: 30; width: 220px; max-width: calc(100vw - 32px); border: 1px solid #dce3d7; border-radius: 12px; background: white; box-shadow: 0 8px 24px #2444371a; overflow: hidden; }
+.cp-roster-details .cp-roster-note:empty { display: none; }
+
+/* Keep scanning positions steady without shrinking touch targets. */
+.cp-work-time { color: #61715c; }
+.cp-work-meta .cp-work-status { border-radius: 4px; padding: 1px 5px; }
+.cp-work-meta .cp-work-pending { color: #81501d; background: #fff3df; }
+.cp-work-meta .cp-work-complete { color: #315b49; background: #edf5ef; }
+.cp-work-meta .cp-work-empty { color: #61715c; padding-inline: 0; }
+.cp-work-meta .cp-work-result { color: #61715c; }
+.cp-work-lesson .cp-attendance-row { grid-template-columns: minmax(0, 1fr) 96px; }
+.cp-work-lesson .cp-attendance-person { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.cp-work-lesson .cp-attendance-actions { justify-content: flex-end; }
+.cp-work-lesson .cp-attendance-actions button:not(.primary) { background: white; }
+.cp-work-lesson .cp-roster-actions > div { margin-right: auto; }
+
+/* Member status colors accompany labels; balances keep their original meaning. */
+.cp-booking-card .cp-badge[data-status="RESERVED"] { color: #28587b; background: #eaf3fa; }
+.cp-booking-card .cp-badge[data-status="ATTENDED"] { color: #315b49; background: #edf5ef; }
+.cp-booking-card .cp-booking-time { display: block; font-size: 14px; font-weight: 400; color: #61715c; }
+.cp-booking-heading h2 > span { display: block; margin-top: 3px; font-size: 16px; }
+.course-portal .cp-booking-heading > button, .course-portal .cp-text-action { background: transparent; border-color: transparent; color: #315b49; min-height: 44px; font-size: 14px; }
+.cp-balance-breakdown { display: block; margin-top: 4px; color: #61715c; font-size: 14px; }
+.course-portal .cp-plan-row { grid-template-columns: minmax(0, 1fr) auto 12px; gap: 6px 8px; }
+.cp-plan-row::after { grid-column: 3; }
+.course-portal .cp-plan-row > .cp-plan-date { grid-column: 1 / -1; white-space: normal; font-size: 14px; line-height: 1.5; }
+.cp-plan-date .cp-plan-expiry { display: inline; }
+.cp-plan-date .cp-plan-near-expiry { color: #81501d; background: #fff3df; border-radius: 4px; padding: 1px 4px; }

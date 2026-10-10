@@ -24,3 +24,14 @@ it('preserves the existing preview authorization and never impersonates a custom
   const page=await Page(params());expect(page.props.src).toBe('/frontend-preview?storeId=test-store&personId=test-member&role=member');
   expect(mock.authorize).toHaveBeenLastCalledWith({storeId:'test-store',personId:'test-member',role:'member'});
 });
+
+it('requires existing work authorization for the staff measurement view',async()=>{
+  for(const [key,value] of Object.entries(valid))vi.stubEnv(key,value);
+  const input={searchParams:Promise.resolve({storeId:'test-store',personId:'test-coach',role:'work'})};
+  mock.authorize.mockRejectedValueOnce(Error('FORBIDDEN'));
+  await expect(Page(input)).rejects.toThrow('FORBIDDEN');
+  mock.authorize.mockResolvedValueOnce({moduleId:'course',storeId:'test-store',personId:'test-coach'});
+  const page=await Page(input);
+  expect(page.props.src).toBe('/frontend-preview?storeId=test-store&personId=test-coach&role=work');
+  expect(mock.authorize).toHaveBeenLastCalledWith({storeId:'test-store',personId:'test-coach',role:'work'});
+});
