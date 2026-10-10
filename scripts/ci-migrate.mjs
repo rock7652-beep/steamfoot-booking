@@ -36,6 +36,11 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "booking-participants-preview") {
+  const { verifyBookingParticipantsPreviewReadiness } = await import("./booking-participants-preview-readiness.mjs");
+  await verifyBookingParticipantsPreviewReadiness(process.env);
+  process.exit(0); // DDL and test fixtures need a separate reviewed operation.
+}
 if (releaseMode === "operation-guide-preview") {
   console.info("[operation-guide-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
   process.exit(0);
