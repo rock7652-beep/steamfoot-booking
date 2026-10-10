@@ -25,6 +25,15 @@ describe("verified opening upload", () => {
   it("rejects oversized data without an import", async () => {
     expect(await uploadVerifiedMusicOpening(initial, form("x".repeat(512_001)))).toMatchObject({ status: "HOLD" }); expect(mocks.apply).not.toHaveBeenCalled();
   });
+  it("never treats nullable target schema as unlimited Luby validity", async () => {
+    const input = form({ data: { enrollments: [{ record: { expiryVerification: { kind: "NO_EXPIRY" } } }] }, proof });
+    const result = await uploadVerifiedMusicOpening(initial, input);
+    expect(result).toMatchObject({ status: "HOLD" }); expect(result.message).toContain("都有期限"); expect(mocks.apply).not.toHaveBeenCalled();
+  });
+  it("also holds unlimited makeup rights for Luby", async () => {
+    const input = form({ data: { makeup: { records: [{ expiry: { verification: "VERIFIED", value: null } }] } }, proof });
+    expect(await uploadVerifiedMusicOpening(initial, input)).toMatchObject({ status: "HOLD" }); expect(mocks.apply).not.toHaveBeenCalled();
+  });
   it("passes independent proof unchanged and returns only readback counts", async () => {
     const result = await uploadVerifiedMusicOpening(initial, form());
     expect(mocks.apply).toHaveBeenCalledWith(data, proof); expect(result.status).toBe("IMPORTED");

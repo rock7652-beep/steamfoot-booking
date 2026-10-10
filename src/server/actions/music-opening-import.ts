@@ -26,9 +26,19 @@ export async function uploadVerifiedMusicOpening(_previous: MusicOpeningUploadRe
     let input: z.infer<typeof envelope>;
     try { input = envelope.parse(JSON.parse(await file.text())); }
     catch { return { status: "HOLD", message: "資料格式不完整，尚未寫入。" }; }
+    // This form is exclusively for Luby. Nullable schema support is not
+    // evidence that this institution offers unlimited validity.
+    const expiryCheck = z.object({ enrollments: z.array(z.object({ record: z.object({
+      expiryVerification: z.object({ kind: z.string() }).optional(),
+    }).passthrough() }).passthrough()).optional(), makeup: z.object({ records: z.array(z.object({
+      expiry: z.object({ value: z.string().nullable() }).passthrough(),
+    }).passthrough()) }).passthrough().optional() }).passthrough().safeParse(input.data);
+    if (expiryCheck.success && (expiryCheck.data.enrollments?.some(item => item.record.expiryVerification?.kind === "NO_EXPIRY") || expiryCheck.data.makeup?.records.some(item => item.expiry.value === null))) {
+      return { status: "HOLD", message: "陸比方案都有期限，請核實繳費記錄的有效期限；尚未寫入。" };
+    }
     importStarted = true;
     const result = await importVerifiedMusicOpening(input.data, input.proof);
-    if (result.status !== "IMPORTED") return { status: "HOLD", message: `資料待核，尚未寫入（${result.issue}）。` };
+    if (result.status !== "IMPORTED") return { status: "HOLD", message: "來源資料、日期、期限或對應尚待核實，尚未寫入。" };
     // Counts only: no card IDs, student IDs, manifest contents or audit payload.
     const message = `讀回完成：新增方案 ${result.created} 筆、補課權益 ${result.makeup.created} 筆；已存在方案 ${result.skipped} 筆、補課權益 ${result.makeup.skipped} 筆。`;
     for (const path of ["/dashboard/courses", "/dashboard/courses/opening-makeups"]) revalidatePath(path);

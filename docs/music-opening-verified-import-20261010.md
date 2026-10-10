@@ -37,9 +37,10 @@ unsupported, incomplete or overlapping allocation is held for review.
 
 Expiry is explicitly `UNKNOWN`, `NO_EXPIRY` or `SPECIFIED` with evidence. The
 existing dedicated make-up model supports verified no expiry. The ordinary
-ordinary writer checks nullable-column and validated CHECK capabilities before
+writer checks nullable-column and validated CHECK capabilities before
 accepting verified no-expiry records. This capability does not establish any
-Luby learner's right to unlimited validity. Unknown expiry remains held. No
+Luby learner's right to unlimited validity. The Luby uploader explicitly holds
+NO_EXPIRY declarations because all its packages expire. Unknown expiry remains held. No
 sentinel such as 2099 is written and the uploader applies no DDL.
 
 Post-cutoff student leave requires the *existing* exact ordinary card, a source
@@ -102,7 +103,7 @@ receives only status and readback counts, never raw evidence or source IDs.
 Pending submission disables controls. Unknown transaction/commit results block
 resubmission and require source-key readback; no automatic retry is added.
 
-The upload/action and existing importer suites passed 74 tests; TypeScript and
+The upload/action and existing importer suites passed 76 tests; TypeScript and
 targeted ESLint passed. These are synthetic engineering checks, not real-source
 acceptance or device verification. Preview desktop/iPad checks remain pending.
 No real learner rights have been imported by this engineering change. The
