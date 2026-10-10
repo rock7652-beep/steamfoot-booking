@@ -28,7 +28,7 @@ describe("individual checkout preview isolation", () => {
     expect(() => assertBookingParticipantsPreviewEnvironment({ ...valid, CONSULTATION_PREVIEW_INTAKE_ENABLED: "true" })).toThrow();
   });
   it("requires both protected tables and all four enabled guards", () => {
-    const ready = { tables_ready: true, rls_enabled: true, browser_access: false, guards_ready: true, personal_session_ready: true, walk_in_guard_ready: true };
+    const ready = { tables_ready: true, rls_enabled: true, browser_access: false, guards_ready: true, personal_session_ready: true, walk_in_guard_ready: true, wallet_fk_ready: true };
     expect(() => assertBookingParticipantsPreviewSchema(ready)).not.toThrow();
     for (const key of Object.keys(ready)) expect(() => assertBookingParticipantsPreviewSchema({ ...ready, [key]: undefined })).toThrow();
     expect(() => assertBookingParticipantsPreviewSchema({ ...ready, browser_access: true })).toThrow();

@@ -5,7 +5,7 @@
 
 ## 資料更新
 - 正式目標必須核對既有正式專案 qijlnhtpbintanzpxkvf；隔離測試專案 ttworfzgwejdeolegkxl 不得混用。
-- 正式 SQL 尚待包裝；docs/sql/booking-participants-draft.sql 與 booking-participants-walk-in-upgrade.sql 都是隔離審查材料，不能當正式 migration 直接執行。
+- 正式單一SQL已整理至 docs/sql/booking-participants-production-release.sql（空白逐人schema適用，非自動套用）；docs/sql/booking-participants-draft.sql 與 booking-participants-walk-in-upgrade.sql 都是隔離審查材料，不能當正式 migration 直接執行。
 - 空白正式 schema 應一次新增群組、參與者、索引、同店外鍵、身份／整組交易／本人堂數 guards、RLS與瀏覽器撤權；不拆歷史預約、不拆款、不猜同行身份。
 - draft 已有 walletSessionId 與 wallet guard，upgrade 另加外鍵及重建 guard；直接順序執行會重複建立 trigger。正式單一 SQL 必須合併並確認本人堂數外鍵。
 - 正式 migration 須採明確目標與schema前置狀態檢查、單次交易、鎖逾時／執行逾時、完成後schema驗證；不得順便部署其他 pending migrations。
@@ -22,10 +22,14 @@
 
 ## 暫停與回復
 目前false會同時停止逐人actions、面板與分析讀取；已有逐人資料後不可把false當安全回復，也不可退回不認得逐人資料的舊版。
-正式開啟前須拆出「停止新預約初始化／臨時加人」與「既有逐人資料讀取／處理」兩種控制，保留帳務及分析正確。
+本輪依使用者指示不新增拆分開關。開啟並產生逐人資料後，保持BOOKING_PARTICIPANTS_ENABLED=true；故障時修復或部署支援逐人資料的相容版本，不直接切回舊流程。
 新增表／已收款資料不可因功能暫停刪除；回復採相容程式版本及保留schema。不能移除資料庫guard讓舊整組收款繞過逐人紀錄。
 
 ## 本輪範圍與尚待完成
 已驗：FIRST_TRIAL原約加人最多4個歷史位置、本人卡扣1堂、同行獨立499收費、剩餘堂數退款、主要分析與來源到店率。
 未開：原PACKAGE_SESSION／補課整組自動拆分、共卡／跨店卡；四模組全入口、所有報表與iPadOS真機未完整驗收。
-正式就緒仍需：正式單一migration、schema readiness、分離暫停開關及相應測試。完成前不申請正式合併。
+本輪已補：正式單一SQL與本人堂數外鍵、正式main／正式雙連線核對、開啟時只讀schema readiness及本機PostgreSQL測試。尚需授權後正式更新、schema核對與部署開啟。
+
+## 收斂後驗證
+- 本輪17項測試通過：正式目標／錯誤連線拒絕、空白schema建立、5個trigger、本人堂數外鍵、RLS、重複執行拒絕。
+- 不新增暫停開關、白名單、共卡或跨模組功能；原PR延續。

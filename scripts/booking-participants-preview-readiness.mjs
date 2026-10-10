@@ -1,10 +1,10 @@
-import { assertBookingParticipantsPreviewEnvironment } from "./consultation-preview-scope.mjs";
+import { assertBookingParticipantsPreviewEnvironment, isIsolatedConsultationDatabaseUrl } from "./consultation-preview-scope.mjs";
 
 /** @param {unknown} value */
 export function assertBookingParticipantsPreviewSchema(value) {
   if (!value || typeof value !== "object") throw new Error("Booking participants Preview schema is not ready.");
   const row = /** @type {Record<string, unknown>} */ (value);
-  if (row.tables_ready !== true || row.rls_enabled !== true || row.browser_access !== false || row.guards_ready !== true || row.personal_session_ready !== true || row.walk_in_guard_ready !== true) {
+  if (row.tables_ready !== true || row.rls_enabled !== true || row.browser_access !== false || row.guards_ready !== true || row.personal_session_ready !== true || row.walk_in_guard_ready !== true || row.wallet_fk_ready !== true) {
     throw new Error("Booking participants Preview schema protections are not ready.");
   }
 }
@@ -14,6 +14,27 @@ export function assertBookingParticipantsPreviewSchema(value) {
  */
 export async function verifyBookingParticipantsPreviewReadiness(env) {
   assertBookingParticipantsPreviewEnvironment(env);
+  return verifyBookingParticipantsSchema(env);
+}
+
+export function assertBookingParticipantsProductionEnvironment(env) {
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "production" || env.VERCEL_GIT_COMMIT_REF !== "main" ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH || env.BOOKING_PARTICIPANTS_ENABLED !== "true") {
+    throw new Error("Booking participants production requires the authorized main deployment.");
+  }
+  if (![env.DATABASE_URL, env.DIRECT_URL].every(value => typeof value === "string" &&
+    value.includes("qijlnhtpbintanzpxkvf") && isIsolatedConsultationDatabaseUrl(value.replaceAll("qijlnhtpbintanzpxkvf", "ttworfzgwejdeolegkxl")))) {
+    throw new Error("Booking participants production requires both verified production connections.");
+  }
+}
+
+export async function verifyBookingParticipantsProductionReadiness(env) {
+  assertBookingParticipantsProductionEnvironment(env);
+  return verifyBookingParticipantsSchema(env);
+}
+
+async function verifyBookingParticipantsSchema(env) {
   const { PrismaClient } = await import("@prisma/client");
   const url = new URL(env.DATABASE_URL ?? "");
   for (const [key, value] of Object.entries({ connection_limit: "1", connect_timeout: "10", pool_timeout: "10", socket_timeout: "10" })) url.searchParams.set(key, value);
@@ -27,6 +48,7 @@ export async function verifyBookingParticipantsPreviewReadiness(env) {
         EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BookingParticipant' AND column_name='walletSessionId')
           AND EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='BookingParticipant_wallet_guard' AND tgenabled='O') AS personal_session_ready,
         EXISTS(SELECT 1 FROM pg_proc WHERE proname='booking_participant_legacy_guard' AND prosrc LIKE '%app.booking_walk_in_group%') AS walk_in_guard_ready,
+        EXISTS(SELECT 1 FROM pg_constraint WHERE conname='BookingParticipant_walletSessionId_fkey' AND contype='f' AND conrelid='public."BookingParticipant"'::regclass) AS wallet_fk_ready,
         (SELECT count(*)=2 AND bool_and(c.relrowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('BookingParticipant','BookingParticipantGroup')) AS rls_enabled,
         EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -40,7 +62,7 @@ export async function verifyBookingParticipantsPreviewReadiness(env) {
             ('Transaction','Transaction_participant_guard'),
             ('Booking','Booking_participant_guard'))) AS guards_ready`;
     assertBookingParticipantsPreviewSchema(rows[0]);
-    console.info("[booking-participants-preview] isolated_database=true schema_ready=true notifications_blocked=true migrations_skipped=true");
+    console.info("[booking-participants] schema_ready=true migrations_skipped=true");
   } catch {
     throw new Error("Booking participants Preview schema readiness failed; no migration or fixture was run.");
   } finally { await db.$disconnect(); }
