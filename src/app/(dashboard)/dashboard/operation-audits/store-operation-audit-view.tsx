@@ -30,10 +30,10 @@ export async function StoreOperationAuditView({ storeId, dateFrom, dateTo, page 
       <div className="divide-y divide-earth-100">
         {result.items.length === 0 ? <p className="px-3 py-6 text-sm text-earth-500">指定期間尚無操作紀錄</p> : result.items.map((item, index) => <details key={item.id} className="group px-3 open:bg-primary-50/40">
           <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden @[640px]:grid-cols-[96px_150px_minmax(0,1fr)_20px]">
-            <time dateTime={new Date(item.createdAt).toISOString()} className="self-start whitespace-nowrap text-earth-500">{auditTimeLabel(new Date(item.createdAt), index > 0 ? new Date(result.items[index - 1].createdAt) : undefined)}</time>
-            <span className="min-w-0 break-words text-earth-700">{item.actorNameSnapshot ?? item.actor.name}</span>
-            <span className="col-start-2 min-w-0 break-words font-medium text-primary-900 @[640px]:col-start-auto">{item.summary}</span>
-            <span aria-hidden="true" className="col-start-3 row-start-1 text-right text-earth-400 group-open:rotate-180 @[640px]:col-start-auto">⌄</span>
+            <time dateTime={new Date(item.createdAt).toISOString()} className="col-start-1 row-start-1 whitespace-nowrap tabular-nums text-earth-500">{auditTimeLabel(new Date(item.createdAt), index > 0 ? new Date(result.items[index - 1].createdAt) : undefined)}</time>
+            <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.actorNameSnapshot ?? item.actor.name}</span>
+            <span className="col-start-2 row-start-2 min-w-0 break-words font-medium text-primary-900 @[640px]:col-start-3 @[640px]:row-start-1">{item.summary}</span>
+            <span aria-hidden="true" className="col-start-3 row-start-1 text-right text-earth-400 group-open:rotate-180 @[640px]:col-start-4">⌄</span>
           </summary>
           <div className="border-t border-earth-100 py-3 text-sm">
             <p className="mb-2 text-earth-500">{new Date(item.createdAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</p>
