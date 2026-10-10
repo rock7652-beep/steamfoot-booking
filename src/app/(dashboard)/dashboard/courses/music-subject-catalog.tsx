@@ -7,7 +7,7 @@ import {CourseTestDataFilter,isCourseTestData} from "@/components/admin/course-t
 import {courseStatusImpact} from "@/server/actions/course-batch";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {useCourseStatusRows} from "@/components/admin/course-status-button";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { saveMusicSubject } from "@/server/actions/music-subject";
@@ -25,6 +25,7 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  const [search,setSearch]=useState(""),[category,setCategory]=useState(""),[status,setStatus]=useState("all");
  const [editing,setEditing]=useState<MusicSubjectView|null|undefined>(canCreate&&initialCreate?null:undefined),[error,setError]=useState("");
  const [pending,start]=useTransition();
+ const saving=useRef(false);
  const [created,setCreated]=useState(false);
  useCourseDraftGuard(editing!==undefined&&dirty,pending);
  function close(){if(!pending&&(!dirty||window.confirm("尚有未儲存的修改，確定關閉？")))setEditing(undefined);}
@@ -49,7 +50,9 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
  <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4"><h2 id="music-subject-title" className="font-semibold">{editing?"編輯教學項目":"新增教學項目"}<CourseSetupStepBadge step="course" /></h2><button className={button} disabled={pending} onClick={close}>關閉</button></header>
  {editing!==undefined&&<form id="music-subject-form" onChange={()=>setDirty(true)} className="min-h-0 overflow-y-auto overscroll-contain p-4" onSubmit={e => {
    e.preventDefault();
-   if(pending)return;
+   if(saving.current)return;
+   saving.current=true;
+   setError("");
    const d = new FormData(e.currentTarget);
    start(async () => {
      try {
@@ -77,10 +80,10 @@ export function MusicSubjectCatalog({displayOrder,subjects:sourceSubjects,canCre
        setDirty(false);
        setCreated(!editing&&d.get("active")==="yes");
        setEditing(undefined);
-       router.refresh();
+       // saveMusicSubject revalidates this page; avoid a second full server render.
      } catch {
        setError("儲存失敗，輸入已保留，請重試");
-     }
+     } finally { saving.current=false; }
    });
  }}>
 

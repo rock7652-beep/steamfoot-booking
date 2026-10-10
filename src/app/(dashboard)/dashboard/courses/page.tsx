@@ -89,6 +89,26 @@ export default async function CoursesPage({
       ? query.view
       : "schedule";
   if (view === "rooms") return <CourseRoomsPage storeId={storeId} user={user} />;
+  const businessEntitlements = await prisma.storeFeatureEntitlement.findMany({
+    where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" },
+    select: { featureKey: true },
+  });
+  const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey));
+  // Catalog saves must not wait for the monthly schedule, rental or customer reads.
+  if (view === "catalog" && businessProfile === "MUSIC") {
+    const [subjects, displayOrders, canCreate, canEdit] = await Promise.all([
+      coursePrisma.musicSubject.findMany({
+        where: { storeId },
+        select: { id: true, name: true, category: true, description: true, isActive: true, updatedAt: true },
+        orderBy: [{ isActive: "desc" }, { category: "asc" }, { name: "asc" }],
+      }),
+      readCourseOrders(storeId),
+      checkPermission(user.role, user.staffId, "booking.create"),
+      checkPermission(user.role, user.staffId, "booking.update"),
+    ]);
+    const writable = user.role === "ADMIN" || user.storeId === storeId;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+  }
   const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
@@ -118,7 +138,6 @@ export default async function CoursesPage({
     canEdit,
     businessHours,
     specialDays,
-    businessEntitlements,
     staffAvailability,
     staffAvailabilityExceptions,
   ] = await Promise.all([
@@ -217,10 +236,6 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.update"),
       prisma.businessHours.findMany({ where: { storeId } }),
       prisma.specialBusinessDay.findMany({ where: { storeId } }),
-      prisma.storeFeatureEntitlement.findMany({
-        where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" },
-        select: { featureKey: true },
-      }),
       prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
         SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
       prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
@@ -254,7 +269,6 @@ export default async function CoursesPage({
       },
     ),
   );
-  const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
   const waitlistFeatureAvailable = await hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST);
   const waitlistStoreSetting = waitlistFeatureAvailable
     ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true, defaultLimit: true, autoPromoteStopMinutes: true } })
@@ -267,11 +281,6 @@ export default async function CoursesPage({
   coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
   const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
   templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
-  if(view === "catalog" && businessProfile === "MUSIC") {
-    const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
-    const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
-  }
   const recurringKeys = businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
         by: ["requestKey"],

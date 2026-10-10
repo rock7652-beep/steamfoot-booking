@@ -401,6 +401,8 @@ export async function saveCourseStaff(input: unknown) {
     );
     revalidateStaff();
     revalidateStaffPermissions();
+    revalidatePath("/dashboard/teachers");
+    revalidatePath("/dashboard/coaches");
     revalidatePath("/dashboard/courses");
     revalidatePath("/book");
     return { success: true as const };

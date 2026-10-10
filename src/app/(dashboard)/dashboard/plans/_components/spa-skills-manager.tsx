@@ -1,6 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 import { saveSpaServiceDetails } from "@/server/actions/spa-service-staff";
 type Service = {
   id?: string;
@@ -26,10 +25,10 @@ export function SpaSkillsManager({
   people: { id: string; name: string }[];
   canManage: boolean;
 }) {
-  const router = useRouter();
   const [draft, setDraft] = useState<Service | null>(null);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const saving = useRef(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
   const [staff, setStaff] = useState("");
@@ -189,6 +188,8 @@ export function SpaSkillsManager({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (saving.current) return;
+                saving.current = true;
                 setError("");
                 start(async () => {
                   try {
@@ -198,10 +199,9 @@ export function SpaSkillsManager({
                       return;
                     }
                     setDraft(null);
-                    router.refresh();
                   } catch {
                     setError("連線失敗，內容已保留");
-                  }
+                  } finally { saving.current = false; }
                 });
               }}
             >

@@ -188,7 +188,7 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   useCourseDraftGuard(!!panel&&dirty,!!panel&&(pending||formPending));
-  function finishDraftForm(){if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}router.refresh();}
+  function finishDraftForm(){if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {

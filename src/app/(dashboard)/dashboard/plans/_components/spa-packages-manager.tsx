@@ -25,8 +25,7 @@ export function SpaPackagesManager({
   services: { id: string; name: string }[];
   canManage: boolean;
 }) {
-  const router = useRouter(),
-    [filter, setFilter] = useRetainedState("spa-packages:status", "ACTIVE", retainedString),
+  const [filter, setFilter] = useRetainedState("spa-packages:status", "ACTIVE", retainedString),
     [search, setSearch] = useRetainedState("spa-packages:search", "", retainedString),
     [service, setService] = useRetainedState("spa-packages:service", "", retainedString),
     [editing, setEditing] = useState<Partial<Package> | null>(null),
@@ -196,7 +195,7 @@ export function SpaPackagesManager({
           width={520}
           labelledById="package-title"
         >
-          <SpaPackageForm key={editing.id ?? "new"} original={packages.find(p=>p.id===editing.id) ?? editing} services={services} onPending={setPending} onClose={()=>setEditing(null)} onSaved={active=>{setFilter(active?"ACTIVE":"INACTIVE");setEditing(null);router.refresh();}} />
+          <SpaPackageForm key={editing.id ?? "new"} original={packages.find(p=>p.id===editing.id) ?? editing} services={services} onPending={setPending} onClose={()=>setEditing(null)} onSaved={active=>{setFilter(active?"ACTIVE":"INACTIVE");setEditing(null);}} />
         </RightSheet>
       )}
     </section>

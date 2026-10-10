@@ -708,7 +708,9 @@ export function CourseWorkspace({
           restoreScrollY.current = window.scrollY;
         }
         if (panel === "catalog") setPanel(null);
-        router.refresh();
+        // Setting actions already revalidate this route. Keep the refresh for
+        // operational actions, whose authoritative schedule may need reconciling.
+        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
       }

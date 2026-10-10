@@ -19,7 +19,6 @@ import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {CourseStaffAvailabilityEditor} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { Fragment, useCallback, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -151,7 +150,6 @@ export function CourseStaffWorkspace({
   const [permissionSearch, setPermissionSearch] = useState("");
   const [pending, start] = useTransition();
   const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
-  const router = useRouter();
   useCourseDraftGuard(open&&(dirty||availabilityGuard.dirty),open&&(pending||availabilityGuard.pending));
   useEffect(() => {
     if (!open || tab!=="qualifications" || feesReady || !person || (!canManage && !feeEnabled)) return;
@@ -417,7 +415,6 @@ export function CourseStaffWorkspace({
                     if (!r.success) {setError(r.error);setConflicts(r.conflicts ?? []);}
                     else {
                       setOpen(false);
-                      router.refresh();
                     }
                   } catch {
                     setError("儲存失敗，請重試");

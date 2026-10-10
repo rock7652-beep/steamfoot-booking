@@ -46,13 +46,13 @@ export default async function PlansPage() {
     : false;
   const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
 
-  const isSpa = plansStoreId ? await getStoreIndustryModule(plansStoreId) === "spa" : false;
-  const spaAssignments = isSpa && plansStoreId ? await getSpaServiceStaff(plansStoreId) : {people:[],services:[]};
-
-  const spaLocations = isSpa && plansStoreId ? await spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}) : [];
-
+  const isSpa = isSpaStore;
   if(isSpa && plansStoreId){
-    const packages=await spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}});
+    const [spaAssignments, spaLocations, packages] = await Promise.all([
+      getSpaServiceStaff(plansStoreId),
+      spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}),
+      spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}}),
+    ]);
     return <PageShell><PageHeader title="方案管理" subtitle="設定服務、人員與次數方案"/><SpaSkillsManager services={spaAssignments.services} people={spaAssignments.people} locations={spaLocations} canManage={canManage}/><SpaPackagesManager packages={packages.map(p=>({...p,price:Number(p.price)}))} services={spaAssignments.services} canManage={canManage}/></PageShell>;
   }
 

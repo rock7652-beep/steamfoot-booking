@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { StaffRoleControl } from "@/components/admin/staff-role-control";
@@ -24,7 +23,6 @@ const button = "min-h-11 rounded-xl border border-earth-200 px-3 py-2 text-sm te
 export function StaffAccountEditor({ person, policy, onClose }: {
   person: StaffWorkspacePerson; policy: StaffAccountPolicy; onClose: () => void;
 }) {
-  const router = useRouter();
   const titleId = useId();
   const [tab, setTab] = useState("basic");
   const [name, setName] = useState(person.displayName);
@@ -73,7 +71,7 @@ export function StaffAccountEditor({ person, policy, onClose }: {
         ...(!fullAccess ? { permissions: Object.fromEntries([...new Set([...allCodes, ...(person.permissions ?? []), ...permissions])].map(code => [code, permissions.includes(code)])) } : {}),
       });
       if (!result.success) { setError(result.error || "儲存失敗"); return; }
-      router.refresh(); onClose();
+      onClose();
     } catch { setError("儲存失敗，請重試；輸入內容已保留。"); }
     finally { setSaving(false); }
   }

@@ -2,7 +2,6 @@
 import styles from "@/components/settings/settings-form-layout.module.css";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateShopBankInfo } from "@/server/actions/shop";
 
@@ -30,7 +29,6 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
   const [lineOfficialId, setLineOfficialId] = useState(initial.lineOfficialId ?? "");
   const [lineOfficialUrl, setLineOfficialUrl] = useState(initial.lineOfficialUrl ?? "");
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   const hasAnyInfo = Boolean(
     bankName || bankCode || bankAccountNumber || lineOfficialUrl,
@@ -49,7 +47,6 @@ export function PaymentSettingsForm({ storeId, initial, compact = false, saveAct
       });
       if (result.success) {
         toast.success("付款資訊已更新，顧客現在可以看到轉帳資訊");
-        router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
       }

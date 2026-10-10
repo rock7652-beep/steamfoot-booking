@@ -3,7 +3,6 @@ import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateTrialSettings } from "@/server/actions/shop";
 import type { TrialSettings } from "@/lib/shop-config";
@@ -35,7 +34,6 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
   const [maxPrice, setMaxPrice] = useState(String(initial.trialMaxPrice));
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(forceExpanded || !compact);
-  const router = useRouter();
   const saving = useRef(false);
   const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
   const [savedDraft, setSavedDraft] = useState(draft);
@@ -71,7 +69,6 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       if (result.success) {
         setSavedDraft(draft);
         toast.success("體驗課設定已更新");
-        router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
       }
