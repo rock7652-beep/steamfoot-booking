@@ -1,4 +1,4 @@
-import { assertBookingParticipantsPreviewEnvironment, isIsolatedConsultationDatabaseUrl } from "./consultation-preview-scope.mjs";
+import { assertBookingParticipantsPreviewEnvironment, isIsolatedConsultationDatabaseUrl, PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH } from "./consultation-preview-scope.mjs";
 
 /** @param {unknown} value */
 export function assertBookingParticipantsPreviewSchema(value) {
@@ -12,6 +12,12 @@ export function assertBookingParticipantsPreviewSchema(value) {
 /** Read-only preflight: no migrations, fixtures, historical backfill or connection logs.
  * @param {Readonly<Record<string, string | undefined>>} env
  */
+export function assertParticipantLifecycleSchema(value) {
+  if (!value || typeof value !== "object" || value.lifecycle_ready !== true) {
+    throw new Error("Participant lifecycle Preview requires the reviewed correction and reservation guards.");
+  }
+}
+
 export async function verifyBookingParticipantsPreviewReadiness(env) {
   assertBookingParticipantsPreviewEnvironment(env);
   return verifyBookingParticipantsSchema(env);
@@ -43,6 +49,9 @@ async function verifyBookingParticipantsSchema(env) {
   try {
     const rows = await db.$queryRaw`
       SELECT
+        (COALESCE(pg_get_functiondef(to_regprocedure('public.booking_participant_identity_guard()')), '') LIKE '%app.booking_participant_correction%'
+          AND COALESCE(pg_get_functiondef(to_regprocedure('public.booking_participant_wallet_guard()')), '') LIKE '%RESERVED%'
+          AND COALESCE(pg_get_functiondef(to_regprocedure('public.booking_participant_legacy_guard()')), '') LIKE '%ELSE ''PENDING'' END%') AS lifecycle_ready,
         (SELECT count(*)=2 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('BookingParticipant','BookingParticipantGroup')) AS tables_ready,
         EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BookingParticipant' AND column_name='walletSessionId')
@@ -62,6 +71,7 @@ async function verifyBookingParticipantsSchema(env) {
             ('Transaction','Transaction_participant_guard'),
             ('Booking','Booking_participant_guard'))) AS guards_ready`;
     assertBookingParticipantsPreviewSchema(rows[0]);
+    if (env.VERCEL_GIT_COMMIT_REF === PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH) assertParticipantLifecycleSchema(rows[0]);
     console.info("[booking-participants] schema_ready=true migrations_skipped=true");
   } catch {
     throw new Error("Booking participants Preview schema readiness failed; no migration or fixture was run.");

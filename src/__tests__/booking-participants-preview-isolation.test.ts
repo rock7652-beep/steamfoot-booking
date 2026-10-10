@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { assertBookingParticipantsPreviewEnvironment, assertReviewedReleaseEnvironment, BOOKING_PARTICIPANTS_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
-import { assertBookingParticipantsPreviewSchema } from "../../scripts/booking-participants-preview-readiness.mjs";
+import { assertBookingParticipantsPreviewSchema, assertParticipantLifecycleSchema } from "../../scripts/booking-participants-preview-readiness.mjs";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 const isolated = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const valid = {
@@ -42,6 +42,24 @@ describe("individual checkout preview isolation", () => {
   });
   it("keeps external integrations blocked", () => {
     for (const [key, value] of Object.entries(valid)) vi.stubEnv(key, value);
+    expect(isPreviewExternalIntegrationBlocked()).toBe(true);
+  });
+});
+
+describe("lifecycle Preview deployment", () => {
+  const lifecycle = {...valid, VERCEL_GIT_COMMIT_REF:"fix/trial-plan-status-20261011"};
+  it("accepts only the authorized lifecycle branch with both isolated connections", () => {
+    expect(assertReviewedReleaseEnvironment(lifecycle)).toBe("booking-participants-preview");
+    expect(()=>assertReviewedReleaseEnvironment({...lifecycle,DIRECT_URL:isolated.replace("ttworfzgwejdeolegkxl","qijlnhtpbintanzpxkvf")})).toThrow();
+    expect(()=>assertReviewedReleaseEnvironment({...lifecycle,BOOKING_PARTICIPANTS_ENABLED:"false"})).toThrow();
+  });
+  it("requires the actual lifecycle guards before building", () => {
+    expect(()=>assertParticipantLifecycleSchema({lifecycle_ready:true})).not.toThrow();
+    expect(()=>assertParticipantLifecycleSchema({lifecycle_ready:false})).toThrow();
+    expect(()=>assertParticipantLifecycleSchema({})).toThrow();
+  });
+  it("never enables external notifications on this preview", () => {
+    for (const [key,value] of Object.entries(lifecycle)) vi.stubEnv(key,value);
     expect(isPreviewExternalIntegrationBlocked()).toBe(true);
   });
 });

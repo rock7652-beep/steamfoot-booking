@@ -74,12 +74,13 @@ export const ROOM_PERFORMANCE_PREVIEW_BRANCH = "fix/course-room-save-performance
 export const MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH = "fix/music-teacher-editor-simplify-20261011";
 export const MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH = "fix/music-teacher-editor-ui-20261010";
 export const MUSIC_SETUP_PREVIEW_BRANCH = "fix/music-teacher-terminology-20261009";
+export const PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH = "fix/trial-plan-status-20261011";
 export const BOOKING_PARTICIPANTS_PREVIEW_BRANCH = "feat/booking-participants-20261010";
 
 /** @param {Readonly<Record<string, string | undefined>>} env */
 export function assertBookingParticipantsPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      env.VERCEL_GIT_COMMIT_REF !== BOOKING_PARTICIPANTS_PREVIEW_BRANCH ||
+      ![BOOKING_PARTICIPANTS_PREVIEW_BRANCH, PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Booking participants requires its exact authorized Vercel Preview branch and repository.");
@@ -231,7 +232,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertOperationGuidePreviewEnvironment(env);
     return "operation-guide-preview";
   }
-  if (env.VERCEL_GIT_COMMIT_REF === BOOKING_PARTICIPANTS_PREVIEW_BRANCH) {
+  if ([BOOKING_PARTICIPANTS_PREVIEW_BRANCH, PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertBookingParticipantsPreviewEnvironment(env);
     return "booking-participants-preview";
   }
