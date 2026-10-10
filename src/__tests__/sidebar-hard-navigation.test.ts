@@ -18,8 +18,8 @@ describe("dashboard sidebar navigation", () => {
   it("keeps pending-payment notices on the homepage with an explicit close action", () => {
     expect(source).not.toContain('label: "待確認付款"');
     expect(source).not.toContain("pendingPaymentCount");
-    expect(todoSource).toContain('pending ? "關閉中…" : "關閉提示"');
+    expect(todoSource).toContain('error ? "重試關閉" : "關閉提示"');
     expect(todoSource).toContain("只從我的首頁關閉，不會變更交易或顧客狀態");
-    expect(todoSource).toContain("dismissTodoFormAction");
+    expect(todoSource).toContain("await dismissTodo({ todoKey: item.id, todoType: item.type })");
   });
 });
