@@ -76,12 +76,13 @@ const statusName = (s: string) =>
 const unit = (s: string) => (s === "SESSION" ? "堂" : "點");
 const time = (s: string) =>
   formatTWDateTime(new Date(s)).split(" ").slice(-1)[0];
-type PortalIconName = "home" | "calendar" | "bookings" | "account" | "records";
+type PortalIconName = "home" | "calendar" | "bookings" | "account" | "records" | "health";
 function PortalIcon({ name }: { name: PortalIconName }) {
   const paths: Record<PortalIconName, ReactNode> = {
     home: <><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
     bookings: <><path d="M8 6h13M8 12h13M8 18h13"/><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></>,
+    health: <><path d="M3 3v18h18M6 15l4-5 4 3 6-8"/></>,
     account: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
     records: <><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
   };
@@ -197,7 +198,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop"; initialCoach?: boolean }) {
+export function CoursePortalClient(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop" | "health"; initialCoach?: boolean }) {
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
   const additions = outstanding.filter(row => courseDate(row.booking.startsAt).slice(0, 7) === serverData.month);
@@ -375,6 +376,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
         ["home", "首頁", "home"],
         ["schedule", selfBookingEnabled ? "預約" : "看課表", "calendar"],
         ["bookings", "我的預約", "bookings"],
+        ...(p.healthEnabled ? [["health", "健康", "health"]] : []),
         ["account", "我的", "account"],
       ];
   function switchRole(next: "member" | "coach") {
@@ -395,7 +397,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   }
   function go(next: Page) {
     if (!leaveNote()) return;
-    if (["home", "schedule", "bookings", "account", "records"].includes(next))
+    if (["home", "schedule", "bookings", "account", "records", "health"].includes(next))
       trail.current = [];
     else trail.current.push({ page, y: scrollY });
     if (!coach) memberPositions.current[page] = scrollY;
@@ -412,7 +414,12 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     setError("");
     requestAnimationFrame(() => window.scrollTo(0, coach ? 0 : memberPositions.current[next] ?? 0));
   }
+  const [healthDirty, setHealthDirty] = useState(false);
+  const [healthSaving, setHealthSaving] = useState(false);
   function leaveNote() {
+    if (healthSaving) return false;
+    if (healthDirty && !window.confirm("量測資料尚未儲存，要放棄修改嗎？")) return false;
+    setHealthDirty(false);
     if (busyRef.current) return false;
     if (editingNote && editingNote.value !== (editingNote.original ?? "") && !window.confirm("本次備註尚未儲存，要放棄修改嗎？")) return false;
     setEditingNote(null);
@@ -974,7 +981,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {error}
             </p>
           )}
-          {!["home", "schedule", "bookings", "account", "records"].includes(
+          {!["home", "schedule", "bookings", "account", "records", "health"].includes(
             page,
           ) && <button onClick={back}>‹ 返回</button>}
           {page === "home" && (
@@ -1025,9 +1032,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                 <>
                   <button className="primary cp-wide-action" onClick={() => go("schedule")}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
                   <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>還可預約 {total.available} {unit(total.unit)}</strong>{total.held > 0 && <small className="cp-balance-breakdown">剩餘 {total.remaining} {unit(total.unit)}｜已預約 {total.held} {unit(total.unit)}</small>}</p>)}</div><button onClick={()=>go("plans")}>我的方案</button></section>
-                  {p.healthEnabled && <section className="cp-card">
-                    {menu("健康追蹤", "health")}
-                  </section>}
+
                 </>
               )}
             </>
@@ -1191,7 +1196,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               {heading("我的", p.customerName)}
               <section className="cp-card">
                 {menu("我的方案", "plans")}
-                {p.healthEnabled && menu("健康追蹤", "health")}
+
               </section>
 
               <section className="cp-card cp-account-settings">
@@ -1330,7 +1335,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           {page === "health" && p.healthEnabled && (
             <>
               {heading("健康追蹤")}
-              <>{p.readOnly ? p.previewHealthSummary?.latest ? <HealthAssessmentCard summary={p.previewHealthSummary} /> : <p>尚無量測紀錄。</p> : <CourseHealthWorkspace member />}</>
+              <>{p.readOnly ? p.previewHealthSummary?.latest ? <HealthAssessmentCard summary={p.previewHealthSummary} /> : <p>尚無量測紀錄。</p> : <CourseHealthWorkspace member onDirtyChange={setHealthDirty} onPending={setHealthSaving} />}</>
             </>
           )}
           {page === "store" && (

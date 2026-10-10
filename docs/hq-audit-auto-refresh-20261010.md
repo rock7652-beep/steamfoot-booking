@@ -13,8 +13,9 @@
 
 ## 驗證與限制
 
-- 本機 4 個相關測試檔、17 項通過；其中 7 項涵蓋計時、前景去重、背景暫停、跨日、歷史日期、閱讀保護、卸載與舊日期快取。
+- 整合主線後本機 5 個相關測試檔、37 項通過；其中 7 項涵蓋計時、前景去重、背景暫停、跨日、歷史日期、閱讀保護、卸載與舊日期快取。
 - 修改檔 ESLint、diff check 通過。
 - 完整 TypeScript noEmit 通過；重跑採 3GB heap。
+- 精確支線加入既有 module-roster-preview 隔離模式：repo/branch/Preview provenance、兩條連線 allowlist、封鎖通知及跳過 migrations。
 - 支線草稿交付；精確分支已關閉自動 Vercel 部署。尚未建立隔離 Preview，未完成桌機／iPad 登入後 UI 驗收。
 - 無資料庫 migration、通知或正式資料修改。正式站未變更。

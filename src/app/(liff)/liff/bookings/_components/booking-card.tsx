@@ -88,8 +88,11 @@ export function BookingCard({
         )}
       </div>
 
-      {!isCancelled && (
-        <div className="flex flex-col gap-2 border-t border-earth-100 pt-2">
+      {showCancelControl && !canCancel && <p className="text-sm text-earth-500">{liffMessages.cancelBooking.cardHint}</p>}
+      {tab === "upcoming" && !isCancelled && (
+        <details className="border-t border-earth-100 pt-2">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-primary-700">預約明細與操作 ⌄</summary>
+          <div className="flex flex-col gap-2">
           {/* PR-D2 保留 hint —— 取消 ≠ 改時間，hint 仍然語義正確（per D4A-2 拍板選項 a）*/}
           <p className="text-xs text-earth-500">
             {liffMessages.bookings.contactStoreHint}
@@ -131,7 +134,7 @@ export function BookingCard({
                 href={contactUrl || undefined} aria-disabled={!contactUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+                className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-earth-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 hover:bg-earth-50 active:scale-[0.98]"
               >
                 <LineIcon />
                 {liffMessages.bookings.contactStoreCta}
@@ -185,7 +188,7 @@ export function BookingCard({
               </button>
             </>
           )}
-        </div>
+        </div></details>
       )}
     </div>
   );

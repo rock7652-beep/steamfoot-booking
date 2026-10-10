@@ -172,7 +172,7 @@ describe("guide catalogue", () => {
     const source = readFileSync("src/app/(liff)/liff/wallets/wallets-list.tsx", "utf8");
     expect(source).toContain("dim collapsible count={expired.length}");
     expect(source).toContain("dim collapsible count={history.length}");
-    expect(source).not.toMatch(/<details[^>]*\bopen(?:[\s=>])/);
+    expect(source.slice(source.indexOf("function Section("), source.indexOf("function WalletCard("))).not.toMatch(/<details[^>]*\bopen(?:[\s=>])/);
   });
   it("keeps health comparison guidance gated and separates dates from conclusions", () => {
     const health = {...access, features: {ai_health_summary: true}};

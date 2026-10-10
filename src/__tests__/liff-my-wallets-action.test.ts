@@ -87,7 +87,7 @@ function rawWallet(overrides: Partial<{
   status: string;
   plan: { name: string; category: string };
   bookings: Array<{ bookingStatus: string; isMakeup: boolean }>;
-  sessions: Array<{ status: string }>;
+  sessions: Array<{ id?: string; status: string; completedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
 }> = {}) {
   return {
     id: "wlt-default",
@@ -241,6 +241,7 @@ describe("fetchLiffWallets action (PR-E2)", () => {
         "startDate",
         "status",
         "totalSessions",
+        "usageRecords",
         "usedCount",
         "voidedCount",
       ]);
@@ -468,4 +469,33 @@ describe("isExpiringSoon — pure helper (PR-E2)", () => {
   it("expiryDate 10 天後 → false（> 7 days）", () => {
     expect(isExpiringSoon("2026-06-20", NOW_MS)).toBe(false);
   });
+});
+
+ describe("wallet actual usage projection", () => {
+  it("groups actual ledger debits by booking, excludes reserved/voided and cross-customer relations", async () => {
+    mockRequireSession.mockResolvedValue(CUSTOMER_USER);
+    mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);
+    mockMakeupFindMany.mockResolvedValue([]);
+    const booking = {id:"booking-use", customerId:CANONICAL_CUSTOMER_ID, storeId:"store-zhubei", bookingDate:new Date("2026-09-18T00:00:00Z"), slotTime:"11:15", bookingStatus:"COMPLETED"};
+    mockWalletFindMany.mockResolvedValue([rawWallet({sessions: [
+      {id:"s1",status:"COMPLETED",booking}, {id:"s2",status:"COMPLETED",booking},
+      {id:"s3",status:"RESERVED",booking}, {id:"s4",status:"VOIDED",booking},
+      {id:"s5",status:"COMPLETED",booking:{...booking,id:"other",customerId:"other-customer"}},
+      {id:"s6",status:"BACKFILLED",completedAt:null,booking:null},
+    ]})]);
+    const result = await fetchLiffWallets();
+    expect(result.status).toBe("ok");
+    if(result.status !== "ok") throw Error("unexpected failure");
+    const wallet = [...result.active,...result.expired,...result.history][0];
+    expect(wallet.usageRecords).toEqual([
+      {id:"booking-use",date:"2026-09-18",time:"11:15",label:"蒸足",sessions:2,status:"已完成"},
+      {id:"s6",date:null,time:null,label:"補登使用",sessions:1,status:"補登"},
+    ]);
+  });
+});
+
+it("keeps fully reserved remaining sessions in active plans without increasing availability", () => {
+  const reserved = {status:"ACTIVE",availableToBook:0,remainingSessions:2,expiryDate:"2099-12-31"};
+  const spent = {status:"ACTIVE",availableToBook:0,remainingSessions:0,expiryDate:"2099-12-31"};
+  expect(splitLiffWallets([reserved,spent])).toEqual({active:[reserved],expired:[],history:[spent]});
 });
