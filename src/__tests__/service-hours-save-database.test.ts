@@ -60,6 +60,13 @@ it("template copies overrides while retaining closed exceptions; weekly edits pr
  expect(await saveServiceHours(await input({mode:"template",weeks:1}))).toMatchObject({success:true,data:{count:1}});expect((await db.query<Record<string,unknown>>('SELECT reason FROM "SpecialBusinessDay"')).rows).toEqual([{reason:"保留"}]);expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SlotOverride"')).rows[0].count).toBe(2);
  expect(await saveServiceHours(await input({mode:"weekly",dayOfWeek:1}))).toMatchObject({success:true});expect((await db.query<Record<string,unknown>>('SELECT "openTime" FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=1')).rows).toEqual([{openTime:"11:00"}]);
 });
+it("closed and training copies retain future slot overrides for reopening",async()=>{
+ for(const status of ["closed","training"]){
+  await db.exec(`TRUNCATE "SpecialBusinessDay","SlotOverride";INSERT INTO "SlotOverride" VALUES ('source','s','2030-10-10','12:00','disabled',NULL,NULL,now()),('future','s','2030-10-17','12:00','capacity_change',4,'保留',now());`);
+  expect(await saveServiceHours(await input({mode:"copy",weeks:1,status,periods:[]}))).toMatchObject({success:true,data:{count:1}});
+  expect((await db.query<Record<string,unknown>>('SELECT capacity,reason FROM "SlotOverride"')).rows).toEqual([{capacity:4,reason:"保留"}]);
+ }
+});
 it("single-slot reductions protect bookings; committed cache failure returns a warning",async()=>{
  await db.exec(`INSERT INTO "Booking" VALUES ('s','2030-10-10','12:00',3,'CONFIRMED');`);expect(await saveServiceHours(await input({mode:"slots",changes:[{startTime:"12:00",action:"capacity",capacity:2}]}))).toMatchObject({success:false});m.cache.mockImplementation(()=>{throw Error("cache down");});expect(await saveServiceHours(await input({mode:"slots",changes:[{startTime:"12:00",action:"capacity",capacity:4}]}))).toMatchObject({success:true,syncWarning:true,data:{day:{slots:expect.arrayContaining([expect.objectContaining({startTime:"12:00",capacity:4})])}}});
 });

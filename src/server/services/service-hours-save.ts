@@ -62,7 +62,8 @@ export async function saveServiceHours(input:unknown){
     if(!["permanent","template"].includes(d.mode)&&(d.status!=="open"||d.mode==="dates"))next.specials.push(...dates.map(date=>({id:crypto.randomUUID(),date:new Date(date+"T00:00:00Z"),type:open?"custom":d.status,reason:d.reason||null,openTime:open?periods[0]?.openTime??null:null,closeTime:open?periods.at(-1)?.closeTime??null:null,slotInterval:open?periods[0]?.slotInterval??60:null,defaultCapacity:open?periods[0]?.defaultCapacity??6:null,segments:open?periods:[]})));
    }
    if(touchOverrides&&!['slots','undo'].includes(d.mode)){
-    const overrideDates=d.mode==="template"?dates.slice(1):dates;next.overrides=next.overrides.filter(o=>!overrideDates.includes(serviceDate(o)));
+    // Closing future weeks retains their existing slot adjustments for reopening.
+    const overrideDates=d.mode==="template"?dates.slice(1):d.mode==="copy"&&["closed","training"].includes(d.status)?[d.date]:dates;next.overrides=next.overrides.filter(o=>!overrideDates.includes(serviceDate(o)));
     if(d.mode==="dates"||d.mode==="template")for(const date of overrideDates)if(d.mode==="template"||date===d.date||d.includeSlotOverrides)next.overrides.push(...sourceOverrides.map(o=>({...o,date:new Date(date+"T00:00:00Z")})));
    }
    const bookings=industry==="spa"?await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime:string;people:number}>>`SELECT "bookingDate","startTime","endTime",people FROM "SpaBooking" WHERE "storeId"=${storeId} AND status IN ('PENDING','CONFIRMED') AND "bookingDate">=${new Date(toLocalDateStr()+"T00:00:00Z")}`:await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime?:string;people:number}>>`SELECT "bookingDate","slotTime" AS "startTime",people FROM "Booking" WHERE "storeId"=${storeId} AND "bookingStatus" IN ('PENDING','CONFIRMED') AND "bookingDate">=${new Date(toLocalDateStr()+"T00:00:00Z")}`;
