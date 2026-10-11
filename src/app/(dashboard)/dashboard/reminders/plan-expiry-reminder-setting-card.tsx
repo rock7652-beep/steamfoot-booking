@@ -2,24 +2,20 @@
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { LineCardPreview } from "./line-card-preview";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { ReminderSettingToggle, useReminderSettingMutation } from "./reminder-setting-feedback";
 import { toast } from "sonner";
 import { setPlanExpiryReminderEnabled } from "@/server/actions/reminder";
 import { setCourseExpiryReminderEnabled } from "@/server/actions/course-reminders";
 
 export function PlanExpiryReminderSettingCard({ initialEnabled, course=false, music=false }: { initialEnabled: boolean; course?:boolean; music?:boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
-  const [pending, startTransition] = useTransition();
-  useSettingsPanelGuard(false, pending);
+  const mutation = useReminderSettingMutation();
+  useSettingsPanelGuard(false, mutation.pending);
 
   function toggle() {
     const next = !enabled;
-    startTransition(async () => {
-      const result = await (course?setCourseExpiryReminderEnabled:setPlanExpiryReminderEnabled)(next);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
+    void mutation.run("toggle", () => (course ? setCourseExpiryReminderEnabled : setPlanExpiryReminderEnabled)(next), () => {
       setEnabled(next);
       toast.success(next ? "已開啟方案到期提醒" : "已關閉方案到期提醒");
     });
@@ -27,24 +23,13 @@ export function PlanExpiryReminderSettingCard({ initialEnabled, course=false, mu
 
   return (
     <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
-        <div className="min-w-0">
+      <summary className={`flex flex-wrap cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
+        <div className="min-w-0 flex-1 basis-48">
           <h2 className={`${course ? "text-sm" : "text-base"} font-semibold text-earth-900`}>方案即將到期提醒</h2>
-          <p className={`${course ? "mt-0.5 truncate" : "mt-1"} text-sm text-earth-500`}>{course?"18:00・依各方案天數・額度全占用時不發送":"到期前 14 天、7 天於 18:00 發送；剩餘堂數已全部預約時不發送。"}</p>
+          <p className={`${course ? "mt-0.5" : "mt-1"} text-sm text-earth-500`}>{course?"18:00・依各方案天數・額度全占用時不發送":"到期前 14 天、7 天於 18:00 發送；剩餘堂數已全部預約時不發送。"}</p>
+          {mutation.toggleError && <p role="alert" className="mt-1 break-words text-sm text-red-700">{mutation.toggleError}</p>}
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={(event) => { event.preventDefault(); toggle(); }}
-            disabled={pending}
-            aria-label="切換方案即將到期提醒"
-            role="switch" aria-checked={enabled}
-            className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}
-          >
-            <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? "translate-x-5" : ""}`} />
-          </button>
-          <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
-        </div>
+        <ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label="切換方案即將到期提醒" onToggle={toggle} />
       </summary>
       <div className={`border-t border-earth-100 ${course ? "p-3" : "p-4"}`}>
         <LineCardPreview title="方案提醒" subtitle="方案將於 14 天後到期" actions={course ? [{ label: "查看方案與期限" }, { label: "立即預約" }, { label: "購買／續購方案" }, { label: "諮詢店長", variant: "link" }] : [{ label: "立即預約" }, { label: "諮詢店長", variant: "link" }]}>

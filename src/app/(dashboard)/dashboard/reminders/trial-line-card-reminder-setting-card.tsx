@@ -1,7 +1,9 @@
 "use client";
 import { LineCardPreview } from "./line-card-preview";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
+import { ReminderSettingToggle, useReminderSettingMutation } from "./reminder-setting-feedback";
 import { toast } from "sonner";
 import { saveTrialLineCardReminderSetting, setBookingReminderTypeEnabled } from "@/server/actions/reminder";
 import {
@@ -21,7 +23,8 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
   const [body, setBody] = useState(initialBody);
   const [mapUrl, setMapUrl] = useState(initialMapUrl);
   const [saved, setSaved] = useState({ body: initialBody, mapUrl: initialMapUrl });
-  const [pending, startTransition] = useTransition();
+  const mutation = useReminderSettingMutation();
+  useSettingsPanelGuard(body !== saved.body || mapUrl !== saved.mapUrl, mutation.pending);
   const trimmedBody = body.trim();
   const trimmedMapUrl = mapUrl.trim();
   const changed = trimmedBody !== saved.body || trimmedMapUrl !== saved.mapUrl;
@@ -31,15 +34,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
     changed;
 
   function save(nextBody: string, nextMapUrl: string) {
-    startTransition(async () => {
-      const result = await saveTrialLineCardReminderSetting({
-        body: nextBody,
-        mapUrl: nextMapUrl,
-      });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
+    void mutation.run("form", () => saveTrialLineCardReminderSetting({ body: nextBody, mapUrl: nextMapUrl }), () => {
       setBody(nextBody);
       setMapUrl(nextMapUrl);
       setSaved({ body: nextBody, mapUrl: nextMapUrl });
@@ -48,30 +43,23 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
   }
 
   function toggle() {
-    startTransition(async () => {
-      const result = await setBookingReminderTypeEnabled("TRIAL", !enabled);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      setEnabled(!enabled);
-      toast.success(!enabled ? "已開啟首次體驗提醒" : "已關閉首次體驗提醒");
+    const next = !enabled;
+    void mutation.run("toggle", () => setBookingReminderTypeEnabled("TRIAL", next), () => {
+      setEnabled(next);
+      toast.success(next ? "已開啟首次體驗提醒" : "已關閉首次體驗提醒");
     });
   }
 
   return (
     <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
-        <div>
+      <summary className="flex flex-wrap cursor-pointer list-none items-start justify-between gap-3 p-4">
+        <div className="min-w-0 flex-1 basis-48">
           <h2 className="text-base font-semibold text-earth-900">首次體驗提醒</h2>
           <p className="mt-1 text-sm text-earth-500">前一日 18:00 發送；只影響首次體驗預約。</p>
+          {mutation.toggleError && <p role="alert" className="mt-1 break-words text-sm text-red-700">{mutation.toggleError}</p>}
+          {mutation.formError && <p role="alert" className="mt-1 break-words text-sm text-red-700 group-open:hidden">{mutation.formError}</p>}
         </div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={(event) => { event.preventDefault(); toggle(); }} disabled={pending} aria-pressed={enabled} className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}>
-            <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? "translate-x-5" : ""}`} />
-          </button>
-          <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
-        </div>
+        <ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label="首次體驗提醒開關" onToggle={toggle} />
       </summary>
       <div className="border-t border-earth-100 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -83,7 +71,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
         </div>
         <button
           type="button"
-          disabled={pending || saved.body === DEFAULT_TRIAL_LINE_CARD_REMINDER}
+          disabled={mutation.pending || saved.body === DEFAULT_TRIAL_LINE_CARD_REMINDER}
           onClick={() => save(DEFAULT_TRIAL_LINE_CARD_REMINDER, trimmedMapUrl)}
           className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50 disabled:opacity-40"
         >
@@ -99,6 +87,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
           <textarea
             id="trial-line-card-reminder"
             value={body}
+            disabled={mutation.formPending}
             maxLength={TRIAL_LINE_CARD_REMINDER_MAX_LENGTH}
             rows={4}
             onChange={(event) => setBody(event.target.value)}
@@ -119,6 +108,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
             id="trial-line-card-map-url"
             type="url"
             value={mapUrl}
+            disabled={mutation.formPending}
             maxLength={TRIAL_LINE_CARD_MAP_URL_MAX_LENGTH}
             onChange={(event) => setMapUrl(event.target.value)}
             placeholder="https://maps.app.goo.gl/..."
@@ -136,14 +126,15 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+        {mutation.formError && <p role="alert" className="mr-auto min-w-0 break-words text-sm text-red-700">{mutation.formError}</p>}
         <button
           type="button"
-          disabled={pending || !canSave}
+          disabled={mutation.pending || !canSave}
           onClick={() => save(trimmedBody, trimmedMapUrl)}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-40"
         >
-          {pending ? "儲存中..." : "儲存變更"}
+          {mutation.formPending ? "儲存中…" : "儲存變更"}
         </button>
       </div>
       </div>
