@@ -58,3 +58,16 @@ it("summarizes course defaults, teacher overrides, fixed fees and zero without m
   expect(host.textContent).toContain("彈性拆帳 · 55% · 定價試算 $440／堂");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("hides generated course codes while keeping same-name course selection independent",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");const root=createRoot(host);const onQualification=vi.fn();
+ const props={templates:[{id:"original",name:"吉他 · 個別課 4堂",musicSubjectId:"guitar"},{id:"version",name:"吉他 · 個別課 4堂 · a91caf",musicSubjectId:"guitar"},{id:"manual",name:"自訂課程 · a91caf"}],qualificationIds:[] as string[],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:1},onSettings:vi.fn(),onFees:vi.fn(),onQualification};
+ try {
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
+  const labels=Array.from(host.querySelectorAll("label"));
+  expect(labels.slice(0,2).map(l=>l.textContent)).toEqual(["吉他 · 個別課 4堂","吉他 · 個別課 4堂"]);
+  expect(labels[2].textContent).toBe("自訂課程 · a91caf");
+  await act(async()=>labels[1].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+  expect(onQualification).toHaveBeenLastCalledWith("version",true);
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
