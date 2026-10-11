@@ -3,7 +3,8 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { LineCardPreview } from "./line-card-preview";
 
 import { saveCourseReminderBody, setCourseReminderEnabled } from "@/server/actions/course-reminders";
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { ReminderSettingToggle, useReminderSettingMutation } from "./reminder-setting-feedback";
 import { toast } from "sonner";
 import { savePackageLineCardReminderSetting, setBookingReminderTypeEnabled } from "@/server/actions/reminder";
 import {
@@ -24,8 +25,8 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
   const [enabled, setEnabled] = useState(initialEnabled);
   const [body, setBody] = useState(initialBody);
   const [savedBody, setSavedBody] = useState(initialBody);
-  const [pending, startTransition] = useTransition();
-  useSettingsPanelGuard(body !== savedBody, pending);
+  const mutation = useReminderSettingMutation();
+  useSettingsPanelGuard(body !== savedBody, mutation.pending);
   const trimmedBody = body.trim();
   const canSave =
     trimmedBody.length > 0 &&
@@ -33,12 +34,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
     trimmedBody !== savedBody;
 
   function save(nextBody: string) {
-    startTransition(async () => {
-      const result = await (course ? saveCourseReminderBody : savePackageLineCardReminderSetting)({ body: nextBody });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
+    void mutation.run("form", () => (course ? saveCourseReminderBody : savePackageLineCardReminderSetting)({ body: nextBody }), () => {
       setBody(nextBody);
       setSavedBody(nextBody);
       toast.success("LINE 卡片提醒內容已儲存");
@@ -46,30 +42,23 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
   }
 
   function toggle() {
-    startTransition(async () => {
-      const result = await (course ? setCourseReminderEnabled(!enabled) : setBookingReminderTypeEnabled("PACKAGE", !enabled));
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      setEnabled(!enabled);
-      toast.success(`${!enabled ? "已開啟" : "已關閉"}${title}`);
+    const next = !enabled;
+    void mutation.run("toggle", () => (course ? setCourseReminderEnabled(next) : setBookingReminderTypeEnabled("PACKAGE", next)), () => {
+      setEnabled(next);
+      toast.success(`${next ? "已開啟" : "已關閉"}${title}`);
     });
   }
 
   return (
     <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
-      <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
-        <div className="min-w-0 md:col-span-2">
+      <summary className={`flex flex-wrap cursor-pointer list-none items-center justify-between gap-3 ${course ? "min-h-14 px-4 py-2" : "items-start p-4"}`}>
+        <div className="min-w-0 flex-1 basis-48">
           <h2 className={`${course ? "text-sm" : "text-base"} font-semibold text-earth-900`}>{title}</h2>
-          <p className={`${course ? "mt-0.5 truncate" : "mt-1"} text-sm text-earth-500`}>{course ? "前一日 18:00・實際上課者・取消不發送" : "前一日 18:00 發送；只影響方案與單次預約。"}</p>
+          <p className={`${course ? "mt-0.5" : "mt-1"} text-sm text-earth-500`}>{course ? "前一日 18:00・實際上課者・取消不發送" : "前一日 18:00 發送；只影響方案與單次預約。"}</p>
+          {mutation.toggleError && <p role="alert" className="mt-1 break-words text-sm text-red-700">{mutation.toggleError}</p>}
+          {mutation.formError && <p role="alert" className="mt-1 break-words text-sm text-red-700 group-open:hidden">{mutation.formError}</p>}
         </div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={(event) => { event.preventDefault(); toggle(); }} disabled={pending} aria-label={`${title}開關`} role="switch" aria-checked={enabled} className={`relative h-7 w-12 rounded-full ${enabled ? "bg-primary-600" : "bg-earth-300"}`}>
-            <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? "translate-x-5" : ""}`} />
-          </button>
-          <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
-        </div>
+        <ReminderSettingToggle enabled={enabled} pending={mutation.togglePending} disabled={mutation.pending} label={`${title}開關`} onToggle={toggle} />
       </summary>
       <div className={`border-t border-earth-100 ${course ? "p-3" : "p-4"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -81,7 +70,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         </div>
         <button
           type="button"
-          disabled={pending || savedBody === defaultBody}
+          disabled={mutation.pending || savedBody === defaultBody}
           onClick={() => save(defaultBody)}
           className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50 disabled:opacity-40"
         >
@@ -97,6 +86,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
           <textarea
             id="package-line-card-reminder"
             value={body}
+            disabled={mutation.formPending}
             maxLength={PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH}
             rows={course ? 3 : 4}
             onChange={(event) => setBody(event.target.value)}
@@ -119,14 +109,15 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         </details>
       </div>
 
-      <div className={`${course ? "mt-3" : "mt-4"} flex justify-end`}>
+      <div className={`${course ? "mt-3" : "mt-4"} flex flex-wrap items-center justify-end gap-3`}>
+        {mutation.formError && <p role="alert" className="mr-auto min-w-0 break-words text-sm text-red-700">{mutation.formError}</p>}
         <button
           type="button"
-          disabled={pending || !canSave}
+          disabled={mutation.pending || !canSave}
           onClick={() => save(trimmedBody)}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-40"
         >
-          {pending ? "儲存中..." : "儲存變更"}
+          {mutation.formPending ? "儲存中…" : "儲存變更"}
         </button>
       </div>
       </div>

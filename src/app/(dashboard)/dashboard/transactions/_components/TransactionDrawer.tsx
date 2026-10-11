@@ -91,7 +91,12 @@ export function TransactionDrawer({
   const readTransaction = usePanelReader("transaction-detail", fetchTransactionDetailDTO);
   const requestVersion = useRef(0);
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [transitionPending, startTransition] = useTransition();
+  const noteRequest = useRef<symbol | null>(null);
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteFeedback, setNoteFeedback] = useState<string | null>(null);
+  const isPending = transitionPending || noteSaving;
   const [loadedData, setData] = useState<TransactionDetailDTO | null>(null);
   const data = loadedData?.id === transactionId ? loadedData : null;
   const [loading, setLoading] = useState(false);
@@ -126,6 +131,10 @@ export function TransactionDrawer({
       setData(null);
       setError(null);
       setView("main");
+      noteRequest.current = null;
+      setNoteSaving(false);
+      setNoteError(null);
+      setNoteFeedback(null);
 
       let res: Awaited<ReturnType<typeof fetchTransactionDetailDTO>>;
       try { res = await readTransaction.read(transactionId); }
@@ -154,6 +163,7 @@ export function TransactionDrawer({
       // Generation guards refresh responses; this ref is not a DOM node.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       requestVersion.current++;
+      noteRequest.current = null;
     };
   }, [open, transactionId, readTransaction, retryRevision]);
 
@@ -177,20 +187,62 @@ export function TransactionDrawer({
     });
   };
 
-  const handleSaveNote = () => {
-    if (!transactionId) return;
-    setError(null);
-    const version = requestVersion.current;
-    startTransition(async () => {
-      const res = await updateTransactionNote({ transactionId, note: noteEdit });
+  const handleSaveNote = async () => {
+    if (!transactionId || !data || !canEdit || isPending || noteRequest.current) return;
+    const request = Symbol("note-save");
+    noteRequest.current = request;
+    setNoteSaving(true);
+    setNoteError(null);
+    setNoteFeedback(null);
+    const submittedNote = noteEdit;
+    // A new note save also supersedes an earlier background detail refresh.
+    const version = ++requestVersion.current;
+    try {
+      const res = await updateTransactionNote({ transactionId, note: submittedNote });
       if (requestVersion.current !== version) { router.refresh(); return; }
-      if (res.success) {
+      if (res?.success === true) {
+        // The action stores this exact string. Show only the confirmed note now;
+        // audit/financial details still come from the authoritative reader below.
+        setData((current) => current?.id === transactionId ? { ...current, note: submittedNote } : current);
+        setNoteEdit(submittedNote);
         setEditingNote(false);
-        refresh();
+        setNoteFeedback("已儲存 ✓");
+        readTransaction.invalidate(transactionId);
+        void readTransaction.read(transactionId).then((result) => {
+          if (requestVersion.current !== version) return;
+          if (result.success === true && result.data?.id === transactionId) {
+            setData({ ...result.data, note: submittedNote });
+          } else {
+            // Opening a newer draft clears this feedback; never resurrect it.
+            setNoteFeedback((current) => current ? "備註已儲存，其他交易資料更新失敗，請重新開啟核對。" : null);
+          }
+        }).catch(() => {
+          if (requestVersion.current === version) {
+            setNoteFeedback((current) => current ? "備註已儲存，其他交易資料更新失敗，請重新開啟核對。" : null);
+          }
+        });
+        router.refresh();
+      } else if (res?.success === false) {
+        setNoteError(res.error || "備註儲存失敗，草稿已保留。");
       } else {
-        setError(res.error ?? "儲存失敗");
+        setNoteError("尚未確認儲存結果，草稿已保留，請重新開啟核對。");
       }
-    });
+    } catch {
+      if (requestVersion.current === version) {
+        setNoteError("連線中斷，尚未確認儲存結果，草稿已保留。");
+      }
+    } finally {
+      // An old transaction must never unlock a newer transaction's write.
+      if (noteRequest.current === request) {
+        noteRequest.current = null;
+        setNoteSaving(false);
+      }
+    }
+  };
+
+  const handleClose = () => {
+    if (noteRequest.current) return;
+    onClose();
   };
 
   const handleSavePayment = () => {
@@ -306,7 +358,7 @@ export function TransactionDrawer({
   const voidedLabel = data ? transactionStatusLabel(data) : null;
 
   return (
-    <RightSheet presentation="centered" open={open} onClose={onClose} width={720}>
+    <RightSheet presentation="centered" open={open} onClose={handleClose} width={720}>
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="border-b border-earth-200 px-4 py-3 sm:px-5 sm:py-4">
@@ -314,7 +366,8 @@ export function TransactionDrawer({
             <h2 className="text-lg font-semibold text-earth-900">交易詳情</h2>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
+              disabled={noteSaving}
               className="text-earth-400 hover:text-earth-600"
               aria-label="關閉"
             >
@@ -425,7 +478,14 @@ export function TransactionDrawer({
                       </div>
                       <button
                         type="button"
-                        onClick={() => setEditingNote(true)}
+                        onClick={() => {
+                          if (noteRequest.current) return;
+                          setNoteEdit(data.note ?? "");
+                          setNoteError(null);
+                          setNoteFeedback(null);
+                          setEditingNote(true);
+                        }}
+                        disabled={isPending}
                         className="inline-flex min-h-10 shrink-0 items-center rounded border border-earth-300 px-3 py-1 text-xs text-earth-600 hover:bg-earth-50"
                       >
                         修改
@@ -434,8 +494,10 @@ export function TransactionDrawer({
                   ) : (
                     <>
                       <textarea
+                        aria-label="交易備註"
                         value={noteEdit}
-                        onChange={(e) => setNoteEdit(e.target.value)}
+                        disabled={noteSaving}
+                        onChange={(e) => { if (!noteRequest.current) setNoteEdit(e.target.value); }}
                         rows={3}
                         maxLength={500}
                         className="w-full rounded border border-earth-300 px-2 py-1 text-sm focus:outline-none focus:border-primary-400"
@@ -444,16 +506,20 @@ export function TransactionDrawer({
                         <button
                           type="button"
                           disabled={isPending}
-                          onClick={handleSaveNote}
+                          aria-busy={noteSaving}
+                          onClick={() => { void handleSaveNote(); }}
                           className="inline-flex min-h-10 items-center rounded bg-primary-600 px-3 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
                         >
-                          儲存
+                          {noteSaving ? "儲存中…" : "儲存"}
                         </button>
                         <button
                           type="button"
+                          disabled={noteSaving}
                           onClick={() => {
+                            if (noteRequest.current) return;
                             setEditingNote(false);
                             setNoteEdit(data.note ?? "");
+                            setNoteError(null);
                           }}
                           className="inline-flex min-h-10 items-center rounded border border-earth-300 px-3 py-1 text-xs text-earth-600 hover:bg-earth-50"
                         >
@@ -462,6 +528,8 @@ export function TransactionDrawer({
                       </div>
                     </>
                   )}
+                  {noteError && <p role="alert" className="mt-2 text-sm text-red-700">{noteError}</p>}
+                  {noteFeedback && <p role="status" className="mt-2 text-sm text-earth-600">{noteFeedback}</p>}
                 </Section>
               )}
 
