@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { availableGuides, findOperationGuides, operationGuides } from "@/lib/operation-guide";
+import { availableGuides, findOperationGuides, operationGuides, retiredFrontendOperationGuides } from "@/lib/operation-guide";
 import type { GuideAccess } from "@/lib/operation-guide-types";
 
 const access: GuideAccess = {
@@ -26,15 +26,18 @@ describe("sports shared-card backend help", () => {
   });
   it("preserves default music guide access and explicit enabled sports help", () => {
     for (const sharedCardState of [undefined,"ENABLED"] as const) {
-      expect(availableGuides({...access,sharedCardState}).map(guide=>guide.id)).toEqual(expect.arrayContaining(["C101","C111","C118"]));
+      const ids = availableGuides({...access,sharedCardState}).map(guide=>guide.id);
+      expect(ids).toEqual(expect.arrayContaining(["C111","C118"]));
+      expect(ids).not.toContain("C101");
       expect(text("C111",sharedCardState)).toContain("允許共卡");
     }
   });
-  it("does not imply the main sports headcount form can select named authorization",()=>{
-    const guide=availableGuides({...access,sharedCardState:"ENABLED"}).find(guide=>guide.id==="C101")!;
+  it("archives member booking instructions without exposing them in backend help",()=>{
+    const guide=retiredFrontendOperationGuides.find(guide=>guide.id==="C101")!;
     expect(guide.answer).toContain("含本人 1–3 人同行，姓名選填");
     expect(guide.steps.join(" ")).toContain("沒有該入口請店家協助");
     expect(guide.details.join(" ")).toContain("新增匿名同行不會新增授權成員");
+    expect(findOperationGuides("同行", {...access,sharedCardState:"ENABLED"}).some(guide=>guide.id==="C101")).toBe(false);
   });
   it("passes presentation only for sports and keeps missing state fail-closed",()=>{
     const sidebar=readFileSync("src/components/sidebar.tsx","utf8");

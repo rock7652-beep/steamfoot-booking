@@ -12,9 +12,12 @@ export default async function OperationGuidePage() {
   if (!user || user.role === "CUSTOMER" || !(await Promise.all(ALL_PERMISSIONS.map(permission => checkPermission(user.role, user.staffId, permission)))).some(Boolean)) redirect("/dashboard");
   if (!isOperationGuidePreview()) notFound();
   const storeId = await getActiveStoreForRead(user);
-  if (!storeId) notFound();
-  const industryModule = await getStoreIndustryModule(storeId);
-  if (!["steamfoot", "spa", "course"].includes(industryModule)) notFound();
+  if (!storeId) {
+    if (user.role !== "ADMIN" || !await checkPermission(user.role, user.staffId, "audit.read")) notFound();
+  } else {
+    const industryModule = await getStoreIndustryModule(storeId);
+    if (!["steamfoot", "spa", "course"].includes(industryModule)) notFound();
+  }
   return <PageShell>
     <PageHeader title="操作指南" subtitle="從遇到的事情，找到操作步驟。" />
     <div className="w-full min-w-0 rounded-2xl border border-gold-200 bg-earth-50 p-5 sm:p-8">
