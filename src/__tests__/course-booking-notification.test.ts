@@ -23,8 +23,8 @@ it("refuses cross-store and unrelated customer action links",async()=>{
 });
 it("reschedules inside one locked transaction and preserves trial receipts",async()=>{
  expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:true,bookingId:"new"});
- expect(m.transaction).toHaveBeenCalledTimes(1);expect(m.settle).toHaveBeenCalledWith(tx,expect.objectContaining({customerId:"member"}),"old","CANCELLED");
- expect(m.reserve).toHaveBeenCalledWith(tx,expect.objectContaining({customerId:undefined}),expect.objectContaining({trialPrice:500,cardId:null,requestKey:"course-reschedule:old:new-session"}),500);
+ expect(m.transaction).toHaveBeenCalledTimes(1);expect(m.settle).toHaveBeenCalledWith(tx,expect.objectContaining({customerId:"member"}),"old","CANCELLED","DEDUCTED",{memberReschedule:true,suppressNotice:true});
+ expect(m.reserve).toHaveBeenCalledWith(tx,expect.objectContaining({customerId:undefined}),expect.objectContaining({trialPrice:500,cardId:null,requestKey:"course-reschedule:old:new-session"}),500,{memberReschedule:true});
  expect(m.payments).toHaveBeenCalledWith({where:{storeId:"s",bookingId:"old"},data:{bookingId:"new"}});
 });
 it("propagates capacity failure out of the transaction and never moves payments",async()=>{
@@ -43,7 +43,7 @@ it("does not release a booking when the cancellation deadline fails",async()=>{
 it.each(["TRIAL", "CARD"])("blocks %s rescheduling before cancelling when student self-booking is off", async bookingKind => {
  m.booking.mockResolvedValue({...original(),bookingKind,...(bookingKind === "CARD" ? {cardId:"card",card:{termSessionIds:[],members:[{customerId:"member"}]}} : {})});
  m.rules.mockResolvedValue({selfBookingEnabled:false});
- expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:"如需預約或調整時間，請聯繫店家"});
+ expect(await rescheduleMemberCourseBooking({bookingId:"old",sessionId:"new-session"})).toMatchObject({success:false,error:"改期請聯繫店家"});
  expect(m.rules).toHaveBeenCalledWith({where:{storeId:"s"}});
  expect(m.target).not.toHaveBeenCalled();expect(m.settle).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();expect(m.payments).not.toHaveBeenCalled();
 });
