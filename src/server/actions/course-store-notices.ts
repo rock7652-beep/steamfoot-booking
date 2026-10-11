@@ -1,6 +1,7 @@
 "use server";
 import {z} from "zod";
 import {coursePrisma} from "@/lib/course-db";
+import {prisma} from "@/lib/db";
 import {courseManager,courseManagerRead,courseTransaction} from "@/server/services/course-access";
 import {AppError,handleActionError} from "@/lib/errors";
 import {checkPermission} from "@/lib/permissions";
@@ -18,8 +19,31 @@ export async function loadCourseStoreNotices(input:unknown) {
    coursePrisma.courseStoreNotice.findMany({where:{storeId,handledAt:d.handled?{not:null}:null},orderBy:d.handled?[{handledAt:"desc"},{id:"asc"}]:[{startsAt:"asc"},{createdAt:"asc"},{id:"asc"}],skip:d.offset,take:51}),
    coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}}),
    isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"booking.update")]);
-  const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
+  const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,canViewCourse:!isChildStoreView && /^(session|booking):.+/.test(r.subjectKey),kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
   return {success:true as const,storeId,enabled:true,items,count,canHandle,more:rows.length>50};
+ }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
+}
+/** Resolve only the saved notice's current target; never trust a client session ID or snapshot names. */
+export async function loadCourseStoreNoticeTarget(input:unknown) {
+ try {
+  const d=z.object({storeId:store,id:store}).parse(input);
+  const {storeId,user}=await courseManager("booking.read");
+  if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
+  if(!(await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled)throw new AppError("FORBIDDEN","後台異動通知已關閉");
+  const notice=await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
+  if(!notice)throw new AppError("NOT_FOUND","找不到通知");
+  let sessionId:string|undefined;
+  if(notice.subjectKey.startsWith("session:"))sessionId=notice.subjectKey.slice(8);
+  else if(notice.subjectKey.startsWith("booking:"))sessionId=(await coursePrisma.courseBooking.findFirst({where:{id:notice.subjectKey.slice(8),storeId},select:{sessionId:true}}))?.sessionId;
+  if(!sessionId)throw new AppError("NOT_FOUND","對應課程已不存在");
+  const session=await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,nameSnapshot:true,startsAt:true,capacity:true,coachId:true,roomId:true,cancelledAt:true,template:{select:{classType:true}},room:{select:{name:true}}}});
+  if(!session)throw new AppError("NOT_FOUND","對應課程已不存在");
+  const [canEdit,canCreate,music,coaches]=await Promise.all([
+   checkPermission(user.role,user.staffId,"booking.update"),checkPermission(user.role,user.staffId,"booking.create"),
+   prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
+   coursePrisma.$queryRaw<Array<{displayName:string;phone:string|null}>>`SELECT "displayName",phone FROM "Staff" WHERE id=${session.coachId} AND "storeId"=${storeId}`,
+  ]);
+  return {success:true as const,storeId,data:{id:session.id,courseName:session.nameSnapshot,startsAt:session.startsAt.toISOString(),capacity:session.capacity,coachId:session.coachId,roomId:session.roomId,roomName:session.room.name,teacherName:coaches[0]?.displayName??"未指派",teacherPhone:coaches[0]?.phone??"",classType:session.template.classType,musicLayout:!!music,canEdit:canEdit&&!session.cancelledAt,canCreate:canCreate&&!session.cancelledAt}};
  }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
 }
 export async function markCourseStoreNotice(input:unknown) {
