@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { PrismaClient, type Prisma, type CourseSession } from "../../generated/course-client";
-import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 
 const mocks = vi.hoisted(() => ({ member: vi.fn(), transaction: vi.fn(), limits: vi.fn() }));
@@ -77,6 +76,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
   }
   it("moves one reservation atomically and repeated requests do not reserve twice", async () => {
     const f = await fixture();
+    await db!.courseBookingRule.create({ data: { storeId: f.storeId, selfBookingEnabled: false, selfRescheduleEnabled: true } });
     const input = { bookingId: f.original.id, sessionId: f.sessions[1].id };
     const result = await rescheduleMemberCourseBooking(input);
     expect(result).toMatchObject({ success: true });
@@ -121,12 +121,12 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     const confirmations = await db!.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM "AuditLog" WHERE "storeId"=${f.storeId} AND action='COURSE_TRIAL_CONFIRM'`;
     expect(Number(confirmations[0].count)).toBe(1);
   });
-  it.each([false, true])("disabled self-booking preserves every original reservation and payment row before card/trial reschedule (trial=%s)", async trial => {
+  it.each([false, true])("disabled self-reschedule preserves every original reservation and payment row (trial=%s)", async trial => {
     const f = await fixture(trial);
     if (trial) await db!.courseTrialPayment.create({data: {storeId: f.storeId, bookingId: f.original.id, amount: 350, paymentMethod: "CASH", requestKey: randomUUID(), actorUserId: f.userId}});
     await db!.$transaction(async tx => {
       await lockCourseStore(tx, f.storeId);
-      await tx.courseBookingRule.create({data: {storeId: f.storeId, selfBookingEnabled: false, selfBookingRevision: 1}});
+      await tx.courseBookingRule.create({data: {storeId: f.storeId, selfBookingEnabled: true, selfRescheduleEnabled: false, selfBookingRevision: 1}});
     });
     const before = {
       bookings: await db!.courseBooking.findMany({where: {storeId: f.storeId}}),
@@ -135,8 +135,8 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
       card: await db!.coursePointCard.findUniqueOrThrow({where: {id: f.card.id}}),
     };
     const input = {bookingId: f.original.id, sessionId: f.sessions[1].id};
-    expect(await rescheduleMemberCourseBooking(input)).toMatchObject({success: false, error: COURSE_SELF_BOOKING_DISABLED_MESSAGE});
-    expect(await rescheduleMemberCourseBooking(input)).toMatchObject({success: false, error: COURSE_SELF_BOOKING_DISABLED_MESSAGE});
+    expect(await rescheduleMemberCourseBooking(input)).toMatchObject({success: false, error: "改期請聯繫店家"});
+    expect(await rescheduleMemberCourseBooking(input)).toMatchObject({success: false, error: "改期請聯繫店家"});
     expect(await db!.courseBooking.findMany({where: {storeId: f.storeId}})).toEqual(before.bookings);
     expect(await db!.coursePointEntry.findMany({where: {storeId: f.storeId}})).toEqual(before.ledger);
     expect(await db!.courseTrialPayment.findMany({where: {storeId: f.storeId}})).toEqual(before.receipts);
