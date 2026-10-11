@@ -231,7 +231,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           }
         />
 
-        <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} />
+        <ReportDateRange key={`${activePreset}-${startDate}-${effectiveEndDate}`} activePreset={activePreset} startDate={startDate} endDate={effectiveEndDate} />
         <p className="text-xs text-earth-500">營收、客流、開卡、來源與回流均依 {startDate}～{effectiveEndDate} 統計；與前一段相同進度比較。下方長期趨勢固定顯示最近月份。</p>
 
         <section aria-labelledby="operations-summary-title">
