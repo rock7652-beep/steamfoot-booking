@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useId, useRef, useState } from "react";
+import { useContext, useId, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { availableGuides, findOperationGuides, guideCategories, relatedOperationGuides, type GuideContext } from "@/lib/operation-guide";
 import { DashboardLink } from "./dashboard-link";
@@ -18,6 +18,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
   const [query, setQuery] = useState("");
   const [articleId, setArticleId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [articleHistory, setArticleHistory] = useState<{ id: string; expanded: boolean }[]>([]);
   const access = useContext(GuideAccessContext);
   const guides = availableGuides(access);
   const article = guides.find((item) => item.id === articleId);
@@ -28,12 +29,34 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
   const results = searching ? findOperationGuides(query, access) : section === "related" ? relatedOperationGuides(pathname, access) : guides.filter(g => g.category === category);
   if (!searching && context === "booking-detail" && (bookingStatus === "COMPLETED" || bookingStatus === "CANCELLED")) results.sort((a,b) => Number(b.id === "A03") - Number(a.id === "A03"));
   function selectSection(next: "related" | "all") {
-    setSection(next); setCategory(null); setQuery(""); setArticleId(null); setExpanded(false); resetScroll();
+    setSection(next); setCategory(null); setQuery(""); setArticleId(null); setArticleHistory([]); setExpanded(false); resetScroll();
+  }
+
+  function renderArticleText(text: string): ReactNode {
+    let parts: ReactNode[] = [text];
+    for (const reference of article?.references ?? []) {
+      const target = guides.find(guide => guide.id === reference.guideId);
+      if (!target) continue;
+      parts = parts.flatMap((part, partIndex) => typeof part !== "string" ? [part] : part.split(reference.label).flatMap((chunk, index) => index === 0 ? [chunk] : [
+        <button key={`${reference.guideId}-${partIndex}-${index}`} type="button" onClick={() => {
+          if (article) setArticleHistory(history => history.at(-1)?.id === article.id ? history : [...history, { id: article.id, expanded }]);
+          setArticleId(target.id); setExpanded(false); resetScroll();
+        }} className="min-h-11 text-left font-semibold text-primary-800 underline underline-offset-4">{target.title}</button>, chunk,
+      ]));
+    }
+    return parts;
+  }
+  function returnToPrevious() {
+    const previous = articleHistory.at(-1);
+    setArticleId(previous?.id ?? null);
+    setExpanded(previous?.expanded ?? false);
+    setArticleHistory(history => history.slice(0, -1));
+    resetScroll();
   }
 
   return <div ref={content} className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "flex h-full min-h-0 flex-col"}>
     <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "shrink-0 space-y-2 border-b border-earth-200 bg-earth-50 px-4 py-2"}>
-      {article ? <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button> : <>
+      {article ? <button type="button" onClick={returnToPrevious} className="min-h-11 text-sm font-semibold text-primary-800">{articleHistory.length ? "← 返回上一則教學" : "← 返回問題列表"}</button> : <>
         <label className="sr-only" htmlFor={searchId}>搜尋操作問題</label>
         <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); resetScroll(); }} placeholder={access.module === "course" ? "搜尋問題：共卡、點名、公休…" : "搜尋問題：改時間、到期日…"} className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
         <nav aria-label="教學範圍" className="grid grid-cols-2 gap-1 rounded-lg bg-earth-100 p-1">
@@ -48,7 +71,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
     <div ref={scrollBody} data-guide-scroll={full ? undefined : ""} className={full ? "space-y-5" : "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] touch-pan-y"} style={full ? undefined : { WebkitOverflowScrolling: "touch" }}>
     {article ? <>
       <h2 className="text-xl font-semibold text-primary-900">{article.title}</h2>
-      <p className="text-base leading-relaxed text-earth-700">{article.answer}</p>
+      <p className="text-base leading-relaxed text-earth-700">{renderArticleText(article.answer)}</p>
       <p className="rounded-lg border border-gold-200 bg-white p-3 text-sm leading-relaxed">操作位置：{article.path}</p>
       <h3 className="font-semibold text-primary-900">{article.kind === "explanation" ? "可以怎麼做" : article.kind === "troubleshooting" ? "依序檢查" : "操作步驟"}</h3>
       <ol className="list-decimal space-y-4 pl-6 text-base leading-relaxed">{article.steps.map((step) => <li key={step}>{step}</li>)}</ol>
@@ -56,7 +79,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
       {article.success && <p className="rounded-lg bg-primary-50 p-3 text-sm leading-relaxed">完成確認：{article.success}</p>}
       {(article.details.length > 0 || article.id === "A01") && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="min-h-11 font-semibold text-primary-800 underline underline-offset-4">{expanded ? "收起詳細說明" : "查看詳細說明"}</button>}
       {expanded && <>
-        <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed">{article.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
+        <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed">{article.details.map((detail) => <li key={detail}>{renderArticleText(detail)}</li>)}</ul>
         {article.id === "A01" && <figure className="space-y-3">
           <figcaption className="font-semibold text-primary-900">實際操作畫面：先選日期與時段，再確認</figcaption>
           <a href="/operation-guide/reschedule.jpg" target="_blank" rel="noreferrer" className="block rounded-lg border border-earth-200 bg-white focus-visible:outline-2 focus-visible:outline-primary-700" aria-label="放大改期操作截圖（另開分頁）">

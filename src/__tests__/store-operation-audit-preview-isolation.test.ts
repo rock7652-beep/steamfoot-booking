@@ -118,7 +118,7 @@ describe("store operation audit Preview preflight", () => {
 
   it("keeps the build chain intact and places preflight before all migration bodies", () => {
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
-    expect(scripts.build).toBe("node scripts/ci-migrate.mjs && npm run generate:clients && next build");
+    expect(scripts.build).toBe("node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const preflight = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(preflight).toBeGreaterThan(-1);

@@ -221,6 +221,7 @@ export default async function DashboardLayout({
       canViewAudit={canViewAudit}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
+      hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}
       industryModule={industryModule}
       isOwner={isOwnerLevel}
       canOpenCourseSettings={["ADMIN", "OWNER", "PARTNER"].includes(user.role)}

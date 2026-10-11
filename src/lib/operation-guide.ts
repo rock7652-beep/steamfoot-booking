@@ -113,9 +113,11 @@ export const retiredFrontendGuideIds = ["C09", "J17", "J19", "J20", "J21", "C101
 export const retiredFrontendOperationGuides = catalogGuides.filter(g => retiredFrontendGuideIds.some(id => id === g.id));
 export const operationGuides = catalogGuides.filter(g => !retiredFrontendGuideIds.some(id => id === g.id));
 import { courseDisplayText } from "./course-display-text";
+export const hqOperationGuideIds = ["I11", "I12", "I18", "I19"] as const;
 export function availableGuides(access: GuideAccess) {
+  if (access.hqScope && !access.permissions.includes("audit.read")) return [];
   const sharingRestricted = access.module === "course" && access.sharedCardState !== undefined && access.sharedCardState !== "ENABLED";
-  return operationGuides.filter(g => g.modules.includes(access.module) &&
+  return operationGuides.filter(g => (!access.hqScope || hqOperationGuideIds.some(id => id === g.id)) && g.modules.includes(access.module) &&
     (!g.permission || access.permissions.includes(g.permission)) &&
     (!g.additionalPermissions || g.additionalPermissions.every(p => access.permissions.includes(p))) &&
     (!g.feature || access.features[g.feature] === true) &&
@@ -150,7 +152,7 @@ export function guideCategoryForPath(pathname: string) {
 export function findOperationGuides(query: string, access: GuideAccess) {
   const terms = query.trim().toLocaleLowerCase().split(/[\s、，,]+/).filter(Boolean);
   return availableGuides(access).filter(g => {
-    const text = [g.title, g.summary, g.answer, g.keywords, g.path, ...g.steps, g.important, ...g.details].join(" ").toLocaleLowerCase();
+    const text = [g.id, g.title, g.summary, g.answer, g.keywords, g.path, ...g.steps, g.important, ...g.details].join(" ").toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });
 }
@@ -159,6 +161,7 @@ export function findOperationGuides(query: string, access: GuideAccess) {
 export function relatedOperationGuides(pathname: string, access: GuideAccess) {
   const path = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "").replace(/\/$/, "");
   const guides = availableGuides(access);
+  if (access.hqScope) return guides;
   if (access.module === "course" && guideCategoryForPath(path) === "settings") {
     return guides.filter(g => ["hours", "care", "money"].includes(g.category));
   }

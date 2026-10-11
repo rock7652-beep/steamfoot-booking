@@ -258,7 +258,7 @@ export async function getStoreRevenueSummary(
     }),
     // 2. 每店去重顧客 — 只抓 (storeId, customerId) 配對，不拉其他欄位
     prisma.transaction.findMany({
-      where: whereActive,
+      where: { AND: [whereActive, { customerId: { not: null } }] },
       distinct: ["storeId", "customerId"],
       select: { storeId: true, customerId: true },
     }),
@@ -363,7 +363,7 @@ async function getStoreRevenueSummaryByPaymentMethod(filters: ReportFilters): Pr
     else current.otherRevenue += amount;
     stores.set(row.storeId, current);
     const storeCustomers = customers.get(row.storeId) ?? new Set<string>();
-    storeCustomers.add(row.customerId);
+    if (row.customerId) storeCustomers.add(row.customerId);
     customers.set(row.storeId, storeCustomers);
   }
   return Array.from(stores.values()).map((store) => {
@@ -410,7 +410,7 @@ export async function getCoachRevenueSummary(
       }),
       // 每教練去重顧客
       prisma.transaction.findMany({
-        where: whereActive,
+        where: { AND: [whereActive, { customerId: { not: null } }] },
         distinct: ["revenueStaffId", "customerId"],
         select: { revenueStaffId: true, customerId: true },
       }),
@@ -536,15 +536,17 @@ async function getCoachRevenueSummaryByPaymentMethod(filters: ReportFilters): Pr
     current.totalRevenue += amount;
     current.refundAmount += paymentFilteredRefundAmount(row, amount);
     current.txCount += 1;
-    if (row.isFirstPurchase) current.newCustomerRevenue += amount;
-    else current.existingCustomerRevenue += amount;
+    if (row.customerId) {
+      if (row.isFirstPurchase) current.newCustomerRevenue += amount;
+      else current.existingCustomerRevenue += amount;
+    }
     if (row.planType === "TRIAL") current.trialRevenue += amount;
     else if (row.planType === "PACKAGE") current.packageRevenue += amount;
     else if (row.planType === "SINGLE") current.singleRevenue += amount;
     else current.otherRevenue += amount;
     coaches.set(row.revenueStaffId, current);
     const coachCustomers = customers.get(row.revenueStaffId) ?? new Set<string>();
-    coachCustomers.add(row.customerId);
+    if (row.customerId) coachCustomers.add(row.customerId);
     customers.set(row.revenueStaffId, coachCustomers);
   }
   return Array.from(coaches.values()).map((coach) => {
@@ -587,8 +589,8 @@ export async function getTransactionDetails(
     transactionNo: tx.transactionNo,
     transactionDate: tx.transactionDate.toISOString(),
     storeName: tx.storeNameSnapshot ?? tx.store?.name ?? "未知",
-    customerName: tx.customer.name,
-    customerPhone: tx.customer.phone,
+    customerName: tx.customer?.name ?? "未建檔同行者",
+    customerPhone: tx.customer?.phone ?? "",
     coachName: tx.coachNameSnapshot ?? tx.revenueStaff?.displayName ?? null,
     coachRole: tx.coachRoleSnapshot ?? tx.revenueStaff?.user?.role ?? null,
     planName: tx.planNameSnapshot,
@@ -644,7 +646,7 @@ export async function getRevenueKpi(
     includeNewExisting
       ? (prisma.transaction.groupBy({
           by: ["isFirstPurchase"],
-          where: whereActive,
+          where: { AND: [whereActive, { customerId: { not: null } }] },
           _sum: { netAmount: true },
         }) as unknown as Promise<Array<{ isFirstPurchase: boolean; _sum: { netAmount: unknown } }>>)
       : Promise.resolve([]);
@@ -656,7 +658,7 @@ export async function getRevenueKpi(
       _count: { id: true },
     }),
     prisma.transaction.findMany({
-      where: whereActive,
+      where: { AND: [whereActive, { customerId: { not: null } }] },
       distinct: ["customerId"],
       select: { customerId: true },
     }),
@@ -705,9 +707,11 @@ async function getRevenueKpiByPaymentMethod(filters: ReportFilters, includeNewEx
     totalRevenue += amount;
     refundAmount += paymentFilteredRefundAmount(row, amount);
     txCount += 1;
-    customers.add(row.customerId);
-    if (row.isFirstPurchase) newCustomerRevenue += amount;
-    else existingCustomerRevenue += amount;
+    if (row.customerId) customers.add(row.customerId);
+    if (row.customerId) {
+      if (row.isFirstPurchase) newCustomerRevenue += amount;
+      else existingCustomerRevenue += amount;
+    }
   }
   const netRevenue = totalRevenue - refundAmount;
   return {

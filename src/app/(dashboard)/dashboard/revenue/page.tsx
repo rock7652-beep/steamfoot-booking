@@ -241,7 +241,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         <span
           className={`text-sm font-medium ${isVoidedTransaction(transaction) ? "text-earth-400" : "text-earth-900"}`}
         >
-          {transaction.customer.name}
+          {transaction.customer?.name ?? "未建檔同行者"}
         </span>
       ),
     },

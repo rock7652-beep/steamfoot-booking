@@ -5,6 +5,8 @@ import type { PermissionCode } from "./permissions";
 export interface GuideAccess {
   module: "steamfoot" | "spa" | "course";
   music?: boolean;
+  /** Server-resolved HQ scope; permission filters still apply. */
+  hqScope?: boolean;
   /** Sports presentation only; omitted for music and other module guides. */
   sharedCardState?: FeaturePresentationState;
   permissions: readonly string[];
@@ -15,6 +17,7 @@ export interface OperationGuide {
   kind: "howto" | "explanation" | "troubleshooting";
   answer: string;
   additionalPermissions?: readonly PermissionCode[];
+  references?: readonly { guideId: string; label: string }[];
   id: string; category: string; title: string; summary: string; keywords: string;
   path: string; steps: readonly string[]; important: string; success: string; details: readonly string[];
   modules: readonly GuideAccess["module"][]; permission: PermissionCode | ""; feature: FeatureKey | null;

@@ -6,17 +6,21 @@ export type IndividualVisit = { bookingId: string; customerId: string; bookingDa
 /** Completed people are visible before the rest of their group is resolved.
  * Voiding/refunding money does not delete the fact that service happened.
  */
+export type UnregisteredVisit = Omit<IndividualVisit, "customerId"> & { customerId: null };
+
 export async function loadIndividualBookingFacts(storeId: string, latestDate: Date) {
-  if (process.env.BOOKING_PARTICIPANTS_ENABLED !== "true") return { groupIds: new Set<string>(), originalPeopleByBooking: new Map<string, number>(), visits: [] as IndividualVisit[] };
+  if (process.env.BOOKING_PARTICIPANTS_ENABLED !== "true") return { groupIds: new Set<string>(), originalPeopleByBooking: new Map<string, number>(), visits: [] as IndividualVisit[], unregisteredVisits: [] as UnregisteredVisit[] };
   const [groups, visits] = await Promise.all([
     prisma.$queryRaw<{ bookingId: string; originalPeople: number }[]>`SELECT "bookingId", "originalPeople" FROM "BookingParticipantGroup" WHERE "storeId" = ${storeId}`,
-    prisma.$queryRaw<IndividualVisit[]>`
+    prisma.$queryRaw<Array<Omit<IndividualVisit, "customerId"> & { customerId: string | null }>>`
       SELECT g."bookingId", p."customerId", b."bookingDate", b."slotTime", p.service AS "bookingType", p.source, 1 AS people, 1 AS "attendedPeople"
       FROM "BookingParticipant" p JOIN "BookingParticipantGroup" g ON g.id = p."groupId" AND g."storeId" = p."storeId"
       JOIN "Booking" b ON b.id = g."bookingId" AND b."storeId" = g."storeId"
-      WHERE p."storeId" = ${storeId} AND p.status = 'COMPLETED' AND p."customerId" IS NOT NULL AND b."bookingDate" <= ${latestDate}`,
+      WHERE p."storeId" = ${storeId} AND p.status = 'COMPLETED' AND b."bookingDate" <= ${latestDate}`,
   ]);
-  return { groupIds: new Set(groups.map(group => group.bookingId)), originalPeopleByBooking: new Map(groups.map(group => [group.bookingId, group.originalPeople])), visits };
+  return { groupIds: new Set(groups.map(group => group.bookingId)), originalPeopleByBooking: new Map(groups.map(group => [group.bookingId, group.originalPeople])),
+    visits: visits.filter((visit): visit is IndividualVisit => visit.customerId !== null),
+    unregisteredVisits: visits.filter((visit): visit is UnregisteredVisit => visit.customerId === null) };
 }
 
 /** Remove a converted group's old aggregate before adding its individual facts. */

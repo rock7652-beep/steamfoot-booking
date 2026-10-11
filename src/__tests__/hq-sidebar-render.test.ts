@@ -25,6 +25,7 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
     canOpenCourseSettings,
     canViewAudit: auditGranted || (path.startsWith("/hq") && !selected),
     operationGuidePreview: true,
+    hqOperationGuide: path.startsWith("/hq") && !selected && permissions.includes("audit.read"),
     cashDrawerStoreId: selected && permissions.includes("cashDrawer.read") ? selected : undefined,
     permissions, pricingPlan: "ALLIANCE", userName: "HQ", roleLabel: "總部",
     storeOptions: [{id: "a", name: "店 A", isDefault: true}], activeStoreId: selected,
@@ -61,12 +62,13 @@ describe("actual HQ shell rendering", () => {
     const noPermission = render(module, "a", "/s/store-a/admin/dashboard", false, false, []);
     expect(noPermission).toContain('data-guide-enabled="false"');
   });
-  it("moves HQ preview tools into the header without duplicate sidebar entries", () => {
+  it("keeps HQ guide and preview tools in the header without duplicate sidebar entries", () => {
     const html = render("steamfoot", null);
     expect(html).toContain('aria-label="預覽工具"');
     expect(html).not.toContain('href="/hq/dashboard/frontend-preview"');
     expect(html).not.toContain('href="/hq/dashboard/device-preview"');
-    expect(html).toContain('data-guide-enabled="false"');
+    expect(html).toContain('data-guide-enabled="true"');
+    expect(render("steamfoot", null, "/hq/dashboard", false, true, ["staff.manage"])).toContain('data-guide-enabled="false"');
   });
   it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("uses the same two open sections for %s (music=%s)", (module, music) => {
     const html = render(module, "a", "/s/store-a/admin/dashboard", music);

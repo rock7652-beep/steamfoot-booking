@@ -638,6 +638,8 @@ interface DashboardShellProps {
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   operationGuidePreview?: boolean;
+  /** True only for the server-authorized, unselected HQ scope. */
+  hqOperationGuide?: boolean;
   industryModule?: IndustryModuleId;
   isOwner: boolean;
   /** Course settings has a stricter role gate than legacy ownerOnly navigation. */
@@ -675,6 +677,7 @@ export default function DashboardShell({
   cashDrawerStoreId,
   musicEnabled=false,
   operationGuidePreview = false,
+  hqOperationGuide = false,
   industryModule = "steamfoot",
   isOwner,
   canOpenCourseSettings = isOwner,
@@ -1104,7 +1107,7 @@ export default function DashboardShell({
     </nav>
   );
 
-  const guideEnabled = operationGuidePreview && !isHqPlatformView && permissions.length > 0;
+  const guideEnabled = operationGuidePreview && permissions.length > 0 && (!isHqPlatformView || hqOperationGuide);
 
   // The studio itself owns the screen. Iframe pages use devicePreview=1 and
   // deliberately retain this shell for real dashboard navigation.
@@ -1115,7 +1118,7 @@ export default function DashboardShell({
   if (pathname === "/dashboard/cash-drawer" && searchParams.get("cashDrawerPanel") === "1") return <div className="min-h-dvh bg-earth-50">{children}</div>;
 
   return (
-    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ music: industryModule === "course" && musicEnabled, module: industryModule, permissions, features: effectiveFeatures, sharedCardState: industryModule === "course" && !musicEnabled ? featureStates.shared_card ?? "HIDDEN" : undefined }}>
+    <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ hqScope: hqOperationGuide, music: industryModule === "course" && musicEnabled, module: industryModule, permissions, features: effectiveFeatures, sharedCardState: industryModule === "course" && !musicEnabled ? featureStates.shared_card ?? "HIDDEN" : undefined }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside

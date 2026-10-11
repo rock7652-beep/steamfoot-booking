@@ -21,7 +21,7 @@ import { TRIAL_DEFAULTS } from "@/lib/shop-config";
 import { todayRange, dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
-import type { BookingStatus, Prisma } from "@prisma/client";
+import { type BookingStatus, Prisma } from "@prisma/client";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 export interface ListBookingsOptions {
@@ -544,6 +544,25 @@ async function computeMonthBookingSummaryMeasured(
           select: { storeId: true, trialDefaultPrice: true },
         }) : Promise.resolve([])),
   ]);
+  const participantServices = process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && monthBookings.length
+    ? await prisma.$queryRaw<Array<{ bookingId: string; service: string; status: string; planName: string | null; collectionTransactionId: string | null }>>`
+      SELECT g."bookingId", p.service, p.status, p."collectionTransactionId", sp.name AS "planName" FROM "BookingParticipantGroup" g
+      JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
+      LEFT JOIN "WalletSession" ws ON ws.id = p."walletSessionId"
+      LEFT JOIN "CustomerPlanWallet" w ON w.id = ws."walletId" AND w."storeId" = p."storeId"
+      LEFT JOIN "ServicePlan" sp ON sp.id = w."planId"
+      WHERE g."bookingId" IN (${Prisma.join(monthBookings.map(b => b.id))}) ORDER BY p.position`
+    : [];
+  const participantSummaryByBooking = new Map<string, string[]>();
+  const participantNeedsCollectionByBooking = new Map<string, boolean>();
+  for (const person of participantServices) {
+    const labels = participantSummaryByBooking.get(person.bookingId) ?? [];
+    const label = person.service === "PACKAGE_SESSION" ? `${person.planName ?? "方案"}・${person.status === "COMPLETED" ? "已扣 1 堂" : person.status === "PENDING" ? "預留 1 堂" : "未扣堂"}`
+      : `體驗・${person.status === "COMPLETED" ? "已完成" : person.status === "PENDING" ? "待到店" : person.status === "CANCELLED" ? "已取消" : "未到"}`;
+    labels.push(label); participantSummaryByBooking.set(person.bookingId, labels);
+    participantNeedsCollectionByBooking.set(person.bookingId, !!participantNeedsCollectionByBooking.get(person.bookingId)
+      || (["FIRST_TRIAL", "SINGLE"].includes(person.service) && person.status === "PENDING" && person.collectionTransactionId == null));
+  }
   const collectedMap = new Map<string, number>();
   const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
@@ -592,6 +611,8 @@ async function computeMonthBookingSummaryMeasured(
     collectedAmount: number | null;
     // 成功扣堂交易實際使用的方案名稱（可能因多人 FEFO 跨多個 wallet）。
     deductedPlanNames: string[];
+    participantSummary?: string | null;
+    participantNeedsCollection?: boolean;
     notes?: string | null;
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
@@ -673,6 +694,8 @@ async function computeMonthBookingSummaryMeasured(
       collected: collectedMap.has(b.id),
       collectedAmount: collectedMap.get(b.id) ?? null,
       deductedPlanNames: [...(deductedPlanNamesByBooking.get(b.id) ?? [])],
+      participantSummary: participantSummaryByBooking.get(b.id)?.join(" ／ ") ?? null,
+      participantNeedsCollection: participantNeedsCollectionByBooking.get(b.id),
       customerName: b.customer.name,
       staffId: b.revenueStaff?.id ?? null,
       staffName: b.revenueStaff?.displayName ?? null,

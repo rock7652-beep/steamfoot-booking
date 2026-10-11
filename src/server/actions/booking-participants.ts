@@ -14,6 +14,7 @@ import type { BookingParticipantRow } from "@/server/services/booking-participan
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit, getTrialSettings } from "@/lib/shop-config";
 import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
+import { selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
 import { paymentMethodValues } from "@/lib/payment-splits";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { checkCustomerLimitOrThrow } from "@/lib/usage-gate";
@@ -58,7 +59,7 @@ export async function collectBookingParticipantTrial(input: {
       return collectParticipantTrialInTransaction(tx, { storeId, participantId: person.id, revision: data.revision,
         amount: data.amount, paymentMethod: data.paymentMethod, note: data.note, serviceStaffId: user.staffId ?? null, settings });
     });
-    if (result.created) {
+    if (result.created && result.customerId) {
       // Each participant, not the group booker. Same-request retries emit no event.
       try {
         const customer = await prisma.customer.findFirst({ where: { id: result.customerId, storeId }, select: { sponsorId: true } });
@@ -66,7 +67,7 @@ export async function collectBookingParticipantTrial(input: {
           bookingId: result.bookingId, source: "participant-collect-and-complete" });
       } catch { console.error("[Participant] completion event failed"); }
     }
-    revalidateBookingMutation(result.customerId); revalidateBookingTransactionMutation(result.customerId);
+    revalidateBookingMutation(result.customerId ?? undefined); revalidateBookingTransactionMutation(result.customerId ?? undefined);
     return { success: true, data: { transactionId: result.transactionId } };
   } catch (error) { return handleActionError(error); }
 }
@@ -83,7 +84,9 @@ export async function resolveBookingParticipant(input: {
       const slots = await initializeBookingParticipants(tx, { storeId, bookingId: data.bookingId });
       const person = slots.find(slot => slot.position === data.position);
       if (!person) throw new AppError("NOT_FOUND", "本次預約沒有這個名額");
-      await resolveUnattendedParticipant(tx, { storeId, participantId: person.id, revision: data.revision, status: data.status });
+      if (person.service === "PACKAGE_SESSION") await cancelParticipantPlan(tx, { storeId, participantId: person.id,
+        revision: data.revision, status: data.status, actorUserId: user.id, actor: user });
+      else await resolveUnattendedParticipant(tx, { storeId, participantId: person.id, revision: data.revision, status: data.status });
     });
     revalidateBookingMutation();
     return { success: true, data: undefined };
@@ -217,6 +220,35 @@ export async function completeBookingParticipantPlan(input: { bookingId: string;
       return result;
     }, { timeout: 15_000 });
     revalidateBookingMutation(result.customerId); revalidateBookingTransactionMutation(result.customerId);
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error); }
+}
+
+/** All lifecycle mutations retain store, permission, subscription and revision checks. */
+export async function changeBookingParticipantService(input: {
+  bookingId: string; position: number; revision: number;
+  operation: "selectPlan" | "revert" | "completePaid"; walletId?: string | null;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = participantOperationSchema.extend({ operation: z.enum(["selectPlan", "revert", "completePaid"]),
+      walletId: z.string().min(1).max(128).nullable().optional() }).parse(input);
+    const result = await prisma.$transaction(async tx => {
+      const slots = await initializeBookingParticipants(tx, { storeId, bookingId: data.bookingId });
+      const person = slots.find(slot => slot.position === data.position);
+      if (!person) throw new AppError("NOT_FOUND", "本次預約沒有這個名額");
+      const params = { storeId, participantId: person.id, revision: data.revision, actorUserId: user.id, actor: user };
+      if (data.operation === "selectPlan") return selectParticipantPlan(tx, { ...params, walletId: data.walletId ?? null });
+      if (data.operation === "revert") return revertParticipantService(tx, params);
+      const result = await completePreviouslyPaidParticipant(tx, params);
+      await recordOperationAudit({ actor: user, actorUserId: user.id, storeId, module: "STEAM", targetType: "BookingParticipant",
+        targetId: person.id, action: "COMPLETE_PAID_PARTICIPANT", summary: "完成這位顧客的服務，沿用原收款、不重收",
+        before: { status: person.status }, after: { status: "COMPLETED" } }, tx);
+      return result;
+    }, { timeout: 15_000 });
+    revalidateBookingMutation(result.customerId ?? undefined); revalidateBookingTransactionMutation(result.customerId ?? undefined);
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }

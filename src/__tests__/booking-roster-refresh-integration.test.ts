@@ -79,6 +79,23 @@ it("refreshes authoritative payment amounts immediately after closing a mutated 
   expect(host.querySelectorAll("[data-batch]")).toHaveLength(5);
   expect(window.location.search).toBe("?year=2026&month=9");
 });
+it("updates a trial-origin day row to its reserved plan after the service drawer closes", async () => {
+  const rows = monthData("", 1);
+  rows[0].bookings![0].bookingStatus = "PENDING";
+  rows[0].bookings![0].collected = false;
+  await openDay(rows);
+  const updated = structuredClone(rows);
+  updated[0].bookings![0].participantSummary = "十堂・預留 1 堂";
+  updated[0].bookings![0].participantNeedsCollection = false;
+  mocks.month.mockResolvedValue({ monthData: updated, monthSchedule: {}, slots: [], customerLabels: labels });
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="查看 11:00 合成顧客0 的預約詳情"]')!.click());
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-fixture-payment]')!.click());
+  expect(host.textContent).toContain("十堂・預留 1 堂");
+  expect(host.textContent).not.toContain("體驗・未收");
+  expect([...host.querySelectorAll("button")].some(button => button.textContent === "收款")).toBe(false);
+  expect(host.textContent).not.toContain("未收款 1");
+  expect(host.querySelector('input[aria-label="選取 合成顧客0"]')).toBeNull();
+});
 it("pauses background refresh while full notes are open and preserves multiline content", async () => {
   await openDay();
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="合成顧客0 標籤與備註"]')!.click());

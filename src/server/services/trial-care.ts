@@ -36,6 +36,14 @@ async function eligibility(storeId: string, module: string, candidate: Candidate
     select: { name: true, lineUserId: true, convertedAt: true },
   });
   if (!customer) return null;
+  // A retained trial group marker is not proof that this person completed a trial.
+  if (module === "STEAMFOOT" && process.env.BOOKING_PARTICIPANTS_ENABLED === "true") {
+    const slots = await prisma.$queryRaw<Array<{ service: string; status: string }>>`
+      SELECT p.service, p.status FROM "BookingParticipantGroup" g JOIN "BookingParticipant" p
+        ON p."groupId" = g.id AND p."storeId" = g."storeId"
+      WHERE g."bookingId" = ${candidate.id} AND g."storeId" = ${storeId} AND p."customerId" = ${candidate.customerId}`;
+    if (slots.length && !slots.some(p => p.service === "FIRST_TRIAL" && p.status === "COMPLETED")) return null;
+  }
   const today = parseTaiwanDateToDbDate(toLocalDateStr(now));
   if (module === "SPA") {
     const [booking, purchased, booked] = await Promise.all([

@@ -34,7 +34,7 @@ export async function resolveAuditPresentation(rows: AuditRow[], options: { hq?:
       found.forEach(r => set("CashbookEntry",r.id,r.storeId,`${r.entryDate.toISOString().slice(0,10)} · ${r.category ?? "收支"} · NT$ ${Number(r.amount).toLocaleString("zh-TW")}`)); })(),
     (async () => { const OR = groups(["Transaction"]); if (!OR.length) return;
       const found = await prisma.transaction.findMany({ where: { OR }, select: { id: true, storeId: true, customer: { select: { name: true } }, amount: true } });
-      found.forEach(r => set("Transaction",r.id,r.storeId,`${r.customer.name} · NT$ ${Number(r.amount).toLocaleString("zh-TW")}`)); })(),
+      found.forEach(r => set("Transaction",r.id,r.storeId,`${r.customer?.name ?? "未建檔同行者"} · NT$ ${Number(r.amount).toLocaleString("zh-TW")}`)); })(),
     (async () => { const OR = groups(["SpaBooking"]); if (!OR.length) return;
       const found = await spaPrisma.spaBooking.findMany({ where: { OR }, select: { id: true, storeId: true, customerId: true, serviceNameSnapshot: true, bookingDate: true, startTime: true } });
       const customers = found.length ? await prisma.customer.findMany({ where: { OR: found.map(r=>({id:r.customerId,storeId:r.storeId})) }, select: { id: true, storeId: true, name: true } }) : [];

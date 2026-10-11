@@ -4,7 +4,7 @@ import {courseSetupSteps} from "@/lib/course-setup-progress";
 import {findCoursePortalGuides} from "@/lib/course-portal-guides";
 import {availableGuides,operationGuides} from "@/lib/operation-guide";
 it("music uses teachers while fitness keeps coaches, including compound titles",()=>{
- for(const label of ["教練管理","教練／老師 LINE 綁定","授課教練尚未設定","教練／教師"]){
+ for(const label of ["教練管理","教練／老師 LINE 綁定","授課教練尚未設定","教練／教師","教練或教師","教師或教練"]){
   expect(courseDisplayText(label,true)).not.toContain("教練");
   expect(courseDisplayText(label,"MUSIC")).toContain("教師");
   expect(courseDisplayText(label,false)).toBe(label);
@@ -34,4 +34,9 @@ it("translates authorized guides before search without mutating catalog or metad
  }
  expect(JSON.stringify(operationGuides)).toBe(original);
  expect(availableGuides({module:"course",permissions,features}).some(g=>g.title.includes("教練"))).toBe(true);
+});
+
+it("does not duplicate the music teacher in compound guide titles", () => {
+ expect(courseDisplayText("新增教練或教師後，為什麼還不能排課？", true)).toBe("新增教師後，為什麼還不能排課？");
+ expect(courseDisplayText("教師或教練請假", true)).toBe("教師請假");
 });
