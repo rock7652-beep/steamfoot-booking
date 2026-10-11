@@ -211,6 +211,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
     sessions: serverData.sessions.map(session => ({...session, occupied: session.occupied + additions.filter(row => row.booking.sessionId === session.id).length})),
   };
   const selfBookingEnabled = p.selfBookingEnabled !== false;
+  const selfLeaveEnabled=p.selfLeaveEnabled!==false,selfRescheduleEnabled=p.selfRescheduleEnabled??selfBookingEnabled;
   const teacherLabel = p.musicStore ? "教師" : "教練";
   const balanceTotals = courseBalanceTotals(p.cards);
   const sharedCardState = p.sharedCardState ?? "ENABLED";
@@ -219,7 +220,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
-  const [notification,setNotification]=useState<{bookingId:string;action:"confirm"|"reschedule"|"cancel"}|null>(()=>{
+  const [notification,setNotification]=useState<{bookingId:string;action:"confirm"|"reschedule"|"cancel";teacher?:boolean}|null>(()=>{
     const bookingId=params.get("bookingId"),action=params.get("action");
     return bookingId && /^[a-zA-Z0-9:_-]{1,100}$/.test(bookingId) && (action==="confirm"||action==="reschedule"||action==="cancel") ? {bookingId,action} : null;
   });
@@ -810,6 +811,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             >
                               未到
                             </button>
+                            {p.teacherChangePermissions?.includes("teacher.booking.leave")&&<button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"cancel",teacher:true})}>請假</button>}
+                            {p.teacherChangePermissions?.includes("teacher.booking.reschedule")&&Date.parse(s.startsAt)>now&&<button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule",teacher:true})}>改期</button>}
                           </>}
                         </>
                       ) : (
@@ -889,7 +892,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const groups = [...new Set(bookings.map((b) => b.sessionId))];
   const cancellationCutoff = (startsAt: string) =>
     Date.parse(startsAt) - p.cancellationLeadMinutes * 60000;
-  const canSelfCancel = (startsAt: string) => now < cancellationCutoff(startsAt);
+  const canSelfCancel = (startsAt: string) => selfLeaveEnabled && now < cancellationCutoff(startsAt);
   const nextParticipants = p.nextBooking?.participants.map((participant) =>
     participant.id === p.customerId ? "本人" : participant.name,
   ) ?? [];
@@ -1123,7 +1126,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
                           {bookingDetails[id] && <>
-                          {selfBookingEnabled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
+                          {selfRescheduleEnabled && b.status === "RESERVED" && now < cancellationCutoff(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
                           {b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
                           {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
@@ -1133,13 +1136,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                                 setCancelId(b.id);
                               }}
                             >
-                              取消
+                              {p.musicStore&&b.unit!=="TRIAL"?"請假":"取消"}
                             </button>
                           )}
                           </>}
                         {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
                           <div className="cp-late-cancel">
-                            <span className="cp-muted">已超過取消期限</span>
+                            <span className="cp-muted">{selfLeaveEnabled?"已超過取消期限":"請假請聯繫店家"}</span>
                             {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? (
                               <a className="cp-btn cp-small-action" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>
                             ) : <span className="cp-muted">請洽店家</span>}
@@ -1165,13 +1168,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                           </ul>
                           {bookingDetails[id] && b.notes && <p>備註：{b.notes}</p>}
                           {cancelId === b.id && <section className="cp-inline-confirm" aria-label={`取消 ${b.customerName} 的預約`}>
-                            <p>取消這堂預約，釋放保留額度。</p>
+                            <p>{p.musicStore&&b.unit!=="TRIAL"?"確認這堂請假？":"取消這堂預約，釋放保留額度。"}</p>
                             <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>
                             {!canSelfCancel(b.startsAt) && <p className="cp-error">已超過自行取消期限，請聯絡店家。</p>}
                             {error && <p role="alert" className="cp-error">{error}</p>}
                             <div className="cp-actions">
                               <button disabled={pending} onClick={() => {setCancelId(null);setError("");}}>保留預約</button>
-                              <button className="primary" disabled={pending || !canSelfCancel(b.startsAt)} onClick={() => run(() => updateCourseBookingStatus({bookingId:b.id,status:"CANCELLED",member:true}), () => setCancelId(null), "已取消預約，正在同步額度")}>{saving ? "取消中…" : "確認取消"}</button>
+                              <button className="primary" disabled={pending || !canSelfCancel(b.startsAt)} onClick={() => run(() => updateCourseBookingStatus({bookingId:b.id,status:p.musicStore&&b.unit!=="TRIAL"?"STUDENT_LEAVE":"CANCELLED",member:true}), () => setCancelId(null), "已取消預約，正在同步額度")}>{saving ? "處理中…" : p.musicStore&&b.unit!=="TRIAL"?"確認請假":"確認取消"}</button>
                             </div>
                           </section>}
                         </div>
@@ -1560,7 +1563,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           )}
         </Sheet>
       )}
-      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
+      {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} selfLeaveEnabled={notification.teacher?true:selfLeaveEnabled} selfRescheduleEnabled={notification.teacher?true:selfRescheduleEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
       {attendance && (
         <Sheet
           title={attendance.correction ? "更正點名" : "確認點名"}

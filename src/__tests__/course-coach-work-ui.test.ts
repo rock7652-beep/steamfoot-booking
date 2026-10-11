@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
+vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,7 +57,7 @@ beforeEach(() => {
   m.attendance.mockImplementation(async (input) => ({ success: true, attendanceUpdates: input.bookings.map((b: {id:string}) => ({id:b.id,status:["CHECKED_IN", "UNDO_CHECK_IN"].includes(input.target) ? "RESERVED" : input.target,checkedIn:input.target === "ATTENDED" || input.target === "CHECKED_IN",updatedAt:"2026-09-20T03:00:00.000Z"})) }));
   m.purchase.mockResolvedValue({ success: true });
 });
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); if (vi.isFakeTimers()) { vi.clearAllTimers(); vi.useRealTimers(); } });
 describe("coach daily work interactions", () => {
   it("refreshes from the work account menu without submitting logout", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,props())));
@@ -438,10 +440,13 @@ describe("member plan and purchase navigation", () => {
     expect(input.maxLength).toBe(4);
     expect(host.textContent).toContain("複製帳號");
     expect(host.textContent).not.toContain("後五碼");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     await click("複製帳號");
     await act(async()=>new Promise<void>(resolve=>requestAnimationFrame(() => resolve())));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("19300400065479");
     expect(document.activeElement).toBe(input);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    expect(host.textContent).toContain("複製帳號");
   });
   it("retains four digits on failure and opens progress after retry", async () => {
     m.purchase.mockResolvedValueOnce({ success: false, error: "系統錯誤，請稍後再試" });

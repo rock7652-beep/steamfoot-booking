@@ -65,6 +65,8 @@ export const ALL_PERMISSIONS = [
   "customer.assign",   // 指派/變更所屬店長
   "customer.export",
   "customer.identity.rebind", // 店長核准式 LINE 重新綁定（捕捉/執行分離）
+  "teacher.booking.leave",
+  "teacher.booking.reschedule",
   // 預約
   "booking.read",
   "booking.create",
@@ -130,6 +132,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "顧客管理",
     codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export", "customer.identity.rebind"],
   },
+  teacher_booking: {label:"授課操作",codes:["teacher.booking.leave","teacher.booking.reschedule"]},
   booking: {
     label: "預約管理",
     codes: ["booking.read", "booking.create", "booking.update"],
@@ -183,6 +186,8 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
 
 // 權限代碼 → 中文說明
 export const PERMISSION_LABELS: Record<PermissionCode, string> = {
+  "teacher.booking.leave":"代學員請假（自己的課）",
+  "teacher.booking.reschedule":"替學員改期（自己的課）",
   "work_order.read":"查看工單",
   "work_order.write":"編輯工單、更新進度與收款",
   "inventory.refund":"退貨、退款與作廢銷貨",

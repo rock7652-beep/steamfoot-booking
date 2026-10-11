@@ -55,3 +55,10 @@ Manager／Staff 由 StaffPermission 控制實際操作，角色預設只在建�
 新增 enum MANAGER、STAFF；保留 PARTNER。此 migration 不修改既有 User、Staff、交易或會員連結。
 
 測試資料庫已加入新角色。正式站 migration 尚未執行，合併前需確認角色 migration 與進銷存 schema 均就緒，並完成實際角色登入驗收。不得將靜態檢查或 Admin 操作寫成三角色完整業務驗收。
+
+## 課程授課操作
+
+- `teacher.booking.leave`：授課人員代學員請假，僅自己的課。
+- `teacher.booking.reschedule`：授課人員替學員改期，僅自己的同課程時段；固定期課及補課沿用門市調課。
+- 後台「人員管理」個別授權。前台授課身份另外驗證有效 LINE 帳號連結、同店授課人員與實際課程歸屬；不取得全店 `booking.update` 權限。
+- 學員自行預約／請假／改期開關不限制已授權的授課操作。

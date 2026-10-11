@@ -4,6 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn() }));
+vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn(),loadCourseStoreNotices:vi.fn(),markCourseStoreNotice:vi.fn()}));
+vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
 vi.mock("next/navigation", () => ({ useRouter: () => m, usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabelsProvider: ({ children }: { children: unknown }) => children, CustomerLabels: () => null }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
@@ -22,7 +24,7 @@ import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 
 let host: HTMLDivElement, root: Root;
-const message = "如需預約或調整時間，請聯繫店家";
+const message = "如需預約，請聯繫店家";
 const props = () => ({
   selfBookingEnabled: true, initialRole: "member", rolePreferenceKey: "self-booking-ui", month: "2099-01", serverNow: Date.parse("2099-01-20T08:00:00+08:00"), initialDate: "2099-01-20", initialView: "schedule", memberEnabled: true, hasWork: false,
   customerId: "member", customerName: "會員本人", storeName: "測試店", prefix: "/s/a", companionBookingEnabled: true, cancellationLeadMinutes: 120,
@@ -171,7 +173,7 @@ describe("notification deep-link booking switch", () => {
     m.load.mockResolvedValue(notificationData(false, trial));
     window.history.replaceState(null, "", "/s/a/book?bookingId=booking&action=reschedule");
     await render(props()); expect(m.load).toHaveBeenCalledWith("booking");
-    expect(dialog().textContent).toContain(message); expect(dialog().querySelector("select")).toBeNull(); expect(button("確認改期", dialog())).toBeUndefined(); expect(m.reschedule).not.toHaveBeenCalled();
+    expect(dialog().textContent).toContain("改期請聯繫店家"); expect(dialog().querySelector("select")).toBeNull(); expect(button("確認改期", dialog())).toBeUndefined(); expect(m.reschedule).not.toHaveBeenCalled();
   });
   it("blocks a selected reschedule after the parent flag turns off", async () => {
     await renderNotification("reschedule"); await selectSession(); expect(button("確認改期", dialog())!.disabled).toBe(false);

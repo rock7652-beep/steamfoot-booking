@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { courseTemplateSaveInput, courseTemplateRevision, savedCourseTemplate } from "@/lib/course-template-save";
 import { settingsSaveUncertain } from "@/server/services/settings-save-error";
+import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {kickCoachNotifications} from "@/server/services/course-coach-notification-kick";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -333,6 +334,7 @@ export async function updateCourseSession(input: unknown) {
             pointCost: data.pointCost,
           },
         });
+        if(bookings.length&&(range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()||data.coachId!==session.coachId))await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"MOVE",customerName:data.nameSnapshot,courseName:data.nameSnapshot,coachId:data.coachId,previousCoachId:session.coachId,startsAt:range.startsAt,previousStartsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
         return data.capacity > session.capacity ? session.id : null;
       },
       { timeout: 15000 },
@@ -773,6 +775,10 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledById: temporary ? user.id : null,
           },
         });
+      }
+      for(const change of changes){
+        const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
+        if(students.length)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${change.session.id}`,kind:"MOVE",customerName:change.session.nameSnapshot,courseName:change.session.nameSnapshot,coachId:d.coachId,previousCoachId:change.session.coachId,startsAt:change.startsAt,previousStartsAt:change.session.startsAt,affectedCount:students.length,details:{students:students.map(s=>s.customerName)}});
       }
       return { count: changes.length };
     });

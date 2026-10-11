@@ -1,4 +1,5 @@
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
+import { assertStoreNoticeReviewBuild, STORE_NOTICE_REVIEW_BRANCH } from "./store-notices-preview-preflight.mjs";
 import {
   assertSportsSharedCardPreviewEnvironment,
   isSportsSharedCardProductionRelease,
@@ -226,6 +227,8 @@ export function assertConsultationPreviewEnvironment(env) {
  * @returns {"mocked-unit-test" | "production" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  assertStoreNoticeReviewBuild(env);
+  if (env.VERCEL_GIT_COMMIT_REF === STORE_NOTICE_REVIEW_BRANCH) return "module-roster-preview";
   if (isConsultationMockedUnitTest(env)) return "mocked-unit-test";
   if (isSportsSharedCardProductionRelease(env)) {
     if (env.CONSULTATION_PREVIEW_INTAKE_ENABLED === "true") {
