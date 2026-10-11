@@ -1,6 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({rule:vi.fn(),find:vi.fn(),upsert:vi.fn(),raw:vi.fn(),manager:vi.fn(),read:vi.fn(),transaction:vi.fn(),update:vi.fn(),audit:vi.fn(),permission:vi.fn()}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
+vi.mock("@/lib/db",()=>({prisma:{}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseManagerRead:m.read,courseTransaction:m.transaction}));
 vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:m.audit}));
