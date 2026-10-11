@@ -3,7 +3,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getShopConfig } from "@/lib/shop-config";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { SettingsReturnLink as Link } from "@/components/settings/settings-navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { PaymentSettingsForm } from "./payment-form";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -35,7 +35,7 @@ export default async function PaymentSettingsPage() {
         subtitle="這些資訊會顯示在前台購買頁，讓顧客知道怎麼轉帳並聯繫店長確認"
         actions={
           <Link
-            href="/dashboard/settings"
+            href="/dashboard/settings?section=payment"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定

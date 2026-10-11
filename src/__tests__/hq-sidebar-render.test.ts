@@ -1,3 +1,4 @@
+vi.mock("@/components/admin/course-store-notice-bell",()=>({CourseStoreNoticeBell:({storeId}:{storeId:string})=>createElement("span",{"data-course-notice-store":storeId})}));
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -23,6 +24,7 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
     canOpenCourseSettings,
+    courseNoticeStoreId: selected,
     canViewAudit: auditGranted || (path.startsWith("/hq") && !selected),
     operationGuidePreview: true,
     hqOperationGuide: path.startsWith("/hq") && !selected && permissions.includes("audit.read"),
@@ -36,6 +38,24 @@ function render(module: "steamfoot" | "course" | "spa", selected: string | null,
 }
 
 describe("actual HQ shell rendering", () => {
+  it.each(["門市人員", "店長", "管理員"])("shows notices for %s using resolved store scope without the HQ store cookie", roleLabel => {
+    context.path = "/s/music-test/admin/dashboard";
+    context.search = "";
+    const html = renderToStaticMarkup(createElement(DashboardShell, {
+      industryModule: "course", industryModuleId: "course", musicEnabled: true,
+      isOwner: true, permissions: ["booking.read"], pricingPlan: "EXPERIENCE",
+      userName: "驗收", roleLabel, logoutButton: null,
+      storeName: "音樂測試店", courseNoticeStoreId: "music-test",
+    }));
+    expect(html).toContain('data-course-notice-store="music-test"');
+  });
+  it("does not expose notices outside a resolved course store with booking access", () => {
+    expect(render("course", null)).not.toContain("data-course-notice-store");
+    expect(render("course", "a", "/s/store-a/admin/dashboard", true, true, [])).not.toContain("data-course-notice-store");
+    expect(render("steamfoot", "a")).not.toContain("data-course-notice-store");
+    expect(render("course", "a", "/hq/dashboard/stores")).not.toContain("data-course-notice-store");
+    expect(render("course", "a")).toContain('data-course-notice-store="a"');
+  });
   it("hides course settings from staff despite legacy owner-level navigation and booking access", () => {
     const html = render("course", "a", "/s/store-a/admin/dashboard", false, true, ["booking.read"], false, false);
     expect(html).toContain('href="/s/store-a/admin/dashboard/courses"');

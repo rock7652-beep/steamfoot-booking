@@ -1,4 +1,5 @@
-import { assertCourseSelfBookingEnabled } from "./course-self-booking";
+import { assertCourseSelfBookingEnabled, assertCourseSelfLeaveEnabled, assertCourseSelfRescheduleEnabled } from "./course-self-booking";
+import { recordCourseStoreNotice } from "./course-store-notices";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
 import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
@@ -158,7 +159,7 @@ export async function reserveCourseInTransaction(
     allowOverCapacity?: boolean;
   },
   maxMonthlyBookings: number | null,
-  options: { existingWaitlistEntryId?: string; manualWaitlistPromotion?: boolean } = {},
+  options: { existingWaitlistEntryId?: string; manualWaitlistPromotion?: boolean; memberReschedule?: boolean } = {},
 ) {
   const { storeId } = actor;
   const previous = await tx.courseBooking.findUnique({
@@ -221,7 +222,10 @@ export async function reserveCourseInTransaction(
     return fail("人工遞補必須對應原候補紀錄");
   // The manual option comes only from the permission-checked staff action and
   // requires the exact persisted queue entry. Other member rules still apply.
-  if (actor.customerId && !options.manualWaitlistPromotion) assertCourseSelfBookingEnabled(rule);
+  if (actor.customerId && !options.manualWaitlistPromotion) {
+    if(options.memberReschedule)assertCourseSelfRescheduleEnabled(rule);
+    else assertCourseSelfBookingEnabled(rule);
+  }
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
   if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
     return fail("請選擇本店有效課程、方案與上課人");
@@ -342,6 +346,7 @@ export async function reserveCourseInTransaction(
     },
   });
   await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" }, tx, input.requestKey);
+  if(!options.memberReschedule && actor.customerId)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"BOOKING",customerName:booking.customerName,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt});
   return booking;
 }
 
@@ -351,6 +356,7 @@ export async function settleCourseBooking(
   bookingId: string,
   target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW" | "STUDENT_LEAVE",
   noShowChoice: CourseNoShowChoice = "DEDUCTED",
+  options: { memberReschedule?: boolean; suppressNotice?: boolean } = {},
 ) {
   const booking = await tx.courseBooking.findFirst({
     where: { id: bookingId, storeId: actor.storeId },
@@ -374,7 +380,11 @@ export async function settleCourseBooking(
   if (target === "STUDENT_LEAVE" && booking.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")) return booking;
   if (booking.status !== "RESERVED")
     return fail("此預約已結算或取消，不能重複操作");
-  if (target === "STUDENT_LEAVE" && actor.customerId) return fail("請假登記僅限有權限的人員");
+  if(actor.customerId && (target==="CANCELLED"||target==="STUDENT_LEAVE")){
+    const rule=await tx.courseBookingRule.findUnique({where:{storeId:actor.storeId}});
+    if(options.memberReschedule)assertCourseSelfRescheduleEnabled(rule);else assertCourseSelfLeaveEnabled(rule);
+    if(booking.session.startsAt.getTime()<=Date.now()+(rule?.cancellationLeadMinutes??0)*60000)return fail("已超過取消截止時間，請聯絡店家");
+  }
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (target === "CHECKED_IN") {
@@ -410,20 +420,12 @@ export async function settleCourseBooking(
     });
     if (!updated.count) return fail("方案額度異常，尚未完成點名");
     }
-  } else if (actor.customerId) {
-    const rule = await tx.courseBookingRule.findUnique({
-      where: { storeId: actor.storeId },
-    });
-    if (
-      booking.session.startsAt.getTime() <=
-      Date.now() + (rule?.cancellationLeadMinutes ?? 0) * 60000
-    )
-      return fail("已超過取消截止時間，請聯絡店家");
   }
   const updated = await tx.courseBooking.update({
     where: { id: booking.id },
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
+  if(!options.suppressNotice && (target === "STUDENT_LEAVE" || target === "CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:target==="STUDENT_LEAVE"?"LEAVE":"CANCEL",customerName:booking.customerName,courseName:booking.session.nameSnapshot,coachId:booking.session.coachId,startsAt:booking.session.startsAt,details:{absenceKind:target==="STUDENT_LEAVE"?(musicGroupLeave?"GROUP_LEAVE_FORFEITED":"STUDENT_LEAVE"):null}});
   if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
   if (!booking.cardId && booking.bookingKind === "TRIAL" && target === "ATTENDED") {
     await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"createdAt") VALUES (${`course-trial-care-completed:${actor.storeId}:${booking.id}`},${actor.userId},${actor.storeId},'COURSE','完成體驗課程，供啟用後關懷判斷','CourseBooking',${booking.id},'COURSE_TRIAL_CARE_COMPLETED',NOW()) ON CONFLICT (id) DO NOTHING`;
@@ -486,6 +488,7 @@ export async function settleCourseBooking(
 export async function correctCourseAttendance(
   tx: Prisma.TransactionClient, actor: CourseActor, bookingId: string,
   target: "RESERVED" | "ATTENDED" | "NO_SHOW" | "CANCELLED", expectedStatus: string,
+  options:{suppressNotice?:boolean}={},
 ) {
   const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: true } });
   const restoringLeave = b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"].includes(b.absenceKind ?? "") && target === "RESERVED" && expectedStatus === "CANCELLED";
@@ -536,6 +539,7 @@ export async function correctCourseAttendance(
   if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
   const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  if(!options.suppressNotice&&(restoringLeave || target==="CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${b.id}`,kind:restoringLeave?"RESTORE":"CANCEL",customerName:b.customerName,courseName:b.session.nameSnapshot,coachId:b.session.coachId,startsAt:b.session.startsAt});
   if (restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId);
   return updated;
 }

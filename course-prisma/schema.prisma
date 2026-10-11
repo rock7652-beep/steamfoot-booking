@@ -294,6 +294,9 @@ model CourseBookingRule {
   storeId String @id
   selfBookingEnabled Boolean @default(true)
   selfBookingRevision Int @default(0)
+  selfLeaveEnabled Boolean @default(true)
+  selfRescheduleEnabled Boolean @default(true)
+  backendNoticesEnabled Boolean @default(false)
   bookingLeadMinutes Int @default(0)
   cancellationLeadMinutes Int @default(0)
   @@map("CourseBookingRule")
@@ -552,4 +555,28 @@ model CourseRentalPayment {
   rental CourseRental @relation(fields:[rentalId,storeId],references:[id,storeId])
   @@unique([storeId,requestKey])
   @@index([storeId,rentalId])
+}
+
+// Shared by all authorized staff of one course store; never an attendance flag.
+model CourseStoreNotice {
+  id String @id @default(cuid())
+  storeId String
+  subjectKey String
+  kind String
+  customerName String
+  courseName String
+  coachName String
+  previousCoachName String?
+  startsAt DateTime @db.Timestamptz(3)
+  previousStartsAt DateTime? @db.Timestamptz(3)
+  affectedCount Int @default(1)
+  details Json
+  handledAt DateTime? @db.Timestamptz(3)
+  handledById String?
+  handledByName String?
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([storeId, subjectKey])
+  @@index([storeId, handledAt, startsAt])
 }

@@ -5,12 +5,13 @@ import { createOperationState } from "@/lib/operation-state";
 
 import { PanelReadProvider } from "./panel-read-cache";
 import { ReturnPosition } from "./return-position";
+import { StoreViewTransitionProvider } from "./store-view-transition";
 
 const Context = createContext<ReturnType<typeof createOperationState> | null>(null);
 /** The server keys this boundary by account, store, module and permissions. */
 export function OperationScope({ scope, children }: { scope: string; children?: ReactNode }) {
   const [store] = useState(() => createOperationState(scope));
-  return <Context.Provider value={store}><ReturnPosition scope={scope}><PanelReadProvider>{children}</PanelReadProvider></ReturnPosition></Context.Provider>;
+  return <Context.Provider value={store}><StoreViewTransitionProvider><ReturnPosition scope={scope}><PanelReadProvider>{children}</PanelReadProvider></ReturnPosition></StoreViewTransitionProvider></Context.Provider>;
 }
 export function useRetainedState<T>(key: string, initialValue: T, valid: (value: unknown) => value is T) {
   const shared = useContext(Context);

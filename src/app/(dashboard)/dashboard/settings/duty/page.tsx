@@ -7,6 +7,7 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { SettingsReturnLink } from "@/components/settings/settings-navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import {DutyStatusProvider,DutyEnabledContent} from "./duty-status";
 import { DutySchedulingToggle } from "./duty-toggle";
@@ -108,12 +109,12 @@ export default async function DutySettingsPage() {
         <PageHeader
           title="值班排班設定"
           actions={
-            <Link
-              href="/dashboard/settings"
+            <SettingsReturnLink
+              href="/dashboard/settings?section=booking"
               className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
             >
               ← 返回設定
-            </Link>
+            </SettingsReturnLink>
           }
         />
         <div className="rounded-xl border border-earth-200 bg-white p-8 text-center">
@@ -136,12 +137,12 @@ export default async function DutySettingsPage() {
         title="值班排班設定"
         subtitle="控制值班排班是否與預約系統聯動"
         actions={
-          <Link
-            href={course ? "/dashboard/courses?view=settings&section=booking" : "/dashboard/settings"}
+          <SettingsReturnLink
+            href={course ? "/dashboard/courses?view=settings&section=booking" : "/dashboard/settings?section=booking"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定
-          </Link>
+          </SettingsReturnLink>
         }
       />
 

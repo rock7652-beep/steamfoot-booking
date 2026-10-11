@@ -453,7 +453,7 @@ export function CourseStaffWorkspace({
                       r.data.rows.forEach(row=>confirmed.confirm(row));
                       setSavedStaffId(person?.id??r.data.rows[0]?.id??"");
                       r.data.rows.forEach(row=>readTeaching.invalidate(row.id));
-                      setNotice(r.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":music?(person?"教師資料已儲存":"教師已新增"):"");
+                      setNotice(r.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":music?(accountKind==="coach"?(person?"教師資料已儲存":"教師已新增"):(person?"人員資料已儲存":"人員已新增")):"");
                       setOpen(false);
                     }
                   } catch {
@@ -740,7 +740,7 @@ export function CourseStaffWorkspace({
               className={`${button} ${music ? "min-w-0 flex-1" : fitnessEditorSave} !border-primary-700 !bg-primary-700 !text-white`}
               disabled={pending || availabilityGuard.pending || availabilityGuard.dirty || (teachingDirty && !feesReady) || (!!person && !dirty)}
             >
-              {pending ? "儲存中…" : request.uncertain?"重試確認儲存結果":music&&!person?"新增教師":"儲存"}
+              {pending ? "儲存中…" : request.uncertain?"重試確認儲存結果":music&&!person?(accountKind==="coach"?"新增教師":"新增人員"):"儲存"}
             </button>
             </div>
             </>}

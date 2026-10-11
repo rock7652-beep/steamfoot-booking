@@ -1,4 +1,5 @@
 "use server";
+import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
@@ -450,7 +451,7 @@ export async function updateCourseBookingStatus(input: unknown) {
     let actor: CourseActor;
     if (data.member) {
       const { user, storeId, customer } = await courseMember({ write: true });
-      if (data.status !== "CANCELLED")
+      if (data.status !== "CANCELLED" && data.status !== "STUDENT_LEAVE")
         throw new AppError("FORBIDDEN", "會員不能操作點名");
       actor = {
         userId: user.id,
@@ -531,8 +532,9 @@ export async function cancelCourseSession(input: unknown) {
           tx,
           { storeId, userId: user.id, name: user.name ?? "店長" },
           b.id,
-          "CANCELLED",
+          "CANCELLED","DEDUCTED",{suppressNotice:true},
         );
+      await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"STOP",customerName:session.nameSnapshot,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
       await tx.courseSession.update({
         where: { id: session.id },
         data: { cancelledAt: new Date() },
@@ -626,10 +628,15 @@ export async function stopFutureCourseLessons(input: unknown) {
       for (const bookingId of scope.bookingIds) {
         const settled = await settleCourseBooking(tx,
           { storeId, userId: user.id, name: user.name ?? "店長" },
-          bookingId, "CANCELLED");
+          bookingId, "CANCELLED","DEDUCTED",{suppressNotice:!data.bookingId});
         affectedSessionIds.add(settled.sessionId);
       }
       if (!data.bookingId) {
+        for(const sessionId of scope.sessionIds)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},async()=>{
+          const session=await tx.courseSession.findFirstOrThrow({where:{id:sessionId,storeId}});
+          const students=await tx.courseBooking.findMany({where:{storeId,sessionId,id:{in:scope.bookingIds}},select:{customerName:true}});
+          return {subjectKey:`session:${session.id}`,kind:"STOP",customerName:session.nameSnapshot,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt,affectedCount:students.length,details:{students:students.map(b=>b.customerName)}};
+        });
         await tx.courseSession.updateMany({
           where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
           data: { cancelledAt: new Date() },
@@ -811,8 +818,13 @@ export async function markCourseTeacherAttendance(input: unknown) {
       if (data.status !== "SCHEDULED") await refundTeacherAbsentSession(tx, actor, data.sessionId);
       else if (existing.teacherAttendance !== "SCHEDULED") {
         const bookings = await tx.courseBooking.findMany({ where: { storeId, sessionId: data.sessionId, status: "CANCELLED", absenceKind: "TEACHER_ABSENT" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true } });
-        for (const booking of bookings) await correctCourseAttendance(tx, actor, booking.id, "RESERVED", "CANCELLED");
+        for (const booking of bookings) await correctCourseAttendance(tx, actor, booking.id, "RESERVED", "CANCELLED",{suppressNotice:true});
       }
+      await recordCourseStoreNotice(tx,actor,async()=>{
+        const session=await tx.courseSession.findFirstOrThrow({where:{id:data.sessionId,storeId}});
+        const students=await tx.courseBooking.findMany({where:{storeId,sessionId:data.sessionId},select:{customerName:true}});
+        return {subjectKey:`session:${session.id}`,kind:data.status==="SCHEDULED"?"RESTORE":"STOP",customerName:session.nameSnapshot,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt,affectedCount:students.length,details:{students:students.map(b=>b.customerName)}};
+      });
       await syncCourseRelease(tx, storeId, data.sessionId);
     });
     refresh();return {success:true as const};
