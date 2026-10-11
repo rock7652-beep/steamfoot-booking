@@ -7,7 +7,7 @@ import {loadServiceHoursForSettings} from "@/server/services/service-hours-read"
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { SettingsReturnLink as Link } from "@/components/settings/settings-navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { ScheduleManager } from "./schedule-manager";
 import { BookableUntilForm } from "./bookable-until-form";
@@ -30,7 +30,7 @@ export default async function ScheduleSettingsPage() {
           title="預約開放設定"
           actions={
             <Link
-              href="/dashboard/settings"
+              href="/dashboard/settings?section=booking"
               className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
             >
               ← 返回設定
@@ -73,7 +73,7 @@ export default async function ScheduleSettingsPage() {
         subtitle={isSpaStore ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理當日服務時間、預約時段間隔與每時段可接人數"}
         actions={
           <Link
-            href="/dashboard/settings"
+            href="/dashboard/settings?section=booking"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定

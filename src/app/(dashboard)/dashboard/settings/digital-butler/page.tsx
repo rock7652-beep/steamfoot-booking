@@ -9,7 +9,7 @@ import {
 } from "@/lib/digital-butler-lead-collection-upgrade";
 import { prisma } from "@/lib/db";
 import { DigitalButlerService } from "@/server/services/digital-butler";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { SettingsReturnLink as Link } from "@/components/settings/settings-navigation";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { DigitalButlerFlowEditor } from "./flow-editor";
 
@@ -34,7 +34,7 @@ export default async function DigitalButlerSettingsPage() {
         subtitle="建立 LINE 自動互動流程；草稿不會影響已發布版本"
         actions={
           <Link
-            href={store.industryModule === "COURSE" ? "/dashboard/courses?view=settings&section=notifications" : "/dashboard/settings"}
+            href={store.industryModule === "COURSE" ? "/dashboard/courses?view=settings&section=notifications" : "/dashboard/settings?section=notifications"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600"
           >
             ← 返回設定

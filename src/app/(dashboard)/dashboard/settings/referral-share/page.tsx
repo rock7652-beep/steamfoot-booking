@@ -1,7 +1,7 @@
 import { deriveBaseUrl } from "@/lib/base-url";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { COURSE_REFERRAL_SHARE_TEMPLATE } from "@/lib/referral-share-official-templates";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { SettingsReturnLink as Link } from "@/components/settings/settings-navigation";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { prisma } from "@/lib/db";
 import { checkPermission } from "@/lib/permissions";
@@ -21,7 +21,7 @@ export default async function ReferralShareSettingsPage() {
 
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) redirect("/dashboard/settings");
-  const settingsHref = await getStoreIndustryModule(storeId) === "course" ? "/dashboard/courses?view=settings&section=notifications" : "/dashboard/settings";
+  const settingsHref = await getStoreIndustryModule(storeId) === "course" ? "/dashboard/courses?view=settings&section=notifications" : "/dashboard/settings?section=notifications";
 
   if (!(await hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE))) {
     return (

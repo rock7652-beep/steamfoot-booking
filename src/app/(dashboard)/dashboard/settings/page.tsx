@@ -9,7 +9,7 @@ import { getCachedShopConfig, getCachedBusinessHours } from "@/lib/query-cache";
 import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
-import { hasStoreFeature } from "@/lib/feature-gate";
+import { FeatureEntry } from "@/components/feature-presentation";
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -102,11 +102,11 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     weeklyHours,
     store,
     trialSettings,
-    hasDigitalButler,
     canHours,
     canPayment,
     canBooking,
     canDuty,
+    canReadCustomers,
   ] = await Promise.all([
     getCurrentStorePlan().catch(() => "EXPERIENCE" as const),
     getCachedShopConfig(activeStoreId).catch(() => ({
@@ -124,11 +124,11 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
       select: { name: true, slug: true },
     }),
     getTrialSettings(activeStoreId).catch(() => null),
-    hasStoreFeature(activeStoreId, FEATURES.DIGITAL_BUTLER).catch(() => false),
     checkPermission(user.role, user.staffId, "business_hours.manage"),
     checkPermission(user.role, user.staffId, "plans.edit"),
     checkPermission(user.role, user.staffId, "booking.read"),
     checkPermission(user.role, user.staffId, "duty.manage"),
+    checkPermission(user.role, user.staffId, "customer.read"),
   ]);
 
   const planInfo = PRICING_PLAN_INFO[plan];
@@ -152,21 +152,34 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     ? `${trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${trialSettings.trialDefaultPrice}`
     : "未設定";
 
+  // Feature availability never grants a staff permission required by the destination page.
   const commonNotificationRows = (
     <>
       <CustomerLabelsSettings />
-      <SettingsListRow title="提醒管理" summary={remindersLine} href="/dashboard/settings?panel=reminders&panelQuery=tab%3Dcustomer" action="管理" />
-      <SettingsListRow
-        title="推薦分享"
-        summary={"referralShareTemplate" in shopConfig && shopConfig.referralShareTemplate ? "已自訂" : "系統預設"}
-        href="/dashboard/settings/referral-share"
-        action="編輯"
-      />
-      {hasDigitalButler ? (
+      {canHours ? (
+        <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理">
+          <SettingsListRow title="提醒管理" summary={remindersLine} href="/dashboard/settings?section=notifications&panel=reminders&panelQuery=tab%3Dcustomer" action="管理" />
+        </FeatureEntry>
+      ) : null}
+      {canPayment ? (
         <>
-          <SettingsListRow title="數位管家" summary="已開通" href="/dashboard/settings/digital-butler" action="管理" />
-          <SettingsListRow title="數位管家名單" summary="查看顧客互動名單" href="/dashboard/digital-butler/leads" action="查看" />
+          <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享">
+            <SettingsListRow
+              title="推薦分享"
+              summary={"referralShareTemplate" in shopConfig && shopConfig.referralShareTemplate ? "已自訂" : "系統預設"}
+              href="/dashboard/settings/referral-share"
+              action="編輯"
+            />
+          </FeatureEntry>
+          <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家">
+            <SettingsListRow title="數位管家" summary="已開通" href="/dashboard/settings/digital-butler" action="管理" />
+          </FeatureEntry>
         </>
+      ) : null}
+      {canReadCustomers ? (
+        <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家名單">
+          <SettingsListRow title="數位管家名單" summary="查看顧客互動名單" href="/dashboard/digital-butler/leads" action="查看" />
+        </FeatureEntry>
       ) : null}
     </>
   );
@@ -252,7 +265,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
         moduleLabel={isSpaStore ? "SPA 模組" : "蒸足模組"}
         storeName={storeName}
         sections={sections}
-        initialSection={params.section}
       />
 
       {params.panel === "reminders" ? (
