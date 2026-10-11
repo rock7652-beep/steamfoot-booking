@@ -7,6 +7,13 @@ import {loadCourseStoreNotices,markCourseStoreNotice} from "@/server/actions/cou
 import {COURSE_NOTICE_LABELS,type CourseNoticeItem} from "@/lib/course-store-notices";
 import {formatTWDateTime} from "@/lib/date-utils";
 import {NotificationSwitch} from "./notification-switch";
+import dynamic from "next/dynamic";
+import {ModalPanel} from "./modal-panel";
+import {usePanelReader} from "@/components/operations/panel-read-cache";
+import {loadCourseStoreNoticeTarget} from "@/server/actions/course-store-notices";
+const NoticeCourseRoster=dynamic(()=>import("@/app/(dashboard)/dashboard/courses/roster").then(m=>m.CourseRoster),{loading:()=> <p role="status" className="p-3 text-sm">讀取中…</p>});
+type TargetResult=Awaited<ReturnType<typeof loadCourseStoreNoticeTarget>>;
+type TargetData=Extract<TargetResult,{success:true}>["data"];
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
 export function CourseStoreNoticeBell({storeId}:{storeId:string}) {
  const [enabled,setEnabled]=useState(false),[open,setOpen]=useState(false),[handled,setHandled]=useState(false);
@@ -14,6 +21,16 @@ export function CourseStoreNoticeBell({storeId}:{storeId:string}) {
  const [offset,setOffset]=useState(0),[expanded,setExpanded]=useState<string|null>(null),[error,setError]=useState("");
  const [rowError,setRowError]=useState<Record<string,string>>({}),[pending,setPending]=useState<string|null>(null),[sound,setSound]=useState(false),[loading,setLoading]=useState(true);
  const [undo,setUndo]=useState<CourseNoticeItem|null>(null);const heading=useId();
+ const courseHeading=useId(),targetGeneration=useRef(0);
+ const [course,setCourse]=useState<CourseNoticeItem|null>(null),[target,setTarget]=useState<TargetData|null>(null),[targetError,setTargetError]=useState("");
+ const targetReader=usePanelReader("course-notice-target",loadCourseStoreNoticeTarget,storeId,0);
+ function closeCourse(){targetGeneration.current++;setCourse(null);setTarget(null);setTargetError("");void load();}
+ async function openCourse(n:CourseNoticeItem){
+  const seq=++targetGeneration.current;setCourse(n);setTarget(null);setTargetError("");
+  try{const r=await targetReader.read({storeId,id:n.id});if(!mounted.current||seq!==targetGeneration.current)return;
+   if(!r.success){setTargetError(r.error);return;}if(r.storeId!==storeId){setTargetError("門市已切換");return;}setTarget(r.data);
+  }catch{if(mounted.current&&seq===targetGeneration.current)setTargetError("課程讀取失敗，請重試");}
+ }
  const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(false);
  const audio=useRef<AudioContext|null>(null);const soundKey=`course-notice-sound:${storeId}`;
  const load=useCallback(async()=>{
@@ -70,12 +87,18 @@ export function CourseStoreNoticeBell({storeId}:{storeId:string}) {
        </button>
       </div>
       {rowError[n.id]&&<p role="alert" className="px-3 pb-2 text-red-700">{rowError[n.id]}</p>}
-      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600"><p>{n.courseName}</p><p>異動：{noticeTime(n.updatedAt)}</p>{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已處理</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}</div>}
+      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600"><p>{n.courseName}</p><p>異動：{noticeTime(n.updatedAt)}</p>{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已處理</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>void openCourse(n)}>查看課程</button>}</div>}
      </div>)}
      {(offset>0||more)&&<div className="flex justify-between p-2"><button disabled={offset===0||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>Math.max(0,v-50))}>上一頁</button><button disabled={!more||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>v+50)}>下一頁</button></div>}
     </div>
     {undo&&<div role="status" className="flex shrink-0 items-center justify-between border-t border-earth-200 px-3 text-sm">已處理<button disabled={!!pending} className="min-h-11 px-3 font-semibold text-primary-700" onClick={()=>void toggle(undo)}>復原</button></div>}
    </div>
   </RightSheet>,document.body)}
+  {course&&<ModalPanel open onClose={closeCourse} labelledById={courseHeading} width={1100}>
+   <header className="flex items-center justify-between gap-2 border-b border-earth-200 p-3"><div className="min-w-0"><h2 id={courseHeading} className="text-base font-semibold text-primary-900">課程詳情</h2><p className="break-words text-sm text-earth-600">{target?.courseName??course.courseName}・{noticeTime(target?.startsAt??course.startsAt)}</p></div><button type="button" className="min-h-11 shrink-0 px-3" onClick={closeCourse}>返回通知</button></header>
+   <div className="max-h-[75dvh] overflow-y-auto p-3">
+    {targetError?<div role="alert" className="text-sm text-red-700">{targetError}<button className="min-h-11 px-3" onClick={()=>void openCourse(course)}>重試</button></div>:target?<NoticeCourseRoster key={target.id} sessionId={target.id} {...target} onDone={()=>{targetReader.clear();void load();}}/>:<p role="status" className="text-sm text-earth-500">讀取中…</p>}
+   </div>
+  </ModalPanel>}
  </>;
 }
