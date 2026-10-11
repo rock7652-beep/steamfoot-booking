@@ -3,6 +3,7 @@ import { assertStoreNoticeReviewBuild, STORE_NOTICE_REVIEW_BRANCH } from "../../
 import { assertReviewedReleaseEnvironment } from "../../scripts/consultation-preview-scope.mjs";
 
 const env = {
+  NODE_ENV: "test" as const,
   VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: STORE_NOTICE_REVIEW_BRANCH,
   VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
   DATABASE_URL: "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",
@@ -26,6 +27,6 @@ describe("store notice isolated preview", () => {
     expect(() => assertStoreNoticeReviewBuild({ ...env, ...overrides })).toThrow();
   });
   it("does not change ordinary production main", () => {
-    expect(() => assertStoreNoticeReviewBuild({ VERCEL_GIT_COMMIT_REF: "main" })).not.toThrow();
+    expect(() => assertStoreNoticeReviewBuild({ NODE_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).not.toThrow();
   });
 });
