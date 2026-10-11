@@ -113,7 +113,22 @@ export function isHqUsageUiPreview(env = process.env) {
 }
 
 /** @param {Record<string, string | undefined>} [env] */
+export function isMarketingStickyUiPreview(env = process.env) {
+  const allowed = ["feat/marketing-sticky-offer-20261011", "feat/marketing-sticky-collapse-20261011"];
+  const branch = allowed.find(value => [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].includes(value));
+  const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
+  if (!branch || !branches.includes(branch)) return false;
+  if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
+      env.VERCEL_GIT_COMMIT_REF !== branch ||
+      env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
+      Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW)) {
+    throw new Error("Marketing sticky preview isolation rejected: exact read-only Vercel Preview required");
+  }
+  return true;
+}
+
 export function isGuideUiPreview(env = process.env) {
+  if (isMarketingStickyUiPreview(env)) return true;
   if (isTeacherFeeUiPreview(env) || isPilatesUiPreview(env) || isMusicMigrationUiPreview(env) || isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
   const requested = branches.includes(GUIDE_UI_PREVIEW_BRANCH) || Boolean(env.GUIDE_UI_PREVIEW);

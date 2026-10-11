@@ -318,7 +318,7 @@ it("preselects pending makeup on the original card and allows removing the link"
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
-it("keeps shared post-class balance stable during attendance and rolls back a rejected save",async()=>{
+it("keeps shared post-class balance and attendance confirmed while a save is pending or rejected",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const base={customerPhone:"0912345678",sharedCard:true,cardId:"shared",cardRemaining:5,assignedCoachName:"黃教練",status:"RESERVED",bookingKind:"CARD",trialPayments:[],checkedInAt:null,serviceNote:"肩膀留意",notes:"",pointCost:2,available:0,unit:"POINT",termCount:0};
  const roster=[{...base,id:"one",customerId:"c1",customerName:"甲"},{...base,id:"two",customerId:"c2",customerName:"乙"}];
@@ -334,7 +334,8 @@ it("keeps shared post-class balance stable during attendance and rolls back a re
   expect(rows()[0].textContent).toContain("黃教練");expect(rows()[0].textContent).toContain("肩膀留意");
   act(()=>rows()[0].querySelector<HTMLButtonElement>('button[title="標記出席"]')!.click());
   expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);
-  expect(rows()[0].querySelector('[aria-label="甲：已出席"]')).toBeTruthy();
+  expect(rows()[0].querySelector('[aria-label="甲：待點名"]')).toBeTruthy();
+  expect(rows()[0].textContent).toContain("儲存中…");
   await act(async()=>finish({success:false,error:"驗證拒絕"}));
   expect(rows()[0].querySelector('[aria-label="甲：待點名"]')).toBeTruthy();
   expect(rows().map(row=>row.children[3].textContent)).toEqual(["1","1"]);

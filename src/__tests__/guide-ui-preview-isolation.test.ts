@@ -310,3 +310,51 @@ describe("Teacher-fee publication exact Preview provenance", () => {
     expect(deployment.main).toBeUndefined();
   });
 });
+
+
+describe("marketing sticky read-only preview", () => {
+  const marketingSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "feat/marketing-sticky-offer-20261011" };
+  function enableMarketing() { for (const [key, value] of Object.entries(marketingSafe)) vi.stubEnv(key, value); }
+  it("requires exact provider provenance without consulting database credentials", () => {
+    expect(isGuideUiPreview({ ...marketingSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
+    for (const key of ["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"]) {
+      expect(() => isGuideUiPreview({ ...marketingSafe, [key]: "wrong" })).toThrow(/isolation rejected/);
+    }
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+  });
+  it.each(["/", "/pricing", "/pricing/features", "/cases", "/guides", "/apply?intent=trial", "/pricing/business-assets/brand-reminder-example.jpeg"])("permits public marketing GET %s", path => {
+    enableMarketing();
+    expect(route(path).status).toBeLessThan(400);
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
+  it.each(["/hq/dashboard", "/s/zhubei", "/api/cron/send", "/api/line/webhook", "/_next/image?url=https://example.test", "/pricing/trial", "/pricing/submit"])("blocks non-marketing GET %s", path => {
+    enableMarketing();
+    expect(route(path).status).toBe(404);
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
+  it("blocks all writes before authentication or database access", () => {
+    enableMarketing();
+    for (const path of ["/pricing/submit", "/api/line/webhook", "/apply"]) expect(route(path, "POST").status).toBe(405);
+    expect(spies.auth).not.toHaveBeenCalled();
+    expect(spies.prisma).not.toHaveBeenCalled();
+    expect(spies.send).not.toHaveBeenCalled();
+  });
+  it("skips build migrations with no database URL", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...marketingSafe, DATABASE_URL: "", DIRECT_URL: "" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/database_disabled=true migrations_skipped=true/);
+    expect(result.stdout).not.toMatch(/migration_deploy_started/);
+  });
+});
+
+describe("marketing collapse preview provenance", () => {
+  it("allows only the exact Vercel preview repository", async () => {
+    const { isMarketingStickyUiPreview } = await import("../../scripts/guide-ui-preview-scope.mjs");
+    const env = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/marketing-sticky-collapse-20261011", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking" };
+    expect(isMarketingStickyUiPreview(env)).toBe(true);
+    expect(() => isMarketingStickyUiPreview({ ...env, VERCEL_ENV: "production" })).toThrow();
+    expect(() => isMarketingStickyUiPreview({ ...env, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
+    expect(() => isMarketingStickyUiPreview({ ...env, WORKERS_CI_BRANCH: env.VERCEL_GIT_COMMIT_REF })).toThrow();
+    expect(isMarketingStickyUiPreview({ ...env, VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+  });
+});

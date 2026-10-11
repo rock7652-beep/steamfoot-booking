@@ -4,7 +4,7 @@ import { PlanPackageNotes } from "@/components/plan-package-notes";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { SettingsReturnLink as Link } from "@/components/settings/settings-navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 
 /**
@@ -201,7 +201,7 @@ export default async function PlansCenterPage() {
         subtitle="依門市成長階段選擇方案，看懂目前狀態與功能差異"
         actions={
           <Link
-            href="/dashboard/settings"
+            href="/dashboard/settings?section=subscription"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定

@@ -259,19 +259,19 @@ export const additionalGuides: OperationGuide[] = [
     "id": "A05",
     "category": "booking",
     "title": "怎麼查看當日預約、狀態並直接聯絡顧客？",
-    "summary": "依月份與日期查看精簡清單、狀態、統計與顧客聯絡方式；手機會把篩選獨立成一列並保留主要操作。",
+    "summary": "依月份與日期查看精簡清單、狀態、統計與顧客聯絡方式；手機、平板與舊 iPad 會用緊湊版面保留主要操作。",
     "path": "預約管理",
     "steps": [
       "在上方選月份與日期；手機篩選會獨立成一列，月曆與名單只在自己的區塊捲動。",
-      "點月曆日期開啟當日清單，依統計與圖例辨識預約中、已完成、未到、補課及待收款；再用姓名／電話、人員或未收款篩選。",
+      "點月曆日期開啟當日清單，依統計與圖例辨識預約中、已完成、未到、補課及待收款；再用姓名／電話、人員或未收款篩選。平板窄欄會改為緊湊列，不必縮放整頁。",
       "名單優先顯示顧客、時間、方案及主要狀態；點電話旁的撥打聯絡顧客，要處理預約才開該列明細。",
       "關閉後留在原月份與篩選；月曆圖例旁可看最後更新時間並按手動更新。"
     ],
     "important": "「撥打」只開啟裝置的電話功能，不會改預約狀態；沒有電話時顯示「未留電話」。",
     "success": "當日清單顯示正確預約；點電話不會誤開詳情或更改資料。",
-    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段",
+    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段",
     "details": [
-      "手機與 iPad 窄寬度會重排月份、篩選與主要操作；月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
+      "手機與 iPad 窄寬度會重排月份、篩選與主要操作；平板橫直向及舊 iPad 會優先壓縮欄距與文字，月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
       "點電話不會開詳情或改狀態；號碼錯誤請回顧客資料修正。所屬店長顯示帳號的店內名稱，不能據此改派顧客。",
       "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。"
     ],
@@ -398,22 +398,13 @@ export const additionalGuides: OperationGuide[] = [
     "important": "畫面會先呈現預期狀態，再由伺服器確認；被拒絕會恢復原狀，結果不明時會鎖住該操作。先查紀錄，避免重複預約或收款。",
     "success": "看到已確認最新狀態，或重新讀取後能判斷上次操作是否成功。",
     "keywords": "刷新 重新整理 卡住 更新 正在確認最新狀態 暫時無法確認 查看最新狀態 連線中斷 回復原狀",
-    "details": [
-      "明確失敗會恢復原畫面；網路中斷等未知結果會先自動查核，不能把暫時顯示的完成狀態直接當成最終成功。",
-      "同一筆操作查核完成前會被阻擋；不要另開視窗重做。交易、預約與通知各自有紀錄，應回原紀錄確認。"
-    ],
+    "details": ["明確失敗會恢復原畫面；網路中斷等未知結果會先自動查核，不能把暫時顯示的完成狀態直接當成最終成功。", "同一筆操作查核完成前會被阻擋；不要另開視窗重做。交易、預約與通知各自有紀錄，應回原紀錄確認。", "當日名單會背景更新；重新讀取失敗時保留原清單並顯示重試。沒有方案或交易查看權限的人仍可能查看授權名單，但剩餘堂數及收款資訊會依權限省略，不能當作零堂或未收款。"],
     "modules": [
       "steamfoot"
     ],
     "permission": "booking.read",
     "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
-      "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
-      "src/app/(dashboard)/dashboard/bookings/booking-action-feedback.tsx",
-      "src/hooks/use-responsive-action.ts"
-    ],
+    "sources": ["src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx", "src/server/actions/booking-refresh.ts", "src/server/actions/slots.ts", "src/lib/booking-client-transport.ts", "src/app/(dashboard)/dashboard/bookings/booking-action-feedback.tsx"],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
     "answer": "先確認上一次是否已成功，再決定要不要重送，避免產生兩筆預約或收款。"

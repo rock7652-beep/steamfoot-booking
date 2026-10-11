@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { availableGuides, findOperationGuides } from "../lib/operation-guide";
-import { operationGuides } from "../lib/operation-guide";
+import { operationGuides, retiredFrontendOperationGuides } from "../lib/operation-guide";
 const spaOperationGuides = operationGuides.filter(g => /^J(1[4-9]|2[0-3])$/.test(g.id));
 import type { GuideAccess } from "../lib/operation-guide-types";
 
@@ -14,9 +14,11 @@ describe("SPA guide access and search", () => {
     expect(readOnly.some(g => g.id === "J15" || g.id === "J22")).toBe(false);
     expect(availableGuides(spa).some(g => g.id === "J15")).toBe(true);
   });
-  it("finds distinct customer and staff troubleshooting scenarios", () => {
-    for (const [query, id] of [["取消截止 12", "J18"], ["會員連結", "J15"], ["工作 備註", "J20"], ["LINE 未送達", "J23"]]) {
+  it("finds backend troubleshooting and keeps retired staff instructions archived", () => {
+    for (const [query, id] of [["取消截止 12", "J18"], ["會員連結", "J15"], ["LINE 未送達", "J23"]]) {
       expect(findOperationGuides(query, spa).some(g => g.id === id)).toBe(true);
     }
+    expect(findOperationGuides("工作 備註", spa).some(g => g.id === "J20")).toBe(false);
+    expect(retiredFrontendOperationGuides.some(g => g.id === "J20")).toBe(true);
   });
 });

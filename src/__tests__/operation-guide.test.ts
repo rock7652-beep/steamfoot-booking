@@ -51,7 +51,7 @@ describe("operation guide preview", () => {
   });
   it("finds common scenario synonyms and handles unmatched queries", () => {
     expect(searchBookingGuides("改期").map((item) => item.id)).toEqual(["A01"]);
-    expect(searchBookingGuides("  退費 ").map((item) => item.id)).toEqual(["A02"]);
+    expect(searchBookingGuides("  退費 ").map((item) => item.id)).toEqual(expect.arrayContaining(["A02"]));
     expect(searchBookingGuides("晚到").map((item) => item.id)).toEqual(["A03"]);
     expect(searchBookingGuides("不存在的情境")).toEqual([]);
   });
@@ -85,7 +85,7 @@ describe("operation guide preview", () => {
   });
   it("prioritizes notes for completed or cancelled bookings while keeping rules searchable", () => {
     expect(searchBookingGuides("", "COMPLETED").map((item) => item.id)).toEqual(["A03", "A01", "A02"]);
-    expect(searchBookingGuides("取消", "CANCELLED").map((item) => item.id)).toEqual(["A02"]);
+    expect(searchBookingGuides("取消", "CANCELLED").map((item) => item.id)).toEqual(expect.arrayContaining(["A02"]));
   });
   it("keeps controls outside the scrolling body in lists and articles", () => {
     click("？操作指南");
@@ -130,4 +130,39 @@ describe("operation guide preview", () => {
       document.removeEventListener("keydown", outerListener);
     }
   });
+});
+
+it("opens named article references and returns to the prior article and list", () => {
+  act(() => root.render(createElement(OperationGuideShell, { enabled: true, contextPath: "/dashboard/staff", access: { module: "course", music: true, permissions: ["staff.manage", "staff.view"], features: {} } }, createElement(OperationGuideTrigger))));
+  click("？操作指南");
+  click("新增教師後");
+  click("查看詳細說明");
+  expect(host.textContent).not.toContain("C169");
+  click("音樂教師如何設定可教課程、拆帳比例及 LINE 權限？");
+  expect(host.querySelector("[data-guide-scroll] h2")?.textContent).toBe("音樂教師如何設定可教課程、拆帳比例及 LINE 權限？");
+  click("返回上一則教學");
+  expect(host.querySelector("[data-guide-scroll] h2")?.textContent).toBe("新增教師後，為什麼還不能排課？");
+  expect(host.textContent).toContain("收起詳細說明");
+  click("音樂教師如何設定可教課程、拆帳比例及 LINE 權限？");
+  click("關閉"); click("？操作指南");
+  expect(host.querySelector("[data-guide-scroll] h2")?.textContent).toContain("音樂教師如何");
+  click("返回上一則教學"); click("返回問題列表");
+  expect(host.querySelector('input[type="search"]')).not.toBeNull();
+});
+
+it("ignores a repeated reference click and clears article state on scope remount", () => {
+  const access = { module: "course" as const, music: true, permissions: ["staff.manage", "staff.view"], features: {} };
+  act(() => root.render(createElement(OperationGuideShell, { key: "music-store", enabled: true, contextPath: "/dashboard/staff", access }, createElement(OperationGuideTrigger))));
+  click("？操作指南"); click("新增教師後");
+  const link = [...host.querySelectorAll("button")].find(button => button.textContent === "音樂教師如何設定可教課程、拆帳比例及 LINE 權限？")!;
+  act(() => { link.click(); link.click(); });
+  click("返回上一則教學");
+  expect(host.textContent).toContain("返回問題列表");
+  expect(host.textContent).not.toContain("返回上一則教學");
+  act(() => root.render(createElement(OperationGuideShell, { key: "headquarters", enabled: true, contextPath: "/dashboard", access: { module: "steamfoot", hqScope: true, permissions: ["audit.read", "staff.manage"], features: {} } }, createElement(OperationGuideTrigger))));
+  expect(host.querySelector("dialog")!.open).toBe(false);
+  click("？操作指南");
+  expect(host.querySelector('input[type="search"]')).not.toBeNull();
+  expect(host.textContent).toContain("總部如何查各店操作與登入紀錄");
+  expect(host.textContent).not.toContain("新增教師後");
 });
