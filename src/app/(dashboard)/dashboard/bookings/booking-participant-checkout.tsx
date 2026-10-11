@@ -128,7 +128,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
       onClick={() => void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "selectPlan", walletId: null }), "PENDING", null)}
       className="mt-2 min-h-11 px-3 text-base text-earth-600 disabled:opacity-50">改回體驗</button>}
     {message && <p role="alert" className="mt-2 text-sm text-amber-800">{message}</p>}
-    {!readOnly && checkout.canSell && status === "COMPLETED" && slot.customerId && checkout.plans.length > 0 && <div className="mt-2">
+    {!readOnly && checkout.canSell && ["PENDING", "COMPLETED"].includes(status) && slot.customerId && checkout.plans.length > 0 && <div className="mt-2">
       <button type="button" disabled={blocked || saving} onClick={() => setSelling(!selling)} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700">{selling ? "收合方案" : "購買本人方案"}</button>
       {selling && <div className="mt-2 rounded-lg border border-earth-200 p-3">
         <p className="mb-2 text-base font-semibold">方案開在 {slot.name} 名下</p>

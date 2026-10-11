@@ -359,7 +359,7 @@ export function CustomerDetailDrawerContent({
                   plans={plans}
                   canDiscount={canDiscount}
                   alwaysOpen
-                  onSuccess={onMutated}
+                  onSuccess={() => { setAssignOpen(false); onMutated(); }}
                   defaultPlanId={preselectedPlanId}
                 />
               </div>
