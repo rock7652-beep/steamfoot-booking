@@ -1,4 +1,6 @@
 
+import { MarketingStickyOffer } from "./marketing-sticky-offer";
+
 export function MarketingFooter() {
   return <footer className="border-t border-[#153B31]/15 bg-[#F8F5EE] px-5 py-8 text-sm leading-6 text-[#4C6259] sm:px-8">
     <div className="mx-auto max-w-6xl">
@@ -21,5 +23,6 @@ export function MarketingFooter() {
       </nav>
       <p className="mt-3">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p>
     </div>
+    <MarketingStickyOffer />
   </footer>;
 }

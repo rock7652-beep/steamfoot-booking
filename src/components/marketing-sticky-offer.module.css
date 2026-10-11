@@ -1,0 +1,26 @@
+.spacer { height: calc(84px + env(safe-area-inset-bottom, 0px)); }
+.bar { position: fixed; inset: auto 0 0; z-index: 35; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: #123e32; color: #f8f5ee; border-top: 1px solid #ecd5a4; box-shadow: 0 -4px 16px #153b311a; }
+.inner { max-width: 1152px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.offer { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; }
+.details { display: inline-flex; align-items: center; min-height: 44px; font-size: 16px; font-weight: 600; text-underline-offset: 4px; }
+.timer { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; color: #ecd5a4; }
+.apply { flex-shrink: 0; min-height: 44px; padding: 10px 16px; border-radius: 999px; background: #f5eedc; color: #123e32; font-size: 16px; font-weight: 600; }
+.apply:hover { background: #ecd5a4; }
+.apply:focus-visible, .details:focus-visible, .close:focus-visible { outline: 2px solid #ecd5a4; outline-offset: 3px; }
+.dialog { margin: auto; padding: 0; border: 0; border-radius: 16px; width: min(760px, calc(100vw - 32px)); height: min(900px, calc(100dvh - 32px)); max-width: 100%; max-height: 100dvh; overflow: hidden; background: #f8f5ee; color: #153b31; }
+.dialog[open] { display: flex; flex-direction: column; }
+.dialog::backdrop { background: #0009; }
+:global(html:has(dialog[open])) { overflow: hidden; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #153b3126; }
+.heading h2 { font-size: 18px; font-weight: 600; }
+.close { width: 44px; height: 44px; flex-shrink: 0; font-size: 20px; border-radius: 8px; }
+.frame { flex: 1; min-height: 0; width: 100%; border: 0; }
+@media (max-width: 639px) {
+  .offer { display: block; }
+  .details { min-height: 24px; font-size: 14px; }
+  .timer { display: block; }
+  .apply { padding-inline: 12px; font-size: 14px; }
+  .dialog { width: 100%; height: 100dvh; border-radius: 0; }
+  .heading { padding-top: max(8px, env(safe-area-inset-top, 0px)); }
+  .frame { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
