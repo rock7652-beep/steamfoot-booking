@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState, useTransition, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { switchViewedStore } from "@/server/actions/store-view-mode";
 import { OWN_STORE_VALUE } from "@/lib/store-view-mode-constants";
-import { toast } from "sonner";
+import { useStoreViewTransition } from "@/components/operations/store-view-transition";
 
 interface ViewStoreOption {
   id: string;
@@ -28,7 +28,7 @@ export function StoreViewModeSwitcher({
 }: StoreViewModeSwitcherProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const { pending: isPending, switchStore } = useStoreViewTransition();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,13 +48,11 @@ export function StoreViewModeSwitcher({
   const currentLabel = isOwnStore ? "我的店" : viewedStore.name;
 
   function handleSelect(nextStoreId: string) {
-    setOpen(false);
-    startTransition(async () => {
-      const result = await switchViewedStore(nextStoreId, pathname);
-      if (!result.success) {
-        toast.error(result.error ?? "切換店舖失敗，已保留原店舖");
-      }
-    });
+    const target = nextStoreId === OWN_STORE_VALUE
+      ? ownStore
+      : descendantStores.find(store => store.id === nextStoreId);
+    if (!target || target.id === viewedStoreId) { setOpen(false); return; }
+    if (switchStore(target.name, () => switchViewedStore(nextStoreId, pathname))) setOpen(false);
   }
 
   if (collapsed) {

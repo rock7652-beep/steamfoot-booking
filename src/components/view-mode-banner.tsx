@@ -1,10 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { switchViewedStore } from "@/server/actions/store-view-mode";
 import { OWN_STORE_VALUE } from "@/lib/store-view-mode-constants";
-import { toast } from "sonner";
+import { useStoreViewTransition } from "@/components/operations/store-view-transition";
 
 interface ViewModeBannerProps {
   viewedStoreName: string;
@@ -12,15 +11,10 @@ interface ViewModeBannerProps {
 
 export function ViewModeBanner({ viewedStoreName }: ViewModeBannerProps) {
   const pathname = usePathname();
-  const [isPending, startTransition] = useTransition();
+  const { pending: isPending, switchStore } = useStoreViewTransition();
 
   function returnToOwnStore() {
-    startTransition(async () => {
-      const result = await switchViewedStore(OWN_STORE_VALUE, pathname);
-      if (!result.success) {
-        toast.error(result.error ?? "返回母店失敗");
-      }
-    });
+    switchStore("我的店", () => switchViewedStore(OWN_STORE_VALUE, pathname));
   }
 
   return (

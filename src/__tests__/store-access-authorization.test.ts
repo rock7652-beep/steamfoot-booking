@@ -87,6 +87,44 @@ describe("organization store authorization", () => {
     expect(mockFindMany).toHaveBeenCalledTimes(1);
     expect(mockHasStoreFeature).not.toHaveBeenCalled();
   });
+
+  it("resolves a concrete child with one authorized tree traversal, not a second DTO lookup", async () => {
+    const { resolveAuthorizedConcreteStore } = await import("@/lib/store");
+    await expect(resolveAuthorizedConcreteStore({ role: "OWNER", storeId: "hq" }, "branch-a", "switch"))
+      .resolves.toEqual({ id: "branch-a", slug: "branch-a", name: "A" });
+    // Own row + direct children + empty next level + authorized DTO list.
+    // This is a query-count assertion over mocks, not a production timing claim.
+    expect(mockFindMany).toHaveBeenCalledTimes(4);
+    expect(mockHasStoreFeature).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves the concrete own store in one fresh lookup without enumerating descendants", async () => {
+    const { resolveAuthorizedConcreteStore } = await import("@/lib/store");
+    await expect(resolveAuthorizedConcreteStore({ role: "OWNER", storeId: "hq" }, "hq", "switch"))
+      .resolves.toEqual({ id: "hq", slug: "hq", name: "HQ" });
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    expect(mockHasStoreFeature).not.toHaveBeenCalled();
+  });
+
+  it("does not cache concrete store authorization between operations", async () => {
+    const { resolveAuthorizedConcreteStore } = await import("@/lib/store");
+    const user = { role: "OWNER", storeId: "hq" };
+    await expect(resolveAuthorizedConcreteStore(user, "branch-a", "switch")).resolves.toMatchObject({ id: "branch-a" });
+    mockHasStoreFeature.mockResolvedValue(false);
+    await expect(resolveAuthorizedConcreteStore(user, "branch-a", "switch")).rejects.toThrow("無權存取");
+    // An own-store status change is checked again as well.
+    mockFindMany.mockResolvedValue([]);
+    await expect(resolveAuthorizedConcreteStore(user, "hq", "switch")).rejects.toThrow("無權存取");
+  });
+
+  it("keeps concrete-store reads authorized and descendant writes blocked", async () => {
+    const { resolveAuthorizedConcreteStore } = await import("@/lib/store");
+    const user = { role: "OWNER", storeId: "hq" };
+    await expect(resolveAuthorizedConcreteStore(user, "branch-a", "write")).rejects.toThrow("僅供查閱");
+    await expect(resolveAuthorizedConcreteStore(user, "other", "switch")).rejects.toThrow("無權存取");
+    await expect(resolveAuthorizedConcreteStore(user, "inactive", "read")).rejects.toThrow("無權存取");
+    await expect(resolveAuthorizedConcreteStore({ role: "ADMIN" }, "__all__", "switch")).rejects.toThrow("指定分店");
+  });
   it.each(["inactive", "paused"])("still denies own-store access to %s", async (storeId) => {
     const { validateStoreAccess } = await import("@/lib/store");
     await expect(validateStoreAccess({ role: "OWNER", storeId }, storeId, "read")).rejects.toThrow("無權存取");
