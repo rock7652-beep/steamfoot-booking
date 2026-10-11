@@ -57,3 +57,12 @@ it("rechecks an owner who lost their role or active membership",async()=>{
  m.user.mockResolvedValue({id:"owner"});m.staff.mockResolvedValue(null);
  expect((await saveCourseOwnIncomeAccess(input)).success).toBe(false);expect(m.write).not.toHaveBeenCalled();
 });
+
+it.each(["teacher.booking.leave","teacher.booking.reschedule"] as const)("writes only the chosen work grant %s",async permission=>{
+ expect((await saveCourseOwnIncomeAccess({...input,permission})).success).toBe(true);
+ expect(m.write).toHaveBeenCalledWith(expect.anything(),"teacher-a",[{permission,granted:true}]);
+});
+it("rejects arbitrary backend permission grants",async()=>{
+ expect((await saveCourseOwnIncomeAccess({...input,permission:"staff.manage"})).success).toBe(false);
+ expect(m.write).not.toHaveBeenCalled();
+});

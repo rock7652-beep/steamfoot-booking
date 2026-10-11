@@ -22,7 +22,7 @@ it("defaults off, acknowledges a successful grant and retains the same editor",a
  const button=host.querySelector<HTMLButtonElement>('[role="switch"]')!;
  expect(button.getAttribute("aria-checked")).toBe("false");
  await act(async()=>button.click());
- expect(m.save).toHaveBeenCalledWith({storeId:"store-a",staffId:"teacher-a",previous:false,enabled:true});
+ expect(m.save).toHaveBeenCalledWith({storeId:"store-a",staffId:"teacher-a",previous:false,enabled:true,permission:"teacher.income.read.self"});
  expect(button.getAttribute("aria-checked")).toBe("true");expect(saved).toHaveBeenCalledOnce();
  expect(guard.mock.calls.map(c=>c[0])).toEqual([true,false]);expect(host.querySelector("a")).toBeNull();
 });
@@ -49,7 +49,7 @@ it("renders the grant read-only for non-owners",async()=>{
 it("allows advance authorization before LINE binding and uses the teacher heading",async()=>{
  m.save.mockResolvedValue({success:true,data:{enabled:true,updatedAt:"2026-10-11T00:00:00Z"}});
  await render({music:true,lineBound:false});
- expect(host.querySelector("h3")?.textContent).toBe("教師權限");
+ expect(host.querySelector("section")?.getAttribute("aria-label")).toBe("我的工作權限");
  const control=host.querySelector<HTMLInputElement>('[role="switch"]')!;
  expect(control.type).toBe("checkbox");expect(control.disabled).toBe(false);
  await act(async()=>control.click());
