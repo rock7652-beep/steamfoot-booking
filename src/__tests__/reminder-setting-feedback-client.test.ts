@@ -74,6 +74,21 @@ async function inputText(input: HTMLTextAreaElement | HTMLInputElement, value: s
 }
 
 describe.each(cases)("$name toggle feedback", item => {
+  it("reserves the same status width so pending cannot move the switch under a double click", async () => {
+    const request = deferred();
+    item.toggle.mockReturnValue(request.promise);
+    await render(item.render());
+    const status = summary().querySelector('[role="status"]')!;
+    const className = status.className;
+    expect(className).toContain("w-16");
+    expect(className).toContain("shrink-0");
+    await act(async () => toggle().click());
+    expect(status.textContent).toBe("儲存中…");
+    expect(status.className).toBe(className);
+    await act(async () => request.resolve({ success: true }));
+    expect(status.className).toBe(className);
+  });
+
   it("shows pending while collapsed, locks same-tick clicks and confirms state only after success", async () => {
     const request = deferred();
     item.toggle.mockReturnValue(request.promise);

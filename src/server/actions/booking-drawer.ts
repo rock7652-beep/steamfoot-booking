@@ -56,8 +56,8 @@ export interface BookingDrawerPayload {
     settings: { allowEdit: boolean; defaultPrice: number; minPrice: number; maxPrice: number };
     slots: Array<{ id: string | null; position: number; revision: number; customerId: string | null; name: string | null;
       service: string; status: string; source?: string; collectedAmount: number | null;
-      selectedWalletId?: string | null; selectedPlanName?: string | null; receiptCorrected?: boolean;
-      wallets?: Array<{ id: string; name: string; available: number }> }>;
+      selectedWalletId?: string | null; selectedPlanName?: string | null; selectedOwnerName?: string | null; selectedOwnerId?: string | null; receiptCorrected?: boolean;
+      wallets?: Array<{ id: string; name: string; available: number; expiryDate?: string | null }> }>;
   };
   companions?: { canAdd?: boolean; canEdit: boolean; canCreate: boolean; slots: Array<{ position: number; revision: number; customerId: string | null; name: string | null; status?: string }> };
   canEditServiceNote?: boolean;
@@ -422,7 +422,7 @@ async function fetchBookingDetailMeasured(
   let companions: BookingDrawerPayload["companions"];
   if (process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && isTrial && booking.people >= 1 && !booking.isMakeup && trialSettings) {
     const rows = await prisma.$queryRaw<NonNullable<BookingDrawerPayload["participantCheckout"]>["slots"]>`
-      SELECT p.id, p.position, p.revision, p."customerId", c.name, p.service, p.status, p.source, ws."walletId" AS "selectedWalletId", sp.name AS "selectedPlanName",
+      SELECT p.id, p.position, p.revision, p."customerId", c.name, p.service, p.status, p.source, ws."walletId" AS "selectedWalletId", sp.name AS "selectedPlanName", pw."customerId" AS "selectedOwnerId", wc.name AS "selectedOwnerName",
         CASE WHEN t.id IS NULL THEN NULL WHEN t.status::text IN ('VOIDED','CANCELLED') THEN 0
           ELSE GREATEST(0, t.amount - GREATEST(COALESCE(t."refundAmount",0),
             COALESCE((SELECT SUM(-r.amount) FROM "Transaction" r WHERE r."refundOfTransactionId" = t.id
@@ -436,6 +436,7 @@ async function fetchBookingDetailMeasured(
       LEFT JOIN "Customer" c ON c.id = p."customerId" AND c."storeId" = p."storeId"
       LEFT JOIN "WalletSession" ws ON ws.id = p."walletSessionId"
       LEFT JOIN "CustomerPlanWallet" pw ON pw.id = ws."walletId" AND pw."storeId" = p."storeId"
+      LEFT JOIN "Customer" wc ON wc.id = pw."customerId" AND wc."storeId" = p."storeId"
       LEFT JOIN "ServicePlan" sp ON sp.id = pw."planId"
       LEFT JOIN "Transaction" t ON t.id = p."collectionTransactionId" AND t."storeId" = p."storeId"
       WHERE g."bookingId" = ${booking.id} AND g."storeId" = ${booking.storeId} ORDER BY p.position`;
@@ -458,12 +459,12 @@ async function fetchBookingDetailMeasured(
       const ownWallets = await prisma.customerPlanWallet.findMany({ where: {
         storeId: booking.storeId, customerId: { in: customerIds }, status: "ACTIVE",
         startDate: { lte: booking.bookingDate }, OR: [{ expiryDate: null }, { expiryDate: { gte: booking.bookingDate } }],
-      }, select: { id: true, customerId: true, plan: { select: { name: true } },
+      }, select: { id: true, customerId: true, expiryDate: true, plan: { select: { name: true } },
         _count: { select: { sessions: { where: { status: "AVAILABLE" } } } } },
         orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }] });
       participantCheckout = { slots: slots.map(person => ({ ...person,
         wallets: ownWallets.filter(wallet => wallet.customerId === person.customerId && wallet._count.sessions > 0)
-          .map(wallet => ({ id: wallet.id, name: wallet.plan.name, available: wallet._count.sessions })),
+          .map(wallet => ({ id: wallet.id, name: wallet.plan.name, available: wallet._count.sessions, expiryDate: wallet.expiryDate?.toISOString().slice(0, 10) ?? null })),
       })),
         canCollect,
         canCollectUnregistered: process.env.BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED === "true",

@@ -74,7 +74,7 @@ export function ReminderSettingToggle({ enabled, pending, disabled, label, onTog
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <span role="status" aria-live="polite" className="whitespace-nowrap text-sm text-earth-500">
+      <span role="status" aria-live="polite" className="w-16 shrink-0 whitespace-nowrap text-right text-sm text-earth-500">
         {pending ? "儲存中…" : enabled ? "開啟" : "關閉"}
       </span>
       <button
