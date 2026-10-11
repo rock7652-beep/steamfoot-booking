@@ -77,7 +77,7 @@ describe("actual participant checkout component", () => {
   it("unknown companion has no payment button and read-only view has no writes", async () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
     await render(data); expect(buttons("收費 $499")).toHaveLength(1);
-    expect(container.textContent).toContain("待建檔");
+    expect(container.textContent).toContain("同行者 1");
     await render(data, true); expect(buttons("收費 $499")).toHaveLength(0); expect(buttons("使用本人方案")).toHaveLength(0);
   });
   it("releases the group busy lock before unmounting a successful plan form", async () => {
