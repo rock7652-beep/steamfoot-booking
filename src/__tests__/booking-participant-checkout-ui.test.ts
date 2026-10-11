@@ -138,7 +138,7 @@ describe("actual participant checkout component", () => {
 });
 
 it("keeps each person's profile and history in their own row without navigation", async () => {
-  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id === "guest" ? "朋友" : "預約者", phone: id === "guest" ? "0900000002" : "0900000001", serviceNote: null, bookings: [] } }));
+  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id === "guest" ? "朋友" : "預約者", phone: id === "guest" ? "0900000002" : "0900000001", serviceNote: null, wallets: [], bookings: [] } }));
   await render();
   await click(buttons("資料與紀錄")[1]);
   const friend = container.querySelector('[aria-label="朋友"]')!;
@@ -165,4 +165,43 @@ it("failed plan selection retains pending state and the selected form", async ()
   await act(async()=>container.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
   expect(container.textContent).toContain("已服務 0／2 人"); expect(container.textContent).toContain("方案已被預約");
   expect(container.querySelector("select")?.value).toBe("own"); expect(h.plan).not.toHaveBeenCalled();
+});
+
+it("assignment refreshes only the assigned person's profile and shows all wallets in the original row", async () => {
+  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [
+    { id: "new", name: "新購十堂", remainingSessions: 10, totalSessions: 10, expiryDate: "2026-12-31" },
+    { id: "old", name: "原有五堂", remainingSessions: 2, totalSessions: 5, expiryDate: null },
+  ] } }));
+  await render(checkout());
+  await act(async () => { window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest" } })); });
+  expect(h.profile.mock.calls).toEqual([["guest"]]);
+  expect(container.textContent).toContain("新購十堂");
+  expect(container.textContent).toContain("剩 10／10 堂");
+  expect(container.textContent).toContain("2026/12/31 到期");
+  expect(container.textContent).toContain("原有五堂");
+  expect(h.plan).not.toHaveBeenCalled();
+  expect(h.collect).not.toHaveBeenCalled();
+});
+
+it("assignment read failure preserves success and retries the read without selling again", async () => {
+  h.profile.mockRejectedValueOnce(new Error("offline"));
+  await render(checkout());
+  await act(async () => { window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest" } })); });
+  expect(container.textContent).toContain("已建立，方案資料更新失敗");
+  expect(container.textContent).not.toContain("尚無有效方案");
+  h.profile.mockResolvedValueOnce({ success: true, data: { id: "guest", name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [] } });
+  await click(buttons("重試")[0]);
+  expect(container.textContent).toContain("尚無有效方案");
+});
+
+it("a pre-assignment read cannot overwrite the refreshed wallet result", async () => {
+  let finishOld!: (value: unknown) => void;
+  h.profile.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+  await render(checkout());
+  await click(buttons("資料與紀錄")[1]);
+  h.profile.mockResolvedValueOnce({ success: true, data: { id: "guest", name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [{ id: "new", name: "新方案", remainingSessions: 4, totalSessions: 4, expiryDate: null }] } });
+  await act(async () => { window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest" } })); });
+  await act(async () => { finishOld({ success: true, data: { id: "guest", name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [] } }); });
+  expect(container.textContent).toContain("新方案");
+  expect(container.textContent).not.toContain("尚無有效方案");
 });
