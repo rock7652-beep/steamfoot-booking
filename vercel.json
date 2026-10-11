@@ -83,7 +83,8 @@
       "fix/steam-booking-detail-clarity-20261011": false,
       "fix/companion-inline-intake-20261011": false,
       "fix/unregistered-companion-payment-20261011": false,
-      "fix/monthly-retention-cohort-20261011": false
+      "fix/monthly-retention-cohort-20261011": false,
+      "fix/booking-customer-valid-plans-20261011": false
     }
   }
 }
