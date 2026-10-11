@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ prisma: {} }));
-import { analysisComparisonRanges, previousAnalysisRange, resolveAnalysisRange, isAnalysisDate, parseTaiwanDateToDbDate } from "@/lib/date-utils";
+import { analysisComparisonRanges, analysisRetentionCohort, previousAnalysisRange, resolveAnalysisRange, isAnalysisDate, parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { selectPeriodFacts } from "@/server/queries/analysis-period";
 import { selectConversionCustomerIds } from "@/server/queries/conversion-metrics";
 
@@ -67,5 +67,32 @@ describe("selected-period facts", () => {
   it("uses Taiwan paid date at midnight and rejects renewal before the selected range", () => {
     const result = selectConversionCustomerIds("2026-09", trials, [purchase("b", "2026-09-20"), purchase("b", "2026-09-25"), { ...purchase("a", "2026-09-22"), paidAt: new Date("2026-09-26T16:00:00Z") }], range);
     expect(result.convertedCustomerIds.size).toBe(0);
+  });
+});
+
+
+describe("calendar-month retention cohort", () => {
+  it("uses all of September for both October month-to-date and custom dates", () => {
+    const month = analysisComparisonRanges({ startDate: "2026-10-01", endDate: "2026-10-31" }, "month", "2026-10-11");
+    const custom = analysisComparisonRanges({ startDate: "2026-10-01", endDate: "2026-10-11" }, "custom", "2026-10-11");
+    expect(month.current).toEqual(custom.current);
+    const cohort = analysisRetentionCohort(month.current);
+    expect(cohort).toEqual({ startDate: "2026-09-01", endDate: "2026-09-30" });
+    expect(analysisRetentionCohort(custom.current)).toEqual(cohort);
+    const visits = [
+      ["early", "2026-09-01"], ["late", "2026-09-30"], ["absent", "2026-09-10"],
+      ["early", "2026-10-01"], ["early", "2026-10-05"], ["late", "2026-10-11"],
+      ["absent", "2026-10-12"], ["new", "2026-10-11"],
+    ].map(([customerId, day]) => ({ customerId, bookingDate: date(day), bookingType: "PACKAGE_SESSION", people: 1 }));
+    const select = (range: typeof month.current) => selectPeriodFacts(range, analysisRetentionCohort(range), visits, new Map(), [], []);
+    const result = select(month.current);
+    expect(result.counts).toMatchObject({ returnedCustomers: 2, unreturnedCustomers: 1 });
+    expect(result.counts.retentionRate).toBeCloseTo(200 / 3);
+    expect([...result.segments["monthly-returned"]]).toEqual(["early", "late"]);
+    expect(select(custom.current)).toEqual(result);
+  });
+  it("handles January, leap February, mid-month and cross-month selections", () => {
+    expect(analysisRetentionCohort({ startDate: "2026-01-01", endDate: "2026-01-11" })).toEqual({ startDate: "2025-12-01", endDate: "2025-12-31" });
+    expect(analysisRetentionCohort({ startDate: "2024-03-15", endDate: "2024-04-02" })).toEqual({ startDate: "2024-02-01", endDate: "2024-02-29" });
   });
 });

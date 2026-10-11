@@ -30,7 +30,7 @@ import {
 } from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
-import { toLocalDateStr, resolveAnalysisRange, analysisComparisonRanges } from "@/lib/date-utils";
+import { toLocalDateStr, resolveAnalysisRange, analysisComparisonRanges, analysisRetentionCohort } from "@/lib/date-utils";
 import {
   PageShell,
   PageHeader,
@@ -97,6 +97,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const { startDate, endDate, preset: activePreset } = selection;
   const periodRanges = analysisComparisonRanges(selection, activePreset);
   const effectiveEndDate = periodRanges.current.endDate;
+  const retentionCohort = analysisRetentionCohort(periodRanges.current);
   const displayLabel = `${startDate}～${effectiveEndDate}`;
 
   const month = startDate.slice(0, 7);
@@ -230,7 +231,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           }
         />
 
-        <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} />
+        <ReportDateRange key={`${activePreset}-${startDate}-${effectiveEndDate}`} activePreset={activePreset} startDate={startDate} endDate={effectiveEndDate} />
         <p className="text-xs text-earth-500">營收、客流、開卡、來源與回流均依 {startDate}～{effectiveEndDate} 統計；與前一段相同進度比較。下方長期趨勢固定顯示最近月份。</p>
 
         <section aria-labelledby="operations-summary-title">
@@ -431,7 +432,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         <section aria-labelledby="retention-analysis-title" className="rounded-xl border border-earth-200 bg-white p-3">
           <div>
             <h2 id="retention-analysis-title" className="text-sm font-semibold text-earth-800">留存分析</h2>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">{periodRanges.previousFull.startDate}～{periodRanges.previousFull.endDate} 來過的顧客，有多少在 {startDate}～{effectiveEndDate} 再次回來？僅計完成服務的唯一顧客。</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">{retentionCohort.startDate}～{retentionCohort.endDate} 來過的顧客，有多少在 {startDate}～{effectiveEndDate} 再次回來？僅計完成服務的唯一顧客。</p>
           </div>
           {retentionMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
