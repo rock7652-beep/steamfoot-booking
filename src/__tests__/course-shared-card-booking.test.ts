@@ -245,7 +245,7 @@ describe("student self-booking control", () => {
   it.each(["owner", "existing", null])("blocks own, named shared member and anonymous companion new booking: %s", async customerId => {
     db.courseBookingRule.findUnique.mockResolvedValue({selfBookingEnabled:false});
     const input = customerId ? {...named,customerId} : companion;
-    await expect(reserveCourseInTransaction(tx, actor, input, null)).rejects.toThrow("如需預約或調整時間，請聯繫店家");
+    await expect(reserveCourseInTransaction(tx, actor, input, null)).rejects.toThrow("如需預約，請聯繫店家");
     expect(db.courseBookingRule.findUnique).toHaveBeenCalledWith({where:{storeId:"sports"}});
     expect(db.courseBooking.create).not.toHaveBeenCalled();expect(db.coursePointEntry.create).not.toHaveBeenCalled();
   });
@@ -271,7 +271,7 @@ describe("student self-booking control", () => {
     db.courseBookingRule.findUnique.mockResolvedValue({selfBookingEnabled:false});
     db.courseBooking.count.mockResolvedValue(5);
     const input={sessionId:"session",cardId:"card",customerIds:["owner"],requestKey:"join-policy"};
-    await expect(joinCourseWaitlist(actor,input)).rejects.toThrow("如需預約或調整時間，請聯繫店家");
+    await expect(joinCourseWaitlist(actor,input)).rejects.toThrow("如需預約，請聯繫店家");
     expect(db.courseWaitlistEntry.create).not.toHaveBeenCalled();
     await expect(joinCourseWaitlist(manager,input)).resolves.toMatchObject({rows:[expect.objectContaining({customerId:"owner"})]});
   });
