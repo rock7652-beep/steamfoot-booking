@@ -13,7 +13,7 @@
 
 ## 已完成檢查
 
-- 優惠、文案、官網路由：3 個測試檔、36 項通過。
+- 優惠、文案、官網路由：初次 3 個測試檔、36 項通過；補唯讀預覽後 4 個檔案、353 項通過。
 - 兩個 TSX 的 ESLint 通過；git diff --check 通過。
 - 用真實元件與既有申請表建置隔離靜態 fixture，Chromium 測試 320×640、390×844、768×1024、1024×768、1366×900：固定底部、捲動後可見、無水平溢出、表單開啟、Escape 關閉、重新開啟草稿保留、視窗尺寸變化後草稿保留、沒有 pageerror，全部通過。
 - 倒數每秒更新；2026/11/01 台灣午夜切換年終，2027/01/01 台灣午夜移除固定列，通過。
@@ -24,3 +24,7 @@
 - 未送出測試申請，未寫入顧客資料。既有 API 與資料庫流程未修改；遠端 Preview 仍需核對同源 iframe 及實際申請成功／錯誤顯示。
 - 真實 iPhone／iPad、Safari、虛擬鍵盤、安全區與慢網路待驗；不能以 Chromium 尺寸測試替代。
 - 尚未取得正式合併授權；保持草稿 PR。
+
+## 預覽環境補修
+
+自動部署原先被另一支線的 exact-branch guard 擋下。為本支線補 exact Vercel preview／repo provenance，重用既有 disabled DB clients、no migration 與 outbound blocks，proxy 僅允許官網 GET／HEAD，所有寫入回 405，HQ／店家／API 回 404。沒有修改專案共用環境變數或正式主線規則。隔離測試含錯誤 provenance、官網 allowlist、非官網封鎖、寫入封鎖、跳過 migration。
