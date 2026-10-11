@@ -1,3 +1,4 @@
+vi.mock("@/components/admin/course-store-notice-bell",()=>({CourseStoreNoticeBell:()=>null}));
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
