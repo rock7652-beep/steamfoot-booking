@@ -219,6 +219,7 @@ export default async function DashboardLayout({
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
     <DashboardShell
       canViewAudit={canViewAudit}
+      courseNoticeStoreId={effectiveStoreId}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
