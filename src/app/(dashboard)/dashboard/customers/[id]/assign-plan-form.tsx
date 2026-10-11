@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState, useMemo, useEffect } from "react";
+import { useState, useActionState, useMemo, useEffect, useRef } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
 import { toast } from "sonner";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
@@ -41,6 +41,7 @@ type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" 
 type StaffPaymentStatus = "CONFIRMED" | "PENDING";
 
 export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, onPendingChange, defaultPlanId }: Props) {
+  const submitting = useRef(false);
   const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
@@ -113,54 +114,57 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
 
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
-      const planId = formData.get("planId") as string;
-      const note = (formData.get("note") as string) || undefined;
-      const result = await assignPlanToCustomer({
-        customerId,
-        planId,
-        paymentMethod,
-        paymentSplits,
-        paymentStatus,
-        note,
-        discountType: discountType,
-        discountValue: hasDiscount ? parseFloat(discountValue) : undefined,
-        discountReason: discountReason || undefined,
-        referenceNo: showsTransferDetails && referenceNo.trim() ? referenceNo.trim() : undefined,
-        bankLast5: showsTransferDetails && bankLast5.trim() ? bankLast5.trim() : undefined,
-        expiryMode,
-        customExpiryValue:
-          expiryMode === "CUSTOM_DURATION"
-            ? parseInt(customExpiryValue, 10)
-            : undefined,
-        customExpiryUnit:
-          expiryMode === "CUSTOM_DURATION" ? customExpiryUnit : undefined,
-        customExpiryDate:
-          expiryMode === "CUSTOM_DATE" ? customExpiryDate : undefined,
-      });
-      if (result.success) {
-        const msg = isPending
-          ? "方案已建立，請至「待確認付款」確認入帳"
-          : "方案已成功指派";
-        toast.success(msg);
-        if (!alwaysOpen) setOpen(false);
-        setSelectedPlanId("");
-        setPaymentMethod("CASH");
-        setPaymentSplits(undefined);
-        setPaymentStatus("CONFIRMED");
-        setReferenceNo("");
-        setBankLast5("");
-        setDiscountType("none");
-        setDiscountValue("");
-        setDiscountReason("");
-        setExpiryMode("PLAN_DEFAULT");
-        setCustomExpiryValue("30");
-        setCustomExpiryUnit("DAY");
-        setCustomExpiryDate(todayTW);
-        onSuccess?.();
-        return { error: null };
-      }
-      toast.error(result.error ?? "指派失敗");
-      return { error: result.error ?? "發生錯誤" };
+      try {
+        const planId = formData.get("planId") as string;
+        const note = (formData.get("note") as string) || undefined;
+        const result = await assignPlanToCustomer({
+          customerId,
+          planId,
+          paymentMethod,
+          paymentSplits,
+          paymentStatus,
+          note,
+          discountType: discountType,
+          discountValue: hasDiscount ? parseFloat(discountValue) : undefined,
+          discountReason: discountReason || undefined,
+          referenceNo: showsTransferDetails && referenceNo.trim() ? referenceNo.trim() : undefined,
+          bankLast5: showsTransferDetails && bankLast5.trim() ? bankLast5.trim() : undefined,
+          expiryMode,
+          customExpiryValue:
+            expiryMode === "CUSTOM_DURATION"
+              ? parseInt(customExpiryValue, 10)
+              : undefined,
+          customExpiryUnit:
+            expiryMode === "CUSTOM_DURATION" ? customExpiryUnit : undefined,
+          customExpiryDate:
+            expiryMode === "CUSTOM_DATE" ? customExpiryDate : undefined,
+        });
+        if (result.success) {
+          const msg = isPending
+            ? "方案已建立，請至「待確認付款」確認入帳"
+            : "方案已成功指派";
+          toast.success(msg);
+          if (!alwaysOpen) setOpen(false);
+          setSelectedPlanId("");
+          setPaymentMethod("CASH");
+          setPaymentSplits(undefined);
+          setPaymentStatus("CONFIRMED");
+          setReferenceNo("");
+          setBankLast5("");
+          setDiscountType("none");
+          setDiscountValue("");
+          setDiscountReason("");
+          setExpiryMode("PLAN_DEFAULT");
+          setCustomExpiryValue("30");
+          setCustomExpiryUnit("DAY");
+          setCustomExpiryDate(todayTW);
+          window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId, pendingPayment: isPending } }));
+          onSuccess?.();
+          return { error: null };
+        }
+        toast.error(result.error ?? "指派失敗");
+        return { error: result.error ?? "發生錯誤" };
+      } finally { submitting.current = false; }
     },
     { error: null }
   );
@@ -179,7 +183,10 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
   }
 
   return (
-    <form action={action} className="rounded-lg border border-primary-200 bg-primary-50 p-4">
+    <form onSubmit={event => {
+      if (submitting.current) { event.preventDefault(); return; }
+      submitting.current = true;
+    }} action={action} className="rounded-lg border border-primary-200 bg-primary-50 p-4">
       <h3 className="mb-3 text-sm font-semibold text-primary-800">指派課程方案</h3>
       {state.error && (
         <p className="mb-2 rounded bg-red-50 px-2 py-1 text-xs text-red-600">{state.error}</p>
