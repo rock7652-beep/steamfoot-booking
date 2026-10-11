@@ -114,9 +114,10 @@ export function isHqUsageUiPreview(env = process.env) {
 
 /** @param {Record<string, string | undefined>} [env] */
 export function isMarketingStickyUiPreview(env = process.env) {
-  const branch = "feat/marketing-sticky-offer-20261011";
+  const allowed = ["feat/marketing-sticky-offer-20261011", "feat/marketing-sticky-collapse-20261011"];
+  const branch = allowed.find(value => [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].includes(value));
   const branches = [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH];
-  if (!branches.includes(branch)) return false;
+  if (!branch || !branches.includes(branch)) return false;
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
       env.VERCEL_GIT_COMMIT_REF !== branch ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||

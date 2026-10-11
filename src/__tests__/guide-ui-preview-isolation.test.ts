@@ -346,3 +346,15 @@ describe("marketing sticky read-only preview", () => {
     expect(result.stdout).not.toMatch(/migration_deploy_started/);
   });
 });
+
+describe("marketing collapse preview provenance", () => {
+  it("allows only the exact Vercel preview repository", async () => {
+    const { isMarketingStickyUiPreview } = await import("../../scripts/guide-ui-preview-scope.mjs");
+    const env = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/marketing-sticky-collapse-20261011", VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking" };
+    expect(isMarketingStickyUiPreview(env)).toBe(true);
+    expect(() => isMarketingStickyUiPreview({ ...env, VERCEL_ENV: "production" })).toThrow();
+    expect(() => isMarketingStickyUiPreview({ ...env, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
+    expect(() => isMarketingStickyUiPreview({ ...env, WORKERS_CI_BRANCH: env.VERCEL_GIT_COMMIT_REF })).toThrow();
+    expect(isMarketingStickyUiPreview({ ...env, VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+  });
+});

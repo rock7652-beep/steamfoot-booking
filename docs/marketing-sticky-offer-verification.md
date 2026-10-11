@@ -28,3 +28,11 @@
 ## 預覽環境補修
 
 自動部署原先被另一支線的 exact-branch guard 擋下。為本支線補 exact Vercel preview／repo provenance，重用既有 disabled DB clients、no migration 與 outbound blocks，proxy 僅允許官網 GET／HEAD，所有寫入回 405，HQ／店家／API 回 404。沒有修改專案共用環境變數或正式主線規則。隔離測試含錯誤 provenance、官網 allowlist、非官網封鎖、寫入封鎖、跳過 migration。
+
+## 收合優化（2026-10-11）
+- 已依 Framework 延續官網共用元件；初次展開，收合選擇以版本化 sessionStorage 記住，重新整理／換頁保持；儲存不可用時仍能操作。
+- 表單開啟隱藏固定列，Escape／關閉恢復並返回試用按鈕；同頁草稿保留。
+- 優惠截止後不顯示倒數，但保留免費試用 30 天入口；倒數只代表付款優惠。
+- 真實元件靜態 fixture：320×640、390×844、768×1024、1024×768、1366×900 通過底部固定、無水平溢出、收合、重新整理保留、重新展開、表單隱藏固定列、草稿保留、截止切換。手機展開 113px、收合小於80px；桌機65px。
+- 以上不代表 Safari／iPhone／iPad 虛擬鍵盤及實際送出驗收。沒有寫入真實資料。
+- 新支線限定的 Vercel 唯讀隔離預覽重用既有保護，不影響正式環境。
