@@ -30,7 +30,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <p className="text-sm font-semibold tracking-widest text-[#ECD5A4]">2026 年底前限定優惠</p>
-          <h2 id="yearend-offer" className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">年繳 12 個月<span className="block text-[#ECD5A4] sm:ml-3 sm:inline">再送 2 個月</span></h2>
+          <h2 id="yearend-offer" className="scroll-mt-24 mt-2 text-2xl font-semibold leading-snug sm:text-3xl">年繳 12 個月<span className="block text-[#ECD5A4] sm:ml-3 sm:inline">再送 2 個月</span></h2>
           <p className="mt-2 text-lg font-semibold text-[#ECD5A4]">年繳最高省 NT${money(Math.max(...PUBLIC_PRICING_PLANS.map(annualSavings)))}</p>
         </div>
         <div className="shrink-0">
@@ -74,7 +74,7 @@ export function PricingOfferTerms({ initialNow }: { initialNow: number }) {
 export function AddonOffer({ initialNow }: { initialNow: number }) {
   const offer = getPublicAddonOffer(useNow(initialNow));
   return <div className="mt-4">
-    {offer.active && <div className="rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] p-4">
+    {offer.active && <div id="double-ten-offer" className="scroll-mt-24 rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] p-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div><p className="text-lg font-semibold text-[#59441E]">雙十店務升級優惠</p><p className="mt-1 text-base text-[#59441E]">十月限定・加購每項年繳最高省 NT$3,600</p></div>
         <div><p className="mb-1 text-sm text-[#59441E]">加購優惠倒數</p><div role="timer" aria-label="距離雙十加購付款優惠截止" aria-live="off" className="grid grid-cols-4 gap-2">

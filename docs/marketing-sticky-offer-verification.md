@@ -28,3 +28,20 @@
 ## 預覽環境補修
 
 自動部署原先被另一支線的 exact-branch guard 擋下。為本支線補 exact Vercel preview／repo provenance，重用既有 disabled DB clients、no migration 與 outbound blocks，proxy 僅允許官網 GET／HEAD，所有寫入回 405，HQ／店家／API 回 404。沒有修改專案共用環境變數或正式主線規則。隔離測試含錯誤 provenance、官網 allowlist、非官網封鎖、寫入封鎖、跳過 migration。
+
+## 收合優化（2026-10-11）
+- 已依 Framework 延續官網共用元件；初次展開，收合選擇以版本化 sessionStorage 記住，重新整理／換頁保持；儲存不可用時仍能操作。
+- 表單開啟隱藏固定列，Escape／關閉恢復並返回試用按鈕；同頁草稿保留。
+- 優惠截止後不顯示倒數，但保留免費試用 30 天入口；倒數只代表付款優惠。
+- 真實元件靜態 fixture：320×640、390×844、768×1024、1024×768、1366×900 通過底部固定、無水平溢出、收合、重新整理保留、重新展開、表單隱藏固定列、草稿保留、截止切換。手機展開 113px、收合小於80px；桌機65px。
+- 以上不代表 Safari／iPhone／iPad 虛擬鍵盤及實際送出驗收。沒有寫入真實資料。
+- 新支線限定的 Vercel 唯讀隔離預覽重用既有保護，不影響正式環境。
+
+## 最終入口分工（2026-10-11）
+- 上方免費試用30天與官網頁面內 /apply 連結共用原頁dialog。保留原href作無JS降級；一般左鍵/鍵盤啟動原頁表單，Ctrl/Command/新分頁保留原生連結。首次表單保留來源query，關閉再開保留同頁草稿與原始来源；關閉回到最後啟動連結。
+- 底部只提供付款優惠名称與倒數，點擊雙十到 /pricing#double-ten-offer，年終到 /pricing#yearend-offer；兩處 scroll-mt-24 預留固定導覽。期限与价格沿用相同公開優惠函式。
+- 收合只留右下角44px優惠入口，不保留底部整條／重複試用按鈕。優惠到期整個優惠入口消失，試用表單仍可從頁面連結啟動。
+- 首次展開，sessionStorage記住本次瀏覽。手機導覽Logo在窄螢幕限110px，上方試用與選單保持44px。
+- 334項相關單元測試、三個TSX ESLint與diff check通過。
+- 五尺寸實際優惠元件static fixture通過：收合、重新整理保持、展開、兩個不同申請連結共用dialog／草稿、首次來源query保留、Escape、截止切換與到期後試用表單可開。手機61px、桌機65px（未含safearea）。fixture非完整Next／裝置實機驗收。
+- 最新完整官網Preview與遠端CI需按新head重新核實。iOS鍵盤及真正申請提交尚未驗收，沒有真實資料寫入。
