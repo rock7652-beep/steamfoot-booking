@@ -71,7 +71,10 @@ export function MarketingStickyOffer() {
         {collapsed ? <button type="button" className={styles.reopen} aria-expanded={false} aria-controls="marketing-offer-details" aria-label="展開優惠倒數" onClick={toggle}>優惠 ⌃</button> :
           <div className={styles.inner}>
             <a id="marketing-offer-details" href={addon?.active ? "/pricing#double-ten-offer" : "/pricing#yearend-offer"} className={styles.offer}>
-              <span className={styles.details}>{addon?.active ? "雙十加購優惠" : "年繳再送 2 個月"}</span>
+              <span className={styles.details}>
+                <span>{addon?.active ? "雙十加購優惠" : "年繳再送 2 個月"}</span>
+                <span className={styles.viewOffer}>查看優惠 →</span>
+              </span>
               <span role="timer" aria-live="off" aria-label="距離付款優惠截止" className={styles.timer}>付款優惠剩 {offer.countdown[0]}天 {offer.countdown.slice(1).map(value => String(value).padStart(2, "0")).join(":")}</span>
             </a>
             <button type="button" className={styles.toggle} aria-expanded={true} aria-controls="marketing-offer-details" aria-label="收合優惠倒數" onClick={toggle}>⌄</button>
