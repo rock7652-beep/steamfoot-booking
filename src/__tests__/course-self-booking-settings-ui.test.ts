@@ -3,6 +3,8 @@ import { act, createElement as el, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ save: vi.fn(), fetch:vi.fn(), refresh: vi.fn(), push: vi.fn() }));
+vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn(),loadCourseStoreNotices:vi.fn(),markCourseStoreNotice:vi.fn()}));
+vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
 vi.mock("next/navigation", () => ({ useRouter: () => m, usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/server/actions/course-settings", () => ({ saveCourseSelfBookingSettings: m.save }));
 vi.mock("@/components/feature-presentation", () => ({ FeatureEntry: ({ children }: { children: unknown }) => children }));
