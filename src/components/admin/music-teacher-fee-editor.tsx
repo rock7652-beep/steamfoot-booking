@@ -8,9 +8,10 @@ function feeSummary(plan: TeacherPlan, draft: TeacherFeeDraft | undefined, setti
  const rule = draft && draft.mode !== "INHERIT" ? {mode:draft.mode,value:Number(draft.value)} : plan.musicSubjectId && settings.subjectRules[plan.musicSubjectId] ? settings.subjectRules[plan.musicSubjectId] : {mode:"SHARE",value:(settings.defaultRatio ?? plan.musicTeacherShare ?? NaN)*100};
  if (draft && draft.mode !== "INHERIT" && !draft.value.trim()) return "請填分潤";
  if (!Number.isFinite(rule.value)) return "尚未設定分潤";
- if (rule.mode === "CLASS") return `老師 $${rule.value.toLocaleString("zh-TW")}／堂`;
+ const teacherSpecific = !!(draft && draft.mode !== "INHERIT") || !!(plan.musicSubjectId && settings.subjectRules[plan.musicSubjectId]) || settings.defaultRatio != null;
+ if (rule.mode === "CLASS") return `固定鐘點 · $${rule.value.toLocaleString("zh-TW")}／堂`;
  const amount = plan.musicPricePerLesson == null ? "" : ` · 定價試算 $${Number((plan.musicPricePerLesson*rule.value/100).toFixed(2)).toLocaleString("zh-TW")}／堂`;
- return `老師 ${Number(rule.value.toFixed(2))}%${amount}`;
+ return `${teacherSpecific ? "彈性拆帳" : "一般拆帳"} · ${Number(rule.value.toFixed(2))}%${amount}`;
 }
 export function MusicTeacherFeeEditor({templates,qualificationIds,fees,settings,onSettings,onFees,onQualification,invalidTemplateId,readOnly=false,qualificationReadOnly=readOnly}:{invalidTemplateId?:string;readOnly?:boolean;qualificationReadOnly?:boolean;templates:TeacherPlan[];qualificationIds:string[];fees:Record<string,TeacherFeeDraft>;settings:MusicTeacherSettings;onSettings:(s:MusicTeacherSettings)=>void;onFees:(f:Record<string,TeacherFeeDraft>)=>void;onQualification:(id:string,selected:boolean)=>void}) {
  const exceptions = useMemo(()=>qualificationIds.filter(id=>fees[id] && fees[id].mode!=="INHERIT"),[qualificationIds,fees]);

@@ -31,12 +31,30 @@ it("selects courses before showing fees, preserves per-course exceptions, and pr
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const onSettings=vi.fn(),onFees=vi.fn();
  const props={templates:[{id:"p",name:"吉他",musicPricePerLesson:800,musicTeacherShare:0.6}],qualificationIds:[] as string[],fees:{p:{mode:"SHARE" as const,value:"40",revision:2}},settings:{defaultRatio:0.6,subjectRules:{},revision:1},onSettings,onFees,onQualification:vi.fn()};
  try {
-  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));expect(host.textContent).not.toContain("老師分潤");expect(host.querySelector('[aria-label="搜尋課程"]')).not.toBeNull();
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));expect(host.textContent).not.toContain("老師拆帳");expect(host.querySelector('[aria-label="搜尋課程"]')).not.toBeNull();
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,qualificationIds:["p"]})));
   const done=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="完成選擇")!;await act(async()=>done.click());
-  expect(host.textContent).toContain("老師 40% · 定價試算 $320／堂");
+  expect(host.textContent).toContain("彈性拆帳 · 40% · 定價試算 $320／堂");
   const ratio=host.querySelector('[aria-label="教師彈性拆帳比例"]') as HTMLInputElement;
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(ratio,"50");ratio.dispatchEvent(new Event("input",{bubbles:true}));});
   expect(onSettings).toHaveBeenLastCalledWith(expect.objectContaining({defaultRatio:0.5}));expect(onFees).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("summarizes course defaults, teacher overrides, fixed fees and zero without mixing them",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");const root=createRoot(host);
+ const props={templates:[{id:"p",name:"吉他",musicSubjectId:"guitar",musicPricePerLesson:800,musicTeacherShare:0.4}],qualificationIds:["p"],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:1},onSettings:vi.fn(),onFees:vi.fn(),onQualification:vi.fn()};
+ try {
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
+  expect(host.textContent).toContain("一般拆帳 · 40% · 定價試算 $320／堂");
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,settings:{...props.settings,defaultRatio:0.5}})));
+  expect(host.textContent).toContain("彈性拆帳 · 50% · 定價試算 $400／堂");
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,fees:{p:{mode:"CLASS",value:"600",revision:1}}})));
+  expect(host.textContent).toContain("固定鐘點 · $600／堂");
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,settings:{...props.settings,defaultRatio:0}})));
+  expect(host.textContent).toContain("彈性拆帳 · 0% · 定價試算 $0／堂");
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,settings:{...props.settings,subjectRules:{guitar:{mode:"SHARE",value:55}}}})));
+  expect(host.textContent).toContain("彈性拆帳 · 55% · 定價試算 $440／堂");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
