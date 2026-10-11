@@ -2,8 +2,9 @@
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),mark:vi.fn()}));
-vi.mock("@/server/actions/course-store-notices",()=>({loadCourseStoreNotices:m.load,markCourseStoreNotice:m.mark}));
+const m=vi.hoisted(()=>({load:vi.fn(),mark:vi.fn(),target:vi.fn()}));
+vi.mock("@/server/actions/course-store-notices",()=>({loadCourseStoreNotices:m.load,markCourseStoreNotice:m.mark,loadCourseStoreNoticeTarget:m.target}));
+vi.mock("next/dynamic",()=>({default:()=> (props:{sessionId:string})=>createElement("div",{"data-testid":"notice-course"},props.sessionId)}));
 import {CourseStoreNoticeBell} from "@/components/admin/course-store-notice-bell";
 let host:HTMLDivElement,root:Root;
 const row={id:"n",kind:"LEAVE",customerName:"驗收學員甲",courseName:"吉他課",coachName:"驗收教師",previousCoachName:null,startsAt:"2026-10-15T02:00:00Z",previousStartsAt:null,affectedCount:1,details:{},handledAt:null,handledById:null,handledByName:null,revision:0,createdAt:"2026-10-11T02:00:00Z",updatedAt:"2026-10-11T02:00:00Z"};
@@ -43,4 +44,21 @@ it("shows a failed handled read as an error, not as an empty result",async()=>{
  await act(async()=>read.resolve({success:false,error:"通知更新失敗，請重試"}));
  expect(document.querySelector('[role="alert"]')?.textContent).toContain("通知更新失敗");
  expect(document.body.textContent).not.toContain("尚無已處理通知");
+});
+const expand=async()=>{const details=[...document.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')].find(b=>b.textContent?.includes("驗收學員甲"));await act(async()=>details!.click());};
+it("opens the authoritative course without navigation or marking the notice and returns to the same row",async()=>{
+ m.load.mockResolvedValue(response([{...row,canViewCourse:true}]));await click("門市通知，1 筆待處理");await expand();
+ const read=deferred();m.target.mockReturnValueOnce(read.promise);const url=window.location.href;
+ await click("查看課程");expect(document.body.textContent).toContain("課程詳情");expect(document.body.textContent).toContain("讀取中…");
+ await act(async()=>read.resolve({success:true,storeId:"s",data:{id:"current-session",courseName:"目前課程",startsAt:row.startsAt}}));
+ expect(document.querySelector('[data-testid="notice-course"]')?.textContent).toBe("current-session");
+ expect(m.target).toHaveBeenCalledWith({storeId:"s",id:"n"});expect(m.mark).not.toHaveBeenCalled();expect(window.location.href).toBe(url);
+ await click("返回通知");expect(document.querySelector('[data-testid="notice-course"]')).toBeNull();expect(button("查看課程")).toBeTruthy();
+});
+it("ignores a late course response after closing and keeps target failures inside the course panel",async()=>{
+ m.load.mockResolvedValue(response([{...row,canViewCourse:true}]));await click("門市通知，1 筆待處理");await expand();
+ const read=deferred();m.target.mockReturnValueOnce(read.promise);await click("查看課程");await click("返回通知");
+ await act(async()=>read.resolve({success:true,storeId:"s",data:{id:"old",courseName:"old",startsAt:row.startsAt}}));expect(document.querySelector('[data-testid="notice-course"]')).toBeNull();
+ m.target.mockResolvedValue({success:false,error:"對應課程已不存在"});await click("查看課程");
+ expect(document.querySelector('[role="alert"]')?.textContent).toContain("對應課程已不存在");expect(document.querySelector('[data-testid="notice-course"]')).toBeNull();expect(m.mark).not.toHaveBeenCalled();
 });
