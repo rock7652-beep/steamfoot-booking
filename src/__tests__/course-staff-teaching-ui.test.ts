@@ -26,11 +26,11 @@ it("owner edits the instructor income grant in the work tab and reopening retain
  m.income.mockResolvedValue({success:true,data:{enabled:true,updatedAt:"2026-10-11T14:00:00.000Z"}});
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,canManageOwnIncome:true,personalIncomeEnabled:true,permissionGroups:[]})));
  await click("編輯");await click("工作帳號");
- const switchButton=document.body.querySelector<HTMLButtonElement>('[role="switch"][aria-label="允許查看自己的薪酬"]')!;
+ const switchButton=document.body.querySelector<HTMLButtonElement>('[role="switch"][aria-label="查看自己的薪酬"]')!;
  expect(switchButton.getAttribute("aria-checked")).toBe("false");
  await act(async()=>switchButton.click());expect(switchButton.getAttribute("aria-checked")).toBe("true");
  await click("取消");await click("編輯");await click("工作帳號");
- expect(document.body.querySelector('[role="switch"][aria-label="允許查看自己的薪酬"]')?.getAttribute("aria-checked")).toBe("true");
+ expect(document.body.querySelector('[role="switch"][aria-label="查看自己的薪酬"]')?.getAttribute("aria-checked")).toBe("true");
  expect(m.save).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();
 });
 async function click(text:string){
@@ -86,7 +86,7 @@ it("music qualification editors with read-only pay access can change qualificati
  const phone=document.body.querySelector('input[name="phone"]') as HTMLInputElement;
  await inputValue(phone,"0912345678");
  await click("授課與拆帳");
- await click("LINE 與權限");
+ await click("LINE 綁定與權限");
  await click("基本資料");
  expect(phone.value).toBe("0912345678");
  await click("授課與拆帳");
@@ -172,7 +172,7 @@ it("music close protects only actual edits and can continue or discard",async()=
 });
 it("music hides LINE permissions until a customer is selected without changing saved member access",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
- await click("編輯");await click("LINE 與權限");
+ await click("編輯");await click("LINE 綁定與權限");
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).closest('label')!.hidden).toBe(true);
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).value).toBe("yes");
 });

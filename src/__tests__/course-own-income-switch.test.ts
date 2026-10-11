@@ -36,8 +36,19 @@ it("prevents duplicate submissions while pending and restores the switch on fail
  expect(host.querySelector('[role="alert"]')?.textContent).toBe("只有老闆能設定");expect(saved).not.toHaveBeenCalled();
 });
 it("renders the grant read-only for non-owners",async()=>{
- await render({canEdit:false});expect(host.querySelector('[role="switch"]')).toBeNull();
+ await render({canEdit:false});expect((host.querySelector('[role="switch"]') as HTMLInputElement).disabled).toBe(true);
  expect(host.textContent).toContain("僅老闆可修改");expect(m.save).not.toHaveBeenCalled();
+});
+it("allows advance authorization before LINE binding and uses the teacher heading",async()=>{
+ m.save.mockResolvedValue({success:true,data:{enabled:true,updatedAt:"2026-10-11T00:00:00Z"}});
+ await render({music:true,lineBound:false});
+ expect(host.querySelector("h3")?.textContent).toBe("教師權限");
+ const control=host.querySelector<HTMLInputElement>('[role="switch"]')!;
+ expect(control.type).toBe("checkbox");expect(control.disabled).toBe(false);
+ await act(async()=>control.click());
+ expect(control.checked).toBe(true);expect(host.textContent).toContain("待綁定 LINE");
+ expect(host.querySelector('[role="status"]')?.textContent).toBe("已儲存 ✓");
+ expect(m.save).toHaveBeenCalledOnce();
 });
 it("does not change a grant while other teacher data is unsaved",async()=>{
  await render({blocked:true});const button=host.querySelector<HTMLButtonElement>('[role="switch"]')!;
