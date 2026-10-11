@@ -33,12 +33,14 @@ function newRequestKey() {
 
 export function SpaCustomerBookingForm({
   treatments,
+  bookingClosedMessage,
   initialBookings,
   today,
   latestDate,
   quickDates,
 }: {
   treatments: Treatment[];
+  bookingClosedMessage?: string;
   initialBookings: Booking[];
   today: string;
   latestDate: string;
@@ -77,7 +79,7 @@ export function SpaCustomerBookingForm({
     ].filter((group) => group.options.length > 0);
   }, [availability]);
   const primaryDisabled =
-    isPending ||
+    !!bookingClosedMessage || isPending ||
     (activeStep === 1 && selectedTreatmentIds.length === 0) ||
     (activeStep === 2 && !selectedSlot) ||
     (activeStep === 3 && !staffChoiceMade);
@@ -218,6 +220,8 @@ export function SpaCustomerBookingForm({
 
   return (
     <div className="space-y-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
+      {bookingClosedMessage && <p role="status" className="rounded-xl bg-earth-50 p-4 text-sm">{bookingClosedMessage}</p>}
+      <fieldset disabled={!!bookingClosedMessage} className="min-w-0 space-y-4">
       <ol aria-label="預約進度" className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-2 text-center text-[11px] font-semibold shadow-sm ring-1 ring-earth-200/70">
         {["服務", "日期時間", "人員", "確認"].map((label, index) => {
           const step = (index + 1) as 1 | 2 | 3 | 4;
@@ -309,6 +313,7 @@ export function SpaCustomerBookingForm({
         </section>
       ) : null}
 
+      </fieldset>
       {notice ? (
         <p className="rounded-2xl bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-900" aria-live="polite">{notice}</p>
       ) : null}

@@ -2,16 +2,17 @@
 import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
-import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { updateTrialSettings } from "@/server/actions/shop";
+import { usePathname } from "next/navigation";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { savedTrialSettings,trialSettingsRevision } from "@/lib/shop-settings-save";
 import type { TrialSettings } from "@/lib/shop-config";
 
 interface Props {
   storeId: string;
+  onSaved?:(values:TrialSettings)=>void;
   initial: TrialSettings;
-  saveAction?: (input:TrialSettings)=>Promise<{success:boolean;error?:string}>;
   courseMode?: boolean;
   compact?: boolean;
   forceExpanded?: boolean;
@@ -26,20 +27,23 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false, compact = false, forceExpanded = false }: Props) {
+export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false, compact = false, forceExpanded = false }: Props) {
   const formId = useId();
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
   const [allowEdit, setAllowEdit] = useState(initial.trialAllowPriceEdit);
   const [minPrice, setMinPrice] = useState(String(initial.trialMinPrice));
   const [maxPrice, setMaxPrice] = useState(String(initial.trialMaxPrice));
-  const [pending, startTransition] = useTransition();
+  const pathname=usePathname();
+  const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/shop`,storeId,savedTrialSettings);
+  const pending=mutation.pending;
+  const revision=useRef(trialSettingsRevision(initial));
+  const [error,setError]=useState("");
   const [expanded, setExpanded] = useState(forceExpanded || !compact);
-  const router = useRouter();
   const saving = useRef(false);
   const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
   const [savedDraft, setSavedDraft] = useState(draft);
-  useSettingsPanelGuard(draft !== savedDraft, pending);
+  useSettingsPanelGuard(draft !== savedDraft, pending||mutation.uncertain);
 
   const d = toInt(defaultPrice);
   const lo = toInt(minPrice);
@@ -59,25 +63,16 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       return;
     }
     saving.current = true;
-    startTransition(async () => {
-      try {
-      const result = await saveAction({
-        trialEnabled,
-        trialDefaultPrice: d,
-        trialAllowPriceEdit: allowEdit,
-        trialMinPrice: lo,
-        trialMaxPrice: hi,
-      });
-      if (result.success) {
-        setSavedDraft(draft);
-        toast.success("體驗課設定已更新");
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "儲存失敗");
-      }
-      } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
-      finally { saving.current = false; }
-    });
+    setError("");
+    void mutation.save({kind:"TRIAL",expectedRevision:revision.current,values:{trialEnabled,trialDefaultPrice:d,trialAllowPriceEdit:allowEdit,trialMinPrice:lo,trialMaxPrice:hi}}).then(result=>{
+      if(!result.success){setError(result.error);toast.error(result.error);return;}
+      revision.current=result.data.revision;
+      onSaved?.(result.data.values);
+      const row=result.data.values;
+      setTrialEnabled(row.trialEnabled);setDefaultPrice(String(row.trialDefaultPrice));setAllowEdit(row.trialAllowPriceEdit);setMinPrice(String(row.trialMinPrice));setMaxPrice(String(row.trialMaxPrice));
+      setSavedDraft(JSON.stringify([row.trialEnabled,String(row.trialDefaultPrice),row.trialAllowPriceEdit,String(row.trialMinPrice),String(row.trialMaxPrice)]));
+      toast.success(result.syncWarning?"體驗設定已儲存；其他頁面更新失敗，請重新整理核對。":"體驗課設定已更新");
+    }).finally(()=>{saving.current=false;});
   }
 
   return (
@@ -104,6 +99,8 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             </p>
           </header>
 
+          {error&&<p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
+          <fieldset disabled={mutation.uncertain} className="contents">
           <div className={compact ? styles.compactFields : "space-y-4"}>
             <label className={`${styles.switchLabel} flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2`}>
               <span>
@@ -194,17 +191,18 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             ) : null}
           </div>
 
+          </fieldset>
           <div className={`${compact ? "" : "sticky bottom-0 z-10"} mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2`}>
             <span className="text-sm text-earth-500">
               {pending ? "儲存中..." : draft !== savedDraft ? "未儲存" : ""}
             </span>
-            <button type="button" disabled={pending || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
+            <button type="button" disabled={pending || mutation.uncertain || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
             <button
               type="submit"
               disabled={pending || invalid || draft === savedDraft}
               className="min-h-10 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-30"
             >
-              {pending ? "儲存中..." : courseMode ? "儲存體驗設定" : "儲存"}
+              {pending ? "儲存中..." : mutation.uncertain ? "重試確認儲存結果" : courseMode ? "儲存體驗設定" : "儲存"}
             </button>
           </div>
         </section>

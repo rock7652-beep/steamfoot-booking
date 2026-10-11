@@ -85,6 +85,16 @@ describe("GET-only preview transport", () => {
   it("rejects writes to another action/API from preview", () => {
     expect(blocksFrontendPreviewWrite("POST", "/api/pay", "https://www.steamfoot.com/frontend-preview?personId=x")).toBe(true);
   });
+  it("allows only HQ selector's store-view transport while retaining preview write boundaries", () => {
+    const selector = "https://www.steamfoot.com/hq/dashboard/frontend-preview?personId=old-store-member";
+    expect(blocksFrontendPreviewWrite("POST", "/api/hq/store-view", selector)).toBe(false);
+    expect(blocksFrontendPreviewWrite("POST", "/hq/dashboard/frontend-preview", selector)).toBe(true);
+    expect(blocksFrontendPreviewWrite("POST", "/api/pay", selector)).toBe(true);
+    expect(blocksFrontendPreviewWrite("DELETE", "/api/hq/store-view", selector)).toBe(true);
+    for (const path of ["/frontend-preview", "/s/course/admin/dashboard/frontend-preview"]) {
+      expect(blocksFrontendPreviewWrite("POST", "/api/hq/store-view", `https://www.steamfoot.com${path}`)).toBe(true);
+    }
+  });
   it("allows GET refresh and ordinary live writes", () => {
     expect(blocksFrontendPreviewWrite("GET", "/frontend-preview", null)).toBe(false);
     expect(blocksFrontendPreviewWrite("POST", "/s/course/book", "https://www.steamfoot.com/s/course/book")).toBe(false);

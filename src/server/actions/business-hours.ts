@@ -15,12 +15,12 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import {
-  applySlotOverrides,
   loadDayBusinessHoursContext,
   parseBusinessPeriods,
 } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
+import {loadServiceHoursForSettings} from "@/server/services/service-hours-read";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -168,67 +168,11 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 }
 
 /** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */
-export async function getDaySlotDetails(dateStr: string) {
-  // Fixed action label only; no arguments, customer data, or identifiers.
-  console.info("[BOOKING_ACTION]", "getDaySlotDetails");
-  const user = await requireStaffSession();
-  const storeId = await resolveReadStoreId(user);
-  if (!storeId) {
-    throw new AppError("UNAUTHORIZED", "請先從右上角切換到特定店舖");
-  }
-  const dateObj = new Date(dateStr + "T00:00:00Z");
-  const dow = dateObj.getUTCDay();
-
-  // resolver 內部已經查過 specialDay / businessHour 兩張表，
-  // 之前再外層 findFirst 一次等於每點一日打 4 次 DB（重複 2 次）。
-  // 改成只走 loadDayBusinessHoursContext，並從回傳值讀取原始 row id / 欄位。
-  const ctx = await loadDayBusinessHoursContext(storeId, dateStr);
-  const rule = ctx.rule;
-  const businessHour = ctx.businessHour;
-  const resolvedSlots = applySlotOverrides(rule, ctx.slotOverrides);
-
-  // 後台需要 templateCapacity（覆寫前的容量），故沿用 generateSlots 計算原始容量做對照
-  const templateMap = new Map<string, number>();
-  if (rule.openTime && rule.closeTime) {
-    for (const period of rule.periods) {
-      for (const g of generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity)) {
-        templateMap.set(g.startTime, g.capacity);
-      }
-    }
-  }
-
-  const filteredSlots = resolvedSlots.map((s) => ({
-    startTime: s.startTime,
-    capacity: s.capacity,
-    templateCapacity: templateMap.get(s.startTime) ?? rule.defaultCapacity,
-    isEnabled: s.isEnabled,
-    inRange: s.inRange,
-    override: s.override,
-    overrideReason: s.overrideReason,
-  }));
-
-  return {
-    status: rule.status,
-    openTime: rule.openTime,
-    closeTime: rule.closeTime,
-    reason: rule.reason,
-    specialDayId: ctx.specialDay?.id ?? null,
-    dayOfWeek: dow,
-    dayName: DAY_NAMES[dow],
-    slotInterval: rule.slotInterval,
-    defaultCapacity: rule.defaultCapacity,
-    periods: rule.periods,
-    slots: filteredSlots,
-    hasWeeklyDefault: !!businessHour,
-    weeklyDefault: businessHour ? {
-      isOpen: businessHour.isOpen,
-      openTime: businessHour.openTime,
-      closeTime: businessHour.closeTime,
-      slotInterval: businessHour.slotInterval,
-      defaultCapacity: businessHour.defaultCapacity,
-      periods: rule.source === "weekly" ? rule.periods : undefined,
-    } : null,
-  };
+export async function getDaySlotDetails(dateStr:string){
+ const user=await requirePermission("business_hours.view"),storeId=await resolveReadStoreId(user);
+ if(!storeId)throw new AppError("UNAUTHORIZED","請先切換到指定門市");
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||new Date(dateStr+"T00:00:00Z").toISOString().slice(0,10)!==dateStr)throw new AppError("VALIDATION","日期格式不正確");
+ return (await loadServiceHoursForSettings(storeId,dateStr)).day;
 }
 
 /** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason }（共用 resolver） */

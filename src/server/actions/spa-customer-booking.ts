@@ -10,7 +10,6 @@ import { requireSession } from "@/lib/session";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { isStoreBookableStatus, type StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
-  getNowTaipeiHHmm,
   parseTaipeiDateTime,
   parseTaiwanDateToDbDate,
   toLocalDateStr,
@@ -27,6 +26,8 @@ import {
 import { resolveMemberRequestStoreId } from "@/server/services/member-request-store";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 import type { ActionResult } from "@/types";
+
+import {readSpaCustomerWindow,assertSpaCustomerDate,withinSpaCustomerWindow} from "@/server/services/spa-customer-window";
 
 const ACTIVE_BOOKING_STATUSES = ["PENDING", "CONFIRMED"] as const;
 
@@ -92,14 +93,6 @@ async function requireCustomerBookingContext(): Promise<CustomerBookingContext> 
   };
 }
 
-function assertBookableDate(date: string) {
-  const today = toLocalDateStr();
-  const latest = new Date(`${today}T00:00:00Z`);
-  latest.setUTCDate(latest.getUTCDate() + 60);
-  if (date < today || date > latest.toISOString().slice(0, 10)) {
-    throw new AppError("VALIDATION", "僅開放預約今天起 60 天內的日期");
-  }
-}
 
 async function loadTreatments(
   tx: Prisma.TransactionClient | typeof spaPrisma,
@@ -296,13 +289,14 @@ export async function fetchSpaCustomerAvailability(
   try {
     const context = await requireCustomerBookingContext();
     const data = availabilitySchema.parse(input);
-    assertBookableDate(data.date);
+    const window=await readSpaCustomerWindow(context.storeId);
+    assertSpaCustomerDate(data.date,window);
     const treatments = await loadTreatments(spaPrisma, context.storeId, data.treatmentIds);
     const day = await loadDayBusinessHoursContext(context.storeId, data.date);
     const candidateTimes = applySlotOverrides(day.rule, day.slotOverrides)
       .filter((slot) => slot.isEnabled)
       .map((slot) => slot.startTime)
-      .filter((time) => data.date !== toLocalDateStr() || time > getNowTaipeiHHmm());
+      .filter(time=>withinSpaCustomerWindow(data.date,time,window));
 
     const resources = await loadAssignmentResources(spaPrisma, {
       storeId: context.storeId,
@@ -340,7 +334,6 @@ export async function createSpaCustomerBooking(
   try {
     const context = await requireCustomerBookingContext();
     const data = createSchema.parse(input);
-    assertBookableDate(data.date);
 
     const result = await spaPrisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${context.storeId}`}, 0))`;
@@ -376,6 +369,9 @@ export async function createSpaCustomerBooking(
         };
       }
 
+      const window=await readSpaCustomerWindow(context.storeId,tx);
+      assertSpaCustomerDate(data.date,window);
+      if(!withinSpaCustomerWindow(data.date,data.startTime,window))throw new AppError("VALIDATION","此時段尚未開放或已超過預約期限");
       const treatments = await loadTreatments(tx, context.storeId, data.treatmentIds);
       const resources = await loadAssignmentResources(tx, {
         storeId: context.storeId,

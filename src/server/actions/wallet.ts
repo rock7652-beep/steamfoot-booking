@@ -118,6 +118,9 @@ export async function assignPlanToCustomer(
     });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在或已停用");
     assertSameStore("ServicePlan", plan.storeId, operationStoreId);
+    if (plan.category === "TRIAL") {
+      throw new AppError("BUSINESS_RULE", "體驗請由「建立體驗預約」流程處理，不需開立方案");
+    }
 
     // 折扣驗證
     const originalPrice = Number(plan.price);
@@ -137,9 +140,7 @@ export async function assignPlanToCustomer(
 
     // 決定 transactionType
     const txType =
-      plan.category === "TRIAL"
-        ? "TRIAL_PURCHASE"
-        : plan.category === "SINGLE"
+      plan.category === "SINGLE"
         ? "SINGLE_PURCHASE"
         : "PACKAGE_PURCHASE";
 

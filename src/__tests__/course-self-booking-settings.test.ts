@@ -79,3 +79,13 @@ it("returns the authoritative revision for repeated no-op saves without incremen
   expect(await saveCourseSelfBookingSettings({enabled:false})).toEqual({success:true,enabled:false,revision:7});
   expect(m.write).not.toHaveBeenCalled();expect(m.audit).not.toHaveBeenCalled();
 });
+
+it("returns a confirmed self-booking receipt, rejects stale edits and recovers applied retries",async()=>{
+ const receipt={expectedStoreId:"store-a",requestKey:"123e4567-e89b-42d3-a456-426614174000",expectedRevision:1};
+ m.manager.mockResolvedValue({user:{id:"actor",name:"店長"},storeId:"store-a"});
+ m.read.mockResolvedValue({selfBookingEnabled:true,selfBookingRevision:2});
+ expect((await saveCourseSelfBookingSettings({enabled:false,receipt})).success).toBe(false);expect(m.write).not.toHaveBeenCalled();
+ m.read.mockResolvedValue({selfBookingEnabled:false,selfBookingRevision:2});
+ expect(await saveCourseSelfBookingSettings({enabled:false,receipt})).toMatchObject({success:true,storeId:"store-a",data:{enabled:false,revision:2}});expect(m.audit).not.toHaveBeenCalled();
+ m.transaction.mockClear();expect((await saveCourseSelfBookingSettings({enabled:false,receipt:{...receipt,expectedStoreId:"other"}})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
+});

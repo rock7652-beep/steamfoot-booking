@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
-import { dayRange } from "@/lib/date-utils";
+import { dayRange, toLocalDateStr } from "@/lib/date-utils";
+import { loadIndividualBookingFacts } from "./booking-participant-facts";
+import { loadConversionFacts, selectConversionCustomerIds, type CompletedTrial } from "./conversion-metrics";
 import {
   TRIAL_BOOKING_SOURCES,
   TRIAL_BOOKING_SOURCE_LABELS,
@@ -20,7 +22,9 @@ export type TrialSourceRow = {
 
 /**
  * Cohort by booking creation date in Asia/Taipei. Attendance and assigned plan
- * conversion update as the cohort progresses; cancelled bookings stay in the
+ * conversion update as the cohort progresses; only actual paid own packages
+ * count, using the same first-trial/refund rules as the conversion report.
+ * Cancelled bookings stay in the
  * booking count, and cannot contribute attendance or conversion.
  */
 export async function getTrialSourceMetrics(
@@ -48,26 +52,29 @@ export async function getTrialSourceMetrics(
     },
   });
 
-  const completed = bookings.filter((booking) => booking.bookingStatus === "COMPLETED");
-  const customerIds = [...new Set(completed.map((booking) => booking.customerId))];
-  const wallets = customerIds.length
-    ? await prisma.customerPlanWallet.findMany({
-        where: {
-          storeId,
-          customerId: { in: customerIds },
-          status: { not: "CANCELLED" },
-          plan: { category: "PACKAGE" },
-        },
-        select: { customerId: true, createdAt: true },
-      })
-    : [];
-
-  const firstCompletedByCustomer = new Map<string, (typeof completed)[number]>();
-  for (const booking of completed) {
-    const previous = firstCompletedByCustomer.get(booking.customerId);
-    if (!previous || booking.bookingDate < previous.bookingDate) {
-      firstCompletedByCustomer.set(booking.customerId, booking);
+  const latestDate = bookings.reduce((latest, booking) => booking.bookingDate > latest ? booking.bookingDate : latest, new Date());
+  const [individual, facts] = await Promise.all([
+    loadIndividualBookingFacts(storeId, latestDate),
+    loadConversionFacts(storeId, [toLocalDateStr(latestDate).slice(0, 7)]),
+  ]);
+  const firstTrialByCustomer = new Map<string, CompletedTrial>();
+  const sameDayOrder = (trial: CompletedTrial) => `${trial.slotTime?.slice(0, 5) ?? ""}|${trial.bookingId ?? trial.id ?? ""}`;
+  for (const trial of facts.trials) {
+    const previous = firstTrialByCustomer.get(trial.customerId);
+    if (!previous || trial.bookingDate < previous.bookingDate ||
+      (trial.bookingDate.getTime() === previous.bookingDate.getTime() && sameDayOrder(trial) < sameDayOrder(previous))) {
+      firstTrialByCustomer.set(trial.customerId, trial);
     }
+  }
+  // All-time first trials decide eligibility; repeated visits cannot be counted
+  // as a fresh lead under a second booking source. The selected cohort remains
+  // booking-creation date, not purchase month.
+  const conversion = selectConversionCustomerIds("", facts.trials, facts.purchases,
+    { startDate: "0001-01-01", endDate: toLocalDateStr(latestDate) });
+  const completedByBooking = new Map<string, number>();
+  for (const visit of individual.visits) {
+    if (visit.bookingType !== "FIRST_TRIAL" || visit.source === "WALK_IN") continue;
+    completedByBooking.set(visit.bookingId, (completedByBooking.get(visit.bookingId) ?? 0) + 1);
   }
 
   const rows = new Map<string, TrialSourceRow>();
@@ -88,27 +95,34 @@ export async function getTrialSourceMetrics(
     const source = TRIAL_BOOKING_SOURCES.find((item) => item === booking.bookingSource) ?? "OTHER";
     const row = rows.get(source)!;
     row.bookings += 1;
-    row.bookedPeople += booking.people;
-    if (booking.bookingStatus === "COMPLETED") {
+    // Booking.people includes walk-ins for capacity. The acquisition cohort
+    // keeps the original reservation denominator alongside reserved arrivals.
+    row.bookedPeople += individual.originalPeopleByBooking?.get(booking.id) ?? booking.people;
+    if (individual.groupIds.has(booking.id)) {
+      row.attendees += completedByBooking.get(booking.id) ?? 0;
+    } else if (booking.bookingStatus === "COMPLETED") {
       row.attendees += booking.attendedPeople ?? booking.people;
     }
   }
-  const counted = new Set<string>();
-  for (const wallet of wallets) {
-    const first = firstCompletedByCustomer.get(wallet.customerId);
-    if (!first || counted.has(wallet.customerId)) continue;
-    if (wallet.createdAt < first.createdAt) continue;
-    const source = TRIAL_BOOKING_SOURCES.find((item) => item === first.bookingSource) ?? "OTHER";
-    rows.get(source)!.assignedCustomers += 1;
-    counted.add(wallet.customerId);
+  const bookingById = new Map(bookings.map(booking => [booking.id, booking]));
+  const walkInVisits = new Set(individual.visits.filter(visit => visit.source === "WALK_IN")
+    .map(visit => JSON.stringify([visit.bookingId, visit.customerId])));
+  const eligibleBySource = new Map<string, number>();
+  for (const [customerId, trial] of firstTrialByCustomer) {
+    const booking = bookingById.get(trial.bookingId ?? trial.id ?? "");
+    if (!booking || !conversion.trialCustomerIds.has(customerId)) continue;
+    // Walk-ins remain in personal conversion metrics, but did not come through
+    // the original reservation's acquisition link.
+    if (walkInVisits.has(JSON.stringify([booking.id, customerId]))) continue;
+    const source = TRIAL_BOOKING_SOURCES.find(item => item === booking.bookingSource) ?? "OTHER";
+    eligibleBySource.set(source, (eligibleBySource.get(source) ?? 0) + 1);
+    if (conversion.currentTrialConvertedCustomerIds.has(customerId)) rows.get(source)!.assignedCustomers += 1;
   }
   for (const row of rows.values()) {
     row.sourceShare = bookings.length ? (row.bookings / bookings.length) * 100 : 0;
     row.attendanceRate = row.bookedPeople ? (row.attendees / row.bookedPeople) * 100 : 0;
     // Conversion denominator counts identifiable customers, not unlinked companions.
-    const completedCustomers = [...firstCompletedByCustomer.values()].filter((booking) =>
-      (TRIAL_BOOKING_SOURCES.find((item) => item === booking.bookingSource) ?? "OTHER") === row.source
-    ).length;
+    const completedCustomers = eligibleBySource.get(row.source) ?? 0;
     row.planRate = completedCustomers ? (row.assignedCustomers / completedCustomers) * 100 : 0;
   }
   return [...rows.values()];

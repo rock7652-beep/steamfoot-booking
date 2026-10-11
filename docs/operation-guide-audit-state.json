@@ -1,37 +1,39 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-10-10",
+  "auditDateTaipei": "2026-10-11",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "e5cd20fe72c8d78258cb1637c0e8756d2947c567",
-  "previousSuccessfulAuditCommit": "84aca95aa5ec3ce30c56a492037acf066ad10291",
+  "lastInventoriedMainCommit": "ca7a15a9533742be78675ee7c2ad99fd3ddeee3a",
+  "previousSuccessfulAuditCommit": "e5cd20fe72c8d78258cb1637c0e8756d2947c567",
   "mode": "incremental-main-diff",
   "branch": "docs/operation-guide-audit-20261008",
   "newGuideIds": [
-    "A14",
-    "I20",
-    "J24"
+    "A15",
+    "A16",
+    "I21",
+    "C169"
   ],
   "updatedGuideIds": [
-    "A03",
-    "A10",
-    "C126",
-    "C123",
-    "C130",
+    "A05",
+    "A14",
     "I11",
     "I12",
-    "O07",
-    "I19",
-    "C168",
-    "C103",
-    "C117",
-    "C134",
-    "C167"
+    "I13",
+    "I18",
+    "C108",
+    "C111",
+    "C114",
+    "C123",
+    "C126"
   ],
   "cumulativeDraftNewGuideIds": [
     "A14",
     "I20",
-    "J24"
+    "J24",
+    "A15",
+    "A16",
+    "I21",
+    "C169"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -47,7 +49,14 @@
     "C103",
     "C117",
     "C134",
-    "C167"
+    "C167",
+    "A05",
+    "A14",
+    "I13",
+    "I18",
+    "C108",
+    "C111",
+    "C114"
   ],
   "interactionPendingGuideIds": [
     "A14",
@@ -66,9 +75,19 @@
     "C103",
     "C117",
     "C134",
-    "C167"
+    "C167",
+    "A15",
+    "A16",
+    "I21",
+    "C169",
+    "A05",
+    "I13",
+    "I18",
+    "C108",
+    "C111",
+    "C114"
   ],
-  "articleCount": 198,
+  "articleCount": 202,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -278,12 +297,25 @@
     1255,
     1274,
     1273,
-    1272
+    1272,
+    1277,
+    1280,
+    1279,
+    1281,
+    1278,
+    1282,
+    1276,
+    1284,
+    1283,
+    1285,
+    1286,
+    1287,
+    1288
   ],
   "interactionStatus": "latest-revisions-await-authenticated-acceptance",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "2026-10-10 僅維護後台；前台原文封存，舊批驗收依 #1250 使用者確認歸因，本批不得沿用。",
+  "continuation": "2026-10-11 從 main e5cd20fe 比對至 ca7a15a9；僅維護後台。新增 A15、A16、I21、C169，更新 11 題；前台原文封存且不列待辦。",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -315,9 +347,9 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 17,
-  "totalInteractionPendingCount": 17,
-  "reviewedMainCommitCount": 149,
+  "backendInteractionPendingCount": 27,
+  "totalInteractionPendingCount": 27,
+  "reviewedMainCommitCount": 164,
   "reviewedStandaloneCommits": [
     "1e133b93",
     "e4b44f8c",
@@ -415,18 +447,18 @@
     "verification": "source-reviewed; authenticated isolated acceptance scenarios recorded separately; broad pending article IDs retained"
   },
   "authenticatedAcceptance": {
-    "sourceCommit": "e5cd20fe72c8d78258cb1637c0e8756d2947c567",
+    "sourceCommit": "ca7a15a9533742be78675ee7c2ad99fd3ddeee3a",
     "status": "blocked",
     "guideIdsCleared": [],
     "report": "docs/operation-guide-content-review.md",
-    "isolation": "瀏覽器清單僅有 about:blank；尚未取得本版已登入隔離測試工作階段",
+    "isolation": "尚未取得 ca7a15a9 指南草稿版的已登入隔離測試工作階段",
     "externalNotifications": "未發實際通知、未新增顧客、未送出預約／扣點／收款",
-    "note": "程式、測試與部署不得代替登入後操作；本次17題不沿用舊批使用者確認。",
+    "note": "程式、測試與部署不得代替登入後操作；累計27題不沿用舊批使用者確認。",
     "blockers": [
       "本版隔離測試登入工作階段待確認"
     ],
     "nonBlockingFollowups": [
-      "僅後台：原列備註、多人單次總額、OWNER 操作紀錄、音樂初始設定、HQ 諮詢內容與來源。"
+      "僅後台：蒸足多人逐人資料／結帳、HQ 紀錄自動更新、四模組設定儲存、音樂教師拆帳、課程空間與名單密度。"
     ],
     "rolesVerified": [],
     "mergeReadiness": "維持草稿，不自動合併正式站"

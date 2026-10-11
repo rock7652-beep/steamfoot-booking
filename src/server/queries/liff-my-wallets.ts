@@ -35,6 +35,7 @@ export interface LiffWalletRow {
   expiryDate: string | null;
   /** WalletStatus 原值；client splitLiffWallets 用 + UI badge 用 */
   status: string;
+  usageRecords?: Array<{ id: string; date: string | null; time: string | null; label: string; sessions: number; status: string }>;
 }
 
 /** PR-NoShow-2：有效補課券（未使用、未過期）投影 — 供顧客端顯示與「優先用券」提示。 */
@@ -73,7 +74,7 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
     status: string;
     plan: { name: string; category: string };
     bookings: Array<{ bookingStatus: string; isMakeup: boolean; people: number }>;
-    sessions: Array<{ status: string }>;
+    sessions: Array<{ id?: string; status: string; completedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
   }>;
   try {
     rawWallets = await prisma.customerPlanWallet.findMany({
@@ -93,7 +94,7 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
         },
         // ledgerUsage 只需要 session.status (COMPLETED/BACKFILLED/VOIDED 分類)
         sessions: {
-          select: { status: true },
+          select: { id: true, status: true, completedAt: true, booking: { select: { id: true, customerId: true, storeId: true, bookingDate: true, slotTime: true, bookingStatus: true } } },
         },
       },
       orderBy: [
@@ -114,7 +115,21 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
     const pendingCount = walletPendingCount(w);
     const availableToBook = walletAvailableToBook(w);
     const { used: usedCount, voided: voidedCount } = ledgerUsage(w.sessions);
+    const usage = new Map<string, NonNullable<LiffWalletRow["usageRecords"]>[number]>();
+    for (const session of w.sessions ?? []) {
+      if (!["COMPLETED", "BACKFILLED"].includes(session.status)) continue;
+      const booking = session.booking;
+      if (booking && (booking.storeId !== storeId || booking.customerId !== customerId)) continue;
+      const id = booking?.id ?? session.id;
+      if (!id) continue;
+      const existing = usage.get(id);
+      if (existing) { existing.sessions += 1; continue; }
+      usage.set(id, { id, date: booking ? booking.bookingDate.toISOString().slice(0, 10) : session.completedAt ? toLocalDateStr(session.completedAt) : null,
+        time: booking?.slotTime ?? null, label: booking ? "蒸足" : "補登使用", sessions: 1,
+        status: booking?.bookingStatus === "NO_SHOW" ? "未到扣堂" : booking ? "已完成" : "補登" });
+    }
     return {
+      usageRecords: [...usage.values()].sort((a, b) => `${b.date ?? ""} ${b.time ?? ""}`.localeCompare(`${a.date ?? ""} ${a.time ?? ""}`)),
       id: w.id,
       planName: w.plan.name,
       planCategory: w.plan.category,

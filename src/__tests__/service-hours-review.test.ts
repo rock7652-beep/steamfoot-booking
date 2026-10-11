@@ -24,7 +24,7 @@ describe("service hours review", () => {
   it("requires review of the current draft before saving and blocks pending edits", () => {
     expect(source).toContain("reviewedDraft === draftKey");
     expect(source).toContain("if (reviewing) void saveDay(); else setReviewedDraft(draftKey)");
-    expect(source).toContain("fieldset disabled={isPending || loadingDay}");
+    expect(source).toContain("fieldset disabled={locked || loadingDay}");
     expect(source).toContain('"確認並儲存" : "檢查變更"');
   });
   it("selecting the displayed two-week option sets a nonzero copy duration", () => {

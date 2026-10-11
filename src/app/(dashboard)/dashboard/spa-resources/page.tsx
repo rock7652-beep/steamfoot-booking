@@ -13,5 +13,5 @@ export default async function SpaResourcesPage() {
     spaPrisma.spaServiceLocation.findMany({where:{storeId},include:{treatments:true},orderBy:{sortOrder:"asc"}}),
     spaPrisma.spaTreatment.findMany({where:{storeId},select:{id:true,name:true,variantLabel:true},orderBy:{sortOrder:"asc"}}),
   ]);
-  return <LocationWorkspace readOnly={isChildStoreView} locations={locations.map(l=>({id:l.id,name:l.name,isActive:l.isActive,treatmentIds:l.treatments.map(t=>t.treatmentId)}))} treatments={treatments.map(t=>({id:t.id,name:t.variantLabel?`${t.name} · ${t.variantLabel}`:t.name}))}/>;
+  return <LocationWorkspace key={storeId} storeId={storeId} readOnly={isChildStoreView} locations={locations.map(l=>({id:l.id,name:l.name,isActive:l.isActive,treatmentIds:l.treatments.map(t=>t.treatmentId)}))} treatments={treatments.map(t=>({id:t.id,name:t.variantLabel?`${t.name} · ${t.variantLabel}`:t.name}))}/>;
 }

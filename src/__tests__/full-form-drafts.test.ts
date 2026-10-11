@@ -10,8 +10,8 @@ vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:(
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 const person={id:"a",updatedAt:"2026-09-27T00:00:00.000Z",name:"原姓名",phone:"0912345678",email:null,gender:null,birthday:"",serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null};
-beforeEach(()=>{sessionStorage.clear();vi.resetAllMocks();host=document.createElement("div");document.body.append(host);root=createRoot(host);});
-afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();});
+beforeEach(()=>{vi.stubGlobal("fetch",async (_url:string,init:RequestInit)=>({json:async()=>m.plan(JSON.parse(String(init.body)))}));sessionStorage.clear();vi.resetAllMocks();host=document.createElement("div");document.body.append(host);root=createRoot(host);});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 async function render(p:typeof person|null=person,scope="user:store-a"){
  await act(async()=>root.render(React.createElement(OperationScope,{key:scope,scope},React.createElement(CourseCustomerDraftForm,{key:p?.id??"new",person:p,canEdit:true,canCreate:true,hidden:false,onPending:m.pending,onSaved:m.saved}))));
 }
@@ -50,7 +50,7 @@ it("an old request cannot close a newly selected customer",async()=>{
 });
 it("keeps course selections and an empty numeric input through a remount",async()=>{
  const plan={id:"p",name:"方案",points:10,price:1000,validDays:90,isActive:true,unit:"SESSION",templateIds:[]};
- const mount=async()=>act(async()=>root.render(React.createElement(OperationScope,{scope:"user:store-a"},React.createElement(CoursePlanDraftForm,{plan,templates:[{id:"t",name:"課程A",category:"團課",isActive:true}],termSessions:[],profitEnabled:true,onPending:m.pending,onSaved:m.saved}))));
+ const mount=async()=>act(async()=>root.render(React.createElement(OperationScope,{scope:"user:store-a"},React.createElement(CoursePlanDraftForm,{storeId:"store",plan,templates:[{id:"t",name:"課程A",category:"團課",isActive:true}],termSessions:[],profitEnabled:true,onPending:m.pending,onSaved:m.saved}))));
  await mount();await input("price","");await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"][value="t"]')!.click());
  await act(async()=>root.unmount());root=createRoot(host);await mount();expect(host.querySelector<HTMLInputElement>('[name="price"]')!.value).toBe("");expect(host.querySelector<HTMLInputElement>('input[type="checkbox"][value="t"]')!.checked).toBe(true);expect(m.plan).not.toHaveBeenCalled();
 });

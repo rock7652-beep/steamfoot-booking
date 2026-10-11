@@ -8,6 +8,7 @@ import { getCustomerDetailForUser } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedPlans, getCachedStaffOptions } from "@/lib/query-cache";
+import { selectOrdinaryServicePlans } from "@/lib/ordinary-service-plans";
 import { getActiveStoreForRead } from "@/lib/store";
 import {
   resolveStoreViewContextFromCookie,
@@ -177,7 +178,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     shopConfig,
     nativeHealthState,
   ] = await Promise.all([
-    withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
+    withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId).then(selectOrdinaryServicePlans)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
         ...logCtx,
         step: "plans",

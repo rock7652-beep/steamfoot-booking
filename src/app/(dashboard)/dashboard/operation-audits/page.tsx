@@ -5,7 +5,7 @@ import { resolveAuditPresentation } from "@/server/services/audit-presentation";
 import { AuditChanges } from "@/components/audit-changes";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { PageHeader, PageShell } from "@/components/desktop";
+import { PageShell } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission, isStaffRole } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -14,6 +14,7 @@ import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { listOperationAudits, type OperationModule } from "@/server/services/operation-audit";
 import { LoginAuditView } from "./login-audit-view";
+import { AuditAutoRefresh } from "./audit-auto-refresh";
 import { AuditListState } from "./audit-list-state";
 import { auditTimeLabel, auditReturnQuery } from "./audit-list-format";
 import { OperationAuditFilters } from "./operation-audit-filters";
@@ -49,6 +50,7 @@ export default async function OperationAuditsPage({
   searchParams: Promise<{
     dateFrom?: string;
     dateTo?: string;
+    dateMode?: string;
     actor?: string;
     module?: string;
     q?: string;
@@ -69,7 +71,10 @@ export default async function OperationAuditsPage({
   const params = await searchParams;
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const dateFrom = datePattern.test(params.dateFrom ?? "") ? params.dateFrom! : dateDaysAgo(6);
-  const dateTo = datePattern.test(params.dateTo ?? "") ? params.dateTo! : toLocalDateStr();
+  const today = toLocalDateStr();
+  const followToday = params.dateMode === "today" || (params.dateMode !== "fixed" && (!params.dateTo || params.dateTo === today));
+  const dateTo = followToday ? today : datePattern.test(params.dateTo ?? "") ? params.dateTo! : today;
+  const dateMode = followToday ? "today" : "fixed";
   const from = dayRange(dateFrom).start;
   const to = dayRange(dateTo).end;
   const moduleFilter = Object.hasOwn(MODULE_LABELS, params.module ?? "")
@@ -86,7 +91,7 @@ export default async function OperationAuditsPage({
   const activeStoreId = await getActiveStoreForRead(user);
   const viewContext = await resolveStoreViewContextFromCookie(user);
   const storeId = storeIdForViewContext(activeStoreId, viewContext);
-  if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} viewerKey={user.id} returnTo={params.returnTo} />;
+  if (params.tab === "login") return <LoginAuditView storeId={storeId} dateFrom={dateFrom} dateTo={dateTo} from={from} to={to} actor={params.actor} outcome={params.outcome} login={params.login} page={page} viewerKey={user.id} returnTo={params.returnTo} followToday={followToday} />;
   const pendingCount = await prisma.operationAuditOutbox.count({
     where: { deliveredAt: null, ...(storeId ? { payload: { path: ["storeId"], equals: storeId } } : {}) },
   });
@@ -115,6 +120,7 @@ export default async function OperationAuditsPage({
     const query = new URLSearchParams();
     query.set("dateFrom", dateFrom);
     query.set("dateTo", dateTo);
+    query.set("dateMode", dateMode);
     if (params.actor) query.set("actor", params.actor);
     if (moduleFilter) query.set("module", moduleFilter);
     if (params.q) query.set("q", params.q);
@@ -125,13 +131,16 @@ export default async function OperationAuditsPage({
 
   const backHref = auditReturnQuery(params.returnTo);
   const returnQuery = pageHref(result.page).split("?")[1];
+  // Server read completion timestamp; this async component runs per authorized request.
+  // eslint-disable-next-line react-hooks/purity
+  const renderedAt = Date.now();
   const columns = storeId ? "@[720px]:grid-cols-[96px_150px_minmax(0,1fr)_20px]" : "@[900px]:grid-cols-[96px_150px_minmax(0,1fr)_150px_20px]";
   return (
-    <PageShell>
-      <PageHeader title="操作與登入紀錄" compact />
+    <PageShell compact>
+      <AuditAutoRefresh key={`${user.id}:${storeId ?? "all"}:operation`} renderedAt={renderedAt} dateTo={dateTo} followToday={followToday} page={page}>
       <nav className="flex gap-2 text-sm" aria-label="稽核分類">
-        <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}`}>操作紀錄</Link>
-        <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}`}>登入紀錄</Link>
+        <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?dateFrom=${dateFrom}&dateTo=${dateTo}&dateMode=${dateMode}`}>操作紀錄</Link>
+        <Link className="rounded-lg border border-earth-200 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${dateFrom}&dateTo=${dateTo}&dateMode=${dateMode}`}>登入紀錄</Link>
       </nav>
       {backHref ? <Link className="w-fit min-h-11 py-3 text-sm text-primary-800 underline" href={backHref}>← 返回紀錄列表</Link> : null}
       {pendingCount > 0 ? <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -140,6 +149,7 @@ export default async function OperationAuditsPage({
       {params.login ? <p className="text-sm text-earth-600">正在查看指定登入的操作 · <Link href="/dashboard/operation-audits">清除</Link></p> : null}
 
       <OperationAuditFilters
+        followToday={followToday}
         actors={result.actors}
         cacheKey={`operation-audit-filters:${user.id}:${storeId ?? "all"}`}
         defaults={{ dateFrom, dateTo, actor: params.actor ?? "", module: moduleFilter ?? "", q: params.q ?? "" }}
@@ -160,7 +170,7 @@ export default async function OperationAuditsPage({
         ) : (
           <div className="divide-y divide-earth-100">
             {result.items.map((item, index) => (
-              <details key={item.id} data-record={item.id} className="group px-3 py-1 open:bg-earth-50/60">
+              <details key={item.id} data-record={item.id} className="group px-3 open:bg-earth-50/60">
                 <summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden ${columns}`}>
                   <time dateTime={item.createdAt.toISOString()} className="col-start-1 row-start-1 tabular-nums text-earth-500">{auditTimeLabel(item.createdAt, result.items[index - 1]?.createdAt)}</time>
                   <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
@@ -189,6 +199,7 @@ export default async function OperationAuditsPage({
         {result.page > 1 ? <Link className="rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm" href={pageHref(result.page - 1)}>上一頁</Link> : null}
         {result.page < totalPages ? <Link className="rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm" href={pageHref(result.page + 1)}>下一頁</Link> : null}
       </nav>
+      </AuditAutoRefresh>
     </PageShell>
   );
 }

@@ -53,6 +53,12 @@ it("rejects an unauthorized store before any booking, collection or config read"
   await expect(getMonthBookingSummary(2026, 9, "other")).rejects.toThrow("forbidden");
   expect(h.bookings).not.toHaveBeenCalled(); expect(h.transactions).not.toHaveBeenCalled(); expect(h.configs).not.toHaveBeenCalled();
 });
+it("sums individual trial receipts instead of showing only the last person's payment", async () => {
+  h.bookings.mockResolvedValue([booking("two-person-trial", 28, 2)]);
+  h.transactions.mockResolvedValue([499, 499].map(amount => ({ bookingId: "two-person-trial", amount, transactionType: "TRIAL_PURCHASE", customerPlanWallet: null })));
+  const rows = await getMonthBookingSummary(2026, 9, "store");
+  expect(rows[27].bookings[0]).toMatchObject({ people: 2, collected: true, collectedAmount: 998 });
+});
 it("does not turn a failed query into a successful empty month", async () => {
   h.bookings.mockRejectedValueOnce(new Error("unavailable"));
   await expect(getMonthBookingSummary(2026, 9, "store")).rejects.toThrow("unavailable");

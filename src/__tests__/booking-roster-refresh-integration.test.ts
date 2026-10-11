@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/s/staging/admin/dashboa
 vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, scroll: _scroll, onNavigate: _onNavigate, ...props }: { href: string; children: React.ReactNode; prefetch?: boolean; scroll?: boolean; onNavigate?: (event: { preventDefault: () => void }) => void }) => { void _prefetch; void _scroll; return React.createElement("a", { href, ...props, onClick: (event: React.MouseEvent) => { event.preventDefault(); _onNavigate?.({ preventDefault() {} }); } }, children); }, useLinkStatus: () => ({ pending: false }) }));
 vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({ TrialBookingDrawer: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/steam-booking-drawer", () => ({ SteamBookingDrawer: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/bookings/booking-detail-drawer", () => ({ BookingDetailDrawer: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-detail-drawer", () => ({ BookingDetailDrawer: ({ open, bookingId, onUpdated, onClose }: { open: boolean; bookingId: string; onUpdated: (id: string, status: null) => void; onClose: () => void }) => open ? React.createElement("button", { "data-fixture-payment": true, onClick: () => { onUpdated(bookingId, null); onClose(); } }, "合成逐人收款成功") : null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/day-slot-manager", () => ({ DaySlotManager: () => null }));
 import { OperationScope } from "@/components/operations/operation-scope";
 import { CustomerLabelsProvider } from "@/components/customer-labels";
@@ -67,6 +67,17 @@ it("keeps the five-row day roster mounted through repeated 60-second refreshes a
   expect(host.querySelectorAll("[data-batch]")).toHaveLength(3);
   expect(host.textContent).toContain("縮減後合成備註");
   expect(mocks.write).not.toHaveBeenCalled();
+});
+it("refreshes authoritative payment amounts immediately after closing a mutated drawer", async () => {
+  await openDay();
+  mocks.month.mockResolvedValue({ monthData: monthData("逐人收款後摘要"), monthSchedule: {}, slots: [], customerLabels: labels });
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="查看 11:00 合成顧客2 的預約詳情"]')!.click());
+  const readsBeforePayment = mocks.month.mock.calls.length;
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-fixture-payment]')!.click());
+  expect(mocks.month.mock.calls.length).toBeGreaterThan(readsBeforePayment);
+  expect(host.textContent).toContain("逐人收款後摘要");
+  expect(host.querySelectorAll("[data-batch]")).toHaveLength(5);
+  expect(window.location.search).toBe("?year=2026&month=9");
 });
 it("pauses background refresh while full notes are open and preserves multiline content", async () => {
   await openDay();

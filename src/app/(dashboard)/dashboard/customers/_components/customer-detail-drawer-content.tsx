@@ -131,7 +131,7 @@ export function CustomerDetailDrawerContent({
   const [assignOpen, setAssignOpen] = useState(focus === "plan");
 
   function handleReorder(planId: string) {
-    if (readOnly) return;
+    if (readOnly || !plans.some((plan) => plan.id === planId && plan.category !== "TRIAL")) return;
     setPreselectedPlanId(planId);
     setAssignOpen(true);
     setFormKey((k) => k + 1);
@@ -317,7 +317,7 @@ export function CustomerDetailDrawerContent({
                           )}
                         </div>
                       </div>
-                      {!readOnly ? (
+                      {!readOnly && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
                         <button
                           type="button"
                           onClick={() => handleReorder(w.plan.id)}

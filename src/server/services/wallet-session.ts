@@ -29,7 +29,7 @@ type Tx = Prisma.TransactionClient;
 // 內部：刷新 wallet.remainingSessions + status
 // ──────────────────────────────────────────────────────────────
 
-async function refreshWalletCounter(tx: Tx, walletId: string): Promise<void> {
+export async function refreshWalletCounter(tx: Tx, walletId: string): Promise<void> {
   // remainingSessions = AVAILABLE + RESERVED
   const grouped = await tx.walletSession.groupBy({
     by: ["status"],

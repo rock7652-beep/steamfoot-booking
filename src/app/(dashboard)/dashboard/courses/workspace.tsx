@@ -1,4 +1,9 @@
 "use client";
+import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
+import { savedCourseTemplate, courseTemplateRevision } from "@/lib/course-template-save";
+import { useCourseRoomCreate } from "@/components/admin/use-course-room-create";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
@@ -38,11 +43,7 @@ import {
 } from "@/lib/date-utils";
 import {
   updateCourseSeries,
-  createCourseRoom,
-  createCourseTemplate,
   createCourseSchedule,
-  updateCourseRoom,
-  updateCourseTemplate,
   deleteUnusedCourseTemplate,
   updateCourseSession,
   moveCourseSessions,
@@ -119,6 +120,7 @@ type Session = {
   rescheduledAt?: string | null;
 };
 type Props = {
+  storeId?: string;
   rentalPermissions?:RentalPermissions;
   rentalCustomers?:RentalCustomer[];
   displayOrder?:CourseOrderSnapshot;
@@ -216,6 +218,7 @@ function WaitlistFields({
 }
 
 export function CourseWorkspace({
+  storeId,
   displayOrder,
   canDelete=false,
   selectedDate: loadedDate,
@@ -223,7 +226,7 @@ export function CourseWorkspace({
   nowIso,
   calendarDays,
   rooms: sourceRooms,
-  templates: allTemplates,
+  templates: sourceTemplates,
   sessions,
   cancelledBookings,
   coaches: allCoaches,
@@ -241,12 +244,29 @@ export function CourseWorkspace({
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
-  const [allRooms,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(sourceRooms);
+  const confirmedRooms = useConfirmedSettingsRows(sourceRooms, courseRoomRevision);
+  const mergedRooms = confirmedRooms.rows;
+  const [allRooms,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(mergedRooms);
   const rooms = allRooms.filter((r) => r.isActive);
+  const confirmedTemplates = useConfirmedSettingsRows(sourceTemplates, courseTemplateRevision);
+  const allTemplates = confirmedTemplates.rows;
   const templates = allTemplates.filter((t) => t.isActive && t.musicSubject?.isActive !== false);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
+  const roomSave = useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/room`, storeId ?? "", savedCourseRoom);
+  async function saveRoom(input:Record<string,unknown>, previous:Room) {
+    const result = await roomSave.save(input);
+    if (result.success) { confirmedRooms.confirm({...previous,...result.data});setNewRoomId(result.data.id); }
+    return result;
+  }
+  const templateSave = useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/template`, storeId ?? "", savedCourseTemplate);
+  const [savedTemplateId,setSavedTemplateId] = useState<string|null>(null);
+  async function saveTemplate(input:Record<string,unknown>) {
+    const result = await templateSave.save(input);
+    if (result.success) { confirmedTemplates.confirm(result.data);setSavedTemplateId(result.data.id); }
+    return result;
+  }
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
@@ -272,7 +292,16 @@ export function CourseWorkspace({
       : null,
   );
   const [memberBookingReady, setMemberBookingReady] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const roomCreate = useCourseRoomCreate(storeId, (room, warning) => {
+    confirmedRooms.confirm({ ...room, uses: [] });
+    setDirty(false); setPanel(null); setError("");
+    setNotice(warning ? `${room.name} · 已儲存，其他頁面更新失敗，請重新整理核對。` : `${room.name} · 已儲存`);
+    setNewRoomId(room.id);
+  }, pathname);
+  const [newRoomId, setNewRoomId] = useState<string | null>(null);
+  const [transitionPending, startTransition] = useTransition();
+  const submitLock=useRef(false);
+  const pending = transitionPending || roomCreate.pending || roomSave.pending || templateSave.pending;
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pendingAttendance, setPendingAttendance] = useState<Record<string, "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED">>({});
   const [pendingLeaveIds,setPendingLeaveIds]=useState<string[]>([]);
@@ -323,7 +352,7 @@ export function CourseWorkspace({
     };
   }, [panel, router, view]);
   const [dirty, setDirty] = useState(false);
-  useCourseDraftGuard(dirty,!!panel&&pending);
+  useCourseDraftGuard(dirty,!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const musicScheduleGuard=useRef({dirty:false,pending:false});
   const updateMusicScheduleGuard=useCallback((dirty:boolean,pending:boolean)=>{musicScheduleGuard.current={dirty,pending};},[]);
   const restoreScrollY = useRef<number | null>(null);
@@ -343,7 +372,7 @@ export function CourseWorkspace({
     if(musicScheduleGuard.current.dirty&&!window.confirm("尚有未儲存的排課，確定關閉？"))return;
     if(rentalGuard.current.pending)return;
     if(rentalGuard.current.dirty&&!window.confirm("尚有未儲存租借修改，要關閉嗎？"))return;
-    if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
+    if (roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain || pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
     setDirty(false);
     setPanel(null);
   }
@@ -366,7 +395,7 @@ export function CourseWorkspace({
   const filteredItems = catalogItems
     .filter(
       (item) =>
-        (!hideTestData||!isCourseTestData(item.name)) && item.name
+        (view === "rooms" && item.id === newRoomId) || (view === "catalog" && item.id === savedTemplateId) || (!hideTestData||!isCourseTestData(item.name)) && item.name
           .toLocaleLowerCase()
           .includes(query.trim().toLocaleLowerCase()) &&
         (status === "all" || (view === "rooms" ? item.isActive === (status === "active") : (item.visibility ?? (item.isActive?"PUBLIC":"OFF")) === status)) &&
@@ -385,7 +414,7 @@ export function CourseWorkspace({
   const activeFilteredItems=filteredItems.filter(item=>!isInactiveItem(item));
   const inactiveFilteredItems=filteredItems.filter(isInactiveItem);
   const inactiveForced=status===(view==="rooms"?"inactive":"OFF")||!!query||category!=="all"||roomFilter!=="all"||classFilter!=="all"||rentalFilter!=="all";
-  const inactiveExpanded=inactiveForced||showInactive;
+  const inactiveExpanded=inactiveForced||showInactive||inactiveFilteredItems.some(item=>item.id===savedTemplateId);
   const visibleItems=[...activeFilteredItems,...(inactiveExpanded?inactiveFilteredItems:[])];
   function changeStatus(item: Room, visibility?:string) {
     if (pending) return;
@@ -486,6 +515,10 @@ export function CourseWorkspace({
     } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
   }
   function open(next: typeof panel) {
+    if (pending) return;
+    if (templateSave.uncertain || roomSave.uncertain) return;
+    if (next === "catalog") roomCreate.reset();
+    templateSave.reset();roomSave.reset();
     setConflicts([]);
     setDirty(false);
     setPanel(next);
@@ -656,11 +689,12 @@ export function CourseWorkspace({
     event: FormEvent<HTMLFormElement>,
     action: (
       data: FormData,
-    ) => Promise<{ success: boolean; error?: string; conflicts?:ConflictItem[]; data?: unknown }>,
+    ) => Promise<{ success: boolean; error?: string; conflicts?:ConflictItem[]; data?: unknown; syncWarning?: boolean }>,
     after?: (data: FormData) => void,
   ) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || submitLock.current) return;
+    submitLock.current=true;
     const form = event.currentTarget,
       data = new FormData(form);
     setError("");
@@ -678,7 +712,7 @@ export function CourseWorkspace({
             ? result.data.count
             : null;
         setNotice(
-          typeof count === "number" ? `已建立 ${count} 堂課程` : "已儲存",
+          result.syncWarning ? "已儲存；其他頁面更新失敗，請重新整理核對。" : typeof count === "number" ? `已建立 ${count} 堂課程` : "已儲存",
         );
         setDirty(false);
         form.reset();
@@ -687,10 +721,12 @@ export function CourseWorkspace({
           restoreScrollY.current = window.scrollY;
         }
         if (panel === "catalog") setPanel(null);
-        router.refresh();
+        // Setting actions already revalidate this route. Keep the refresh for
+        // operational actions, whose authoritative schedule may need reconciling.
+        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
-      }
+      } finally {submitLock.current=false;}
     });
   }
   const template = templates.find((t) => t.id === chosen);
@@ -1183,9 +1219,10 @@ export function CourseWorkspace({
                     <Fragment key={item.id}>
                     {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?4:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                     <tr
+                      data-new-room={item.id === newRoomId ? "true" : undefined}
                       {...order.rowProps(item.id)}
                       className={(
-                        item.isActive && (!template || template.visibility === "PUBLIC")
+                        item.id === newRoomId ? "bg-primary-50" : item.isActive && (!template || template.visibility === "PUBLIC")
                           ? "hover:bg-primary-50/40"
                           : "bg-earth-50 text-earth-600"
                       )}
@@ -1193,7 +1230,7 @@ export function CourseWorkspace({
                       <td
                         className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
                       >
-                        {view==="rooms"&&canEdit&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}<button type="button" className="min-h-11 text-left hover:underline" onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open(businessProfile!=="MUSIC" && canEdit?"edit":"inspect");}}>{item.name}</button>
+                        {view==="rooms"&&canEdit&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}<button type="button" className="min-h-11 text-left hover:underline" onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open(businessProfile!=="MUSIC" && canEdit?"edit":"inspect");}}>{item.name}</button>{item.id === newRoomId && <span className="ml-2 text-sm font-normal text-primary-700">剛新增</span>}
                         {!item.isActive && <span className="ml-2 text-xs text-earth-500">停用</span>}{template?.visibility === "HIDDEN" && <span className="ml-2 text-xs text-earth-500">隱藏</span>}{template && businessProfile==="MUSIC" && (!item.name.includes(template.classType==="PRIVATE"?"個別":template.classType==="SELF_ORGANIZED"?"自組":"團體")) && <span className="ml-2 whitespace-nowrap font-normal text-xs text-earth-500">{template.musicTrialMode?"體驗":template.classType==="PRIVATE"?"個別課":template.classType==="SELF_ORGANIZED"?"自組課":template.classType==="GROUP"?"團體課":"課型待補"}</span>}
 
                       </td>
@@ -1272,7 +1309,7 @@ export function CourseWorkspace({
             )}
           </div>
           {notice && (
-            <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-primary-700"><span>{notice}</span>{businessProfile!=="MUSIC"&&canCreate&&<button type="button" className="min-h-11 px-3 font-medium" onClick={()=>router.push(`${pathname}${view==="catalog"?"?view=plans&action=create":"?action=schedule"}`)}>{view==="catalog"?"下一步：建立方案":"去排課"} →</button>}</div>
+            <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-primary-700"><span>{notice}</span>{view === "rooms" && newRoomId && <button type="button" className="min-h-11 px-3 font-medium" onClick={() => { const row = document.querySelector<HTMLElement>('[data-new-room="true"]'); row?.scrollIntoView({block:"nearest", behavior:"smooth"}); row?.querySelector<HTMLButtonElement>("button:not([aria-label])")?.focus({preventScroll:true}); }}>查看新空間</button>}{businessProfile!=="MUSIC"&&canCreate&&<button type="button" className="min-h-11 px-3 font-medium" onClick={()=>router.push(`${pathname}${view==="catalog"?"?view=plans&action=create":"?action=schedule"}`)}>{view==="catalog"?"下一步：建立方案":"去排課"} →</button>}</div>
           )}
           {error && !panel && (
             <p role="alert" className="text-sm text-red-700">
@@ -1283,11 +1320,12 @@ export function CourseWorkspace({
       )}
       {panel && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
-          compact={businessProfile === "MUSIC"}
+          compact={businessProfile === "MUSIC" && view !== "rooms"}
+          fixedHeight={view === "rooms"}
           maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" ? 680 : 900}
           open
           onClose={closePanel}
-          width={panel === "day" ? 720 : businessProfile !== "MUSIC" ? 920 : 520}
+          width={view === "rooms" ? 920 : panel === "day" ? 720 : businessProfile !== "MUSIC" ? 920 : 520}
           labelledById="course-panel-title"
         >
           <div
@@ -1322,11 +1360,11 @@ export function CourseWorkspace({
                     : selectedDate}
               {panel === "schedule" && arrangement !== "rental" && arrangement !== "trial" ? <CourseSetupStepBadge step="schedule" /> : panel === "catalog" || panel === "edit" || panel === "inspect" ? <CourseSetupStepBadge step={view === "rooms" || editing?.kind === "room" ? "room" : "course"} /> : null}
             </h2>
-            <div className="flex items-center gap-2">{panel === "edit" && editing?.kind === "room" && businessProfile!=="MUSIC" && <button type="button" className="min-h-11 px-3 text-sm text-primary-700 hover:underline" onClick={()=>{if(rentalGuard.current.pending)return;if((dirty||rentalGuard.current.dirty)&&!window.confirm("放棄未儲存修改？"))return;setDirty(false);setRoomRentalHistory(v=>!v);}}>{roomRentalHistory?"← 空間設定":"租借紀錄 →"}</button> }
+            <div className="flex items-center gap-2">{panel === "edit" && editing?.kind === "room" && businessProfile!=="MUSIC" && <button type="button" className="min-h-11 px-3 text-sm text-primary-700 hover:underline" onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if((dirty||rentalGuard.current.dirty)&&!window.confirm("放棄未儲存修改？"))return;setDirty(false);setRoomRentalHistory(v=>!v);}}>{roomRentalHistory?"← 空間設定":"租借紀錄 →"}</button> }
             {
               <button
                 className={button}
-                disabled={pending}
+                disabled={pending || templateSave.uncertain || roomSave.uncertain}
                 onClick={closePanel}
               >
                 關閉
@@ -1344,9 +1382,9 @@ export function CourseWorkspace({
                 : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input:not([type=checkbox]):not([type=radio])]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-11 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }
           >
-            {error && (
+            {((view === "rooms" && panel === "catalog" ? roomCreate.error : "") || error) && (
               <p role="alert" className="text-sm text-red-700">
-                {error}
+                {view === "rooms" && panel === "catalog" ? roomCreate.error || error : error}
               </p>
             )}
             {notice && !scheduleCreated && (
@@ -1514,22 +1552,10 @@ export function CourseWorkspace({
                       <form
                         id="course-room-create-form"
                         onInvalidCapture={businessProfile === "MUSIC" ? undefined : e=>{const target=e.target as HTMLElement;const section=target.closest("details");if(section)section.open=true;target.scrollIntoView?.({block:"nearest"});}}
-                        onSubmit={(e) =>
-                          submit(e, async (data) =>
-                            createCourseRoom({
-                              capacity: data.get("roomCapacity")
-                                ? Number(data.get("roomCapacity"))
-                                : null,
-                              details: data.get("details") || "",
-                              equipment:data.get("equipment") || "",location:data.get("location") || "",
-                              rentalEnabled:data.get("rentalEnabled")==="yes",rentalHourlyRate:Number(data.get("rentalHourlyRate")||0),rentalBufferMinutes:Number(data.get("rentalBufferMinutes")||0),
-                              name: data.get("name"),
-                              category: data.get("category"),
-                            }),
-                          )
-                        }
+                        onSubmit={e => { e.preventDefault(); if (!pending) void roomCreate.save(new FormData(e.currentTarget)); }}
                         className={businessProfile === "MUSIC" ? "grid gap-2 sm:grid-cols-2" : "grid gap-2 sm:grid-cols-[2fr_1fr_1fr]"}
                       >
+                        <fieldset disabled={roomCreate.pending || roomCreate.uncertain} className="contents">
                         <label>
                           空間名稱{businessProfile!=="MUSIC"&&" *"}
                           <input
@@ -1550,6 +1576,7 @@ export function CourseWorkspace({
                           />
                         </label>)}
                         <RoomMore music={businessProfile === "MUSIC"} />
+                      </fieldset>
                       </form>
                     )}
                     {view !== "rooms" && (
@@ -1559,7 +1586,7 @@ export function CourseWorkspace({
                         className={`grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 ${businessProfile!=="MUSIC"?"sm:grid-cols-6":""}`}
                         onSubmit={(e) =>
                           submit(e, (data) =>
-                            createCourseTemplate({
+                            saveTemplate({
                               name: data.get("name"),
                               category: data.get("category"),
                               defaultRoomId: data.get("roomId") || null,
@@ -1577,6 +1604,7 @@ export function CourseWorkspace({
                           )
                         }
                       >
+                        <fieldset disabled={templateSave.pending || templateSave.uncertain} className="contents">
                         <label className={businessProfile!=="MUSIC"?"sm:col-span-4":"col-span-full"}>
                           課程名稱{businessProfile!=="MUSIC"&&" *"}
                           <input
@@ -1653,6 +1681,7 @@ export function CourseWorkspace({
                             ))}
                           </select>
                         </label>:undefined} />
+                        </fieldset>
                       </form>
                     )}
                   </>
@@ -1686,23 +1715,26 @@ export function CourseWorkspace({
                         category: data.get("category"),
                       };
                       if (editing.kind === "room")
-                        return updateCourseRoom({
+                        return saveRoom({
                           ...common,
+                          expectedRevision:courseRoomRevision(editing.value),
                           capacity: data.get("roomCapacity")
                             ? Number(data.get("roomCapacity"))
                             : null,
                           details: data.get("details") || "",
                               equipment:data.get("equipment") || "",location:data.get("location") || "",
                               rentalEnabled:data.get("rentalEnabled")==="yes",rentalHourlyRate:Number(data.get("rentalHourlyRate")||0),rentalBufferMinutes:Number(data.get("rentalBufferMinutes")||0),
-                        });
+                        }, editing.value);
                       const details = {
                         durationMinutes: Number(data.get("duration")),
                         capacity: Number(data.get("capacity")),
                         pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
                       };
                       if (editing.kind === "template")
-                        return (copyTemplate?createCourseTemplate:updateCourseTemplate)({
+                        return saveTemplate({
                           ...common,
+                          id:copyTemplate?undefined:editing.value.id,
+                          expectedRevision:copyTemplate?undefined:courseTemplateRevision(editing.value),
                           ...details,
                           ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {musicTrialMode:data.get("musicTrialMode") || null}),
                           defaultRoomId: data.get("roomId") || null,
@@ -1743,6 +1775,7 @@ export function CourseWorkspace({
                   )
                 }
               >
+                <fieldset disabled={pending || templateSave.uncertain || roomSave.uncertain} className="contents">
                 <p className="col-span-full text-sm text-earth-600">
                   {editing.kind === "session"
                     ? "修改範圍可選這堂或同一批次的這堂及後續，撞期時整批不會儲存。"
@@ -1964,6 +1997,7 @@ export function CourseWorkspace({
                     roomField={businessProfile!=="MUSIC"?<label className="block">預設空間<select className={field} name="roomId" defaultValue={editing.value.defaultRoomId??""}><option value="">不指定</option>{allRooms.filter(r=>r.isActive || r.id===editing.value.defaultRoomId).map(r=><option key={r.id} value={r.id}>{r.name}{!r.isActive?"（已停用）":""}</option>)}</select></label>:undefined}
                   />
                 )}
+                </fieldset>
               </form>
             )}
             {panel === "schedule" && businessProfile === "MUSIC" && (
@@ -1994,7 +2028,7 @@ export function CourseWorkspace({
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
             {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && <>
-              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
+              <div className="mb-2 flex gap-2" aria-label="安排類型">{([["class","排課"],["trial","體驗課"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate}} onGuard={updateRentalGuard} />}
             </>}
@@ -2234,7 +2268,7 @@ export function CourseWorkspace({
             <footer className={businessProfile === "MUSIC" ? "flex shrink-0 justify-end gap-2 border-t border-earth-100 bg-white p-3" : `${fitnessEditorFooter} flex items-center justify-end gap-2`}>
               <button
                 className={button}
-                disabled={pending}
+                disabled={pending || templateSave.uncertain || roomSave.uncertain}
                 onClick={() => {
                   if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
                   open(editing.kind === "session" ? "day" : null);
@@ -2249,7 +2283,7 @@ export function CourseWorkspace({
                 className={`${primary} ${businessProfile === "MUSIC" ? "" : fitnessEditorSave}`}
                 disabled={pending}
               >
-                {copyTemplate && editing.kind === "template" ? "建立課程" : "儲存"}
+                {templateSave.uncertain || roomSave.uncertain ? "重試確認儲存結果" : copyTemplate && editing.kind === "template" ? "建立課程" : "儲存"}
               </button>
             </footer>
           )}
@@ -2268,8 +2302,8 @@ export function CourseWorkspace({
                 {pending
                   ? "儲存中…"
                   : view === "rooms"
-                    ? "儲存"
-                    : "建立課程"}
+                    ? roomCreate.uncertain ? "重試確認儲存結果" : "儲存"
+                    : templateSave.uncertain ? "重試確認儲存結果" : "建立課程"}
               </button>
             </div>
           )}

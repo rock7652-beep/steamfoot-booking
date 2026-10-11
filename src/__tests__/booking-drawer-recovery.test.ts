@@ -2,6 +2,8 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-companion-editor", () => ({ BookingCompanionEditor: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-participant-checkout", () => ({ BookingParticipantCheckout: () => null }));
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import type { BookingPrefill } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn(), revert: vi.fn() }));

@@ -11,7 +11,7 @@ export function LiffBrandHeader({ home }: { home?: boolean } = {}) {
     <div className="mx-auto flex w-full max-w-md shrink-0 justify-end px-5 pt-[max(12px,env(safe-area-inset-top))]">
       <Image src="/pricing/brand/steam-butler-logo.png" alt="蒸管家"
         width={1920} height={819} unoptimized loading="eager"
-        className="block h-auto w-36 max-w-full mix-blend-multiply" />
+        className="block h-auto w-28 max-w-full mix-blend-multiply" />
     </div>
   );
 }

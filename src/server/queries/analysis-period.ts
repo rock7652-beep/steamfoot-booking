@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db";
-import { analysisComparisonRanges, dayRange, parseTaiwanDateToDbDate, previousAnalysisRange, type AnalysisRange } from "@/lib/date-utils";
+import { analysisComparisonRanges, parseTaiwanDateToDbDate, previousAnalysisRange, type AnalysisRange } from "@/lib/date-utils";
 import { selectConversionCustomerIds, type CompletedTrial, type PackagePurchase } from "./conversion-metrics";
 import { hydrateCustomerSegment } from "./customer-segment-list";
 import type { CustomerKpiSegment } from "./customer-kpi-segments";
+import { loadIndividualBookingFacts, replaceGroupedBookingFacts } from "./booking-participant-facts";
 
 type Visit = CompletedTrial & { bookingType: string };
 export function selectPeriodFacts(range: AnalysisRange, previous: AnalysisRange, visits: Visit[], first: Map<string, Date>, trials: CompletedTrial[], purchases: PackagePurchase[]) {
@@ -23,11 +24,12 @@ export function selectPeriodFacts(range: AnalysisRange, previous: AnalysisRange,
   return {
     counts: {
       uniqueVisitors: visitors.size, newVisitors: newVisitors.size, returningVisitors: returning.size,
-      trialAttendees, trialBookingGroups: trialRows.length, completedServices: attendees(rows),
+      trialAttendees, unidentifiedTrialVisits: trialRows.reduce((sum, row) => sum + Math.max(0, (row.attendedPeople ?? row.people ?? 1) - 1), 0),
+      trialBookingGroups: new Set(trialRows.map((row, index) => row.bookingId ?? row.id ?? `legacy-${index}`)).size, completedServices: attendees(rows),
       currentTrialConversions: currentConverted, trackedConversions: conversion.trackedConvertedCustomerIds.size,
       convertedCustomers: conversion.convertedCustomerIds.size,
-      conversionRate: trialAttendees ? currentConverted / trialAttendees * 100 : 0,
-      unconvertedCustomers: Math.max(0, trialAttendees - currentConverted),
+      conversionRate: conversion.trialCustomerIds.size ? currentConverted / conversion.trialCustomerIds.size * 100 : 0,
+      unconvertedCustomers: conversion.unconvertedCustomerIds.size,
       returnedCustomers: returned.size, retentionRate: cohort.size ? returned.size / cohort.size * 100 : 0,
       unreturnedCustomers: notReturned.size,
     },
@@ -44,18 +46,27 @@ export function selectPeriodFacts(range: AnalysisRange, previous: AnalysisRange,
 
 async function loadPeriodFacts(storeId: string, ranges: AnalysisRange[]) {
   const latest = ranges.map(r => r.endDate).sort().at(-1)!;
-  const [visits, trials] = await Promise.all([
-    prisma.booking.findMany({ where: { storeId, bookingStatus: "COMPLETED", OR: ranges.map(r => ({ bookingDate: { gte: parseTaiwanDateToDbDate(r.startDate), lte: parseTaiwanDateToDbDate(r.endDate) } })) }, select: { customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true } }),
-    prisma.booking.findMany({ where: { storeId, bookingStatus: "COMPLETED", bookingType: "FIRST_TRIAL", bookingDate: { lte: parseTaiwanDateToDbDate(latest) } }, select: { customerId: true, bookingDate: true, people: true, attendedPeople: true } }),
+  const [groupedVisits, groupedTrials, individual] = await Promise.all([
+    prisma.booking.findMany({ where: { storeId, bookingStatus: "COMPLETED", OR: ranges.map(r => ({ bookingDate: { gte: parseTaiwanDateToDbDate(r.startDate), lte: parseTaiwanDateToDbDate(r.endDate) } })) }, select: { id: true, customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true } }),
+    prisma.booking.findMany({ where: { storeId, bookingStatus: "COMPLETED", bookingType: "FIRST_TRIAL", bookingDate: { lte: parseTaiwanDateToDbDate(latest) } }, select: { id: true, customerId: true, bookingDate: true, people: true, attendedPeople: true } }),
+    loadIndividualBookingFacts(storeId, parseTaiwanDateToDbDate(latest)),
   ]);
+  const visits = [...replaceGroupedBookingFacts(groupedVisits, individual.groupIds), ...individual.visits];
+  const trials = [...replaceGroupedBookingFacts(groupedTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
   const ids = [...new Set(visits.map(v => v.customerId))];
   const trialIds = [...new Set(trials.map(v => v.customerId))];
   const [firstRows, purchases] = await Promise.all([
-    ids.length ? prisma.booking.groupBy({ by: ["customerId"], where: { storeId, bookingStatus: "COMPLETED", customerId: { in: ids } }, _min: { bookingDate: true } }) : [],
-    trialIds.length ? prisma.transaction.findMany({ where: { storeId, customerId: { in: trialIds }, transactionType: "PACKAGE_PURCHASE", status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }, customerPlanWalletId: { not: null }, transactionDate: { lte: dayRange(latest).end } }, select: { customerId: true, transactionDate: true, paidAt: true, customerPlanWallet: { select: { status: true } } } }) : [],
+    ids.length ? prisma.booking.groupBy({ by: ["customerId"], where: { storeId, bookingStatus: "COMPLETED", customerId: { in: ids },
+      ...(individual.groupIds.size ? { id: { notIn: [...individual.groupIds] } } : {}) }, _min: { bookingDate: true } }) : [],
+    trialIds.length ? prisma.transaction.findMany({ where: { storeId, customerId: { in: trialIds }, transactionType: "PACKAGE_PURCHASE", status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }, customerPlanWalletId: { not: null },
+      OR: [{ paidAt: { lte: new Date() } }, { paidAt: null, transactionDate: { lte: new Date() } }] }, select: { customerId: true, transactionDate: true, paidAt: true, amount: true,
+      refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } }, customerPlanWallet: { select: { status: true } } } }) : [],
   ]);
   const first = new Map(firstRows.flatMap(r => r._min.bookingDate ? [[r.customerId, r._min.bookingDate] as const] : []));
-  return { visits, trials, purchases, first };
+  for (const visit of individual.visits) if (!first.has(visit.customerId) || visit.bookingDate < first.get(visit.customerId)!) first.set(visit.customerId, visit.bookingDate);
+  return { visits, trials, purchases: purchases.map(purchase => ({ ...purchase,
+    netAmount: Number(purchase.amount) + purchase.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
+  })), first };
 }
 
 export async function getAnalysisPeriodMetrics(storeId: string, range: AnalysisRange, preset: string) {

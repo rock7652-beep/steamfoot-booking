@@ -19,34 +19,6 @@ export function StoreTodoCard({
   readOnly = false,
   canCreateBooking = false,
 }: StoreTodoCardProps) {
-  if (items.length === 0) {
-    return (
-      <section className="rounded-xl border border-earth-200 bg-earth-50/40 px-4 py-3">
-        <header className="mb-1">
-          <h2 className="text-sm font-semibold text-earth-800">今天待處理</h2>
-          <p className="text-[11px] text-earth-400">店長今天最重要的事</p>
-        </header>
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <p className="text-xs text-earth-600">
-            今天目前沒有急件，系統狀態很穩定。
-          </p>
-          {readOnly ? (
-            <span className="shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
-              查看模式
-            </span>
-          ) : canCreateBooking ? (
-            <Link
-              href="/dashboard/bookings/new"
-              className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
-            >
-              ＋ 新增預約
-            </Link>
-          ) : null}
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section className="rounded-xl border border-earth-200 bg-white">
       <header className="border-b border-earth-100 px-4 py-2.5">
@@ -57,6 +29,25 @@ export function StoreTodoCard({
         items={items}
         defaultVisible={defaultVisible}
         readOnly={readOnly}
+        emptyState={
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <p className="text-xs text-earth-600">
+              今天目前沒有急件，系統狀態很穩定。
+            </p>
+            {readOnly ? (
+              <span className="shrink-0 rounded-md border border-earth-200 bg-earth-50 px-3 py-1 text-[11px] font-medium text-earth-400">
+                查看模式
+              </span>
+            ) : canCreateBooking ? (
+              <Link
+                href="/dashboard/bookings/new"
+                className="shrink-0 rounded-md border border-earth-200 bg-white px-3 py-1 text-[11px] font-medium text-earth-700 hover:bg-earth-50"
+              >
+                ＋ 新增預約
+              </Link>
+            ) : null}
+          </div>
+        }
       />
     </section>
   );

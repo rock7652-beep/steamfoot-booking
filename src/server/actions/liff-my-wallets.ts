@@ -55,6 +55,8 @@ export interface LiffWalletRow {
   expiryDate: string | null;
   /** WalletStatus 原值；client splitLiffWallets 用 + UI badge 用 */
   status: string;
+  /** Actual ledger debits; absent in older/other-module projections. */
+  usageRecords?: Array<{ id: string; date: string | null; time: string | null; label: string; sessions: number; status: string }>;
 }
 
 /** PR-NoShow-2：有效補課券（未使用、未過期）投影 — 供顧客端顯示與「優先用券」提示。 */

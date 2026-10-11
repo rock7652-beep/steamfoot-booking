@@ -1,5 +1,4 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getTrialSettings } from "@/lib/shop-config";
@@ -45,7 +44,7 @@ export default async function TrialSettingsPage() {
         }
       />
 
-      <TrialSettingsForm key={storeId} storeId={storeId} initial={trial} courseMode={courseMode} saveAction={courseMode ? saveCourseTrialSettings : undefined} />
+      <TrialSettingsForm key={storeId} storeId={storeId} initial={trial} courseMode={courseMode} />
     </PageShell>
   );
 }

@@ -512,10 +512,11 @@ export function WelcomeBack({
   }
 
   const wallets = memberSummary?.activeWallets ?? [];
-  const { totalUsable, totalBooked, totalBookable } = getMemberPlanSummary(
+  const { totalUsable, totalBookable } = getMemberPlanSummary(
     wallets,
     memberSummary?.upcomingBookings ?? [],
   );
+  const planReserved = wallets.reduce((sum, wallet) => sum + wallet.pendingCount, 0);
   const nextBooking = memberSummary?.nextBooking ?? null;
   const makeupCredits = memberSummary?.makeupCredits ?? [];
   const nearestWalletExpiry = wallets.map((wallet) => wallet.expiryDate).find(Boolean) ?? null;
@@ -541,7 +542,7 @@ export function WelcomeBack({
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
 
-      <section className="rounded-2xl bg-earth-900 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
+      <section className="rounded-2xl bg-primary-800 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>
         {nextBooking ? (
           <div className="mt-2 flex items-end justify-between gap-4">
@@ -570,11 +571,8 @@ export function WelcomeBack({
               <h2 className="text-base font-semibold text-earth-900">{labels.summaryTitle}</h2>
               {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <SummaryMetric label="可使用" value={totalUsable} unit={labels.sessionUnit} />
-              <SummaryMetric label="已預約" value={totalBooked} unit={labels.sessionUnit} />
-              <SummaryMetric label="尚可預約" value={totalBookable} unit={labels.sessionUnit} emphasized />
-            </div>
+            <p className="mt-2 text-base font-medium text-primary-800">還可預約 <strong className="text-3xl font-bold tabular-nums">{totalBookable}</strong> {labels.sessionUnit}</p>
+            <p className="mt-1 text-sm text-earth-600">剩餘 {totalUsable} {labels.sessionUnit}｜已預約 {planReserved} {labels.sessionUnit}</p>
             {makeupCredits.length > 0 && (
               <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
                 <span className="font-medium text-earth-800">{labels.makeupLabel} {makeupCredits.length} {labels.sessionUnit}</span>
@@ -627,7 +625,7 @@ export function WelcomeBack({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-primary-700">最近健康變化</p>
-              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange?.detail ?? (memberSummary.healthSummary ? "查看最近量測紀錄" : "尚無量測紀錄")}</p>
+              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange?.detail ?? (memberSummary.healthSummary?.latest ? "查看最近量測紀錄" : "尚無量測紀錄")}</p>
               {healthChange?.comparison && <p className="mt-1 text-xs text-earth-500">{healthChange.comparison}</p>}
             </div>
             <ChevronRightIcon />
@@ -657,10 +655,6 @@ function MemberHomeSummaryLoading() {
       <p className="text-xs text-earth-500">完成後會顯示正確堂數與預約</p>
     </div>
   );
-}
-
-function SummaryMetric({ label, value, unit, emphasized = false }: { label: string; value: number; unit: string; emphasized?: boolean }) {
-  return <div className={`rounded-xl px-2 py-2 ${emphasized ? "bg-primary-50" : "bg-earth-50"}`}><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}<span className="ml-0.5 text-xs font-medium text-earth-500">{unit}</span></p></div>;
 }
 
 function HomeTile({ href, label, detail }: { href: string; label: string; detail: string }) {

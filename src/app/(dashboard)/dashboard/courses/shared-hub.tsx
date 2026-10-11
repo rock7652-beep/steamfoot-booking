@@ -43,7 +43,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
-      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, shopPhone: true, lineOfficialId: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true, trialAllowPriceEdit: true, trialMinPrice: true, trialMaxPrice: true } }),
+      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, shopPhone: true, lineOfficialId: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookingOpensAt:true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true, trialAllowPriceEdit: true, trialMinPrice: true, trialMaxPrice: true } }),
       checkPermission(user.role,user.staffId,"plans.edit"),
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
@@ -63,7 +63,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     body = (<>
-      {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide key={storeId} manual {...await getCourseSetup(storeId,user.id)}/>}
+      {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={storeId} manual {...await getCourseSetup(storeId,user.id)}/>}
       <CourseSettingsWorkspace
         music={music}
         panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}
@@ -74,6 +74,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
         subscriptionSummary={canPayment ? subscriptionSummary : undefined}
         today={toLocalDateStr()}
         trialSettings={{ trialEnabled: config?.trialEnabled ?? TRIAL_DEFAULTS.trialEnabled, trialDefaultPrice: Number(config?.trialDefaultPrice ?? TRIAL_DEFAULTS.trialDefaultPrice), trialAllowPriceEdit: config?.trialAllowPriceEdit ?? TRIAL_DEFAULTS.trialAllowPriceEdit, trialMinPrice: Number(config?.trialMinPrice ?? TRIAL_DEFAULTS.trialMinPrice), trialMaxPrice: Number(config?.trialMaxPrice ?? TRIAL_DEFAULTS.trialMaxPrice) }}
+        bookingOpensAt={config?.bookingOpensAt?.toISOString()??null}
         bookingWindowDays={config?.bookingWindowDays ?? DEFAULT_BOOKABLE_DAYS_AHEAD}
         bookableUntilDate={config?.bookableUntilDate?.toISOString().slice(0,10) ?? null}
         dutyEnabled={config?.dutySchedulingEnabled ?? false}

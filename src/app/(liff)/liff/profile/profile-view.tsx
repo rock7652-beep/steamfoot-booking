@@ -48,7 +48,6 @@ interface Props {
 
 export function ProfileView({
   storeSlug,
-  storeName,
   liffId,
   contactUrl,
 }: Props) {
@@ -120,14 +119,7 @@ export function ProfileView({
   }, [liffId, storeSlug, router]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-earth-900">
-          {liffMessages.profile.pageTitle}
-        </h1>
-        <p className="text-xs text-earth-600">{storeName}</p>
-      </header>
-
+    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 py-3">
       {state.kind === "initializing" && (
         <Loading text={liffMessages.profile.initializing} />
       )}
@@ -214,33 +206,26 @@ export function ProfileReadyView({ profile }: { profile: LiffCustomerProfile }) 
   }[profile.lineStatus];
 
   return (
-    <div className="flex flex-col gap-3">
+    <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
       <Field label={liffMessages.profile.fieldName} value={profile.name} />
       <Field label={liffMessages.profile.fieldPhone} value={phoneDisplay} />
       <Field label={liffMessages.profile.fieldEmail} value={emailDisplay} />
-
-      <div className={`flex flex-col gap-1 rounded-xl border px-4 py-3 ${lineStatusToneClass}`}>
-        <p className="text-xs font-medium opacity-80">
-          {liffMessages.profile.fieldLineStatus}
-        </p>
-        <p className="text-base font-semibold">{lineStatusLabel}</p>
-        {profile.lineUserIdMasked && (
-          <p className="font-mono text-xs opacity-70">
-            ID: {profile.lineUserIdMasked}
-          </p>
-        )}
-      </div>
-
-      <Field label={liffMessages.profile.fieldLineName} value={lineNameDisplay} />
+      <details className="border-b border-earth-100">
+        <summary className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm ${lineStatusToneClass}`}>
+          <span>LINE</span><strong>{lineStatusLabel} ⌄</strong>
+        </summary>
+        <Field label={liffMessages.profile.fieldLineName} value={lineNameDisplay} />
+        {profile.lineUserIdMasked && <Field label="LINE ID" value={profile.lineUserIdMasked} />}
+      </details>
       <Field label={liffMessages.profile.fieldStoreName} value={profile.storeName} />
-    </div>
+    </section>
   );
 }
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-earth-200 bg-white px-4 py-3">
-      <p className="text-xs font-medium text-earth-600">{label}</p>
+    <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 border-b border-earth-100 px-4 py-3 last:border-0">
+      <p className="text-sm font-medium text-earth-600">{label}</p>
       <p className="break-words text-base text-earth-900">{value}</p>
     </div>
   );

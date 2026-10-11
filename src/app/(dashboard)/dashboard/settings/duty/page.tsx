@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
+import {DutyStatusProvider,DutyEnabledContent} from "./duty-status";
 import { DutySchedulingToggle } from "./duty-toggle";
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -130,7 +131,7 @@ export default async function DutySettingsPage() {
   const scheduledDays = weekInfo.total - weekInfo.unscheduled;
 
   return (
-    <PageShell>
+    <DutyStatusProvider key={storeId} enabled={enabled}><PageShell>
       <PageHeader
         title="值班排班設定"
         subtitle="控制值班排班是否與預約系統聯動"
@@ -149,23 +150,6 @@ export default async function DutySettingsPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-earth-500">聯動狀態</span>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                  enabled
-                    ? "bg-primary-50 text-primary-700"
-                    : "bg-earth-100 text-earth-500"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    enabled ? "bg-primary-500" : "bg-earth-400"
-                  }`}
-                />
-                {enabled ? "已啟用" : "未啟用"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
               <span className="text-[11px] text-earth-500">本週營業日</span>
               <span className="text-[15px] font-bold tabular-nums text-earth-900">
                 {weekInfo.total}
@@ -182,7 +166,7 @@ export default async function DutySettingsPage() {
                   : `${scheduledDays} / ${weekInfo.total}`}
               </span>
             </div>
-            {enabled && weekInfo.unscheduled > 0 && (
+            {weekInfo.unscheduled > 0 && (<DutyEnabledContent>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-earth-500">缺班</span>
                 <span className="text-[15px] font-bold tabular-nums text-amber-700">
@@ -191,11 +175,11 @@ export default async function DutySettingsPage() {
                     天
                   </span>
                 </span>
-              </div>
+              </div></DutyEnabledContent>
             )}
           </div>
 
-          <DutySchedulingToggle course={course} key={storeId} enabled={enabled} compact />
+          <DutySchedulingToggle course={course} key={storeId} storeId={storeId} enabled={enabled} />
         </div>
       </section>
 
@@ -286,7 +270,7 @@ export default async function DutySettingsPage() {
             </div>
           </div>
 
-          {enabled && weekInfo.unscheduled > 0 && (
+          {weekInfo.unscheduled > 0 && (<DutyEnabledContent>
             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <p className="text-[13px] font-medium text-amber-800">
                 ⚠ 本週有 {weekInfo.unscheduled} 個營業日尚未安排值班
@@ -297,16 +281,16 @@ export default async function DutySettingsPage() {
               <p className="mt-1 text-[11px] text-amber-600">
                 {course ? "這些日期尚未安排值班；啟用聯動後排課須符合授課人員值班。" : "這些日期的所有時段目前對客戶不可見"}
               </p>
-            </div>
+            </div></DutyEnabledContent>
           )}
 
-          {!enabled && (
+          <DutyEnabledContent when={false}>
             <p className="mt-4 rounded-lg bg-earth-50 p-3 text-[11px] leading-relaxed text-earth-500">
               {course ? "聯動目前停用中，課程依實際排課開放預約。未排班日期不影響已排課程與學員預約。" : "聯動目前停用中，所有營業時段均可預約。即使有未排班日期也不會影響顧客預約。"}
             </p>
-          )}
+          </DutyEnabledContent>
         </section>
       </div>
-    </PageShell>
+    </PageShell></DutyStatusProvider>
   );
 }

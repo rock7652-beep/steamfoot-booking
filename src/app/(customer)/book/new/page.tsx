@@ -12,6 +12,8 @@ import { BOOKING_UPCOMING } from "@/lib/booking-constants";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { spaPrisma } from "@/lib/spa-db";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
+import {readSpaCustomerWindow} from "@/server/services/spa-customer-window";
+import {addTaiwanDuration,formatTWDateTime} from "@/lib/date-utils";
 import { SpaCustomerBookingForm } from "./spa-customer-booking-form";
 
 async function SpaNewBookingPage({
@@ -32,14 +34,10 @@ async function SpaNewBookingPage({
   }
 
   const today = toLocalDateStr();
-  const latest = new Date(`${today}T00:00:00Z`);
-  latest.setUTCDate(latest.getUTCDate() + 60);
-  const latestDate = latest.toISOString().slice(0, 10);
-  const quickDates = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(`${today}T00:00:00Z`);
-    date.setUTCDate(date.getUTCDate() + index + 1);
-    return date.toISOString().slice(0, 10);
-  });
+  const window=await readSpaCustomerWindow(storeId);
+  const latestDate=toLocalDateStr(window.closesAt);
+  const quickDates=Array.from({length:7},(_,index)=>addTaiwanDuration(today,index+1,"DAY")).filter(date=>date<=latestDate);
+  const opensLater=window.opensAt&&window.opensAt>new Date();
   const [treatments, spaBookings] = await Promise.all([
     spaPrisma.spaTreatment.findMany({
       where: { storeId, isActive: true, publicVisible: true },
@@ -88,6 +86,7 @@ async function SpaNewBookingPage({
       </div>
       {treatments.length > 0 ? (
         <SpaCustomerBookingForm
+          bookingClosedMessage={opensLater ? `預約將於 ${formatTWDateTime(window.opensAt!)} 開放` : latestDate < today ? "目前未開放新預約" : undefined}
           today={today}
           latestDate={latestDate}
           quickDates={quickDates}

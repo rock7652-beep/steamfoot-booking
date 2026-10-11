@@ -1,9 +1,12 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { saveSpaServiceDetails } from "@/server/actions/spa-service-staff";
+import { useRef, useState, useTransition } from "react";
+import { usePathname } from "next/navigation";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
+import { savedSpaService, spaServiceRevision } from "@/lib/spa-settings-save";
 type Service = {
   id?: string;
+  revision?: string;
   name: string;
   baseName: string;
   variantLabel: string;
@@ -16,28 +19,34 @@ type Service = {
   locationIds: string[];
 };
 export function SpaSkillsManager({
-  services,
+  services:sourceServices,
+  storeId,
   people,
   locations,
   canManage,
 }: {
+  storeId:string;
   locations: { id: string; name: string; isActive: boolean }[];
   services: Service[];
   people: { id: string; name: string }[];
   canManage: boolean;
 }) {
-  const router = useRouter();
+  const pathname=usePathname(),prefix=pathname.slice(0,pathname.indexOf("/dashboard"));
+  const mutation=useSettingsSave(`${prefix}/dashboard/settings-save/spa/service`,storeId,savedSpaService);
+  const {rows:services,confirm}=useConfirmedSettingsRows(sourceServices,spaServiceRevision);
+  const [lastSavedId,setLastSavedId]=useState<string|null>(null);
   const [draft, setDraft] = useState<Service | null>(null);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const saving = useRef(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
   const [staff, setStaff] = useState("");
   const visible = services.filter(
     (s) =>
-      s.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+      s.id===lastSavedId || (s.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
       (status === "ALL" || (status === "ACTIVE" ? s.isActive : !s.isActive)) &&
-      (!staff || s.staffIds.includes(staff)),
+      (!staff || s.staffIds.includes(staff))),
   );
   return (
     <section className="rounded-xl border border-earth-200 bg-white p-5">
@@ -47,7 +56,7 @@ export function SpaSkillsManager({
           <button
             className="rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] px-4 py-2 text-white"
             onClick={() => {
-              setError("");
+              mutation.reset();setError("");
               setDraft({
                 name: "",
                 baseName: "",
@@ -151,7 +160,7 @@ export function SpaSkillsManager({
                       className="rounded border border-earth-200 px-3 py-2"
                       onClick={() => {
                         setError("");
-                        setDraft({ ...s, staffIds: [...s.staffIds] });
+                        mutation.reset();setDraft({ ...s,revision:spaServiceRevision(s), staffIds: [...s.staffIds] });
                       }}
                     >
                       編輯服務
@@ -189,23 +198,24 @@ export function SpaSkillsManager({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (saving.current) return;
+                saving.current = true;
                 setError("");
                 start(async () => {
                   try {
-                    const result = await saveSpaServiceDetails(draft);
+                    const result = await mutation.save({...draft,expectedRevision:draft.revision});
                     if (!result.success) {
                       setError(result.error ?? "儲存失敗");
                       return;
                     }
-                    setDraft(null);
-                    router.refresh();
+                    confirm(result.data);setLastSavedId(result.data.id);setDraft(null);
                   } catch {
                     setError("連線失敗，內容已保留");
-                  }
+                  } finally { saving.current = false; }
                 });
               }}
             >
-              <fieldset disabled={pending} className="min-w-0">
+              <fieldset disabled={pending||mutation.uncertain} className="min-w-0">
                 <div className="mb-5 grid grid-cols-2 gap-3">
                   {(
                     [

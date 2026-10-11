@@ -13,7 +13,7 @@
  *   tag 字串常數請從 cache-tags.ts 取，避免 typo。
  */
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 
 // ── 營業時間（週設定 + 時段） ──────────────────────────
@@ -40,6 +40,17 @@ export function revalidateSpecialDays() {
 /** 切換 dutySchedulingEnabled 後呼叫 */
 export function revalidateDutyScheduling() {
   updateTag(CACHE_TAGS.dutyScheduling);
+  revalidateDutySchedulingPaths();
+}
+
+export function revalidateDutySchedulingInRoute(){
+  revalidateTag(CACHE_TAGS.dutyScheduling,{expire:0});
+  revalidateTag(CACHE_TAGS.shopConfig,{expire:0});
+  revalidateDutySchedulingPaths();
+  revalidatePath("/dashboard/courses");
+}
+
+function revalidateDutySchedulingPaths(){
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/duty");
   revalidatePath("/dashboard/settings/duty");
@@ -114,6 +125,16 @@ export function revalidateBonusRules() {
 /** 店鋪方案異動後呼叫 */
 export function revalidateShopConfig() {
   updateTag(CACHE_TAGS.shopConfig);
+  revalidateShopConfigPaths();
+}
+
+/** Direct settings receipts use Route Handler supported immediate expiration. */
+export function revalidateShopConfigInRoute() {
+  revalidateTag(CACHE_TAGS.shopConfig,{expire:0});
+  revalidateShopConfigPaths();
+}
+
+function revalidateShopConfigPaths() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/settings/plan");
 }
@@ -132,4 +153,15 @@ export function revalidateStoreFeatureEntitlements() {
   updateTag(CACHE_TAGS.storeFeatureEntitlements);
   revalidatePath("/dashboard");
   revalidatePath("/hq/dashboard/stores");
+}
+
+export function revalidateStaffInRoute(){
+ revalidateTag(CACHE_TAGS.staff,{expire:0});
+ revalidateTag(CACHE_TAGS.staffPermissions,{expire:0});
+ revalidatePath("/dashboard/staff");revalidatePath("/dashboard/duty");
+}
+
+export function revalidateBusinessHoursInRoute(){
+ revalidateTag(CACHE_TAGS.businessHours,{expire:0});revalidateTag(CACHE_TAGS.specialDays,{expire:0});
+ revalidatePath("/dashboard/settings/hours");revalidatePath("/dashboard/duty");revalidatePath("/book");
 }

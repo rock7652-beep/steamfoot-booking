@@ -236,6 +236,11 @@ beforeEach(() => {
   });
   mockGetConversionMetrics.mockResolvedValue({
     month: "2026-07",
+    unidentifiedTrialVisits: {
+      current: 0,
+      mom: { difference: 0, percentage: null },
+      yoy: { difference: 0, percentage: null },
+    },
     trialAttendees: {
       current: 2,
       mom: { difference: 2, percentage: null },
@@ -375,7 +380,8 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("追蹤開卡");
     expect(html).toContain("本月總開卡");
     expect(html).toContain("本月體驗開卡率");
-    expect(html).toContain("未開卡人次");
+    expect(html).toContain("未開卡顧客");
+    expect(html).toMatch(/segment=monthly-unconverted/);
     expect(html).toMatch(/segment=monthly-converted/);
     expect(html).toMatch(/segment=monthly-current-trial-converted/);
     expect(html).toMatch(/segment=monthly-tracked-converted/);

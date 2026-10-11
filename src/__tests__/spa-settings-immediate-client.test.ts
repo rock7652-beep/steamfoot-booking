@@ -1,0 +1,35 @@
+// @vitest-environment jsdom
+import {createElement,act} from "react";
+import {createRoot,type Root} from "react-dom/client";
+import {afterEach,beforeEach,expect,it,vi} from "vitest";
+import {SpaSkillsManager} from "@/app/(dashboard)/dashboard/plans/_components/spa-skills-manager";
+import {SpaPackagesManager} from "@/app/(dashboard)/dashboard/plans/_components/spa-packages-manager";
+import {spaServiceRevision} from "@/lib/spa-settings-save";
+const m=vi.hoisted(()=>({fetch:vi.fn(),refresh:vi.fn()}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/s/spa/admin/dashboard/plans",useRouter:()=>({refresh:m.refresh}),useSearchParams:()=>new URLSearchParams()}));
+vi.mock("@/components/operations/operation-scope",()=>({useRetainedState:(_key:string,value:unknown)=>requireReact.useState(value),retainedString:()=>true}));
+import * as requireReact from "react";
+vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children}:{children:unknown})=>children}));
+let host:HTMLDivElement,root:Root;
+beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal("fetch",m.fetch);host=document.createElement("div");document.body.append(host);root=createRoot(host);});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
+const service={id:"S",name:"新服務",baseName:"新服務",variantLabel:"",price:0,serviceMinutes:60,bufferMinutes:0,isActive:true,publicVisible:false,staffIds:[],locationIds:[]};
+const packageRow={id:"P",name:"新方案",treatmentId:"S",price:0,uses:10,validityDays:180,isActive:true,publicVisible:false,updatedAt:"2026-10-10T00:00:00.000Z"};
+it.each(["service","package"] as const)("updates %s immediately from a confirmed response and survives stale props",async kind=>{
+ const render=(ack=false)=>kind==="service"?createElement(SpaSkillsManager,{storeId:"store",services:ack?[service]:[],people:[],locations:[],canManage:true}):createElement(SpaPackagesManager,{storeId:"store",packages:ack?[packageRow]:[],services:[{id:"S",name:"服務"}],canManage:true});
+ await act(async()=>root.render(render()));
+ await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent?.trim()===(kind==="service"?"新增服務":"新增方案"))!.click());
+ const input=host.querySelector<HTMLInputElement>('form input[required]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,kind==="service"?service.name:packageRow.name);input.dispatchEvent(new Event("input",{bubbles:true}));});
+ let done!:(value:unknown)=>void;m.fetch.mockReturnValue(new Promise(resolve=>{done=resolve;}));
+ await act(async()=>{host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));});
+ expect(m.fetch).toHaveBeenCalledTimes(1);expect(host.querySelector("tbody")!.textContent).not.toContain(kind==="service"?service.name:packageRow.name);
+ const data=kind==="service"?{...service,revision:spaServiceRevision(service)}:packageRow;
+ await act(async()=>done({json:async()=>({success:true,storeId:"store",data})}));
+ expect(host.querySelector("form")).toBeNull();expect(host.querySelector("tbody")!.textContent).toContain(data.name);expect(m.refresh).not.toHaveBeenCalled();
+ await act(async()=>root.render(render()));expect(host.querySelector("tbody")!.textContent).toContain(data.name);
+ await act(async()=>root.render(render(true)));expect(host.querySelectorAll("tbody tr")).toHaveLength(1);
+ await act(async()=>root.render(kind==="service"?createElement(SpaSkillsManager,{storeId:"store",services:[{...service,name:"後續更新",baseName:"後續更新"}],people:[],locations:[],canManage:true}):createElement(SpaPackagesManager,{storeId:"store",packages:[{...packageRow,name:"後續更新",updatedAt:"2026-10-11T00:00:00.000Z"}],services:[{id:"S",name:"服務"}],canManage:true})));
+ expect(host.querySelector("tbody")!.textContent).toContain("後續更新");
+ expect(JSON.parse(m.fetch.mock.calls[0][1].body)).toMatchObject({expectedStoreId:"store",requestKey:expect.any(String)});
+});

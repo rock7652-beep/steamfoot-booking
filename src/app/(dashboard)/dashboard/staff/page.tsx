@@ -92,6 +92,7 @@ export default async function StaffPage({
     const compensation = storedCompensation.find((row) => row.staffId === staff.id);
     return {
       id: staff.id,
+      updatedAt:staff.updatedAt.toISOString(),
       userId: staff.user.id,
       role: staff.user.role,
       permissions: staff.user.role === "OWNER" || staff.user.role === "ADMIN" ? [...ALL_PERMISSIONS] : staff.permissions.map(p => p.permission),
@@ -175,7 +176,7 @@ export default async function StaffPage({
                 人員排班資料功能更新中，待資料表就緒後即可儲存。
               </div>
             ) : null}
-            <StaffWorkspace
+            <StaffWorkspace key={activeStoreId} storeId={activeStoreId!}
               accountPolicy={{
                 canAssignRoles: user.role === "OWNER" || user.role === "ADMIN",
                 editablePermissions: Array.from(actorPermissions),

@@ -4,13 +4,13 @@ import type { OperationGuide } from "./operation-guide-types";
 export const dailyOperationGuides20261010: OperationGuide[] = [
   {
     id: "A14", category: "money", title: "蒸足多人單次收款，原價是每人還是整筆？",
-    summary: "單次收款原價是整筆人數合計；已有預計金額則沿用該總額，不再乘人數。",
+    summary: "舊單次預約的原價是整筆人數合計；新版多人首次體驗改為逐人處理，兩種流程不可混算。",
     answer: "沒有預計金額時以方案單價乘預約人數，無單價才以每人 799 元計算；已有金額快照包含 0 元都視為整筆總額。",
     path: "預約管理 → 單次預約明細 → 收款",
-    keywords: "單次 多人 原價 人合計 預計收款 金額快照 799 實收 部分到店 折抵原因",
+    keywords: "單次 多人 原價 人合計 預計收款 金額快照 799 實收 部分到店 折抵原因 舊流程 逐人結帳 A16",
     steps: ["核對原預約人數、單次類型及預計收款總額。", "開啟收款，核對「原價（N 人合計）」與實收；部分到店時依實際金額及既有折抵原因處理。", "確認實際收到款項後只送出一次，再查原交易與預約；結果不明先查紀錄。"],
-    important: "不會自動回寫舊交易或重算已有快照；不要把已有總額再乘人數，也不要把預約人數直接當成實到人數。",
-    details: ["例如沒有快照且採預設單價，2 人合計為 1598 元；已有優惠總額 1200 元則仍為 1200 元。", "SPA 同行及課程預約逐人建立收款資料，不能套用蒸足整筆乘人數。方案改單次見 A12，首次體驗沿用其原流程。", "歷史快照疑似錯存單價時，先核對是否優惠與原交易，不自動更正已收款資料。"],
+    important: "不會自動回寫舊交易或重算已有快照；不要把已有總額再乘人數，也不要把舊整組金額套到新版逐人首次體驗。",
+    details: ["例如沒有快照且採預設單價，2 人合計為 1598 元；已有優惠總額 1200 元則仍為 1200 元。", "本題只適用舊 SINGLE 整筆收款；新版 FIRST_TRIAL 多人預約每位收款、本人方案與未到狀態見 A15、A16。SPA 同行及課程預約也不能套用本題整筆乘人數。", "歷史快照疑似錯存單價時，先核對是否優惠與原交易，不自動更正已收款資料。"],
     success: "明細與收款視窗總額一致，原交易只有一次收款，歷史已收款未被改寫。",
     modules: ["steamfoot"], permission: "transaction.create", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/lib/single-booking-price.ts", "src/app/(dashboard)/dashboard/bookings/compute-amount.ts", "src/app/(dashboard)/dashboard/bookings/collect-single-modal.tsx", "src/server/actions/single-booking.ts"],

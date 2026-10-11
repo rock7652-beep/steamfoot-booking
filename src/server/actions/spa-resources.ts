@@ -1,5 +1,8 @@
 "use server";
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
 
+import { createHash } from "node:crypto";
+import { spaLocationValues, spaSaveReceipt, spaLocationRevision } from "@/lib/spa-settings-save";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { dateShiftExceptions, effectiveShifts, previousWeekDates } from "@/lib/spa-roster";
 import { validSpaDate, staffAvailable } from "@/lib/spa-scheduling";
@@ -43,23 +46,36 @@ export async function spaResourceStoreRead(permission: PermissionCode) {
   return { storeId, isChildStoreView };
 }
 
-const locationSchema = z.object({id:z.string().optional(),name:z.string().trim().min(1,"請填位置名稱").max(60),isActive:z.boolean(),treatmentIds:z.array(z.string()).max(200)});
+const locationSchema = spaLocationValues.extend({receipt:spaSaveReceipt.optional()});
 export async function saveSpaLocation(input: z.infer<typeof locationSchema>) {
   try {
     const storeId = await spaResourceStore("business_hours.manage");
-    const data = locationSchema.parse(input);
-    await spaPrisma.$transaction(async tx => {
+    const {receipt,...data} = locationSchema.parse(input);
+    if(receipt && receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","店舖已切換，請回原店確認後再操作。");
+    const saved = await spaPrisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
       const ids = [...new Set(data.treatmentIds)];
       if (await tx.spaTreatment.count({where:{storeId,id:{in:ids}}}) !== ids.length) throw new AppError("VALIDATION","療程不屬於本店");
-      if(data.id && !await tx.spaServiceLocation.findFirst({where:{id:data.id,storeId}})) throw new AppError("NOT_FOUND","找不到服務位置");
-      const location = data.id ? await tx.spaServiceLocation.update({where:{id_storeId:{id:data.id,storeId}},data:{name:data.name,isActive:data.isActive}}) : await tx.spaServiceLocation.create({data:{storeId,name:data.name,isActive:data.isActive}});
+      const receiptId=receipt ? `location_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
+      const previous=(data.id||receiptId)?await tx.spaServiceLocation.findFirst({where:{id:data.id??receiptId,storeId},include:{treatments:true}}):null;
+      if(data.id&&!previous)throw new AppError("NOT_FOUND","找不到服務位置");
+      const wanted=spaLocationRevision({...data,treatmentIds:ids});
+      if(previous && receipt){
+        const current=spaLocationRevision({...previous,treatmentIds:previous.treatments.map(t=>t.treatmentId)});
+        if(!data.id || (receipt.expectedRevision && receipt.expectedRevision!==current)){
+          if(current!==wanted)throw new AppError("CONFLICT","位置資料已有更新，請核對清單後再編輯。");
+          return {id:previous.id,name:previous.name,isActive:previous.isActive,treatmentIds:previous.treatments.map(t=>t.treatmentId),revision:current};
+        }
+      }
+      const location = data.id ? await tx.spaServiceLocation.update({where:{id_storeId:{id:data.id,storeId}},data:{name:data.name,isActive:data.isActive}}) : await tx.spaServiceLocation.create({data:{...(receiptId?{id:receiptId}:{}),storeId,name:data.name,isActive:data.isActive}});
       await tx.spaTreatmentServiceLocation.deleteMany({where:{storeId,serviceLocationId:location.id}});
       await tx.spaTreatmentServiceLocation.createMany({data:ids.map(treatmentId=>({storeId,treatmentId,serviceLocationId:location.id}))});
+      return {id:location.id,name:location.name,isActive:location.isActive,treatmentIds:ids,revision:spaLocationRevision({...location,treatmentIds:ids})};
     });
-    revalidatePath("/dashboard/spa-resources"); revalidatePath("/dashboard/spa-schedule");
-    return {success:true as const};
-  } catch(error) { return handleActionError(error); }
+    let syncWarning=false;
+    try{revalidatePath("/dashboard/spa-resources"); revalidatePath("/dashboard/spa-schedule");}catch{syncWarning=true;}
+    return {success:true as const,storeId,data:saved,syncWarning};
+  } catch(error) { return {...handleActionError(error),uncertain:settingsSaveUncertain(error)}; }
 }
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);

@@ -133,7 +133,7 @@ export function mapCancelStatusToMessage(status: string): string {
  * LIFF-specific booking-type 顯示。
  *   isMakeup=true 永遠優先（不論 bookingType）
  *   不 reuse BOOKING_TYPE_LABEL — 那個用「體驗 / 課程堂數」較 staff-y；
- *   LIFF 顧客語要「體驗預約 / 課程」。
+ *   LIFF 顧客語要「體驗預約 / 方案預約」。
  */
 export function liffTypeLabel(bookingType: string, isMakeup: boolean): string {
   if (isMakeup) return liffMessages.bookings.typeMakeup;

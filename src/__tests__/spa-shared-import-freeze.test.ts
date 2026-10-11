@@ -63,6 +63,11 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   // liff-consumption-boundary.test.ts verifies module and customer/store predicates.
   "src/server/actions/liff-consumption.ts",
   "src/server/actions/staff.ts",
+  // Settings receipts resolve the authoritative industry/store. SPA branches
+  // use only SpaBooking; shared personnel snapshots never select credentials.
+  "src/server/services/staff-save-snapshot.ts",
+  "src/server/services/service-hours-save.ts",
+  "src/server/services/service-hours-read.ts",
   "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",
   // Reviewed 2026-09-23: the shared finance adapter first resolves the
@@ -93,7 +98,12 @@ describe("SPA imports in shared Steamfoot code", () => {
   it("freezes the existing debt so no new shared file can import SPA code", () => {
     const actual = sourceFiles(sourceRoot)
       .filter((file) => /\.(ts|tsx)$/.test(file))
-      .filter((file) => !relative(sourceRoot, file).includes("spa-"))
+      // SPA-only API transports are module code, alongside existing spa-* directories.
+      // This does not allow SPA imports from other shared routes or services.
+      .filter((file) => {
+        const path=relative(sourceRoot,file);
+        return !path.includes("spa-") && !path.startsWith("app/api/spa/") && !path.includes("/settings-save/spa/");
+      })
       .filter((file) => {
         const source = readFileSync(file, "utf8");
         return /from ["']@\/(?:lib|server\/actions|server\/services|server\/queries)\/spa-|from ["']\.\/spa-/.test(source);

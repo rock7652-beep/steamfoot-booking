@@ -15,7 +15,7 @@ function refresh(){revalidatePath("/dashboard","layout");revalidatePath("/book")
 export async function saveCourseTrialSettings(input:unknown){try{
  const {storeId}=await courseManager("trial.manage");const data=settingsSchema.parse(input);
  await prisma.shopConfig.upsert({where:{storeId},create:{storeId,...data},update:data});
- revalidateShopConfig();refresh();return {success:true as const};
+ revalidateShopConfig();revalidatePath("/dashboard/settings/trial");revalidatePath("/dashboard/courses");revalidatePath("/book");return {success:true as const};
 }catch(e){return handleActionError(e);}}
 export async function createCourseTrial(input:unknown){try{
  const {storeId,user}=await courseManager("trial.create");await courseManager("booking.create");

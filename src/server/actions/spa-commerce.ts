@@ -1,9 +1,11 @@
 "use server";
+import { settingsSaveUncertain } from "@/server/services/settings-save-error";
 import {
   SPA_EXTERNAL_PAYMENT_METHODS,
   validSpaTransferReference,
 } from "@/lib/spa-payment-methods";
-import { randomUUID } from "node:crypto";
+import { spaPackageValues, spaSaveReceipt } from "@/lib/spa-settings-save";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -40,43 +42,36 @@ async function activeStore(
     throw new AppError("FORBIDDEN", "此店尚未啟用服務模組");
   return storeId;
 }
-const packageSchema = z.object({
-  expectedUpdatedAt: z.string().datetime().optional(),
-  id: z.string().optional(),
-  treatmentId: z.string().min(1),
-  name: z.string().trim().min(1).max(80),
-  price: z.number().int().min(0).max(9999999),
-  uses: z.number().int().min(1).max(999),
-  validityDays: z.number().int().min(1).max(3650),
-  isActive: z.boolean(),
-  publicVisible: z.boolean().optional(),
-});
-export async function saveSpaPackage(input: z.infer<typeof packageSchema>) {
-  try {
-    const storeId = await activeStore("wallet.create"),
-      { expectedUpdatedAt, ...d } = packageSchema.parse(input);
-    await spaPrisma.$transaction(async (tx) => {
+const packageSchema=spaPackageValues.extend({receipt:spaSaveReceipt.optional()});
+export async function saveSpaPackage(input:z.infer<typeof packageSchema>){
+  try{
+    const storeId=await activeStore("wallet.create");
+    const {receipt,expectedUpdatedAt,...d}=packageSchema.parse(input);
+    if(receipt&&receipt.expectedStoreId!==storeId)throw new AppError("CONFLICT","店舖已切換，請回原店確認後再操作。");
+    const saved=await spaPrisma.$transaction(async tx=>{
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
-      if (
-        !(await tx.spaTreatment.findFirst({
-          where: { id: d.treatmentId, storeId, isActive: true },
-        }))
-      )
-        throw new AppError("VALIDATION", "請選擇本店啟用的服務");
-      if (d.id) {
-        if (!(await tx.spaPackage.findFirst({ where: { id: d.id, storeId } })))
-          throw new AppError("NOT_FOUND", "找不到方案");
-        if(expectedUpdatedAt){
-          const result=await tx.spaPackage.updateMany({where:{id:d.id,storeId,updatedAt:new Date(expectedUpdatedAt)},data:d});
-          if(!result.count)throw new AppError("CONFLICT","方案已由其他人更新，輸入已保留。請核對目前資料後再編輯。");
-        }else await tx.spaPackage.update({ where: { id: d.id }, data: d });
-      } else await tx.spaPackage.create({ data: { ...d, storeId } });
+      if(!await tx.spaTreatment.findFirst({where:{id:d.treatmentId,storeId,isActive:true}}))throw new AppError("VALIDATION","請選擇本店啟用的服務");
+      const receiptId=receipt?`package_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}`:undefined;
+      const previous=(d.id||receiptId)?await tx.spaPackage.findFirst({where:{id:d.id??receiptId,storeId}}):null;
+      if(d.id&&!previous)throw new AppError("NOT_FOUND","找不到方案");
+      const values={treatmentId:d.treatmentId,name:d.name,price:d.price,uses:d.uses,validityDays:d.validityDays,isActive:d.isActive,...(d.publicVisible!==undefined?{publicVisible:d.publicVisible}:{})};
+      const matches=previous&&Object.entries(values).every(([key,value])=>key==="price"?Number(previous.price)===value:previous[key as keyof typeof previous]===value);
+      const dto=(row:NonNullable<typeof previous>)=>({id:row.id,treatmentId:row.treatmentId,name:row.name,price:Number(row.price),uses:row.uses,validityDays:row.validityDays,isActive:row.isActive,publicVisible:row.publicVisible,updatedAt:row.updatedAt.toISOString()});
+      if(previous&&!d.id){if(!matches)throw new AppError("CONFLICT","這次送出已處理且內容不同，請核對清單。");return dto(previous);}
+      if(previous&&expectedUpdatedAt&&previous.updatedAt.toISOString()!==new Date(expectedUpdatedAt).toISOString()){
+        if(receipt&&matches)return dto(previous);
+        throw new AppError("CONFLICT","方案已由其他人更新，輸入已保留。請核對目前資料後再編輯。");
+      }
+      let row;
+      if(d.id){
+        if(expectedUpdatedAt){const result=await tx.spaPackage.updateMany({where:{id:d.id,storeId,updatedAt:new Date(expectedUpdatedAt)},data:d});if(!result.count)throw new AppError("CONFLICT","方案已由其他人更新，請核對清單後再編輯。");row=receipt?await tx.spaPackage.findFirstOrThrow({where:{id:d.id,storeId}}):undefined;}
+        else row=await tx.spaPackage.update({where:{id:d.id},data:d});
+      }else row=await tx.spaPackage.create({data:{...d,...(receiptId?{id:receiptId}:{}),storeId}});
+      return receipt&&row?dto(row):undefined;
     });
-    revalidatePath("/dashboard/plans");
-    return { success: true as const };
-  } catch (e) {
-    return failed(e);
-  }
+    let syncWarning=false;try{revalidatePath("/dashboard/plans");}catch{syncWarning=true;}
+    return {success:true as const,storeId,data:saved,syncWarning};
+  }catch(e){return {...failed(e),uncertain:settingsSaveUncertain(e)};}
 }
 
 export async function getSpaCustomerAccount(customerId: string) {

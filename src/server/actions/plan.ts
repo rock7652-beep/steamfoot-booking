@@ -27,6 +27,9 @@ export async function createPlan(
     // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
     const data = createPlanSchema.parse(input);
+    if (data.category === "TRIAL") {
+      throw new AppError("BUSINESS_RULE", "體驗由「建立體驗預約」處理，無需新增體驗方案");
+    }
 
     // 同店同名方案不可重複建立
     const existing = await prisma.servicePlan.findFirst({

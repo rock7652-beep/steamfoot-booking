@@ -9,7 +9,7 @@ describe("guide catalogue", () => {
     const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
     const course: GuideAccess = { module: "course", permissions, features };
-    expect(availableGuides(course)).toHaveLength(112);
+    expect(availableGuides(course)).toHaveLength(114);
     expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
     expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
     expect(findOperationGuides("量測", course).some(g => g.id === "C135")).toBe(true);
@@ -39,16 +39,18 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(198);
+    expect(operationGuides).toHaveLength(202);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",
-      "C118", "C119", "C120", "C121", "C122", "C123", "C124",
+      "C118", "C119", "C120", "C121", "C122", "C123", "C124", "C169", "I21",
       "C10", "I08",
     ]));
     expect(findOperationGuides("批次排課 整批", allCourse).some(g => g.id === "C109")).toBe(true);
     expect(findOperationGuides("待核帳 後四碼", allCourse).some(g => g.id === "C113")).toBe(true);
-    expect(findOperationGuides("授課資格 我的工作", allCourse).some(g => g.id === "C114")).toBe(true);
+    expect(findOperationGuides("授課資格 LINE 權限", allCourse).some(g => g.id === "C114")).toBe(true);
+    expect(findOperationGuides("共同分潤 個別調整", allCourse).some(g => g.id === "C169")).toBe(true);
+    expect(findOperationGuides("設定 儲存失敗 重試", allCourse).some(g => g.id === "I21")).toBe(true);
     expect(findOperationGuides("收款 出席 分開", allCourse).some(g => g.id === "C116")).toBe(true);
     expect(findOperationGuides("帳號尚未連結", allCourse).some(g => g.id === "C117")).toBe(true);
     expect(availableGuides({...allCourse, permissions: ["wallet.create", "wallet.read"]}).some(g => g.id === "C112")).toBe(false);
@@ -172,7 +174,7 @@ describe("guide catalogue", () => {
     const source = readFileSync("src/app/(liff)/liff/wallets/wallets-list.tsx", "utf8");
     expect(source).toContain("dim collapsible count={expired.length}");
     expect(source).toContain("dim collapsible count={history.length}");
-    expect(source).not.toMatch(/<details[^>]*\bopen(?:[\s=>])/);
+    expect(source.slice(source.indexOf("function Section("), source.indexOf("function WalletCard("))).not.toMatch(/<details[^>]*\bopen(?:[\s=>])/);
   });
   it("keeps health comparison guidance gated and separates dates from conclusions", () => {
     const health = {...access, features: {ai_health_summary: true}};

@@ -136,4 +136,13 @@ describe("plans view mode support", () => {
     expect(mockRequireWritablePermission).toHaveBeenCalledWith("wallet.create");
     expect(mockServicePlanCreate).not.toHaveBeenCalled();
   });
+
+  it("rejects ordinary TRIAL creation even for an authorized writer", async () => {
+    mockRequireWritablePermission.mockResolvedValue(viewedStoreUser());
+    const { createPlan } = await import("@/server/actions/plan");
+    const result = await createPlan({ name: "體驗課", category: "TRIAL", price: 499, sessionCount: 1 });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("建立體驗預約") });
+    expect(mockServicePlanFindFirst).not.toHaveBeenCalled();
+    expect(mockServicePlanCreate).not.toHaveBeenCalled();
+  });
 });

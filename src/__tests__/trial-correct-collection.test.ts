@@ -231,10 +231,11 @@ describe("correctTrialCollection — happy path (void + recollect)", () => {
     expect(h.revalidateTransactions).toHaveBeenCalled();
   });
 
-  it("clamps over-max new amount (5000 → 3000)", async () => {
+  it("rejects over-max replacement without voiding the original payment", async () => {
     const r = await correctTrialCollection({ ...base, amount: 5000 });
-    expect(r.success).toBe(true);
-    expect(lastNewTx().amount).toBe(3000);
+    expect(r.success).toBe(false);
+    expect(h.voidTransaction).not.toHaveBeenCalled();
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 });
 

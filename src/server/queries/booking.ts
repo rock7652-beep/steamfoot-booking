@@ -1,3 +1,4 @@
+import { bookingCollectedNet } from "@/lib/booking-collected-net";
 import { prisma } from "@/lib/db";
 import { OperationTiming } from "@/lib/operation-timing";
 import { linkedWalletRemainingForBooking } from "@/lib/wallet-booking-integrity";
@@ -521,11 +522,15 @@ async function computeMonthBookingSummaryMeasured(
             transactionType: {
               in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "SESSION_DEDUCTION"],
             },
-            status: "SUCCESS",
+            status: process.env.BOOKING_PARTICIPANTS_ENABLED === "true" ? { in: ["SUCCESS", "REFUNDED"] } : "SUCCESS",
           },
           select: {
             bookingId: true,
             amount: true,
+            ...(process.env.BOOKING_PARTICIPANTS_ENABLED === "true" ? {
+              refundAmount: true,
+              refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } },
+            } as const : {}),
             transactionType: true,
             customerPlanWallet: {
               select: { plan: { select: { name: true } } },
@@ -543,7 +548,7 @@ async function computeMonthBookingSummaryMeasured(
   const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
     if (!t.bookingId) continue;
-    collectedMap.set(t.bookingId, Number(t.amount));
+    collectedMap.set(t.bookingId, (collectedMap.get(t.bookingId) ?? 0) + (process.env.BOOKING_PARTICIPANTS_ENABLED === "true" ? bookingCollectedNet(t.amount, t.refundAmount, t.refunds) : Number(t.amount)));
     if (t.transactionType === "SESSION_DEDUCTION" && t.customerPlanWallet) {
       const names = deductedPlanNamesByBooking.get(t.bookingId) ?? new Set<string>();
       names.add(t.customerPlanWallet.plan.name);

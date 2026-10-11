@@ -8,7 +8,7 @@ export const courseBasicOperationGuides: OperationGuide[] = [
     path: "設定 → 店務設定 → 課表排程", keywords: "首次使用 新手 開店 設定順序 開始使用 教師 老師 教學項目 班型 學費",
     steps: ["先設定營業時間與公休，再依序建立可使用的空間與課程；音樂店畫面稱教學項目。", "建立方案；音樂店稱班型與學費。接著啟用教練並設定授課資格，音樂店顯示教師。", "排第一堂課，核對日期、授課人員、空間與容量；需要學員購買時再從顧客管理處理方案與實際收款。"],
     important: "建立課程範本不代表已排課，建立販售方案也不代表學員已持有方案。",
-    details: ["六步引導可稍後提醒或不再顯示，只影響引導，不會替你完成或刪除設定；已有但停用的資料會提示修正或啟用。", "排課需可用課程、空間與具資格的授課人員；方案用於購買與預約，建立課表本身不要求先有方案。", "未另設授課時間時沿用店家營業時間；已有自訂週表時，未設定星期視為不可授課。值班聯動開啟時，值班須涵蓋整堂課。", "轉帳、LINE 提醒與授課費需按需求另行設定，不是排第一堂課的通用前置。"],
+    details: ["六步引導可稍後提醒或不再顯示，點選後會立即從清單移除；若儲存失敗會恢復。這只影響引導，不會替你完成或刪除設定；已有但停用的資料會提示修正或啟用。", "新增空間成功會原地加入清單，背景更新不需等待完整課表重載；失敗保留草稿，先核對現況再重試，詳見 C108、I21。", "排課需可用課程、空間與具資格的授課人員；方案用於購買與預約，建立課表本身不要求先有方案。", "未另設授課時間時沿用店家營業時間；已有自訂週表時，未設定星期視為不可授課。值班聯動開啟時，值班須涵蓋整堂課。", "轉帳、LINE 提醒與授課費需按需求另行設定，不是排第一堂課的通用前置。"],
     success: "後台六步顯示實際進度，課表有正確課次；方案、排課與收款分別核對。",
     permission: "booking.read", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
     sources: ["src/lib/course-setup-progress.ts", "src/components/admin/course-setup-guide.tsx", "src/server/queries/course-setup.ts", "src/server/services/course-resources.ts", "src/server/services/course-availability.ts"],

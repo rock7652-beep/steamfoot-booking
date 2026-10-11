@@ -3,20 +3,19 @@ import { createPortal } from "react-dom";
 
 import styles from "@/components/admin/management-layout.module.css";
 import { StaffAccountEditor, emptyStaffAccountPolicy, type StaffAccountPolicy } from "./staff-account-editor";
-import { useMemo, useState, useTransition } from "react";
+import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import { ResetPasswordButton } from "./reset-password-button";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import type { SpaProviderSpecialty } from "@/lib/spa-scheduling";
-import {
-  saveSpaAvailabilityException,
-  saveSpaStaffCompensation,
-  saveSpaStaffSetup,
-  saveSpaStaffSkills,
-  saveSpaWeeklyAvailability,
-} from "@/server/actions/spa-operations";
+import {useConfirmedSettingsRows} from "@/components/admin/use-confirmed-settings-rows";
+import {useSettingsSave} from "@/components/admin/use-settings-save";
+import {savedStaffPerson} from "@/lib/staff-settings-save";
+import {usePathname} from "next/navigation";
+const StaffSaveGuardContext=createContext({pending:false,uncertain:false,error:""});
+function StaffDraftFields({children}:{children:React.ReactNode}){const guard=useContext(StaffSaveGuardContext);return <fieldset disabled={guard.pending||guard.uncertain} className="contents">{children}</fieldset>;}
 
 type Availability = { dayOfWeek: number; startTime: string; endTime: string };
 type ScheduleException = {
@@ -30,6 +29,7 @@ type ScheduleException = {
 
 export type StaffWorkspacePerson = {
   id: string;
+  updatedAt?:string;
   userId: string;
   role?: string;
   permissions?: string[];
@@ -91,6 +91,7 @@ const inputClass =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200";
 
 export function StaffWorkspace({
+  storeId,
   accountPolicy = emptyStaffAccountPolicy,
   accountListOnly = false,
   showSteamfootRent = false,
@@ -101,6 +102,7 @@ export function StaffWorkspace({
   showSpaCompensation,
   createAction,
 }: {
+  storeId?:string;
   accountPolicy?: StaffAccountPolicy;
   people: readonly StaffWorkspacePerson[];
   today: string;
@@ -121,7 +123,10 @@ export function StaffWorkspace({
     setSourcePeople(initialPeople);
     setPeople(initialPeople.map(clonePerson));
   }
-  const people = accountListOnly ? initialPeople : localPeople;
+  const confirmed=useConfirmedSettingsRows<StaffWorkspacePerson>(localPeople,row=>row.updatedAt??JSON.stringify(row), (current,receipt)=>!!current.updatedAt&&!!receipt.updatedAt&&current.updatedAt>=receipt.updatedAt);
+  const people=confirmed.rows;
+  const [saveNotice,setSaveNotice]=useState("");
+  function confirmSaved(person:StaffWorkspacePerson,syncWarning:boolean){confirmed.confirm(person);setSaveNotice(syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"");}
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -136,7 +141,15 @@ export function StaffWorkspace({
   if (accountListOnly) filteredPeople.sort((a, b) => Number(b.status === "ACTIVE") - Number(a.status === "ACTIVE"));
   const [editor, setEditor] = useState<Editor>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const pathname=usePathname();
+  const spaRequest=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/spa/staff`,storeId??"",savedStaffPerson);
+  const isPending=spaRequest.pending;
+  const spaLock=useRef(false);
+  const [spaError,setSpaError]=useState("");
+  async function saveSpaPerson(kind:"setup"|"skills"|"weekly"|"compensation"|"exception",id:string,values:Record<string,unknown>){
+    if(spaLock.current)return;spaLock.current=true;setSpaError("");
+    try{const person=people.find(person=>person.id===id);if(!person)return;const result=await spaRequest.save({kind,id,expectedVersion:person.updatedAt??null,values});if(!result.success){setSpaError(result.error);return;}confirmSaved(result.data,result.syncWarning);setEditor(null);setNotice("人員設定已儲存");}finally{spaLock.current=false;}
+  }
   const selected = useMemo(
     () =>
       editor && "personId" in editor
@@ -155,151 +168,17 @@ export function StaffWorkspace({
     .filter((item) => item.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  function updatePerson(
-    personId: string,
-    changes: Partial<StaffWorkspacePerson>,
-    message = "設定已儲存，重新整理後仍會保留",
-  ) {
-    setPeople((current) =>
-      current.map((person) =>
-        person.id === personId ? { ...person, ...changes } : person,
-      ),
-    );
-    setEditor(null);
-    setNotice(message);
-  }
-  function saveSkills(personId: string, specialtyKeys: SpaProviderSpecialty[]) {
-    startTransition(async () => {
-      const result = await saveSpaStaffSkills({
-        staffId: personId,
-        skillKeys: specialtyKeys,
-      });
-      if (!result.success) {
-        setNotice(result.error);
-        return;
-      }
-      updatePerson(personId, {
-        specialtyKeys,
-        specialties: specialtyKeys.map(specialtyLabel).join("・"),
-      });
-    });
-  }
-  function saveCompensation(
-    personId: string,
-    mode: "PERCENTAGE" | "FIXED",
-    value: number,
-  ) {
-    startTransition(async () => {
-      const result = await saveSpaStaffCompensation({
-        staffId: personId,
-        mode,
-        value,
-      });
-      if (!result.success) {
-        setNotice(result.error);
-        return;
-      }
-      updatePerson(
-        personId,
-        { compensationMode: mode, compensationValue: value },
-        "抽成設定已儲存",
-      );
-    });
-  }
-  function saveAvailability(
-    personId: string,
-    weeklyAvailability: Availability[],
-  ) {
-    startTransition(async () => {
-      const result = await saveSpaWeeklyAvailability({
-        staffId: personId,
-        availability: weeklyAvailability,
-      });
-      if (!result.success) {
-        setNotice(result.error);
-        return;
-      }
-      updatePerson(personId, { weeklyAvailability });
-    });
-  }
-  function saveSetup(
-    personId: string,
-    setup: {
-      legalName: string;
-      phone: string;
-      email: string;
-      displayName: string;
-      colorCode: string;
-      specialtyKeys: SpaProviderSpecialty[];
-      weeklyAvailability: Availability[];
-      compensationMode: "PERCENTAGE" | "FIXED";
-      compensationValue: number;
-    },
-  ) {
-    startTransition(async () => {
-      const result = await saveSpaStaffSetup({
-        staffId: personId,
-        legalName: setup.legalName,
-        phone: setup.phone,
-        email: setup.email,
-        displayName: setup.displayName,
-        colorCode: setup.colorCode,
-        skillKeys: setup.specialtyKeys,
-        availability: setup.weeklyAvailability,
-        compensation: {
-          mode: setup.compensationMode,
-          value: setup.compensationValue,
-        },
-      });
-      if (!result.success) {
-        setNotice(result.error);
-        return;
-      }
-      updatePerson(
-        personId,
-        {
-          legalName: setup.legalName,
-          phone: setup.phone,
-          email: setup.email || "尚未設定",
-          displayName: setup.displayName,
-          colorCode: setup.colorCode,
-          specialtyKeys: setup.specialtyKeys,
-          specialties: setup.specialtyKeys.map(specialtyLabel).join("・"),
-          weeklyAvailability: setup.weeklyAvailability,
-          compensationMode: setup.compensationMode,
-          compensationValue: setup.compensationValue,
-        },
-        "人員設定已儲存",
-      );
-    });
-  }
-  function addException(personId: string, exception: ScheduleException) {
-    const person = people.find((item) => item.id === personId);
-    if (!person) return;
-    startTransition(async () => {
-      const isLeave = exception.tone === "leave";
-      const result = await saveSpaAvailabilityException({
-        staffId: personId,
-        date: exception.date,
-        type: isLeave ? "UNAVAILABLE" : "AVAILABLE",
-        startTime: exception.startTime ?? null,
-        endTime: exception.endTime ?? null,
-        reason: exception.reason ?? null,
-      });
-      if (!result.success) {
-        setNotice(result.error);
-        return;
-      }
-      updatePerson(personId, {
-        scheduleExceptions: [...person.scheduleExceptions, exception].sort(
-          (a, b) => a.date.localeCompare(b.date),
-        ),
-      });
-    });
-  }
+  function saveSkills(id:string,skillKeys:SpaProviderSpecialty[]){void saveSpaPerson("skills",id,{skillKeys});}
+  function saveCompensation(id:string,mode:"PERCENTAGE"|"FIXED",value:number){void saveSpaPerson("compensation",id,{mode,value});}
+  function saveAvailability(id:string,availability:Availability[]){void saveSpaPerson("weekly",id,{availability});}
+  function saveSetup(id:string,setup:{legalName:string;phone:string;email:string;displayName:string;colorCode:string;specialtyKeys:SpaProviderSpecialty[];weeklyAvailability:Availability[];compensationMode:"PERCENTAGE"|"FIXED";compensationValue:number}){void saveSpaPerson("setup",id,{legalName:setup.legalName,phone:setup.phone,email:setup.email,displayName:setup.displayName,colorCode:setup.colorCode,skillKeys:setup.specialtyKeys,availability:setup.weeklyAvailability,compensation:{mode:setup.compensationMode,value:setup.compensationValue}});}
+  function addException(id:string,exception:ScheduleException){void saveSpaPerson("exception",id,{date:exception.date,type:exception.tone==="leave"?"UNAVAILABLE":"AVAILABLE",startTime:exception.startTime??null,endTime:exception.endTime??null,reason:exception.reason??null});}
+  function closeSpaEditor(){if(!spaLock.current&&!spaRequest.pending&&!spaRequest.uncertain){setSpaError("");spaRequest.reset();setEditor(null);}}
 
   return (
+    <StaffSaveGuardContext.Provider value={{pending:spaRequest.pending,uncertain:spaRequest.uncertain,error:spaError}}>
     <div className={`${styles.workspace} ${accountListOnly ? "space-y-2" : "space-y-4"}`}>
+      {saveNotice&&<p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{saveNotice}</p>}
       {notice ? (
         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
           <span>{notice}</span>
@@ -638,13 +517,13 @@ export function StaffWorkspace({
         </section>
       )}
 
-      {editor?.type === "details" && selected ? (accountListOnly ? <StaffAccountEditor key={selected.id} person={selected} policy={accountPolicy} onClose={() => setEditor(null)} /> :
+      {editor?.type === "details" && selected ? (accountListOnly ? <StaffAccountEditor key={selected.id} person={selected} policy={accountPolicy} storeId={storeId} onSaved={confirmSaved} onClose={closeSpaEditor} /> :
         <PersonDrawer
           accountListOnly={accountListOnly}
           person={selected}
           showSteamfootRent={showSteamfootRent}
           showSpaCompensation={showSpaCompensation}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
           onSpecialties={() =>
             setEditor({ type: "specialties", personId: selected.id })
           }
@@ -659,21 +538,21 @@ export function StaffWorkspace({
       {editor?.type === "setup" && selected ? (
         <SpaStaffSetupDrawer
           person={selected}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
           onSave={(setup) => saveSetup(selected.id, setup)}
         />
       ) : null}
       {editor?.type === "specialties" && selected ? (
         <SpecialtyDrawer
           person={selected}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
           onSave={(keys) => saveSkills(selected.id, keys)}
         />
       ) : null}
       {editor?.type === "schedule" && selected ? (
         <ScheduleDrawer
           person={selected}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
           onSave={(weeklyAvailability) =>
             saveAvailability(selected.id, weeklyAvailability)
           }
@@ -682,7 +561,7 @@ export function StaffWorkspace({
       {editor?.type === "compensation" && selected ? (
         <CompensationDrawer
           person={selected}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
           onSave={(mode, value) => saveCompensation(selected.id, mode, value)}
         />
       ) : null}
@@ -691,7 +570,7 @@ export function StaffWorkspace({
           people={servicePeople}
           initialPersonId={editor.personId}
           today={today}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
           onSave={addException}
         />
       ) : null}
@@ -699,8 +578,10 @@ export function StaffWorkspace({
         <CreatePersonDrawer
           canAssignRoles={canAssignRoles}
           createAction={createAction}
+          storeId={storeId}
+          onSaved={confirmSaved}
           showSpaCompensation={showSpaCompensation}
-          onClose={() => setEditor(null)}
+          onClose={closeSpaEditor}
         />
       ) : null}
       {isPending ? createPortal(
@@ -709,6 +590,7 @@ export function StaffWorkspace({
         </div>, document.body
       ) : null}
     </div>
+    </StaffSaveGuardContext.Provider>
   );
 }
 
@@ -769,6 +651,7 @@ function SpecialtyDrawer({
   }
   return (
     <Drawer title={`設定專業項目｜${person.displayName}`} onClose={onClose}>
+      <StaffDraftFields>
       <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">
         顧客選擇的所有服務項目，都必須在此人員的專業範圍內，才會顯示為可預約。
       </p>
@@ -799,6 +682,7 @@ function SpecialtyDrawer({
           );
         })}
       </div>
+      </StaffDraftFields>
       <DrawerActions
         onCancel={onClose}
         onSave={() => onSave(selected)}
@@ -850,6 +734,7 @@ function ScheduleDrawer({
   }
   return (
     <Drawer title={`固定班表｜${person.displayName}`} onClose={onClose}>
+      <StaffDraftFields>
       <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">
         只需設定一次。之後固定沿用；請假或臨時加班請使用「新增例外」。
       </p>
@@ -914,6 +799,7 @@ function ScheduleDrawer({
           以上時間會一次套用到已選的 {days.length} 天，不必逐時段新增。
         </p>
       </section>
+      </StaffDraftFields>
       <DrawerActions
         onCancel={onClose}
         onSave={save}
@@ -943,6 +829,7 @@ function CompensationDrawer({
     (mode !== "PERCENTAGE" || value <= 100);
   return (
     <Drawer title={`抽成設定｜${person.displayName}`} onClose={onClose}>
+      <StaffDraftFields>
       <div className={`${styles.workspace} space-y-4`}>
         <div>
           <p className="text-sm font-medium text-earth-700">計算方式</p>
@@ -971,6 +858,7 @@ function CompensationDrawer({
           />
         </Field>
       </div>
+      </StaffDraftFields>
       <DrawerActions
         onCancel={onClose}
         onSave={() => onSave(mode, value)}
@@ -1071,6 +959,7 @@ function SpaStaffSetupDrawer({
   }
   return (
     <Drawer title={`人員設定｜${person.displayName}`} onClose={onClose}>
+      <StaffDraftFields>
       <div className="space-y-6">
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-earth-900">基本資料</h3>
@@ -1225,6 +1114,7 @@ function SpaStaffSetupDrawer({
           ) : null}
         </section>
       </div>
+      </StaffDraftFields>
       <DrawerActions
         onCancel={onClose}
         onSave={save}
@@ -1280,6 +1170,7 @@ function ExceptionDrawer({
       : `${isLeave ? "請假" : "臨時加班"} ${startTime}–${endTime}${reason ? `・${reason}` : ""}`;
   return (
     <Drawer title="請假／臨時加班" onClose={onClose}>
+      <StaffDraftFields>
       <div className={`${styles.workspace} space-y-4`}>
         <Field label="人員">
           <select
@@ -1364,6 +1255,7 @@ function ExceptionDrawer({
           </p>
         ) : null}
       </div>
+      </StaffDraftFields>
       <DrawerActions
         onCancel={onClose}
         onSave={() =>
@@ -1505,15 +1397,32 @@ function PersonDrawer({
 
 function CreatePersonDrawer({
   canAssignRoles,
+  storeId="",
+  onSaved,
   createAction,
   showSpaCompensation,
   onClose,
 }: {
+  storeId?:string;
+  onSaved:(person:StaffWorkspacePerson,syncWarning:boolean)=>void;
   canAssignRoles: boolean;
   createAction: (formData: FormData) => void | Promise<void>;
   showSpaCompensation: boolean;
   onClose: () => void;
 }) {
+  const pathname=usePathname();
+  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/staff`,storeId,savedStaffPerson);
+  const submitLock=useRef(false),locked=request.pending||request.uncertain;
+  const [error,setError]=useState("");
+  function close(){if(!locked)onClose();}
+  async function create(form:FormData){
+    if(submitLock.current)return;submitLock.current=true;setError("");
+    try{
+      if(!storeId){await createAction(form);return;}
+      const result=await request.save({expectedVersion:null,values:{name:form.get("name"),displayName:form.get("displayName"),email:String(form.get("email")??"").trim()||undefined,phone:String(form.get("phone")??"").trim(),password:form.get("password"),colorCode:form.get("colorCode"),monthlySpaceFee:Number(form.get("monthlySpaceFee")||0),role:form.get("role")||"STAFF",...(showSpaCompensation?{spaSkillKeys:form.getAll("spaSkillKeys"),spaWeeklyAvailability:form.getAll("spaAvailabilityDays").map(day=>({dayOfWeek:Number(day),startTime:form.get("spaStartTime"),endTime:form.get("spaEndTime")})),spaCompensation:{mode:form.get("compensationMode"),value:Number(form.get("compensationValue"))}}:{})}});
+      if(!result.success){setError(result.error);return;}onSaved(result.data,result.syncWarning);onClose();
+    }finally{submitLock.current=false;}
+  }
   const [compensationMode, setCompensationMode] = useState<
     "PERCENTAGE" | "FIXED"
   >("PERCENTAGE");
@@ -1540,8 +1449,10 @@ function CreatePersonDrawer({
     );
   }
   return (
-    <Drawer title="新增人員" onClose={onClose}>
-      <form action={createAction} className="space-y-6">
+    <Drawer title="新增人員" onClose={close}>
+      <form onSubmit={e=>{e.preventDefault();void create(new FormData(e.currentTarget));}} className="space-y-6">
+        {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
+        <fieldset disabled={locked} className="contents">
         <section className="space-y-4">
           <Field label="人員類型">
             <select name="role" defaultValue="STAFF" className={inputClass}>
@@ -1743,19 +1654,21 @@ function CreatePersonDrawer({
             </section>
           </>
         ) : null}
+        </fieldset>
         <div className="flex justify-end gap-2 border-t border-earth-100 pt-4">
           <button
             type="button"
-            onClick={onClose}
+            disabled={locked}
+            onClick={close}
             className="rounded-lg border border-earth-300 px-4 py-2 text-sm text-earth-700 hover:bg-earth-50"
           >
             取消
           </button>
           <SubmitButton
-            label="建立人員"
+            label={request.pending?"建立中…":request.uncertain?"重試確認建立結果":"建立人員"}
             pendingLabel="建立中..."
             disabled={
-              showSpaCompensation &&
+              request.pending || showSpaCompensation &&
               (specialtyKeys.length === 0 ||
                 days.length === 0 ||
                 startTime >= endTime)
@@ -1821,10 +1734,12 @@ function DrawerActions({
   saveLabel: string;
   disabled?: boolean;
 }) {
+  const guard=useContext(StaffSaveGuardContext);
   return (
     <div className="mt-6 flex justify-end gap-2 border-t border-earth-100 pt-4">
       <button
         type="button"
+        disabled={guard.pending||guard.uncertain}
         onClick={onCancel}
         className="rounded-lg border border-earth-300 px-4 py-2 text-sm text-earth-700 hover:bg-earth-50"
       >
@@ -1833,10 +1748,10 @@ function DrawerActions({
       <button
         type="button"
         onClick={onSave}
-        disabled={disabled}
+        disabled={disabled||guard.pending}
         className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-300"
       >
-        {saveLabel}
+        {guard.pending?"儲存中…":guard.uncertain?"重試確認儲存結果":saveLabel}
       </button>
     </div>
   );
@@ -1850,11 +1765,13 @@ function Drawer({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const guard=useContext(StaffSaveGuardContext);
   return createPortal(
     <div data-rwd-panel className={`${styles.panel} fixed inset-0 z-50 flex justify-end`}>
       <button
         type="button"
         aria-label="關閉側邊面板"
+        disabled={guard.pending||guard.uncertain}
         onClick={onClose}
         className="absolute inset-0 bg-earth-950/25"
       />
@@ -1868,13 +1785,15 @@ function Drawer({
           <h1 className="admin-page-title">{title}</h1>
           <button
             type="button"
-            onClick={onClose}
+            disabled={guard.pending||guard.uncertain}
+        onClick={onClose}
             className="rounded-lg p-2 text-earth-500 hover:bg-earth-100"
             aria-label="關閉"
           >
             ✕
           </button>
         </header>
+        {guard.error&&<p role="alert" className="mb-3 text-sm text-red-700">{guard.error}</p>}
         {children}
       </aside>
     </div>, document.body
