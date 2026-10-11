@@ -13,7 +13,7 @@ import type { Prisma } from "@prisma/client";
 type TxClient = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 interface SnapshotParams {
-  customerId: string;
+  customerId: string | null;
   storeId: string;
   revenueStaffId: string;
   planId?: string | null;
@@ -95,13 +95,13 @@ export async function buildTransactionSnapshot(
         })
       : null,
     // 查詢該客戶是否有任何成功的購買交易
-    tx.transaction.count({
+    customerId ? tx.transaction.count({
       where: {
         customerId,
         status: "SUCCESS",
         transactionType: { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE"] },
       },
-    }),
+    }) : 1,
   ]);
 
   const dateStr = toLocalDateStr();

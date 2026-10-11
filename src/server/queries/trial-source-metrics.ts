@@ -60,6 +60,7 @@ export async function getTrialSourceMetrics(
   const firstTrialByCustomer = new Map<string, CompletedTrial>();
   const sameDayOrder = (trial: CompletedTrial) => `${trial.slotTime?.slice(0, 5) ?? ""}|${trial.bookingId ?? trial.id ?? ""}`;
   for (const trial of facts.trials) {
+    if (!trial.customerId) continue;
     const previous = firstTrialByCustomer.get(trial.customerId);
     if (!previous || trial.bookingDate < previous.bookingDate ||
       (trial.bookingDate.getTime() === previous.bookingDate.getTime() && sameDayOrder(trial) < sameDayOrder(previous))) {
@@ -72,7 +73,7 @@ export async function getTrialSourceMetrics(
   const conversion = selectConversionCustomerIds("", facts.trials, facts.purchases,
     { startDate: "0001-01-01", endDate: toLocalDateStr(latestDate) });
   const completedByBooking = new Map<string, number>();
-  for (const visit of individual.visits) {
+  for (const visit of [...individual.visits, ...(individual.unregisteredVisits ?? [])]) {
     if (visit.bookingType !== "FIRST_TRIAL" || visit.source === "WALK_IN") continue;
     completedByBooking.set(visit.bookingId, (completedByBooking.get(visit.bookingId) ?? 0) + 1);
   }

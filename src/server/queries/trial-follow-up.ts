@@ -155,7 +155,7 @@ export async function getTrialFollowUpList(
   const seen = new Set<string>();
   const result: TrialFollowUpRow[] = [];
   for (const r of rows) {
-    if (seen.has(r.customer.id)) continue;
+    if (!r.customer || seen.has(r.customer.id)) continue;
     seen.add(r.customer.id);
     result.push({
       customerId: r.customer.id,

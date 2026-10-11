@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -62,11 +62,11 @@ function client(connection: { query: PGlite["query"] }): Prisma.TransactionClien
     transactionAuditLog: { create: async () => ({ id: randomUUID() }) },
     transaction: {
       count: async ({ where }: { where: { refundOfTransactionId: string } }) => (await connection.query<{n:number}>(`SELECT count(*)::int AS n FROM "Transaction" WHERE "refundOfTransactionId"=$1 AND status='SUCCESS'`,[where.refundOfTransactionId])).rows[0].n,
-      findFirst: async ({ where }: { where: { id: string; storeId: string; customerId: string } }) =>
-        (await connection.query(`SELECT id, amount, "paymentMethod", note FROM "Transaction" WHERE id=$1 AND "storeId"=$2 AND "customerId"=$3
+      findFirst: async ({ where }: { where: { id: string; storeId: string; customerId: string | null } }) =>
+        (await connection.query(`SELECT id, amount, "paymentMethod", note FROM "Transaction" WHERE id=$1 AND "storeId"=$2 AND "customerId" IS NOT DISTINCT FROM $3
         AND status='SUCCESS' AND "paymentStatus"='SUCCESS' AND "refundAmount"=0`, [where.id, where.storeId, where.customerId])).rows[0] ?? null,
       findMany: async ({ where }: { where: { storeId: string; bookingId: string; customerId: string; customerPlanWalletId: string } }) =>
-        (await connection.query(`SELECT id,amount FROM "Transaction" WHERE "storeId"=$1 AND "bookingId"=$2 AND "customerId"=$3 AND "customerPlanWalletId"=$4 AND "transactionType"='SESSION_DEDUCTION' AND status='SUCCESS'`,[where.storeId,where.bookingId,where.customerId,where.customerPlanWalletId])).rows,
+        (await connection.query(`SELECT id,amount FROM "Transaction" WHERE "storeId"=$1 AND "bookingId"=$2 AND "customerId" IS NOT DISTINCT FROM $3 AND "customerPlanWalletId"=$4 AND "transactionType"='SESSION_DEDUCTION' AND status='SUCCESS'`,[where.storeId,where.bookingId,where.customerId,where.customerPlanWalletId])).rows,
       updateMany: async ({where}: {where:{id:string}}) => ({count:(await connection.query(`UPDATE "Transaction" SET status='VOIDED' WHERE id=$1 AND status='SUCCESS'`,[where.id])).affectedRows}),
     },
   } as unknown as Prisma.TransactionClient;
@@ -94,14 +94,15 @@ beforeAll(async () => {
     CREATE TABLE "WalletSession" (id TEXT PRIMARY KEY, "walletId" TEXT REFERENCES "CustomerPlanWallet"(id), "sessionNo" INT, status TEXT DEFAULT 'AVAILABLE', "bookingId" TEXT, "completedAt" TIMESTAMP,"reservedAt" TIMESTAMP);`);
   await db.exec(readFileSync("docs/sql/booking-participants-draft.sql", "utf8"));
   await db.exec(readFileSync("docs/sql/booking-participants-lifecycle-upgrade.sql", "utf8"));
+  await db.exec(readFileSync("docs/sql/booking-unregistered-participant-payment-upgrade.sql", "utf8"));
 });
 beforeEach(async () => {
   vi.resetAllMocks(); h.capacity = 4;
   h.snapshot.mockResolvedValue({}); h.award.mockResolvedValue(undefined);
   h.payment.mockImplementation(async (tx: Prisma.TransactionClient, { data }: Prisma.TransactionCreateArgs) => {
     const id = randomUUID();
-    await tx.$executeRaw`INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount,"paymentMethod",note,"customerPlanWalletId")
-      VALUES (${id},${data.storeId},${data.bookingId},${data.customerId},${data.transactionType},${Number(data.amount)},${data.paymentMethod},${data.note},${data.customerPlanWalletId ?? null})`;
+    await tx.$executeRaw`INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","unregisteredParticipantId","transactionType",amount,"paymentMethod",note,"customerPlanWalletId")
+      VALUES (${id},${data.storeId},${data.bookingId},${data.customerId},${data.unregisteredParticipantId ?? null},${data.transactionType},${Number(data.amount)},${data.paymentMethod},${data.note},${data.customerPlanWalletId ?? null})`;
     return { id };
   });
   await db.exec(`TRUNCATE "AuditLog", "WalletSession", "CustomerPlanWallet", "BookingParticipant", "BookingParticipantGroup", "Transaction", "Booking", "Customer", "Staff" CASCADE;
@@ -110,8 +111,52 @@ beforeEach(async () => {
     INSERT INTO "Booking" (id,"storeId","customerId",people,"bookingType","bookingStatus") VALUES ('booking','a','primary',2,'FIRST_TRIAL','PENDING');`);
 });
 afterAll(async () => { await db.close(); });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("individual trial payment against PostgreSQL", () => {
+  it("collects an unregistered companion independently without a customer or points and retries only once", async () => {
+    vi.stubEnv("BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED", "true");
+    const [primary, companion] = await init();
+    const result = await collect(companion.id);
+    expect(result).toMatchObject({ customerId: null, created: true });
+    expect(await collect(companion.id)).toMatchObject({ transactionId: result.transactionId, created: false });
+    expect(h.payment).toHaveBeenCalledTimes(1); expect(h.award).not.toHaveBeenCalled();
+    await expect(db.transaction(tx => tx.query('UPDATE "Transaction" SET "customerId"=$1 WHERE id=$2', ["primary", result.transactionId]))).rejects.toThrow(/subject is immutable/);
+    await expect(db.transaction(tx => tx.query('UPDATE "Transaction" SET "unregisteredParticipantId"=$1 WHERE id=$2', [primary.id, result.transactionId]))).rejects.toThrow(/subject is immutable/);
+    expect((await init())[0]).toMatchObject({ id: primary.id, status: "PENDING" });
+    expect((await init())[1]).toMatchObject({ customerId: null, status: "COMPLETED" });
+    expect((await db.query('SELECT "customerId", amount FROM "Transaction"')).rows).toEqual([{ customerId: null, amount: 499 }]);
+    expect(await booking()).toMatchObject({ attendedPeople: 1, bookingStatus: "PENDING" });
+    await expect(collect(companion.id, 1, 500)).rejects.toThrow(/不能再次/);
+    await collect(primary.id);
+    expect((await db.query<{ total: number }>('SELECT sum(amount)::int AS total FROM "Transaction"')).rows[0].total).toBe(998);
+    expect(await booking()).toMatchObject({ attendedPeople: 2, bookingStatus: "COMPLETED" });
+  });
+  it("retains the anonymous receipt subject after void and rolls failed collection back", async () => {
+    vi.stubEnv("BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED", "true");
+    const [, companion] = await init();
+    const result = await collect(companion.id);
+    await db.transaction(tx => tx.query('UPDATE "Transaction" SET status=$1 WHERE id=$2', ["VOIDED", result.transactionId]));
+    expect((await db.query('SELECT "customerId", "unregisteredParticipantId", status FROM "Transaction"')).rows).toEqual([{ customerId: null, unregisteredParticipantId: companion.id, status: "VOIDED" }]);
+    const third = await db.transaction(tx => addBookingWalkIn(client(tx), { storeId: "a", bookingId: "booking", requestId: "failure" }));
+    h.payment.mockImplementationOnce(async () => { throw new Error("payment failure"); });
+    await expect(collect(third.id)).rejects.toThrow("payment failure");
+    expect((await db.query('SELECT status, "customerId", "collectionTransactionId" FROM "BookingParticipant" WHERE id=$1', [third.id])).rows[0]).toMatchObject({ status: "PENDING", customerId: null, collectionTransactionId: null });
+    expect((await db.query('SELECT id FROM "Transaction"')).rows).toHaveLength(1);
+  });
+  it("rejects unbound anonymous money at commit and refuses cross-store participant binding", async () => {
+    vi.stubEnv("BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED", "true");
+    const [, companion] = await init();
+    await expect(db.transaction(async tx => {
+      await tx.query("SELECT set_config('app.booking_participant_id',$1,true)", [companion.id]);
+      await tx.query(`INSERT INTO "Transaction" (id,"storeId","bookingId","unregisteredParticipantId","transactionType",amount,"paymentMethod")
+        VALUES ('orphan','a','booking',$1,'TRIAL_PURCHASE',499,'CASH')`, [companion.id]);
+    })).rejects.toThrow(/actual participant/);
+    await expect(db.transaction(tx => collectParticipantTrialInTransaction(client(tx), { storeId: "b", participantId: companion.id, revision: 1,
+      amount: 499, paymentMethod: "CASH", serviceStaffId: "staff", settings }))).rejects.toThrow(/不屬於/);
+    expect((await db.query('SELECT id FROM "Transaction"')).rows).toHaveLength(0);
+  });
+
   it("adds within the same booking up to four, retries safely, and preserves original positions", async () => {
     const first = await init();
     const add = (requestId: string) => db.transaction(tx => addBookingWalkIn(client(tx), { storeId: "a", bookingId: "booking", requestId }));
@@ -207,7 +252,7 @@ describe("individual trial payment against PostgreSQL", () => {
   });
   it("unknown identity, stale revision and attempted 11980 package money cannot be collected as trial fee", async () => {
     const [primary, guest] = await init();
-    await expect(collect(guest.id)).rejects.toThrow(/姓名與電話/);
+    await expect(collect(guest.id)).rejects.toThrow(/尚未開放/);
     await expect(collect(primary.id, 99)).rejects.toThrow(/狀態已變更/);
     await expect(collect(primary.id, 1, 11980)).rejects.toThrow();
     expect(h.payment).not.toHaveBeenCalled();
@@ -266,6 +311,25 @@ describe("select, complete, restore and cancel are separate participant operatio
     expect((await init())[1]).toMatchObject({status:"COMPLETED",service:"FIRST_TRIAL"});
     expect(await booking()).toMatchObject({bookingStatus:"PENDING",attendedPeople:1});
     expect((await db.query(`SELECT status,amount FROM "Transaction" WHERE "customerId"='guest'`)).rows[0]).toEqual({status:"SUCCESS",amount:499});
+  });
+  it("restores anonymous attendance without charging again and preserves voided receipts on recollection", async () => {
+    vi.stubEnv("BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED", "true");
+    const [, companion] = await init();
+    const original = await collect(companion.id);
+    await restore((await init())[1]);
+    const pending = (await init())[1];
+    await db.transaction(tx => completePreviouslyPaidParticipant(client(tx), operation(pending)));
+    expect(h.payment).toHaveBeenCalledTimes(1); expect(h.award).not.toHaveBeenCalled();
+    await db.transaction(tx => tx.query('UPDATE "Transaction" SET status=$1 WHERE id=$2', ["VOIDED", original.transactionId]));
+    await restore((await init())[1]);
+    await reserve((await init())[1], null);
+    const reset = (await init())[1];
+    await collect(reset.id, reset.revision);
+    expect((await db.query('SELECT status, "customerId", "unregisteredParticipantId" FROM "Transaction" ORDER BY status')).rows).toEqual([
+      { status: "SUCCESS", customerId: null, unregisteredParticipantId: companion.id },
+      { status: "VOIDED", customerId: null, unregisteredParticipantId: companion.id },
+    ]);
+    expect(h.award).not.toHaveBeenCalled();
   });
   it("paid trial restoration retains cash and re-completion never collects twice", async () => {
     await db.exec(`UPDATE "Booking" SET people=1`); const [person] = await init(); await collect(person.id);

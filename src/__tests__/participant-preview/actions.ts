@@ -1,7 +1,7 @@
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 type Checkout = NonNullable<BookingDrawerPayload["participantCheckout"]>;
 export const state: Checkout = {
-  canCollect: true, canResolve: true, canSell: true, canDiscount: false,
+  canCollect: true, canCollectUnregistered: true, canResolve: true, canSell: true, canDiscount: false,
   settings: { allowEdit: true, defaultPrice: 499, minPrice: 0, maxPrice: 3000 },
   plans: [{ id: "plan", name: "蒸足十堂方案", category: "PACKAGE", price: 5990, sessionCount: 10, validityDays: 90 }],
   slots: [

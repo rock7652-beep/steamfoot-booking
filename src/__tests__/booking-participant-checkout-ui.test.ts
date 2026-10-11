@@ -41,6 +41,17 @@ async function click(button: HTMLElement) { await act(async () => button.click()
 const buttons = (label: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].filter(button => button.textContent === label);
 
 describe("actual participant checkout component", () => {
+  it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {
+    const data = checkout(); data.canCollectUnregistered = true;
+    data.slots[1].customerId = null; data.slots[1].name = null;
+    h.collect.mockResolvedValue({ success: true, data: { transactionId: "anonymous-receipt" } });
+    await render(data); expect(buttons("收費 $499")).toHaveLength(2);
+    await click(buttons("收費 $499")[1]);
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(h.collect).toHaveBeenCalledWith(expect.objectContaining({ bookingId: "booking", position: 2, amount: 499 }));
+    expect(container.textContent).toContain("已收 NT$ 499");
+  });
+
   it("uses only this person's own wallet without recording a trial fee", async () => {
     const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 9 }];
     h.change.mockResolvedValue({ success: true });

@@ -329,7 +329,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                     {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
                   </td>
                   <td className={`px-4 py-3 ${isVoided ? "text-earth-500 line-through" : "text-earth-900"}`}>
-                    {t.customer.name}
+                    {t.customer?.name ?? "未建檔同行者"}
                   </td>
                   <td className="px-4 py-3">
                     <span

@@ -37,6 +37,12 @@ beforeEach(() => {
 
 describe("individual settlement action boundaries", () => {
   const payment = { bookingId: "booking", position: 2, revision: 1, amount: 499, paymentMethod: "CASH" as const };
+  it("unregistered collection emits no personal referral event and creates no customer", async () => {
+    h.collect.mockResolvedValue({ transactionId: "anonymous", bookingId: "booking", customerId: null, created: true });
+    expect(await collectBookingParticipantTrial(payment)).toEqual({ success: true, data: { transactionId: "anonymous" } });
+    expect(h.event).not.toHaveBeenCalled(); expect(h.existing).not.toHaveBeenCalled(); expect(h.create).not.toHaveBeenCalled();
+    expect(h.revalidate).toHaveBeenCalledWith(undefined);
+  });
   it("requires trial and booking write permissions before accessing payment data", async () => {
     h.writable.mockImplementation(async permission => {
       if (permission === "trial.confirm") throw new AppError("FORBIDDEN", "無收款權限");

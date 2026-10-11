@@ -71,7 +71,9 @@ export async function collectParticipantTrialInTransaction(tx: Prisma.Transactio
 }) {
   const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
   if (person.service !== "FIRST_TRIAL") throw new AppError("BUSINESS_RULE", "這位顧客不是體驗服務");
-  if (!person.customerId) throw new AppError("BUSINESS_RULE", "請先補齊這位顧客的姓名與電話");
+  if (!person.customerId && process.env.BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED !== "true") {
+    throw new AppError("BUSINESS_RULE", "未建檔同行者收費尚未開放");
+  }
   if (person.collectionTransactionId) {
     const receipt = await tx.transaction.findFirst({ where: {
       id: person.collectionTransactionId, storeId: input.storeId, customerId: person.customerId,
@@ -88,10 +90,10 @@ export async function collectParticipantTrialInTransaction(tx: Prisma.Transactio
   }
   const amountError = trialCollectionAmountError(input.amount, 1, input.settings);
   if (amountError) throw new AppError("VALIDATION", amountError);
-  const customer = await tx.customer.findFirst({ where: { id: person.customerId, storeId: input.storeId, mergedIntoCustomerId: null },
-    select: { assignedStaffId: true } });
-  if (!customer) throw new AppError("NOT_FOUND", "顧客不存在或已合併，請重新確認");
-  const revenueStaffId = customer.assignedStaffId ?? input.serviceStaffId;
+  const customer = person.customerId ? await tx.customer.findFirst({ where: { id: person.customerId, storeId: input.storeId, mergedIntoCustomerId: null },
+    select: { assignedStaffId: true } }) : null;
+  if (person.customerId && !customer) throw new AppError("NOT_FOUND", "顧客不存在或已合併，請重新確認");
+  const revenueStaffId = customer?.assignedStaffId ?? input.serviceStaffId;
   if (!revenueStaffId) throw new AppError("BUSINESS_RULE", "無法判定營收歸屬，請指派店長");
   const staff = await tx.staff.findFirst({ where: { id: revenueStaffId, storeId: input.storeId }, select: { id: true } });
   if (!staff) throw new AppError("BUSINESS_RULE", "營收歸屬店長不屬於本店");
@@ -99,7 +101,8 @@ export async function collectParticipantTrialInTransaction(tx: Prisma.Transactio
     revenueStaffId, planId: person.servicePlanId, grossAmount: input.amount, netAmount: input.amount });
   await tx.$queryRaw`SELECT set_config('app.booking_participant_id', ${person.id}, true)`;
   const receipt = await createFinancialTransaction(tx, { data: {
-    ...snapshot, customerId: person.customerId, storeId: input.storeId, bookingId: person.bookingId,
+    ...snapshot, customerId: person.customerId, unregisteredParticipantId: person.customerId ? null : person.id,
+    storeId: input.storeId, bookingId: person.bookingId,
     revenueStaffId, serviceStaffId: input.serviceStaffId, soldByStaffId: input.serviceStaffId,
     transactionType: "TRIAL_PURCHASE", paymentMethod: input.paymentMethod, paymentStatus: "SUCCESS",
     paidAt: new Date(), amount: input.amount, note: input.note || null,
@@ -114,7 +117,7 @@ export async function collectParticipantTrialInTransaction(tx: Prisma.Transactio
     SELECT id FROM "AuditLog" WHERE "storeId" = ${input.storeId} AND "targetType" = 'BookingParticipant'
       AND "targetId" = ${person.id} AND action = 'CORRECT_PARTICIPANT_SERVICE'
       AND "beforeJson"->>'status' = 'COMPLETED' LIMIT 1`;
-  if (!previousCompletion) await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
+  if (person.customerId && !previousCompletion) await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
     bookingDate: person.bookingDate, slotTime: person.slotTime });
   await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
   return { transactionId: receipt.id, customerId: person.customerId, bookingId: person.bookingId, created: true };

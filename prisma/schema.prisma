@@ -1984,7 +1984,8 @@ model BookingMakeupCredit {
 
 model Transaction {
   id                   String          @id @default(cuid())
-  customerId           String
+  customerId           String?
+  unregisteredParticipantId String? // immutable receipt subject when no customer identity is provided
   storeId              String
   bookingId            String? // nullable: 購課交易不一定綁定預約
   revenueStaffId       String // 冗餘快照：營收歸屬店長
@@ -2063,7 +2064,7 @@ model Transaction {
   refundedAt            DateTime?
   refundedByUserId      String?
 
-  customer            Customer                  @relation(fields: [customerId], references: [id])
+  customer            Customer?                 @relation(fields: [customerId], references: [id])
   store               Store                     @relation(fields: [storeId], references: [id])
   booking             Booking?                  @relation(fields: [bookingId], references: [id])
   revenueStaff        Staff                     @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
@@ -2078,6 +2079,7 @@ model Transaction {
   refundedBy          User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
   paymentSplits       TransactionPaymentSplit[]
   collectedParticipant BookingParticipant? @relation("ParticipantCollection")
+  unregisteredParticipant BookingParticipant? @relation("UnregisteredParticipantReceipt", fields: [unregisteredParticipantId, storeId], references: [id, storeId], onDelete: Restrict)
 
   @@unique([id, storeId])
   @@index([storeId])
@@ -3431,6 +3433,7 @@ model BookingParticipant {
   updatedAt DateTime @updatedAt
   group BookingParticipantGroup @relation(fields: [groupId, storeId], references: [id, storeId], onDelete: Restrict)
   customer Customer? @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Restrict)
+  unregisteredTransactions Transaction[] @relation("UnregisteredParticipantReceipt")
   collectionTransaction Transaction? @relation("ParticipantCollection", fields: [collectionTransactionId, storeId], references: [id, storeId], onDelete: Restrict)
   @@unique([collectionTransactionId, storeId])
   @@unique([groupId, position])

@@ -43,6 +43,16 @@ describe("selected-period facts", () => {
     expect(result.counts).toMatchObject({ uniqueVisitors: 2, newVisitors: 1, returningVisitors: 1, completedServices: 4, trialAttendees: 2, trialBookingGroups: 1, returnedCustomers: 1, unreturnedCustomers: 0 });
     expect([...result.segments["monthly-customers"]]).toEqual(["a", "b"]);
   });
+  it("counts an unregistered companion as attendance without creating a customer cohort", () => {
+    const pair = [
+      { customerId: "a", bookingId: "pair", bookingDate: date("2026-09-22"), bookingType: "FIRST_TRIAL", people: 1 },
+      { customerId: null, bookingId: "pair", bookingDate: date("2026-09-22"), bookingType: "FIRST_TRIAL", people: 1 },
+    ];
+    const result = selectPeriodFacts(range, previous, pair, first, pair, []);
+    expect(result.counts).toMatchObject({ uniqueVisitors: 1, completedServices: 2, trialAttendees: 2, unidentifiedTrialVisits: 1, trialBookingGroups: 1 });
+    expect([...result.segments["monthly-trial"]]).toEqual(["a"]);
+    expect([...result.segments["monthly-unconverted"]]).toEqual(["a"]);
+  });
   it("distinguishes new conversion, tracked conversion and renewal and ignores cancelled wallets", () => {
     const purchases = [purchase("a", "2026-09-22"), purchase("a", "2026-09-24"), purchase("b", "2026-09-25"), purchase("c", "2026-09-24", "CANCELLED")];
     const result = selectPeriodFacts(range, previous, visits, first, trials, purchases);

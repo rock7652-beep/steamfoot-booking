@@ -210,6 +210,8 @@ export async function refundTransactionLegacy(
     // 訂閱到期保護：到期店家不可退款（平台只保留資料，退款屬店家營運責任）
     await assertStoreSubscriptionWritable(original.storeId);
 
+    if (!original.customerId) throw new AppError("BUSINESS_RULE", "未建檔同行者收款請使用取消交易，保留原紀錄");
+
     if (original.transactionType === "REFUND") {
       throw new AppError("BUSINESS_RULE", "不能對退款交易再次退款");
     }
@@ -246,7 +248,7 @@ export async function refundTransactionLegacy(
       });
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { refundId: refund.id } };
   } catch (e) {
     return handleActionError(e);
@@ -354,6 +356,9 @@ export async function confirmTransactionPayment(
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
     assertStoreAccess(user, original.storeId);
 
+    const customerId = original.customerId;
+    if (!customerId) throw new AppError("BUSINESS_RULE", "未建檔同行者不適用方案付款確認");
+
     // Guard 1：只有 TRANSFER / UNPAID 可確認
     if (original.paymentMethod !== "TRANSFER" && original.paymentMethod !== "UNPAID") {
       throw new AppError(
@@ -417,7 +422,7 @@ export async function confirmTransactionPayment(
         const expiryDate = original.pendingWalletExpiryDateSnapshot;
         const wallet = await tx.customerPlanWallet.create({
           data: {
-            customerId: original.customerId,
+            customerId,
             storeId: original.storeId,
             planId: original.planId,
             purchasedPrice: original.amount,
@@ -478,7 +483,7 @@ export async function confirmTransactionPayment(
 
       // CAS 成功 → 重現 PENDING 時 skip 的狀態升等 + 首儲推薦獎勵
       const customer = await tx.customer.findUnique({
-        where: { id: original.customerId },
+        where: { id: customerId },
         select: {
           convertedAt: true,
           customerStage: true,
@@ -502,7 +507,7 @@ export async function confirmTransactionPayment(
       });
 
       await tx.customer.update({
-        where: { id: original.customerId },
+        where: { id: customerId },
         data: {
           customerStage: "ACTIVE",
           selfBookingEnabled: true,
@@ -513,7 +518,7 @@ export async function confirmTransactionPayment(
       // 首儲推薦獎勵（僅首次購課且有 sponsor 才觸發）
       // 靜默失敗；dedup key 同 PR-3：PointRecord @@unique 擋重複發獎
       const rewards = await awardFirstTopupReferralPointsIfEligible({
-        customerId: original.customerId,
+        customerId,
         storeId: original.storeId,
         isFirstPurchase,
         tx,
@@ -530,7 +535,7 @@ export async function confirmTransactionPayment(
       }
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
@@ -639,7 +644,7 @@ export async function voidPendingTransaction(
       if (result.count === 0) throw new AppError("CONFLICT", "此交易狀態已變更，無法作廢");
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
@@ -773,7 +778,7 @@ export async function updateTransactionNote(
       });
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
@@ -833,7 +838,7 @@ export async function updateTransactionPaymentMethod(
       });
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
@@ -899,7 +904,7 @@ export async function updateTransactionOwnerStaff(
       });
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
@@ -1020,6 +1025,7 @@ export async function voidTransaction(
       // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
       // 會留下可使用的幽靈堂數。
       if (current.customerPlanWalletId) {
+        if (!current.customerId) throw new AppError("BUSINESS_RULE", "方案交易缺少顧客資料");
         // 誤建單不應因已標記付款而被迫走退款流程。
         // 是否可安全取消，以方案堂數完全未使用、未預約為準；下方 wallet/session
         // 真值檢查與同一 DB transaction 會確保營收與堂數一起回復。
@@ -1153,6 +1159,7 @@ export async function voidTransaction(
 
       // 只還原由正式方案開通流程留下的狀態快照；人工補帳不會誤改顧客資料。
       if (current.conversionEffectsApplied) {
+        if (!current.customerId) throw new AppError("BUSINESS_RULE", "方案轉換缺少顧客資料");
         if (!current.paidAt) {
           throw new AppError("CONFLICT", "交易缺少實際付款時間，請人工核帳處理");
         }
@@ -1297,7 +1304,7 @@ export async function voidTransaction(
       });
     });
 
-    revalidateBookingTransactionMutation(original.customerId);
+    revalidateBookingTransactionMutation(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
     return handleActionError(e);
@@ -1330,7 +1337,7 @@ export async function fetchTransactionDetailDTO(
     const data: TransactionDetailDTO = {
       id: tx.id,
       customerId: tx.customerId,
-      customerName: tx.customer.name,
+      customerName: tx.customer?.name ?? "未建檔同行者",
       storeId: tx.storeId,
       status: tx.status,
       transactionType: tx.transactionType,
@@ -1384,7 +1391,7 @@ export async function fetchTransactionDetailDTO(
 
 export type TransactionDetailDTO = {
   id: string;
-  customerId: string;
+  customerId: string | null;
   customerName: string;
   storeId: string;
   status: string;
@@ -1588,7 +1595,7 @@ export async function refundTransaction(
       return created;
     });
 
-    revalidateTransactions(original.customerId);
+    revalidateTransactions(original.customerId ?? undefined);
     return {
       success: true,
       data: { refundTransactionId: refundTx.id, refundAmount: plan.refundAmount },

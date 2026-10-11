@@ -9,13 +9,13 @@ type Visit = CompletedTrial & { bookingType: string };
 export function selectPeriodFacts(range: AnalysisRange, previous: AnalysisRange, visits: Visit[], first: Map<string, Date>, trials: CompletedTrial[], purchases: PackagePurchase[]) {
   const within = (date: Date, r: AnalysisRange) => date >= parseTaiwanDateToDbDate(r.startDate) && date <= parseTaiwanDateToDbDate(r.endDate);
   const rows = visits.filter(v => within(v.bookingDate, range));
-  const visitors = new Set(rows.map(v => v.customerId));
+  const visitors = new Set(rows.flatMap(v => v.customerId ? [v.customerId] : []));
   const newVisitors = new Set([...visitors].filter(id => first.has(id) && within(first.get(id)!, range)));
   const returning = new Set([...visitors].filter(id => first.has(id) && first.get(id)! < parseTaiwanDateToDbDate(range.startDate)));
   const trialRows = rows.filter(v => v.bookingType === "FIRST_TRIAL");
-  const trialIds = new Set(trialRows.map(v => v.customerId));
+  const trialIds = new Set(trialRows.flatMap(v => v.customerId ? [v.customerId] : []));
   const conversion = selectConversionCustomerIds(range.startDate.slice(0, 7), trials, purchases, range);
-  const cohort = new Set(visits.filter(v => within(v.bookingDate, previous)).map(v => v.customerId));
+  const cohort = new Set(visits.filter(v => within(v.bookingDate, previous)).flatMap(v => v.customerId ? [v.customerId] : []));
   const returned = new Set([...cohort].filter(id => visitors.has(id)));
   const notReturned = new Set([...cohort].filter(id => !visitors.has(id)));
   const attendees = (items: CompletedTrial[]) => items.reduce((sum, v) => sum + (v.attendedPeople ?? v.people ?? 1), 0);
@@ -24,7 +24,7 @@ export function selectPeriodFacts(range: AnalysisRange, previous: AnalysisRange,
   return {
     counts: {
       uniqueVisitors: visitors.size, newVisitors: newVisitors.size, returningVisitors: returning.size,
-      trialAttendees, unidentifiedTrialVisits: trialRows.reduce((sum, row) => sum + Math.max(0, (row.attendedPeople ?? row.people ?? 1) - 1), 0),
+      trialAttendees, unidentifiedTrialVisits: trialRows.reduce((sum, row) => sum + Math.max(0, (row.attendedPeople ?? row.people ?? 1) - (row.customerId ? 1 : 0)), 0),
       trialBookingGroups: new Set(trialRows.map((row, index) => row.bookingId ?? row.id ?? `legacy-${index}`)).size, completedServices: attendees(rows),
       currentTrialConversions: currentConverted, trackedConversions: conversion.trackedConvertedCustomerIds.size,
       convertedCustomers: conversion.convertedCustomerIds.size,
@@ -51,9 +51,9 @@ async function loadPeriodFacts(storeId: string, ranges: AnalysisRange[]) {
     prisma.booking.findMany({ where: { storeId, bookingStatus: "COMPLETED", bookingType: "FIRST_TRIAL", bookingDate: { lte: parseTaiwanDateToDbDate(latest) } }, select: { id: true, customerId: true, bookingDate: true, people: true, attendedPeople: true } }),
     loadIndividualBookingFacts(storeId, parseTaiwanDateToDbDate(latest)),
   ]);
-  const visits = [...replaceGroupedBookingFacts(groupedVisits, individual.groupIds), ...individual.visits];
+  const visits = [...replaceGroupedBookingFacts(groupedVisits, individual.groupIds), ...individual.visits, ...(individual.unregisteredVisits ?? [])];
   const trials = [...replaceGroupedBookingFacts(groupedTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
-  const ids = [...new Set(visits.map(v => v.customerId))];
+  const ids = [...new Set(visits.flatMap(v => v.customerId ? [v.customerId] : []))];
   const trialIds = [...new Set(trials.map(v => v.customerId))];
   const [firstRows, purchases] = await Promise.all([
     ids.length ? prisma.booking.groupBy({ by: ["customerId"], where: { storeId, bookingStatus: "COMPLETED", customerId: { in: ids },
@@ -64,9 +64,9 @@ async function loadPeriodFacts(storeId: string, ranges: AnalysisRange[]) {
   ]);
   const first = new Map(firstRows.flatMap(r => r._min.bookingDate ? [[r.customerId, r._min.bookingDate] as const] : []));
   for (const visit of individual.visits) if (!first.has(visit.customerId) || visit.bookingDate < first.get(visit.customerId)!) first.set(visit.customerId, visit.bookingDate);
-  return { visits, trials, purchases: purchases.map(purchase => ({ ...purchase,
+  return { visits, trials, purchases: purchases.flatMap(purchase => purchase.customerId ? [{ ...purchase, customerId: purchase.customerId,
     netAmount: Number(purchase.amount) + purchase.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
-  })), first };
+  }] : []), first };
 }
 
 export async function getAnalysisPeriodMetrics(storeId: string, range: AnalysisRange, preset: string) {
