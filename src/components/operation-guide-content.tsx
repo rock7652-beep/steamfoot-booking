@@ -37,7 +37,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
     for (const reference of article?.references ?? []) {
       const target = guides.find(guide => guide.id === reference.guideId);
       if (!target) continue;
-      parts = parts.flatMap((part, partIndex) => typeof part !== "string" ? [part] : part.split(reference.label).flatMap((chunk, index) => index === 0 ? [chunk] : [
+      parts = parts.flatMap<ReactNode>((part, partIndex) => typeof part !== "string" ? [part] : part.split(reference.label).flatMap((chunk, index) => index === 0 ? [chunk] : [
         <button key={`${reference.guideId}-${partIndex}-${index}`} type="button" onClick={() => {
           if (article) setArticleHistory(history => history.at(-1)?.id === article.id ? history : [...history, { id: article.id, expanded }]);
           setArticleId(target.id); setExpanded(false); resetScroll();
