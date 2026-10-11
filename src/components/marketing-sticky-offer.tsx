@@ -46,9 +46,9 @@ export function MarketingStickyOffer() {
         <div className={styles.inner}>
           <div id="marketing-offer-details" className={styles.offer} hidden={compact}>
             <a href={addon?.active ? "/pricing#addons" : "/pricing"} className={styles.details}>{addon?.active ? "雙十加購優惠" : "年繳再送 2 個月"}</a>
-            <span role="timer" aria-live="off" aria-label="距離付款優惠截止" className={styles.timer}>剩 {offer?.countdown[0]} 天 {offer?.countdown.slice(1).map(value => String(value).padStart(2, "0")).join(":")}</span>
+            <span role="timer" aria-live="off" aria-label="距離付款優惠截止" className={styles.timer}>{offer?.countdown[0]}天 {offer?.countdown.slice(1).map(value => String(value).padStart(2, "0")).join(":")}</span>
           </div>
-          <button ref={trigger} type="button" className={styles.apply} aria-haspopup="dialog" onClick={() => { setLoaded(true); dialog.current?.showModal(); setOpen(true); }}>免費試用 30 天</button>
+          <button ref={trigger} type="button" className={styles.apply} aria-label="免費試用 30 天" aria-haspopup="dialog" onClick={() => { setLoaded(true); dialog.current?.showModal(); setOpen(true); }}>免費試用<span className={styles.duration}> 30 天</span></button>
           {offer?.active && <button type="button" className={styles.toggle} aria-expanded={!collapsed} aria-controls="marketing-offer-details" aria-label={collapsed ? "展開優惠倒數" : "收合優惠倒數"} onClick={toggle}>{collapsed ? "⌃" : "⌄"}</button>}
         </div>
       </aside>
