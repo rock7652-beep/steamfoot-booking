@@ -1,4 +1,4 @@
-import { assertBookingParticipantsPreviewEnvironment, isIsolatedConsultationDatabaseUrl, PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH } from "./consultation-preview-scope.mjs";
+import { assertBookingParticipantsPreviewEnvironment, isIsolatedConsultationDatabaseUrl, PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH, PARTICIPANT_DAY_LIST_PREVIEW_BRANCH } from "./consultation-preview-scope.mjs";
 
 /** @param {unknown} value */
 export function assertBookingParticipantsPreviewSchema(value) {
@@ -71,7 +71,7 @@ async function verifyBookingParticipantsSchema(env) {
             ('Transaction','Transaction_participant_guard'),
             ('Booking','Booking_participant_guard'))) AS guards_ready`;
     assertBookingParticipantsPreviewSchema(rows[0]);
-    if (env.VERCEL_GIT_COMMIT_REF === PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH) assertParticipantLifecycleSchema(rows[0]);
+    if ([PARTICIPANT_LIFECYCLE_PREVIEW_BRANCH, PARTICIPANT_DAY_LIST_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) assertParticipantLifecycleSchema(rows[0]);
     console.info("[booking-participants] schema_ready=true migrations_skipped=true");
   } catch {
     throw new Error("Booking participants Preview schema readiness failed; no migration or fixture was run.");
