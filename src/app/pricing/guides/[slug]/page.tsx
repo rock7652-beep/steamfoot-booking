@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!guide) notFound();
   return {
     ...marketingMetadata(guidePath(guide)),
-    title: `${guide.title}｜蒸管家經營指南`,
+    title: guide.seoTitle ?? `${guide.title}｜蒸管家經營指南`,
     description: guide.summary,
     ...(guide.status === "draft" ? { robots: { index: false, follow: false } } : {}),
     openGraph: { type: "article", title: guide.title, description: guide.summary, url: `${MARKETING_ORIGIN}${guidePath(guide)}` },
@@ -26,7 +26,7 @@ export default async function PublicGuidePage({ params }: Props) {
   const guide = findPublicGuide((await params).slug);
   if (!guide) notFound();
   const category = GUIDE_CATEGORIES.find(item => item.id === guide.category)!;
-  const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-leave-reschedule-notifications"].includes(guide.id);
+  const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-leave-reschedule-notifications", "music-school-teacher-fee-reconciliation"].includes(guide.id);
   const isFitnessGuide = guide.id === "pilates-studio-equipment-scheduling";
   const url = `${MARKETING_ORIGIN}${guidePath(guide)}`;
   // No invented byline, publication date, review, or customer-result claims.
@@ -61,13 +61,13 @@ export default async function PublicGuidePage({ params }: Props) {
           <p className="mt-6 text-base leading-8 text-[#4C6259]">{guide.note}</p>
         </> : <>
           <div className="space-y-4 text-base leading-8 text-[#4C6259]">{guide.introduction.map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div>
-          {guide.sections.map(section => <section key={section.heading} className="mt-8"><h2 className="text-xl font-semibold leading-8 sm:text-2xl">{section.heading}</h2><div className="mt-4 space-y-4 text-base leading-8 text-[#4C6259]">{section.paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul className="list-disc space-y-3 pl-6">{section.bullets.map(item => <li key={item}>{item}</li>)}</ul>}</div></section>)}
+          {guide.sections.map(section => <section key={section.heading} className="mt-8"><h2 className="text-xl font-semibold leading-8 sm:text-2xl">{section.heading}</h2><div className="mt-4 space-y-4 text-base leading-8 text-[#4C6259]">{section.paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul className="list-disc space-y-3 pl-6">{section.bullets.map(item => <li key={item}>{item}</li>)}</ul>}{section.trailingParagraphs?.map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div></section>)}
           {guide.conclusion && <p className="mt-8 text-base leading-8 text-[#4C6259]">{guide.conclusion}</p>}
-          <section className="mt-8 rounded-xl border border-[#153B31]/20 bg-white p-5 sm:p-6">{guide.callToAction.heading && <h2 className="text-xl font-semibold leading-8">{guide.callToAction.heading}</h2>}<p className="mt-3 text-base leading-8 text-[#4C6259]">{guide.callToAction.text}</p><a href="https://www.steamfoot.com/apply" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4">{guide.callToAction.label ?? "申請免費試用 30 天 →"}</a></section>
+          <section className="mt-8 rounded-xl border border-[#153B31]/20 bg-white p-5 sm:p-6">{guide.callToAction.heading && <h2 className="text-xl font-semibold leading-8">{guide.callToAction.heading}</h2>}<p className="mt-3 text-base leading-8 text-[#4C6259]">{guide.callToAction.text}</p>{guide.callToAction.termsText && <p className="mt-3 text-base leading-8 text-[#4C6259]">{guide.callToAction.termsText}<Link href="/pricing" className="underline underline-offset-4">{guide.callToAction.termsLinkLabel ?? "查看方案價格與完整體驗說明"}</Link>。</p>}<a href="https://www.steamfoot.com/apply" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4">{guide.callToAction.label ?? "申請免費試用 30 天 →"}</a></section>
         </>}
       </article>
       <nav aria-label="文章延伸閱讀" className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[#153B31]/20 pt-5">
-        <Link href={isMusicGuide ? "/pricing/features/music" : isFitnessGuide ? "/pricing/features/fitness" : "/pricing/features#" + guide.feature} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">查看{isMusicGuide ? "音樂教室功能" : guide.featureName} →</Link>
+        <Link href={isMusicGuide ? "/pricing/features/music" : isFitnessGuide ? "/pricing/features/fitness" : "/pricing/features#" + guide.feature} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">{guide.featureLinkLabel ?? `查看${isMusicGuide ? "音樂教室功能" : guide.featureName}`} →</Link>
         <Link href={`/guides#${guide.id}`} className="inline-flex min-h-11 items-center underline underline-offset-4">返回{category.name}文章列表 ↑</Link>
       </nav>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
