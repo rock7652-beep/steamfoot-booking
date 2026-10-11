@@ -2,6 +2,7 @@ import type { PermissionCode } from "./permissions";
 
 /** Course controls expose only capabilities implemented in this module. */
 export const COURSE_PERMISSIONS: readonly PermissionCode[] = [
+  "teacher.booking.leave", "teacher.booking.reschedule",
   "customer.read",
   "customer.create",
   "customer.update",
