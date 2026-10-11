@@ -825,6 +825,18 @@ export default function DashboardShell({
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
       { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
     );
+    if (course) {
+      // Match the room → course → plan → teacher sequence in first-store setup.
+      const setupOrder = [
+        "/dashboard/courses?view=rooms",
+        "/dashboard/courses?view=catalog",
+        "/dashboard/courses?view=plans",
+        "/dashboard/teachers",
+        "/dashboard/staff",
+        "/dashboard/operation-audits",
+      ];
+      management.sort((a, b) => setupOrder.indexOf(a.href) - setupOrder.indexOf(b.href));
+    }
     if (spa) management.push(
       { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
       { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
