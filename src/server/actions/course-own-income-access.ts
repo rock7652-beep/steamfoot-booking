@@ -9,7 +9,7 @@ import { writeStaffPermissionChanges } from "@/server/services/staff-permission-
 import { revalidateStaffPermissions } from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
 
-const inputSchema = z.object({storeId:z.string().min(1).max(180),staffId:z.string().min(1).max(180),enabled:z.boolean(),previous:z.boolean()});
+const inputSchema = z.object({storeId:z.string().min(1).max(180),staffId:z.string().min(1).max(180),enabled:z.boolean(),previous:z.boolean(),permission:z.enum(["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule"]).default("teacher.income.read.self")});
 
 /** Partial grant: retains every other permission and the teacher's account. */
 export async function saveCourseOwnIncomeAccess(input: unknown) {
@@ -23,13 +23,13 @@ export async function saveCourseOwnIncomeAccess(input: unknown) {
       const actor = await tx.user.findFirst({where:{id:user.id,status:"ACTIVE",role:user.role},select:{id:true}});
       if (!actor) throw new AppError("FORBIDDEN", "帳號權限已變更");
       if (user.role==="OWNER"&&!await tx.staff.findFirst({where:{id:user.staffId??"",userId:user.id,storeId,status:"ACTIVE"},select:{id:true}})) throw new AppError("FORBIDDEN", "老闆帳號已停用或門市已變更");
-      const staff = await tx.staff.findFirst({where:{id:d.staffId,storeId,courseCoachEnabled:true,user:{role:"CUSTOMER"}},select:{id:true,permissions:{where:{permission:"teacher.income.read.self",granted:true},select:{permission:true}}}});
+      const staff = await tx.staff.findFirst({where:{id:d.staffId,storeId,courseCoachEnabled:true,user:{role:"CUSTOMER"}},select:{id:true,permissions:{where:{permission:d.permission,granted:true},select:{permission:true}}}});
       if (!staff) throw new AppError("FORBIDDEN", "找不到本店教師／教練");
       const previous = staff.permissions.length > 0;
       if (previous !== d.previous) throw new AppError("CONFLICT", "權限已更新，請重新開啟核對");
-      await writeStaffPermissionChanges(tx,staff.id,[{permission:"teacher.income.read.self",granted:d.enabled}]);
+      await writeStaffPermissionChanges(tx,staff.id,[{permission:d.permission,granted:d.enabled}]);
       const updated = await tx.staff.update({where:{id:staff.id},data:{updatedAt:new Date()},select:{updatedAt:true}});
-      await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:"course",targetType:"StaffPermission",targetId:staff.id,action:"UPDATE",summary:d.enabled?"開放教師／教練查看自己的薪酬":"關閉教師／教練查看自己的薪酬",beforeJson:{storeId,ownIncomeEnabled:previous},afterJson:{storeId,ownIncomeEnabled:d.enabled}}});
+      await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:"course",targetType:"StaffPermission",targetId:staff.id,action:"UPDATE",summary:d.permission==="teacher.income.read.self"?(d.enabled?"開放教師／教練查看自己的薪酬":"關閉教師／教練查看自己的薪酬"):`${d.enabled?"開放":"關閉"}授課人員${d.permission==="teacher.booking.leave"?"代學員請假":"替學員改期"}`,beforeJson:d.permission==="teacher.income.read.self"?{storeId,ownIncomeEnabled:previous}:{storeId,permission:d.permission,enabled:previous},afterJson:d.permission==="teacher.income.read.self"?{storeId,ownIncomeEnabled:d.enabled}:{storeId,permission:d.permission,enabled:d.enabled}}});
       return {enabled:d.enabled,updatedAt:updated.updatedAt.toISOString()};
     });
     revalidateStaffPermissions();

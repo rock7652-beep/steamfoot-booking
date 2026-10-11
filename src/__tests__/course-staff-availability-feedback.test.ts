@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import {act,createElement} from "react";
+import {act,createElement,createRef} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({save:vi.fn(),success:vi.fn(),error:vi.fn(),guard:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/teachers"}));
 vi.mock("sonner",()=>({toast:{success:m.success,error:m.error}}));
 vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:async()=>({revision:"a".repeat(64),inheritStoreHours:false,weekly:[],exceptions:[]}),saveCourseStaffWeeklyAvailability:m.save,saveCourseStaffAvailabilityException:vi.fn()}));
-import {CourseStaffAvailabilityEditor} from "@/app/(dashboard)/dashboard/courses/course-staff-availability-editor";
+import {CourseStaffAvailabilityEditor,type CourseAvailabilitySaveHandle} from "@/app/(dashboard)/dashboard/courses/course-staff-availability-editor";
 let host:HTMLDivElement,root:Root;
 beforeEach(async()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=>{const body=JSON.parse(init.body);const result=await m.save(body.values);return {json:async()=>result.success?{success:true,storeId:"s",data:{revision:"b".repeat(64),inheritStoreHours:body.values.inheritStoreHours,weekly:body.values.days,exceptions:[],retainedSessions:result.retainedSessions??[]}}:result};}));Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);await act(async()=>root.render(createElement(CourseStaffAvailabilityEditor,{storeId:"s",staffId:"coach",fitness:true,onGuard:m.guard})));});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
@@ -65,4 +65,17 @@ it("confirms an uncertain exception with the same key and clears the exception d
  const date=host.querySelector<HTMLInputElement>('input[type="date"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(date,"2030-10-10");date.dispatchEvent(new Event("input",{bubbles:true}));});
  await act(async()=>button("儲存單日例外").click());expect(m.guard).toHaveBeenLastCalledWith({dirty:true,pending:true});
  await act(async()=>button("重試確認儲存結果").click());expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(JSON.parse(fetch.mock.calls[1][1].body));expect(host.textContent).toContain("2030-10-10 · 不可授課 · 請假");expect(m.guard).toHaveBeenLastCalledWith({dirty:false,pending:false});
+});
+
+it("external save can retry an uncertain weekly result without internal buttons",async()=>{
+ const saveRef=createRef<CourseAvailabilitySaveHandle>();
+ await act(async()=>root.render(createElement(CourseStaffAvailabilityEditor,{storeId:"s",staffId:"coach",fitness:true,externalSave:true,saveRef,onGuard:m.guard})));
+ const fetch=vi.fn().mockRejectedValueOnce(Error("offline")).mockResolvedValueOnce({json:async()=>({success:true,storeId:"s",data:{revision:"b".repeat(64),inheritStoreHours:false,weekly:[],exceptions:[],retainedSessions:[]}})});vi.stubGlobal("fetch",fetch);
+ await act(async()=>button("設為休息").click());
+ expect(button("儲存時間")).toBeUndefined();
+ await act(async()=>expect(await saveRef.current!.save()).toBe(false));
+ expect(m.guard).toHaveBeenLastCalledWith({dirty:true,pending:false});
+ await act(async()=>expect(await saveRef.current!.save()).toBe(true));
+ expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(JSON.parse(fetch.mock.calls[1][1].body));
+ expect(m.guard).toHaveBeenLastCalledWith({dirty:false,pending:false});
 });

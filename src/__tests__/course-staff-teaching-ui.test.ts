@@ -22,14 +22,29 @@ beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=
 }));m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
+it("switching back to Owner immediately checks every permission and preserves the lower-role draft",async()=>{
+ const manager={...staff,id:"manager",name:"驗收帳號",kind:"manager" as const,role:"STAFF",coachEnabled:false,email:"qa@example.invalid",permissions:["customer.read"]};
+ const codes=[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"},{code:"teacher.compensation.read",label:"查看教師拆帳"}];
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"manager",staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,canAssignRoles:true,permissionGroups:[{label:"功能",codes}]})));
+ await click("驗收帳號");await click("後台帳號／權限");
+ const role=document.body.querySelector('[aria-label="後台角色"]') as HTMLSelectElement;
+ const change=async(value:string)=>{await act(async()=>{role.value=value;role.dispatchEvent(new Event("change",{bubbles:true}));});};
+ for(const lower of ["STAFF","MANAGER"]){
+   await change(lower);expect(document.body.textContent).toContain("進階權限・已開啟 1／3 項");
+   await change("OWNER");expect(document.body.textContent).toContain("進階權限・已開啟 3／3 項");
+   const boxes=Array.from(document.body.querySelectorAll('[data-staff-tab="permissions"] input[type="checkbox"]')) as HTMLInputElement[];
+   expect(boxes.length).toBeGreaterThan(0);expect(boxes.every(box=>box.checked&&box.matches(":disabled"))).toBe(true);
+ }
+ await change("STAFF");expect(document.body.textContent).toContain("進階權限・已開啟 1／3 項");
+});
 it("owner edits the instructor income grant in the work tab and reopening retains saved state",async()=>{
  m.income.mockResolvedValue({success:true,data:{enabled:true,updatedAt:"2026-10-11T14:00:00.000Z"}});
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,canManageOwnIncome:true,personalIncomeEnabled:true,permissionGroups:[]})));
- await click("編輯");await click("工作帳號");
+ await click("編輯");await click("LINE 與權限");
  const switchButton=document.body.querySelector<HTMLButtonElement>('[role="switch"][aria-label="查看自己的薪酬"]')!;
  expect(switchButton.getAttribute("aria-checked")).toBe("false");
  await act(async()=>switchButton.click());expect(switchButton.getAttribute("aria-checked")).toBe("true");
- await click("取消");await click("編輯");await click("工作帳號");
+ await click("取消");await click("編輯");await click("LINE 與權限");
  expect(document.body.querySelector('[role="switch"][aria-label="查看自己的薪酬"]')?.getAttribute("aria-checked")).toBe("true");
  expect(m.save).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();
 });
@@ -85,14 +100,14 @@ it("music qualification editors with read-only pay access can change qualificati
  await click("編輯");
  const phone=document.body.querySelector('input[name="phone"]') as HTMLInputElement;
  await inputValue(phone,"0912345678");
- await click("授課與拆帳");
- await click("LINE 綁定與權限");
+ await click("授課設定");
+ await click("LINE 與權限");
  await click("基本資料");
  expect(phone.value).toBe("0912345678");
- await click("授課與拆帳");
+ await click("授課設定");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
- expect((document.body.querySelector('[aria-label="新增彈性拆帳課程"]') as HTMLSelectElement).disabled).toBe(true);
- await click("選擇課程");
+ expect((document.body.querySelector('[aria-label="教師彈性拆帳比例"]') as HTMLInputElement).disabled).toBe(true);
+
  const qualification=Array.from(document.body.querySelectorAll("label")).find(l=>l.textContent==="鋼琴")!.querySelector("input")!;
  expect(qualification.disabled).toBe(false);
  await act(async()=>qualification.click());
@@ -113,7 +128,7 @@ it("finds a coach by their contact email and keeps the direct-call link", async 
 it("fitness coach keeps unsaved fees while switching the separate work tabs",async()=>{
  await render();await click("授課設定");
  await inputValue(document.body.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"680");
- await click("工作帳號");await click("可授課時間");await click("已排課程");await click("授課費設定");
+ await click("LINE 與權限");await click("課表與時間");await click("授課設定");
  expect((document.body.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement).value).toBe("680");
  await click("儲存");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({teachingFees:[{templateId:"y",value:{mode:"CLASS",value:680},revision:2}]}));
 });
@@ -133,21 +148,17 @@ it("saves the single coach contact email field without a duplicate stale value",
  expect(m.save).toHaveBeenCalledWith(expect.objectContaining({contactEmail:"new@example.test"}));
 });
 
-it("shows only time-specific saves on availability and no save on assignments, preserving basic edits",async()=>{
- await render();await click("編輯");
- await inputValue(document.body.querySelector('input[name="phone"]') as HTMLInputElement,"0911222444");
- await click("可授課時間");
- expect(document.body.querySelector('footer button[type="submit"]')).toBeNull();
- expect(Array.from(document.body.querySelectorAll('button')).filter(b=>b.textContent==="儲存時間"&&!b.closest('[hidden]'))).toHaveLength(1);
- await click("已排課程");expect(document.body.querySelector('footer button[type="submit"]')).toBeNull();
- await click("基本資料");await click("儲存");
- expect(m.save).toHaveBeenCalledWith(expect.objectContaining({phone:"0911222444"}));
+it("shares one footer save across schedule and basic tabs without losing edits",async()=>{
+ await render();await click("編輯");await inputValue(document.body.querySelector('input[name="phone"]') as HTMLInputElement,"0911222444");
+ await click("課表與時間");expect(document.body.querySelectorAll('footer button[type="submit"]')).toHaveLength(1);
+ expect(Array.from(document.body.querySelectorAll('button')).filter(b=>b.textContent==="儲存時間")).toHaveLength(0);
+ await click("基本資料");await click("儲存");expect(m.save).toHaveBeenCalledWith(expect.objectContaining({phone:"0911222444"}));
 });
 
 it("shows assigned course dates, times and actual booking counts in a compact table",async()=>{
  const coach={...staff,assignments:[{id:"session",name:"肌力",startsAt:"2026-10-03T04:00:00.000Z",endsAt:"2026-10-03T04:30:00.000Z",capacity:10,bookedCount:3}]};
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[coach],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));
- await click("編輯");await click("已排課程");
+ await click("編輯");await click("課表與時間");
  const table=document.body.querySelector('table[aria-label="已排課程"]');
  expect(table?.textContent).toContain("3／10");expect(table?.textContent).toContain("12:00–12:30");
  expect(table?.querySelector('a')?.getAttribute('href')).toContain("session=session");
@@ -163,7 +174,7 @@ it("adopts the confirmed server row immediately, without refresh, and keeps it t
 
 it("music close protects only actual edits and can continue or discard",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"}],customers:[],canManage:true,music:true,feeEnabled:true,canEditFees:true,permissionGroups:[]})));
- await click("編輯");await click("授課與拆帳");await click("選擇課程");
+ await click("編輯");await click("授課設定");
  const search=document.body.querySelector('[aria-label="搜尋課程"]') as HTMLInputElement;
  await inputValue(search,"吉他");await click("關閉");expect(document.body.querySelector('[role="dialog"]')).toBeNull();
  await click("編輯");const phone=document.body.querySelector('input[name="phone"]') as HTMLInputElement;await inputValue(phone,"0912345678");
@@ -172,7 +183,18 @@ it("music close protects only actual edits and can continue or discard",async()=
 });
 it("music hides LINE permissions until a customer is selected without changing saved member access",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
- await click("編輯");await click("LINE 綁定與權限");
+ await click("編輯");await click("LINE 與權限");
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).closest('label')!.hidden).toBe(true);
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).value).toBe("yes");
+});
+
+it("adding a coach stays in the same editor and offers saved-person tabs",async()=>{
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[]})));m.save.mockResolvedValue({success:true});
+ await click("＋ 新增教練");
+ await inputValue(document.body.querySelector('input[name="name"]') as HTMLInputElement,"新教練");
+ await click("新增教練");
+ expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+ expect(document.body.textContent).toContain("課表與時間");
+ expect((document.body.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("新教練");
+ expect(m.refresh).not.toHaveBeenCalled();
 });
