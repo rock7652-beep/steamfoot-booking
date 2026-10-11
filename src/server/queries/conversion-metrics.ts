@@ -30,7 +30,7 @@ export type ConversionMetrics = {
 export type CompletedTrial = {
   id?: string;
   bookingId?: string;
-  customerId: string;
+  customerId: string | null;
   bookingDate: Date;
   slotTime?: string;
   people?: number;
@@ -122,6 +122,7 @@ export function selectConversionCustomerIds(
 ): ConversionCustomerSelection {
   const firstTrialDateByCustomer = new Map<string, string>();
   for (const trial of trials) {
+    if (!trial.customerId) continue;
     const trialDate = toLocalDateStr(trial.bookingDate);
     const existing = firstTrialDateByCustomer.get(trial.customerId);
     if (!existing || trialDate < existing) firstTrialDateByCustomer.set(trial.customerId, trialDate);
@@ -244,9 +245,9 @@ export async function loadConversionFacts(storeId: string, months: string[]): Pr
     },
   });
   const individual = await loadIndividualBookingFacts(storeId, latestBookingEnd);
-  const trials = [...replaceGroupedBookingFacts(groupedTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
+  const trials = [...replaceGroupedBookingFacts(groupedTrials, individual.groupIds), ...[...individual.visits, ...(individual.unregisteredVisits ?? [])].filter(visit => visit.bookingType === "FIRST_TRIAL")];
 
-  const customerIds = [...new Set(trials.map((trial) => trial.customerId))];
+  const customerIds = [...new Set(trials.flatMap((trial) => trial.customerId ? [trial.customerId] : []))];
   // As-of now, not the cohort month's end: later paid purchases update conversion.
   const latestTransactionEnd = new Date();
   const purchases = customerIds.length
@@ -271,7 +272,7 @@ export async function loadConversionFacts(storeId: string, months: string[]): Pr
       })
     : [];
 
-  return { trials, purchases: purchases.map(purchase => ({ ...purchase,
+  return { trials, purchases: purchases.filter((purchase): purchase is typeof purchase & { customerId: string } => !!purchase.customerId).map(purchase => ({ ...purchase,
     netAmount: Number(purchase.amount) + purchase.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
   })) };
 }
@@ -314,6 +315,7 @@ export async function getMonthlyUnconvertedCustomers(
   });
   const trialDateByCustomer = new Map<string, Date>();
   for (const trial of trials) {
+    if (!trial.customerId) continue;
     const existing = trialDateByCustomer.get(trial.customerId);
     if (!existing || trial.bookingDate < existing) {
       trialDateByCustomer.set(trial.customerId, trial.bookingDate);

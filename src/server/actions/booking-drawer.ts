@@ -50,7 +50,7 @@ async function findCollectedSingleTransaction(
 
 export interface BookingDrawerPayload {
   participantCheckout?: {
-    canCollect: boolean; canResolve: boolean;
+    canCollect: boolean; canResolve: boolean; canCollectUnregistered?: boolean;
     canSell: boolean; canDiscount: boolean;
     plans: Array<{ id: string; name: string; category: string; price: number; sessionCount: number; validityDays: number | null }>;
     settings: { allowEdit: boolean; defaultPrice: number; minPrice: number; maxPrice: number };
@@ -466,6 +466,7 @@ async function fetchBookingDetailMeasured(
           .map(wallet => ({ id: wallet.id, name: wallet.plan.name, available: wallet._count.sessions })),
       })),
         canCollect,
+        canCollectUnregistered: process.env.BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED === "true",
         canResolve: !isViewMode && canEditBookingNote,
         canSell, canDiscount,
         plans: plans.map(plan => ({ ...plan, price: Number(plan.price) })),

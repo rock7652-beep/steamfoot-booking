@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
     });
     count = rows.length;
     if (count <= MAX_EXPORT_ROWS) addRows(workbook.addWorksheet(DATA_EXPORT_TYPE_LABELS[type]), [...DATA_EXPORT_HEADERS.transactions], rows.map((r) => buildTransactionExportRow({
-      date: formatTWTime(r.transactionDate, { dateOnly: true }), customerName: r.customer.name, storeName: r.store.name,
+      date: formatTWTime(r.transactionDate, { dateOnly: true }), customerName: r.customer?.name ?? "未建檔同行者", storeName: r.store.name,
       transactionType: r.transactionType, paymentMethod: r.paymentMethod, netAmount: Number(r.netAmount), status: r.status,
       paymentSplits: r.paymentSplits.map((payment) => ({ paymentMethod: payment.paymentMethod, amount: Number(payment.amount) })),
     })));

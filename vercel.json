@@ -78,7 +78,8 @@
       "fix/music-teacher-fee-terms-20261011": false,
       "fix/hide-trial-plan-options-20261010": false,
       "fix/steam-booking-detail-clarity-20261011": false,
-      "fix/companion-inline-intake-20261011": false
+      "fix/companion-inline-intake-20261011": false,
+      "fix/unregistered-companion-payment-20261011": false
     }
   }
 }

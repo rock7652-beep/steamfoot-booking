@@ -59,7 +59,7 @@ export async function collectBookingParticipantTrial(input: {
       return collectParticipantTrialInTransaction(tx, { storeId, participantId: person.id, revision: data.revision,
         amount: data.amount, paymentMethod: data.paymentMethod, note: data.note, serviceStaffId: user.staffId ?? null, settings });
     });
-    if (result.created) {
+    if (result.created && result.customerId) {
       // Each participant, not the group booker. Same-request retries emit no event.
       try {
         const customer = await prisma.customer.findFirst({ where: { id: result.customerId, storeId }, select: { sponsorId: true } });
@@ -67,7 +67,7 @@ export async function collectBookingParticipantTrial(input: {
           bookingId: result.bookingId, source: "participant-collect-and-complete" });
       } catch { console.error("[Participant] completion event failed"); }
     }
-    revalidateBookingMutation(result.customerId); revalidateBookingTransactionMutation(result.customerId);
+    revalidateBookingMutation(result.customerId ?? undefined); revalidateBookingTransactionMutation(result.customerId ?? undefined);
     return { success: true, data: { transactionId: result.transactionId } };
   } catch (error) { return handleActionError(error); }
 }

@@ -122,9 +122,9 @@ export async function getStorePerformanceTrends(
     }),
   ]);
   const individual = await loadIndividualBookingFacts(storeId, lastBookingRange.end);
-  const bookings = [...replaceGroupedBookingFacts(groupedBookings, individual.groupIds), ...individual.visits];
+  const bookings = [...replaceGroupedBookingFacts(groupedBookings, individual.groupIds), ...individual.visits, ...(individual.unregisteredVisits ?? [])];
   const conversionTrials = [...replaceGroupedBookingFacts(groupedConversionTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
-  const effectivePurchases = packagePurchases.map(purchase => ({ ...purchase,
+  const effectivePurchases = packagePurchases.filter((purchase): purchase is typeof purchase & { customerId: string } => !!purchase.customerId).map(purchase => ({ ...purchase,
     netAmount: Number(purchase.amount) + purchase.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
   }));
 

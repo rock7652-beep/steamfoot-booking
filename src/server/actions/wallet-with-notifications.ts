@@ -33,7 +33,7 @@ async function notifyPendingPaymentBestEffort(transactionId: string): Promise<vo
       },
     });
 
-    if (!transaction || transaction.paymentStatus !== "PENDING") return;
+    if (!transaction || !transaction.customerId || transaction.paymentStatus !== "PENDING") return;
 
     const [store, customer, plan] = await Promise.all([
       prisma.store.findUnique({
