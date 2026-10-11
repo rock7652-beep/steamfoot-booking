@@ -55,14 +55,14 @@ try{
  boxes.push(await page.locator('[role="dialog"]').boundingBox());
  }
  await page.getByRole("button",{name:"授課與拆帳",exact:true}).click();
- await page.getByLabel("老師全科預設比例",{exact:true}).fill("40");
+ await page.getByLabel("教師彈性拆帳比例",{exact:true}).fill("40");
  await page.getByRole("button",{name:"選擇課程",exact:true}).click();
  await page.getByLabel("搜尋課程",{exact:true}).fill("30");
  await page.getByRole("button",{name:"勾選這 1 項",exact:true}).click();
  const courseSelected=await page.getByRole("checkbox",{name:"吉他個別課程 30",exact:true}).isChecked();
  await page.getByRole("button",{name:"LINE 與權限",exact:true}).click();
  await page.getByRole("button",{name:"授課與拆帳",exact:true}).click();
- const feeRetained=await page.getByLabel("老師全科預設比例",{exact:true}).inputValue()==="40";
+ const feeRetained=await page.getByLabel("教師彈性拆帳比例",{exact:true}).inputValue()==="40";
  await page.getByRole("button",{name:"關閉",exact:true}).click();
  await page.getByRole("button",{name:"繼續編輯",exact:true}).click();
  await page.getByRole("button",{name:"基本資料",exact:true}).click();
