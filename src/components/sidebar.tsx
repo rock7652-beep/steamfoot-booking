@@ -1,4 +1,5 @@
 "use client";
+import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
@@ -1246,6 +1247,7 @@ export default function DashboardShell({
 
           {/* Right: store context + user menu */}
           <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+            {!isHqPlatformView && industryModule==="course" && activeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={activeStoreId} storeId={activeStoreId}/> }
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */
