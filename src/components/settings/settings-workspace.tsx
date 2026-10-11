@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
+import { SettingsNavigationContext, settingsWorkspaceHref, useRememberSettingsLocation } from "./settings-navigation";
 
 export type SettingsWorkspaceNavItem = {
   id: string;
@@ -85,6 +87,8 @@ export function SettingsListRow({
   children?: ReactNode;
 }) {
   const showChildren = expanded === undefined ? true : expanded;
+  const settingsSearch = useContext(SettingsNavigationContext);
+  const destination = href && settingsSearch !== null ? settingsWorkspaceHref(href, settingsSearch) : href;
   return (
     <section className="@container min-w-0 border-b border-earth-100 last:border-0">
       <div className={columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-16 items-center gap-4 py-2 @3xl:grid-cols-[200px_minmax(0,1fr)_200px]"}>
@@ -104,7 +108,8 @@ export function SettingsListRow({
           ) : null}
           {href ? (
             <DashboardLink
-              href={href}
+              href={destination ?? href}
+              scroll={settingsSearch !== null && href.startsWith("/dashboard/settings?") ? false : undefined}
               aria-label={`開啟${title}`}
               className="inline-flex min-h-11 min-w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
@@ -124,48 +129,58 @@ export function SettingsModuleWorkspace({
   moduleLabel,
   storeName,
   sections,
-  initialSection,
 }: {
   moduleLabel: string;
   storeName: string;
   sections: Array<{ id: string; label: string; content: ReactNode }>;
-  initialSection?: string;
 }) {
-  const validIds = useMemo(() => new Set(sections.map(section => section.id)), [sections]);
-  const firstId = sections[0]?.id ?? "";
-  const [activeId, setActiveId] = useState(
-    initialSection && validIds.has(initialSection) ? initialSection : firstId,
-  );
-  const active = sections.find(section => section.id === activeId) ?? sections[0];
+  const pathname = usePathname();
+  const search = useSearchParams();
+  useRememberSettingsLocation();
+  const active = sections.find(section => section.id === search.get("section")) ?? sections[0];
+
+  function select(id: string) {
+    if (id === active?.id || !sections.some(section => section.id === id)) return;
+    const params = new URLSearchParams(search.toString());
+    params.set("section", id);
+    // Next's native-history integration updates useSearchParams without an RSC reload.
+    window.history.pushState(null, "", `${pathname}?${params}${window.location.hash}`);
+  }
 
   if (!active) return null;
 
   return (
-    <SettingsWorkspaceFrame
-      nav={
-        <>
-          <label className="block text-sm md:hidden">
-            設定分類
-            <select
-              value={active.id}
-              onChange={event => setActiveId(event.target.value)}
-              className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3"
-            >
-              {sections.map(section => (
-                <option key={section.id} value={section.id}>{section.label}</option>
-              ))}
-            </select>
-          </label>
-          <SettingsWorkspaceNav
-            items={sections.map(section => ({ id: section.id, label: section.label }))}
-            activeId={active.id}
-            onSelect={setActiveId}
-          />
-        </>
-      }
-      header={`${storeName} · ${moduleLabel}`}
-    >
-      <section aria-label={active.label}>{active.content}</section>
-    </SettingsWorkspaceFrame>
+    <SettingsNavigationContext.Provider value={search.toString()}>
+      <SettingsWorkspaceFrame
+        nav={
+          <>
+            <label className="block text-sm md:hidden">
+              設定分類
+              <select
+                value={active.id}
+                onChange={event => select(event.target.value)}
+                className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3"
+              >
+                {sections.map(section => (
+                  <option key={section.id} value={section.id}>{section.label}</option>
+                ))}
+              </select>
+            </label>
+            <SettingsWorkspaceNav
+              items={sections.map(section => ({ id: section.id, label: section.label }))}
+              activeId={active.id}
+              onSelect={select}
+            />
+          </>
+        }
+        header={`${storeName} · ${moduleLabel}`}
+      >
+        {sections.map(section => (
+          <section key={section.id} hidden={section.id !== active.id} aria-label={section.label}>
+            {section.content}
+          </section>
+        ))}
+      </SettingsWorkspaceFrame>
+    </SettingsNavigationContext.Provider>
   );
 }

@@ -103,11 +103,11 @@ export async function getAccessibleStoreIds(user: SessionLike): Promise<string[]
  * platform-wide access, but that policy intentionally lives in this single
  * resolver so it can be narrowed later without changing every action.
  */
-export async function validateStoreAccess(
+async function resolveAuthorizedStoreAccess(
   user: SessionLike,
   requestedStoreId: string,
   mode: StoreAccessMode,
-): Promise<string | null> {
+): Promise<AuthorizedConcreteStore | null> {
   const hqStoreView = getHqStoreViewContext(user);
   if (hqStoreView && mode !== "switch" && requestedStoreId !== hqStoreView.storeId) {
     throw new AppError("FORBIDDEN", "店家檢視中無權存取其他店舖的資料");
@@ -132,15 +132,15 @@ export async function validateStoreAccess(
     const { prisma } = await import("@/lib/db");
     const [store] = await prisma.store.findMany({
       where: { id: requestedStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
-      select: { id: true },
+      select: { id: true, slug: true, name: true },
       take: 1,
     });
     if (!store) throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
-    return store.id;
+    return { id: store.id, slug: store.slug, name: store.name };
   }
 
-  const accessibleIds = await getAccessibleStoreIds(user);
-  if (!accessibleIds.includes(requestedStoreId)) {
+  const store = (await getAccessibleStores(user)).find(item => item.id === requestedStoreId);
+  if (!store) {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
   }
   // Store organization grants descendant visibility, never operating authority.
@@ -148,7 +148,15 @@ export async function validateStoreAccess(
   if (mode === "write" && user.role !== "ADMIN") {
     throw new AppError("FORBIDDEN", "子店查看模式僅供查閱，不可執行操作");
   }
-  return requestedStoreId;
+  return { id: store.id, slug: store.slug, name: store.name };
+}
+
+export async function validateStoreAccess(
+  user: SessionLike,
+  requestedStoreId: string,
+  mode: StoreAccessMode,
+): Promise<string | null> {
+  return (await resolveAuthorizedStoreAccess(user, requestedStoreId, mode))?.id ?? null;
 }
 
 /** Resolve a requested concrete store only after organization authorization. */
@@ -157,15 +165,14 @@ export async function resolveAuthorizedConcreteStore(
   requestedStoreId: string,
   mode: StoreAccessMode,
 ): Promise<AuthorizedConcreteStore> {
-  const storeId = await validateStoreAccess(user, requestedStoreId, mode);
-  if (!storeId) {
+  // Reuse the DTO from this exact authorization operation. No additional
+  // authorization-result cache: status and organization are checked per call;
+  // the existing feature-entitlement cache policy is unchanged.
+  const store = await resolveAuthorizedStoreAccess(user, requestedStoreId, mode);
+  if (!store) {
     throw new AppError("VALIDATION", "請先在上方切換到指定分店");
   }
 
-  const store = (await getAccessibleStores(user)).find((item) => item.id === storeId);
-  if (!store) {
-    throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
-  }
   return { id: store.id, slug: store.slug, name: store.name };
 }
 

@@ -46,6 +46,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/ui-operation-consistency-20261011": false,
       "content/music-teacher-fee-reconciliation-20261011": false,
       "fix/trial-plan-status-20261011": false,
       "fix/instant-todo-dismiss-20261010": false,
