@@ -17,7 +17,7 @@ export function CourseStoreNoticeBell({storeId}:{storeId:string}) {
  const generation=useRef(0),busy=useRef(false),mounted=useRef(true),seen=useRef<number|null>(null),soundRef=useRef(false);
  const audio=useRef<AudioContext|null>(null);const soundKey=`course-notice-sound:${storeId}`;
  const load=useCallback(async()=>{
-  if(busy.current)return;const seq=++generation.current;
+  if(busy.current)return;const seq=++generation.current;setLoading(true);
   try{const r=await loadCourseStoreNotices({storeId,handled,offset});if(!mounted.current||seq!==generation.current)return;
    if(!r.success){setError(r.error);return;}if(r.storeId!==storeId)return;
    setEnabled(r.enabled);if(!r.enabled)setOpen(false);
@@ -55,7 +55,7 @@ export function CourseStoreNoticeBell({storeId}:{storeId:string}) {
    <div className="flex h-full min-h-0 flex-col">
     <div className="flex shrink-0 items-center justify-between border-b border-earth-200 px-3 py-1"><h2 id={heading} className="text-base font-semibold text-primary-900">門市通知</h2><button className="min-h-11 min-w-11 text-xl" aria-label="關閉通知" onClick={()=>setOpen(false)}>×</button></div>
     <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-earth-200 px-3"><div role="tablist" aria-label="處理狀態" className="flex">
-     {[false,true].map(h=><button key={String(h)} role="tab" aria-selected={handled===h} disabled={!!pending} className={`min-h-11 border-b-2 px-3 text-sm ${handled===h?"border-primary-700 font-semibold text-primary-800":"border-transparent text-earth-600"}`} onClick={()=>{setHandled(h);setOffset(0);setExpanded(null);}}>{h?"已處理":`待處理 ${count}`}</button>)}
+     {[false,true].map(h=><button key={String(h)} role="tab" aria-selected={handled===h} disabled={!!pending} className={`min-h-11 border-b-2 px-3 text-sm ${handled===h?"border-primary-700 font-semibold text-primary-800":"border-transparent text-earth-600"}`} onClick={()=>{if(h===handled)return;generation.current++;setItems([]);setLoading(true);setError("");setRowError({});setHandled(h);setOffset(0);setExpanded(null);}}>{h?"已處理":`待處理 ${count}`}</button>)}
     </div><label className="ml-auto flex min-h-11 items-center gap-2 text-sm">提示音<NotificationSwitch aria-label="此裝置提示音" checked={sound} onChange={e=>{const s=e.target.checked;setSound(s);soundRef.current=s;try{localStorage.setItem(soundKey,s?"on":"off");}catch{}if(s){audio.current??=new AudioContext();void audio.current.resume();}}}/></label></div>
     <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto">
      {error&&<div role="alert" className="flex items-center justify-between px-3 py-2 text-sm text-red-700">{error}<button className="min-h-11 px-2" onClick={()=>void load()}>重試</button></div>}
