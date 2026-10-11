@@ -100,6 +100,16 @@ describe("actual HQ shell rendering", () => {
     expect(html).not.toContain("數位管家名單</span>");
     expect(html).toContain('aria-label="預覽工具"');
   });
+  it.each([false, true])("orders course management by first-store setup (music=%s)", music => {
+    for (const path of ["/s/store-a/admin/dashboard", "/hq/dashboard"]) {
+      const html = render("course", "a", path, music);
+      const prefix = path.startsWith("/hq") ? "/hq/dashboard" : "/s/store-a/admin/dashboard";
+      const links = ["/courses?view=rooms", "/courses?view=catalog", "/courses?view=plans", "/teachers", "/staff", "/courses?view=settings"];
+      const positions = links.map(link => html.indexOf(`href="${prefix}${link}"`));
+      positions.forEach(position => expect(position).toBeGreaterThan(-1));
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    }
+  });
   it.each([["steamfoot", false], ["spa", false], ["course", false], ["course", true]] as const)("removes hidden HQ store entries for %s (music=%s)", (module, music) => {
     const html = render(module, "a", "/hq/dashboard", music, true, [...ALL_PERMISSIONS], true);
     expect(html).not.toContain("進銷存");
