@@ -430,3 +430,12 @@ export function analysisComparisonRanges(range: AnalysisRange, preset: string, t
   const year = { startDate: addTaiwanDuration(current.startDate, -12, "MONTH"), endDate: addTaiwanDuration(current.endDate, -12, "MONTH") };
   return { current, previous, previousFull, year };
 }
+
+/** 回流固定以上期起始日前一個完整曆月為客群，不隨日期選取入口改變。 */
+export function analysisRetentionCohort(range: AnalysisRange): AnalysisRange {
+  const monthStart = `${range.startDate.slice(0, 7)}-01`;
+  return {
+    startDate: addTaiwanDuration(monthStart, -1, "MONTH"),
+    endDate: addTaiwanDuration(monthStart, -1, "DAY"),
+  };
+}

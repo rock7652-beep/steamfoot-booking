@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { analysisComparisonRanges, parseTaiwanDateToDbDate, previousAnalysisRange, type AnalysisRange } from "@/lib/date-utils";
+import { analysisComparisonRanges, analysisRetentionCohort, parseTaiwanDateToDbDate, type AnalysisRange } from "@/lib/date-utils";
 import { selectConversionCustomerIds, type CompletedTrial, type PackagePurchase } from "./conversion-metrics";
 import { hydrateCustomerSegment } from "./customer-segment-list";
 import type { CustomerKpiSegment } from "./customer-kpi-segments";
@@ -71,21 +71,23 @@ async function loadPeriodFacts(storeId: string, ranges: AnalysisRange[]) {
 
 export async function getAnalysisPeriodMetrics(storeId: string, range: AnalysisRange, preset: string) {
   const periods = analysisComparisonRanges(range, preset);
-  const previousCohort = previousAnalysisRange(periods.previousFull, preset);
-  const yearCohort = previousAnalysisRange(periods.year, preset);
-  const facts = await loadPeriodFacts(storeId, [periods.current, periods.previousFull, previousCohort, periods.year, yearCohort]);
+  const currentCohort = analysisRetentionCohort(periods.current);
+  const previousCohort = analysisRetentionCohort(periods.previous);
+  const yearCohort = analysisRetentionCohort(periods.year);
+  const facts = await loadPeriodFacts(storeId, [periods.current, currentCohort, periods.previous, previousCohort, periods.year, yearCohort]);
   const select = (r: AnalysisRange, cohort: AnalysisRange) => selectPeriodFacts(r, cohort, facts.visits, facts.first, facts.trials, facts.purchases);
-  const current = select(periods.current, periods.previousFull).counts;
+  const current = select(periods.current, currentCohort).counts;
   const previous = select(periods.previous, previousCohort).counts;
   const year = select(periods.year, yearCohort).counts;
   const compare = (n: number, b: number) => ({ difference: n - b, percentage: b ? (n - b) / b * 100 : null });
   const metrics = Object.fromEntries(Object.entries(current).map(([key, value]) => [key, { current: value, mom: compare(value, previous[key as keyof typeof previous]), yoy: compare(value, year[key as keyof typeof year]) }])) as Record<keyof typeof current, { current: number; mom: ReturnType<typeof compare>; yoy: ReturnType<typeof compare> }>;
-  return { metrics, periods };
+  return { metrics, periods, retentionCohort: currentCohort };
 }
 
 export async function getAnalysisPeriodCustomers(storeId: string, range: AnalysisRange, preset: string, segment: CustomerKpiSegment) {
   const periods = analysisComparisonRanges(range, preset);
-  const facts = await loadPeriodFacts(storeId, [periods.current, periods.previousFull]);
-  const selection = selectPeriodFacts(periods.current, periods.previousFull, facts.visits, facts.first, facts.trials, facts.purchases);
+  const cohort = analysisRetentionCohort(periods.current);
+  const facts = await loadPeriodFacts(storeId, [periods.current, cohort]);
+  const selection = selectPeriodFacts(periods.current, cohort, facts.visits, facts.first, facts.trials, facts.purchases);
   return hydrateCustomerSegment(storeId, selection.segments[segment]);
 }
