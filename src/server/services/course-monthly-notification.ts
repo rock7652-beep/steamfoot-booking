@@ -23,7 +23,7 @@ async function context(storeId:string,month:string,revision:number) {
  return {report,last,reason,staffIds:[...new Set((last?.snapshot??[]).map(l=>l.staffId).filter((id):id is string=>!!id))]};
 }
 async function recipient(storeId:string,staffId:string,preview:boolean) {
- const link=await prisma.staffMemberLink.findFirst({where:{storeId,staffId,revokedAt:null,staff:{storeId,status:'ACTIVE'},user:{status:'ACTIVE'}},select:{userId:true}});
+ const link=await prisma.staffMemberLink.findFirst({where:{storeId,staffId,revokedAt:null,staff:{storeId,status:'ACTIVE',OR:[{courseCoachEnabled:false},{permissions:{some:{permission:'teacher.income.read.self',granted:true}}}]},user:{status:'ACTIVE'}},select:{userId:true}});
  if(!link)return null;
  const member=await resolveCentralMemberCustomerForStore(link.userId,storeId);
  if(!member)return null;
@@ -77,7 +77,7 @@ export async function sendCourseMonthlyNotice(actor:{storeId:string;userId:strin
  const claimed=await courseTransaction(storeId,async tx=>{
   const live=await readCourseMonthlySettlement(tx,storeId,month);
   if(!live.settings.personalIncomeEnabled||live.revisions[0]?.id!==ctx.last!.id||live.fingerprint!==ctx.last!.fingerprint)throw new AppError('CONFLICT','查詢設定或月結已變更，請重新整理');
-  const [binding]=await tx.$queryRaw<{userId:string}[]>`SELECT l."userId" FROM "StaffMemberLink" l JOIN "Staff" s ON s.id=l."staffId" AND s."storeId"=l."storeId" JOIN "User" u ON u.id=l."userId" WHERE l."storeId"=${storeId} AND l."staffId"=${staffId} AND l."revokedAt" IS NULL AND s.status='ACTIVE' AND u.status='ACTIVE'`;
+  const [binding]=await tx.$queryRaw<{userId:string}[]>`SELECT l."userId" FROM "StaffMemberLink" l JOIN "Staff" s ON s.id=l."staffId" AND s."storeId"=l."storeId" JOIN "User" u ON u.id=l."userId" WHERE l."storeId"=${storeId} AND l."staffId"=${staffId} AND l."revokedAt" IS NULL AND s.status='ACTIVE' AND u.status='ACTIVE' AND (s."courseCoachEnabled"=false OR EXISTS (SELECT 1 FROM "StaffPermission" p WHERE p."staffId"=s.id AND p.permission='teacher.income.read.self' AND p.granted=true))`;
   if(binding?.userId!==target.userId)throw new AppError('CONFLICT','人員綁定已變更');
   const [old]=await tx.$queryRaw<NoticeRecord[]>`SELECT * FROM "CourseMonthlyNotification" WHERE id=${id} FOR UPDATE`;
   const now=new Date(),state=noticeRetryState(old,now);

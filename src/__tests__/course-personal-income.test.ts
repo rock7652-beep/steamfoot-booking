@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { SettlementLine } from "@/lib/course-monthly-settlement";
 import { personalIncomeView, summarizePersonalIncome } from "@/lib/course-personal-income";
-const mocks = vi.hoisted(()=>({account:vi.fn(),link:vi.fn(),feature:vi.fn(),settings:vi.fn(),report:vi.fn(),transaction:vi.fn()}));
+const mocks = vi.hoisted(()=>({account:vi.fn(),link:vi.fn(),feature:vi.fn(),settings:vi.fn(),report:vi.fn(),transaction:vi.fn(),grant:vi.fn()}));
 vi.mock("@/lib/db",()=>({prisma:{staffMemberLink:{findFirst:mocks.link}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:mocks.transaction}}));
 vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:mocks.feature}));
@@ -17,7 +17,8 @@ beforeEach(()=>{
  mocks.feature.mockResolvedValue(true);
  mocks.settings.mockResolvedValue({personalIncomeEnabled:true});
  mocks.report.mockResolvedValue({settings:{personalIncomeEnabled:true},lines:[line()],revisions:[revision([line()])]});
- mocks.transaction.mockImplementation(work=>work({}));
+ mocks.grant.mockResolvedValue([{staffId:"self"}]);
+ mocks.transaction.mockImplementation(work=>work({$queryRaw:mocks.grant}));
 });
 it("does not turn unconfirmed income into zero or expose live amounts",()=>{
  expect(personalIncomeView("self",[line()])).toEqual({confirmed:false,pending:false,revision:null,confirmedAt:null,lines:[]});
@@ -56,8 +57,28 @@ it.each(["feature","settings","link"])("denies access when %s is unavailable bef
 it("derives identity and store from session; requires active same-store unrevoked link",async()=>{
  const view=await readMyCourseIncome("2026-08");
  expect(view.lines).toHaveLength(1);
- expect(mocks.link).toHaveBeenCalledWith({where:{userId:"member",storeId:"store-a",revokedAt:null,staff:{storeId:"store-a",status:"ACTIVE",courseCoachEnabled:true}},select:{staffId:true}});
- expect(mocks.report).toHaveBeenCalledWith({},"store-a","2026-08");
+ expect(mocks.link).toHaveBeenCalledWith({where:{userId:"member",storeId:"store-a",revokedAt:null,user:{status:"ACTIVE"},staff:{storeId:"store-a",status:"ACTIVE",courseCoachEnabled:true,user:{status:"ACTIVE"},permissions:{some:{permission:"teacher.income.read.self",granted:true}}}},select:{staffId:true}});
+ expect(mocks.report).toHaveBeenCalledWith({$queryRaw:mocks.grant},"store-a","2026-08");
+});
+it("rejects a revoked individual grant before loading salary rows",async()=>{
+ mocks.grant.mockResolvedValue([]);
+ await expect(readMyCourseIncome("2026-08")).rejects.toThrow("權限已關閉");
+ expect(mocks.report).not.toHaveBeenCalled();
+});
+it("does not return a salary payload if access is revoked during the read",async()=>{
+ mocks.link.mockResolvedValueOnce({staffId:"self"}).mockResolvedValueOnce(null);
+ await expect(readMyCourseIncome("2026-08")).rejects.toThrow("已變更");
+});
+it("does not return the former instructor's rows if the account link changed",async()=>{
+ mocks.link.mockResolvedValueOnce({staffId:"self"}).mockResolvedValueOnce({staffId:"other"});
+ await expect(readMyCourseIncome("2026-08")).rejects.toThrow("已變更");
+});
+it("rechecks the logged-in account, store, instructor and explicit grant inside the transaction",async()=>{
+ await readMyCourseIncome("2026-08");
+ const [sql,...values]=mocks.grant.mock.calls[0];
+ expect(values).toEqual(["member","store-a","self"]);
+ expect(sql.join("")).toContain("p.granted=true");
+ expect(sql.join("")).toContain("l.\"revokedAt\" IS NULL");
 });
 it("rejects unauthenticated or deactivated accounts without querying income",async()=>{
  mocks.account.mockRejectedValue(new Error("帳號已停用"));

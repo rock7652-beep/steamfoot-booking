@@ -107,6 +107,8 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動授課人員才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
+    if (d.permissions?.includes("teacher.income.read.self") && getEffectiveActorRole(user)!=="OWNER")
+      throw new AppError("FORBIDDEN", "只有老闆能設定薪酬查看權限");
     if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
     // Resolve access outside the transaction. Production uses a one-connection

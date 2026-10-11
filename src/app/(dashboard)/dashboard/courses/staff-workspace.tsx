@@ -1,5 +1,6 @@
 "use client";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
+import { CourseOwnIncomeSwitch } from "@/components/admin/course-own-income-switch";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { createPortal } from "react-dom";
 import styles from "@/components/admin/management-layout.module.css";
@@ -82,6 +83,8 @@ export function CourseStaffWorkspace({
   customers,
   canManage,
   canAssignRoles = false,
+  canManageOwnIncome = false,
+  personalIncomeEnabled = false,
   rolePresets = {},
   permissionGroups,
   music = false,
@@ -101,6 +104,8 @@ export function CourseStaffWorkspace({
   customers: { id: string; name: string }[];
   canManage: boolean;
   canAssignRoles?: boolean;
+  canManageOwnIncome?: boolean;
+  personalIncomeEnabled?: boolean;
   rolePresets?: Record<string, string[]>;
   music?:boolean;
   permissionGroups: {
@@ -152,6 +157,7 @@ export function CourseStaffWorkspace({
   const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [tab,setTab]=useState("basic");
   const [availabilityGuard,setAvailabilityGuard]=useState({dirty:false,pending:false});
+  const [incomePending,setIncomePending]=useState(false);
   const updateAvailabilityGuard=useCallback((value:{dirty:boolean;pending:boolean})=>setAvailabilityGuard(value),[]);
   const [readOnly,setReadOnly]=useState(false);
   const [dirty,setDirty]=useState(false);
@@ -172,7 +178,7 @@ export function CourseStaffWorkspace({
   const [permissions, setPermissions] = useState<string[]>([]);
   const [permissionSearch, setPermissionSearch] = useState("");
   const [transitionPending, start] = useTransition();
-  const pending=transitionPending||request.pending,locked=pending||request.uncertain;
+  const pending=transitionPending||request.pending||incomePending,locked=pending||request.uncertain;
   const readTeaching = usePanelReader("course-staff-teaching", readCourseStaffTeaching);
   useCourseDraftGuard(open&&(dirty||availabilityGuard.dirty),open&&(locked||availabilityGuard.pending));
   useEffect(() => {
@@ -363,11 +369,15 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work",music?"LINE 與權限":"工作帳號"],...(!music && !readOnly ? [["availability","可授課時間"],["assignments","已排課程"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?(music?"授課與拆帳":"授課費設定"):"授課資格"],["work",music?"LINE 與權限":"工作帳號"],...(!music && !readOnly ? [["availability","可授課時間"],["assignments","已排課程"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             {!person && music && tab === "basic" && <p className="mb-3 text-sm text-earth-600">填基本資料，再選可教授課程。</p>}
             <CourseConflicts items={conflicts}/>
+            {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<CourseOwnIncomeSwitch key={person.id} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes("teacher.income.read.self")} canEdit={canManageOwnIncome&&!readOnly} blocked={dirty||transitionPending||request.pending||request.uncertain} storeEnabled={personalIncomeEnabled} onPendingChange={setIncomePending} onSaved={data=>{
+              const updated={...person,updatedAt:data.updatedAt,permissions:[...person.permissions.filter(p=>p!=="teacher.income.read.self"),...(data.enabled?["teacher.income.read.self"]:[])]};
+              confirmed.confirm(updated);setPerson(updated);
+            }}/>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
                 {error}
