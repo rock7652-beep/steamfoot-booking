@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 15033)
-Total output lines: 751
-
 // @vitest-environment jsdom
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
@@ -389,7 +386,8 @@ describe("member plan and purchase navigation", () => {
   it("shows coach and room without field prefixes on course cards", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialDate:"2026-09-21"})));
     await click("預約");
-    expect(host.querySelector…33 tokens truncated…Contain("教練：");
+    expect(host.querySelector(".cp-lesson")?.textContent).toContain("林教練 · A 教室");
+    expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教練：");
     expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教室：");
   });
   it("keeps essential booking information visible and expands details inside the card", async () => {
