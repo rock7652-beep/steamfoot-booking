@@ -186,3 +186,17 @@ it("keeps new state clean when externally closed and reopened before a response 
   expect(host.textContent).toContain("原始備註"); expect(host.textContent).not.toContain("新的備註");
   expect(button("修改").disabled).toBe(false); expect(m.read).toHaveBeenCalledTimes(2);
 });
+
+
+it("keeps long unbroken note content in a shrinking, wrapping summary beside its edit control", async () => {
+  const note = "LONG_NOTE_".repeat(15);
+  m.read.mockResolvedValueOnce(payload("a", note));
+  await render();
+  const control = button("修改");
+  const summary = control.previousElementSibling!;
+  expect(summary.textContent).toBe(note);
+  expect(summary.classList.contains("min-w-0")).toBe(true);
+  expect(summary.classList.contains("flex-1")).toBe(true);
+  expect(summary.classList.contains("[overflow-wrap:anywhere]")).toBe(true);
+  expect(control.classList.contains("shrink-0")).toBe(true);
+});

@@ -473,7 +473,7 @@ export function TransactionDrawer({
                 <Section title="備註">
                   {!editingNote ? (
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm text-earth-700 whitespace-pre-wrap">
+                      <div className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm text-earth-700 [overflow-wrap:anywhere]">
                         {data.note ?? <span className="text-earth-400">（未填寫）</span>}
                       </div>
                       <button
