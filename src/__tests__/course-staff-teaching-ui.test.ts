@@ -22,6 +22,21 @@ beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=
 }));m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
+it("switching back to Owner immediately checks every permission and preserves the lower-role draft",async()=>{
+ const manager={...staff,id:"manager",name:"驗收帳號",kind:"manager" as const,role:"STAFF",coachEnabled:false,email:"qa@example.invalid",permissions:["customer.read"]};
+ const codes=[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"},{code:"teacher.compensation.read",label:"查看教師拆帳"}];
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"manager",staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,canAssignRoles:true,permissionGroups:[{label:"功能",codes}]})));
+ await click("驗收帳號");await click("後台帳號／權限");
+ const role=document.body.querySelector('[aria-label="後台角色"]') as HTMLSelectElement;
+ const change=async(value:string)=>{await act(async()=>{role.value=value;role.dispatchEvent(new Event("change",{bubbles:true}));});};
+ for(const lower of ["STAFF","MANAGER"]){
+   await change(lower);expect(document.body.textContent).toContain("進階權限・已開啟 1／3 項");
+   await change("OWNER");expect(document.body.textContent).toContain("進階權限・已開啟 3／3 項");
+   const boxes=Array.from(document.body.querySelectorAll('[data-staff-tab="permissions"] input[type="checkbox"]')) as HTMLInputElement[];
+   expect(boxes.length).toBeGreaterThan(0);expect(boxes.every(box=>box.checked&&box.matches(":disabled"))).toBe(true);
+ }
+ await change("STAFF");expect(document.body.textContent).toContain("進階權限・已開啟 1／3 項");
+});
 it("owner edits the instructor income grant in the work tab and reopening retains saved state",async()=>{
  m.income.mockResolvedValue({success:true,data:{enabled:true,updatedAt:"2026-10-11T14:00:00.000Z"}});
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,canManageOwnIncome:true,personalIncomeEnabled:true,permissionGroups:[]})));

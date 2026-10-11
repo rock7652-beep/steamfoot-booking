@@ -144,7 +144,7 @@ export function CourseStaffWorkspace({
     [key, setKey] = useState(()=>initialCreate&&canManage?crypto.randomUUID():"");
   const feeEnabled=feeAccess&&(financeScope===null||!!person&&financeScope.includes(person.id));
   const canEditFees=editFeeAccess&&(financeScope===null||!!person&&financeScope.includes(person.id));
-  const [financeTeacherIds,setFinanceTeacherIds]=useState<string[]|null>(null);
+  const [financeTeacherDraft,setFinanceTeacherIds]=useState<string[]|null>(null);
   const [coachEnabled,setCoachEnabled]=useState(accountKind!=="manager");
   const [qualificationIds,setQualificationIds]=useState<string[]>([]);
   const [qualificationSearch,setQualificationSearch]=useState("");
@@ -178,7 +178,7 @@ export function CourseStaffWorkspace({
   const [reloadFees,setReloadFees]=useState(0);
   const [backendRole, setBackendRole] = useState("STAFF");
   const [applyRolePreset, setApplyRolePreset] = useState(false);
-  const [permissions, setPermissions] = useState<string[]>([]);
+  const [permissionDraft, setPermissions] = useState<string[]>([]);
   const [permissionSearch, setPermissionSearch] = useState("");
   const [transitionPending, start] = useTransition();
   const pending=transitionPending||request.pending||incomePending,locked=pending||request.uncertain;
@@ -218,6 +218,9 @@ export function CourseStaffWorkspace({
     )
     .sort((a, b) => Number(b.active) - Number(a.active)||order.compare(a,b));
   const allowedPermissionCodes = permissionGroups.flatMap((group) => group.codes.map((item) => item.code));
+  const unrestrictedRole = backendRole === "OWNER" || backendRole === "ADMIN";
+  const permissions = kind === "manager" && unrestrictedRole ? allowedPermissionCodes : permissionDraft;
+  const financeTeacherIds = kind === "manager" && unrestrictedRole ? null : financeTeacherDraft;
   const permissionQuery = permissionSearch.trim().toLocaleLowerCase();
   const visiblePermissionGroups = permissionGroups
     .map((group) => ({
@@ -368,14 +371,14 @@ export function CourseStaffWorkspace({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
-            {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<section><h3 className="mb-2 font-medium text-primary-900">我的工作權限</h3>{([
+            {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<section><h3 className="mb-2 font-medium text-primary-900">我的工作權限</h3><div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-2">{([
               ["teacher.income.read.self","查看自己的薪酬"],
               ["teacher.booking.leave","代學員請假"],
               ["teacher.booking.reschedule","替學員改期"],
             ] as const).map(([permission,label])=><CourseOwnIncomeSwitch key={`${person.id}:${permission}`} permission={permission} label={label} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes(permission)} canEdit={canManageOwnIncome&&!readOnly} blocked={dirty||transitionPending||request.pending||request.uncertain||incomePending} storeEnabled={personalIncomeEnabled} music={music} lineBound={person.coachLoginReady} onPendingChange={setIncomePending} onSaved={data=>{
               const updated={...person,updatedAt:data.updatedAt,permissions:[...person.permissions.filter(p=>p!==permission),...(data.enabled?[permission]:[])]};
               confirmed.confirm(updated);setPerson(updated);
-            }}/>)}</section>}
+            }}/>)}</div></section>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
                 {error}
@@ -452,7 +455,7 @@ export function CourseStaffWorkspace({
                         coachEnabled
                           ? d.get("memberEnabled") === "yes"
                           : person?.memberEnabled ?? true,
-                      financeTeacherIds:music&&kind==="manager"?financeTeacherIds:undefined,
+                      financeTeacherIds:music&&kind==="manager"?(unrestrictedRole?null:financeTeacherIds):undefined,
                       backendRole: kind === "manager" && (!person || backendRole !== (person.role ?? "STAFF")) ? backendRole : undefined,
                       applyRolePreset: kind === "manager" && applyRolePreset,
                       permissions:
@@ -556,7 +559,7 @@ export function CourseStaffWorkspace({
                 {kind === "manager" && <StaffRoleControl role={backendRole} canAssignRoles={canAssignRoles} presets={rolePresets}
                   onRole={value => { setBackendRole(value); setDirty(true); }}
                   onPreset={value => { setPermissions(value); setApplyRolePreset(true); setDirty(true); }}/>}
-                <fieldset className="space-y-2 rounded-lg border border-earth-200 p-3" disabled={person?.role==="OWNER"}><legend className="px-1 text-sm font-medium">薪酬權限</legend><div className="flex flex-wrap gap-3">{permissionGroups.flatMap(g=>g.codes).filter(p=>["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay"].includes(p.code)).map(({code,label})=><label key={code} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={permissions.includes(code)} onChange={e=>{setPermissions(values=>e.target.checked?[...new Set([...values,code])]:values.filter(v=>v!==code));setDirty(true);}}/>{label}</label>)}</div></fieldset>
+                <fieldset className="space-y-2 rounded-lg border border-earth-200 p-3" disabled={unrestrictedRole}><legend className="px-1 text-sm font-medium">薪酬權限</legend><div className="flex flex-wrap gap-3">{permissionGroups.flatMap(g=>g.codes).filter(p=>["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay"].includes(p.code)).map(({code,label})=><label key={code} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={permissions.includes(code)} onChange={e=>{setPermissions(values=>e.target.checked?[...new Set([...values,code])]:values.filter(v=>v!==code));setDirty(true);}}/>{label}</label>)}</div></fieldset>
                 {music&&permissions.some(code=>code.startsWith("teacher.compensation.")||code.startsWith("teacher.settlement."))&&<fieldset className="space-y-2 rounded-lg border p-3"><legend className="text-sm font-medium">教師財務範圍</legend><select aria-label="教師財務範圍" className={field} value={financeTeacherIds===null?"all":"selected"} onChange={e=>{setFinanceTeacherIds(e.target.value==="all"?null:[]);setDirty(true);}}><option value="all" disabled={financeScope!==null}>全店教師</option><option value="selected">指定教師</option></select>{financeTeacherIds!==null&&<div className="flex flex-wrap gap-3">{teacherChoices.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={financeTeacherIds.includes(t.id)} onChange={e=>{setFinanceTeacherIds(ids=>e.target.checked?[...(ids??[]),t.id]:(ids??[]).filter(id=>id!==t.id));setDirty(true);}}/>{t.name}</label>)}</div>}<p className="rounded bg-earth-50 p-2 text-sm text-earth-700">目前可查看：{financeTeacherIds===null?"全店教師":financeTeacherIds.length?teacherChoices.filter(t=>financeTeacherIds.includes(t.id)).map(t=>t.name).join("、"):"尚未選擇教師"}。實際能查看或操作哪些資料，仍以下方拆帳／月結權限為準。</p>{financeTeacherIds!==null&&permissions.includes("teacher.settlement.confirm")&&<p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-900">「確認全店月結」需要全店教師範圍；目前指定教師範圍只可查看授權教師，請改選全店或關閉該權限。</p>}</fieldset>}
 
               {kind === "manager" && (
@@ -586,7 +589,7 @@ export function CourseStaffWorkspace({
               )}
 
               {kind === "manager" && (
-                <fieldset disabled={person?.role === "OWNER"} className="space-y-2"><details><summary className="min-h-11 cursor-pointer py-2 font-medium text-primary-800">進階權限・已開啟 {permissions.length}／{allowedPermissionCodes.length} 項</summary>
+                <fieldset disabled={unrestrictedRole} className="space-y-2"><details><summary className="min-h-11 cursor-pointer py-2 font-medium text-primary-800">進階權限・已開啟 {permissions.length}／{allowedPermissionCodes.length} 項</summary>
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <div>
                       <h3 className="font-semibold text-primary-800">店內管理權限</h3>
@@ -629,7 +632,7 @@ export function CourseStaffWorkspace({
                                     name="permission"
                                     value={code}
                                     checked={permissions.includes(code)}
-                                    disabled={person?.role === "OWNER"}
+                                    disabled={unrestrictedRole}
                                     onChange={(event) => setPermissions((current) => event.target.checked ? [...new Set([...current, code])] : current.filter((value) => value !== code))}
                                   />
                                   <span className="min-w-0 leading-tight">{label}</span>

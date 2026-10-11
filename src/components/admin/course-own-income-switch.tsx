@@ -36,7 +36,7 @@ export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,bl
     })();
   }
   const title="我的工作權限";
-  return <section aria-label={title} className="mb-3 rounded-lg border border-earth-200 bg-earth-50 px-3 py-1">
+  return <section aria-label={title} className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1">
     <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
 
       <label className="flex min-h-11 min-w-0 flex-wrap items-center gap-3">
@@ -46,7 +46,7 @@ export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,bl
           <span className="min-w-7 text-earth-600">{enabled?"開啟":"關閉"}</span>
         </span>
       </label>
-      {canEdit?<span role="status" className="min-w-20 text-primary-800">{pending?"儲存中…":saved?"已儲存 ✓":""}</span>:<span className="text-earth-600">僅老闆可修改</span>}
+      {canEdit?(pending||saved)&&<span role="status" className="text-primary-800">{pending?"儲存中…":"已儲存 ✓"}</span>:<span className="text-earth-600">僅老闆可修改</span>}
       {enabled&&!lineBound&&<span className="text-earth-600">待綁定 LINE</span>}
     </div>
     {blocked&&canEdit&&<p className="text-sm text-earth-600">請先儲存其他修改。</p>}
