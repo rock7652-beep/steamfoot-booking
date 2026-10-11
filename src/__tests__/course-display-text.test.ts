@@ -40,3 +40,12 @@ it("does not duplicate the music teacher in compound guide titles", () => {
  expect(courseDisplayText("新增教練或教師後，為什麼還不能排課？", true)).toBe("新增教師後，為什麼還不能排課？");
  expect(courseDisplayText("教師或教練請假", true)).toBe("教師請假");
 });
+
+it("does not duplicate the music teacher management path", () => {
+ const path = "教練管理／教師管理 → 新增／編輯 → 授課與拆帳／LINE 與權限";
+ expect(courseDisplayText(path, true)).toBe("教師管理 → 新增／編輯 → 授課與拆帳／LINE 與權限");
+ expect(courseDisplayText("教師管理／教練管理", "MUSIC")).toBe("教師管理");
+ expect(courseDisplayText(path, "FITNESS")).toBe(path);
+ const guide = availableGuides({ module: "course", music: true, permissions: ["staff.manage", "staff.view"], features: {} }).find(g => g.id === "C114");
+ expect(guide?.path).toBe("教師管理 → 新增／編輯 → 授課與拆帳／LINE 與權限");
+});
