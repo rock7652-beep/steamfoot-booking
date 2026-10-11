@@ -426,6 +426,8 @@ function BookingsManagerContent({
       collected: b.collected,
       collectedAmount: b.collectedAmount,
       deductedPlanNames: b.deductedPlanNames,
+      participantSummary: b.participantSummary,
+      participantNeedsCollection: b.participantNeedsCollection,
       customer: b.customer,
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,
