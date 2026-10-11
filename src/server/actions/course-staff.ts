@@ -102,6 +102,7 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         requestKey: z.string().uuid(),
       })
       .parse(input);
+    if(d.kind==="manager"&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
     if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動授課人員才能設定每堂預設授課費");
@@ -117,7 +118,6 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
     const musicFinanceStore = await isMusicFinanceStore(storeId);
     const actorFinanceScope = musicFinanceStore && d.kind === "manager" ? await readMusicFinanceScope(user,storeId) : null;
     if(!d.id && d.kind==="manager" && d.coachEnabled)throw new AppError("VALIDATION","店務與授課請分別建立帳號");
-    if (!d.id && (d.kind === "manager" || musicFinanceStore) && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
     const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
     const limits = await getStoreLimitsByStoreId(storeId);

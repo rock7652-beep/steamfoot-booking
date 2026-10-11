@@ -33,7 +33,7 @@ it("selects courses before showing fees, preserves per-course exceptions, and pr
  try {
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));expect(host.textContent).not.toContain("老師拆帳");expect(host.querySelector('[aria-label="搜尋課程"]')).not.toBeNull();
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,qualificationIds:["p"]})));
-  const done=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="完成選擇")!;await act(async()=>done.click());
+  expect(Array.from(host.querySelectorAll("button")).some(b=>b.textContent==="完成選擇")).toBe(false);
   expect(host.textContent).toContain("彈性拆帳 · 40% · 定價試算 $320／堂");
   const ratio=host.querySelector('[aria-label="教師彈性拆帳比例"]') as HTMLInputElement;
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(ratio,"50");ratio.dispatchEvent(new Event("input",{bubbles:true}));});

@@ -76,7 +76,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
 
         maxStaff={limits.maxStaff}
         templates={templates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null,subjectName:t.musicSubject?.name}))}
-        canManage={canManage}
+        canManage={canManage&&(teachers||getEffectiveActorRole(user)==="OWNER")}
         canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
         rolePresets={Object.fromEntries((["OWNER", "MANAGER", "STAFF"] as const).map(role => [role, getDefaultPermissionsForRole(role).filter(code => COURSE_PERMISSIONS.includes(code))]))}
         permissionGroups={Object.values(PERMISSION_GROUPS)

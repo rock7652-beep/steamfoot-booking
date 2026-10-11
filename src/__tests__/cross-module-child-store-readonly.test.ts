@@ -27,6 +27,6 @@ describe("cross-module child-store read-only contract", () => {
     const staff = source("src/app/(dashboard)/dashboard/courses/staff-page.tsx");
     expect(hours).toContain("isChildStoreView?Promise.resolve(false)");
     expect(staff).toContain("isChildStoreView ? Promise.resolve(false)");
-    expect(staff).toContain("canManage={canManage}");
+    expect(staff).toContain('canManage={canManage&&(teachers||getEffectiveActorRole(user)==="OWNER")}');
   });
 });

@@ -31,7 +31,7 @@ const server=await createServer({root,cacheDir:"/tmp/music-teacher-simplify-vite
   if(id===stub+"navigation")return 'export const useSearchParams=()=>new URLSearchParams();export const usePathname=()=>"/dashboard/staff";export const useRouter=()=>({refresh(){throw Error("No route refresh in fixture")},push(){}});';
   if(id===stub+"nextlink")return 'export default "a";';
   if(id===stub+"link")return 'export const DashboardLink="a";';
-  if(id===stub+"actions")return 'export const readCourseStaffTeaching=async()=>({success:true,version:"2026-10-10T00:00:00.000Z",qualificationIds:["g"],fees:[],musicSettings:{defaultRatio:0.6,subjectRules:{}}});export const loadCourseCustomerSearchIndex=async()=>({success:true,rows:[]});export const searchCourseCustomers=loadCourseCustomerSearchIndex;export const applyCourseBatchStatus=async()=>{throw Error("disabled")};export const courseStatusImpact=applyCourseBatchStatus;export const deleteCourseItems=applyCourseBatchStatus;export const saveCourseDisplayOrder=applyCourseBatchStatus;export const getCourseStaffAvailability=async()=>globalThis.__qaAvailability;export const activateStaff=async()=>{throw Error("Disabled")};export const deactivateStaff=activateStaff;export const resetStaffPasswordAction=activateStaff;';
+  if(id===stub+"actions")return 'export const saveCourseOwnIncomeAccess=async()=>({success:false,error:"fixture is read-only"});export const readCourseStaffTeaching=async()=>({success:true,version:"2026-10-10T00:00:00.000Z",qualificationIds:["g"],fees:[],musicSettings:{defaultRatio:0.6,subjectRules:{}}});export const loadCourseCustomerSearchIndex=async()=>({success:true,rows:[]});export const searchCourseCustomers=loadCourseCustomerSearchIndex;export const applyCourseBatchStatus=async()=>{throw Error("disabled")};export const courseStatusImpact=applyCourseBatchStatus;export const deleteCourseItems=applyCourseBatchStatus;export const saveCourseDisplayOrder=applyCourseBatchStatus;export const getCourseStaffAvailability=async()=>globalThis.__qaAvailability;export const activateStaff=async()=>{throw Error("Disabled")};export const deactivateStaff=activateStaff;export const resetStaffPasswordAction=activateStaff;';
  }
 }],resolve:{alias:[{find:"next/link",replacement:stub+"nextlink"},{find:/^@\/server\/actions\/.*$/,replacement:stub+"actions"},{find:"@/components/dashboard-link",replacement:stub+"link"},{find:"next/navigation",replacement:stub+"navigation"},{find:"@",replacement:path.join(root,"src")}]},server:{host:"127.0.0.1",port:0}});
 await server.listen();
@@ -44,24 +44,24 @@ try{
  const page=await browser.newPage({viewport:{width,height}});const errors=[];
  page.on("pageerror",e=>errors.push(e.message));
  await page.goto(`http://127.0.0.1:${port}/`);
- await page.getByRole("button",{name:"編輯",exact:true}).click();
+ await page.getByRole("button",{name:"測試教師・長名稱",exact:true}).click();
  if(fontCss)await page.addStyleTag({content:fontCss});
  await page.evaluate(()=>document.fonts.ready);
  await page.locator('input[name="phone"]').fill("0912345678");
  const boxes=[];
- for(const tab of ["基本資料","授課與拆帳","LINE 與權限","基本資料"]){
+ for(const tab of ["基本資料","授課設定","LINE 與權限","基本資料"]){
  await page.getByRole("button",{name:tab,exact:true}).click();
  await page.screenshot({path:path.join(out,`${width}x${height}-${tab}.png`)});
  boxes.push(await page.locator('[role="dialog"]').boundingBox());
  }
- await page.getByRole("button",{name:"授課與拆帳",exact:true}).click();
+ await page.getByRole("button",{name:"授課設定",exact:true}).click();
  await page.getByLabel("教師彈性拆帳比例",{exact:true}).fill("40");
- await page.getByRole("button",{name:"選擇課程",exact:true}).click();
+
  await page.getByLabel("搜尋課程",{exact:true}).fill("30");
- await page.getByRole("button",{name:"勾選這 1 項",exact:true}).click();
+ await page.getByRole("checkbox",{name:"吉他個別課程 30",exact:true}).check();
  const courseSelected=await page.getByRole("checkbox",{name:"吉他個別課程 30",exact:true}).isChecked();
  await page.getByRole("button",{name:"LINE 與權限",exact:true}).click();
- await page.getByRole("button",{name:"授課與拆帳",exact:true}).click();
+ await page.getByRole("button",{name:"授課設定",exact:true}).click();
  const feeRetained=await page.getByLabel("教師彈性拆帳比例",{exact:true}).inputValue()==="40";
  await page.getByRole("button",{name:"關閉",exact:true}).click();
  await page.getByRole("button",{name:"繼續編輯",exact:true}).click();
