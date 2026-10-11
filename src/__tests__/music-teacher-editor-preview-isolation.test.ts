@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { expect, it } from "vitest";
-import { assertReviewedReleaseEnvironment, MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertReviewedReleaseEnvironment, MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 
 const isolated = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const env = {
-  VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH,
+  VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH,
   VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
   WORKERS_CI_BRANCH: "", CF_PAGES_BRANCH: "", DATABASE_URL: isolated, DIRECT_URL: isolated,
 };
