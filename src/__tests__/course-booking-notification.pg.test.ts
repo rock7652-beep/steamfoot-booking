@@ -147,7 +147,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     if (trial) expect(await confirmMemberCourseTrial(f.original.id)).toMatchObject({success: true});
     await db!.$transaction(async tx => {
       await lockCourseStore(tx, f.storeId);
-      await tx.courseBookingRule.update({where: {storeId: f.storeId}, data: {selfBookingEnabled: true, selfBookingRevision: {increment: 1}}});
+      await tx.courseBookingRule.update({where: {storeId: f.storeId}, data: {selfRescheduleEnabled: true, selfBookingRevision: {increment: 1}}});
     });
     const resumed = await rescheduleMemberCourseBooking(input);
     expect(resumed).toMatchObject({success: true});
