@@ -30,6 +30,7 @@ beforeEach(() => {
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
   h.collect.mockResolvedValue({ success: true, data: { transactionId: "receipt" } });
+  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id, phone: "", serviceNote: null, wallets: [], bookings: [] } }));
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 async function render(data = checkout(), readOnly = false) {
@@ -39,14 +40,18 @@ async function render(data = checkout(), readOnly = false) {
 }
 async function click(button: HTMLElement) { await act(async () => button.click()); }
 const buttons = (label: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].filter(button => button.textContent === label);
+async function chooseWallet(id = "own") {
+  const select = container.querySelector("select")!;
+  await act(async () => { select.value = id; select.dispatchEvent(new Event("change", { bubbles: true })); });
+}
 
 describe("actual participant checkout component", () => {
   it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {
     const data = checkout(); data.canCollectUnregistered = true;
     data.slots[1].customerId = null; data.slots[1].name = null;
     h.collect.mockResolvedValue({ success: true, data: { transactionId: "anonymous-receipt" } });
-    await render(data); expect(buttons("收費 $499")).toHaveLength(2);
-    await click(buttons("收費 $499")[1]);
+    await render(data); expect(buttons("收體驗費 $499")).toHaveLength(2);
+    await click(buttons("收體驗費 $499")[1]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.collect).toHaveBeenCalledWith(expect.objectContaining({ bookingId: "booking", position: 2, amount: 499 }));
     expect(container.textContent).toContain("已收 NT$ 499");
@@ -56,61 +61,66 @@ describe("actual participant checkout component", () => {
     const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 9 }];
     h.change.mockResolvedValue({ success: true });
     await render(data); await click(buttons("改用方案")[0]);
+    expect(container.querySelector("select")?.value).toBe("");
+    expect(buttons("改用此方案")[0].disabled).toBe(true);
+    await chooseWallet();
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.change).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, operation: "selectPlan", walletId: "own" });
     expect(h.plan).not.toHaveBeenCalled();
     expect(h.collect).not.toHaveBeenCalled();
     expect(container.textContent).toContain("已服務 0／2 人 · 已收 NT$ 0");
-    expect(buttons("收費 $499")).toHaveLength(2);
+    expect(buttons("收體驗費 $499")).toHaveLength(1);
+    expect(container.textContent).toContain("本次：本人十堂");
+    expect(container.textContent).toContain("尚未扣堂");
   });
 
   it("collects one named slot in one submit, leaving the friend pending", async () => {
-    await render(); await click(buttons("收費 $499")[0]);
+    await render(); await click(buttons("收體驗費 $499")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.collect).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, amount: 499, paymentMethod: "CASH", note: "" });
-    expect(container.textContent).toContain("已完成 · 體驗費 NT$ 499");
+    expect(container.textContent).toContain("已收體驗費 NT$ 499");
     expect(container.textContent).toContain("已服務 1／2 人 · 已收 NT$ 499");
-    expect(buttons("收費 $499")).toHaveLength(1); expect(updated).toHaveBeenCalledTimes(1);
+    expect(buttons("收體驗費 $499")).toHaveLength(1); expect(updated).toHaveBeenCalledTimes(1);
     expect(onBusy.mock.calls.map(call => call[0])).toEqual([true, false]);
   });
   it("shows an error in the same row without completing anybody", async () => {
     h.collect.mockResolvedValue({ success: false, error: "金額不正確" });
-    await render(); await click(buttons("收費 $499")[0]);
+    await render(); await click(buttons("收體驗費 $499")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("金額不正確");
     expect(container.textContent).not.toContain("已完成"); expect(updated).not.toHaveBeenCalled();
   });
   it("a completed friend opens a plan for the friend, never for the booker", async () => {
     const data = checkout(); data.slots[1].status = "COMPLETED"; data.slots[1].collectedAmount = 499;
-    await render(data); await click([...container.querySelectorAll<HTMLButtonElement>('[aria-label="朋友"] button')].find(button => button.textContent === "購買本人方案")!);
+    await render(data); await click([...container.querySelectorAll<HTMLButtonElement>('[aria-label="朋友"] button')].find(button => button.textContent === "指派方案")!);
     expect(container.querySelector('[data-plan-customer="guest"]')).not.toBeNull();
     expect(container.querySelector('[data-plan-customer="primary"]')).toBeNull();
   });
   it("unknown companion has no payment button and read-only view has no writes", async () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
-    await render(data); expect(buttons("收費 $499")).toHaveLength(1);
+    await render(data); expect(buttons("收體驗費 $499")).toHaveLength(1);
     expect(container.textContent).toContain("同行者 1");
-    await render(data, true); expect(buttons("收費 $499")).toHaveLength(0); expect(buttons("使用本人方案")).toHaveLength(0);
+    await render(data, true); expect(buttons("收體驗費 $499")).toHaveLength(0); expect(buttons("使用本人方案")).toHaveLength(0);
   });
   it("can assign a plan before service without completing or collecting, and respects sell permission", async () => {
-    await render(); await click(buttons("購買本人方案")[0]);
+    await render(); await click(buttons("指派方案")[0]);
     expect(container.querySelector('[data-plan-customer="primary"]')).not.toBeNull();
     expect(h.collect).not.toHaveBeenCalled(); expect(h.plan).not.toHaveBeenCalled();
     const data = checkout(); data.canSell = false; await render(data);
-    expect(buttons("購買本人方案")).toHaveLength(0);
+    expect(buttons("指派方案")).toHaveLength(0);
     expect(container.querySelector('[data-plan-customer]')).toBeNull();
   });
   it("releases the group busy lock before unmounting a successful plan form", async () => {
     const data = checkout(); data.slots[0].status = "COMPLETED";
-    await render(data); await click(buttons("購買本人方案")[0]);
+    await render(data); await click(buttons("指派方案")[0]);
     await click(buttons("模擬方案成功")[0]);
     expect(onBusy.mock.calls.map(call => call[0])).toEqual([true, false]);
     expect(container.querySelector('[data-plan-customer="primary"]')).toBeNull();
     expect(updated).toHaveBeenCalledTimes(1);
-    expect(buttons("收費 $499")[0].disabled).toBe(false);
+    expect(buttons("收體驗費 $499")[0].disabled).toBe(false);
   });
   it("removes an already opened payment form when switched to read-only or collection permission is revoked", async () => {
-    await render(); await click(buttons("收費 $499")[0]); expect(container.querySelector("form")).not.toBeNull();
+    await render(); await click(buttons("收體驗費 $499")[0]); expect(container.querySelector("form")).not.toBeNull();
     await render(checkout(), true); expect(container.querySelector("form")).toBeNull();
     const data = checkout(); data.canCollect = false;
     await render(data); expect(container.querySelector("form")).toBeNull();
@@ -122,13 +132,13 @@ describe("actual participant checkout component", () => {
     const data = checkout(); data.slots[1].customerId = null; data.slots[1].name = null;
     await render(data); await click(buttons("取消名額")[1]);
     expect(h.resolve).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2, status: "CANCELLED" });
-    expect(container.textContent).toContain("已取消"); expect(buttons("收費 $499")).toHaveLength(1);
+    expect(container.textContent).toContain("已取消"); expect(buttons("收體驗費 $499")).toHaveLength(1);
     expect(h.collect).not.toHaveBeenCalled(); confirm.mockRestore();
   });
   it("blocks a double submit while the receipt result is still pending", async () => {
     let finish!: (value: { success: boolean }) => void;
     h.collect.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-    await render(); await click(buttons("收費 $499")[0]);
+    await render(); await click(buttons("收體驗費 $499")[0]);
     await act(async () => {
       container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -137,7 +147,7 @@ describe("actual participant checkout component", () => {
     await act(async () => finish({ success: true }));
   });
   it("uses refreshed authoritative amounts instead of the older local receipt", async () => {
-    await render(); await click(buttons("收費 $499")[0]);
+    await render(); await click(buttons("收體驗費 $499")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     const data = checkout(); data.slots[0].revision = 2; data.slots[0].status = "COMPLETED"; data.slots[0].collectedAmount = 399;
     await render(data);
@@ -148,7 +158,7 @@ describe("actual participant checkout component", () => {
 it("keeps each person's profile and history in their own row without navigation", async () => {
   h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id === "guest" ? "朋友" : "預約者", phone: id === "guest" ? "0900000002" : "0900000001", serviceNote: null, wallets: [], bookings: [] } }));
   await render();
-  await click(buttons("資料與紀錄")[1]);
+  await click(buttons("顧客資料")[1]);
   const friend = container.querySelector('[aria-label="朋友"]')!;
   expect(friend.textContent).toContain("0900000002");
   expect(friend.textContent).not.toContain("0900000001");
@@ -159,7 +169,7 @@ it("keeps each person's profile and history in their own row without navigation"
 it("a selected plan has separate complete and revert actions, with no trial charge button", async () => {
   const data = checkout(); data.slots[0] = {...data.slots[0], service:"PACKAGE_SESSION", selectedWalletId:"own", selectedPlanName:"本人十堂"};
   h.plan.mockResolvedValue({success:true}); h.change.mockResolvedValue({success:true});
-  await render(data); expect(buttons("收費 $499")).toHaveLength(1);
+  await render(data); expect(buttons("收體驗費 $499")).toHaveLength(1);
   await click(buttons("完成並扣 1 堂")[0]);
   expect(h.plan).toHaveBeenCalledWith({bookingId:"booking",position:1,revision:1,walletId:"own"});
   await render({...data, slots:[{...data.slots[0],status:"COMPLETED",revision:2},data.slots[1]]});
@@ -170,6 +180,7 @@ it("failed plan selection retains pending state and the selected form", async ()
   const data = checkout(); data.slots[0].wallets=[{id:"own",name:"本人十堂",available:1}];
   h.change.mockResolvedValue({success:false,error:"方案已被預約"}); await render(data);
   await click(buttons("改用方案")[0]);
+  await chooseWallet();
   await act(async()=>container.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
   expect(container.textContent).toContain("已服務 0／2 人"); expect(container.textContent).toContain("方案已被預約");
   expect(container.querySelector("select")?.value).toBe("own"); expect(h.plan).not.toHaveBeenCalled();
@@ -181,6 +192,7 @@ it("assignment refreshes only the assigned person's profile and shows all wallet
     { id: "old", name: "原有五堂", remainingSessions: 2, totalSessions: 5, expiryDate: null },
   ] } }));
   await render(checkout());
+  h.profile.mockClear();
   await act(async () => { window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest" } })); });
   expect(h.profile.mock.calls).toEqual([["guest"]]);
   expect(container.textContent).toContain("新購十堂");
@@ -192,11 +204,11 @@ it("assignment refreshes only the assigned person's profile and shows all wallet
 });
 
 it("assignment read failure preserves success and retries the read without selling again", async () => {
-  h.profile.mockRejectedValueOnce(new Error("offline"));
   await render(checkout());
+  h.profile.mockRejectedValueOnce(new Error("offline"));
   await act(async () => { window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest" } })); });
   expect(container.textContent).toContain("已建立，方案資料更新失敗");
-  expect(container.textContent).not.toContain("尚無有效方案");
+  expect(container.querySelector('[aria-label="朋友"]')!.textContent).not.toContain("尚無有效方案");
   h.profile.mockResolvedValueOnce({ success: true, data: { id: "guest", name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [] } });
   await click(buttons("重試")[0]);
   expect(container.textContent).toContain("尚無有效方案");
@@ -204,12 +216,85 @@ it("assignment read failure preserves success and retries the read without selli
 
 it("a pre-assignment read cannot overwrite the refreshed wallet result", async () => {
   let finishOld!: (value: unknown) => void;
-  h.profile.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+  h.profile.mockImplementation(async (id: string) => id === "guest" ? new Promise(resolve => { finishOld = resolve; }) : ({ success: true, data: { id, name: id, phone: "", serviceNote: null, bookings: [], wallets: [] } }));
   await render(checkout());
-  await click(buttons("資料與紀錄")[1]);
   h.profile.mockResolvedValueOnce({ success: true, data: { id: "guest", name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [{ id: "new", name: "新方案", remainingSessions: 4, totalSessions: 4, expiryDate: null }] } });
   await act(async () => { window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest" } })); });
   await act(async () => { finishOld({ success: true, data: { id: "guest", name: "朋友", phone: "", serviceNote: null, bookings: [], wallets: [] } }); });
   expect(container.textContent).toContain("新方案");
-  expect(container.textContent).not.toContain("尚無有效方案");
+  expect(container.querySelector('[aria-label="朋友"]')!.textContent).not.toContain("尚無有效方案");
+});
+
+it("shows the earliest expiry summary without opening personal data or repeating the name", async () => {
+  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id === "guest" ? "朋友" : "預約者", phone: "0900000002", serviceNote: null, bookings: [], wallets: [
+    { id: "later", name: "晚到期方案", remainingSessions: 10, totalSessions: 10, expiryDate: null },
+    { id: "soon", name: "快到期方案", remainingSessions: 2, totalSessions: 5, expiryDate: "2026-11-01" },
+  ] } }));
+  await render();
+  const friend = container.querySelector('[aria-label="朋友"]')!;
+  expect(friend.querySelector('[aria-label="本人有效方案"] ul')!.textContent).toContain("快到期方案");
+  expect(friend.querySelector('[aria-label="本人有效方案"] details summary')!.textContent).toBe("另有 1 個方案");
+  expect(friend.querySelector('[aria-label="本人有效方案"] details')!.hasAttribute("open")).toBe(false);
+  expect(friend.textContent).not.toContain("0900000002");
+  expect(friend.querySelector("button")?.textContent).toBe("收體驗費 $499");
+  await click([...friend.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "顧客資料")!);
+  expect(friend.textContent).toContain("0900000002");
+  expect(friend.textContent!.match(/朋友/g)).toHaveLength(1);
+  expect(friend.querySelectorAll('[aria-label="本人有效方案"]')).toHaveLength(1);
+});
+
+it("keeps assignment in more for existing wallets, direct only for a confirmed empty result", async () => {
+  await render();
+  const person = container.querySelector('[aria-label="預約者"]')!;
+  const direct = [...person.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "指派方案")!;
+  expect(direct.closest("details")).toBeNull();
+  h.profile.mockRejectedValueOnce(new Error("offline"));
+  await act(async () => window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "primary" } })));
+  expect(person.textContent).not.toContain("尚無有效方案");
+  expect([...person.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "指派方案")!.closest("details")).not.toBeNull();
+});
+
+it("shows service state and shared owner separately from the effective wallet summary", async () => {
+  const data = checkout();
+  data.slots[1] = { ...data.slots[1], service: "PACKAGE_SESSION", selectedWalletId: "shared", selectedPlanName: "家庭十堂", selectedOwnerId: "primary", selectedOwnerName: "預約者" };
+  await render(data);
+  const friend = container.querySelector('[aria-label="朋友"]')!;
+  expect(friend.textContent).toContain("同行者 · 待到店");
+  expect(friend.textContent).toContain("本次：家庭十堂 · 使用預約者的共卡");
+  expect(friend.textContent).toContain("尚未扣堂");
+  expect(friend.textContent).not.toContain("未收款");
+  expect(h.plan).not.toHaveBeenCalled();
+});
+
+it("does not submit an unchosen or foreign wallet", async () => {
+  const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 1, expiryDate: "2026-12-31" }];
+  await render(data); await click(buttons("改用方案")[0]);
+  await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(h.change).not.toHaveBeenCalled();
+  expect(container.querySelector("select")!.textContent).toContain("2026/12/31 到期");
+  await chooseWallet("foreign");
+  await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(h.change).not.toHaveBeenCalled();
+});
+
+it("pending payment is not shown as an active assigned plan and does not open personal data", async () => {
+  await render();
+  await act(async () => window.dispatchEvent(new CustomEvent("customer-plan-assigned", { detail: { customerId: "guest", pendingPayment: true } })));
+  const friend = container.querySelector('[aria-label="朋友"]')!;
+  expect(friend.textContent).toContain("尚未開通");
+  expect(friend.textContent).not.toContain("已指派");
+  expect([...friend.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "顧客資料")!.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("refreshes the remaining sessions after an authoritative service revision without closing customer data", async () => {
+  let remaining = 10;
+  h.profile.mockImplementation(async (id: string) => ({ success: true, data: { id, name: id, phone: "0900000002", serviceNote: null, bookings: [], wallets: [{ id: "own", name: "十堂", remainingSessions: remaining, totalSessions: 10, expiryDate: null }] } }));
+  await render(); await click(buttons("顧客資料")[0]);
+  h.profile.mockClear(); remaining = 9;
+  const data = checkout(); data.slots[0].revision = 2; data.slots[0].status = "COMPLETED";
+  await render(data);
+  const person = container.querySelector('[aria-label="預約者"]')!;
+  expect(person.textContent).toContain("剩 9／10 堂");
+  expect(person.textContent).toContain("收合資料");
+  expect(h.profile.mock.calls).toEqual([["primary"]]);
 });
