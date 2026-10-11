@@ -2,11 +2,12 @@
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn(),refresh:vi.fn(),search:vi.fn()}));
+const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn(),refresh:vi.fn(),search:vi.fn(),income:vi.fn()}));
 vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:async()=>({inheritStoreHours:true,weekly:[],exceptions:[]}),saveCourseStaffAvailabilityException:vi.fn(),saveCourseStaffWeeklyAvailability:vi.fn()}));
 vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,loadCourseCustomerSearchIndex:async()=>({success:true,rows:[]})}));
-vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff"}));
+vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff",useSearchParams:()=>new URLSearchParams()}));
 vi.mock("@/server/actions/course-staff",()=>({readCourseStaffTeaching:m.read,saveCourseStaff:m.save}));
+vi.mock("@/server/actions/course-own-income-access",()=>({saveCourseOwnIncomeAccess:m.income}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-status",()=>({setCourseStatus:vi.fn()}));
 vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));
@@ -21,6 +22,17 @@ beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal("fetch",vi.fn(async(_url,init)=
 }));m.search.mockResolvedValue({success:true,rows:[],hasMore:false});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.read.mockResolvedValue({success:true,version:"2026-09-21T00:00:00.000Z",qualificationIds:["y"],fees:[{templateId:"y",rules:[{mode:"CLASS",value:500}],revision:2}]});m.save.mockResolvedValue({success:false,error:"儲存失敗，請重試"});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 async function render(canManage=true){await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈"},{id:"s",name:"肌力"}],customers:[],canManage,feeEnabled:canManage,permissionGroups:[]})));}
+it("owner edits the instructor income grant in the work tab and reopening retains saved state",async()=>{
+ m.income.mockResolvedValue({success:true,data:{enabled:true,updatedAt:"2026-10-11T14:00:00.000Z"}});
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,canManageOwnIncome:true,personalIncomeEnabled:true,permissionGroups:[]})));
+ await click("編輯");await click("工作帳號");
+ const switchButton=document.body.querySelector<HTMLButtonElement>('[role="switch"][aria-label="查看自己的薪酬"]')!;
+ expect(switchButton.getAttribute("aria-checked")).toBe("false");
+ await act(async()=>switchButton.click());expect(switchButton.getAttribute("aria-checked")).toBe("true");
+ await click("取消");await click("編輯");await click("工作帳號");
+ expect(document.body.querySelector('[role="switch"][aria-label="查看自己的薪酬"]')?.getAttribute("aria-checked")).toBe("true");
+ expect(m.save).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();
+});
 async function click(text:string){
  let b=Array.from(document.querySelectorAll("button")).find(b=>b.textContent===text&&!b.closest("[hidden]"));
  if(!b){const menu=document.body.querySelector<HTMLButtonElement>('button[aria-label$="操作"]');if(menu)await act(async()=>menu.click());b=Array.from(document.querySelectorAll("button")).find(b=>b.textContent===text&&!b.closest("[hidden]"));}
@@ -74,7 +86,7 @@ it("music qualification editors with read-only pay access can change qualificati
  const phone=document.body.querySelector('input[name="phone"]') as HTMLInputElement;
  await inputValue(phone,"0912345678");
  await click("授課與拆帳");
- await click("LINE 與權限");
+ await click("LINE 綁定與權限");
  await click("基本資料");
  expect(phone.value).toBe("0912345678");
  await click("授課與拆帳");
@@ -160,7 +172,7 @@ it("music close protects only actual edits and can continue or discard",async()=
 });
 it("music hides LINE permissions until a customer is selected without changing saved member access",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
- await click("編輯");await click("LINE 與權限");
+ await click("編輯");await click("LINE 綁定與權限");
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).closest('label')!.hidden).toBe(true);
  expect((document.body.querySelector('select[name="memberEnabled"]') as HTMLSelectElement).value).toBe("yes");
 });

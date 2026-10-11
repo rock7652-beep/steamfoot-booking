@@ -38,6 +38,19 @@ beforeEach(()=>{
 });
 function record(status='FAILED'):NoticeRecord{return {id:notificationId('store','settlement','staff'),userId:'user',customerId:'customer',recipientHash:recipientHash('CENTRAL','line-user'),channel:'CENTRAL',body:'原通知',retryKey:'00000000-0000-4000-a000-000000000001',status,firstAttemptAt:new Date(),leaseUntil:new Date(0)};}
 describe('manual monthly notice safety',()=>{
+ it('does not notify an instructor without income permission',async()=>{
+  m.link.mockResolvedValue(null);
+  await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('綁定');
+  expect(m.link).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({staff:expect.objectContaining({OR:[{courseCoachEnabled:false},{permissions:{some:{permission:'teacher.income.read.self',granted:true}}}]})})}));
+  expect(m.push).not.toHaveBeenCalled();expect(m.exec).not.toHaveBeenCalled();
+ });
+ it('rechecks instructor permission before claiming a notification',async()=>{
+  m.query.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('StaffMemberLink')?[]:[]);
+  await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('綁定已變更');
+  const call=m.query.mock.calls.find(([sql])=>sql.join('').includes('StaffMemberLink'));
+  expect(call?.[0].join('')).toContain('p.granted=true');
+  expect(m.push).not.toHaveBeenCalled();expect(m.exec).not.toHaveBeenCalled();
+ });
  it('only includes month and authenticated link, never amounts or payment claims',()=>{expect(monthlyNotificationBody('門市','2026-09','https://example.com')).toBe('門市\n2026-09 收入明細已確認，可登入查看。\n此通知不代表款項已入帳。\nhttps://example.com');});
  it('keys are scoped by store, revision and staff',()=>{expect(notificationId('a','r','s')).not.toBe(notificationId('b','r','s'));expect(notificationId('a','r','s')).not.toBe(notificationId('a','r2','s'));});
  it('blocks preview before any lookup or delivery',async()=>{m.preview.mockReturnValue(true);await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('隔離預覽');expect(m.push).not.toHaveBeenCalled();expect(m.report).not.toHaveBeenCalled();});

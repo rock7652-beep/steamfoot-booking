@@ -67,6 +67,7 @@ export const ALL_PERMISSIONS = [
   "customer.identity.rebind", // 店長核准式 LINE 重新綁定（捕捉/執行分離）
   "teacher.booking.leave",
   "teacher.booking.reschedule",
+  "teacher.income.read.self",
   // 預約
   "booking.read",
   "booking.create",
@@ -188,6 +189,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
 export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "teacher.booking.leave":"代學員請假（自己的課）",
   "teacher.booking.reschedule":"替學員改期（自己的課）",
+  "teacher.income.read.self":"查看自己的薪酬",
   "work_order.read":"查看工單",
   "work_order.write":"編輯工單、更新進度與收款",
   "inventory.refund":"退貨、退款與作廢銷貨",
