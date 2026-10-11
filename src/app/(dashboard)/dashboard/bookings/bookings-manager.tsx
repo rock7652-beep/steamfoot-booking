@@ -47,6 +47,8 @@ const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
  * we can derive `dayBookings` via `useMemo`.
  */
 interface BookingEntry {
+  participantSummary?: string | null;
+  participantNeedsCollection?: boolean;
   id: string;
   slotTime: string;
   bookingStatus: string;
@@ -458,7 +460,7 @@ function BookingsManagerContent({
   const labels = useCustomerLabelSnapshot(dayBookings.flatMap(booking => booking.customer.id ? [booking.customer.id] : []));
   const labelsLoading = labels.enabled && !!labelFilter && dayBookings.some(booking => booking.customer.id && !(booking.customer.id in labels.assignments));
   const filteredDayBookings = useMemo(() => dayBookings.filter(booking => matchesFilters(booking) &&
-    (!unpaidOnly || ((booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE") && !booking.collected && COMPLETABLE_STATUSES.has(booking.bookingStatus))) &&
+    (!unpaidOnly || (booking.participantNeedsCollection ?? ((booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE") && !booking.collected && COMPLETABLE_STATUSES.has(booking.bookingStatus)))) &&
     (!labels.enabled || !labelFilter || labels.assignments[booking.customer.id ?? ""]?.includes(labelFilter))),
     [dayBookings, matchesFilters, labels.enabled, labels.assignments, labelFilter, unpaidOnly]);
   const monthSearchResults = useMemo(() => monthData
@@ -656,7 +658,7 @@ function BookingsManagerContent({
     setSelectedIds(
       new Set(
         filteredDayBookings
-          .filter((b) => COMPLETABLE_STATUSES.has(b.bookingStatus))
+          .filter((b) => COMPLETABLE_STATUSES.has(b.bookingStatus) && !b.participantSummary)
           .map((b) => b.id),
       ),
     );
@@ -699,6 +701,7 @@ function BookingsManagerContent({
     if (readOnly || batchSending.current) return;
     const original = monthData.flatMap(day => day.bookings ?? []).find(booking => booking.id === id);
     if (original?.bookingStatus !== "COMPLETED") return;
+    if (original.participantSummary) { openBooking(id); return; }
     const apply = () => handleBookingUpdated(id, "PENDING");
     const outcome = await saves.run(id, () => updateBookingStatus(id, "revert"), {
       timingLabel: "revert",
@@ -717,7 +720,7 @@ function BookingsManagerContent({
   async function completeBatch() {
     if (readOnly || batchSending.current) return;
     const ids = filteredDayBookings
-      .filter(b => selectedIds.has(b.id) && !saves.isBlocked(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus))
+      .filter(b => selectedIds.has(b.id) && !saves.isBlocked(b.id) && COMPLETABLE_STATUSES.has(b.bookingStatus) && !b.participantSummary)
       .map(b => b.id);
     if (ids.length === 0) return;
     batchSending.current = true;
@@ -845,8 +848,8 @@ function BookingsManagerContent({
                 時段載入失敗，已保留預約名單。
                 <button type="button" disabled={slotsLoadingForSelected} onClick={() => { if (selectedDate) startTransition(() => loadDaySlots(selectedDate)); }} className="min-h-11 rounded border border-amber-300 px-3">重試時段</button>
               </span>}
-              {(unpaidOnly || dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length > 0) && (
-              <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); setBatchResult(""); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => (b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)).length}</button>
+              {(unpaidOnly || dayBookings.filter(b => (b.participantNeedsCollection ?? ((b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)))).length > 0) && (
+              <button type="button" aria-pressed={unpaidOnly} onClick={() => { setUnpaidOnly(!unpaidOnly); setSelectedIds(new Set()); setBatchResult(""); }} className={`min-h-11 rounded-lg border px-3 text-sm ${unpaidOnly ? "border-amber-600 bg-amber-50 text-amber-800" : "border-earth-200 text-amber-800"}`}>未收款 {dayBookings.filter(b => (b.participantNeedsCollection ?? ((b.bookingType === "FIRST_TRIAL" || b.bookingType === "SINGLE") && !b.collected && COMPLETABLE_STATUSES.has(b.bookingStatus)))).length}</button>
               )}
               <input type="search" aria-label="搜尋當日預約" placeholder="姓名／手機" value={filters.search}
                 onChange={event => { setFilters({ ...filters, search: event.target.value }); setSelectedIds(new Set()); setBatchResult(""); }}

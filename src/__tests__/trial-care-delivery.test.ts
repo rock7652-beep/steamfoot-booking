@@ -1,7 +1,7 @@
 vi.mock("@/server/services/course-trial-care",()=>({runCourseTrialCare:vi.fn(async()=>({sent:0,skipped:0,failed:0}))}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
-  settings: vi.fn(), setting: vi.fn(), bookings: vi.fn(), booking: vi.fn(), customer: vi.fn(),
+  participantFacts: vi.fn(), settings: vi.fn(), setting: vi.fn(), bookings: vi.fn(), booking: vi.fn(), customer: vi.fn(),
   findLog: vi.fn(), createLog: vi.fn(), updateLog: vi.fn(), countLog: vi.fn(),
   prefUpsert: vi.fn(), prefFind: vi.fn(), prefFirst: vi.fn(), prefUpdate: vi.fn(), prefThrow: vi.fn(),
   purchase: vi.fn(), wallets: vi.fn(), future: vi.fn(), messageCount: vi.fn(), messageCreate: vi.fn(),
@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   spaBookings: vi.fn(), spaBooking: vi.fn(), spaSale: vi.fn(), spaFuture: vi.fn(), spaEntitlement: vi.fn(), spaValue: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ prisma: {
+  $queryRaw: m.participantFacts,
   trialCareSetting: { findMany: m.settings, findUnique: m.setting },
   booking: { findMany: m.bookings, findFirst: m.booking, count: m.future }, customer: { findFirst: m.customer },
   trialCareLog: { findUnique: m.findLog, create: m.createLog, update: m.updateLog, count: m.countLog },
@@ -29,7 +30,7 @@ const updatedAt = new Date("2026-09-15T00:00:00Z");
 const token = "a".repeat(48);
 const setting = { storeId: "A", enabled: true, activatedAt: updatedAt, updatedAt, rules: defaultTrialCareRules(), store: { id: "A", name: "店A", industryModule: "STEAMFOOT" } };
 beforeEach(() => {
-  vi.resetAllMocks(); vi.stubEnv("VERCEL_ENV", "production");
+  vi.resetAllMocks(); vi.stubEnv("VERCEL_ENV", "production"); vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "false"); m.participantFacts.mockResolvedValue([]);
   m.settings.mockResolvedValue([setting]); m.setting.mockResolvedValue(setting); m.feature.mockResolvedValue(true);
   m.bookings.mockResolvedValue([{ id: "b", customerId: "c", trialCareCompletedAt: new Date("2026-09-16T03:00:00Z") }]);
   m.booking.mockResolvedValue({ id: "b" }); m.customer.mockResolvedValue({ name: "顧客", lineUserId: "line-c", convertedAt: null });
@@ -47,6 +48,17 @@ describe("trial care delivery", () => {
     expect(result.sent).toBe(1);
     expect(m.push).toHaveBeenCalledWith("A", "line-c", expect.any(Array), expect.any(String));
     expect(m.createLog).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ stage: 0 }) }));
+  });
+  it("does not send trial care when the actual participant used a plan through the trial entry", async () => {
+    vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
+    m.participantFacts.mockResolvedValue([{service:"PACKAGE_SESSION",status:"COMPLETED"}]);
+    const result = await runTrialCare(now);
+    expect(result.sent).toBe(0); expect(m.push).not.toHaveBeenCalled();
+  });
+  it("still sends trial care for an actual completed trial participant", async () => {
+    vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
+    m.participantFacts.mockResolvedValue([{service:"FIRST_TRIAL",status:"COMPLETED"}]);
+    expect((await runTrialCare(now)).sent).toBe(1);
   });
   it("blocks preview before any data access or delivery", async () => { vi.stubEnv("VERCEL_ENV", "preview"); expect((await runTrialCare(now)).blocked).toBe(true); expect(m.settings).not.toHaveBeenCalled(); expect(m.push).not.toHaveBeenCalled(); });
   it("sends through the candidate's own store with a fixed stop action", async () => {

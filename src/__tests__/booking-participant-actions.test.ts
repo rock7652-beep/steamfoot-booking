@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({
   permission: vi.fn(), writable: vi.fn(), store: vi.fn(), module: vi.fn(), subscription: vi.fn(),
   booking: vi.fn(), search: vi.fn(), existing: vi.fn(), count: vi.fn(), create: vi.fn(),
   init: vi.fn(), link: vi.fn(), limit: vi.fn(), usage: vi.fn(), revalidate: vi.fn(), transaction: vi.fn(),
-  settings: vi.fn(), collect: vi.fn(), resolve: vi.fn(), event: vi.fn(),
+  selectPlan: vi.fn(), revert: vi.fn(), cancelPlan: vi.fn(), completePaid: vi.fn(), settings: vi.fn(), collect: vi.fn(), resolve: vi.fn(), event: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission, requireWritablePermission: h.writable }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: h.store }));
@@ -14,12 +14,13 @@ vi.mock("@/lib/shop-config", () => ({ checkCustomerLimit: h.limit, getTrialSetti
 vi.mock("@/lib/usage-gate", () => ({ checkCustomerLimitOrThrow: h.usage }));
 vi.mock("@/lib/booking-route-mutation", () => ({ revalidateBookingMutation: h.revalidate, revalidateBookingTransactionMutation: h.revalidate }));
 vi.mock("@/server/services/booking-participant-payment", () => ({ collectParticipantTrialInTransaction: h.collect, resolveUnattendedParticipant: h.resolve }));
+vi.mock("@/server/services/booking-participant-lifecycle", () => ({ selectParticipantPlan: h.selectPlan, revertParticipantService: h.revert, cancelParticipantPlan: h.cancelPlan, completePreviouslyPaidParticipant: h.completePaid }));
 vi.mock("@/server/services/referral-events", () => ({ createBookingCompletedEvent: h.event }));
 vi.mock("@/server/services/booking-participants", () => ({ initializeBookingParticipants: h.init, linkBookingParticipantCustomer: h.link }));
 vi.mock("@/lib/db", () => ({ prisma: {
   booking: { findFirst: h.booking }, customer: { findMany: h.search, findFirst: h.existing }, $transaction: h.transaction,
 } }));
-import { attachBookingCompanion, createBookingCompanion, findBookingCompanionByPhone, collectBookingParticipantTrial, resolveBookingParticipant } from "@/server/actions/booking-participants";
+import { attachBookingCompanion, createBookingCompanion, findBookingCompanionByPhone, collectBookingParticipantTrial, resolveBookingParticipant, changeBookingParticipantService } from "@/server/actions/booking-participants";
 import { AppError } from "@/lib/errors";
 
 beforeEach(() => {
@@ -115,5 +116,35 @@ describe("companion actions authorization and identity", () => {
     expect(h.transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 15_000 });
     expect(h.usage).toHaveBeenCalledWith(10, "authorized-store", expect.objectContaining({ customer: expect.any(Object) }));
     expect(h.link.mock.calls[0][1]).toMatchObject({ storeId: "authorized-store", participantId: "slot", customerId: "new" });
+  });
+});
+
+describe("participant lifecycle action boundaries", () => {
+  const change = {bookingId:"booking",position:2,revision:1,operation:"selectPlan" as const,walletId:"own"};
+  it("rejects missing booking write permission before selecting or restoring", async () => {
+    h.writable.mockRejectedValue(new AppError("FORBIDDEN","無修改權限"));
+    expect((await changeBookingParticipantService(change)).success).toBe(false);
+    expect((await changeBookingParticipantService({...change,operation:"revert"})).success).toBe(false);
+    expect(h.transaction).not.toHaveBeenCalled();
+  });
+  it("selects only the requested slot with the authenticated actor and authorized store", async () => {
+    h.writable.mockResolvedValue({id:"actor",storeId:"untrusted"});
+    h.selectPlan.mockResolvedValue({customerId:"guest",created:true});
+    expect((await changeBookingParticipantService(change)).success).toBe(true);
+    expect(h.selectPlan.mock.calls[0][1]).toMatchObject({storeId:"authorized-store",participantId:"slot",revision:1,walletId:"own",actorUserId:"actor"});
+    expect(h.collect).not.toHaveBeenCalled(); expect(h.event).not.toHaveBeenCalled();
+  });
+  it("disabled rollout and subscription blocks perform no correction writes", async () => {
+    vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED","false");
+    expect((await changeBookingParticipantService(change)).success).toBe(false);
+    vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED","true");h.subscription.mockRejectedValue(new AppError("FORBIDDEN","訂閱不可寫入"));
+    expect((await changeBookingParticipantService(change)).success).toBe(false);
+    expect(h.transaction).not.toHaveBeenCalled();
+  });
+  it("package cancellation uses the audited release instead of wallet-free cancellation", async () => {
+    h.init.mockResolvedValue([{id:"slot",position:2,service:"PACKAGE_SESSION"}]);
+    expect((await resolveBookingParticipant({...change,status:"CANCELLED"})).success).toBe(true);
+    expect(h.cancelPlan.mock.calls[0][1]).toMatchObject({storeId:"authorized-store",participantId:"slot",status:"CANCELLED"});
+    expect(h.resolve).not.toHaveBeenCalled(); expect(h.collect).not.toHaveBeenCalled();
   });
 });

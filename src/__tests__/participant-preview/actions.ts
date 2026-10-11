@@ -5,7 +5,7 @@ export const state: Checkout = {
   settings: { allowEdit: true, defaultPrice: 499, minPrice: 0, maxPrice: 3000 },
   plans: [{ id: "plan", name: "蒸足十堂方案", category: "PACKAGE", price: 5990, sessionCount: 10, validityDays: 90 }],
   slots: [
-    { id: "slot-1", position: 1, revision: 1, customerId: "booker", name: "呂明憲（宗諺爸）", service: "FIRST_TRIAL", status: "PENDING", collectedAmount: null },
+    { id: "slot-1", position: 1, revision: 1, customerId: "booker", name: "呂明憲（宗諺爸）", wallets: [{id:"own",name:"蒸足十堂方案",available:3}], service: "FIRST_TRIAL", status: "PENDING", collectedAmount: null },
     { id: "slot-2", position: 2, revision: 1, customerId: null, name: null, service: "FIRST_TRIAL", status: "PENDING", collectedAmount: null },
   ],
 };
@@ -53,3 +53,14 @@ export async function getBookingCustomerProfile(id: string) {
  return { success: true, data: { id, name: state.slots.find(slot => slot.customerId === id)?.name ?? "顧客", phone: id === "booker" ? "0912345678" : "0911111111", serviceNote: null, bookings: [] } };
 }
 export async function updateCustomerServiceNoteAction() { return { success: true }; }
+export async function changeBookingParticipantService(input: {position: number; operation: string; walletId?: string | null}) {
+  const person = state.slots.find(slot => slot.position === input.position)!;
+  if (input.operation === "selectPlan") {
+    person.service = input.walletId ? "PACKAGE_SESSION" : "FIRST_TRIAL";
+    person.selectedWalletId = input.walletId ?? null;
+    person.selectedPlanName = input.walletId ? "蒸足十堂方案" : null;
+  }
+  person.status = input.operation === "completePaid" ? "COMPLETED" : "PENDING";
+  person.revision++;
+  return {success:true,data:undefined};
+}

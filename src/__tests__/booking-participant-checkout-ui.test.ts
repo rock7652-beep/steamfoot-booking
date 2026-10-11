@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
-const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), plan: vi.fn(), profile: vi.fn() }));
-vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, completeBookingParticipantPlan: h.plan, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
+const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), plan: vi.fn(), change: vi.fn(), profile: vi.fn() }));
+vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, completeBookingParticipantPlan: h.plan, changeBookingParticipantService: h.change, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({
   AssignPlanForm: ({ customerId, onSuccess, onPendingChange }: { customerId: string; onSuccess: () => void; onPendingChange: (pending: boolean) => void }) =>
     createElement("div", { "data-plan-customer": customerId }, "本人方案表單", createElement("button", {
@@ -43,13 +43,14 @@ const buttons = (label: string) => [...container.querySelectorAll<HTMLButtonElem
 describe("actual participant checkout component", () => {
   it("uses only this person's own wallet without recording a trial fee", async () => {
     const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 9 }];
-    h.plan.mockResolvedValue({ success: true });
-    await render(data); await click(buttons("使用本人方案")[0]);
+    h.change.mockResolvedValue({ success: true });
+    await render(data); await click(buttons("改用方案")[0]);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    expect(h.plan).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, walletId: "own" });
+    expect(h.change).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, operation: "selectPlan", walletId: "own" });
+    expect(h.plan).not.toHaveBeenCalled();
     expect(h.collect).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("已服務 1／2 人 · 已收 NT$ 0");
-    expect(buttons("收費 $499")).toHaveLength(1);
+    expect(container.textContent).toContain("已服務 0／2 人 · 已收 NT$ 0");
+    expect(buttons("收費 $499")).toHaveLength(2);
   });
 
   it("collects one named slot in one submit, leaving the friend pending", async () => {
@@ -134,4 +135,23 @@ it("keeps each person's profile and history in their own row without navigation"
   expect(friend.textContent).not.toContain("0900000001");
   expect(h.profile).toHaveBeenCalledWith("guest");
   expect(container.querySelectorAll("a:not([href^='tel:'])")).toHaveLength(0);
+});
+
+it("a selected plan has separate complete and revert actions, with no trial charge button", async () => {
+  const data = checkout(); data.slots[0] = {...data.slots[0], service:"PACKAGE_SESSION", selectedWalletId:"own", selectedPlanName:"本人十堂"};
+  h.plan.mockResolvedValue({success:true}); h.change.mockResolvedValue({success:true});
+  await render(data); expect(buttons("收費 $499")).toHaveLength(1);
+  await click(buttons("完成並扣 1 堂")[0]);
+  expect(h.plan).toHaveBeenCalledWith({bookingId:"booking",position:1,revision:1,walletId:"own"});
+  await render({...data, slots:[{...data.slots[0],status:"COMPLETED",revision:2},data.slots[1]]});
+  vi.spyOn(window,"confirm").mockReturnValue(true); await click(buttons("撤回完成")[0]);
+  expect(h.change).toHaveBeenCalledWith({bookingId:"booking",position:1,revision:2,operation:"revert"});
+});
+it("failed plan selection retains pending state and the selected form", async () => {
+  const data = checkout(); data.slots[0].wallets=[{id:"own",name:"本人十堂",available:1}];
+  h.change.mockResolvedValue({success:false,error:"方案已被預約"}); await render(data);
+  await click(buttons("改用方案")[0]);
+  await act(async()=>container.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  expect(container.textContent).toContain("已服務 0／2 人"); expect(container.textContent).toContain("方案已被預約");
+  expect(container.querySelector("select")?.value).toBe("own"); expect(h.plan).not.toHaveBeenCalled();
 });

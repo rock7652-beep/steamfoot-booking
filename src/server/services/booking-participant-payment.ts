@@ -9,8 +9,8 @@ import { refreshWalletCounter } from "@/server/services/wallet-session";
 import { awardPaidServiceAttendanceInTransaction } from "@/server/services/paid-booking-completion";
 
 type LockedParticipant = {
-  id: string; groupId: string; customerId: string | null; service: string; status: string;
-  revision: number; collectionTransactionId: string | null;
+  id: string; groupId: string; storeId: string; customerId: string | null; service: string; status: string;
+  revision: number; collectionTransactionId: string | null; walletSessionId: string | null;
   bookingId: string; bookingStatus: string; bookingDate: Date; slotTime: string; servicePlanId: string | null;
 };
 
@@ -26,7 +26,7 @@ export async function lockPaymentParticipant(tx: Prisma.TransactionClient, store
     SELECT g.id FROM "BookingParticipantGroup" g JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
     WHERE p.id = ${participantId} AND g."storeId" = ${storeId} FOR UPDATE OF g`;
   const participants = await tx.$queryRaw<LockedParticipant[]>`
-    SELECT p.id, p."groupId", p."customerId", p.service, p.status, p.revision, p."collectionTransactionId",
+    SELECT p.id, p."groupId", p."storeId", p."customerId", p.service, p.status, p.revision, p."collectionTransactionId", p."walletSessionId",
       b.id AS "bookingId", b."bookingStatus", b."bookingDate", b."slotTime", b."servicePlanId"
     FROM "BookingParticipant" p
     JOIN "BookingParticipantGroup" g ON g.id = p."groupId" AND g."storeId" = p."storeId"
@@ -37,6 +37,11 @@ export async function lockPaymentParticipant(tx: Prisma.TransactionClient, store
   const legacy = await tx.$queryRaw<{ id: string }[]>`
     SELECT t.id FROM "Transaction" t WHERE t."bookingId" = ${participant.bookingId} AND t."storeId" = ${storeId}
       AND t."transactionType"::text IN ('TRIAL_PURCHASE', 'SINGLE_PURCHASE')
+      AND t.status::text NOT IN ('VOIDED', 'CANCELLED')
+      AND (t.amount = 0 OR GREATEST(COALESCE(t."refundAmount",0),
+        COALESCE((SELECT SUM(-r.amount) FROM "Transaction" r WHERE r."refundOfTransactionId" = t.id
+          AND r."storeId" = t."storeId" AND r.status::text = 'SUCCESS'
+          AND r."paymentStatus"::text IN ('SUCCESS','CONFIRMED')),0)) < t.amount)
       AND NOT EXISTS (SELECT 1 FROM "BookingParticipant" p WHERE p."collectionTransactionId" = t.id AND p."storeId" = ${storeId}) LIMIT 1`;
   if (legacy.length) throw new AppError("BUSINESS_RULE", "已有整組收款，請先核對原款項");
   return participant;
@@ -55,7 +60,7 @@ export async function synchronizeParticipantBooking(tx: Prisma.TransactionClient
   const nextStatus = counts.completed > 0 ? "COMPLETED" : counts.cancelled === counts.total ? "CANCELLED" : "NO_SHOW";
   await tx.$executeRaw`
     UPDATE "Booking" SET "attendedPeople" = ${counts.arrived}, "isCheckedIn" = ${counts.arrived > 0},
-      "bookingStatus" = CASE WHEN ${resolved} THEN ${nextStatus}::"BookingStatus" ELSE "bookingStatus" END,
+      "bookingStatus" = CASE WHEN ${resolved} THEN ${nextStatus}::"BookingStatus" ELSE CASE WHEN "bookingStatus" = 'CONFIRMED' THEN 'CONFIRMED'::"BookingStatus" ELSE 'PENDING'::"BookingStatus" END END,
       "updatedAt" = CURRENT_TIMESTAMP WHERE id = ${bookingId} AND "storeId" = ${storeId}`;
   return resolved;
 }
@@ -105,7 +110,11 @@ export async function collectParticipantTrialInTransaction(tx: Prisma.Transactio
       "arrivedAt" = CURRENT_TIMESTAMP, "completedAt" = CURRENT_TIMESTAMP, revision = revision + 1, "updatedAt" = CURRENT_TIMESTAMP
     WHERE id = ${person.id} AND "storeId" = ${input.storeId} AND revision = ${input.revision} AND status = 'PENDING'`;
   if (changed !== 1) throw new AppError("CONFLICT", "收款狀態已變更，請重新確認");
-  await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
+  const [previousCompletion] = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "AuditLog" WHERE "storeId" = ${input.storeId} AND "targetType" = 'BookingParticipant'
+      AND "targetId" = ${person.id} AND action = 'CORRECT_PARTICIPANT_SERVICE'
+      AND "beforeJson"->>'status' = 'COMPLETED' LIMIT 1`;
+  if (!previousCompletion) await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
     bookingDate: person.bookingDate, slotTime: person.slotTime });
   await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
   return { transactionId: receipt.id, customerId: person.customerId, bookingId: person.bookingId, created: true };
@@ -118,7 +127,9 @@ export async function resolveUnattendedParticipant(tx: Prisma.TransactionClient,
   if (person.status === input.status && !person.collectionTransactionId) return { bookingId: person.bookingId };
   if (person.status !== "PENDING" || person.revision !== input.revision || person.collectionTransactionId ||
     !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) throw new AppError("CONFLICT", "已有服務或收款紀錄，不能直接改為未到／取消");
-  if (!["FIRST_TRIAL", "SINGLE"].includes(person.service)) throw new AppError("BUSINESS_RULE", "方案使用須依原扣堂規則處理");
+  if (person.service === "PACKAGE_SESSION") {
+    throw new AppError("BUSINESS_RULE", "請由每位服務的取消操作釋放方案堂數");
+  }
   await tx.$executeRaw`UPDATE "BookingParticipant" SET status = ${input.status}, revision = revision + 1,
     "updatedAt" = CURRENT_TIMESTAMP WHERE id = ${person.id} AND "storeId" = ${input.storeId}`;
   await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
@@ -145,15 +156,17 @@ export async function completeParticipantOwnPlan(tx: Prisma.TransactionClient, i
   // Lock the wallet before selecting its next session, including competing reservations/refunds.
   const wallets = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "CustomerPlanWallet" WHERE id = ${input.walletId} AND "storeId" = ${input.storeId}
-      AND "customerId" = ${person.customerId} AND status = 'ACTIVE'
+      AND "customerId" = ${person.customerId} AND status IN ('ACTIVE', 'USED_UP')
       AND "startDate" <= ${person.bookingDate} AND ("expiryDate" IS NULL OR "expiryDate" >= ${person.bookingDate}) FOR UPDATE`;
   if (!wallets.length) throw new AppError("BUSINESS_RULE", "本人方案已失效或不屬於這位顧客");
   const sessions = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "WalletSession" WHERE "walletId" = ${input.walletId} AND status = 'AVAILABLE'
+    SELECT id FROM "WalletSession" WHERE "walletId" = ${input.walletId} AND (
+      (${person.walletSessionId}::text IS NOT NULL AND id = ${person.walletSessionId} AND status = 'RESERVED' AND "bookingId" = ${person.bookingId}) OR
+      (${person.walletSessionId}::text IS NULL AND status = 'AVAILABLE'))
       ORDER BY "sessionNo" ASC LIMIT 1 FOR UPDATE SKIP LOCKED`;
   if (!sessions.length) throw new AppError("BUSINESS_RULE", "本人方案沒有可用堂數");
   const sessionId = sessions[0].id;
-  const changed = await tx.walletSession.updateMany({ where: { id: sessionId, status: "AVAILABLE", walletId: input.walletId },
+  const changed = await tx.walletSession.updateMany({ where: { id: sessionId, status: person.walletSessionId ? "RESERVED" : "AVAILABLE", walletId: input.walletId },
     data: { status: "COMPLETED", bookingId: person.bookingId, completedAt: new Date() } });
   if (changed.count !== 1) throw new AppError("CONFLICT", "堂數已被其他操作使用，請重新確認");
   await tx.$executeRaw`UPDATE "BookingParticipant" SET service = 'PACKAGE_SESSION', "walletSessionId" = ${sessionId},
@@ -170,7 +183,11 @@ export async function completeParticipantOwnPlan(tx: Prisma.TransactionClient, i
     serviceStaffId: input.serviceStaffId ?? null, transactionType: "SESSION_DEDUCTION", paymentMethod: "CASH",
     amount: 0, quantity: 1, note: "本人方案出席扣 1 堂" } });
   await refreshWalletCounter(tx, input.walletId);
-  await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
+  const [previousCompletion] = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "AuditLog" WHERE "storeId" = ${input.storeId} AND "targetType" = 'BookingParticipant'
+      AND "targetId" = ${person.id} AND action = 'CORRECT_PARTICIPANT_SERVICE'
+      AND "beforeJson"->>'status' = 'COMPLETED' LIMIT 1`;
+  if (!previousCompletion) await awardPaidServiceAttendanceInTransaction(tx, { customerId: person.customerId, storeId: input.storeId,
     bookingDate: person.bookingDate, slotTime: person.slotTime });
   await synchronizeParticipantBooking(tx, input.storeId, person.groupId, person.bookingId);
   return { bookingId: person.bookingId, customerId: person.customerId, created: true };
