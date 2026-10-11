@@ -82,7 +82,7 @@ describe("actual participant checkout component", () => {
   });
   it("a completed friend opens a plan for the friend, never for the booker", async () => {
     const data = checkout(); data.slots[1].status = "COMPLETED"; data.slots[1].collectedAmount = 499;
-    await render(data); await click(buttons("購買本人方案")[0]);
+    await render(data); await click([...container.querySelectorAll<HTMLButtonElement>('[aria-label="朋友"] button')].find(button => button.textContent === "購買本人方案")!);
     expect(container.querySelector('[data-plan-customer="guest"]')).not.toBeNull();
     expect(container.querySelector('[data-plan-customer="primary"]')).toBeNull();
   });
@@ -91,6 +91,14 @@ describe("actual participant checkout component", () => {
     await render(data); expect(buttons("收費 $499")).toHaveLength(1);
     expect(container.textContent).toContain("同行者 1");
     await render(data, true); expect(buttons("收費 $499")).toHaveLength(0); expect(buttons("使用本人方案")).toHaveLength(0);
+  });
+  it("can assign a plan before service without completing or collecting, and respects sell permission", async () => {
+    await render(); await click(buttons("購買本人方案")[0]);
+    expect(container.querySelector('[data-plan-customer="primary"]')).not.toBeNull();
+    expect(h.collect).not.toHaveBeenCalled(); expect(h.plan).not.toHaveBeenCalled();
+    const data = checkout(); data.canSell = false; await render(data);
+    expect(buttons("購買本人方案")).toHaveLength(0);
+    expect(container.querySelector('[data-plan-customer]')).toBeNull();
   });
   it("releases the group busy lock before unmounting a successful plan form", async () => {
     const data = checkout(); data.slots[0].status = "COMPLETED";
