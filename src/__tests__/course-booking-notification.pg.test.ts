@@ -35,6 +35,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     for (const sql of [
       'CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text)',
       'CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)',
+      'CREATE TABLE "Staff" (id text,"storeId" text,"displayName" text,PRIMARY KEY(id,"storeId"))',
       'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)',
       'CREATE TABLE "SpecialBusinessDay" ("storeId" text,date date,type text)',
       'CREATE TABLE "BusinessHours" ("storeId" text,"dayOfWeek" int,"isOpen" boolean)',
@@ -56,6 +57,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     fixtureStoreIds.add(storeId);
     await db!.$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
     await db!.$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'驗收學員',NULL)`;
+    await db!.$executeRaw`INSERT INTO "Staff" VALUES ('coach',${storeId},'驗收教師')`;
     const transact = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>) => db!.$transaction(async tx => { await lockCourseStore(tx, storeId); return work(tx); });
     mocks.member.mockResolvedValue({ user: { id: userId }, storeId, customer: { id: customerId, name: "驗收學員" } });
     mocks.transaction.mockImplementation((_store, work) => transact(work));
@@ -76,11 +78,15 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
   }
   it("moves one reservation atomically and repeated requests do not reserve twice", async () => {
     const f = await fixture();
-    await db!.courseBookingRule.create({ data: { storeId: f.storeId, selfBookingEnabled: false, selfRescheduleEnabled: true } });
+    await db!.courseBookingRule.create({ data: { storeId: f.storeId, selfBookingEnabled: false, selfRescheduleEnabled: true, backendNoticesEnabled: true } });
     const input = { bookingId: f.original.id, sessionId: f.sessions[1].id };
     const result = await rescheduleMemberCourseBooking(input);
     expect(result).toMatchObject({ success: true });
+    if (!result.success || !("bookingId" in result)) throw new Error("Missing rescheduled booking ID");
     expect(await rescheduleMemberCourseBooking(input)).toEqual(result);
+    expect(await db!.courseStoreNotice.findMany({where:{storeId:f.storeId}})).toEqual([
+      expect.objectContaining({subjectKey:`booking:${result.bookingId}`,kind:"MOVE",customerName:"驗收學員",coachName:"驗收教師",startsAt:f.sessions[1].startsAt,previousStartsAt:f.sessions[0].startsAt,handledAt:null,revision:0}),
+    ]);
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "CANCELLED" });
     expect(await db!.courseBooking.count({ where: { storeId: f.storeId, status: "RESERVED" } })).toBe(1);
     expect(await held(f.card.id)).toBe(1);
@@ -89,20 +95,24 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
   });
   it("a full target rolls back cancellation and preserves the original reserve entry", async () => {
     const f = await fixture();
+    await db!.courseBookingRule.create({data:{storeId:f.storeId,backendNoticesEnabled:true}});
     await db!.courseBooking.create({ data: { storeId: f.storeId, sessionId: f.sessions[1].id, operatorUserId: f.userId, operatorName: "店長", customerName: "其他學員", pointCost: 0, requestKey: randomUUID() } });
     expect(await rescheduleMemberCourseBooking({ bookingId: f.original.id, sessionId: f.sessions[1].id })).toMatchObject({ success: false });
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "RESERVED" });
     expect(await held(f.card.id)).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { bookingId: f.original.id, kind: "RELEASE" } })).toBe(0);
+    expect(await db!.courseStoreNotice.count({where:{storeId:f.storeId}})).toBe(0);
   });
   it("an uncovered lesson date rolls back cancellation and all ledger writes", async () => {
     const f = await fixture();
+    await db!.courseBookingRule.create({data:{storeId:f.storeId,backendNoticesEnabled:true}});
     await db!.coursePointCard.update({ where: { id: f.card.id }, data: { expiresAt: f.sessions[0].endsAt } });
     expect(await rescheduleMemberCourseBooking({ bookingId: f.original.id, sessionId: f.sessions[1].id })).toMatchObject({ success: false });
     expect(await db!.courseBooking.findUnique({ where: { id: f.original.id } })).toMatchObject({ status: "RESERVED" });
     expect(await db!.courseBooking.count({ where: { storeId: f.storeId } })).toBe(1);
     expect(await held(f.card.id)).toBe(1);
     expect(await db!.coursePointEntry.count({ where: { storeId: f.storeId } })).toBe(1);
+    expect(await db!.courseStoreNotice.count({where:{storeId:f.storeId}})).toBe(0);
   });
   it("trial confirmation changes no attendance or receipt; rescheduling moves the same receipt", async () => {
     const f = await fixture(true);
