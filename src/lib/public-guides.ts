@@ -1,10 +1,10 @@
 /** Public editorial content only. Keep authenticated operation manuals separate. */
 export type GuideCategory = "booking" | "customers" | "operations";
-export type GuideSection = { heading: string; paragraphs: readonly string[]; bullets?: readonly string[] };
-type GuideBase = { id: string; category: GuideCategory; title: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
+export type GuideSection = { heading: string; paragraphs: readonly string[]; bullets?: readonly string[]; trailingParagraphs?: readonly string[] };
+type GuideBase = { id: string; category: GuideCategory; title: string; seoTitle?: string; featureLinkLabel?: string; summary: string; status: "published" | "draft"; feature: string; featureName: string; disclosure?: string; showSummary?: boolean };
 export type PublicGuide = GuideBase & (
   | { format: "short"; steps: readonly string[]; example: readonly (readonly [string, string])[]; note: string }
-  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string } }
+  | { format: "article"; introduction: readonly string[]; sections: readonly GuideSection[]; conclusion?: string; callToAction: { heading?: string; text: string; url?: string; label?: string; termsText?: string; termsLinkLabel?: string } }
 );
 
 export const GUIDE_CATEGORIES = [
@@ -698,6 +698,85 @@ export const PUBLIC_GUIDES: readonly PublicGuide[] = [
   "callToAction": {
     "text": "如果你也常遇到老師有空、器械卻不夠的情況，可以先把教室目前怎麼排課、最常卡在哪裡告訴蒸管家，一起看看有沒有適合的做法，再決定是否申請體驗。",
     "label": "申請蒸管家 30 天免費體驗",
+    "url": "https://www.steamfoot.com/apply"
+  }
+},
+{
+  "id": "music-school-teacher-fee-reconciliation",
+  "category": "operations",
+  "title": "音樂教室老師鐘點費怎麼核對？代課與拆帳別等月底重算",
+  "seoTitle": "音樂教室老師鐘點費怎麼核對？代課與拆帳管理｜蒸管家",
+  "summary": "音樂教室月底核對老師鐘點費，總要重翻課表與 LINE？用代課、固定授課費與比例拆帳的示意情境，整理每堂課的核對依據，讓行政與老師查得到差異，店長也更容易接手。",
+  "status": "published",
+  "feature": "music",
+  "featureName": "音樂教室功能",
+  "featureLinkLabel": "了解音樂教室功能與適用範圍",
+  "format": "article",
+  "showSummary": false,
+  "introduction": [
+    "月底，行政把授課費明細傳給老師。老師看完問：「9 月 16 日那堂是我代的，怎麼沒有列進來？」他想起上次也是自己發現少算。本來是約定好的費用，卻怕再問會被覺得愛計較；不問，又只能把委屈放在心裡。",
+    "課表還留著原老師的名字，代課的安排記在 LINE，學生的學費則是月初一次繳清。行政得把幾份紀錄攤開，才找得到那一堂。行政想盡快處理，卻沒有參與當時的約定，回覆老師之前還得再問店長。",
+    "一次少算，老師或許能理解是疏忽；第二次、第三次又發生，他心裡可能開始想：「店家是不是故意少算我的錢？」即使後來補回差額，信任也未必立刻回來。店長擔心的，便是老師因此不想再合作，甚至離職。",
+    "要避免老師每次都得開口，教室需要先把約定與實際授課記清楚，讓少算能在結算前被發現。",
+    "以下人物、日期與金額均為示意，非特定教室案例；文中的授課費包含固定金額或比例拆帳，實際依教室與老師的約定。"
+  ],
+  "sections": [
+    {
+      "heading": "一堂課換了老師 就把費用歸屬一起記清楚",
+      "paragraphs": [
+        "假設週三晚上的吉他課，這週由另一位老師代課。櫃台安排好時間、告知學生後，可以在該堂紀錄補上實際授課老師，以及這次代課採用的費用約定。",
+        "原老師與代課老師的計算方式可能不同。若只有在聊天裡寫「麻煩代一下」，月底便容易把原本的金額直接套過去。當下把約定留在這一堂，接班同事也能查到，不用再請兩位老師各回想一次。",
+        "若代課費還沒談定，就註明待確認並由負責人接續處理。先把事情記清楚，比月底看到總額才發現少了一筆更容易解決。"
+      ]
+    },
+    {
+      "heading": "拆帳比例之外 還要看用哪個金額計算",
+      "paragraphs": [
+        "老師說「我們談的是五成五」，行政卻算出另一個數字，差別可能出在計算基礎。",
+        "例如這一堂雙方約定以 NT$900 計算，老師比例為 55%，該堂授課費就是 NT$495。明細上保留「NT$900 × 55%＝NT$495」，比只列最後金額容易核對。這組數字只是示意，不是建議行情。",
+        "如果學生買了多堂優惠方案，教室需要照原先約定，確認用哪個單堂金額計算；體驗或贈送課也應有自己的處理方式。這些約定記在對應的方案或課程旁，就不必每月重新問。",
+        "學生何時繳費，則保留在收款紀錄。一次繳了多堂學費，並不能只看收款總額，就知道每位老師這個月各教了多少。核對授課費時，仍要回到約定與對應的課程明細。"
+      ]
+    },
+    {
+      "heading": "平常只補當堂的變動 月底就少重翻一次",
+      "paragraphs": [
+        "不用另外做一張很長的交接表。先讓一堂課查得到這幾項就好："
+      ],
+      "bullets": [
+        "日期、時間與課程或學員",
+        "實際授課老師與上課狀態",
+        "約定的固定金額，或計算基礎與比例",
+        "臨時調整的原因，以及確認結果"
+      ],
+      "trailingParagraphs": [
+        "固定安排照原本方式記錄；有代課、改變計算方式或另外議定的費用，再補上那一次的變動。",
+        "例如 9 月 16 日的代課，原先先記待確認，後來確認為固定 NT$600，就把結果補回該堂。月底查到這筆時，行政與老師看到的是同一個答案。"
+      ]
+    },
+    {
+      "heading": "教室先核對清楚 再請老師確認",
+      "paragraphs": [
+        "結算前，由教室先核對實際授課、代課與費用調整，再主動提供老師自己的清楚明細。老師可以確認或提出疑問，但不應每個月都得自己找漏算、開口追問。",
+        "發現差異，就主動說明原因、確認差額與補正時間，處理完再回覆結果。若由老師先提出，也由教室接手查清楚，別讓他一次次追進度。調整原因與確認後的明細一起留好，之後也查得到。",
+        "對店長來說，這樣的核對方式更容易交接。原行政休假時，其他同事可以照紀錄接續處理；老師也不必每次從整個月的課程重新說起。"
+      ]
+    },
+    {
+      "heading": "挑音樂教室管理系統 先試一位老師的一週課表",
+      "paragraphs": [
+        "如果每次核對都得翻課表、找 LINE、問同事，就值得看看工具能否把這些紀錄放在一起。先拿一位老師的一週課表，挑一堂正常課、一堂代課，照現有約定核對。",
+        "試用時看幾件最實際的事：找不找得到那一堂、看不看得出實際授課老師、金額能不能對回約定，修改後能否查清楚。",
+        "再請平常會接手的同事操作一次。如果他能自己找到有疑問的課程，不必一直問原本負責的人，這套流程才真正有幫上店裡的忙。"
+      ]
+    }
+  ],
+  "callToAction": {
+    "heading": "先從教室最近一次對帳開始",
+    "text": "把授課費核對清楚，是希望老師能安心教課，不必每次都擔心自己的付出被漏算。如果你的教室每到月底，就要在課表、LINE 與試算表之間來回翻找，可以申請蒸管家 30 天免費體驗。在需求欄寫下「想核對老師授課費與代課紀錄」，從目前最花時間的一件事開始了解適合的做法。",
+    "termsText": "送出申請不扣款，從帳號可正常使用並正式開通當天起算 30 天。資料保留與轉正式沿用方式，可",
+    "termsLinkLabel": "查看完整體驗說明",
+    "label": "申請 30 天免費體驗",
     "url": "https://www.steamfoot.com/apply"
   }
 }
