@@ -29,7 +29,14 @@ it("defaults off, acknowledges a successful grant and retains the same editor",a
 it("prevents duplicate submissions while pending and restores the switch on failure",async()=>{
  let finish!:(value:unknown)=>void;m.save.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
  await render();const button=host.querySelector<HTMLButtonElement>('[role="switch"]')!;
- await act(async()=>{button.click();button.click();});
+ await act(async()=>{
+  button.click();
+  // The action has not resolved: the rendered state must change in this click.
+  expect(button.getAttribute("aria-checked")).toBe("true");
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("儲存中…");
+  expect(button.style.opacity).toBe("1");
+  button.click();
+ });
  expect(m.save).toHaveBeenCalledOnce();expect(button.disabled).toBe(true);expect(button.getAttribute("aria-checked")).toBe("true");
  await act(async()=>finish({success:false,error:"只有老闆能設定"}));
  expect(button.getAttribute("aria-checked")).toBe("false");expect(button.disabled).toBe(false);
