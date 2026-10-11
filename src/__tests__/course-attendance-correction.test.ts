@@ -1,3 +1,4 @@
+vi.mock("@/server/services/course-store-notices",()=>({recordCourseStoreNotice:vi.fn()}));
 import { beforeEach, describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: vi.fn() }));
