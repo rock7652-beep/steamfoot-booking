@@ -1,4 +1,5 @@
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
@@ -54,6 +55,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   ]);
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
+  const settlementSettings=await readSettlementSettings(coursePrisma,storeId);
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
   const displayOrders=await readCourseOrders(storeId);
   staff.splice(0,staff.length,...orderCourseRows(staff,displayOrders.staff?.ids??[]));
@@ -63,7 +65,9 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
       <PageHeader title={teachers?(musicEntitlement?"教師管理":"教練管理"):"人員管理"} />
 
-      <CourseStaffWorkspace initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+      <CourseStaffWorkspace initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")}
+        canManageOwnIncome={teachers&&canManage&&!isChildStoreView&&getEffectiveActorRole(user)==="OWNER"}
+        personalIncomeEnabled={settlementSettings.personalIncomeEnabled}
         financeScope={financeScope}
         teacherChoices={staff.filter(s=>s.courseCoachEnabled && (financeScope===null||financeScope.includes(s.id))).map(s=>({id:s.id,name:s.displayName}))}
         music={!!musicEntitlement}
