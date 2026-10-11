@@ -636,6 +636,8 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  /** Server-resolved store scope for shared course notifications, including store staff. */
+  courseNoticeStoreId?: string | null;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   operationGuidePreview?: boolean;
@@ -673,6 +675,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  courseNoticeStoreId,
   cashDrawerStoreId,
   musicEnabled=false,
   operationGuidePreview = false,
@@ -1247,7 +1250,7 @@ export default function DashboardShell({
 
           {/* Right: store context + user menu */}
           <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-            {!isHqPlatformView && industryModule==="course" && activeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={activeStoreId} storeId={activeStoreId}/> }
+            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId}/> }
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */
