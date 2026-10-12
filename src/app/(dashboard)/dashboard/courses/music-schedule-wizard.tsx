@@ -104,7 +104,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
       }catch{setError("連線失敗，請重試");}
     });
   }
-  return <fieldset disabled={pending} className="flex h-full min-h-0 flex-col text-sm">
+  return <fieldset disabled={pending} className="flex h-full min-h-0 min-w-0 flex-col text-sm">
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-3">
       {time && <p aria-label="已選排課位置" className="rounded-lg bg-earth-50 px-3 py-2">{date} · {time}{end?`–${end}`:""} · {roomName??"教室待選"}</p>}
       <label className="block">課程<select aria-label="課程" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>chooseTemplate(e.target.value)}>{templates.map(t=><option key={t.id} value={t.id}>{t.musicSubject?.name&&!t.name.includes(t.musicSubject.name)?`${t.musicSubject.name} · ${t.name}`:t.name}</option>)}</select></label>
