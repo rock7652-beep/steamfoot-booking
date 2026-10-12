@@ -40,3 +40,5 @@ it("shows a confirmed course without RSC refresh; retries preserve the same payl
   await act(async()=>root.render(render([{...row,name:"後續更新"}])));expect(host.querySelector("tbody")!.textContent).toContain("後續更新");
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });
+
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(async()=>({success:true,cards:[]}))}));
