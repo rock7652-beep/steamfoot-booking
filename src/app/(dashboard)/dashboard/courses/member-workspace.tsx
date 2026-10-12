@@ -1,4 +1,5 @@
 "use client";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
@@ -490,6 +491,7 @@ export function CourseMemberWorkspace({
                 save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
                 onSaved={() => router.refresh()} />
               {personTab === "info" && <details className="border-b border-earth-100 pb-2"><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
+                <StoreMemberConnectionPanel key={person.id} customerId={person.id} />
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
               </dl>
                 {canManageStaff && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => open("coach")}>{courseDisplayText("加入為教練", music)}</button>}<CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />

@@ -1,5 +1,8 @@
 "use server";
 import { z } from "zod";
+import { after } from "next/server";
+import { prisma } from "@/lib/db";
+import { dispatchWorkOrderReadyNotification } from "@/server/services/work-order-ready-notification";
 import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
 import { inventoryContext } from "@/server/services/inventory";
@@ -18,5 +21,13 @@ async function mutate(work:()=>Promise<string>) {
 }
 export async function saveWorkOrderAction(raw:unknown){return mutate(()=>saveWorkOrder(raw));}
 export async function collectWorkOrderAction(raw:unknown){return mutate(()=>collectWorkOrder(raw));}
-export async function changeWorkOrderStatusAction(raw:unknown){return mutate(()=>changeWorkOrderStatus(raw));}
+export async function changeWorkOrderStatusAction(raw:unknown){
+  const result = await mutate(()=>changeWorkOrderStatus(raw));
+  if (result.success) after(async () => {
+    // Source order was authorized in the mutation; only its durable event is dispatched.
+    const event = await prisma.workOrderReadyNotification.findFirst({ where: { orderId: result.data }, select: { id: true } });
+    if (event) await dispatchWorkOrderReadyNotification(event.id);
+  });
+  return result;
+}
 export async function settleWorkOrderAction(raw:unknown){return mutate(()=>settleWorkOrder(raw));}

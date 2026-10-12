@@ -1,3 +1,7 @@
+// Schema-dependent member/work-order review cannot auto-deploy before explicit authorization.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/store-member-link-workorder-line-20261012")) {
+  throw new Error("Store member/work-order review branch deployment is disabled pending isolated schema and Preview authorization. No migration or database access is allowed.");
+}
 // Public article review must not trigger a preview build or database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
   throw new Error("Public article review branch deployment is disabled; production main remains enabled.");

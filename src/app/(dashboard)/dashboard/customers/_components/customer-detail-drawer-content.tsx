@@ -1,4 +1,5 @@
 "use client";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
@@ -272,6 +273,7 @@ export function CustomerDetailDrawerContent({
           </dl>
         </section>
 
+        {!readOnly && <StoreMemberConnectionPanel key={customer.id} customerId={customer.id} />}
         <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
         <BookingServiceNoteEditor optimistic customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />

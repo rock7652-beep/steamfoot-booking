@@ -1,3 +1,5 @@
+import { WorkOrderNotificationSetting } from "@/components/admin/work-order-notification-setting";
+import { getWorkOrderNotificationEnabled } from "@/server/actions/work-order-notification";
 import { TrialCareCard } from "../../reminders/trial-care-card";
 import { defaultCourseTrialCareRules, readTrialCareRules } from "@/lib/trial-care";
 import {coachBindingStatus} from "@/server/services/course-coach-notifications";
@@ -55,6 +57,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
     coachContent=<CoachNotificationSettings music={music} initial={Object.fromEntries(COACH_NOTICE_KINDS.map(kind=>[kind,templates.some(t=>t.id===coachNoticeSettingId(storeId,kind)&&t.body==="enabled")])) as Record<CoachNoticeKind,boolean>} teachers={teachers.map((t,i)=>({id:t.id,name:t.displayName,bound:binding[i]}))} logs={logs.map(l=>({id:l.id,name:teachers.find(t=>t.id===l.staffId)?.displayName??"已停用人員",kind:l.kind,status:l.status,reason:l.errorMessage??"",time:formatTWDateTime(l.createdAt)}))}/>;
   }
   return <PageShell>
+    <WorkOrderNotificationSetting initialEnabled={await getWorkOrderNotificationEnabled()} />
     <PageHeader title="提醒管理" subtitle="課程提醒與發送紀錄" actions={<DashboardLink href="/dashboard/courses?view=settings&section=notifications">返回設定</DashboardLink>} />
     {!enabled ? <p className="rounded-xl border border-earth-200 bg-white p-4">此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p> : <div className="space-y-2">
       <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" coach music={music} />

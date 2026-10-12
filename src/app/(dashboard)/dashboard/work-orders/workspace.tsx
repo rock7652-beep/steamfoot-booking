@@ -2,6 +2,8 @@
 import { useRef, useState, type FormEvent } from "react";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { RosterToolbar } from "@/components/admin/roster-primitives";
+import { WorkOrderNotificationResult } from "@/components/admin/work-order-notification-result";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { CustomerLabels } from "@/components/customer-labels";
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
 import { OperationHistoryButton } from "@/components/operation-history-button";
@@ -112,6 +114,8 @@ export function WorkOrderWorkspace({initial}:{initial:WorkOrderData}){
           {data.canChooseCustomer&&<CustomerLabels customerId={selected.partyId} displayOnly readOnly hideEmpty variant="badge" maxVisible={99}/>}
           <dl className="flex min-w-0 gap-3"><dt className="shrink-0 text-earth-500">種類／型號</dt><dd className="min-w-0 break-words">{selected.workOrder.serial||"—"}</dd></dl>
         </header>
+        {data.canChooseCustomer && <StoreMemberConnectionPanel key={selected.partyId} customerId={selected.partyId} />}
+        <WorkOrderNotificationResult key={`${selected.id}:${selected.revision}`} orderId={selected.id} />
         <section aria-labelledby="work-order-content-heading" className="space-y-2">
           <h3 id="work-order-content-heading" className="font-semibold text-primary-900">施工項目</h3>
           <p className="whitespace-pre-wrap break-words rounded-md bg-earth-50 p-3 text-base leading-relaxed">{workOrderContent(selected.workOrder)}</p>

@@ -1,3 +1,4 @@
+vi.mock("@/server/services/work-order-ready-notification", () => ({runWorkOrderReadyNotifications: async()=>{}}));
 import { afterEach,beforeEach,expect,it,vi } from "vitest";
 import { NextRequest } from "next/server";
 const m=vi.hoisted(()=>({steam:vi.fn(),course:vi.fn(),finish:vi.fn(),gate:vi.fn()}));
