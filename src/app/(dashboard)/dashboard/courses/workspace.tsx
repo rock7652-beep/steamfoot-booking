@@ -582,6 +582,7 @@ export function CourseWorkspace({
   const [scheduleOccurrenceCount,setScheduleOccurrenceCount]=useState(1);
   const [scheduleLearnersValid,setScheduleLearnersValid]=useState(true);
   const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  const updateSchedulePosition=useCallback((position:{date:string;time:string;roomId?:string;coachId?:string;durationMinutes:number})=>{setScheduleSeed(current=>current.date===position.date&&current.time===position.time&&current.roomId===position.roomId&&current.coachId===position.coachId&&current.durationMinutes===position.durationMinutes?current:position);},[]);
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
     setMoveClipboard({
@@ -2032,6 +2033,7 @@ export function CourseWorkspace({
                 key={requestKey}
                 onGuard={updateMusicScheduleGuard}
                 onRefresh={()=>router.refresh()}
+                onPositionChange={updateSchedulePosition}
                 templates={templates}
                 isTrial={arrangement==="trial"}
                 canCreateCustomer={rentalPermissions.customerCreate}
@@ -2063,7 +2065,7 @@ export function CourseWorkspace({
             {panel === "schedule" && !scheduleCreated && <>
               <div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","上課"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
-              {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={{...scheduleSeed,date:scheduleSeed.date??selectedDate,durationMinutes:60}} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} onGuard={updateRentalGuard} />}
+              {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={businessProfile==="MUSIC"?{...scheduleSeed,date:scheduleSeed.date??selectedDate}:{date:scheduleDate,time:scheduleTime,roomId:scheduleRoomId,durationMinutes:scheduleDuration}} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} onGuard={updateRentalGuard} />}
             </>}
             {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
               <>

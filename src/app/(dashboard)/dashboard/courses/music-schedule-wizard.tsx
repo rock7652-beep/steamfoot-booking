@@ -13,13 +13,15 @@ type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:stri
 type Room = { id:string; name:string };
 type Coach = { id:string; displayName:string };
 
-export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false}:{
+export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange}:{
   templates:Template[];rooms:Room[];coaches:Coach[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
   seed?:{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number};
   onCreated:(sessionId:string,date:string,sessions:unknown[])=>void;
   onGuard?:(dirty:boolean,pending:boolean)=>void;
+  onPositionChange?:(position:{date:string;time:string;roomId?:string;coachId?:string;durationMinutes:number})=>void;
   onRefresh?:()=>void; isTrial?:boolean; canCreateCustomer?:boolean;
 }) {
+  const [originalPosition]=useState(()=>({date:initialDate,time:seed?.time??"",roomId:seed?.roomId??""}));
   const eligibleTemplates=templates.filter(t=>isTrial?!!t.musicTrialMode:!t.musicTrialMode);
   const [templateId,setTemplateId]=useState(initialTemplateId ?? eligibleTemplates[0]?.id ?? "");
   const template=eligibleTemplates.find(t=>t.id===templateId);
@@ -54,7 +56,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   if(selectedPurpose!==isTrial){setSelectedPurpose(isTrial);setTemplateId(eligibleTemplates[0]?.id??"");setCapacity(eligibleTemplates[0]?.capacity??1);setSlots(null);setPair(null);}
   const initialTemplate=templates.find(t=>t.id===(initialTemplateId??templates[0]?.id));
   const initialDuration=60;
-  const dirty=time!==(seed?.time??"") || roomId!==(seed?.roomId??"") || teacherEdited || date!==initialDate || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat || enrollmentDirty || learners.length>0;
+  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat || enrollmentDirty || learners.length>0;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setPair(null);setError("");}
@@ -81,6 +83,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const availableRooms=pairs.filter(option=>option.coachId===selectedCoachId);
   const validRooms=availableRooms.filter(option=>!(option.fixedOrigin&&template?.musicScheduleMode==="FIXED"));
   const selectedPair=validRooms.find(option=>option.roomId===pair?.roomId&&option.coachId===pair?.coachId) ?? (validRooms.length===1?validRooms[0]:null);
+  useEffect(()=>{onPositionChange?.({date,time,roomId:roomId||selectedPair?.roomId,coachId:selectedCoachId||undefined,durationMinutes:duration});},[date,time,roomId,selectedPair?.roomId,selectedCoachId,duration,onPositionChange]);
   const noSlot=!!slots && (!slots.length || (!!time&&(!pairs.length || (!!selectedCoachId&&!availableRooms.length))));
   const reason=(noSlotReason??(coachId?"原選老師此時段無法授課，請更換老師或時間":roomId?"此教室目前無法排入，請更換教室、老師或時間":"此時段沒有可用老師或教室")).replace(/尚無教師具備.*授課資格/,"尚無可授課老師");
   const start=parseTaipeiDateTime(date,time);

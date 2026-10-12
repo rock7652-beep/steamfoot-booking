@@ -135,3 +135,20 @@ it("creates and adds a trial learner inline while retaining the draft on failure
     expect(change).toHaveBeenCalledWith([{customerId:"new",name:"新學員",cardId:"",trialPrice:300}]);
   }finally{await act(async()=>root.unmount());}
 });
+
+it("shares edited positions with other purposes without losing the unsaved-change guard",async()=>{
+ mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]},{time:"19:00",roomId:"room",coachIds:["teacher"]}]});
+ mocks.options.mockResolvedValue({success:true,cards:[]});
+ const onPositionChange=vi.fn(),onGuard=vi.fn();const host=document.createElement("div");const root=createRoot(host);
+ const props={templates:[{id:"guitar",name:"吉他課",durationMinutes:60,capacity:1,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{time:"18:00",roomId:"room"},requestKey:"test",onCreated:vi.fn(),onPositionChange,onGuard};
+ try{
+  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="修改")!.click());
+  const time=host.querySelector<HTMLInputElement>('[aria-label="排課時間"]')!;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(time,"19:00");
+  await act(async()=>time.dispatchEvent(new Event("input",{bubbles:true})));
+  expect(onPositionChange).toHaveBeenLastCalledWith(expect.objectContaining({time:"19:00",roomId:"room",durationMinutes:60}));
+  await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,seed:{time:"19:00",roomId:"room"}})));
+  expect(onGuard).toHaveBeenLastCalledWith(true,false);
+ }finally{await act(async()=>root.unmount());}
+});
