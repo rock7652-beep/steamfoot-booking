@@ -1,4 +1,5 @@
 "use client";
+import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { savedCourseRoom, courseRoomRevision } from "@/lib/course-room-input";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
@@ -71,6 +72,7 @@ type Room = {
   uses?: { id:string;nameSnapshot: string; startsAt: string }[];
 };
 type Template = Omit<Room, "capacity"> & {
+  displayName?:string;currentTeaching?:boolean;
   musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null;
   durationMinutes: number;
   hasSessions?:boolean;
@@ -250,7 +252,7 @@ export function CourseWorkspace({
   const rooms = allRooms.filter((r) => r.isActive);
   const confirmedTemplates = useConfirmedSettingsRows(sourceTemplates, courseTemplateRevision);
   const allTemplates = confirmedTemplates.rows;
-  const templates = allTemplates.filter((t) => t.isActive && t.musicSubject?.isActive !== false);
+  const templates = allTemplates.filter((t) => t.currentTeaching!==false && t.isActive && t.musicSubject?.isActive !== false);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -1786,7 +1788,7 @@ export function CourseWorkspace({
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   本堂已有 {editing.value.bookings.length}{courseDisplayText("人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。", businessProfile)}<p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
-                {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
+                {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>(t.currentTeaching!==false&&t.isActive) || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{courseTemplateLabel(t)}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className={businessProfile!=="MUSIC"?(editing.kind==="template"?"sm:col-span-4":editing.kind==="room"?"":"col-span-full"):"col-span-full"}>
                   {editing.kind === "room" ? "空間名稱" : "課程名稱"}{businessProfile!=="MUSIC"&&" *"}
                   <input
@@ -2089,7 +2091,7 @@ export function CourseWorkspace({
                         >
                           {templates.map((t) => (
                             <option key={t.id} value={t.id}>
-                              {t.name}
+                              {courseTemplateLabel(t)}
                             </option>
                           ))}
                         </select>

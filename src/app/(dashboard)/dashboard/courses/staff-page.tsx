@@ -1,3 +1,4 @@
+import { presentCourseTemplates } from "@/lib/course-template-presentation";
 import {canMusicFinance,readMusicFinanceScope} from "@/server/services/music-finance-access";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import {readCourseOrders} from "@/server/services/course-display-order";
@@ -47,13 +48,15 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
       orderBy: { displayName: "asc" },
     }),
     isChildStoreView ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "staff.manage"),
-    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,musicSubjectId:true,musicTeacherShare:true,musicPricePerLesson:true,musicSubject:{select:{name:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
+    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,isActive:true,musicTrialMode:true,musicSubjectId:true,musicTeacherShare:true,musicPricePerLesson:true,musicSubject:{select:{name:true}}},orderBy:[{musicSubjectId:"asc"},{name:"asc"}]}),
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,endsAt:true,capacity:true,_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
     prisma.courseStaffPersonLink.findMany({where:{storeId},select:{managerStaffId:true,instructorStaffId:true}}),
   ]);
+  const teachingPlans=await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}});
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
+  const presentedTemplates=presentCourseTemplates(templates.map(t=>({...t,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null})),teachingPlans,!!musicEntitlement);
   const financeScope=isChildStoreView?[]:await readMusicFinanceScope(user,storeId);
   const settlementSettings=await readSettlementSettings(coursePrisma,storeId);
   const financeRows=musicEntitlement&&canManage?await prisma.$queryRaw<Array<{staffId:string;teacherIds:string[]|null}>>`SELECT "staffId","teacherIds" FROM "CourseTeacherFinanceScope" WHERE "storeId"=${storeId}`:[];
@@ -75,7 +78,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
         counterpartChoices={staff.filter(s=>teachers?s.user.role!=="CUSTOMER":s.user.role==="CUSTOMER").map(s=>({id:s.id,name:s.displayName,phone:s.phone,birthday:s.courseBirthday?.toISOString().slice(0,10)??"",emergencyContactName:s.emergencyContactName,emergencyContactPhone:s.emergencyContactPhone,emergencyContactRelation:s.emergencyContactRelation,linked:personLinks.some(l=>l.managerStaffId===s.id||l.instructorStaffId===s.id)}))}
 
         maxStaff={limits.maxStaff}
-        templates={templates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null,subjectName:t.musicSubject?.name}))}
+        templates={presentedTemplates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null,subjectName:t.musicSubject?.name}))}
         canManage={canManage&&(teachers||getEffectiveActorRole(user)==="OWNER")}
         canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
         rolePresets={Object.fromEntries((["OWNER", "MANAGER", "STAFF"] as const).map(role => [role, getDefaultPermissionsForRole(role).filter(code => COURSE_PERMISSIONS.includes(code))]))}

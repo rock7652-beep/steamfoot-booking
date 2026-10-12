@@ -71,3 +71,14 @@ it("hides generated course codes while keeping same-name course selection indepe
   expect(onQualification).toHaveBeenLastCalledWith("version",true);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+it("keeps selected historical qualifications and limits batch selection to the visible current list",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");const root=createRoot(host);const onQualification=vi.fn();
+ const props={templates:[{id:"current",name:"raw",displayName:"個別課 $800",currentTeaching:true},{id:"selected-old",name:"已選舊課",currentTeaching:false},{id:"hidden-old",name:"其他舊課",currentTeaching:false}],qualificationIds:["selected-old"],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:0},onSettings:vi.fn(),onFees:vi.fn(),onQualification};
+ try {
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
+  expect(host.textContent).toContain("個別課 $800");expect(host.textContent).toContain("已選舊課");expect(host.textContent).not.toContain("其他舊課");
+  const batch=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="勾選這 2 項")!;await act(async()=>batch.click());
+  expect(onQualification.mock.calls).toEqual([["current",true]]);
+  const other=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="其他項目（1）")!;await act(async()=>other.click());expect(host.textContent).toContain("其他舊課");
+ } finally {await act(async()=>root.unmount());host.remove();}
+});
