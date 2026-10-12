@@ -1,5 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), access: vi.fn(), feature: vi.fn(), music: vi.fn(), reminder: vi.fn(), expiry: vi.fn(), plans: vi.fn(), care: vi.fn(), store: vi.fn(), logs: vi.fn(), map: vi.fn(), templates: vi.fn(), teachers: vi.fn(), coachLogs: vi.fn(), binding: vi.fn(), recipients: vi.fn(), notificationLogs: vi.fn(), health: vi.fn(), blocked: vi.fn() }));
+const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), access: vi.fn(), feature: vi.fn(), music: vi.fn(), reminder: vi.fn(), expiry: vi.fn(), plans: vi.fn(), care: vi.fn(), store: vi.fn(), logs: vi.fn(), map: vi.fn(), templates: vi.fn(), teachers: vi.fn(), coachLogs: vi.fn(), binding: vi.fn(), recipients: vi.fn(), notificationLogs: vi.fn(), health: vi.fn(), blocked: vi.fn(), workOrder: vi.fn() }));
+vi.mock("@/server/actions/work-order-notification", () => ({ getWorkOrderNotificationEnabled: m.workOrder }));
+vi.mock("@/components/admin/work-order-notification-setting", () => ({ WorkOrderNotificationSetting: () => null }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: m.access }));
@@ -33,7 +35,7 @@ beforeEach(() => {
   m.music.mockResolvedValue(null); m.reminder.mockResolvedValue({ body: "提醒", enabled: false }); m.expiry.mockResolvedValue({ enabled: false }); m.plans.mockResolvedValue([]);
   m.care.mockResolvedValue(null); m.store.mockResolvedValue({ name: "合成店" }); m.logs.mockResolvedValue([]); m.map.mockResolvedValue(null);
   m.templates.mockResolvedValue([]); m.teachers.mockResolvedValue([]); m.coachLogs.mockResolvedValue([]); m.recipients.mockResolvedValue([]); m.notificationLogs.mockResolvedValue({});
-  m.health.mockResolvedValue({ status: "NOT_CONFIGURED" });
+  m.health.mockResolvedValue({ status: "NOT_CONFIGURED" }); m.workOrder.mockResolvedValue(false);
 });
 const customerReaders = () => [m.reminder, m.expiry, m.plans, m.care, m.store, m.logs, m.map];
 it("starts independent customer reads before any setting finishes", async () => {
@@ -42,6 +44,7 @@ it("starts independent customer reads before any setting finishes", async () => 
   const result = Page({ searchParams: Promise.resolve({ tab: "customer" }) });
   await vi.waitFor(() => { for (const read of customerReaders()) expect(read).toHaveBeenCalledOnce(); });
   expect(m.health).not.toHaveBeenCalled();
+  expect(m.workOrder).toHaveBeenCalledOnce();
   finish({ body: "提醒", enabled: false }); await result;
   expect(m.care).toHaveBeenCalledWith({ where: { storeId: "store-a" } });
 });
@@ -60,7 +63,7 @@ it("does not load tab data or external health when the feature is disabled", asy
 it("rejects permission before reading feature or customer data", async () => {
   m.permission.mockResolvedValue(false);
   await expect(Page({ searchParams: Promise.resolve({}) })).rejects.toThrow("NOT_FOUND");
-  expect(m.access).not.toHaveBeenCalled(); expect(m.feature).not.toHaveBeenCalled();
+  expect(m.access).not.toHaveBeenCalled(); expect(m.feature).not.toHaveBeenCalled(); expect(m.workOrder).not.toHaveBeenCalled();
   for (const read of customerReaders()) expect(read).not.toHaveBeenCalled();
 });
 it("starts production health and recipient reads concurrently", async () => {

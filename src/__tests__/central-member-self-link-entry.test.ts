@@ -32,14 +32,13 @@ describe("central member self-link entry", () => {
     expect(flow).toContain("<CentralMemberClaimForm />");
     expect(flow).toContain("系統不會自動連結");
     expect(flow).toContain("手機完全相同、每店唯一、且尚未屬於其他帳號");
-    expect(page).toContain("user.customerId && user.storeId === storeContext.storeId");
+    expect(page).toContain('storeId: store.storeId, centralUserId: user.id, status: "APPROVED"');
   });
 
   it("keeps store operational data outside the self-link page", () => {
     const page = source("src/app/(customer)/member-link/page.tsx");
 
-    expect(page).toContain("不合併各店顧客");
-    expect(page).toContain("不搬動方案／堂數／預約／交易");
-    expect(page).not.toContain("prisma.");
+    expect(page).not.toMatch(/customer(?:PlanWallet)?\.(?:update|create|delete)/);
+    expect(page).not.toContain("claimExistingCustomersByLineAndPhone");
   });
 });

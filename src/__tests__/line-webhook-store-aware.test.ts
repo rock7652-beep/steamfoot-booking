@@ -27,6 +27,8 @@ const replySteamButlerMessageMock = vi.fn(
 );
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
+const captureStoreMemberConnectionMock = vi.fn();
+vi.mock("@/server/services/store-member-connection", () => ({ captureStoreMemberConnection: (...args: unknown[]) => captureStoreMemberConnectionMock(...args), connectionReplyText: async (result: string) => result === "pending" ? "已收到電話，請門市核對本人後確認；尚未完成綁定。" : "資料需要確認" }));
 const captureLineRebindCandidateMock = vi.fn();
 const claimTrialNotificationSetupMock = vi.fn();
 const createTrialBookingChatLinkMock = vi.fn();
@@ -59,6 +61,7 @@ let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
   store: {
+    findMany: vi.fn(),
     findFirst: vi.fn(),
     findUnique: vi.fn(),
   },
@@ -155,6 +158,9 @@ describe("LINE webhook store-aware signature and reply", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    captureStoreMemberConnectionMock.mockResolvedValue("pending");
+    mockPrisma.store.findMany.mockImplementation(async (arg: unknown) => { const value = await mockPrisma.store.findFirst(arg); return value ? [value] : []; });
+    mockPrisma.store.findUnique.mockResolvedValue({lineDestination:"D_hsinchu"});
     verifyLineSignatureMock.mockReturnValue(true);
     replyMessageMock.mockResolvedValue({ success: true });
     verifySteamButlerLineSignatureMock.mockReturnValue(false);
@@ -175,7 +181,7 @@ describe("LINE webhook store-aware signature and reply", () => {
       return true;
     });
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
-    mockPrisma.store.findUnique.mockResolvedValue({ slug: "hsinchu" });
+    mockPrisma.store.findUnique.mockResolvedValue({ slug: "hsinchu", lineDestination: "D_hsinchu" });
     mockPrisma.customer.findMany.mockResolvedValue([]);
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -259,9 +265,9 @@ describe("LINE webhook store-aware signature and reply", () => {
     const res = await POST(postReq(body));
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.store.findFirst).toHaveBeenCalledWith({
+    expect(mockPrisma.store.findMany).toHaveBeenCalledWith({
       where: { lineDestination: "D_hsinchu" },
-      select: { id: true },
+      select: { id: true }, take: 2,
     });
     expect(verifyLineSignatureMock).toHaveBeenCalledWith(
       "store-hsinchu",
@@ -275,104 +281,26 @@ describe("LINE webhook store-aware signature and reply", () => {
     );
   });
 
-  it("updates only the store recipient when the customer already has a central User", async () => {
-    probeStoreLineRecipientMock.mockResolvedValue({ status: "INCOMPATIBLE" });
-    mockPrisma.customer.findMany.mockResolvedValue([{
-      id: "customer-hsinchu",
-      lineUserId: "U-central-login",
-      userId: "central-user",
-    }]);
-    mockPrisma.customer.updateMany.mockResolvedValueOnce({ count: 1 });
-
+  it("only captures a pending request from a supplied phone; never overwrites a customer", async () => {
     const { POST } = await import("@/app/api/line/webhook/route");
-    const res = await POST(postReq({
-      destination: "D_hsinchu",
-      events: [{
-        type: "message",
-        replyToken: "reply-token-phone",
-        source: { type: "user", userId: "U-hsinchu-store" },
-        message: { type: "text", id: "message-1", text: "0912345678" },
-        timestamp: 1_721_234_567_890,
-      }],
-    }));
-
-    expect(res.status).toBe(200);
-    expect(probeStoreLineRecipientMock).toHaveBeenCalledWith(
-      "store-hsinchu",
-      "U-central-login",
-    );
-    expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
-    expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: "customer-hsinchu",
-        storeId: "store-hsinchu",
-        phone: "0912345678",
-        lineUserId: "U-central-login",
-        mergedIntoCustomerId: null,
-      },
-      data: {
-        lineUserId: "U-hsinchu-store",
-        lineLinkStatus: "LINKED",
-        lineLinkedAt: expect.any(Date),
-      },
-    });
-    expect(replyMessageMock).toHaveBeenCalledWith(
-      "store-hsinchu",
-      "reply-token-phone",
-      [{ type: "text", text: "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。" }],
-    );
-  });
-
-  it("returns a reviewable message when the new LINE identity belongs to another same-store customer", async () => {
-    probeStoreLineRecipientMock.mockResolvedValue({ status: "INCOMPATIBLE" });
-    mockPrisma.customer.findMany.mockResolvedValue([{
-      id: "customer-hsinchu",
-      lineUserId: "U-central-login",
-      userId: "central-user",
-    }]);
-    mockPrisma.customer.updateMany.mockRejectedValueOnce({
-      code: "P2002",
-      meta: { target: ["storeId", "lineUserId"] },
-    });
-
-    const { POST } = await import("@/app/api/line/webhook/route");
-    const res = await POST(postReq({
-      destination: "D_hsinchu",
-      events: [{
-        type: "message",
-        replyToken: "reply-token-phone",
-        source: { type: "user", userId: "U-already-used" },
-        message: { type: "text", id: "message-conflict", text: "0912345678" },
-        timestamp: 1_721_234_567_890,
-      }],
-    }));
-
-    expect(res.status).toBe(200);
-    expect(replyMessageMock).toHaveBeenCalledWith(
-      "store-hsinchu",
-      "reply-token-phone",
-      [{ type: "text", text: "此 LINE 已綁定其他顧客資料，請由店長確認解除或合併。" }],
-    );
-    expect(captureLineRebindCandidateMock).toHaveBeenCalledWith({
-      storeId: "store-hsinchu",
-      customerId: "customer-hsinchu",
-      normalizedPhone: "0912345678",
-      lineUserId: "U-already-used",
-      webhookEventKey: "test:message-conflict",
-      eventTimestamp: new Date(1_721_234_567_890),
-    });
+    const response = await POST(postReq({ destination: "D_hsinchu", events: [{ type: "message", replyToken: "reply-token-phone", source: { type: "user", userId: "U-hsinchu-store" }, message: { type: "text", text: "0912345678" }, timestamp: Date.now() }] }));
+    expect(response.status).toBe(200);
+    expect(captureStoreMemberConnectionMock).toHaveBeenCalledWith(expect.objectContaining({storeId:"store-hsinchu",phone:"0912345678",lineUserId:"U-hsinchu-store"}));
+    expect(mockPrisma.customer.updateMany).not.toHaveBeenCalled();
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-phone", [{type:"text",text:expect.stringContaining("尚未完成綁定")}]);
   });
 
   it.each([
-    { candidates: [{ id: "customer-hsinchu", userId: null, lineUserId: null }], expected: "通知設定完成！", updates: 1 },
-    { candidates: [], expected: "查無顧客資料", updates: 0 },
-    { candidates: [{ id: "one", userId: null, lineUserId: null }, { id: "two", userId: null, lineUserId: null }], expected: "系統找到多筆相同手機", updates: 0 },
+    { candidates: [{ id: "customer-hsinchu", userId: null, lineUserId: null }], expected: "尚未完成綁定", updates: 0 },
+    { candidates: [], expected: "資料需要確認", updates: 0 },
+    { candidates: [{ id: "one", userId: null, lineUserId: null }, { id: "two", userId: null, lineUserId: null }], expected: "資料需要確認", updates: 0 },
   ])("reports binding result instead of menu validation: $expected", async ({ candidates, expected, updates }) => {
     digitalButlerHandleTextMock.mockResolvedValueOnce({
       handled: true,
       messages: [{ type: "text", text: "請點選下方提供的選項。" }],
       outcome: "VALIDATION_FAILED",
     });
+    captureStoreMemberConnectionMock.mockResolvedValueOnce(candidates.length === 1 ? "pending" : "review");
     mockPrisma.customer.findMany.mockResolvedValueOnce(candidates);
     mockPrisma.customer.updateMany.mockResolvedValueOnce({ count: 1 });
     const { POST } = await import("@/app/api/line/webhook/route");
@@ -572,11 +500,11 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。" }],
+      [{ type: "text", text: "已收到電話，請門市核對本人後確認；尚未完成綁定。" }],
     );
   });
 
-  it("binds an unregistered customer without creating a login User or Account", async () => {
+  it("queues an unregistered customer for staff confirmation without mutating login identity", async () => {
     mockPrisma.customer.findMany.mockResolvedValueOnce([{
       id: "customer-hsinchu",
       userId: null,
@@ -598,33 +526,12 @@ describe("LINE webhook store-aware signature and reply", () => {
 
     expect(res.status).toBe(200);
     expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
-    expect(mockPrisma.customer.findMany).toHaveBeenCalledWith({
-      where: {
-        storeId: "store-hsinchu",
-        phone: "0912345678",
-        mergedIntoCustomerId: null,
-      },
-      select: { id: true, userId: true, lineUserId: true },
-      take: 2,
-    });
-    expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: "customer-hsinchu",
-        storeId: "store-hsinchu",
-        phone: "0912345678",
-        lineUserId: null,
-        mergedIntoCustomerId: null,
-      },
-      data: {
-        lineUserId: "U-hsinchu-store",
-        lineLinkStatus: "LINKED",
-        lineLinkedAt: expect.any(Date),
-      },
-    });
+    expect(captureStoreMemberConnectionMock).toHaveBeenCalledOnce();
+    expect(mockPrisma.customer.updateMany).not.toHaveBeenCalled();
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。" }],
+      [{ type: "text", text: "已收到電話，請門市核對本人後確認；尚未完成綁定。" }],
     );
   });
 
@@ -755,9 +662,9 @@ describe("LINE webhook store-aware signature and reply", () => {
     const res = await POST(postReq(body, "store-signature"));
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.store.findFirst).toHaveBeenCalledWith({
+    expect(mockPrisma.store.findMany).toHaveBeenCalledWith({
       where: { lineDestination: "D_hsinchu" },
-      select: { id: true },
+      select: { id: true }, take: 2,
     });
     expect(verifyLineSignatureMock).toHaveBeenCalledWith(
       "store-hsinchu",

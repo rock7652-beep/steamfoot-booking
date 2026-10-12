@@ -228,3 +228,14 @@ describe("course schedule flow preview",()=>{
     ])expect(()=>assertReviewedReleaseEnvironment({...scheduleEnv,...change})).toThrow();
   });
 });
+
+ describe("mistaken plan cancellation isolated preview", () => {
+  const preview = { ...valid, VERCEL_GIT_COMMIT_REF: "fix/cancel-mistaken-plan-20261012" };
+  it("accepts only isolated preview data", () => {
+    expect(assertReviewedReleaseEnvironment(preview)).toBe("module-roster-preview");
+  });
+  it("rejects production databases and foreign repository metadata", () => {
+    expect(() => assertReviewedReleaseEnvironment({ ...preview, DATABASE_URL: direct.replace("ttworfzgwejdeolegkxl", "qijlnhtpbintanzpxkvf") })).toThrow();
+    expect(() => assertReviewedReleaseEnvironment({ ...preview, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
+  });
+ });

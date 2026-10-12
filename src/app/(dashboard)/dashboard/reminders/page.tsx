@@ -1,3 +1,5 @@
+import { WorkOrderNotificationSetting } from "@/components/admin/work-order-notification-setting";
+import { getWorkOrderNotificationEnabled } from "@/server/actions/work-order-notification";
 import { TrialCareCard } from "./trial-care-card";
 import { prisma } from "@/lib/db";
 import { defaultTrialCareRules, readTrialCareRules } from "@/lib/trial-care";
@@ -61,6 +63,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {null}
       </FeatureGate>
     );
+  const workOrderEnabled = await getWorkOrderNotificationEnabled();
   const activeTab =
     params.tab === "logs"
       ? "logs"
@@ -222,7 +225,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               查看發送異常 →
             </Link>
           </div>
-          <ReminderTabs
+          <WorkOrderNotificationSetting initialEnabled={workOrderEnabled} />
+      <ReminderTabs
             active={activeTab}
             explicit={!!params.tab}
             storeId={storeId}

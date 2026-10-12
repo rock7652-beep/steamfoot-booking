@@ -1,16 +1,24 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
 import { adjustRemainingSessions } from "@/server/actions/wallet";
 import { toast } from "sonner";
 
 interface Props {
+  controlledOpen?: boolean;
+  onOpenChange?: (open:boolean)=>void;
+  onSuccess?: () => void;
   walletId: string;
   currentRemaining: number;
 }
 
-export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
-  const [open, setOpen] = useState(false);
+export function AdjustWalletForm({ walletId, currentRemaining, onSuccess, controlledOpen, onOpenChange }: Props) {
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value:boolean) => { if(onOpenChange)onOpenChange(value);else setLocalOpen(value); };
+  const [newRemaining, setNewRemaining] = useState(currentRemaining);
+  const [note, setNote] = useState("");
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
       const newRemaining = Number(formData.get("newRemaining"));
@@ -20,6 +28,7 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
       }
       const result = await adjustRemainingSessions(walletId, newRemaining, note || undefined);
       if (result.success) {
+        onSuccess?.();
         toast.success("堂數已更新");
         setOpen(false);
         return { error: null };
@@ -30,13 +39,14 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
     { error: null }
   );
 
+  useSettingsPanelGuard(open && (newRemaining !== currentRemaining || !!note), pending);
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-earth-400 hover:bg-earth-100"
       >
-        調整堂數
+        調整剩餘堂數
       </button>
     );
   }
@@ -49,7 +59,8 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
           name="newRemaining"
           type="number"
           min="0"
-          defaultValue={currentRemaining}
+          value={newRemaining}
+          onChange={e => setNewRemaining(Number(e.target.value))}
           className="mt-1 w-20 rounded border border-earth-300 px-2 py-1 text-sm"
         />
       </div>
@@ -57,10 +68,12 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
         <label className="block text-xs text-earth-500">原因</label>
         <input
           name="note"
+          value={note} onChange={e => setNote(e.target.value)}
           placeholder="調整原因"
           className="mt-1 rounded border border-earth-300 px-2 py-1 text-sm"
         />
       </div>
+      <p className="w-full text-sm text-earth-600">剩餘 {currentRemaining} → {newRemaining} 堂</p>
       {state.error && <span className="w-full text-xs text-red-600">{state.error}</span>}
       <button
         type="submit"
@@ -69,7 +82,7 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
       >
         {pending ? "更新中…" : "確認"}
       </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-xs text-earth-400 hover:text-earth-600">
+      <button type="button" disabled={pending} onClick={() => { if ((newRemaining !== currentRemaining || note) && !window.confirm("捨棄尚未儲存的修改？")) return; setNewRemaining(currentRemaining); setNote(""); setOpen(false); }} className="text-xs text-earth-400 hover:text-earth-600">
         取消
       </button>
     </form>

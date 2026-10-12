@@ -1,3 +1,4 @@
+vi.mock("@/server/services/store-member-connection", () => ({ storePhoneNeedsConfirmation: vi.fn(async () => false) }));
 /**
  * submitOnboarding server action (PR-C2) 行為測試
  *
@@ -88,6 +89,14 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 }
 
 describe("submitOnboarding action (PR-C2)", () => {
+  it("does not activate an existing Customer from phone input alone", async () => {
+    const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({status:"identity_review_required"});
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
   it("does not report successful login when the store link fails to persist", async () => {
     mockVerify.mockResolvedValue(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValue(STORE);

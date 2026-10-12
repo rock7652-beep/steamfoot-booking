@@ -94,8 +94,8 @@ it("signs in music learners as attended in one batch and gives no makeup coupon 
   expect(host.textContent).not.toContain("發補課券");
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="小安 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="標籤與備註")!.click());
-  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="編輯本次備註")!.click());
-  const save=[...document.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
+  await act(async()=>[...document.querySelectorAll("button")].find(button=>button.textContent==="＋新增")!.click());
+  const save=[...document.querySelectorAll('button[type="button"]')].find(button=>button.textContent==="儲存")!;
   expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
@@ -509,18 +509,18 @@ it("uses one neutral touch-open indicator for shared authorization and proxy ope
 
   indicators[2][0].focus();await act(async()=>indicators[2][0].click());
   let dialog=document.querySelector('[role="dialog"]')!;
-  expect(dialog.textContent).toContain("共卡：此方案由既有授權成員共用餘額");
-  expect(dialog.textContent).toContain("代約：由 甲 協助預約，上課人為 丙");
+  expect(dialog.textContent).toContain("共卡：與授權成員共用餘額");
+  expect(dialog.textContent).toContain("代約：甲 替 丙 預約");
   await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
   expect(document.querySelector('[role="dialog"]')).toBeNull();expect(document.activeElement).toBe(indicators[2][0]);
   await act(async()=>indicators[0][0].click());
-  dialog=document.querySelector('[role="dialog"]')!;expect(dialog.textContent).toContain(longName);expect(dialog.textContent).not.toContain("上課人為 丙");
+  dialog=document.querySelector('[role="dialog"]')!;expect(dialog.textContent).toContain(longName);expect(dialog.textContent).not.toContain("替 丙 預約");
   m.load.mockResolvedValue({success:true,data:{...data,sharedCardState:"HIDDEN"}});
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"hidden-context",capacity:8,canCreate:false,canEdit:false})));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect([...host.querySelectorAll<HTMLButtonElement>('button[aria-label$="查看預約詳情"]')].map(button=>button.textContent)).toEqual(["代約","代約"]);
   await act(async()=>host.querySelector<HTMLButtonElement>(`button[aria-label="${longName} 預約詳情"]`)!.click());
-  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("共卡：此方案由既有授權成員共用餘額");
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("共卡：與授權成員共用餘額");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
 

@@ -32,8 +32,8 @@ export function CentralMemberClaimForm() {
       {state.success && (
         <p className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
           {state.claimedCount > 0
-            ? `已自動連結 ${state.claimedCount} 間門市的會員資料。`
-            : "同手機的門市會員資料都已連結。"}
+            ? `本店會員已連結。`
+            : "本店會員已連結；其他店須在各店入口確認。"}
         </p>
       )}
       <button
@@ -41,7 +41,7 @@ export function CentralMemberClaimForm() {
         disabled={pending}
         className="min-h-12 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white hover:bg-earth-800 disabled:opacity-60"
       >
-        {pending ? "確認中…" : "確認手機並自動連結"}
+        {pending ? "確認中…" : "確認本店會員"}
       </button>
     </form>
   );

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { toast } from "sonner";
 import { voidWalletSession } from "@/server/actions/wallet";
 
@@ -9,13 +10,17 @@ interface Props {
   sessionId: string;
   sessionNo: number;
   walletPlanName: string;
+  embedded?: boolean;
+  onSuccess?: () => void;
 }
 
-export function VoidSessionButton({ sessionId, sessionNo, walletPlanName }: Props) {
+export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedded = false, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  useSettingsPanelGuard(open && !!reason, pending);
 
   function close() {
     if (pending) return;
@@ -35,7 +40,7 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName }: Prop
         toast.success(`已註銷第 ${sessionNo} 堂`);
         setOpen(false);
         setReason("");
-        router.refresh();
+        if (onSuccess) onSuccess(); else router.refresh();
       } else {
         toast.error(res.error ?? "註銷失敗");
       }
@@ -53,11 +58,11 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName }: Prop
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={close}
+          className={embedded ? "my-2 rounded-lg border border-earth-200" : "fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"}
+          onClick={embedded ? undefined : close}
         >
           <div
-            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
+            className={embedded ? "w-full bg-white p-3" : "w-full max-w-md rounded-xl bg-white p-5 shadow-xl"}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-3 text-lg font-semibold text-earth-900">
@@ -93,7 +98,7 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName }: Prop
 
             <div className="flex justify-end gap-2">
               <button
-                onClick={close}
+                onClick={embedded ? undefined : close}
                 disabled={pending}
                 className="rounded-lg bg-earth-100 px-4 py-2 text-sm text-earth-600 hover:bg-earth-200 disabled:opacity-60"
               >

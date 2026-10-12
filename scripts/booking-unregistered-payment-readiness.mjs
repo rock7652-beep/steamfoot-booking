@@ -1,4 +1,4 @@
-import { assertModuleRosterPreviewEnvironment, assertReviewedReleaseEnvironment, isIsolatedConsultationDatabaseUrl, UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH } from "./consultation-preview-scope.mjs";
+import { assertModuleRosterPreviewEnvironment, assertReviewedReleaseEnvironment, isIsolatedConsultationDatabaseUrl, UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH, CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH } from "./consultation-preview-scope.mjs";
 import { fileURLToPath } from "node:url";
 
 export function assertUnregisteredParticipantEnvironment(env) {
@@ -9,7 +9,7 @@ export function assertUnregisteredParticipantEnvironment(env) {
       throw new Error("Unregistered participant production requires verified main and both production connections.");
     }
   } else {
-    if (env.VERCEL_GIT_COMMIT_REF !== UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH) throw new Error("Unregistered participant Preview requires its exact branch.");
+    if (![UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH, CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF)) throw new Error("Unregistered participant Preview requires its exact branch.");
     assertModuleRosterPreviewEnvironment(env);
   }
 }

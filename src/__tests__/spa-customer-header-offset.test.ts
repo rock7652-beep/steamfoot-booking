@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +17,8 @@ vi.mock("@/components/operation-guide-content", () => ({ OperationGuideContent: 
 vi.mock("@/components/dashboard-link", () => ({
   DashboardLink: (props: Record<string, unknown>) => createElement("a", props),
 }));
+vi.mock("@/server/actions/customer",()=>({updateCustomer:vi.fn()}));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced",()=>({CustomerPanelAdvanced:()=>null}));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/spa-customer-list", () => ({ SpaCustomerList: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/add-spa-staff-button", () => ({ AddSpaStaffButton: () => null }));
@@ -125,7 +128,7 @@ const permissions = {
   canSell: false, canRefund: false, canReadAccounts: false, canReadBookings: false,
   canEdit: true, canCreate: false, canBook: false, canManageStaff: false,
 };
-const profile = { success: true as const, customer, bookings: [] };
+const profile = { success: true as const, customer: {...customer, updatedAt:new Date(),email:null,gender:null,birthday:null,height:null,lineName:null}, bookings: [] };
 
 // jsdom does not lay out CSS variables. Exercise actual DOM/observer behavior and
 // CSS selector matching here; viewport geometry requires separate browser acceptance.
@@ -303,7 +306,7 @@ describe("SPA customer-only sheet opt-in", () => {
     }) });
     expect(host.querySelectorAll(optedInSelector)).toHaveLength(1);
     await click("編輯");
-    const draft = host.querySelector<HTMLTextAreaElement>('textarea[aria-label="服務偏好與注意事項"]')!;
+    const draft = host.querySelector<HTMLTextAreaElement>('textarea[aria-label="店內備註"]')!;
     expect(draft).not.toBeNull();
     const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
     await act(async () => {

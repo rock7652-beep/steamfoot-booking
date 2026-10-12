@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 
@@ -186,88 +185,7 @@ export async function claimExistingCustomersByLineAndPhone(input: {
     return { status: "conflict", reason: "phone_unavailable", claimedStoreIds: [] };
   }
 
-  try {
-    return await prisma.$transaction(
-      async (tx) => {
-        // Re-read every guard inside the write transaction so a concurrent bind cannot be overwritten.
-        const [candidates, existingLinks] = await Promise.all([
-          tx.customer.findMany({
-            where: { phone, mergedIntoCustomerId: null },
-            select: {
-              id: true,
-              storeId: true,
-              userId: true,
-              mergedIntoCustomerId: true,
-              identityLinks: { select: { userId: true } },
-            },
-          }),
-          tx.customerIdentityLink.findMany({
-            where: { userId: user.id },
-            select: { storeId: true, customerId: true },
-          }),
-        ]);
-        const plan = planCentralMemberClaims(user.id, candidates, existingLinks);
-        if (plan.status === "conflict") {
-          return {
-            status: "conflict",
-            reason: plan.reason,
-            claimedStoreIds: [],
-          } as const;
-        }
-        if (plan.status === "nothing_to_claim") {
-          if (!normalizePhone(user.phone ?? "")) {
-            await tx.user.update({ where: { id: user.id }, data: { phone } });
-          }
-          return { status: "nothing_to_claim", claimedStoreIds: [] } as const;
-        }
-
-        if (!normalizePhone(user.phone ?? "")) {
-          await tx.user.update({ where: { id: user.id }, data: { phone } });
-        }
-
-        for (const candidate of plan.candidates) {
-          const link = await tx.customerIdentityLink.create({
-            data: {
-              userId: user.id,
-              storeId: candidate.storeId,
-              customerId: candidate.id,
-              provider: "phone",
-              providerAccountId: phone,
-            },
-          });
-          await tx.auditLog.create({
-            data: {
-              actorUserId: user.id,
-              targetType: "CustomerIdentityLink",
-              targetId: link.id,
-              action: "CENTRAL_MEMBER_CLAIM",
-              afterJson: { storeId: candidate.storeId, provider: "phone" },
-            },
-          });
-        }
-
-        return {
-          status: "claimed",
-          claimedStoreIds: plan.candidates
-            .map((candidate) => candidate.storeId)
-            .sort(),
-        } as const;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
-  } catch (error) {
-    // A concurrent claim can win after the in-transaction read. Unique/serialization
-    // conflicts must fail closed and never be surfaced as a partial success.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      (error.code === "P2002" || error.code === "P2034")
-    ) {
-      return {
-        status: "conflict",
-        reason: "existing_membership_conflict",
-        claimedStoreIds: [],
-      };
-    }
-    throw error;
-  }
+  // A supplied phone cannot claim other memberships. Existing verified
+  // membership is retained; first claims use staff-confirmed store connection.
+  return { status: "nothing_to_claim", claimedStoreIds: [] };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { toast } from "sonner";
 import { collectTrialPayment } from "@/server/actions/trial-booking";
@@ -18,6 +19,7 @@ import { trialCollectionAmountError } from "@/lib/trial-collection-amount";
  */
 
 interface Props {
+  embedded?: boolean;
   courseMode?: boolean;
   saveAction?: (input:Parameters<typeof collectTrialPayment>[0])=>Promise<{success:boolean;error?:string;data?:{serviceCompleted:boolean}}>;
   open: boolean;
@@ -53,6 +55,7 @@ const PAYMENT_METHODS: { value: string; label: string }[] = [
 ];
 
 export function CollectTrialModal({
+  embedded = false,
   open,
   onClose,
   bookingId,
@@ -112,6 +115,10 @@ export function CollectTrialModal({
     });
   }
 
+  const dirty = amount !== String(initialAmount) || method !== "CASH" || !!paymentSplits?.length || !!discountReason || !!note || completeService !== !courseMode;
+  useSettingsPanelGuard(dirty, pending);
+  function cancel() { if (!pending && (!dirty || window.confirm("捨棄這次尚未送出的收款資料？"))) onClose(); }
+
   const displayedAmount = settings.allowEdit ? Math.round(Number(amount)) : totalDefaultByActual;
 
   if (!open) return null;
@@ -157,8 +164,7 @@ export function CollectTrialModal({
     });
   }
 
-  return (
-    <ModalPanel open={open} onClose={onClose} pending={pending} labelledById={titleId}>
+  const content = (
       <div
         className="min-h-0 w-full overflow-y-auto overscroll-contain p-5 [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm"
       >
@@ -207,7 +213,7 @@ export function CollectTrialModal({
           )}
         </div>
 
-        {courseMode ? <p className="mb-4 text-sm text-primary-800">只記錄付款與收入；出席另由授課人員點名，不使用其他方案額度。</p> : <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
+        {courseMode ? <p className="mb-4 text-sm text-earth-600">收款後仍需另外點名。</p> : <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
           <input
             type="checkbox"
             checked={!completeService}
@@ -281,7 +287,7 @@ export function CollectTrialModal({
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={cancel}
             disabled={pending}
             className="rounded-lg bg-earth-100 px-4 py-2 text-sm text-earth-600 hover:bg-earth-200 disabled:opacity-60"
           >
@@ -293,10 +299,10 @@ export function CollectTrialModal({
             disabled={pending || !paymentSplitsValid}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "處理中..." : completeService ? "確認收款並完成服務" : "僅確認收款"}
+            {pending ? "處理中..." : courseMode ? "確認已收款" : completeService ? "確認收款並完成服務" : "僅確認收款"}
           </button>
         </div>
       </div>
-    </ModalPanel>
   );
+  return embedded ? content : <ModalPanel open={open} onClose={cancel} pending={pending} labelledById={titleId}>{content}</ModalPanel>;
 }
