@@ -1,21 +1,22 @@
 "use client";
-import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useRef, useState } from "react";
 import { BookingServiceNoteEditor } from "../../bookings/booking-service-note-editor";
 import { CustomerAttributionForm } from "@/components/customer-attribution-form";
-import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
-import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
+import { CreateBookingForm } from "../[id]/create-booking-form";
+import { EditCustomerForm } from "../[id]/edit/edit-customer-form";
+import { STATUS_LABEL } from "@/lib/booking-constants";
 
+import { AdjustWalletForm } from "../[id]/adjust-wallet-form";
+import { ExtendWalletExpiryForm } from "../[id]/extend-wallet-expiry-form";
+import { BackfillUsedSessionsForm } from "../[id]/backfill-used-sessions-form";
+import { walletAvailableToBook, walletPendingCount } from "@/lib/wallet-availability";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { formatTWTime } from "@/lib/date-utils";
-import {
-  getLineNotificationStatus,
-  lineNotificationLabel,
-} from "@/lib/line-notification-status";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
 type CustomerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
@@ -71,31 +72,6 @@ function maskLineUserId(id: string | null): string {
   return `${id.slice(0, 6)}…${id.slice(-4)}`;
 }
 
-function StatusItem({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "ok" | "muted" | "warn" | "error";
-}) {
-  const toneClass =
-    tone === "ok"
-      ? "text-green-700"
-      : tone === "warn"
-        ? "text-amber-700"
-        : tone === "error"
-          ? "text-red-700"
-          : "text-earth-700";
-  return (
-    <div className="py-1.5">
-      <dt className="text-[11px] text-earth-500">{label}</dt>
-      <dd className={`mt-0.5 font-medium ${toneClass}`}>{value}</dd>
-    </div>
-  );
-}
-
 export function CustomerDetailDrawerContent({
   customer,
   plans,
@@ -109,7 +85,9 @@ export function CustomerDetailDrawerContent({
   onMutated,
   titleId,
 }: Props) {
-  const [openedAt] = useState(() => Date.now());
+  const [showInactive, setShowInactive] = useState(false);
+  const [view, setView] = useState<"overview" | "booking" | "edit">("overview");
+  const [recordsTab, setRecordsTab] = useState<"bookings" | "consumption">("bookings");
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
 
@@ -144,7 +122,8 @@ export function CustomerDetailDrawerContent({
   // 有效方案：ACTIVE 且未過期（已過期會由 backend 標 EXPIRED，這裡只篩 ACTIVE）
   // slim query 只回 ACTIVE 錢包 → filter 結果即全部；失效張數改用
   // _count.planWallets（全部錢包數）− active 數，維持原顯示語意。
-  const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE");
+  const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE" && (!w.expiryDate || toLocalDateStr(w.expiryDate) >= toLocalDateStr()) && w.remainingSessions > 0);
+  const visibleWallets = showInactive ? customer.planWallets : activeWallets;
   const inactiveWalletCount = Math.max(
     0,
     customer._count.planWallets - activeWallets.length,
@@ -152,10 +131,6 @@ export function CustomerDetailDrawerContent({
 
   // 身份異常旗標：來源是 LINE 但實際 LINE 未綁定時提示
   const lineBound = customer.lineLinkStatus === "LINKED";
-  const lineNotificationStatus = getLineNotificationStatus({
-    lineLinkStatus: customer.lineLinkStatus,
-    lineUserId: customer.lineUserId,
-  });
   const identityWarning = customer.authSource === "LINE" && !lineBound;
 
   return (
@@ -170,7 +145,7 @@ export function CustomerDetailDrawerContent({
           <h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
             {customer.name}
           </h2>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-earth-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-earth-500">
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
           </div>
@@ -194,9 +169,9 @@ export function CustomerDetailDrawerContent({
       </header>
 
       {/* Body */}
-      <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-4 space-y-4">
+      <div hidden={view !== "overview"} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-4 space-y-4">
         {readOnly ? (
-          <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
+          <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
             查看模式提供完整閱讀能力，顧客操作請由該店自行完成。
           </div>
         ) : null}
@@ -206,93 +181,33 @@ export function CustomerDetailDrawerContent({
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {!readOnly ? (
               <>
-                <TrialBookingDrawer
-                  preset={{ customerId: customer.id, customerName: customer.name }}
-                  triggerLabel="建立體驗預約"
-                  triggerClassName="rounded-md bg-primary-600 px-3 py-2 text-center text-xs font-medium text-white hover:bg-primary-700"
-                />
-                <Link
-                  href={`/dashboard/customers/${customer.id}#new-booking`}
-                  prefetch={false}
-                  className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
-                >
-                  ＋ 新增預約
-                </Link>
-                <Link
-                  href={`/dashboard/customers/${customer.id}/edit`}
-                  prefetch={false}
-                  className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
-                >
-                  編輯資料
-                </Link>
+                <button type="button" onClick={() => setView("booking")} className="min-h-11 rounded-md bg-primary-700 px-4 text-sm text-white">預約</button>
+                <button type="button" onClick={() => { setAssignOpen(true); planSectionRef.current?.scrollIntoView({block:"start"}); }} className="min-h-11 rounded-md border px-4 text-sm text-primary-700">＋方案</button>
+                {canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded-md border text-sm">編輯</button>}
               </>
             ) : null}
-            <Link
-              href={`/dashboard/customers/${customer.id}`}
-              prefetch={false}
-              className="rounded-md border border-earth-200 bg-white px-3 py-2 text-center text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              完整詳情
-            </Link>
           </div>
-        </section>
-
-        {customer.recentConsumption && <section className="border-t border-earth-100 pt-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-primary-900">最近消費</h3>
-            <Link href={`/dashboard/customers/${customer.id}/records?type=transactions`} prefetch={false} className="text-xs font-medium text-primary-700">查看全部 →</Link>
-          </div>
-          {customer.recentConsumption.length ? <ul className="divide-y divide-earth-100">{customer.recentConsumption.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-xs"><span className="min-w-0"><strong className="block truncate text-earth-800">{item.label}</strong><span className="text-earth-500">{formatTWTime(item.date, { dateOnly: true })} · {item.payment}</span></span><strong className="shrink-0 tabular-nums text-primary-800">NT$ {item.amount.toLocaleString()}</strong></li>)}</ul> : <p className="py-2 text-xs text-earth-500">尚無消費紀錄</p>}
-        </section>}
-
-        <section className="border-t border-earth-100 pt-3">
-          <h3 className="mb-2 text-sm font-semibold text-primary-900">身份狀態</h3>
-          <dl className="grid grid-cols-2 gap-2 text-xs">
-            <FrontendPreviewQuickLink storeId={customer.storeId} personId={customer.id} />
-            <StatusItem label="顧客資料" value="已建立" tone="ok" />
-            <StatusItem
-              label="會員帳號"
-              value={customer.user ? "已註冊" : "尚未註冊"}
-              tone={customer.user ? "ok" : "muted"}
-            />
-            <StatusItem
-              label="LINE 系統通知"
-              value={lineNotificationLabel(lineNotificationStatus)}
-              tone={
-                lineNotificationStatus === "enabled"
-                  ? "ok"
-                  : lineNotificationStatus === "disabled"
-                    ? "muted"
-                    : lineNotificationStatus === "needs_review"
-                      ? "warn"
-                      : "error"
-              }
-            />
-            <StatusItem label="綁定電話" value={phoneDisplay} tone="muted" />
-          </dl>
         </section>
 
         <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
-        <BookingServiceNoteEditor customerId={customer.id} value={customer.serviceNote}
+        <BookingServiceNoteEditor compact customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />
 
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
-          <h3 className="mb-2 text-sm font-semibold text-primary-900">課程方案</h3>
-          {activeWallets.length === 0 ? (
-            <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-xs text-earth-500">
+          <h3 className="mb-2 text-sm font-semibold text-primary-900">方案</h3>
+          {visibleWallets.length === 0 ? (
+            <div className="rounded-lg border border-earth-100 bg-earth-50 p-3 text-sm text-earth-500">
               尚無使用中的方案
             </div>
           ) : (
             <ul className="space-y-2">
-              {activeWallets.map((w) => {
-                const used = w.sessions.filter(
-                  (s) => s.status === "COMPLETED" || s.status === "BACKFILLED",
-                ).length;
-                const total = w.sessions.length || w.plan.sessionCount;
-                const remaining = Math.max(0, total - used);
+              {visibleWallets.map((w) => {
+                const remaining = w.remainingSessions;
+                const available = walletAvailableToBook(w);
+                const reserved = walletPendingCount(w);
                 const expiry = w.expiryDate ? new Date(w.expiryDate) : null;
-                const expired = expiry ? expiry.getTime() < openedAt : false;
+                const expired = expiry ? toLocalDateStr(expiry) < toLocalDateStr() : false;
                 return (
                   <li
                     key={w.id}
@@ -303,9 +218,9 @@ export function CustomerDetailDrawerContent({
                         <div className="truncate text-sm font-medium text-earth-900">
                           {w.plan.name}
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-500">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-500">
                           <span className="tabular-nums">
-                            剩 <span className="font-medium text-earth-800">{remaining}</span> / {total} 堂
+                            剩餘 <span className="font-medium text-earth-800">{remaining}</span>｜已約 {reserved}｜可約 {available}
                           </span>
                           {expiry ? (
                             <span className={`tabular-nums ${expired ? "text-red-600" : ""}`}>
@@ -321,21 +236,27 @@ export function CustomerDetailDrawerContent({
                         <button
                           type="button"
                           onClick={() => handleReorder(w.plan.id)}
-                          className="shrink-0 rounded border border-primary-300 bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700 hover:bg-primary-100"
+                          className="shrink-0 rounded border border-primary-300 bg-primary-50 px-2 py-1 text-sm font-medium text-primary-700 hover:bg-primary-100"
                         >
                           🔁 續購
                         </button>
                       ) : null}
                     </div>
+                    <details className="mt-2">
+                      <summary aria-label={`${w.plan.name}方案操作`} className="min-h-11 cursor-pointer text-sm font-medium text-primary-700">⋯</summary>
+                      <div className="flex flex-wrap gap-2 py-2">
+                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm walletId={w.id} currentRemaining={remaining} onSuccess={onMutated} />}
+                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={onMutated} />}
+                        {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={onMutated} />}
+                      </div>
+                    </details>
                   </li>
                 );
               })}
             </ul>
           )}
           {inactiveWalletCount > 0 ? (
-            <p className="mt-1 text-[11px] text-earth-400">
-              另有 {inactiveWalletCount} 筆已結束方案，可至完整詳情查看
-            </p>
+            <button type="button" onClick={() => setShowInactive(!showInactive)} className="mt-1 min-h-11 text-sm text-earth-600">{showInactive ? "收合歷史方案" : `歷史方案（${inactiveWalletCount}）`}</button>
           ) : null}
 
           {/* 指派新方案 — 預設收合，focus=plan 自動展開 */}
@@ -348,7 +269,7 @@ export function CustomerDetailDrawerContent({
                   <button
                     type="button"
                     onClick={() => setAssignOpen(false)}
-                    className="text-[11px] text-earth-500 hover:text-earth-700"
+                    className="text-sm text-earth-500 hover:text-earth-700"
                   >
                     收合
                   </button>
@@ -363,21 +284,21 @@ export function CustomerDetailDrawerContent({
                   defaultPlanId={preselectedPlanId}
                 />
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAssignOpen(true)}
-                className="w-full rounded-md border border-dashed border-primary-300 bg-primary-50/30 px-3 py-2 text-xs font-medium text-primary-700 hover:bg-primary-50"
-              >
-                ＋ 指派新方案
-              </button>
-            )}
+            ) : null}
             </div>
           ) : null}
         </section>
 
+        <section className="border-t border-earth-100 pt-3">
+          <div className="flex gap-2" role="tablist" aria-label="顧客紀錄">
+            <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className="min-h-11 px-3 text-sm">預約</button>
+            {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className="min-h-11 px-3 text-sm">消費</button>}
+          </div>
+          {recordsTab === "bookings" ? <ul className="divide-y divide-earth-100">{customer.bookings.map(b => <li key={b.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span>{formatTWTime(b.bookingDate, {dateOnly:true})} {b.slotTime}</span><span>{STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}</span></li>)}</ul> : <ul className="divide-y divide-earth-100">{customer.recentConsumption?.map(item => <li key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span>{item.label}<span className="block text-earth-500">{formatTWTime(item.date, {dateOnly:true})} · {item.payment}</span></span><strong>NT$ {item.amount.toLocaleString()}</strong></li>)}</ul>}
+        </section>
+
         {/* 歸屬設定 */}
-        <CollapsibleSection title="歸屬設定" defaultOpen>
+        <CollapsibleSection title="歸屬設定">
           <CustomerAttributionForm
             customerId={customer.id}
             currentStaffId={customer.assignedStaffId}
@@ -404,12 +325,12 @@ export function CustomerDetailDrawerContent({
           }
         >
           {identityWarning ? (
-            <div className="mb-2 rounded-md border border-red-100 bg-red-50 p-2 text-[11px] text-red-700">
+            <div className="mb-2 rounded-md border border-red-100 bg-red-50 p-2 text-sm text-red-700">
               來源是 {AUTH_SOURCE_LABEL[customer.authSource] ?? customer.authSource}，
-              但目前 LINE 未綁定，請至完整詳情頁檢查身份設定。
+              目前 LINE 未綁定。
             </div>
           ) : null}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
             <dt className="text-earth-500">LINE 綁定</dt>
             <dd className="text-earth-800">
               {lineBound ? (
@@ -426,7 +347,7 @@ export function CustomerDetailDrawerContent({
               )}
             </dd>
             <dt className="text-earth-500">LINE User ID</dt>
-            <dd className="break-all font-mono text-[11px] text-earth-600">
+            <dd className="break-all font-mono text-sm text-earth-600">
               {maskLineUserId(customer.lineUserId)}
             </dd>
             <dt className="text-earth-500">來源</dt>
@@ -445,20 +366,12 @@ export function CustomerDetailDrawerContent({
               </>
             ) : null}
           </dl>
-          <div className="mt-2">
-            <Link
-              href={`/dashboard/customers/${customer.id}#identity`}
-              prefetch={false}
-              className="text-[11px] font-medium text-primary-600 hover:text-primary-700"
-            >
-              查看完整身份診斷 →
-            </Link>
-          </div>
+
         </CollapsibleSection>
 
         {/* 成長摘要 */}
         <CollapsibleSection title="成長摘要">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
             <dt className="text-earth-500">推薦人數</dt>
             <dd className="tabular-nums text-earth-800">
               {customer._count.sponsoredCustomers} 人
@@ -484,9 +397,9 @@ export function CustomerDetailDrawerContent({
 
         {/* 系統資訊 */}
         <CollapsibleSection title="系統資訊">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
             <dt className="text-earth-500">Customer ID</dt>
-            <dd className="break-all font-mono text-[11px] text-earth-600">
+            <dd className="break-all font-mono text-sm text-earth-600">
               {customer.id}
             </dd>
             <dt className="text-earth-500">建立日期</dt>
@@ -504,17 +417,11 @@ export function CustomerDetailDrawerContent({
           </dl>
         </CollapsibleSection>
       </div>
+      {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <button type="button" onClick={() => setView("overview")} className="mb-3 min-h-11 px-3 text-sm text-primary-700">← 返回顧客</button>
+        {view === "booking" ? <CreateBookingForm customerId={customer.id} days={customer.bookingDays} activeWallets={activeWallets.map(w => ({id:w.id, planName:w.plan.name, remainingSessions:walletAvailableToBook(w), expiryDate:w.expiryDate ? toLocalDateStr(w.expiryDate) : null}))} simplified onSuccess={() => {onMutated(); setView("overview");}} /> : <EditCustomerForm customer={{id:customer.id, updatedAt:new Date(customer.updatedAt).toISOString(), name:customer.name, phone:customer.phone ?? "", email:customer.email ?? "", gender:customer.gender ?? "", birthday:customer.birthday ? toLocalDateStr(customer.birthday) : "", height:customer.height, serviceNote:customer.serviceNote ?? "", lineName:customer.lineName ?? ""}} onSuccess={() => {onMutated(); setView("overview");}} onCancel={() => setView("overview")} />}
+      </div>}
 
-      {/* Footer */}
-      <footer className="border-t border-earth-100 px-5 py-3">
-        <Link
-          href={`/dashboard/customers/${customer.id}`}
-          prefetch={false}
-          className="text-sm font-medium text-primary-600 hover:text-primary-700"
-        >
-          查看完整詳情 →
-        </Link>
-      </footer>
     </div>
   );
 }

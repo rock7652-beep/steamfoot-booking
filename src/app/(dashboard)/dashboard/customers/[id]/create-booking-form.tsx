@@ -21,11 +21,12 @@ interface Props {
   days: string[];
   activeWallets: ActiveWallet[];
   simplified?: boolean;
+  onSuccess?: () => void;
 }
 
 type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 
-export function CreateBookingForm({ customerId, days, activeWallets, simplified = false }: Props) {
+export function CreateBookingForm({ customerId, days, activeWallets, simplified = false, onSuccess }: Props) {
   const requestKey = useBookingRequestKey();
   const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
   const [calendarRefresh, setCalendarRefresh] = useState(0);
@@ -75,6 +76,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
       }, { requestKey: requestKey.current(), source: "customer-detail" });
       if (result.success) {
         requestKey.complete();
+        onSuccess?.();
         toast.success("預約已建立");
         setCalendarRefresh((count) => count + 1);
         // 重新載入時段（反映新預約）

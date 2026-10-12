@@ -38,11 +38,15 @@ export function EditCustomerForm({
   isSpa = false,
   returnHref,
   returnUrl,
+  onSuccess,
+  onCancel,
 }: {
   customer: CustomerData;
   isSpa?: boolean;
   returnHref?: string;
   returnUrl?: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const [year = "1970", month = "", day = ""] = customer.birthday.split("-");
@@ -89,11 +93,11 @@ export function EditCustomerForm({
       if (result.success) {
         draft.clear();
         toast.success("已儲存");
-        router.push(returnUrl ?? `/dashboard/customers/${customer.id}`);
-        router.refresh();
+        if (onSuccess) onSuccess();
+        else { router.push(returnUrl ?? `/dashboard/customers/${customer.id}`); router.refresh(); }
         return { error: null, existingCustomerId: null };
       }
-      router.refresh();
+      if (!onSuccess) router.refresh();
       toast.error(result.error ?? "更新失敗");
       return {
         error: result.error ?? "更新失敗",
@@ -327,12 +331,14 @@ export function EditCustomerForm({
             </span>
           }
         >
+          {onCancel ? <button type="button" onClick={onCancel} className="min-h-11 rounded border px-4 text-sm">取消</button> : (
           <Link
             href={returnHref ?? `/dashboard/customers/${customer.id}`}
             className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             取消
           </Link>
+          )}
           <button
             type="submit"
             disabled={pending || draft.stale}

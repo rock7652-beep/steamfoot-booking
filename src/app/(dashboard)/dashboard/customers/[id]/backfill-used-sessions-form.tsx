@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { todayLocalDateString } from "@/lib/date-utils";
 
 interface Props {
+  onSuccess?: () => void;
   walletId: string;
   available: number;
   reserved: number;
@@ -18,6 +19,7 @@ export function BackfillUsedSessionsForm({
   available,
   reserved,
   startDateLocal,
+  onSuccess,
 }: Props) {
   const today = todayLocalDateString();
   const [open, setOpen] = useState(false);
@@ -51,6 +53,7 @@ export function BackfillUsedSessionsForm({
       });
 
       if (result.success) {
+        onSuccess?.();
         toast.success(
           `已補登 ${result.data.backfilledCount} 堂，剩餘 ${result.data.remainingAfter} 堂`
         );

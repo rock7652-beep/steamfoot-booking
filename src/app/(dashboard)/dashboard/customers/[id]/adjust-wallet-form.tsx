@@ -5,11 +5,12 @@ import { adjustRemainingSessions } from "@/server/actions/wallet";
 import { toast } from "sonner";
 
 interface Props {
+  onSuccess?: () => void;
   walletId: string;
   currentRemaining: number;
 }
 
-export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
+export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
@@ -20,6 +21,7 @@ export function AdjustWalletForm({ walletId, currentRemaining }: Props) {
       }
       const result = await adjustRemainingSessions(walletId, newRemaining, note || undefined);
       if (result.success) {
+        onSuccess?.();
         toast.success("堂數已更新");
         setOpen(false);
         return { error: null };

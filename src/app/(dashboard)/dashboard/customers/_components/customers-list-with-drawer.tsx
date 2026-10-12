@@ -396,7 +396,7 @@ export function CustomersListWithDrawer({
         open={openId !== null}
         onClose={closeDrawer}
         labelledById={titleId}
-        width={720}
+        width={1000}
       >
         {detail && detail.id === openId ? (
           <CustomerDetailDrawerContent

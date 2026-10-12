@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 interface Props {
+  onSuccess?: () => void;
   walletId: string;
   /** 目前到期日 "YYYY-MM-DD" */
   currentExpiry: string;
@@ -13,7 +14,7 @@ interface Props {
   expired: boolean;
 }
 
-export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Props) {
+export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const todayTW = toLocalDateStr();
   const [newExpiryDate, setNewExpiryDate] = useState(currentExpiry < todayTW ? todayTW : currentExpiry);
@@ -37,6 +38,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
         reason,
       });
       if (result.success) {
+        onSuccess?.();
         toast.success(
           expired ? "到期日已更新，方案已恢復可用" : "方案到期日已更新",
         );
