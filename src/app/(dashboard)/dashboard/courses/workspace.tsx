@@ -23,7 +23,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -245,12 +245,12 @@ export function CourseWorkspace({
   staffAvailabilityExceptions,
   view,
 }: Props) {
-  const [createdSessions,setCreatedSessions]=useState<Session[]>([]);
-  const sessions=useMemo(()=>[...sourceSessions,...createdSessions.filter(session=>!sourceSessions.some(source=>source.id===session.id))],[sourceSessions,createdSessions]);
+  const confirmedSessions=useConfirmedSettingsRows(sourceSessions,session=>session.id,()=>true);
+  const sessions=confirmedSessions.rows;
   function confirmSchedule(result:unknown) {
     if(!result || typeof result!=="object" || !("sessions" in result) || !Array.isArray(result.sessions))return;
     const saved=result.sessions as Session[];
-    setCreatedSessions(previous=>[...previous.filter(session=>!saved.some(item=>item.id===session.id)),...saved]);
+    saved.forEach(session=>confirmedSessions.confirm(session));
   }
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
   const confirmedRooms = useConfirmedSettingsRows(sourceRooms, courseRoomRevision);
