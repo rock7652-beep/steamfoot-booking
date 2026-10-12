@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useEffect, useActionState, useRef } from "react";
 import { createBooking } from "@/server/actions/booking";
@@ -27,6 +28,7 @@ interface Props {
 type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 
 export function CreateBookingForm({ customerId, days, activeWallets, simplified = false, onSuccess }: Props) {
+  const [dirty, setDirty] = useState(false);
   const requestKey = useBookingRequestKey();
   const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
   const [calendarRefresh, setCalendarRefresh] = useState(0);
@@ -75,6 +77,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
         people,
       }, { requestKey: requestKey.current(), source: "customer-detail" });
       if (result.success) {
+        setDirty(false);
         requestKey.complete();
         onSuccess?.();
         toast.success("預約已建立");
@@ -90,8 +93,10 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
     { error: null, success: false }
   );
 
+  useSettingsPanelGuard(dirty, pending);
+
   return (
-    <form action={action} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <form onChange={() => setDirty(true)} action={action} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {state.success && (
         <div className="col-span-4 rounded bg-green-50 px-3 py-2 text-sm text-green-700">
           預約建立成功！

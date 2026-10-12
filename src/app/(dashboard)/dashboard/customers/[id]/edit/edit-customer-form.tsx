@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 
 import { useActionState } from "react";
@@ -109,6 +110,8 @@ export function EditCustomerForm({
     },
     { error: null, existingCustomerId: null },
   );
+
+  useSettingsPanelGuard(draft.dirty, pending);
 
   return (
     <FormShell width="md">
@@ -331,7 +334,7 @@ export function EditCustomerForm({
             </span>
           }
         >
-          {onCancel ? <button type="button" onClick={onCancel} className="min-h-11 rounded border px-4 text-sm">取消</button> : (
+          {onCancel ? <button type="button" onClick={() => { if (draft.discard()) onCancel(); }} className="min-h-11 rounded border px-4 text-sm">取消</button> : (
           <Link
             href={returnHref ?? `/dashboard/customers/${customer.id}`}
             className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"

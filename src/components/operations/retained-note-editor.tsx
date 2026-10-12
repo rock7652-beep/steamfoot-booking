@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useEffect, useRef, useState } from "react";
 import { useRetainedState } from "./operation-scope";
@@ -28,6 +29,7 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const current = saved.source === value ? saved.value : value;
   const dirty = !!draft && (draft.text.trim() || null) !== draft.base;
+  useSettingsPanelGuard(dirty, saving);
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };

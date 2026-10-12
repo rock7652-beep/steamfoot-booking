@@ -3,6 +3,7 @@
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
+import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { CustomersTable, isInactiveRow, type CustomerRow } from "./customers-table";
 import { CustomerDetailDrawerContent } from "./customer-detail-drawer-content";
@@ -61,6 +62,16 @@ export function CustomersListWithDrawer({
   readOnly = false,
 }: Props) {
   const titleId = useId();
+  const visibleCustomerRef = useRef<string | null>(null);
+  const formStates = useRef(new Map<string, SettingsPanelState>());
+  const reportFormState = useCallback((id: string, state: SettingsPanelState | null) => {
+    if (state) formStates.current.set(id, state); else formStates.current.delete(id);
+  }, []);
+  const allowNavigation = useCallback(() => {
+    const states = [...formStates.current.values()];
+    if (states.some(s => s.pending)) return false;
+    return !states.some(s => s.dirty) || window.confirm("尚有未儲存的修改，確定離開？");
+  }, []);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -130,6 +141,8 @@ export function CustomersListWithDrawer({
   // 開啟：cache 命中即時填入；未命中先 skeleton + 背景 fetch。
   const applyOpen = useCallback(
     (customerId: string, f: "plan" | null) => {
+      if (visibleCustomerRef.current && visibleCustomerRef.current !== customerId && !allowNavigation()) return false;
+      visibleCustomerRef.current = customerId;
       setOpenId(customerId);
       setLoadError(null);
       setFocus(f);
@@ -143,7 +156,7 @@ export function CustomersListWithDrawer({
         void fetchDetail(customerId);
       }
     },
-    [cache, fetchDetail, requestGate],
+    [cache, fetchDetail, requestGate, allowNavigation],
   );
 
   // 單一 open 來源：把「外部系統 URL ?customerId=」的實際變化同步成 client
@@ -194,7 +207,7 @@ export function CustomersListWithDrawer({
   const openCustomer = useCallback(
     (customerId: string, f: "plan" | null = null) => {
       // 1) 立即開 Drawer：走既有 cache 命中即時填入 / 未命中先 skeleton + 背景 fetch。
-      applyOpen(customerId, f);
+      if (applyOpen(customerId, f) === false) return;
       // 2) URL 同步走 history.pushState（非 Next 導航）→ 不觸發 server component
       //    re-render / listCustomers 重查，但 ?customerId= 仍寫入網址（refresh /
       //    複製連結 deep-link 可用）。Back/Forward 由下方 popstate effect 同步。
@@ -222,6 +235,8 @@ export function CustomersListWithDrawer({
   // null：close 不更新 Next searchParams，stale 殘值不會觸發 effect 重開，
   // 而下次「真的」導航到同一位（含剛關的那位）時 cid≠null 會被視為變化而開啟。
   const closeDrawer = useCallback(() => {
+    if (!allowNavigation()) return;
+    visibleCustomerRef.current = null;
     setOpenId(null);
     setDetail(null);
     setFocus(null);
@@ -238,7 +253,7 @@ export function CustomersListWithDrawer({
         qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
       );
     }
-  }, [requestGate]);
+  }, [requestGate, allowNavigation]);
 
   // Back / Forward 同步：openCustomer 用 history.pushState 開 Drawer，瀏覽器
   // 上一頁/下一頁需據網址重開/關閉對應 Drawer（取代原 router.push 的 Back 行為），
@@ -392,6 +407,7 @@ export function CustomersListWithDrawer({
         readOnly={readOnly}
       />
 
+      <SettingsPanelContext.Provider value={{report: reportFormState, navigate: () => {}}}>
       <RightSheet presentation="centered"
         open={openId !== null}
         onClose={closeDrawer}
@@ -410,6 +426,7 @@ export function CustomersListWithDrawer({
             readOnly={readOnly}
             focus={focus}
             onClose={closeDrawer}
+            allowNavigation={allowNavigation}
             onMutated={refreshDrawer}
             titleId={titleId}
           />
@@ -419,6 +436,7 @@ export function CustomersListWithDrawer({
             onRetry={() => void fetchDetail(openId)} />
         ) : null}
       </RightSheet>
+      </SettingsPanelContext.Provider>
 
       {canWriteAssign && selectedIds.size > 0 ? (
         <BulkAssignBar

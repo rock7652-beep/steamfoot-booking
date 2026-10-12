@@ -9,7 +9,8 @@ import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { CreateBookingForm } from "../[id]/create-booking-form";
 import { EditCustomerForm } from "../[id]/edit/edit-customer-form";
-import { STATUS_LABEL } from "@/lib/booking-constants";
+import { CustomerPanelSummaryView } from "./customer-panel-summary";
+import { CustomerPanelRecordsList } from "./customer-panel-records";
 
 import { AdjustWalletForm } from "../[id]/adjust-wallet-form";
 import { ExtendWalletExpiryForm } from "../[id]/extend-wallet-expiry-form";
@@ -48,6 +49,7 @@ interface Props {
   /** "plan" → 自動展開「指派新方案」並滾到方案區 */
   focus?: "plan" | null;
   onClose: () => void;
+  allowNavigation?: () => boolean;
   /** drawer 內成功操作後 → 父層只 refetch 本人 slim 資料（不整頁 refresh） */
   onMutated: () => void;
   titleId: string;
@@ -82,12 +84,15 @@ export function CustomerDetailDrawerContent({
   readOnly = false,
   focus,
   onClose,
+  allowNavigation = () => true,
   onMutated,
   titleId,
 }: Props) {
+  const [revision, setRevision] = useState(0);
+  const handleMutated = () => { setRevision(v => v+1); onMutated(); };
   const [showInactive, setShowInactive] = useState(false);
   const [view, setView] = useState<"overview" | "booking" | "edit">("overview");
-  const [recordsTab, setRecordsTab] = useState<"bookings" | "consumption">("bookings");
+  const [recordsTab, setRecordsTab] = useState<"bookings" | "consumption">(customer.canReadBookings ? "bookings" : "consumption");
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
 
@@ -142,9 +147,9 @@ export function CustomerDetailDrawerContent({
         className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-4 outline-none"
       >
         <div className="min-w-0">
-          <h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
+          <div className="flex items-center gap-2"><h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
             {customer.name}
-          </h2>
+          </h2>{!readOnly && canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded text-sm text-primary-700">✎</button>}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-earth-500">
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
@@ -181,17 +186,14 @@ export function CustomerDetailDrawerContent({
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {!readOnly ? (
               <>
-                <button type="button" onClick={() => setView("booking")} className="min-h-11 rounded-md bg-primary-700 px-4 text-sm text-white">預約</button>
-                <button type="button" onClick={() => { setAssignOpen(true); planSectionRef.current?.scrollIntoView({block:"start"}); }} className="min-h-11 rounded-md border px-4 text-sm text-primary-700">＋方案</button>
-                {canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded-md border text-sm">編輯</button>}
+                {customer.canBook && <button type="button" onClick={() => setView("booking")} className="min-h-11 rounded-md bg-primary-700 px-4 text-sm text-white">預約</button>}
+                {customer.canAssignPlan && <button type="button" onClick={() => { setAssignOpen(true); planSectionRef.current?.scrollIntoView({block:"start"}); }} className="min-h-11 rounded-md border px-4 text-sm text-primary-700">＋方案</button>}
               </>
             ) : null}
           </div>
         </section>
 
-        <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
-        <BookingServiceNoteEditor compact customerId={customer.id} value={customer.serviceNote}
-          canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />
+        <CustomerPanelSummaryView customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
@@ -232,22 +234,23 @@ export function CustomerDetailDrawerContent({
                           )}
                         </div>
                       </div>
-                      {!readOnly && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
+                    </div>
+                    <details className="mt-2">
+                      <summary aria-label={`${w.plan.name}方案操作`} className="min-h-11 cursor-pointer text-sm font-medium text-primary-700">⋯</summary>
+                      <div className="flex flex-wrap gap-2 py-2">
+                      {!readOnly && customer.canAssignPlan && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
                         <button
                           type="button"
                           onClick={() => handleReorder(w.plan.id)}
                           className="shrink-0 rounded border border-primary-300 bg-primary-50 px-2 py-1 text-sm font-medium text-primary-700 hover:bg-primary-100"
                         >
-                          🔁 續購
+                          續購同方案
                         </button>
                       ) : null}
-                    </div>
-                    <details className="mt-2">
-                      <summary aria-label={`${w.plan.name}方案操作`} className="min-h-11 cursor-pointer text-sm font-medium text-primary-700">⋯</summary>
-                      <div className="flex flex-wrap gap-2 py-2">
-                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm walletId={w.id} currentRemaining={remaining} onSuccess={onMutated} />}
-                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={onMutated} />}
-                        {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={onMutated} />}
+
+                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm walletId={w.id} currentRemaining={remaining} onSuccess={handleMutated} />}
+                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={handleMutated} />}
+                        {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={handleMutated} />}
                       </div>
                     </details>
                   </li>
@@ -260,7 +263,7 @@ export function CustomerDetailDrawerContent({
           ) : null}
 
           {/* 指派新方案 — 預設收合，focus=plan 自動展開 */}
-          {!readOnly ? (
+          {!readOnly && customer.canAssignPlan ? (
             <div className="mt-3">
             {assignOpen ? (
               <div className="border-t border-earth-100 pt-3">
@@ -268,7 +271,7 @@ export function CustomerDetailDrawerContent({
                   <h4 className="text-sm font-semibold text-primary-900">＋ 指派新方案</h4>
                   <button
                     type="button"
-                    onClick={() => setAssignOpen(false)}
+                    onClick={() => { if (allowNavigation()) setAssignOpen(false); }}
                     className="text-sm text-earth-500 hover:text-earth-700"
                   >
                     收合
@@ -280,7 +283,7 @@ export function CustomerDetailDrawerContent({
                   plans={plans}
                   canDiscount={canDiscount}
                   alwaysOpen
-                  onSuccess={() => { setAssignOpen(false); onMutated(); }}
+                  onSuccess={() => { setAssignOpen(false); handleMutated(); }}
                   defaultPlanId={preselectedPlanId}
                 />
               </div>
@@ -289,12 +292,16 @@ export function CustomerDetailDrawerContent({
           ) : null}
         </section>
 
+        <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
+        <BookingServiceNoteEditor compact customerId={customer.id} value={customer.serviceNote}
+          canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
+
         <section className="border-t border-earth-100 pt-3">
           <div className="flex gap-2" role="tablist" aria-label="顧客紀錄">
-            <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className="min-h-11 px-3 text-sm">預約</button>
-            {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className="min-h-11 px-3 text-sm">消費</button>}
+            {customer.canReadBookings && <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "bookings" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>預約</button>}
+            {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "consumption" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>消費</button>}
           </div>
-          {recordsTab === "bookings" ? <ul className="divide-y divide-earth-100">{customer.bookings.map(b => <li key={b.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span>{formatTWTime(b.bookingDate, {dateOnly:true})} {b.slotTime}</span><span>{STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}</span></li>)}</ul> : <ul className="divide-y divide-earth-100">{customer.recentConsumption?.map(item => <li key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span>{item.label}<span className="block text-earth-500">{formatTWTime(item.date, {dateOnly:true})} · {item.payment}</span></span><strong>NT$ {item.amount.toLocaleString()}</strong></li>)}</ul>}
+          {(recordsTab === "bookings" ? customer.canReadBookings : customer.recentConsumption !== null) && <CustomerPanelRecordsList key={recordsTab} customerId={customer.id} kind={recordsTab} revision={String(revision) + new Date(customer.updatedAt).toISOString() + JSON.stringify(customer.planWallets.map(w => [w.id,w.remainingSessions,w.expiryDate]))} />}
         </section>
 
         {/* 歸屬設定 */}
@@ -418,8 +425,8 @@ export function CustomerDetailDrawerContent({
         </CollapsibleSection>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <button type="button" onClick={() => setView("overview")} className="mb-3 min-h-11 px-3 text-sm text-primary-700">← 返回顧客</button>
-        {view === "booking" ? <CreateBookingForm customerId={customer.id} days={customer.bookingDays} activeWallets={activeWallets.map(w => ({id:w.id, planName:w.plan.name, remainingSessions:walletAvailableToBook(w), expiryDate:w.expiryDate ? toLocalDateStr(w.expiryDate) : null}))} simplified onSuccess={() => {onMutated(); setView("overview");}} /> : <EditCustomerForm customer={{id:customer.id, updatedAt:new Date(customer.updatedAt).toISOString(), name:customer.name, phone:customer.phone ?? "", email:customer.email ?? "", gender:customer.gender ?? "", birthday:customer.birthday ? toLocalDateStr(customer.birthday) : "", height:customer.height, serviceNote:customer.serviceNote ?? "", lineName:customer.lineName ?? ""}} onSuccess={() => {onMutated(); setView("overview");}} onCancel={() => setView("overview")} />}
+        <button type="button" onClick={() => { if (allowNavigation()) setView("overview"); }} className="mb-3 min-h-11 px-3 text-sm text-primary-700">← 返回顧客</button>
+        {view === "booking" ? <CreateBookingForm customerId={customer.id} days={customer.bookingDays} activeWallets={activeWallets.map(w => ({id:w.id, planName:w.plan.name, remainingSessions:walletAvailableToBook(w), expiryDate:w.expiryDate ? toLocalDateStr(w.expiryDate) : null}))} simplified onSuccess={() => {handleMutated(); setView("overview");}} /> : <EditCustomerForm customer={{id:customer.id, updatedAt:new Date(customer.updatedAt).toISOString(), name:customer.name, phone:customer.phone ?? "", email:customer.email ?? "", gender:customer.gender ?? "", birthday:customer.birthday ? toLocalDateStr(customer.birthday) : "", height:customer.height, serviceNote:customer.serviceNote ?? "", lineName:customer.lineName ?? ""}} onSuccess={() => {handleMutated(); setView("overview");}} onCancel={() => setView("overview")} />}
       </div>}
 
     </div>

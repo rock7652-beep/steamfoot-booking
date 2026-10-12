@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
 import { adjustRemainingSessions } from "@/server/actions/wallet";
@@ -12,6 +13,8 @@ interface Props {
 
 export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
+  const [newRemaining, setNewRemaining] = useState(currentRemaining);
+  const [note, setNote] = useState("");
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
       const newRemaining = Number(formData.get("newRemaining"));
@@ -32,6 +35,7 @@ export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Prop
     { error: null }
   );
 
+  useSettingsPanelGuard(open && (newRemaining !== currentRemaining || !!note), pending);
   if (!open) {
     return (
       <button
@@ -51,7 +55,8 @@ export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Prop
           name="newRemaining"
           type="number"
           min="0"
-          defaultValue={currentRemaining}
+          value={newRemaining}
+          onChange={e => setNewRemaining(Number(e.target.value))}
           className="mt-1 w-20 rounded border border-earth-300 px-2 py-1 text-sm"
         />
       </div>
@@ -59,10 +64,12 @@ export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Prop
         <label className="block text-xs text-earth-500">原因</label>
         <input
           name="note"
+          value={note} onChange={e => setNote(e.target.value)}
           placeholder="調整原因"
           className="mt-1 rounded border border-earth-300 px-2 py-1 text-sm"
         />
       </div>
+      <p className="w-full text-sm text-earth-600">剩餘 {currentRemaining} → {newRemaining} 堂</p>
       {state.error && <span className="w-full text-xs text-red-600">{state.error}</span>}
       <button
         type="submit"
@@ -71,7 +78,7 @@ export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Prop
       >
         {pending ? "更新中…" : "確認"}
       </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-xs text-earth-400 hover:text-earth-600">
+      <button type="button" disabled={pending} onClick={() => { if ((newRemaining !== currentRemaining || note) && !window.confirm("捨棄尚未儲存的修改？")) return; setNewRemaining(currentRemaining); setNote(""); setOpen(false); }} className="text-xs text-earth-400 hover:text-earth-600">
         取消
       </button>
     </form>

@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
 import { editWalletExpiry } from "@/server/actions/wallet-expiry";
@@ -16,6 +17,7 @@ interface Props {
 
 export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const todayTW = toLocalDateStr();
   const [newExpiryDate, setNewExpiryDate] = useState(currentExpiry < todayTW ? todayTW : currentExpiry);
 
@@ -51,13 +53,14 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuc
     { error: null },
   );
 
+  useSettingsPanelGuard(open && (newExpiryDate !== (currentExpiry < todayTW ? todayTW : currentExpiry) || !!reason), pending);
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
       >
-        📅 編輯到期日
+        延長到期
       </button>
     );
   }
@@ -90,6 +93,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuc
           <label className="block text-xs font-medium text-earth-600">修改原因（必填）</label>
           <input
             name="reason"
+            value={reason} onChange={e => setReason(e.target.value)}
             required
             maxLength={500}
             placeholder="例：請假展延／登記錯誤／與顧客確認後調整"
@@ -122,7 +126,10 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuc
         </button>
         <button
           type="button"
+          disabled={pending}
           onClick={() => {
+            if ((reason || newExpiryDate !== (currentExpiry < todayTW ? todayTW : currentExpiry)) && !window.confirm("捨棄尚未儲存的修改？")) return;
+            setReason("");
             setNewExpiryDate(currentExpiry < todayTW ? todayTW : currentExpiry);
             setOpen(false);
           }}

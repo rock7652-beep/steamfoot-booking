@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
 import { backfillUsedSessions } from "@/server/actions/wallet";
@@ -23,6 +24,7 @@ export function BackfillUsedSessionsForm({
 }: Props) {
   const today = todayLocalDateString();
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const [count, setCount] = useState(1);
   const [occurredAt, setOccurredAt] = useState(today);
 
@@ -68,6 +70,7 @@ export function BackfillUsedSessionsForm({
     { error: null }
   );
 
+  useSettingsPanelGuard(open && (count !== 1 || occurredAt !== today || !!reason), pending);
   if (!open) {
     return (
       <button
@@ -116,7 +119,7 @@ export function BackfillUsedSessionsForm({
         <div className="flex-1 min-w-[140px]">
           <label className="block text-xs text-earth-500">原因</label>
           <input
-            name="reason"
+            name="reason" value={reason} onChange={e => setReason(e.target.value)}
             placeholder="例：紙本卡轉線上"
             maxLength={200}
             className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
@@ -160,7 +163,7 @@ export function BackfillUsedSessionsForm({
         </button>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          disabled={pending} onClick={() => { if ((count !== 1 || occurredAt !== today || reason) && !window.confirm("捨棄尚未儲存的修改？")) return; setCount(1); setOccurredAt(today); setReason(""); setOpen(false); }}
           className="text-xs text-earth-400 hover:text-earth-600"
         >
           取消

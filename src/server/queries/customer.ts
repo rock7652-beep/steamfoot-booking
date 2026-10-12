@@ -390,6 +390,10 @@ export async function getCustomerDrawerDetailForUser(
   customerId: string,
   activeStoreId?: string | null,
 ) {
+  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet] = await Promise.all([
+    checkPermission(user.role,user.staffId,"booking.read"), checkPermission(user.role,user.staffId,"booking.create"),
+    checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),
+  ]);
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     include: {
@@ -403,7 +407,7 @@ export async function getCustomerDrawerDetailForUser(
           planWallets: true,
         },
       },
-      bookings: { orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }], take: 50, select: { id: true, bookingDate: true, slotTime: true, bookingStatus: true, bookingType: true } },
+      bookings: canReadBookings ? { orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }], take: 50, select: { id: true, bookingDate: true, slotTime: true, bookingStatus: true, bookingType: true } } : false,
       planWallets: {
         
         include: {
@@ -432,7 +436,7 @@ export async function getCustomerDrawerDetailForUser(
   const config = await prisma.shopConfig.findUnique({ where: { storeId: customer.storeId }, select: { bookableUntilDate: true } });
   const bookingDays = enumerateBookableDates(toLocalDateStr(), resolveBookableUntilDate(config?.bookableUntilDate));
   const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
-  if (!canReadConsumption) return { ...customer, bookingDays, recentConsumption: null, canAdjustWallet: await checkPermission(user.role, user.staffId, "wallet.adjust") };
+  if (!canReadConsumption) return { ...customer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
   const [transactions, cashbookEntries] = await Promise.all([
     prisma.transaction.findMany({
       where: { storeId: customer.storeId, customerId: customer.id },
@@ -470,7 +474,7 @@ export async function getCustomerDrawerDetailForUser(
   ].sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime()).slice(0, 5)
     .map((row) => ({ id: row.id, date: row.date, label: row.label, amount: row.amount, payment: row.payment }));
 
-  return { ...customer, bookingDays, recentConsumption, canAdjustWallet: await checkPermission(user.role, user.staffId, "wallet.adjust") };
+  return { ...customer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption, canAdjustWallet };
 }
 
 // ============================================================
