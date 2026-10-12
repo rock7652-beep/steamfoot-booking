@@ -9,6 +9,7 @@ import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunL
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
 interface LineBindingSectionProps {
+  compact?: boolean;
   onUpdated?: () => void;
   customerId: string;
   lineLinkStatus: string;
@@ -24,6 +25,7 @@ interface LineBindingSectionProps {
 }
 
 export function LineBindingSection({
+  compact = false,
   customerId,
   lineLinkStatus,
   lineUserId,
@@ -36,6 +38,7 @@ export function LineBindingSection({
   onUpdated,
 }: LineBindingSectionProps) {
   const router = useRouter();
+  const [helpOpen,setHelpOpen] = useState(false);
   const [bindingCode, setBindingCode] = useState(initialCode);
   const [codeCreatedAt, setCodeCreatedAt] = useState(initialCodeCreatedAt);
   const [pending, setPending] = useState(false);
@@ -234,6 +237,14 @@ export function LineBindingSection({
     if (uid.length <= 8) return uid.slice(0, 4) + "****";
     return uid.slice(0, 4) + "****" + uid.slice(-4);
   }
+
+  if(compact) return <div className="space-y-2 text-sm">
+    <div className="flex min-h-11 flex-wrap items-center gap-3"><span>LINE：{status === "LINKED" ? "已綁定" : status === "BLOCKED" ? "顧客已封鎖" : "未綁定"}</span><button type="button" disabled={pending} onClick={()=>setHelpOpen(!helpOpen)} className="min-h-11 px-3 text-primary-700">{helpOpen ? "收合" : status === "LINKED" ? "重新綁定" : "協助綁定"}</button></div>
+    {helpOpen && <div className="space-y-2 border-t border-earth-100 py-2">
+      {status === "BLOCKED" ? <p>請顧客解除封鎖並重新加入本店官方LINE。</p> : status === "UNLINKED" ? <><p>請顧客在本店官方LINE輸入自己的手機號碼完成綁定。</p>{bindingCode ? <div className="flex flex-wrap items-center gap-2"><span>綁定指令：綁定 {bindingCode}</span>{expiryText && <span>{expiryText}</span>}{expiryText === "已過期" && <button type="button" disabled={pending} onClick={handleGenerateCode} className="min-h-11 px-3 text-primary-700">重新產生綁定碼</button>}<button type="button" onClick={handleCopy} className="min-h-11 px-3 text-primary-700">{copied ? "已複製" : "複製指令"}</button></div> : <button type="button" disabled={pending} onClick={handleGenerateCode} className="min-h-11 px-3 text-primary-700">產生綁定碼</button>}</> : !canManageLineRebind || !canRunLineRebindDryRun ? <p>目前無法重新綁定，請聯絡總部協助。</p> : <><p>請先核對顧客姓名與手機，再請顧客在本店官方LINE輸入自己的手機號碼。</p>{!activeLineRebindRequest ? <button type="button" disabled={pending} onClick={handleCreateRebindRequest} className="min-h-11 px-3 text-primary-700">開始重新綁定</button> : <><p>{activeLineRebindRequest.status === "CANDIDATE_CAPTURED" ? "已收到顧客資料，請確認綁定。" : "等待顧客輸入手機號碼。"}</p>{activeLineRebindRequest.status === "CANDIDATE_CAPTURED" && <button type="button" disabled={pending} onClick={handleDryRun} className="min-h-11 px-3 text-primary-700">檢查綁定資料</button>}{activeDryRun?.overall === "READY_FOR_REBIND" && <button type="button" disabled={pending} onClick={()=>setExecuteConfirmOpen(true)} className="min-h-11 px-3 text-primary-700">確認重新綁定</button>}<button type="button" disabled={pending} onClick={handleCancelRebindRequest} className="min-h-11 px-3 text-earth-600">取消重新綁定</button>{activeDryRun && activeDryRun.overall !== "READY_FOR_REBIND" && <p>目前無法重新綁定，請聯絡總部協助。</p>}</>}
+      {executeConfirmOpen && <div className="space-y-2"><p>確認後，通知會改送至這次核對的LINE帳號。</p><label>輸入「確認重新綁定」<input value={executeConfirmation} onChange={event=>setExecuteConfirmation(event.target.value)} disabled={pending} className="min-h-11 w-full rounded border px-3"/></label><button type="button" disabled={pending || executeConfirmation !== "確認重新綁定"} onClick={handleExecuteRebind} className="min-h-11 px-3 text-primary-700">確認重新綁定</button><button type="button" disabled={pending} onClick={()=>{setExecuteConfirmOpen(false);setExecuteConfirmation("");}} className="min-h-11 px-3">取消</button></div>}</>}
+    </div>}{message && <p role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
+  </div>;
 
   return (
     <div className="mt-4 border-t pt-4">

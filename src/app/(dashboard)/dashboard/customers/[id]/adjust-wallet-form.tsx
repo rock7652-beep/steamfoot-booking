@@ -6,13 +6,17 @@ import { adjustRemainingSessions } from "@/server/actions/wallet";
 import { toast } from "sonner";
 
 interface Props {
+  controlledOpen?: boolean;
+  onOpenChange?: (open:boolean)=>void;
   onSuccess?: () => void;
   walletId: string;
   currentRemaining: number;
 }
 
-export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Props) {
-  const [open, setOpen] = useState(false);
+export function AdjustWalletForm({ walletId, currentRemaining, onSuccess, controlledOpen, onOpenChange }: Props) {
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value:boolean) => { if(onOpenChange)onOpenChange(value);else setLocalOpen(value); };
   const [newRemaining, setNewRemaining] = useState(currentRemaining);
   const [note, setNote] = useState("");
   const [state, action, pending] = useActionState(
@@ -42,7 +46,7 @@ export function AdjustWalletForm({ walletId, currentRemaining, onSuccess }: Prop
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-earth-400 hover:bg-earth-100"
       >
-        調整堂數
+        調整剩餘堂數
       </button>
     );
   }

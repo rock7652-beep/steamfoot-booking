@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { toast } from "sonner";
 import { updateCustomerAssignment, searchReferrerCandidates } from "@/server/actions/customer";
 type StaffOption = {id:string;displayName:string};
@@ -45,6 +46,8 @@ export function CustomerAttributionForm({
   const dirty =
     staffId !== (currentStaffId ?? "") ||
     (sponsor?.id ?? null) !== (currentSponsor?.id ?? null);
+
+  useSettingsPanelGuard(dirty || !!query.trim(), saving);
 
   // 推薦人搜尋：姓名或手機（部分即可），debounce 300ms 避免逐字打 query。
   // sponsor 已選或 query 為空時不查；以 active flag 丟棄過期回應避免 race。

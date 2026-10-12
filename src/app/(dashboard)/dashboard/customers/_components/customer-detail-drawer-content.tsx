@@ -60,12 +60,7 @@ interface Props {
   titleId: string;
 }
 
-const AUTH_SOURCE_LABEL: Record<string, string> = {
-  MANUAL: "後台手動建立",
-  LINE: "LINE 註冊",
-  GOOGLE: "Google 登入",
-  EMAIL: "Email 註冊",
-};
+
 
 function formatPhoneForStaff(phone: string | null | undefined): string {
   if (!phone) return "—";
@@ -73,11 +68,7 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
   return phone;
 }
 
-function maskLineUserId(id: string | null): string {
-  if (!id) return "—";
-  if (id.length <= 10) return id;
-  return `${id.slice(0, 6)}…${id.slice(-4)}`;
-}
+
 
 export function CustomerDetailDrawerContent({
   customer,
@@ -98,7 +89,9 @@ export function CustomerDetailDrawerContent({
   const handleMutated = () => { setRevision(v => v+1); onMutated(); };
   const [showInactive, setShowInactive] = useState(false);
   const [view, setView] = useState<"overview" | "booking" | "edit">("overview");
-  const [lineOpen,setLineOpen] = useState(false);
+  const [activeEditor,setActiveEditor] = useState<string | null>(null);
+  const editingAttribution=activeEditor === "attribution";
+  const setEditingAttribution=(open:boolean)=>setActiveEditor(open ? "attribution" : null);
   const [recordsTab, setRecordsTab] = useState<"bookings" | "consumption">(customer.canReadBookings ? "bookings" : "consumption");
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
@@ -142,8 +135,6 @@ export function CustomerDetailDrawerContent({
   );
 
   // 身份異常旗標：來源是 LINE 但實際 LINE 未綁定時提示
-  const lineBound = customer.lineLinkStatus === "LINKED";
-  const identityWarning = customer.authSource === "LINE" && !lineBound;
 
   return (
     <div className="@container/customer-detail flex h-full min-h-0 flex-col">
@@ -189,6 +180,10 @@ export function CustomerDetailDrawerContent({
           </div>
         ) : null}
 
+        <section aria-label="顧客歸屬" className="border-b border-earth-100">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm"><span>歸屬店長：{staffOptions.find(staff=>staff.id===customer.assignedStaffId)?.displayName ?? "未指派"}</span><span>推薦人：{sponsor?.name ?? "未設定"}</span>{canAssign && !readOnly && <button type="button" onClick={()=>{if(allowNavigation())setEditingAttribution(!editingAttribution);}} className="min-h-11 px-3 text-primary-700">{editingAttribution ? "收合" : "修改"}</button>}</div>
+          {editingAttribution && <CustomerAttributionForm customerId={customer.id} currentStaffId={customer.assignedStaffId} currentSponsor={sponsor ? {id:sponsor.id,name:sponsor.name} : null} staffOptions={staffOptions} canAssign={canAssign && !readOnly} readOnly={readOnly} onSaved={()=>{setEditingAttribution(false);handleMutated();}} />}
+        </section>
         <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
 
@@ -246,8 +241,8 @@ export function CustomerDetailDrawerContent({
                         </div>
                       </div>
                     </div>
-                    <details className="group shrink-0 max-w-full">
-                      <summary aria-label={`${w.plan.name}方案操作`} className="flex min-h-11 cursor-pointer list-none items-center justify-end rounded-md border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">管理方案</summary>
+                    <details className="group shrink-0 max-w-full open:w-full">
+                      <summary aria-label={`${w.plan.name}方案操作`} className="inline-flex w-fit min-h-11 cursor-pointer list-none items-center rounded-md border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">管理方案</summary>
                       <div className="flex flex-wrap gap-2 border-t border-earth-100 py-2 mt-2 [&_button]:min-h-11">
                       {!readOnly && customer.canAssignPlan && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
                         <button
@@ -259,9 +254,9 @@ export function CustomerDetailDrawerContent({
                         </button>
                       ) : null}
 
-                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm walletId={w.id} currentRemaining={remaining} onSuccess={handleMutated} />}
-                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={handleMutated} />}
-                        {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={handleMutated} />}
+                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm controlledOpen={activeEditor === `${w.id}:adjust`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:adjust` : null);}} walletId={w.id} currentRemaining={remaining} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
+                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm controlledOpen={activeEditor === `${w.id}:backfill`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:backfill` : null);}} walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
+                        {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm controlledOpen={activeEditor === `${w.id}:expiry`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:expiry` : null);}} walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet} onMutated={handleMutated} />
                       </div>
                     </details>
@@ -318,132 +313,10 @@ export function CustomerDetailDrawerContent({
         <section aria-label="更多資料" className="space-y-1 border-t border-earth-100 pt-2">
         <CollapsibleSection title="基本資料">
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
+            {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].filter(([,value])=>!!value && value !== "—").map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
           </dl>
         </CollapsibleSection>
-        {/* 歸屬設定 */}
-        <CollapsibleSection title="歸屬設定">
-          <CustomerAttributionForm
-            customerId={customer.id}
-            currentStaffId={customer.assignedStaffId}
-            currentSponsor={
-              sponsor ? { id: sponsor.id, name: sponsor.name } : null
-            }
-            staffOptions={staffOptions}
-            canAssign={canAssign && !readOnly}
-            readOnly={readOnly}
-            onSaved={onMutated}
-          />
-        </CollapsibleSection>
-
-        {/* 身份 / LINE 綁定 */}
-        <CollapsibleSection
-          title="LINE 與追蹤"
-          onOpen={()=>setLineOpen(true)}
-          defaultOpen={identityWarning}
-          badge={
-            identityWarning ? (
-              <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
-                需檢查
-              </span>
-            ) : null
-          }
-        >
-          {identityWarning ? (
-            <div className="mb-2 rounded-md border border-red-100 bg-red-50 p-2 text-sm text-red-700">
-              來源是 {AUTH_SOURCE_LABEL[customer.authSource] ?? customer.authSource}，
-              目前 LINE 未綁定。
-            </div>
-          ) : null}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-            <dt className="text-earth-500">LINE 綁定</dt>
-            <dd className="text-earth-800">
-              {lineBound ? (
-                <>
-                  已綁定
-                  {customer.lineLinkedAt ? (
-                    <span className="ml-1 text-earth-400">
-                      ({formatTWTime(customer.lineLinkedAt, { dateOnly: true })})
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                <span className="text-earth-500">未綁定</span>
-              )}
-            </dd>
-            <dt className="text-earth-500">LINE User ID</dt>
-            <dd className="break-all font-mono text-sm text-earth-600">
-              {maskLineUserId(customer.lineUserId)}
-            </dd>
-            <dt className="text-earth-500">來源</dt>
-            <dd className="text-earth-800">
-              {AUTH_SOURCE_LABEL[customer.authSource] ?? customer.authSource}
-            </dd>
-            {customer.user?.email ? (
-              <>
-                <dt className="text-earth-500">Email</dt>
-                <dd className="break-all text-earth-800">{customer.user.email}</dd>
-              </>
-            ) : customer.email ? (
-              <>
-                <dt className="text-earth-500">Email</dt>
-                <dd className="break-all text-earth-800">{customer.email}</dd>
-              </>
-            ) : null}
-          </dl>
-
-        <CustomerPanelAdvanced embedded active={lineOpen || identityWarning} customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
-        </CollapsibleSection>
-
-        {/* 成長摘要 */}
-        <CollapsibleSection title="成長摘要">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-            <dt className="text-earth-500">推薦人數</dt>
-            <dd className="tabular-nums text-earth-800">
-              {customer._count.sponsoredCustomers} 人
-            </dd>
-            <dt className="text-earth-500">累積到店</dt>
-            <dd className="tabular-nums text-earth-800">
-              {customer._count.bookings} 次
-            </dd>
-            <dt className="text-earth-500">行動點數</dt>
-            <dd className="tabular-nums text-earth-800">{customer.totalPoints}</dd>
-            <dt className="text-earth-500">人才階段</dt>
-            <dd className="text-earth-800">{customer.talentStage}</dd>
-            {customer.lastVisitAt ? (
-              <>
-                <dt className="text-earth-500">最近來店</dt>
-                <dd className="tabular-nums text-earth-800">
-                  {formatTWTime(customer.lastVisitAt, { dateOnly: true })}
-                </dd>
-              </>
-            ) : null}
-          </dl>
-        </CollapsibleSection>
-
-
-
-        {/* 系統資訊 */}
-        <CollapsibleSection title="進階資訊">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-            <dt className="text-earth-500">Customer ID</dt>
-            <dd className="break-all font-mono text-sm text-earth-600">
-              {customer.id}
-            </dd>
-            <dt className="text-earth-500">建立日期</dt>
-            <dd className="tabular-nums text-earth-800">
-              {formatTWTime(customer.createdAt, { dateOnly: true })}
-            </dd>
-            <dt className="text-earth-500">最後更新</dt>
-            <dd className="tabular-nums text-earth-800">
-              {formatTWTime(customer.updatedAt, { dateOnly: true })}
-            </dd>
-            <dt className="text-earth-500">登入帳號狀態</dt>
-            <dd className="text-earth-800">
-              {customer.user?.status ?? "—"}
-            </dd>
-          </dl>
-        </CollapsibleSection>
+        <CustomerPanelAdvanced managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         </section>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">

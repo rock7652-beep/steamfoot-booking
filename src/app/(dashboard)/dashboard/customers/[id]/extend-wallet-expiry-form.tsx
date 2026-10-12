@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 interface Props {
+  controlledOpen?: boolean;
+  onOpenChange?: (open:boolean)=>void;
   onSuccess?: () => void;
   walletId: string;
   /** 目前到期日 "YYYY-MM-DD" */
@@ -15,8 +17,10 @@ interface Props {
   expired: boolean;
 }
 
-export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuccess }: Props) {
-  const [open, setOpen] = useState(false);
+export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuccess, controlledOpen, onOpenChange }: Props) {
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value:boolean) => { if(onOpenChange)onOpenChange(value);else setLocalOpen(value); };
   const [reason, setReason] = useState("");
   const todayTW = toLocalDateStr();
   const [newExpiryDate, setNewExpiryDate] = useState(currentExpiry < todayTW ? todayTW : currentExpiry);
@@ -60,7 +64,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuc
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
       >
-        延長到期
+        延長期限
       </button>
     );
   }

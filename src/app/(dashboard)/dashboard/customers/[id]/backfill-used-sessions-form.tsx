@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { todayLocalDateString } from "@/lib/date-utils";
 
 interface Props {
+  controlledOpen?: boolean;
+  onOpenChange?: (open:boolean)=>void;
   onSuccess?: () => void;
   walletId: string;
   available: number;
@@ -21,9 +23,12 @@ export function BackfillUsedSessionsForm({
   reserved,
   startDateLocal,
   onSuccess,
+  controlledOpen, onOpenChange,
 }: Props) {
   const today = todayLocalDateString();
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value:boolean) => { if(onOpenChange)onOpenChange(value);else setLocalOpen(value); };
   const [reason, setReason] = useState("");
   const [count, setCount] = useState(1);
   const [occurredAt, setOccurredAt] = useState(today);
@@ -77,7 +82,7 @@ export function BackfillUsedSessionsForm({
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:border-amber-400 hover:bg-amber-100"
       >
-        補登已使用堂數
+        補登已上課
       </button>
     );
   }
@@ -88,7 +93,7 @@ export function BackfillUsedSessionsForm({
   return (
     <form action={action} className="space-y-2 rounded border border-amber-200 bg-amber-50/40 p-3">
       <div className="text-[11px] font-medium text-amber-800">
-        補登已使用堂數（紙本卡轉線上）
+        補登已上課（紙本卡轉線上）
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
