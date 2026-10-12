@@ -43,7 +43,9 @@ React best-practices查核：沿用共用骨架與provider；hooks固定順序�
 
 ## 阻擋與下一步
 
-依使用者原要求「遠端發布、資料庫或安全設定依具體範圍另確認」，下一步確認範圍為：只推送此支線、建立一個Draft PR；若做隔離Preview，只將本支線加入既有精確分支隔離白名單，沿用既有隔離DB、通知封鎖與migrations skipped守門，不新增帳號、改DB、安全設定或正式合併。需先檢查現有Preview guards、CI與store fixture可用性，再提出精確Preview差異；尚未修改任何白名單。
+使用者已追加授權「允許，直到可正式上線前」：可推送此支線、建立一個Draft PR及完成隔離Preview。正式合併、DB寫入／DDL、重設或新增帳號及安全設定變更不在授權內。Preview只將此支線加入既有精確分支隔離白名單，沿用既有隔離DB、通知封鎖與migrations skipped守門。
+
+發布前整合main `9216901e1c7724a01e4e42bc8fe354fef6c0a0e6`；保留新增課程／教師設定與完整vercel.json。`scripts/consultation-preview-scope.mjs` 新增 `COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH` 常數，加入既有兩處module-roster guard，沒有新的放寬路徑。新增 `course-settings-three-state-preview-isolation.test.ts` 覆蓋精確repo／branch／provider／DB目標、runtime test旗標不得繞過、通知封鎖、build在DB constructor及migration subprocess前結束。vercel.json與最新main相同，使用既有Git自動Preview，不另開重複部署。
 
 接續先讀本紀錄並核對最新main／open PR及本機支線head。#1310範圍為顧客／結帳，latest已更新637552bfe7a78257a182c2174d07a1327a5a40d0；#1307指南及#1245音樂期初另案，沒有同需求課程三態PR。#1299/#1306/#1308/#1312只當回歸，不重做或重開發布。
 
