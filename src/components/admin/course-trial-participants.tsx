@@ -9,7 +9,7 @@ export function CourseTrialParticipants({sessionId,capacity,occupiedCount,people
  useEffect(()=>{report("create",pending,false);return()=>report("create",false,false);},[pending,report]);
  return <section aria-label="體驗者" className="space-y-2 text-sm">
   <ul className="divide-y divide-earth-100 rounded-lg border border-earth-200">{people.map(person=><li key={person.id} className="px-3 py-1"><CourseTrialPersonRow person={person} settings={settings} canCollect={canCollect} canCorrect={canCorrect} canSupplement={canSupplement} onUpdated={onUpdated} onGuard={(pending,dirty)=>report(person.id,pending,dirty)}/></li>)}</ul>
-  {canCreate&&<button type="button" className="min-h-11 px-3 text-primary-700 disabled:opacity-50" disabled={pending||occupiedCount>=capacity} onClick={()=>start(async()=>{setError("");try{const r=await createCourseTrial({sessionId,customerName:`體驗者 ${people.length+1}`,requestKey});if(!r.success){setError(r.error??"新增失敗");return;}setRequestKey(crypto.randomUUID());await onUpdated();}catch{setError("尚未確認新增結果，請核對後重試");}})}>{pending?"新增中…":occupiedCount>=capacity?"已滿班":"＋體驗者"}</button>}
+  {canCreate&&<button type="button" className="min-h-11 px-3 text-primary-700 disabled:opacity-50" disabled={pending||occupiedCount>=capacity} onClick={()=>start(async()=>{setError("");try{const r=await createCourseTrial({sessionId,customerName:`體驗者 ${Math.max(0,...people.map(p=>Number(p.customerName.match(/^體驗者\s*(\d+)$/)?.[1])||0))+1}`,requestKey});if(!r.success){setError(r.error??"新增失敗");return;}setRequestKey(crypto.randomUUID());await onUpdated();}catch{setError("尚未確認新增結果，請核對後重試");}})}>{pending?"新增中…":occupiedCount>=capacity?"已滿班":"＋體驗者"}</button>}
   {error&&<p role="alert" className="text-red-700">{error}</p>}
  </section>;
 }

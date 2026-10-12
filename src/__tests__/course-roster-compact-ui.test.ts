@@ -275,20 +275,21 @@ it.each([
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:false,canEdit:true,allowTrialActions:allow})));
   const row=host.querySelector("li")!;
   const buttons=[...row.querySelectorAll("button")];
-  const collect=buttons.find(b=>b.textContent?.trim()==="待收 $300");
-  const correct=buttons.find(b=>b.getAttribute("aria-label")==="更正 體驗學員 收款");
-  expect(row.textContent).toContain(paid?"已收 $300":"待收 $300");
+  const collect=buttons.find(b=>b.textContent?.trim()==="結帳");
+  const correct=buttons.find(b=>b.textContent?.trim()==="更正");
+  expect(row.textContent).toContain(paid?"已結帳 · $300":"$300 · 未結帳");
   if(action==="收款"){
    expect(collect).toBeTruthy();expect(correct).toBeUndefined();
    expect(collect!.parentElement!.textContent).toContain("$300");
    await act(async()=>collect!.click());
-   expect(m.collectModal).toHaveBeenCalledWith(expect.objectContaining({bookingId:"trial-booking",expectedAmount:300}),undefined);
+   expect(row.querySelector<HTMLInputElement>('[aria-label="體驗學員結帳金額"]')!.value).toBe("300");
+   expect(row.querySelector('[aria-label="體驗學員付款方式"]')).toBeTruthy();
    expect(m.correctModal).not.toHaveBeenCalled();
   }else if(action==="更正收款"){
    expect(collect).toBeUndefined();expect(correct).toBeTruthy();
    await act(async()=>correct!.click());
-   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="更正收款")!.click());
-   expect(m.correctModal).toHaveBeenCalledWith(expect.objectContaining({bookingId:"trial-booking",originalTransactionId:"receipt",originalAmount:300}),undefined);
+   expect(row.querySelector<HTMLInputElement>('[aria-label="體驗學員結帳金額"]')!.value).toBe("300");
+   expect(row.querySelector('[aria-label="體驗學員更正原因"]')).toBeTruthy();
    expect(m.collectModal).not.toHaveBeenCalled();
   }else{expect(collect).toBeUndefined();expect(correct).toBeUndefined();}
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -349,7 +350,7 @@ it('groups trial payment with identity and separates full usual and class notes'
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:'density',capacity:10,canCreate:false,canEdit:true})));
   const row=host.querySelector('li')!;
-  expect(row.children[0].textContent).toContain('體驗');expect(row.children[0].textContent).toContain('待收 $350');
+  expect(row.children[0].textContent).toContain('體驗');expect(row.children[0].textContent).toContain('$350 · 未結帳');
   expect(row.textContent).toContain('店內備註：');expect(row.textContent).toContain('本次備註：');
   expect(host.textContent).not.toContain('已預約');expect(host.textContent).not.toContain('取消整堂課');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="示範學員 標籤與備註"]')!.click());
@@ -539,3 +540,4 @@ it.each(["HIDDEN","LOCKED"] as const)("does not offer new companions from stale 
   expect(document.querySelector('[role="menu"]')?.textContent).toContain("變更使用方式");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+
