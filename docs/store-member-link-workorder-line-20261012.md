@@ -5,7 +5,7 @@
 ## 基線與協作
 
 - GitHub main 與本機支線基線：`695df9e22c2e5cba66f061b78a55df37e884b89d`，包含 #1308、#1312、#1309。
-- 乾淨本機支線：`feat/store-member-link-workorder-line-20261012`。尚未推送或建立 PR。
+- 乾淨起始支線：`feat/store-member-link-workorder-line-20261012`。稍後建立唯一草稿 PR；自動部署被 review guard 禁止。
 - 已讀 AGENTS.md、UI / Settings Framework、中央身分入口政策、PR-2 接線文件、工單驗收紀錄。
 - 開啟中的 #1310、#1307、#1245：已核對描述及完整變更檔名，未見本需求的重複實作。此為入口與檔案層級盤點，不代表已逐行審查所有 PR。
 - #1310 修改顧客詳細面板與 LINE 管理區，是接線重疊位置；本任務先建立共用服務／狀態元件，避免另做完整顧客面板。合併前重查 main 與 PR。
@@ -100,3 +100,10 @@
 已透過 Supabase connected get_project 唯讀核實 `steamfoot-preview`，project ref `ttworfzgwejdeolegkxl`，ACTIVE_HEALTHY。未執行遠端 SQL。
 
 需另授權：僅對此既有隔離 project 套精確增量 SQL，維持 browser roles revoke、不執行其他 pending migrations；接著使用既有隔離測試店與合成資料、禁止 LINE/SMS 外發，驗收 UI → action → PostgreSQL，以及同店多模組／跨店／Provider／封鎖／取消取件矩陣。Preview 放行必須先完成目標與 schema fail-closed preflight，不使用正式 DB fallback。正式合併與真實通知另外決定。
+
+
+## main 整合
+
+整合 main `9216901e`（#1313）；唯一衝突是 member-workspace 頂部新增 import，保留本次本店連結元件及 main 的 courseTemplateLabel。未覆蓋 #1313 的課程名稱／教師資格呈現、vercel.json 或 Preview 白名單。另查開啟中的 #1314 是課程設定 HQ 三態，沒有本次首次會員確認／工單通知實作；後續如合併需保留兩邊設定接線。
+
+SQL 草案 SHA-256：`c96f4266f82eeb2a0e9f09a0f0baf5a0d05f7531d6ac8b61fe6842c1b4bafbfe`。只對此草案與既有隔離 project 提出下一階段授權，不包含其他 pending migrations、正式合併或外發。

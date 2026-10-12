@@ -15,4 +15,3 @@ export function checkReminderSendLimit(
     limit: limits.maxReminderSends,
   };
 }
-
