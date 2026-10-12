@@ -36,7 +36,7 @@ export const dailyOperationGuides20261010: OperationGuide[] = [
     keywords: "SPA 本次備註 鉛筆 原列編輯 店內備註 全文 標籤 草稿 取消 Escape 資料已更新",
     steps: ["選日期並核對顧客與服務預約，點原列本次備註鉛筆。", "輸入最多 500 字並明確儲存；取消或 Escape 遇未儲存變更會詢問是否捨棄。", "核對原列文字；摘要截斷時點標籤與備註區查看全文，關閉返回原清單。"],
     important: "限具預約編輯權限且可寫入本店者，僅待確認／已預約可改；已完成、取消或未到不提供此原列編輯。",
-    details: ["只更新該筆本次備註，不改服務、同行、狀態、收款或方案扣次；標籤編輯仍依顧客標籤原權限。", "網路失敗保留輸入；資料已被別人更新時先核對目前備註，需要時保留自己的輸入，再確認後儲存。", "Enter 用來換行；保留草稿不代表已儲存。長期提醒仍回顧客資料維護。"],
+    details: ["只更新該筆本次備註，不改服務、同行、狀態、收款或方案扣次；標籤編輯仍依顧客標籤原權限。", "送出後原列立即顯示儲存中，處理期間不能重複送出、取消或關閉；成功後先更新摘要，再背景重讀其餘資料。", "網路失敗保留輸入；資料已被別人更新時先核對目前備註，需要時保留自己的輸入，再確認後儲存。", "Enter 用來換行；保留草稿不代表已儲存。長期提醒仍回顧客資料維護。"],
     success: "備註在原預約列更新，服務與帳務狀態維持原值。",
     modules: ["spa"], permission: "booking.read", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/spa-schedule/booking-roster.tsx", "src/components/admin/inline-roster-note.tsx", "src/components/admin/roster-reminders.tsx", "src/server/actions/spa-booking.ts"],

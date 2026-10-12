@@ -50,7 +50,7 @@ export const bookingGuides = [
     keywords: "備註 本次備註 註記 晚到 修改 留言 原列編輯 全文 標籤 草稿 取消 資料已有更新",
     path: "預約管理 → 當日清單 → 該列本次備註鉛筆；預約明細 → 本次備註",
     steps: ["在當日清單核對顧客與預約，點該列本次備註鉛筆，原地展開編輯；也可從原預約明細編輯。", "輸入本次提醒後點「儲存」；有未儲存內容時，取消或 Escape 會先詢問是否捨棄。", "成功後核對原列文字；摘要截斷時點標籤與備註區查看全文，完成後關閉返回原清單。"],
-    details: ["本次備註最多 500 字，僅適用這次預約；長期提醒請在顧客資料維護。原列鉛筆不會開啟整筆預約明細。", "清空並儲存可移除備註；Enter 用於換行，不能代替儲存。未儲存草稿只暫存在目前帳號、門市與瀏覽器的範圍，不代表已寫入。", "蒸足完成後仍可修正備註；需預約編輯權限並受門市及訂閱狀態限制，不能照搬到 SPA 已完成預約。", "失敗時保留內容並核對錯誤；遇資料已更新時先看目前備註，確認需保留自己的輸入後再儲存，不直接覆蓋。"],
+    details: ["本次備註最多 500 字，僅適用這次預約；長期提醒請在顧客資料維護。原列鉛筆不會開啟整筆預約明細。", "清空並儲存可移除備註；Enter 用於換行，不能代替儲存。未儲存草稿只暫存在目前帳號、門市與瀏覽器的範圍，不代表已寫入。", "送出後原列會立即顯示儲存中並暫停重複編輯、取消與關閉；成功後先顯示新摘要，再背景重讀其他預約資料。長文字會換行，不會擠走修改入口。", "蒸足完成後仍可修正備註；需預約編輯權限並受門市及訂閱狀態限制，不能照搬到 SPA 已完成預約。", "失敗時保留內容並核對錯誤；遇資料已更新時先看目前備註，確認需保留自己的輸入後再儲存，不直接覆蓋。"],
     success: "原列編輯成功後收合並顯示新文字；預約明細流程會出現「已儲存本次備註」提示。",
   },
 ] as const;
@@ -85,6 +85,7 @@ import { dailyOperationGuides20261007 } from "./operation-guide-daily-20261007";
 import { dailyOperationGuides20261009 } from "./operation-guide-daily-20261009";
 import { dailyOperationGuides20261010 } from "./operation-guide-daily-20261010";
 import { dailyOperationGuides20261011 } from "./operation-guide-daily-20261011";
+import { dailyOperationGuides20261012 } from "./operation-guide-daily-20261012";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 const catalogGuides: OperationGuide[] = [
@@ -106,6 +107,7 @@ const catalogGuides: OperationGuide[] = [
   ...dailyOperationGuides20261009,
   ...dailyOperationGuides20261010,
   ...dailyOperationGuides20261011,
+  ...dailyOperationGuides20261012,
 ];
 
 /** Historical frontend articles remain archived; backend search never returns them. */
