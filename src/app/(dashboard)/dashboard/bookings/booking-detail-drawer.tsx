@@ -1436,15 +1436,12 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose,
               <p className="text-sm font-medium text-earth-600">店內備註</p>
               <button disabled type="button" className="min-h-11 px-3 text-sm text-earth-500">讀取中…</button>
             </div>
-            <p className="text-xs text-earth-500">僅店內可見，每次服務都適用</p>
             {prefill?.serviceNote?.trim() && <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.serviceNote}</p>}
           </div>
           <KV readable label="累積完成" value={pending} />
           <KV readable label="最近到店" value={pending} />
-          <div className="col-span-2 mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
-            {["查看顧客資料", "查看歷史預約"].map((label, index) => prefill?.customerId ? (
-              <Link key={label} href={`/dashboard/customers/${prefill.customerId}${index === 1 ? "#bookings" : ""}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-700">{label}</Link>
-            ) : <button key={label} disabled type="button" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-500">{label}</button>)}
+          <div className="col-span-2 mt-2">
+            <button disabled type="button" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-500">顧客資料</button>
           </div>
         </Section>
         } payment={
