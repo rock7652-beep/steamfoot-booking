@@ -4,7 +4,7 @@ import {CourseOperationSwitch} from "@/components/admin/course-operation-switch"
 import { trialSettingsRevision } from "@/lib/shop-settings-save";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { courseDisplayText } from "@/lib/course-display-text";
-import { FeatureEntry } from "@/components/feature-presentation";
+import { FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
@@ -36,6 +36,7 @@ type Props = {
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
+  // Destination permissions only; HQ feature presentation comes from the shared provider.
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
   bookingOpensAt?: string | null; bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
@@ -93,6 +94,9 @@ const lead = (minutes: number) => {
 };
 
 export function CourseSettingsWorkspace(sourceProps: Props) {
+  const reminderState = useFeaturePresentation(FEATURES.LINE_REMINDER);
+  const referralState = useFeaturePresentation(FEATURES.REFERRAL_SHARE);
+  const butlerState = useFeaturePresentation(FEATURES.DIGITAL_BUTLER);
   type SectionRow={id:string;values:CourseSettingsSectionInput|TrialSettings};
   const sources=useMemo<SectionRow[]>(()=>[
     {id:"store",values:{section:"store",name:sourceProps.name,address:sourceProps.address,mapUrl:sourceProps.mapUrl,lineOfficialUrl:sourceProps.lineOfficialUrl,shopPhone:sourceProps.shopPhone??"",lineOfficialId:sourceProps.lineOfficialId??""}},
@@ -113,6 +117,14 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const pathname = usePathname();
   const active = courseSettingsSection(search.get("section"));
   const panel = search.get("panel");
+  const featurePanelAllowed = panel === "reminders" ? props.canReminders && reminderState !== "HIDDEN" && reminderState !== "LOCKED"
+    : panel === "referral" ? props.canReferralShare && referralState !== "HIDDEN" && referralState !== "LOCKED"
+    : panel === "butler" ? props.canDigitalButler && butlerState !== "HIDDEN" && butlerState !== "LOCKED"
+    : true;
+  const hasNotificationEntries = props.canUnassignedPlans || props.canCare
+    || (props.canReminders && reminderState !== "HIDDEN")
+    || (props.canReferralShare && referralState !== "HIDDEN")
+    || (props.canDigitalButler && butlerState !== "HIDDEN");
   const [status, setStatus] = useState<Record<string, { dirty: boolean; pending: boolean }>>({});
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -212,17 +224,17 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
         <CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??false} canEdit={props.canEdit}/>
         <CustomerLabelsSettings />
         {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="尚無方案顧客待辦" action="查看" href="/dashboard/courses/unassigned-plans" />}
-        {props.canReminders && <Row title="提醒管理" summary={courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music)} action="管理" href="/dashboard/courses/reminders?tab=customer" />}
+        {props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music)} action="管理" href="/dashboard/courses/reminders?tab=customer" /></FeatureEntry>}
         {props.canCare && <Row title="顧客關懷" summary="生日・未回課・方案關懷" action="查看" href="/dashboard/growth" />}
-        {props.canReferralShare && <Row title="推薦分享" summary="已開啟" action="編輯" href="/dashboard/settings/referral-share" />}
-        {props.canDigitalButler && <Row title="數位管家" summary="已開啟" action="管理" href="/dashboard/settings/digital-butler" />}
-        {!props.canUnassignedPlans && !props.canReminders && !props.canCare && !props.canReferralShare && !props.canDigitalButler && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
+        {props.canReferralShare && <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享"><Row title="推薦分享" summary="已開通" action="編輯" href="/dashboard/settings/referral-share" /></FeatureEntry>}
+        {props.canDigitalButler && <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家"><Row title="數位管家" summary="已開通" action="管理" href="/dashboard/settings/digital-butler" /></FeatureEntry>}
+        {!hasNotificationEntries && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
       </section>
       <section hidden={active !== "subscription"} aria-label="系統方案與用量">
         <Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />
         {props.usageMetrics && <Row title="目前用量" summary={props.usageMetrics.map(metric => `${metric.label} ${metric.current.toLocaleString("zh-TW")} / ${metric.limit === null ? "不限" : metric.limit.toLocaleString("zh-TW")}`).join("・")} />}
       </section>
     {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
-    {isCourseSettingsPanel(panel) && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
+    {isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
 }

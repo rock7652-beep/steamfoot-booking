@@ -35,3 +35,9 @@ Preview：https://steamfoot-booking-2i2lovddi-rock7652-2111s-projects.vercel.app
 合成資料清理工具兩次回傳 `Invalid or expired requestState`，內建 DELETE 確認未成功完成。已停止重送，不繞過確認、不宣稱刪除成功。隔離資料庫尚保留 5 位合成顧客、10 張 total=paid=0 的合成工單與相關測試身分／稽核／本地 stub 通知紀錄；後續清理只限固定 `qa-member-workorder-20261012:` 前綴及已核實的四個合成中央 User。
 
 23 小時存取連結仍依使用者授權有效至 2026-10-13 12:26（Asia/Taipei）；秘密參數不寫入此文件或 PR。店務仍正常登入。正式發布、真實 LINE/OAuth/QR/印表機、實體 Safari、SMS 供應商及費用規則沒有新增授權。
+
+## 最新 main 整合與正式發布唯讀預檢
+
+已整合 main `5e0a8dc1`（#1314）。課程提醒頁衝突採用 main 的按分頁／平行讀取與 timing，同時保留工單通知設定；未撤掉 HQ 三態或外發守門。新頁面讀取測試補上工單 getter／元件邊界，直接相關 54 項通過；完整回歸 1,056 檔成功、16 檔略過，10,055 項成功、129 項略過、0 失敗。TypeScript、修改檔案 lint、whitespace 通過。此整合未另行重跑上方已登入瀏覽器矩陣，其證據仍對應 f85f2004。
+
+正式 project `steamfoot`（`qijlnhtpbintanzpxkvf`）僅做 metadata/schema 唯讀檢查：本次兩張表／通知欄位不存在，Customer 店別唯一 key 與 browser roles 已存在，InventoryOrder 新 index 名稱未被占用。沒有執行正式 SQL。正式發布須另取得具體授權：先套用相同 SHA-256 的增量 SQL（預設 OFF、無回填），再合併 #1315／發布；不包含 LINE 通道權限更動、會員合併或真實發訊。
