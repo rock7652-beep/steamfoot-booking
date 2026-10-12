@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { useRouter } from "next/navigation";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
 import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunLineRebind, executeLineRebindAction } from "@/server/actions/line-rebind";
@@ -8,6 +9,7 @@ import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunL
 const LINE_OA_URL = process.env.NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL ?? "";
 
 interface LineBindingSectionProps {
+  onUpdated?: () => void;
   customerId: string;
   lineLinkStatus: string;
   lineUserId: string | null;
@@ -31,6 +33,7 @@ export function LineBindingSection({
   canManageLineRebind,
   canRunLineRebindDryRun,
   activeLineRebindRequest,
+  onUpdated,
 }: LineBindingSectionProps) {
   const router = useRouter();
   const [bindingCode, setBindingCode] = useState(initialCode);
@@ -43,6 +46,8 @@ export function LineBindingSection({
   const [dryRun, setDryRun] = useState<{ requestId: string; overall: string; candidateHashPrefix: string | null; candidateMaskedUserId: string | null; checks: Record<string, { status: string; code: string }> } | null>(null);
   const [executeConfirmOpen, setExecuteConfirmOpen] = useState(false);
   const [executeConfirmation, setExecuteConfirmation] = useState("");
+
+  useSettingsPanelGuard(executeConfirmOpen && !!executeConfirmation, pending);
 
   // ── 計算綁定碼剩餘有效時間 ──
   const updateExpiry = useCallback(() => {
@@ -85,11 +90,11 @@ export function LineBindingSection({
     // UNLINKED + 有綁定碼 → 需要偵測綁定成功
 
     const interval = setInterval(() => {
-      router.refresh();
+      if (onUpdated) onUpdated(); else router.refresh();
     }, 10_000);
 
     return () => clearInterval(interval);
-  }, [status, bindingCode, router]);
+  }, [status, bindingCode, router, onUpdated]);
 
   // ── Sync props when server re-renders ──
   useEffect(() => {
@@ -163,7 +168,7 @@ export function LineBindingSection({
       ? { text: result.data.status === "created" ? "已建立 15 分鐘的重新綁定捕捉申請。" : "已有有效的重新綁定申請。", type: "success" }
       : { text: result.error, type: "error" });
     setPending(false);
-    router.refresh();
+    if (onUpdated) onUpdated(); else router.refresh();
   }
 
   async function handleCancelRebindRequest() {
@@ -173,7 +178,7 @@ export function LineBindingSection({
     const result = await cancelLineRebindCaptureRequest(activeLineRebindRequest.id);
     setMessage(result.success ? { text: "重新綁定捕捉申請已取消。", type: "success" } : { text: result.error, type: "error" });
     setPending(false);
-    router.refresh();
+    if (onUpdated) onUpdated(); else router.refresh();
   }
 
   async function handleDryRun() {
@@ -195,7 +200,7 @@ export function LineBindingSection({
       setExecuteConfirmOpen(false);
       setExecuteConfirmation("");
       setMessage({ text: "LINE 重新綁定完成。", type: "success" });
-      router.refresh();
+      if (onUpdated) onUpdated(); else router.refresh();
     } else {
       setMessage({ text: result.error, type: "error" });
     }

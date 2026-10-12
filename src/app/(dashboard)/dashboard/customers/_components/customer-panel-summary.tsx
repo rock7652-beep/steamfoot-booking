@@ -6,8 +6,8 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { formatTWTime } from "@/lib/date-utils";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
 
-export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision}:{customerId:string;readOnly:boolean;onMutated:()=>void;revision:number}) {
-  const [data,setData]=useState<CustomerPanelSummary|null>(null);
+export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision,initialData}:{initialData?:CustomerPanelSummary;customerId:string;readOnly:boolean;onMutated:()=>void;revision:number}) {
+  const [data,setData]=useState<CustomerPanelSummary|null>(initialData ?? null);
   const [error,setError]=useState("");
   const [confirm,setConfirm]=useState<string|null>(null);
   const [pending,setPending]=useState(false);
@@ -16,9 +16,10 @@ export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision
   useEffect(()=>{
     const gate=request;
     const token=++gate.current;
+    if (initialData) { void Promise.resolve().then(()=>{if(token===request.current)setData(initialData);}); return ()=>{gate.current++;}; }
     void getCustomerPanelSummary(customerId).then(result=>{if(token!==request.current)return;if(result.success)setData(result.data);else setError(result.error ?? "讀取失敗");}).catch(()=>{if(token===request.current)setError("讀取失敗");});
     return()=>{gate.current++;};
-  },[customerId,revision]);
+  },[customerId,revision,initialData]);
   async function receive(id:string) {
     if(pending)return;
     setPending(true);setError("");

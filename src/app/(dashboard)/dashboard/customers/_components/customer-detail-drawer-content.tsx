@@ -9,7 +9,9 @@ import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { CreateBookingForm } from "../[id]/create-booking-form";
 import { EditCustomerForm } from "../[id]/edit/edit-customer-form";
+import { CustomerPanelAdvanced } from "./customer-panel-advanced";
 import { CustomerPanelSessions } from "./customer-panel-sessions";
+import type { CustomerPanelSummary } from "@/server/actions/customer-panel-summary";
 import { CustomerPanelSummaryView } from "./customer-panel-summary";
 import { CustomerPanelRecordsList } from "./customer-panel-records";
 
@@ -40,6 +42,7 @@ interface StaffOption {
 
 interface Props {
   customer: CustomerDetail;
+  initialSummary?: CustomerPanelSummary;
   plans: Plan[];
   canDiscount: boolean;
   staffOptions: StaffOption[];
@@ -78,6 +81,7 @@ function maskLineUserId(id: string | null): string {
 
 export function CustomerDetailDrawerContent({
   customer,
+  initialSummary,
   plans,
   canDiscount,
   staffOptions,
@@ -148,15 +152,15 @@ export function CustomerDetailDrawerContent({
         tabIndex={-1}
         className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-2 outline-none"
       >
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-2"><h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
             {customer.name}
           </h2>{!readOnly && canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded text-sm text-primary-700">✎</button>}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-earth-500">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-earth-500">
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
           </div>
-          <div className="mt-2">
+          <div>
             <CustomerStatusBadge
               stage={customer.customerStage}
               lineLinkStatus={customer.lineLinkStatus}
@@ -195,7 +199,7 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
-        <CustomerPanelSummaryView customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
+        <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
@@ -253,7 +257,7 @@ export function CustomerDetailDrawerContent({
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm walletId={w.id} currentRemaining={remaining} onSuccess={handleMutated} />}
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={handleMutated} />}
                         {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={handleMutated} />}
-                        <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} />
+                        <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet} onMutated={handleMutated} />
                       </div>
                     </details>
                   </li>
@@ -296,7 +300,7 @@ export function CustomerDetailDrawerContent({
         </section>
 
         <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
-        <BookingServiceNoteEditor compact customerId={customer.id} value={customer.serviceNote}
+        <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
 
         <section className="border-t border-earth-100 pt-3">
@@ -304,9 +308,16 @@ export function CustomerDetailDrawerContent({
             {customer.canReadBookings && <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "bookings" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>預約</button>}
             {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "consumption" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>消費</button>}
           </div>
-          {(recordsTab === "bookings" ? customer.canReadBookings : customer.recentConsumption !== null) && <CustomerPanelRecordsList key={recordsTab} customerId={customer.id} kind={recordsTab} revision={String(revision) + new Date(customer.updatedAt).toISOString() + JSON.stringify(customer.planWallets.map(w => [w.id,w.remainingSessions,w.expiryDate]))} />}
+          {customer.canReadBookings && <CustomerPanelRecordsList customerId={customer.id} kind="bookings" active={recordsTab === "bookings"} revision={String(revision)} />}
+          {customer.recentConsumption !== null && <CustomerPanelRecordsList customerId={customer.id} kind="consumption" active={recordsTab === "consumption"} revision={String(revision)} />}
         </section>
 
+        <CollapsibleSection title="更多資料">
+        <CollapsibleSection title="基本資料">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+            {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
+          </dl>
+        </CollapsibleSection>
         {/* 歸屬設定 */}
         <CollapsibleSection title="歸屬設定">
           <CustomerAttributionForm
@@ -405,6 +416,8 @@ export function CustomerDetailDrawerContent({
           </dl>
         </CollapsibleSection>
 
+        <CustomerPanelAdvanced customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
+
         {/* 系統資訊 */}
         <CollapsibleSection title="系統資訊">
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
@@ -425,6 +438,7 @@ export function CustomerDetailDrawerContent({
               {customer.user?.status ?? "—"}
             </dd>
           </dl>
+        </CollapsibleSection>
         </CollapsibleSection>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">

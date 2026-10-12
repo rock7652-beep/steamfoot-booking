@@ -25,10 +25,10 @@ export function CustomerPanelRecordsList({customerId, kind, revision, active = t
   useEffect(() => {
     if (!active || loadedRevision.current === revision) return;
     loadedRevision.current = revision;
-    const gate = request;
     void load(1);
-    return () => {gate.current++; loadedRevision.current = null;};
+
   },[load,revision,active]);
+  useEffect(() => {const gate=request;return()=>{gate.current++;};},[]);
   return <div hidden={!active} role="tabpanel" aria-label={kind === "bookings" ? "預約紀錄" : "消費紀錄"}>
     {data?.rows.map(row => <details key={row.id} className="border-b border-earth-100">
       <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 py-2 text-sm">

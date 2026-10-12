@@ -60,7 +60,7 @@ export function SpaCustomerOverview({
             )}
           </section>
         </div>
-        <RetainedNoteEditor quiet key={customer.id} stateKey={`customer-note:${customer.id}`} title="服務偏好與注意事項"
+        <RetainedNoteEditor quiet optimistic key={customer.id} stateKey={`customer-note:${customer.id}`} title="服務偏好與注意事項"
           hint="僅供店內服務參考，例如力道偏好、指定人員或需留意事項。"
           placeholder="例如：喜歡輕力道，服務前先確認當天需求。" maxLength={2000}
           value={profile.customer.serviceNote} canEdit={canEdit}

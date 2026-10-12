@@ -46,6 +46,16 @@ async function chooseWallet(id = "own") {
 }
 
 describe("actual participant checkout component", () => {
+  it("opens shared details for the selected companion without changing service or collecting", async () => {
+    const onOpenCustomer=vi.fn();
+    await act(async () => root.render(createElement(BookingParticipantCheckout, {bookingId:"booking",checkout:checkout(),readOnly:false,blocked:false,onUpdated:updated,onBusy,onOpenCustomer})));
+    await click(buttons("顧客資料")[1]);
+    expect(onOpenCustomer).toHaveBeenCalledExactlyOnceWith("guest");
+    expect(h.collect).not.toHaveBeenCalled();
+    expect(h.change).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("近期預約");
+  });
+
   it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {
     const data = checkout(); data.canCollectUnregistered = true;
     data.slots[1].customerId = null; data.slots[1].name = null;

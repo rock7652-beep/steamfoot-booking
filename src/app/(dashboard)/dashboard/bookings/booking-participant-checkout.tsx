@@ -18,7 +18,8 @@ function validDraft(value: unknown): value is Draft {
   return typeof draft.amount === "string" && draft.amount.length < 20 && paymentMethodValues.includes(draft.method) && typeof draft.note === "string" && draft.note.length <= 500;
 }
 
-function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdated, onBusy, onProgress, companions, canEditNote, onPersonNoteSaved, primaryCustomer }: {
+function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdated, onBusy, onProgress, companions, canEditNote, onPersonNoteSaved, primaryCustomer, onOpenCustomer }: {
+  onOpenCustomer?: (customerId: string) => void;
   primaryCustomer?: BookingDrawerPayload["booking"]["customer"];
   companions?: BookingDrawerPayload["companions"]; canEditNote?: boolean; onPersonNoteSaved?: (customerId: string, value: string | null) => void;
   bookingId: string; slot: Checkout["slots"][number]; checkout: Checkout; readOnly: boolean; blocked: boolean;
@@ -107,7 +108,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">撤回完成</button>}
     </div>
     {status === "COMPLETED" && canSell && <details><summary className="min-h-11 cursor-pointer py-2 text-base text-earth-600">更多</summary>{sellButton}</details>}
-    {slot.customerId && <BookingPersonDetails key={slot.customerId} customerId={slot.customerId} revision={slot.revision} name={slot.name ?? "顧客"} initial={primaryCustomer?.id === slot.customerId ? primaryCustomer : undefined} canEditNote={!readOnly && !blocked && !!canEditNote} onWalletCount={setWalletCount} onNoteSaved={value => onPersonNoteSaved?.(slot.customerId!, value)} />}
+    {slot.customerId && <BookingPersonDetails onOpenDetails={onOpenCustomer ? () => { if (saving || blocked || (dirty && !window.confirm("尚有未儲存的收款內容，確定查看顧客資料？"))) return; onOpenCustomer(slot.customerId!); } : undefined} key={slot.customerId} customerId={slot.customerId} revision={slot.revision} name={slot.name ?? "顧客"} initial={primaryCustomer?.id === slot.customerId ? primaryCustomer : undefined} canEditNote={!readOnly && !blocked && !!canEditNote} onWalletCount={setWalletCount} onNoteSaved={value => onPersonNoteSaved?.(slot.customerId!, value)} />}
     {status === "PENDING" && !slot.customerId && companions && <CompanionSlot embedded bookingId={bookingId} slot={slot} canEdit={!readOnly && companions.canEdit} canCreate={companions.canCreate} blocked={blocked || saving} onBusy={onBusy} onUpdated={onUpdated} />}
     {!readOnly && checkout.canCollect && (slot.customerId || checkout.canCollectUnregistered) && expanded && status === "PENDING" && <form className="mt-3 space-y-2" onSubmit={event => {
       event.preventDefault();
@@ -158,7 +159,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
 }
 
 export function BookingParticipantCheckout(props: { bookingId: string; checkout: Checkout; readOnly: boolean; blocked: boolean;
-  onUpdated: () => void; onBusy: (busy: boolean) => void; companions?: BookingDrawerPayload["companions"]; canEditNote?: boolean; onPersonNoteSaved?: (customerId: string, value: string | null) => void; primaryCustomer?: BookingDrawerPayload["booking"]["customer"] }) {
+  onUpdated: () => void; onBusy: (busy: boolean) => void; companions?: BookingDrawerPayload["companions"]; canEditNote?: boolean; onPersonNoteSaved?: (customerId: string, value: string | null) => void; primaryCustomer?: BookingDrawerPayload["booking"]["customer"]; onOpenCustomer?: (customerId: string) => void }) {
   const [progress, setProgress] = useState<Record<string, { status: string; amount: number | null }>>({});
   const keyFor = (position: number, revision: number) => `${props.bookingId}:${position}:${revision}`;
   const slots = props.checkout.slots.map(slot => {

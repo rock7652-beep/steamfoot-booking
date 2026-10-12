@@ -36,6 +36,12 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (process.env.VERCEL_GIT_COMMIT_REF === "feat/customer-unified-detail-20261012") {
+  const { verifyBookingParticipantsPreviewReadiness } = await import("./booking-participants-preview-readiness.mjs");
+  await verifyBookingParticipantsPreviewReadiness(process.env);
+  const { verifyUnregisteredParticipantSchema } = await import("./booking-unregistered-payment-readiness.mjs");
+  await verifyUnregisteredParticipantSchema(process.env);
+}
 if (process.env.VERCEL_GIT_COMMIT_REF === "fix/unregistered-companion-payment-20261011") {
   const { verifyUnregisteredParticipantSchema } = await import("./booking-unregistered-payment-readiness.mjs");
   await verifyUnregisteredParticipantSchema(process.env);

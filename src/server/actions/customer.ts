@@ -21,6 +21,7 @@ import {
   updateCustomerServiceNoteSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
+import { getCustomerPanelSummary, type CustomerPanelSummary } from "./customer-panel-summary";
 import { getCustomerDrawerDetailForUser } from "@/server/queries/customer";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
@@ -684,7 +685,7 @@ export async function setSelfBookingEnabled(
 
 export async function getCustomerDrawerDetailAction(
   customerId: string,
-): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>>>> {
+): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>> & { panelSummary?: CustomerPanelSummary }>> {
   try {
     const user = await requirePermission("customer.read");
     const storeViewContext = await resolveStoreViewContextFromCookie(user);
@@ -696,7 +697,8 @@ export async function getCustomerDrawerDetailAction(
       customerId,
       activeStoreId,
     );
-    return { success: true, data };
+    const summary = await getCustomerPanelSummary(customerId);
+    return { success: true, data: {...data, panelSummary: summary.success ? summary.data : undefined} };
   } catch (e) {
     return handleActionError(e);
   }

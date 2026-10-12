@@ -1,3 +1,5 @@
+import { getCustomerPanelContext } from "@/server/actions/customer-panel-context";
+import { CustomerStandaloneDetail } from "../_components/customer-standalone-detail";
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
@@ -168,6 +170,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     select: { industryModule: true },
   });
   const simplified = storeModule?.industryModule === "STEAMFOOT";
+  if (simplified) {
+    const panel = await getCustomerPanelContext(id);
+    if (!panel.success) notFound();
+    return <PageShell><CustomerStandaloneDetail customerId={id} initialData={panel.data} /></PageShell>;
+  }
 
   const [
     plans,

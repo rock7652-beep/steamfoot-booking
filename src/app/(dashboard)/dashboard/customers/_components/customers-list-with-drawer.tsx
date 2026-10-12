@@ -18,7 +18,8 @@ import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import { usePanelReadCache } from "@/components/operations/panel-read-cache";
 
-type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
+import type { CustomerPanelSummary } from "@/server/actions/customer-panel-summary";
+type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>> & {panelSummary?:CustomerPanelSummary};
 
 interface Plan {
   id: string;
@@ -418,6 +419,7 @@ export function CustomersListWithDrawer({
           <CustomerDetailDrawerContent
             key={detail.id}
             customer={detail}
+            initialSummary={detail.panelSummary}
             plans={plans}
             canDiscount={canDiscount}
             staffOptions={staffOptions}

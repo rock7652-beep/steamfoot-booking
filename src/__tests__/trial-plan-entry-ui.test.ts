@@ -24,6 +24,7 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/booking-service-note-editor", () =
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-status-badge", () => ({ CustomerStatusBadge: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({ TrialBookingDrawer: () => React.createElement("button", {}, "建立體驗預約") }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({ AssignPlanForm: ({ defaultPlanId }: { defaultPlanId?: string }) => React.createElement("p", { "data-selected-plan": defaultPlanId }, "指派表單") }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced", () => ({ CustomerPanelAdvanced: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-records", () => ({ CustomerPanelRecordsList: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-sessions", () => ({ CustomerPanelSessions: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-summary", () => ({ CustomerPanelSummaryView: () => null }));

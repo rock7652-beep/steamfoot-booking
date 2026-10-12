@@ -983,7 +983,7 @@ function DrawerContent({
   onParticipantsUpdated: () => void;
   onParticipantBusy: (busy: boolean) => void;
 }) {
-  const [showCustomer,setShowCustomer] = useState(false);
+  const [showCustomer,setShowCustomer] = useState<string | null>(null);
   const {
     booking,
     customerSummary,
@@ -1055,11 +1055,11 @@ function DrawerContent({
                   : "—"
             }
           />
-          {spaMode ? <Link href={`/dashboard/customers/${booking.customer.id}`} className="inline-flex min-h-11 items-center text-sm text-primary-700">顧客資料</Link> : <button type="button" onClick={() => setShowCustomer(true)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
+          {spaMode ? <Link href={`/dashboard/customers/${booking.customer.id}`} className="inline-flex min-h-11 items-center text-sm text-primary-700">顧客資料</Link> : <button type="button" onClick={() => setShowCustomer(booking.customer.id)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
 
         </Section>
   );
-  if (showCustomer && !spaMode) return <CustomerInlineDetail key={booking.customer.id} customerId={booking.customer.id} readOnly={readOnly} onBack={() => setShowCustomer(false)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />;
+  if (showCustomer && !spaMode) return <CustomerInlineDetail key={showCustomer} customerId={showCustomer} readOnly={readOnly} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />;
   return (
     <>
       {/* Header */}
@@ -1171,7 +1171,7 @@ function DrawerContent({
         primaryCustomerDetails
 
         } payment={
-        !spaMode && payload.participantCheckout ? <BookingParticipantCheckout bookingId={booking.id} checkout={payload.participantCheckout}
+        !spaMode && payload.participantCheckout ? <BookingParticipantCheckout onOpenCustomer={setShowCustomer} bookingId={booking.id} checkout={payload.participantCheckout}
           readOnly={readOnly} blocked={isActing} onUpdated={onParticipantsUpdated} onBusy={onParticipantBusy} companions={payload.companions}
           primaryCustomer={booking.customer} canEditNote={payload.canEditServiceNote} onPersonNoteSaved={(customerId, value) => onNoteSaved({ kind: "customer", bookingId: booking.id, customerId, value })} /> :
         <Section readable={!spaMode} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
