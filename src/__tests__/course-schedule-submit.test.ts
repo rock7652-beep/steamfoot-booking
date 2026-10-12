@@ -66,10 +66,9 @@ it("keeps weekly selection after separate input/change events and confirms submi
     const form = host.querySelector<HTMLFormElement>("#course-schedule-form")!;
     await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(createSchedule).toHaveBeenCalledWith(expect.objectContaining({ repeatUntil: undefined, additionalDates: ["2026-10-08", "2026-10-15"] }));
-    const confirmation = host.querySelector('[aria-label="排課成功日期"]')!;
-    expect(confirmation.textContent).toContain("已成功建立 3 堂課程");
-    ["2026-10-01", "2026-10-08", "2026-10-15"].forEach(date => expect(confirmation.textContent).toContain(date));
-    expect(host.querySelector("#course-panel-title")?.textContent).toBe("排課成功");
+    expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
+    expect(host.querySelector("#course-schedule-form")).toBeNull();
+    expect(host.textContent).toContain("已儲存 3 堂課程");
     expect(host.textContent).not.toContain("每 60 秒自動更新");
     expect(refresh).not.toHaveBeenCalled();
   } finally { await act(async () => root.unmount()); host.remove(); }
@@ -97,13 +96,9 @@ it("keeps selected dates after a failed batch and confirms all dates after a suc
     expect(new FormData(form).getAll("additionalDates")).toEqual(["2026-10-03", "2026-10-06"]);
     await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(createSchedule).toHaveBeenLastCalledWith(expect.objectContaining({ date: "2026-10-01", repeatUntil: undefined, additionalDates: ["2026-10-03", "2026-10-06"] }));
-    const confirmation = host.querySelector('[aria-label="排課成功日期"]')!;
-    expect(confirmation.textContent).toContain("已成功建立 3 堂課程");
-    ["2026-10-01", "2026-10-03", "2026-10-06"].forEach(date => expect(confirmation.textContent).toContain(date));
     expect(host.querySelector("#course-schedule-form")).toBeNull();
-    await act(async () => [...confirmation.querySelectorAll("button")].find(button => button.textContent === "再排課")!.click());
-    expect(host.querySelector<HTMLSelectElement>('select[name="repeatMode"]')?.value).toBe("once");
     expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
+    expect(host.textContent).toContain("已儲存 3 堂課程");
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
 
@@ -119,7 +114,7 @@ it("shows the inline enrollment section before saving and confirms without an ex
     await act(async()=>host.querySelector<HTMLFormElement>("#course-schedule-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
     const enrollment=Array.from(host.querySelectorAll("button")).find(button=>button.textContent==="＋ 加入學員");
     expect(enrollment).toBeUndefined();
-    expect(host.querySelector('[aria-label="排課成功日期"]')).not.toBeNull();
+    expect(host.querySelector("#course-schedule-form")).toBeNull();
     expect(refresh).not.toHaveBeenCalled();
     expect(host.textContent).toContain("瑜珈");
   } finally {await act(async()=>root.unmount());host.remove();}

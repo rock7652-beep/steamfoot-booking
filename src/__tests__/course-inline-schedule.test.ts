@@ -21,8 +21,8 @@ it("keeps the clicked room/time after changing the course and submits multiple l
     await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"first",musicSubjectId:"guitar",musicSubject:{id:"guitar",name:"吉他",isActive:true},name:"雙人課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"second",musicSubjectId:"guitar",musicSubject:{id:"guitar",name:"吉他",isActive:true},name:"三人課",durationMinutes:60,capacity:3,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{date:"2099-10-01",time:"18:00",roomId:"room"},requestKey:"00000000-0000-4000-8000-000000000017",onCreated})));
     expect(host.querySelector('input[type="date"]')).toBeNull();
     expect(host.querySelector('[aria-label="老師可用教室"]')).toBeNull();
-    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00 · A教室");
-    const select=host.querySelectorAll("select")[1];select.value="second";
+    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("A教室");
+    const select=host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!;select.value="second";
     await act(async()=>select.dispatchEvent(new Event("change",{bubbles:true})));
     for(const name of ["小安","小明"]){
       const search=host.querySelector<HTMLInputElement>('[aria-label="搜尋排課學員"]')!;
@@ -32,6 +32,15 @@ it("keeps the clicked room/time after changing the course and submits multiple l
       expect(add).toBeTruthy();await act(async()=>add.click());
     }
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("2 / 3 人");
+    expect(host.querySelector('select[aria-label="小安的方案"]')).toBeNull();
+    expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.textContent).toContain("王老師");
+    expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.querySelector("button")).toBeNull();
+    select.value="first";
+    await act(async()=>select.dispatchEvent(new Event("change",{bubbles:true})));
+    select.value="second";
+    await act(async()=>select.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
+    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小明");
     const save=[...host.querySelectorAll("button")].find(button=>button.textContent==="儲存排課")!;
     await act(async()=>save.click());
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"second",roomId:"room",time:"18:00",coachId:"teacher",learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:"card-b"}]}));
@@ -45,7 +54,21 @@ it("blocks a selected learner whose plan cannot cover every class in the batch",
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,occurrenceCount:3,value:[{customerId:"a",cardId:"card-a",name:"小安"}],onChange:vi.fn(),onValidityChange})));
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain("方案額度不足");
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("可用額度");
     expect(onValidityChange).toHaveBeenLastCalledWith(false);
+  }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("does not show an empty teacher chooser when the clicked room is unavailable",async()=>{
+  mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"other-room",coachIds:["teacher"]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[]});
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他雙人課",durationMinutes:60,capacity:2,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{time:"18:00",roomId:"room"},requestKey:"test-request",onCreated:vi.fn()})));
+    expect(host.querySelector('[aria-label="合格老師與可用教室"]')).toBeNull();
+    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00–19:00 · A教室");
+    expect(host.textContent).toContain("此時段沒有可用老師或教室");
+    expect([...host.querySelectorAll("button")].find(button=>button.textContent==="儲存排課")!.disabled).toBe(true);
   }finally{await act(async()=>root.unmount());host.remove();}
 });
