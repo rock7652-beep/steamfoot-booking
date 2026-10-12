@@ -9,6 +9,7 @@ type StoreScopedUser = {
   id?: string | null;
   role: string;
   storeId?: string | null;
+  customerReviewStoreId?: string;
 };
 
 export async function resolveStoreViewContextFromCookie(
@@ -20,6 +21,7 @@ export async function resolveStoreViewContextFromCookie(
 
   const cookieStore = await cookies();
   const viewedStoreId = cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null;
+  if (user.customerReviewStoreId) return null;
   return resolveStoreViewContext(user, { viewedStoreId });
 }
 

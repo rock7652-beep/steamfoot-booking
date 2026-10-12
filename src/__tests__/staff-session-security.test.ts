@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import { createStaffSessionStamp, type StaffSecurityState } from "@/lib/staff-session-security";
 
 const mocks = vi.hoisted(() => ({ findUnique: vi.fn(), findFirst: vi.fn(), capture: vi.fn(), compare: vi.fn() }));
@@ -12,6 +13,7 @@ vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: mocks.findUnique, fin
 vi.mock("@/server/services/staff-login-audit", () => ({ recordStaffLogin: vi.fn(async () => ({ id: "test-login" })) }));
 vi.mock("bcryptjs", () => ({ compareSync: mocks.compare }));
 vi.mock("next/headers", () => ({ cookies: vi.fn(), headers: vi.fn() }));
+vi.mock("@/server/auth/clear-store-context", () => ({ clearStoreContextCookies: vi.fn() }));
 
 type Token = Record<string, unknown>;
 type Config = {
@@ -46,6 +48,37 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("staff session revocation through the real auth callbacks", () => {
+  it("authenticates only the fixed isolated owner and expires the resulting review session", async () => {
+    const capability = "a".repeat(64);
+    const digest = createHash("sha256").update(capability).digest("hex");
+    const expiresAt = Date.now() + 60_000;
+    for (const [key, value] of Object.entries({
+      VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/customer-unified-detail-20261012",
+      VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
+      DATABASE_URL: "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",
+      DIRECT_URL: "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",
+      CONSULTATION_PREVIEW_INTAKE_ENABLED: "false", CUSTOMER_REVIEW_TOKEN_SHA256: digest,
+      CUSTOMER_REVIEW_ISSUED_AT: String(Date.now()), CUSTOMER_REVIEW_EXPIRES_AT: String(expiresAt),
+    })) vi.stubEnv(key, value);
+    const fixture = state({ id: "staging-user-owner", staff: { id: "staging-staff-owner", storeId: "staging-store", status: "ACTIVE", store: { slug: "staging" } } } as Partial<StaffSecurityState>);
+    mocks.findUnique.mockResolvedValue(fixture);
+    const provider = config.providers.find(p => p.id === "customer-review")!;
+    const user = await provider.authorize({ token: capability });
+    expect(user).toMatchObject({ id: "staging-user-owner", role: "OWNER", storeId: "staging-store" });
+    expect(mocks.compare).not.toHaveBeenCalled();
+    const result = await config.callbacks.jwt({ token: {}, user: user! });
+    expect(result).toMatchObject({ customerReviewDigest: digest, customerReviewExpiresAt: expiresAt });
+    expect(config.callbacks.session({ session: { user: {} }, token: result! }).user).toMatchObject({ customerReviewStoreId: "staging-store" });
+    expect(config.callbacks.session({ session: { user: {} }, token: result! }).user.customerReviewDigest).toBeUndefined();
+    mocks.findUnique.mockResolvedValue(state({ id: "staging-user-owner", role: "ADMIN" }));
+    expect(await provider.authorize({ token: capability })).toBeNull();
+    mocks.findUnique.mockResolvedValue(fixture);
+    vi.stubEnv("CUSTOMER_REVIEW_EXPIRES_AT", String(Date.now() - 1));
+    expect(await config.callbacks.jwt({ token: result! })).toBeNull();
+    mocks.findUnique.mockClear();
+    expect(await provider.authorize({ token: capability })).toBeNull();
+    expect(mocks.findUnique).not.toHaveBeenCalled();
+  });
   it("issues a stamp only after credentials verification, and accepts unchanged state", async () => {
     const provider = config.providers.find(p => p.id === "credentials")!;
     const user = await provider.authorize({ email: "owner@example.invalid", password: "test-password" });

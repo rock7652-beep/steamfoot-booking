@@ -24,6 +24,8 @@ import { resolveCentralMemberCustomerForStore } from "@/server/services/central-
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 import { createStaffSessionStamp, isStaffSessionRole, matchesStaffSessionStamp } from "@/lib/staff-session-security";
+import { CUSTOMER_REVIEW_USER_ID, CUSTOMER_REVIEW_STORE_ID, CUSTOMER_REVIEW_STORE_SLUG, verifyCustomerReviewToken, customerReviewSessionValid } from "@/lib/customer-review-access";
+import { clearStoreContextCookies } from "@/server/auth/clear-store-context";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -31,6 +33,8 @@ import { createStaffSessionStamp, isStaffSessionRole, matchesStaffSessionStamp }
 
 declare module "next-auth" {
   interface User {
+    customerReviewDigest?: string;
+    customerReviewExpiresAt?: number;
     loginRecordId?: string;
     staffSessionStamp?: string;
     role: UserRole;
@@ -50,11 +54,14 @@ declare module "next-auth" {
       customerId: string | null;
       storeId: string | null;
       storeSlug: string | null;
+      customerReviewStoreId?: string;
     };
   }
 }
 
 interface AppJWT {
+  customerReviewDigest?: string;
+  customerReviewExpiresAt?: number;
   loginRecordId?: string;
   staffSessionStamp?: string;
   sub?: string;
@@ -101,6 +108,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 
   providers: [
+    // Owner-authorized, expiring capability for this isolated review only.
+    Credentials({
+      id: "customer-review",
+      credentials: { token: { label: "暫時存取", type: "text" } },
+      async authorize(credentials, request) {
+        const review = verifyCustomerReviewToken(credentials?.token);
+        if (!review) return null;
+        const user = await prisma.user.findUnique({
+          where: { id: CUSTOMER_REVIEW_USER_ID },
+          select: {
+            id: true, name: true, email: true, role: true, status: true, passwordHash: true, updatedAt: true,
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true } } } },
+          },
+        });
+        if (!user || user.role !== "OWNER" || user.staff?.id !== "staging-staff-owner" ||
+          user.staff.storeId !== CUSTOMER_REVIEW_STORE_ID || user.staff.store.slug !== CUSTOMER_REVIEW_STORE_SLUG) return null;
+        const staffSessionStamp = createStaffSessionStamp(user);
+        if (!staffSessionStamp) return null;
+        await clearStoreContextCookies();
+        const loginRecord = await recordStaffLogin(user, "SUCCESS", undefined, request);
+        return {
+          id: user.id, name: user.name, email: user.email, role: user.role,
+          staffId: user.staff.id, customerId: null, storeId: user.staff.storeId, storeSlug: user.staff.store.slug,
+          staffSessionStamp, loginRecordId: loginRecord?.id,
+          customerReviewDigest: review.digest, customerReviewExpiresAt: review.expiresAt,
+        };
+      },
+    }),
     // ── SPA 服務人員登入（手機 + 密碼）──
     // 與店長 Email 後台、顧客前台完全分流；目前只開放 SPA Demo。
     Credentials({
@@ -1515,6 +1550,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, account, trigger }) {
       const appToken = token as unknown as AppJWT;
 
+      if (user) {
+        // A normal login must not inherit a prior review's restrictions.
+        delete appToken.customerReviewDigest;
+        delete appToken.customerReviewExpiresAt;
+        if (account?.provider === "customer-review" || user.customerReviewDigest) {
+          if (!customerReviewSessionValid(user.customerReviewDigest, user.customerReviewExpiresAt)) return null;
+          appToken.customerReviewDigest = user.customerReviewDigest;
+          appToken.customerReviewExpiresAt = user.customerReviewExpiresAt;
+        }
+      }
+      if (appToken.customerReviewDigest || appToken.customerReviewExpiresAt) {
+        if (!customerReviewSessionValid(appToken.customerReviewDigest, appToken.customerReviewExpiresAt) ||
+          (user?.id ?? appToken.sub) !== CUSTOMER_REVIEW_USER_ID) return null;
+      }
+
       if (isStaffSessionRole(user?.role ?? appToken.role) || appToken.staffSessionStamp) {
         const id = user?.id ?? appToken.sub;
         // Never upgrade an existing/legacy token or a client-triggered update
@@ -1530,6 +1580,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         // DB failures propagate through Auth.js; never reuse stale privileges.
         if (!current || !matchesStaffSessionStamp(stamp, current)) return null;
+        if (appToken.customerReviewDigest && (current.role !== "OWNER" ||
+          current.staff?.id !== "staging-staff-owner" || current.staff.storeId !== CUSTOMER_REVIEW_STORE_ID ||
+          current.staff.store.slug !== CUSTOMER_REVIEW_STORE_SLUG)) return null;
         appToken.sub = current.id;
         appToken.role = current.role;
         appToken.staffSessionStamp = stamp;
@@ -1755,6 +1808,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.customerId = appToken.customerId ?? null;
       session.user.storeId = appToken.storeId ?? null;
       session.user.storeSlug = appToken.storeSlug ?? null;
+      if (appToken.customerReviewDigest) session.user.customerReviewStoreId = CUSTOMER_REVIEW_STORE_ID;
+      else delete session.user.customerReviewStoreId;
       return session;
     },
 
