@@ -9,6 +9,7 @@ import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { CreateBookingForm } from "../[id]/create-booking-form";
 import { EditCustomerForm } from "../[id]/edit/edit-customer-form";
+import { CustomerPanelSessions } from "./customer-panel-sessions";
 import { CustomerPanelSummaryView } from "./customer-panel-summary";
 import { CustomerPanelRecordsList } from "./customer-panel-records";
 
@@ -251,6 +252,7 @@ export function CustomerDetailDrawerContent({
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm walletId={w.id} currentRemaining={remaining} onSuccess={handleMutated} />}
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={handleMutated} />}
                         {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={handleMutated} />}
+                        <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} />
                       </div>
                     </details>
                   </li>

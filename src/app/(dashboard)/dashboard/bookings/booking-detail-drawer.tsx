@@ -1,10 +1,12 @@
 "use client";
 import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
+import dynamic from "next/dynamic";
+const CustomerInlineDetail = dynamic(() => import("../customers/_components/customer-inline-detail").then(module => module.CustomerInlineDetail), { loading: () => <p role="status" className="p-4 text-sm text-earth-500">讀取顧客資料中…</p> });
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
 import { bookingMatchesExpectation, type BookingActionExpectation } from "@/lib/booking-action-reconciliation";
 import { BookingActionFeedback } from "./booking-action-feedback";
@@ -184,7 +186,7 @@ export function BookingDetailDrawer({
   summary,
   prefill,
   cache,
-  onClose,
+  onClose: closeRequested,
   onUpdated,
   onNotesUpdated,
   readOnly = false,
@@ -192,6 +194,9 @@ export function BookingDetailDrawer({
   durationMinutes,
   spaMode = false,
 }: BookingDetailDrawerProps) {
+  const customerCloseGuard = useRef<() => boolean>(() => true);
+  const registerCustomerCloseGuard = useCallback((guard: () => boolean) => {customerCloseGuard.current = guard;}, []);
+  const onClose = useCallback(() => { if (customerCloseGuard.current()) closeRequested(); }, [closeRequested]);
   const collectionIntentHandled=useRef<string|null>(null);
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [prefillStatus, setPrefillStatus] = useState<string | null>(null);
@@ -692,6 +697,7 @@ export function BookingDetailDrawer({
           />
         ) : hasFullData && data ? (
           <DrawerContent
+            registerCloseGuard={registerCustomerCloseGuard}
             payload={pendingBalance !== null && data.booking.customerPlanWallet ? { ...data, booking: { ...data.booking, customerPlanWallet: { ...data.booking.customerPlanWallet, remainingSessions: pendingBalance } } } : data}
             onNoteSaved={(patch) => {
               setData((previous) => {
@@ -948,6 +954,7 @@ interface DrawerActions {
 
 function DrawerContent({
   payload,
+  registerCloseGuard,
   onNoteSaved,
   isActing,
   onClose,
@@ -960,6 +967,7 @@ function DrawerContent({
   onParticipantBusy,
 }: {
   payload: BookingDrawerPayload;
+  registerCloseGuard?: (guard: () => boolean) => void;
   onNoteSaved: (patch: BookingNotePatch) => void;
   isActing: boolean;
   onClose: () => void;
@@ -971,6 +979,7 @@ function DrawerContent({
   onParticipantsUpdated: () => void;
   onParticipantBusy: (busy: boolean) => void;
 }) {
+  const [showCustomer,setShowCustomer] = useState(false);
   const {
     booking,
     customerSummary,
@@ -1042,22 +1051,11 @@ function DrawerContent({
                   : "—"
             }
           />
-          <div className={spaMode ? "col-span-2 mt-1 flex gap-2" : "col-span-2 mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2"}>
-            <Link
-              href={`/dashboard/customers/${booking.customer.id}`}
-              className={spaMode ? "inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50" : "inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 bg-white px-3 py-2 text-base font-medium text-earth-700 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
-            >
-              查看顧客資料
-            </Link>
-            <Link
-              href={`/dashboard/customers/${booking.customer.id}#bookings`}
-              className={spaMode ? "inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50" : "inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 bg-white px-3 py-2 text-base font-medium text-earth-700 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
-            >
-              查看歷史預約
-            </Link>
-          </div>
+          {spaMode ? <Link href={`/dashboard/customers/${booking.customer.id}`} className="inline-flex min-h-11 items-center text-sm text-primary-700">顧客資料</Link> : <button type="button" onClick={() => setShowCustomer(true)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
+
         </Section>
   );
+  if (showCustomer && !spaMode) return <CustomerInlineDetail key={booking.customer.id} customerId={booking.customer.id} readOnly={readOnly} onBack={() => setShowCustomer(false)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />;
   return (
     <>
       {/* Header */}
