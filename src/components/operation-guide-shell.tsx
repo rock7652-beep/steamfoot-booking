@@ -28,6 +28,7 @@ export function BookingGuideContext({ status }: { status?: string }) {
 
 export function OperationGuideShell({ enabled, children, contextPath, access = { module: "steamfoot", permissions: [], features: {} } }: { enabled: boolean; children?: ReactNode; contextPath?: string; access?: GuideAccess }) {
   const pathname = usePathname();
+  const shell = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDialogElement>(null);
   const heading = useId();
   const [opened, setOpened] = useState(false);
@@ -44,6 +45,30 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
     setOpened(true);
   }, []);
   const close = useCallback(() => { panel.current?.close(); setOpened(false); }, []);
+  useEffect(() => {
+    const root = shell.current;
+    if (!enabled || access.module !== "spa" || !root) return;
+    const header = root.querySelector<HTMLElement>('[data-spa-admin="true"] [data-dashboard-header]');
+    if (!header) return;
+    let active = true;
+    const updateHeight = () => {
+      if (!active) return;
+      const height = header.getBoundingClientRect().height;
+      if (Number.isFinite(height) && height > 0) {
+        root.style.setProperty("--spa-customer-header-height", `${height}px`);
+      }
+    };
+    updateHeight();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateHeight);
+    observer?.observe(header);
+    if (!observer) window.addEventListener("resize", updateHeight);
+    return () => {
+      active = false;
+      observer?.disconnect();
+      if (!observer) window.removeEventListener("resize", updateHeight);
+      root.style.removeProperty("--spa-customer-header-height");
+    };
+  }, [enabled, access.module]);
   useEffect(() => {
     if (!enabled || !opened) return;
     const media = window.matchMedia("(min-width: 1024px)");
@@ -64,7 +89,7 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
   if (!enabled) return <>{children}</>;
   const bookingPage = pathname.endsWith("/bookings");
   return <GuideAccessContext.Provider value={access}><GuideContext.Provider value={{ open, opened, register }}>
-    <div data-operation-guide-shell data-guide-open={opened ? "true" : "false"}>
+    <div ref={shell} data-operation-guide-shell data-guide-open={opened ? "true" : "false"}>
       {children}
       <dialog ref={panel} aria-labelledby={heading} onCancel={close} onClose={() => { if (!panel.current?.open) setOpened(false); }}
         onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}
@@ -83,6 +108,8 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
       /* Navigation must cover the raised header, but stay below the guide dialog. */
       [data-operation-guide-shell] [data-dashboard-navigation-overlay] { z-index: 70; }
       [data-operation-guide-shell] [data-right-sheet] { top: 3.5rem; }
+      /* Only SPA customer sheets opt in; the responsive header may wrap. */
+      [data-operation-guide-shell] [data-spa-admin="true"] .spa-customer-header-offset[data-right-sheet][data-presentation="side"] { top: var(--spa-customer-header-height, 3.5rem); }
       @media (min-width: 1440px) {
         [data-operation-guide-shell][data-guide-open="true"] { padding-right: 380px; }
         [data-operation-guide-shell][data-guide-open="true"] [data-right-sheet] { right: 380px; }

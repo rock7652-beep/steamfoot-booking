@@ -212,6 +212,7 @@ export function AccountPanel({
   };
   return (
     <RightSheet
+      className="spa-customer-header-offset"
       open
       onClose={() => {
         if (!pending) onClose();

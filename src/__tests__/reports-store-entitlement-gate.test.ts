@@ -336,7 +336,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
       await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
     expect(html).toContain("客流分析");
     expect(html).toContain("本月來客數");
     expect(html).toContain("新客數");
@@ -374,7 +374,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
       await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
     expect(html).toContain("成交分析");
     expect(html).toContain("本月體驗開卡");
     expect(html).toContain("追蹤開卡");
@@ -396,18 +396,18 @@ describe("ReportsPage basic_reports entitlement gate", () => {
       await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "retention" }) }),
     );
 
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
     expect(html).toContain("顧客回流");
-    expect(html).toContain("顧客回流率");
-    expect(html).toContain("本月回流人數");
-    expect(html).toContain("顧客回流率");
-    expect(html).toContain("本月未回流人數");
+    expect(html).toContain("回流率");
+    expect(html).toContain("已回訪");
+    expect(html).toContain("回流率");
+    expect(html).toContain("尚未回訪");
     expect(html).toContain("較前期");
     expect(html).toContain("去年同期");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
-    expect(html).toMatch(/segment=monthly-returned/);
-    expect(html).toMatch(/segment=monthly-not-returned/);
+    expect(html).not.toMatch(/segment=monthly-(?:not-)?returned/);
+    expect(html).toContain("上月 4 人");
     expect(html).toContain("客流分析");
   });
 
@@ -416,7 +416,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve(range) }));
     expect(mockGetTrialSourceMetrics).toHaveBeenCalledWith("store-active", range.startDate, range.endDate);
     expect(mockMonthlyRevenueByCategory).toHaveBeenCalledWith("2026-09", expect.objectContaining({ startDate: range.startDate, endDate: range.endDate }));
-    for (const heading of ["營運摘要", "營收結構與收支", "客流分析", "成交分析", "體驗預約來源", "留存分析", "店長分析"]) expect(html).toContain(heading);
+    for (const heading of ["營運摘要", "營收結構與收支", "客流分析", "成交分析", "體驗預約來源", "顧客回流", "店長分析"]) expect(html).toContain(heading);
     expect(html).not.toContain('aria-label="分析檢視"');
     expect(html).not.toContain('aria-label="詳細分析分類"');
     expect(html).toContain("startDate=2026-09-01&amp;endDate=2026-09-07&amp;preset=custom");
@@ -437,7 +437,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("75.0%");
     expect(html).toContain("方案轉換率");
     expect(html).toContain("66.7%");
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: "2026-09-01", endDate: "2026-09-07" }), "custom");
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: "2026-09-01", endDate: "2026-09-07" }), "custom", true);
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {
@@ -464,9 +464,9 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-active", "basic_reports");
     expect(mockHasStoreFeature).not.toHaveBeenCalledWith("store-own", "basic_reports");
     expect(mockMonthlyStoreSummary).toHaveBeenCalled();
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
   });
 
   it("uses the viewed store id in multi-store view mode", async () => {
@@ -479,9 +479,9 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     await ReportsPage({ searchParams: Promise.resolve({ preset: "today" }) });
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-viewed", "basic_reports");
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String));
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String));
-    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String));
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String), true);
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String), true);
+    expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-viewed", expect.any(Object), expect.any(String), true);
   });
 
   it("renders the store-aware locked copy and does not load report data when blocked", async () => {

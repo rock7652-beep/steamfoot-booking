@@ -538,8 +538,23 @@ function measurePermission<T>(timing: PermissionTiming | undefined, name: string
 export async function requirePermission(
   permission: PermissionCode,
   timing?: PermissionTiming,
-  options: { deferSubscriptionGuard?: boolean; storeId?: string } = {},
+  options: { deferSubscriptionGuard?: boolean; storeId?: string; courseTeacherSelfService?: boolean } = {},
 ) {
+  // LINE instructors use their member login, not a dashboard staff session.
+  // This explicit server-only path is limited to the four own-class grants.
+  if (options.courseTeacherSelfService) {
+    if (!["teacher.booking.leave", "teacher.booking.reschedule", "teacher.session.leave", "teacher.session.reschedule"].includes(permission)) {
+      const { AppError } = await import("@/lib/errors");
+      throw new AppError("FORBIDDEN", "此權限不適用授課人員入口");
+    }
+    const { courseTeacherChangeActor } = await import("@/server/services/course-teacher-change-access");
+    const actor = await courseTeacherChangeActor(permission as import("@/server/services/course-teacher-change-access").TeacherChangePermission, !options.deferSubscriptionGuard);
+    if (options.storeId && options.storeId !== actor.storeId) {
+      const { AppError } = await import("@/lib/errors");
+      throw new AppError("FORBIDDEN", "不能處理其他門市的課程");
+    }
+    return { ...actor.user, storeId: actor.storeId, staffId: actor.staffId };
+  }
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
   const user = await measurePermission(timing, "permission.session", () => requireStaffSession());

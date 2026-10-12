@@ -273,7 +273,7 @@ export function CustomerDetailDrawerContent({
         </section>
 
         <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
-        <BookingServiceNoteEditor customerId={customer.id} value={customer.serviceNote}
+        <BookingServiceNoteEditor optimistic customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => onMutated()} />
 
         {/* 課程方案 / 堂數 */}
