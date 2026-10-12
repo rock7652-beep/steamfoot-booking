@@ -3,6 +3,7 @@ import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {expect,it,vi} from "vitest";
 import {MusicScheduleWizard} from "@/app/(dashboard)/dashboard/courses/music-schedule-wizard";
+import {CourseScheduleLearners} from "@/components/admin/course-schedule-learners";
 const mocks=vi.hoisted(()=>({create:vi.fn(),slots:vi.fn(),options:vi.fn()}));
 vi.mock("@/server/actions/course",()=>({createCourseSchedule:mocks.create}));
 vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:mocks.slots}));
@@ -35,5 +36,16 @@ it("keeps the clicked room/time after changing the course and submits multiple l
     await act(async()=>save.click());
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"second",roomId:"room",time:"18:00",coachId:"teacher",learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:"card-b"}]}));
     expect(onCreated).toHaveBeenCalledTimes(1);
+  }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("blocks a selected learner whose plan cannot cover every class in the batch",async()=>{
+  mocks.options.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他方案",unit:"SESSION",available:2,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
+  const onValidityChange=vi.fn();
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,occurrenceCount:3,value:[{customerId:"a",cardId:"card-a",name:"小安"}],onChange:vi.fn(),onValidityChange})));
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("方案額度不足");
+    expect(onValidityChange).toHaveBeenLastCalledWith(false);
   }finally{await act(async()=>root.unmount());host.remove();}
 });
