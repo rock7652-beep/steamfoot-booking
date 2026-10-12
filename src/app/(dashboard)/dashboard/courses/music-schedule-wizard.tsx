@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
 import { createCourseSchedule } from "@/server/actions/course";
@@ -11,9 +11,10 @@ type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:stri
 type Room = { id:string; name:string };
 type Coach = { id:string; displayName:string };
 
-export function MusicScheduleWizard({templates,rooms,coaches,initialDate,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh}:{
+export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh}:{
   templates:Template[];rooms:Room[];coaches:Coach[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
-  onCreated:(sessionId:string,date:string)=>void;
+  seed?:{time?:string;roomId?:string;coachId?:string;durationMinutes?:number};
+  onCreated:(sessionId:string,date:string,sessions:unknown[])=>void;
   onGuard?:(dirty:boolean,pending:boolean)=>void;
   onRefresh?:()=>void;
 }) {
@@ -25,15 +26,16 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
   function chooseTemplate(id:string){setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);const n=t?.durationMinutes??60;setDuration(([30,60,90,120] as number[]).includes(n)?n as 30|60|90|120:60);resetSlot();}
 
   const [duration,setDuration]=useState<30|60|90|120>(()=>{
-    const n=templates.find(t=>t.id===(initialTemplateId ?? templates[0]?.id))?.durationMinutes ?? 60;
+    const n=seed?.durationMinutes ?? templates.find(t=>t.id===(initialTemplateId ?? templates[0]?.id))?.durationMinutes ?? 60;
     return ([30,60,90,120] as number[]).includes(n) ? n as 30|60|90|120 : 60;
   });
   const [date,setDate]=useState(initialDate);
   const [slots,setSlots]=useState<MusicSlotMatch[]|null>(null);
   const [blocker,setBlocker]=useState<Omit<MusicUnavailableSlot,"time">>();
   const [unavailable,setUnavailable]=useState<MusicUnavailableSlot[]>([]);
-  const [time,setTime]=useState("");
-  const [coachId,setCoachId]=useState("");
+  const [time,setTime]=useState(seed?.time ?? "");
+  const [coachId,setCoachId]=useState(seed?.coachId ?? "");
+  const seedApplied=useRef(false);
   const [pair,setPair]=useState<{roomId:string;coachId:string}|null>(null);
   const [repeat,setRepeat]=useState(false);
   const [error,setError]=useState("");
@@ -51,11 +53,21 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
     let active=true;
     getMusicSlotMatches({date,templateId,durationMinutes:duration}).then(result=>{
       if(!active)return;
-      if(result.success){setBlocker("blocker" in result?result.blocker:undefined);setSlots(result.data);setUnavailable("unavailable" in result ? result.unavailable??[] : []);}
+      if(result.success){
+        if(!seedApplied.current && seed?.time){
+          seedApplied.current=true;
+          const matching=result.data.filter(slot=>slot.time===seed.time && (!seed.roomId || slot.roomId===seed.roomId));
+          const options=matching.flatMap(slot=>slot.coachIds.filter(id=>!seed.coachId || id===seed.coachId).map(id=>({roomId:slot.roomId,coachId:id,fixedOrigin:slot.fixedOriginCoachIds?.includes(id)??false})));
+          const ids=[...new Set(options.map(option=>option.coachId))];
+          setTime(seed.time);
+          setCoachId(seed.coachId ?? (ids.length===1?ids[0]:""));
+          if(options.length===1 && !(options[0].fixedOrigin && template?.musicScheduleMode==="FIXED"))setPair(options[0]);
+        }
+        setBlocker("blocker" in result?result.blocker:undefined);setSlots(result.data);setUnavailable("unavailable" in result ? result.unavailable??[] : []);}
       else setError(result.error ?? "空位讀取失敗");
     }).catch(()=>{if(active)setError("空位讀取失敗，請重新選擇日期");});
     return()=>{active=false;};
-  },[date,templateId,duration,reload]);
+  },[date,templateId,duration,reload,seed,template?.musicScheduleMode]);
   function refresh(){resetSlot();setCheckedAgain(true);setReload(value=>value+1);onRefresh?.();}
   const repairTargets=blocker ? [blocker.fixTarget].filter(Boolean) : [...new Set(unavailable.map(slot=>slot.fixTarget).filter(Boolean))];
   const noSlotReason=blocker?.reason??unavailable.find(slot=>slot.fixTarget!=="hours")?.reason??unavailable[0]?.reason;
@@ -78,7 +90,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,request
         });
         if(!result.success){setError(result.error ?? "排課失敗，請重新選擇空位");return;}
         if(!result.data.sessionId){setError("課程已建立，請重新整理課表選學員");return;}
-        onCreated(result.data.sessionId,date);
+        onCreated(result.data.sessionId,date,result.data.sessions);
       }catch{setError("連線失敗，請重試");}
     });
   }

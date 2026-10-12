@@ -69,7 +69,7 @@ it("keeps weekly selection after separate input/change events and confirms submi
     ["2026-10-01", "2026-10-08", "2026-10-15"].forEach(date => expect(confirmation.textContent).toContain(date));
     expect(host.querySelector("#course-panel-title")?.textContent).toBe("排課成功");
     expect(host.textContent).not.toContain("每 60 秒自動更新");
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
 
@@ -103,4 +103,22 @@ it("keeps selected dates after a failed batch and confirms all dates after a suc
     expect(host.querySelector<HTMLSelectElement>('select[name="repeatMode"]')?.value).toBe("once");
     expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
   } finally { await act(async () => root.unmount()); host.remove(); }
+});
+
+
+it("offers enrollment from saved sessions before route refresh returns", async () => {
+  refresh.mockClear();
+  const session = { id:"saved",templateId:"yoga",nameSnapshot:"瑜珈",startsAt:"2026-10-01T10:00:00Z",endsAt:"2026-10-01T11:00:00Z",coachId:"coach",roomId:"room",capacity:10,pointCost:2,bookings:[] };
+  createSchedule.mockResolvedValue({success:true,data:{count:1,sessionId:"saved",sessions:[session]}});
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try {
+    await act(async()=>root.render(createElement(CourseWorkspace,props)));
+    await act(async()=>host.querySelector<HTMLFormElement>("#course-schedule-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+    const enrollment=Array.from(host.querySelectorAll("button")).find(button=>button.textContent==="＋ 加入學員");
+    expect(enrollment).toBeTruthy();
+    await act(async()=>enrollment!.click());
+    expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("瑜珈");
+  } finally {await act(async()=>root.unmount());host.remove();}
 });

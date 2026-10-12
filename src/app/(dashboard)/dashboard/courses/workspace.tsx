@@ -23,7 +23,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
+import { Fragment, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -229,7 +229,7 @@ export function CourseWorkspace({
   calendarDays,
   rooms: sourceRooms,
   templates: sourceTemplates,
-  sessions,
+  sessions: sourceSessions,
   cancelledBookings,
   coaches: allCoaches,
   canCreate,
@@ -245,6 +245,13 @@ export function CourseWorkspace({
   staffAvailabilityExceptions,
   view,
 }: Props) {
+  const [createdSessions,setCreatedSessions]=useState<Session[]>([]);
+  const sessions=useMemo(()=>[...sourceSessions,...createdSessions.filter(session=>!sourceSessions.some(source=>source.id===session.id))],[sourceSessions,createdSessions]);
+  function confirmSchedule(result:unknown) {
+    if(!result || typeof result!=="object" || !("sessions" in result) || !Array.isArray(result.sessions))return;
+    const saved=result.sessions as Session[];
+    setCreatedSessions(previous=>[...previous.filter(session=>!saved.some(item=>item.id===session.id)),...saved]);
+  }
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
   const confirmedRooms = useConfirmedSettingsRows(sourceRooms, courseRoomRevision);
   const mergedRooms = confirmedRooms.rows;
@@ -452,6 +459,7 @@ export function CourseWorkspace({
   const [repeatMode, setRepeatMode] = useState<"once" | "weekly" | "dates">("once");
   const repeat = repeatMode === "weekly";
   const multipleDates = repeatMode === "dates";
+  const [createdSessionId,setCreatedSessionId]=useState<string|null>(null);
   const [scheduleCreated, setScheduleCreated] = useState<string[] | null>(null);
   const [scheduleSummary, setScheduleSummary] = useState("");
   const [scheduleValidationError, setScheduleValidationError] = useState("");
@@ -681,7 +689,7 @@ export function CourseWorkspace({
     setChosen(templates[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
     setRepeatMode("once");
-    setScheduleCreated(null);
+    setScheduleCreated(null);setCreatedSessionId(null);
     setExtraDateKeys([]);
     setScheduleSummary("");
     setScheduleValidationError("");
@@ -692,7 +700,7 @@ export function CourseWorkspace({
     action: (
       data: FormData,
     ) => Promise<{ success: boolean; error?: string; conflicts?:ConflictItem[]; data?: unknown; syncWarning?: boolean }>,
-    after?: (data: FormData) => void,
+    after?: (data: FormData, result?: unknown) => void,
   ) {
     event.preventDefault();
     if (pending || submitLock.current) return;
@@ -718,14 +726,14 @@ export function CourseWorkspace({
         );
         setDirty(false);
         form.reset();
-        after?.(data);
+        after?.(data, result.data);
         if (panel === "catalog" || (panel === "edit" && editing?.kind !== "session")) {
           restoreScrollY.current = window.scrollY;
         }
         if (panel === "catalog") setPanel(null);
         // Setting actions already revalidate this route. Keep the refresh for
         // operational actions, whose authoritative schedule may need reconciling.
-        if (panel !== "catalog" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
+        if (panel !== "catalog" && panel !== "schedule" && !(panel === "edit" && editing?.kind !== "session")) router.refresh();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
       } finally {submitLock.current=false;}
@@ -1324,10 +1332,10 @@ export function CourseWorkspace({
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
           compact={businessProfile === "MUSIC" && view !== "rooms"}
           fixedHeight={view === "rooms"}
-          maxHeight={panel === "schedule" && scheduleCreated ? 400 : businessProfile !== "MUSIC" ? 680 : 900}
+          maxHeight={panel === "schedule" ? 900 : businessProfile !== "MUSIC" ? 680 : 900}
           open
           onClose={closePanel}
-          width={view === "rooms" ? 920 : panel === "day" ? 720 : businessProfile !== "MUSIC" ? 920 : 520}
+          width={view === "rooms" ? 920 : panel === "day" ? 720 : panel === "schedule" ? 920 : businessProfile !== "MUSIC" ? 920 : 520}
           labelledById="course-panel-title"
         >
           <div
@@ -1508,7 +1516,7 @@ export function CourseWorkspace({
                                         setCopySource(session);setScheduleDate("");setArrangement(session.isTrial?"trial":"class");
                                         setChosen(session.templateId);
                                         setRepeatMode("once");
-                                        setScheduleCreated(null);
+                                        setScheduleCreated(null);setCreatedSessionId(null);
                                         setScheduleSummary("");
                                         setScheduleValidationError("");
                                         setRequestKey(crypto.randomUUID());
@@ -2010,21 +2018,24 @@ export function CourseWorkspace({
                 templates={templates}
                 rooms={rooms}
                 coaches={coaches}
+                seed={scheduleSeed}
                 initialDate={scheduleSeed.date ?? selectedDate}
                 initialTemplateId={copySource?.templateId}
                 sourceSessionId={copySource?.id}
                 requestKey={requestKey}
-                onCreated={(sessionId,date) => {
+                onCreated={(sessionId,date,savedSessions) => {
+                  confirmSchedule({sessions:savedSessions});
                   setNotice("課程已建立，可在課程詳情加入學員");
                   setPanel(null);
                   go(date);
                   setCourseDialog({sessionId,kind:"roster"});
-                  router.refresh();
+                  // The schedule action already revalidates the route.
                 }}
               />
             )}
             {panel === "schedule" && scheduleCreated && <section className="space-y-3" role="status" aria-label="排課成功日期">
               <h3 className="text-base font-semibold text-primary-900">已成功建立 {scheduleCreated.length} 堂課程</h3>
+              {createdSessionId && <button type="button" className={primary} onClick={()=>{setPanel(null);go(scheduleCreated[0]);setCourseDialog({sessionId:createdSessionId,kind:"member-booking"});}}>＋ 加入學員</button>}
               <p className="text-sm text-earth-600">{templates.find(item => item.id === chosen)?.name} · 以下日期已建立</p>
               <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">{scheduleCreated.map(date => <span key={date} className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-900">{date}</span>)}</div>
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
@@ -2067,7 +2078,9 @@ export function CourseWorkspace({
                             isTrial: arrangement === "trial",
                             sourceSessionId: copySource?.id,
                           }),
-                        (data) => {
+                        (data,result) => {
+                          confirmSchedule(result);
+                          if(result && typeof result==="object" && "sessionId" in result && typeof result.sessionId==="string")setCreatedSessionId(result.sessionId);
                           setScheduleCreated(courseScheduleCreatedDates(data, {templateId: chosen, requestKey}));
                         },
                       )

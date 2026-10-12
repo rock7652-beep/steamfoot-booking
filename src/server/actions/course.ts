@@ -591,12 +591,30 @@ export async function createCourseSchedule(input: unknown) {
     );
     kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
+    revalidatePath("/hq/dashboard/courses");
     const firstSession = await coursePrisma.courseSession.findFirst({
       where: { storeId, requestKey: data.requestKey, cancelledAt: null },
       orderBy: { requestIndex: "asc" },
       select: { id: true },
     });
-    return { success: true as const, data: { ...result, sessionId: firstSession?.id ?? null } };
+    const savedSessions = await coursePrisma.courseSession.findMany({
+      where: { storeId, requestKey: data.requestKey, cancelledAt: null },
+      orderBy: { requestIndex: "asc" },
+      include: { bookings: true, template: { select: { musicScheduleMode: true } } },
+    });
+    const sessions = savedSessions.map(session => ({
+      id: session.id, templateId: session.templateId, nameSnapshot: session.nameSnapshot,
+      startsAt: session.startsAt.toISOString(), endsAt: session.endsAt.toISOString(),
+      coachId: session.coachId, roomId: session.roomId, capacity: session.capacity,
+      pointCost: session.pointCost, isTrial: session.isTrial, requestKey: session.requestKey,
+      isFixed: result.count > 1 || session.template.musicScheduleMode === "FIXED",
+      bookings: session.bookings.map(booking => ({
+        id: booking.id, customerId: booking.customerId, customerName: booking.customerName,
+        status: booking.status, bookingKind: booking.bookingKind,
+        checkedInAt: booking.checkedInAt?.toISOString() ?? null,
+      })),
+    }));
+    return { success: true as const, data: { ...result, sessionId: firstSession?.id ?? null, sessions } };
   } catch (error) {
     return handleCourseActionError(error);
   }

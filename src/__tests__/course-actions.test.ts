@@ -37,7 +37,7 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
-    courseSession: { findFirst: async()=>({id:"session-created"}) },
+    courseSession: { findFirst: async()=>({id:"session-created"}), findMany: async()=>[] },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
         $queryRaw: mocks.raw,
@@ -213,7 +213,7 @@ describe("course scheduling action", () => {
       storeId: "victim",
       pointCost: 0,
     });
-    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created" } });
+    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created", sessions: [] } });
     const rows = mocks.create.mock.calls[0][0].data;
     expect(rows).toHaveLength(3);
     expect(
@@ -253,7 +253,7 @@ describe("course scheduling action", () => {
     );
     expect(await createCourseSchedule(input)).toEqual({
       success: true,
-      data: { count: 3, sessionId: "session-created" },
+      data: { count: 3, sessionId: "session-created", sessions: [] },
     });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(
