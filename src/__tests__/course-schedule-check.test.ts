@@ -7,11 +7,11 @@ vi.mock("@/server/services/course-availability",()=>({assertMusicCourseAvailabil
 vi.mock("@/server/services/course-duty",()=>({assertCourseDutyCoverage:m.duty}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseSession:{findMany:m.sessions},courseBooking:{findMany:m.bookings}}}));
 import {inspectCourseSchedule} from "@/server/actions/course-schedule-check";
-const input={templateId:"guitar",roomId:"room",coachId:"teacher",capacity:2,date:"2099-10-01",time:"18:00",durationMinutes:60,additionalDates:["2099-10-08"],learners:[{customerId:"a"}],requestKey:"00000000-0000-4000-8000-000000000017"};
+const input={templateId:"guitar",roomId:"room",coachId:"teacher",capacity:2,date:"2099-10-01",time:"18:00",durationMinutes:60,additionalDates:["2099-10-08"],learners:[{customerId:"a",cardId:"card"}],requestKey:"00000000-0000-4000-8000-000000000017"};
 beforeEach(()=>{vi.resetAllMocks();m.access.mockResolvedValue({storeId:"store"});m.sessions.mockResolvedValue([]);m.bookings.mockResolvedValue([]);});
 it("reports room, student and availability conflicts across the entire batch without writing",async()=>{
   m.sessions.mockResolvedValue([{startsAt:new Date("2099-10-01T10:00:00Z"),endsAt:new Date("2099-10-01T11:00:00Z"),roomId:"room"}]);
-  m.bookings.mockResolvedValue([{customerName:"小安",session:{startsAt:new Date("2099-10-08T10:00:00Z"),endsAt:new Date("2099-10-08T11:00:00Z")}}]);
+  m.bookings.mockResolvedValue([{customerId:"a",customerName:"小安",session:{startsAt:new Date("2099-10-08T10:00:00Z"),endsAt:new Date("2099-10-08T11:00:00Z")}}]);
   m.availability.mockImplementation(async(_tx,_store,_teacher,[range])=>{if(range.startsAt.getUTCDate()===8)throw new Error("老師未排班");});
   expect(await inspectCourseSchedule(input)).toMatchObject({success:true,issues:[{date:"2099-10-01",reason:"18:00 教室已有課"},{date:"2099-10-08",reason:"小安同時段已有課"},{date:"2099-10-08",reason:"老師未排班"}]});
   expect(m.sessions.mock.calls[0][0].where.storeId).toBe("store");

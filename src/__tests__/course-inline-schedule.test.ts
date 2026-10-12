@@ -29,7 +29,7 @@ it("keeps the clicked room/time after changing the course and submits multiple l
       const search=host.querySelector<HTMLInputElement>('[aria-label="搜尋排課學員"]')!;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,name);
       await act(async()=>search.dispatchEvent(new Event("input",{bubbles:true})));
-      const add=[...host.querySelectorAll("button")].find(button=>button.textContent===name+"＋")!;
+      const add=[...host.querySelectorAll("button")].find(button=>button.textContent?.startsWith(name)&&button.textContent?.endsWith("＋"))!;
       expect(add).toBeTruthy();await act(async()=>add.click());
     }
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("2 / 3 人");

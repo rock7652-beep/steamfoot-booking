@@ -13,20 +13,20 @@ import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 export async function inspectCourseSchedule(input:unknown) {
   try {
     const {storeId}=await courseManager("booking.create");
-    const data=courseScheduleInput.extend({learners:z.array(z.object({customerId:z.string().min(1).max(100)})).max(500).default([])}).parse(input);
+    const data=courseScheduleInput.extend({learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),cardId:z.string().nullable().optional()})).max(500).default([])}).parse(input);
     const occurrences=buildCourseOccurrences(data);
     await assertCourseResources(coursePrisma,storeId,data);
     const ranges=occurrences.map(range=>({startsAt:{lt:range.endsAt},endsAt:{gt:range.startsAt}}));
     const [sessions,bookings]=await Promise.all([
       coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,releasedAt:null,AND:[{OR:[{roomId:data.roomId},{coachId:data.coachId}]},{OR:ranges}]},select:{startsAt:true,endsAt:true,roomId:true}}),
-      data.learners.length?coursePrisma.courseBooking.findMany({where:{storeId,customerId:{in:data.learners.map(row=>row.customerId)},status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,OR:ranges}},select:{customerName:true,session:{select:{startsAt:true,endsAt:true}}}}):Promise.resolve([]),
+      data.learners.length?coursePrisma.courseBooking.findMany({where:{storeId,customerId:{in:data.learners.map(row=>row.customerId).filter((id):id is string=>!!id)},status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,OR:ranges}},select:{customerId:true,customerName:true,session:{select:{startsAt:true,endsAt:true}}}}):Promise.resolve([]),
     ]);
     const issues: {date:string;reason:string}[]=[];
-    for(const range of occurrences){
+    for(const [index,range] of occurrences.entries()){
       const date=toLocalDateStr(range.startsAt);
       const conflicts=sessions.filter(s=>s.startsAt<range.endsAt&&s.endsAt>range.startsAt);
       for(const s of conflicts)issues.push({date,reason:`${formatTWDateTime(s.startsAt).slice(11)} ${s.roomId===data.roomId?"教室":"老師"}已有課`});
-      for(const b of bookings.filter(b=>b.session.startsAt<range.endsAt&&b.session.endsAt>range.startsAt))issues.push({date,reason:`${b.customerName}同時段已有課`});
+      for(const b of bookings.filter(b=>(index===0||data.learners.some(row=>row.customerId===b.customerId&&row.cardId!==null))&&b.session.startsAt<range.endsAt&&b.session.endsAt>range.startsAt))issues.push({date,reason:`${b.customerName}同時段已有課`});
       try {
         await assertCourseSessionsFitHours(coursePrisma,storeId,[range]);
         await assertMusicCourseAvailability(coursePrisma,storeId,data.coachId,[range]);

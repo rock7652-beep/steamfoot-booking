@@ -2063,7 +2063,7 @@ export function CourseWorkspace({
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
             {panel === "schedule" && !scheduleCreated && <>
-              <div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","上課"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;setArrangement(kind);}}>{label}</button>)}</div>
+              <div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","上課"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} className={`${button} ${arrangement===kind?"bg-primary-50 text-primary-800":""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;if(kind==="trial")setRepeatMode("once");setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={businessProfile==="MUSIC"?{...scheduleSeed,date:scheduleSeed.date??selectedDate}:{date:scheduleDate,time:scheduleTime,roomId:scheduleRoomId,durationMinutes:scheduleDuration}} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} onGuard={updateRentalGuard} />}
             </>}
@@ -2099,7 +2099,7 @@ export function CourseWorkspace({
                           const input={
                             ...courseScheduleFormFields(data, {templateId: chosen, requestKey}),
                             isTrial: arrangement === "trial",
-                            learners:scheduleLearners.map(({customerId,cardId,trialPrice})=>({customerId,cardId:cardId||null,...(trialPrice!==undefined?{trialPrice}:{})})),
+                            learners:scheduleLearners.map(({customerId,cardId,trialPrice,name})=>({customerId:customerId.startsWith("trial-draft:")?null:customerId,...(customerId.startsWith("trial-draft:")?{participantKey:customerId.slice(12),customerName:name}:{}),cardId:cardId||null,...(trialPrice!==undefined?{trialPrice}:{})})),
                             sourceSessionId: copySource?.id,
                           };
                           const check=await inspectCourseSchedule(input);
@@ -2213,8 +2213,8 @@ export function CourseWorkspace({
                         {roomCapacityNotice}
                       </p>
                     )}
-                    {!repeat && <div className="col-span-full">{repeatControl}</div>}
-                    {!repeat && multipleDates && (
+                    {arrangement!=="trial"&&!repeat && <div className="col-span-full">{repeatControl}</div>}
+                    {arrangement!=="trial"&&!repeat && multipleDates && (
                       <div className="col-span-full space-y-2">
                         <MultiDateCalendar
                           baseDate={scheduleDate}
@@ -2267,7 +2267,7 @@ export function CourseWorkspace({
                 className={`${primary} w-full`}
                 disabled={pending || scheduleEnrollmentPending || !scheduleCoachValid || !scheduleLearnersValid || !!scheduleValidationError}
               >
-                {pending ? "儲存中…" : "儲存排課"}
+                {pending ? "儲存中…" : arrangement==="trial"?"儲存體驗":"儲存排課"}
               </button>
             </footer>
           )}
@@ -2406,6 +2406,7 @@ export function CourseWorkspace({
                 {rentalDialog && dialogSession.rentalId ? <RentalPanel customers={rentalCustomers} id={dialogSession.rentalId} rooms={allRooms} seed={{}} permissions={{...rentalPermissions,edit:canEdit}} onGuard={updateRentalGuard} /> : rentalDialog ? <section className="w-full space-y-4 text-sm" aria-label="租借明細"><dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-3"><dt className="text-earth-500">時段</dt><dd>{formatTWDateTime(new Date(dialogSession.startsAt))} ～ {formatTWDateTime(new Date(dialogSession.endsAt))}</dd><dt className="text-earth-500">空間</dt><dd>{allRooms.find(room=>room.id===dialogSession.roomId)?.name ?? "未指定"}</dd><dt className="text-earth-500">租借人</dt><dd>{dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").map(booking=>booking.customerName).join("、") || "尚未登記"}</dd></dl><p className="text-xs text-earth-500">此時段目前僅記錄空間占用；聯絡電話、費用與租借備註尚未建檔。</p></section> : <CourseRoster
                   key={`${dialogSession.id}-${courseDialog.kind}`}
                   sessionId={dialogSession.id}
+                  onTrialGuard={updateRentalGuard}
                   capacity={dialogSession.capacity}
                   canCreate={canCreate}
                   canEdit={canEdit}
@@ -2431,7 +2432,7 @@ export function CourseWorkspace({
                   }
                 />}
               </div>
-              {!rentalDialog && courseDialog.kind !== "roster" && (
+              {!rentalDialog && courseDialog.kind === "member-booking" && (
                 <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                   <button
                     type="submit"

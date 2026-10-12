@@ -42,6 +42,7 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
+    courseTemplate: {findFirst:mocks.template},
     courseSession: { findFirst: async()=>({id:"session-created"}), findMany: async()=>[] },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
@@ -400,6 +401,6 @@ it("saves plan and trial learners together without debiting attended credits",as
   const result=await createCourseSchedule({...input,learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:null,trialPrice:300}]});
   expect(result).toMatchObject({success:true});
   expect(mocks.permission).toHaveBeenCalledWith("trial.create");
-  expect(mocks.reserve).toHaveBeenCalledTimes(6);
+  expect(mocks.reserve).toHaveBeenCalledTimes(4);
   expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(),expect.anything(),expect.objectContaining({customerId:"b",cardId:null,trialPrice:300}),1000);
 });

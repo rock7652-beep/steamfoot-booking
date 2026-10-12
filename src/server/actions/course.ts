@@ -1,4 +1,5 @@
 "use server";
+import {courseTrialPrice} from "@/lib/course-trial-price";
 import { createHash } from "node:crypto";
 import { courseTemplateSaveInput, courseTemplateRevision, savedCourseTemplate } from "@/lib/course-template-save";
 import { settingsSaveUncertain } from "@/server/services/settings-save-error";
@@ -430,22 +431,25 @@ export async function createCourseSchedule(input: unknown) {
   try {
     const { user, storeId } = await writableStore();
     const data = courseScheduleInput
-      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
+      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
     let trialPricing: Awaited<ReturnType<typeof import("@/lib/shop-config").getTrialSettings>> | undefined;
     if(data.learners.some(learner=>learner.cardId===null)){
       await courseManager("trial.create");
-      const {getTrialSettings,clampTrialTotal}=await import("@/lib/shop-config");
+      const {getTrialSettings}=await import("@/lib/shop-config");
       trialPricing=await getTrialSettings(storeId);
       if(!trialPricing.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
-      data.learners=data.learners.map(learner=>learner.cardId===null?{...learner,trialPrice:clampTrialTotal(learner.trialPrice,1,trialPricing!)}:learner);
+      const trialTemplate=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true}});
+      data.learners=data.learners.map(learner=>learner.cardId===null?{...learner,trialPrice:courseTrialPrice(learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
     }
-    if(new Set(data.learners.map(learner=>learner.customerId)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
+    if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
+    if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
     if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
     const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
     let occurrences: ReturnType<typeof buildCourseOccurrences>;
     try {
       occurrences = buildCourseOccurrences(data);
+      if(data.isTrial&&occurrences.length>1)throw new Error("體驗課僅能安排一次");
     } catch (error) {
       throw new AppError(
         "VALIDATION",
@@ -486,8 +490,9 @@ export async function createCourseSchedule(input: unknown) {
               "CONFLICT",
               "這次排課已送出，請重新開啟排課表單",
             );
-          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,cardId:true,trialPrice:true}});
-          if(enrolled.length!==existing.length*data.learners.length || existing.some(session=>data.learners.some(learner=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&booking.cardId===learner.cardId&&(learner.cardId!==null||booking.trialPrice===learner.trialPrice)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
+          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,customerName:true,cardId:true,trialPrice:true,requestKey:true}});
+          const expected=existing.flatMap((session,index)=>data.learners.filter(learner=>index===0||learner.cardId!==null).map(learner=>({session,learner})));
+          if(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&booking.cardId===learner.cardId&&(learner.cardId!==null||booking.trialPrice===learner.trialPrice)&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
           return { count: existing.length };
         }
         const source = data.sourceSessionId
@@ -602,8 +607,9 @@ export async function createCourseSchedule(input: unknown) {
           const created=await tx.courseSession.findMany({where:{storeId,requestKey:data.requestKey,cancelledAt:null},orderBy:{requestIndex:"asc"},select:{id:true}});
           if(created.length!==occurrences.length)throw new AppError("CONFLICT","排課結果未完整確認，請重試");
           const {reserveCourseInTransaction}=await import("@/server/services/course-booking");
-          for(const session of created)for(const learner of data.learners){
-            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId}`},limits!.maxMonthlyBookings);
+          for(const [index,session] of created.entries())for(const learner of data.learners){
+            if(index>0&&learner.cardId===null)continue;
+            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId,customerName:learner.customerName,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId??learner.participantKey}`},limits!.maxMonthlyBookings);
           }
         }
         return { count: occurrences.length };

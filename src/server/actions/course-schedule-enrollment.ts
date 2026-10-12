@@ -3,6 +3,8 @@ import { z } from "zod";
 import { courseManager } from "@/server/services/course-access";
 import { getCourseCards } from "@/server/queries/course-members";
 import { handleActionError, AppError } from "@/lib/errors";
+import {coursePrisma} from "@/lib/course-db";
+import {courseTrialPrice} from "@/lib/course-trial-price";
 import { normalizePhone } from "@/lib/normalize";
 import { prisma } from "@/lib/db";
 import { getTrialSettings } from "@/lib/shop-config";
@@ -17,10 +19,11 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
     await courseManager("customer.read");
     const customers=await prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000});
     const trialSettings=await getTrialSettings(storeId);
+    const template=await coursePrisma.courseTemplate.findFirst({where:{id:templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true}});
     let canTrial=false;try{await courseManager("trial.create");canTrial=true;}catch{}
     const visibleIds=new Set(customers.map(person=>person.id));
     const cards=await getCourseCards(storeId,undefined,{where:{closedAt:null,expiresAt:{gte:new Date()},termSessionIds:{isEmpty:true},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:templateId}}]},skip:0,take:500,entries:false});
-    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:trialSettings.trialDefaultPrice},cards:cards.map(card=>({id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
+    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:cards.map(card=>({id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
 
