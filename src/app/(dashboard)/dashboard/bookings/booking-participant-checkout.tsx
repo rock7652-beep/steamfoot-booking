@@ -77,8 +77,8 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         <p className="text-earth-600">{slot.position === 1 ? "預約人" : "同行者"} · {statusLabels[status] ?? status}{!slot.customerId ? " · 未建檔" : ""}</p>
         <p className="mt-1 break-words text-earth-900">本次：{isPlan || usedOwnPlan ? selectedPlanName ?? "方案" : `體驗 NT$ ${(amount ?? checkout.settings.defaultPrice).toLocaleString("zh-TW")}`}
           {isPlan && (selection || slot.selectedOwnerId) && <span className="text-earth-600"> · {selection || slot.selectedOwnerId === slot.customerId ? "本人方案" : `使用${slot.selectedOwnerName ?? "其他顧客"}的共卡`}</span>}
+          <span className="text-earth-600"> · {isPlan || usedOwnPlan ? status === "COMPLETED" ? "已扣 1 堂" : status === "PENDING" ? "尚未扣堂" : "未扣堂" : amount != null && !slot.receiptCorrected ? `已收體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : slot.receiptCorrected ? "收款已撤銷／退回" : "未收款"}</span>
         </p>
-        <p className="text-earth-600">{isPlan || usedOwnPlan ? status === "COMPLETED" ? "已扣 1 堂" : status === "PENDING" ? "尚未扣堂" : "未扣堂" : amount != null && !slot.receiptCorrected ? `已收體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : slot.receiptCorrected ? "收款已撤銷／退回" : "未收款"}</p>
       </div>
       {!readOnly && status === "PENDING" && <div className="flex flex-wrap gap-2">
         {checkout.canCollect && !isPlan && amount == null && (slot.customerId || checkout.canCollectUnregistered) && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setSelling(false); setExpanded(!expanded); }}

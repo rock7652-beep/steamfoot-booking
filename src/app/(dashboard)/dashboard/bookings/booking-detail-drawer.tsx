@@ -1106,7 +1106,13 @@ function DrawerContent({
 
       {/* Body — scrollable */}
       <DetailBody spaMode={spaMode} stacked={participantMode} appointment={
-        <Section readable={!spaMode} title="預約摘要">
+        participantMode ? <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 px-4 py-2 text-base">
+          <div className="flex flex-wrap gap-x-4 gap-y-1"><span>{dateLabel} {booking.slotTime}{endTime ? ` - ${endTime}` : ""}</span><span className="text-earth-600">{booking.revenueStaff?.displayName ?? "未指派教練"}</span></div>
+          <div className="flex items-center gap-2">
+            <details><summary className="min-h-11 cursor-pointer px-2 py-2 text-sm text-earth-600">預約資訊</summary><div className="py-2 text-sm"><p>來源：{trialBookingSourceLabel(booking.bookingSource)}</p>{booking.serviceStaff && booking.serviceStaff.id !== booking.revenueStaff?.id && <p>值班店長：{booking.serviceStaff.displayName}</p>}<OperationHistoryButton targetType="Booking" targetId={booking.id}/></div></details>
+            {!readOnly && payload.canEditBookingNote && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && payload.participantCheckout!.slots.every(slot=>slot.status === "PENDING" && slot.collectedAmount === null) && <button type="button" disabled={isActing} onClick={actions.reschedule} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">改期</button>}
+          </div>
+        </div> : <Section readable={!spaMode} title="預約摘要">
           <KV readable={!spaMode} label={spaMode ? "日期" : "日期時間"} value={spaMode ? dateLabel : `${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
           {spaMode && <KV readable={!spaMode}
             label="時間"

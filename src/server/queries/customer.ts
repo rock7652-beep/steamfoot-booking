@@ -409,7 +409,6 @@ export async function getCustomerDrawerDetailForUser(
       },
       bookings: canReadBookings ? { orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }], take: 50, select: { id: true, bookingDate: true, slotTime: true, bookingStatus: true, bookingType: true } } : false,
       planWallets: {
-        
         include: {
           plan: { select: { id: true, name: true, sessionCount: true } },
           sessions: { select: { status: true } },

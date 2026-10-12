@@ -409,7 +409,7 @@ export function CustomersListWithDrawer({
       />
 
       <SettingsPanelContext.Provider value={{report: reportFormState, navigate: () => {}}}>
-      <RightSheet presentation="centered"
+      <RightSheet presentation="centered" fitContent
         open={openId !== null}
         onClose={closeDrawer}
         labelledById={titleId}
