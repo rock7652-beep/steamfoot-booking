@@ -21,7 +21,7 @@ import {
   updateCustomerServiceNoteSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
-import { getCustomerPanelSummary, type CustomerPanelSummary } from "./customer-panel-summary";
+import type { CustomerPanelSummary } from "./customer-panel-summary";
 import { getCustomerDrawerDetailForUser } from "@/server/queries/customer";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
@@ -697,6 +697,7 @@ export async function getCustomerDrawerDetailAction(
       customerId,
       activeStoreId,
     );
+    const { getCustomerPanelSummary } = await import("./customer-panel-summary");
     const summary = await getCustomerPanelSummary(customerId);
     return { success: true, data: {...data, panelSummary: summary.success ? summary.data : undefined} };
   } catch (e) {

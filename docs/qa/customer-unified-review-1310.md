@@ -80,6 +80,6 @@ JWT 保留伺服器私有的授權版本與絕對到期時間；每次 auth 檢�
 - 入口：運動／音樂顧客管理、課程學員預約詳情／體驗收款，SPA 顧客管理、SPA 服務結帳控制。
 - 桌機與 iPad 目標尺寸：1366px、1920px、1024×768、768×1024；共用元件另需 560px／360px 窄容器。
 - 已準備無資料庫版型 fixture；Cloud Browser 存取 localhost:4310 回報 ERR_CONNECTION_REFUSED，未完成畫面、溢出或尺寸驗收。
-- 本輪 17 檔、174 項相關測試、TypeScript、changed-file ESLint 與 diff check 通過。
+- 本輪 17 檔、174 項相關測試、TypeScript、changed-file ESLint 與 diff check 通過；遠端完整檢查另發現跨模組舊 UI 預期及 customer action 靜態摘要依賴，修正後新增 3 檔 42 項回歸通過。摘要查詢仍只在顧客詳情入口授權後載入，不改資料或權限。
 - 本輪尚未完成最新版隔離 Preview 及完整業務驗收；先前蒸足驗收只適用原 52c6dcf 版本，不視為其他模組驗收。
 - 不進行真實收款、LINE 換綁或正式合併。

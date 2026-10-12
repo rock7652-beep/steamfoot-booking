@@ -61,7 +61,7 @@ async function renderModule(module: Module, { empty = false, count = 0, long = f
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial: labels, children: element })));
 }
 function overview() { return host.querySelector<HTMLButtonElement>(`button[aria-label="${name} 標籤與備註"]`)!; }
-function noteDialog() { return [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find(dialog => dialog.textContent?.includes(name) && (dialog.textContent.includes("店內備註") || dialog.textContent.includes("平時備註")))!; }
+function noteDialog() { return [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find(dialog => dialog.textContent?.includes(name) && (dialog.textContent.includes("店內備註") || dialog.textContent.includes("平時備註") || dialog.textContent.includes("本次備註")))!; }
 it.each(modules)("%s renders an empty list without a reminder or mutation", async module => {
   await renderModule(module, { empty: true }); expect(host.querySelector("[data-roster-reminders]")).toBeNull(); expect(m.write).not.toHaveBeenCalled(); expect(m.open).not.toHaveBeenCalled();
 });
@@ -132,7 +132,12 @@ it.each(["sports", "music"] as const)("%s returns from an unconfirmed absence wi
 it.each(modules)("%s retains the empty reminder skeleton without fabricating content", async module => {
   await renderModule(module); expect(overview().children).toHaveLength(2); expect(overview().textContent).toContain("尚無備註");
   await act(async () => overview().click()); const dialog = noteDialog();
-  expect(dialog.textContent?.match(/尚無備註/g)?.length).toBe(2); expect(m.write).not.toHaveBeenCalled();
+  if (module === "sports" || module === "music") {
+    expect(dialog.textContent).toContain("本次備註");
+    expect(dialog.textContent).not.toContain("店內備註");
+    expect(dialog.querySelector("textarea")).toBeNull();
+  } else expect(dialog.textContent?.match(/尚無備註/g)?.length).toBe(2);
+  expect(m.write).not.toHaveBeenCalled();
 });
 it.each(["sports", "music"] as const)("%s opens its inline note editor without trapping Enter and sends one note-only action", async module => {
   await renderModule(module);
@@ -192,13 +197,18 @@ it.each(["pencil", "full-details"] as const)("music GROUP retains expanded histo
     await act(async () => noteTrigger.click());
   } else {
     await act(async () => overview().click());
-    await act(async () => [...noteDialog().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "編輯本次備註")!.click());
+    await act(async () => [...noteDialog().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "編輯")!.click());
   }
-  const input = document.querySelector("textarea")!;
+  const input = (entry === "pencil" ? document.querySelector("textarea") : noteDialog().querySelector("textarea"))!;
   expect(input.value).toBe(longNote);
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "團課未儲存草稿\n不應覆蓋原備註"); input.dispatchEvent(new Event("input", { bubbles: true })); });
   expect(input.value).toBe("團課未儲存草稿\n不應覆蓋原備註");
-  await act(async () => [...input.closest("form, [data-inline-roster-note]")!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
+  await act(async () => [...(input.closest("form, [data-inline-roster-note]") ?? input.parentElement)!.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "取消")!.click());
+  if (entry === "full-details") {
+    expect(noteDialog().querySelector("textarea")).toBeNull();
+    expect(noteDialog().textContent).toContain(longNote);
+    await act(async () => [...noteDialog().querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "關閉")!.click());
+  }
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expectExpandedHistory();
 
