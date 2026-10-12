@@ -1,6 +1,6 @@
 # 全站操作一致性盤點與分批實作計畫
 
-2026-10-12，Asia/Taipei。盤點及最小實作順序經使用者確認後，已完成 B1 本機程式與合成驗證；尚待遠端推送及隔離 Preview 範圍確認。中央會員及工單通知功能另案；其既有入口列入覆蓋清單，但不在本案實作。沒有修改真實顧客資料、資料庫、安全設定或遠端部署。
+2026-10-12，Asia/Taipei。盤點及最小實作順序經使用者確認後，B1已完成程式、合成驗證、遠端CI與隔離Preview；已登入驗收仍待安全登入管道，保持Draft。中央會員及工單通知功能另案；其既有入口列入覆蓋清單，但不在本案實作。沒有修改真實顧客資料、資料庫或安全設定，沒有正式發布。
 
 最新 B1 紀錄：`docs/course-settings-three-state-b1-20261012.md`。產品提交 `830f2418d311670c513ad21f4a2e52fa6744acef`；支線 `fix/course-settings-three-state-20261012`；base main `695df9e22c2e5cba66f061b78a55df37e884b89d`。H01–H03 已在本機補齊，保留待隔離 Preview／登入後驗收，不能算成已發布成果。下方現況表保留盤點時缺口證據，依本段及批次紀錄接續。
 
@@ -103,7 +103,7 @@ GitHub open PR 搜尋返回三件；已再讀 metadata 與完整 changed filenam
 | 批次 | 實際支線／PR／最新 SHA | 修改範圍 | 測試通過／失敗／未做 | 阻擋與下一步 |
 | --- | --- | --- | --- | --- |
 | 盤點 | 本機 f3ef9868；遠端 main695df9e2；無新PR／實作提交 | 本文件、路由CSV；remote main差異與open PR清單 | 基線 Vitest 5檔46項通過／0失敗；新程式測試、全量、Preview與真機未做 | 使用者確認B1/B2後才施工；git proxy失敗，施工須取得最新完整checkout |
-| B1 | fix/course-settings-three-state-20261012；產品830f2418d311670c513ad21f4a2e52fa6744acef；尚無PR | 三個課程入口、空狀態、直連panel阻擋；2個產品UI檔 | 13檔183項通過／0失敗；Chromium合成36組通過；修改檔ESLint通過；最終型別結果見批次紀錄；遠端CI／Preview／業務互動未做 | 本機可審閱；待確認指定支線推送、單一Draft PR及隔離Preview；不包含正式合併 |
+| B1 | fix/course-settings-three-state-20261012；PR#1314；遠端head f34fe5520e8ea4115a84d6ee6c517597d360d55b | 三個課程入口、空狀態、直連panel阻擋；2個產品UI檔＋既有精確支線隔離guard | Exact-head CI四job通過：完整9997passed／129skipped；Targeted2210passed；唯一Git Preview READY；Chromium合成36組通過 | 登入後隔離驗收待使用者安全登入；兩測試店與帳號狀態已唯讀核實，最小步驟見批次紀錄；保持Draft、不合併正式 |
 | B2 | 尚未建立；沒有head | SPA立即文字篩選 | 新互動測試與Preview未做 | 等待確認；核對完整與分頁資料範圍 |
 | V3–V5 | 尚未建立 | 僅核實後決定 | 裝置、故障注入與端到端未做 | 不把待驗證當缺口；記錄具體證據再排修補 |
 | V6 | 無產品支線 | 真實iPad/Safari與延期390px | 未做 | 需真機與隔離登入情境；保持待補 |
