@@ -64,7 +64,7 @@ it("retained TRIAL draft is shown as invalid and cannot submit or lose its input
 
 it("keeps historical TRIAL wallets visible but offers renewal only for an available ordinary plan", async () => {
   const plans = [{ id: "package", name: "10堂", category: "PACKAGE", price: 5990, sessionCount: 10, validityDays: 180 }];
-  const wallet = (id: string, name: string) => ({ id, status: "ACTIVE", remainingSessions:1, sessions: [], expiryDate: null, plan: { id, name, sessionCount: 1 } });
+  const wallet = (id: string, name: string) => ({ id, createdAt:new Date("2026-01-01"), status: "ACTIVE", remainingSessions:1, sessions: [], expiryDate: null, plan: { id, name, sessionCount: 1 } });
   const customer = {
     id: "customer", storeId: "store", name: "驗收顧客", phone: null, lineUserId: null, lineLinkStatus: "UNLINKED", authSource: "MANUAL",
     canAssignPlan:true, canBook:true, canReadBookings:true,

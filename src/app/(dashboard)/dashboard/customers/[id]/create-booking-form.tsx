@@ -36,7 +36,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(days.length > 0);
   // 防呆：有可用 wallet → bookingType 預設 PACKAGE_SESSION + 自動選 FEFO 首張
-  const [bookingType, setBookingType] = useState<BookingType>("PACKAGE_SESSION");
+  const [bookingType, setBookingType] = useState<BookingType>(activeWallets.length > 0 ? "PACKAGE_SESSION" : "FIRST_TRIAL");
   const [walletId, setWalletId] = useState<string>(activeWallets[0]?.id ?? "");
 
   const loadSlots = useCallback(async (date: string) => {
@@ -117,7 +117,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
         ) : simplified ? (
           <SteamfootBookingCalendar days={days} value={selectedDate} customerId={customerId}
             disabled={pending} refreshKey={calendarRefresh}
-            onChange={(date) => { if (date !== selectedDate) { setLoadingSlots(true); setSelectedDate(date); } }} />
+            onChange={(date) => { if (date !== selectedDate) { setDirty(true); setLoadingSlots(true); setSelectedDate(date); } }} />
         ) : (
           <select
             name="bookingDate"
@@ -161,7 +161,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
           onChange={(e) => setBookingType(e.target.value as BookingType)}
           className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
         >
-          <option value="PACKAGE_SESSION">課程堂數</option>
+          <option value="PACKAGE_SESSION" disabled={activeWallets.length === 0}>課程堂數</option>
           <option value="FIRST_TRIAL">體驗</option>
           <option value="SINGLE">單次付費，不扣堂</option>
         </select>

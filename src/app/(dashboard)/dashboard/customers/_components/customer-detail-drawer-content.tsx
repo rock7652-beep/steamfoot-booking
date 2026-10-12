@@ -16,6 +16,7 @@ import { CustomerPanelRecordsList } from "./customer-panel-records";
 import { AdjustWalletForm } from "../[id]/adjust-wallet-form";
 import { ExtendWalletExpiryForm } from "../[id]/extend-wallet-expiry-form";
 import { BackfillUsedSessionsForm } from "../[id]/backfill-used-sessions-form";
+import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { walletAvailableToBook, walletPendingCount } from "@/lib/wallet-availability";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { formatTWTime } from "@/lib/date-utils";
@@ -128,7 +129,7 @@ export function CustomerDetailDrawerContent({
   // 有效方案：ACTIVE 且未過期（已過期會由 backend 標 EXPIRED，這裡只篩 ACTIVE）
   // slim query 只回 ACTIVE 錢包 → filter 結果即全部；失效張數改用
   // _count.planWallets（全部錢包數）− active 數，維持原顯示語意。
-  const activeWallets = customer.planWallets.filter((w) => w.status === "ACTIVE" && (!w.expiryDate || toLocalDateStr(w.expiryDate) >= toLocalDateStr()) && w.remainingSessions > 0);
+  const activeWallets = sortWalletsByFEFO(customer.planWallets.filter((w) => w.status === "ACTIVE" && (!w.expiryDate || toLocalDateStr(w.expiryDate) >= toLocalDateStr()) && w.remainingSessions > 0));
   const visibleWallets = showInactive ? customer.planWallets : activeWallets;
   const inactiveWalletCount = Math.max(
     0,
@@ -428,7 +429,7 @@ export function CustomerDetailDrawerContent({
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <button type="button" onClick={() => { if (allowNavigation()) setView("overview"); }} className="mb-3 min-h-11 px-3 text-sm text-primary-700">← 返回顧客</button>
-        {view === "booking" ? <CreateBookingForm customerId={customer.id} days={customer.bookingDays} activeWallets={activeWallets.map(w => ({id:w.id, planName:w.plan.name, remainingSessions:walletAvailableToBook(w), expiryDate:w.expiryDate ? toLocalDateStr(w.expiryDate) : null}))} simplified onSuccess={() => {handleMutated(); setView("overview");}} /> : <EditCustomerForm customer={{id:customer.id, updatedAt:new Date(customer.updatedAt).toISOString(), name:customer.name, phone:customer.phone ?? "", email:customer.email ?? "", gender:customer.gender ?? "", birthday:customer.birthday ? toLocalDateStr(customer.birthday) : "", height:customer.height, serviceNote:customer.serviceNote ?? "", lineName:customer.lineName ?? ""}} onSuccess={() => {handleMutated(); setView("overview");}} onCancel={() => setView("overview")} />}
+        {view === "booking" ? <CreateBookingForm customerId={customer.id} days={customer.bookingDays} activeWallets={activeWallets.filter(w => walletAvailableToBook(w) > 0).map(w => ({id:w.id, planName:w.plan.name, remainingSessions:walletAvailableToBook(w), expiryDate:w.expiryDate ? toLocalDateStr(w.expiryDate) : null}))} simplified onSuccess={() => {handleMutated(); setView("overview");}} /> : <EditCustomerForm customer={{id:customer.id, updatedAt:new Date(customer.updatedAt).toISOString(), name:customer.name, phone:customer.phone ?? "", email:customer.email ?? "", gender:customer.gender ?? "", birthday:customer.birthday ? toLocalDateStr(customer.birthday) : "", height:customer.height, serviceNote:customer.serviceNote ?? "", lineName:customer.lineName ?? ""}} onSuccess={() => {handleMutated(); setView("overview");}} onCancel={() => setView("overview")} />}
       </div>}
 
     </div>
