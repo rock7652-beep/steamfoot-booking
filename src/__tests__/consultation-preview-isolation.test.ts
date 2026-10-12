@@ -212,3 +212,14 @@ describe("composed consultation and shared-card release modes", () => {
 });
 
  it("isolates the teacher self-session branch before migrations",()=>{const result=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012"});expect(result.status).toBe(0);expect(result.output).toContain("migrations_skipped=true");const rejected=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012",DATABASE_URL:direct.replace("ttworfzgwejdeolegkxl","another-project")});expect(rejected.status).not.toBe(0);});
+
+ describe("mistaken plan cancellation isolated preview", () => {
+  const preview = { ...valid, VERCEL_GIT_COMMIT_REF: "fix/cancel-mistaken-plan-20261012" };
+  it("accepts only isolated preview data", () => {
+    expect(assertReviewedReleaseEnvironment(preview)).toBe("module-roster-preview");
+  });
+  it("rejects production databases and foreign repository metadata", () => {
+    expect(() => assertReviewedReleaseEnvironment({ ...preview, DATABASE_URL: direct.replace("ttworfzgwejdeolegkxl", "qijlnhtpbintanzpxkvf") })).toThrow();
+    expect(() => assertReviewedReleaseEnvironment({ ...preview, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
+  });
+ });
