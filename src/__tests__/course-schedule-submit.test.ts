@@ -16,6 +16,8 @@ vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
 
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(async()=>({success:true,cards:[]}))}));
+
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const props = {
   selectedDate: "2026-10-01", today: "2026-10-01", nowIso: "2026-10-01T01:00:00Z", calendarDays: {},
@@ -106,18 +108,18 @@ it("keeps selected dates after a failed batch and confirms all dates after a suc
 });
 
 
-it("offers enrollment from saved sessions before route refresh returns", async () => {
+it("shows the inline enrollment section before saving and confirms without an extra enrollment step", async () => {
   refresh.mockClear();
   const session = { id:"saved",templateId:"yoga",nameSnapshot:"瑜珈",startsAt:"2026-10-01T10:00:00Z",endsAt:"2026-10-01T11:00:00Z",coachId:"coach",roomId:"room",capacity:10,pointCost:2,bookings:[] };
   createSchedule.mockResolvedValue({success:true,data:{count:1,sessionId:"saved",sessions:[session]}});
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   try {
     await act(async()=>root.render(createElement(CourseWorkspace,props)));
+    expect(host.querySelector('[aria-label="排課學員"]')).not.toBeNull();
     await act(async()=>host.querySelector<HTMLFormElement>("#course-schedule-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
     const enrollment=Array.from(host.querySelectorAll("button")).find(button=>button.textContent==="＋ 加入學員");
-    expect(enrollment).toBeTruthy();
-    await act(async()=>enrollment!.click());
-    expect(host.querySelector('[aria-label="排課成功日期"]')).toBeNull();
+    expect(enrollment).toBeUndefined();
+    expect(host.querySelector('[aria-label="排課成功日期"]')).not.toBeNull();
     expect(refresh).not.toHaveBeenCalled();
     expect(host.textContent).toContain("瑜珈");
   } finally {await act(async()=>root.unmount());host.remove();}
