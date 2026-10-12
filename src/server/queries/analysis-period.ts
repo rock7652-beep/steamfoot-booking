@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { analysisComparisonRanges, analysisRetentionCohort, parseTaiwanDateToDbDate, type AnalysisRange } from "@/lib/date-utils";
+import { bookingDateToday, parseTaipeiDateTime, analysisComparisonRanges, analysisRetentionCohort, parseTaiwanDateToDbDate, type AnalysisRange } from "@/lib/date-utils";
 import { selectConversionCustomerIds, type CompletedTrial, type PackagePurchase } from "./conversion-metrics";
 import { hydrateCustomerSegment } from "./customer-segment-list";
 import type { CustomerKpiSegment } from "./customer-kpi-segments";
@@ -69,19 +69,32 @@ async function loadPeriodFacts(storeId: string, ranges: AnalysisRange[]) {
   }] : []), first };
 }
 
-export async function getAnalysisPeriodMetrics(storeId: string, range: AnalysisRange, preset: string) {
+export async function getAnalysisPeriodMetrics(storeId: string, range: AnalysisRange, preset: string, includeRetentionCustomers = false) {
   const periods = analysisComparisonRanges(range, preset);
   const currentCohort = analysisRetentionCohort(periods.current);
   const previousCohort = analysisRetentionCohort(periods.previous);
   const yearCohort = analysisRetentionCohort(periods.year);
   const facts = await loadPeriodFacts(storeId, [periods.current, currentCohort, periods.previous, previousCohort, periods.year, yearCohort]);
   const select = (r: AnalysisRange, cohort: AnalysisRange) => selectPeriodFacts(r, cohort, facts.visits, facts.first, facts.trials, facts.purchases);
-  const current = select(periods.current, currentCohort).counts;
+  const currentSelection = select(periods.current, currentCohort);
+  const current = currentSelection.counts;
   const previous = select(periods.previous, previousCohort).counts;
   const year = select(periods.year, yearCohort).counts;
   const compare = (n: number, b: number) => ({ difference: n - b, percentage: b ? (n - b) / b * 100 : null });
   const metrics = Object.fromEntries(Object.entries(current).map(([key, value]) => [key, { current: value, mom: compare(value, previous[key as keyof typeof previous]), yoy: compare(value, year[key as keyof typeof year]) }])) as Record<keyof typeof current, { current: number; mom: ReturnType<typeof compare>; yoy: ReturnType<typeof compare> }>;
-  return { metrics, periods, retentionCohort: currentCohort };
+  const returnedIds = currentSelection.segments["monthly-returned"];
+  const pendingIds = currentSelection.segments["monthly-not-returned"];
+  const cohortIds = [...returnedIds, ...pendingIds];
+  const retentionCustomers = includeRetentionCustomers ? await hydrateCustomerSegment(storeId, cohortIds) : null;
+  const upcomingWhere = { storeId, bookingStatus: { in: ["PENDING", "CONFIRMED"] as ("PENDING" | "CONFIRMED")[] }, bookingDate: { gte: bookingDateToday() } };
+  const upcoming = !includeRetentionCustomers || !pendingIds.size ? [] : process.env.BOOKING_PARTICIPANTS_ENABLED === "true"
+    ? await prisma.booking.findMany({ where: { ...upcomingWhere,
+        OR: [{ customerId: { in: [...pendingIds] } }, { participantGroup: { participants: { some: { storeId, customerId: { in: [...pendingIds] }, status: "PENDING" } } } }] },
+        select: { customerId: true, bookingDate: true, slotTime: true, participantGroup: { select: { participants: { where: { storeId, status: "PENDING", customerId: { in: [...pendingIds] } }, select: { customerId: true } } } } } })
+    : (await prisma.booking.findMany({ where: { ...upcomingWhere, customerId: { in: [...pendingIds] } }, select: { customerId: true, bookingDate: true, slotTime: true } })).map(b => ({ ...b, participantGroup: null }));
+  const bookedIds = new Set(upcoming.filter(b => { const at = parseTaipeiDateTime(b.bookingDate.toISOString().slice(0, 10), b.slotTime); return at && at > new Date(); }).flatMap(b => b.participantGroup ? b.participantGroup.participants.map(p => p.customerId) : [b.customerId]));
+  return { metrics, periods, retentionCohort: currentCohort,
+    retentionCustomers: retentionCustomers?.map(c => ({ id: c.customerId, name: c.customerName, phone: c.customerPhone, returned: returnedIds.has(c.customerId), booked: bookedIds.has(c.customerId) })) ?? null };
 }
 
 export async function getAnalysisPeriodCustomers(storeId: string, range: AnalysisRange, preset: string, segment: CustomerKpiSegment) {
