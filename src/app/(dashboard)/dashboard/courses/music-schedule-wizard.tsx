@@ -24,7 +24,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const subjectId=template?.musicSubjectId??templateId;
   const subjects=[...new Map(templates.map(t=>[t.musicSubjectId??t.id,{id:t.musicSubjectId??t.id,name:t.musicSubject?.name??t.name}])).values()];
   const [capacity,setCapacity]=useState(templates.find(t=>t.id===(initialTemplateId??templates[0]?.id))?.capacity??1);
-  function chooseTemplate(id:string){setLearners([]);setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);const n=t?.durationMinutes??60;setDuration(([30,60,90,120] as number[]).includes(n)?n as 30|60|90|120:60);resetSlot();}
+  function chooseTemplate(id:string){setLearners([]);setLearnersValid(true);setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);const n=t?.durationMinutes??60;setDuration(([30,60,90,120] as number[]).includes(n)?n as 30|60|90|120:60);resetSlot();}
 
   const [duration,setDuration]=useState<30|60|90|120>(()=>{
     const n=seed?.durationMinutes ?? templates.find(t=>t.id===(initialTemplateId ?? templates[0]?.id))?.durationMinutes ?? 60;
@@ -37,6 +37,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [time,setTime]=useState(seed?.time ?? "");
   const [coachId,setCoachId]=useState(seed?.coachId ?? "");
   const [learners,setLearners]=useState<ScheduleLearner[]>([]);
+  const [learnersValid,setLearnersValid]=useState(true);
   const [pair,setPair]=useState<{roomId:string;coachId:string}|null>(null);
   const [repeat,setRepeat]=useState(false);
   const [error,setError]=useState("");
@@ -141,11 +142,11 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
         {availableRooms.map(option=><button key={option.roomId} type="button" disabled={option.fixedOrigin&&template?.musicScheduleMode==="FIXED"} title={option.fixedOrigin?"原固定課保留此時段，僅可排單次臨時課":undefined} className={`min-h-11 rounded-xl border px-3 text-left disabled:opacity-50 ${pair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setPair(option);if(option.fixedOrigin)setRepeat(false);}}>教室 {rooms.find(r=>r.id===option.roomId)?.name}{option.fixedOrigin&&<span className="block text-[11px]">原固定課保留 · 限單次臨時課</span>}</button>)}
       </div>}
     </div>}
-    {templateId&&<CourseScheduleLearners key={templateId} templateId={templateId} pointCost={1} capacity={capacity} value={learners} onChange={setLearners} disabled={pending} />}
+    {templateId&&<CourseScheduleLearners key={templateId} templateId={templateId} pointCost={1} capacity={capacity} occurrenceCount={repeat?(template?.musicTermLessons??4):1} value={learners} onChange={setLearners} onValidityChange={setLearnersValid} disabled={pending} />}
     {pair && <div className="sticky bottom-0 z-10 space-y-3 border-t border-earth-100 bg-white py-3">
       <label className="flex min-h-10 items-center gap-2"><input type="checkbox" checked={repeat} disabled={pairs.find(option=>option.roomId===pair.roomId&&option.coachId===pair.coachId)?.fixedOrigin} onChange={e=>setRepeat(e.target.checked)}/>每週固定排 {template?.musicTermLessons ?? 4} 堂</label>
       {repeat && <p className="text-xs text-earth-600">將從首次上課日建立同時段的 {template?.musicTermLessons ?? 4} 堂；每堂都會再次檢查空位。</p>}
-      <button type="button" disabled={pending||learners.length>capacity} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":"儲存排課"}</button>
+      <button type="button" disabled={pending||learners.length>capacity||!learnersValid} onClick={create} className="min-h-11 w-full rounded-xl bg-primary-700 px-4 font-medium text-white disabled:opacity-50">{pending?"建立中…":"儲存排課"}</button>
     </div>}
     {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-red-700">{error}</p>}
   </fieldset>;
