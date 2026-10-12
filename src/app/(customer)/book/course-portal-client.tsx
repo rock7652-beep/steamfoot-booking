@@ -3,6 +3,7 @@ import { courseDisplayText } from "@/lib/course-display-text";
 import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { courseBalanceTotals } from "@/lib/course-balance-summary";
+import { CourseTeacherSessionDialog } from "@/components/course-teacher-session-dialog";
 import { CourseBookingNotificationDialog } from "@/components/course-booking-notification-dialog";
 import { CourseCompanionEditor, type CompanionUsageReceipt } from "@/components/course-companion-editor";
 import { rememberCoursePortalRole, resolveCoursePortalRole, type CoursePortalRole } from "@/lib/course-portal-role";
@@ -220,6 +221,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
+  const [sessionChange,setSessionChange]=useState<{sessionId:string;mode:"leave"|"reschedule";name:string}|null>(null);
   const [notification,setNotification]=useState<{bookingId:string;action:"confirm"|"reschedule"|"cancel";teacher?:boolean}|null>(()=>{
     const bookingId=params.get("bookingId"),action=params.get("action");
     return bookingId && /^[a-zA-Z0-9:_-]{1,100}$/.test(bookingId) && (action==="confirm"||action==="reschedule"||action==="cancel") ? {bookingId,action} : null;
@@ -729,12 +731,13 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
               </strong>
               <small className="cp-work-meta">
                 <span>{s.room} · {people.length} 位</span>
-                <span className={`cp-work-status ${pendingPeople.length ? "cp-work-pending" : people.length ? "cp-work-complete" : "cp-work-empty"}`}>{pendingPeople.length ? `待點名 ${pendingPeople.length} 位` : people.length ? "點名完成" : "尚無學員"}</span>
+                <span className={`cp-work-status ${pendingPeople.length ? "cp-work-pending" : people.length ? "cp-work-complete" : "cp-work-empty"}`}>{s.teacherAttendance==="LEAVE"?"已請假・停課":pendingPeople.length ? `待點名 ${pendingPeople.length} 位` : people.length ? "點名完成" : "尚無學員"}</span>
                 {page === "records" && attendanceResult && <span className="cp-work-result">{attendanceResult}</span>}
               </small>
             </span>
             {s.bookings.length > 0 && <span className="cp-work-toggle" aria-hidden="true">{roster === s.id ? "⌃" : "⌄"}</span>}{s.bookings.length > 0 && !people.length && <span className="sr-only">已取消預約</span>}
           </button>
+          {!p.readOnly&&Date.parse(s.startsAt)>now&&s.teacherAttendance!=="LEAVE"&&s.teacherAttendance!=="NO_SHOW"&&<div className="cp-actions cp-pad flex-wrap" aria-label="自己的課程操作">{([ ["teacher.session.leave","leave","自己請假"], ["teacher.session.reschedule","reschedule","整堂調課"] ] as const).map(([permission,mode,label])=>p.teacherChangePermissions?.includes(permission)&&<button key={mode} disabled={pending} onClick={()=>{if(leaveNote())setSessionChange({sessionId:s.id,mode,name:s.name});}}>{label}</button>)}</div>}
           {roster === s.id && s.bookings.length > 0 && (
             <div className="cp-pad cp-roster-body">
               <div className="cp-actions cp-roster-actions">
@@ -811,8 +814,8 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
                             >
                               未到
                             </button>
-                            {p.teacherChangePermissions?.includes("teacher.booking.leave")&&<button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"cancel",teacher:true})}>請假</button>}
-                            {p.teacherChangePermissions?.includes("teacher.booking.reschedule")&&Date.parse(s.startsAt)>now&&<button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule",teacher:true})}>改期</button>}
+                            {p.teacherChangePermissions?.includes("teacher.booking.leave")&&<button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"cancel",teacher:true})}>代學員請假</button>}
+                            {p.teacherChangePermissions?.includes("teacher.booking.reschedule")&&Date.parse(s.startsAt)>now&&<button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule",teacher:true})}>替學員改期</button>}
                           </>}
                         </>
                       ) : (
@@ -1563,6 +1566,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           )}
         </Sheet>
       )}
+      {sessionChange&&<CourseTeacherSessionDialog key={`${sessionChange.sessionId}:${sessionChange.mode}`} {...sessionChange} close={()=>setSessionChange(null)}/>}
       {notification && <CourseBookingNotificationDialog key={`${notification.bookingId}:${notification.action}`} {...notification} selfBookingEnabled={selfBookingEnabled} selfLeaveEnabled={notification.teacher?true:selfLeaveEnabled} selfRescheduleEnabled={notification.teacher?true:selfRescheduleEnabled} readOnly={p.readOnly} close={()=>{setNotification(null);const query=new URLSearchParams(params.toString());query.delete("action");query.delete("bookingId");router.replace(`${pathname}?${query}`,{scroll:false});}} />}
       {attendance && (
         <Sheet

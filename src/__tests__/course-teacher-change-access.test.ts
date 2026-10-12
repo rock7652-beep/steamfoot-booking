@@ -1,0 +1,10 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({account:vi.fn(),link:vi.fn(),permission:vi.fn()}));
+vi.mock("server-only",()=>({}));
+vi.mock("@/lib/db",()=>({prisma:{staffMemberLink:{findFirst:m.link},staffPermission:{findFirst:m.permission}}}));
+vi.mock("@/server/services/course-access",()=>({courseAccount:m.account}));
+import {courseTeacherChangeActor,assertCourseTeacherChange} from "@/server/services/course-teacher-change-access";
+beforeEach(()=>{vi.resetAllMocks();m.account.mockResolvedValue({storeId:"s",user:{id:"u"}});m.link.mockResolvedValue({staffId:"t"});});
+it("closed permission rows do not authorize any operation",async()=>{m.permission.mockResolvedValue(null);await expect(courseTeacherChangeActor("teacher.session.leave",true)).rejects.toThrow("尚未授權");expect(m.permission).toHaveBeenCalledWith({where:{staffId:"t",permission:"teacher.session.leave",granted:true}});});
+it("accepts an explicit grant on an active linked instructor",async()=>{m.permission.mockResolvedValue({granted:true});expect(await courseTeacherChangeActor("teacher.session.reschedule")).toMatchObject({staffId:"t"});});
+it("checks enabled grant and active account inside transaction",async()=>{const query=vi.fn().mockResolvedValue([]);await expect(assertCourseTeacherChange({$queryRaw:query} as never,"s","u","t","lesson","teacher.session.leave")).rejects.toThrow("只能處理");const [sql,...values]=query.mock.calls[0];expect(sql.join("")).toContain("p.granted=true");expect(sql.join("")).toContain("u.status::text='ACTIVE'");expect(sql.join("")).toContain('login.id=l."userId"');expect(sql.join("")).toContain("login.status::text='ACTIVE'");expect(values).toContain("teacher.session.leave");});

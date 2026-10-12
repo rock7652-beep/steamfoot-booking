@@ -1,0 +1,10 @@
+import {beforeEach,afterEach,expect,it,vi} from "vitest";
+import {saveCourseOwnIncomeAccess} from "@/lib/course-work-permission-client";
+const input={storeId:"s",staffId:"t",permission:"teacher.session.leave" as const,previous:false,enabled:true};
+const fetchMock=vi.fn();
+beforeEach(()=>{fetchMock.mockReset();vi.stubGlobal("fetch",fetchMock);});
+afterEach(()=>vi.unstubAllGlobals());
+const receipt={storeId:input.storeId,staffId:input.staffId,permission:input.permission,enabled:input.enabled,updatedAt:"2026-10-12T02:00:00.000Z"};
+it("only requests the small permission receipt and verifies its scope",async()=>{fetchMock.mockResolvedValue({ok:true,json:async()=>({success:true,data:receipt})});expect(await saveCourseOwnIncomeAccess(input)).toMatchObject({success:true,data:receipt});expect(fetchMock).toHaveBeenCalledOnce();expect(fetchMock).toHaveBeenCalledWith("/api/course/settings/work-permission",expect.objectContaining({method:"POST",credentials:"same-origin",body:expect.any(String)}));expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(input);});
+it.each([{storeId:"other"},{staffId:"other"},{permission:"teacher.booking.leave"},{enabled:false},{updatedAt:"invalid"}])("rejects mismatched receipts %j",async override=>{fetchMock.mockResolvedValue({ok:true,json:async()=>({success:true,data:{...receipt,...override}})});expect(await saveCourseOwnIncomeAccess(input)).toMatchObject({success:false,uncertain:true});});
+it("keeps explicit authorization failures separate from unknown network results",async()=>{fetchMock.mockResolvedValueOnce({ok:false,json:async()=>({success:false,error:"只有老闆能設定"})});expect(await saveCourseOwnIncomeAccess(input)).toMatchObject({success:false,uncertain:false,error:"只有老闆能設定"});fetchMock.mockRejectedValueOnce(new Error("lost reply"));expect(await saveCourseOwnIncomeAccess(input)).toMatchObject({success:false,uncertain:true});});
