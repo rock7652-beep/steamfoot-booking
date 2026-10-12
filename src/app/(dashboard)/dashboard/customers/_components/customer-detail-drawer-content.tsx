@@ -1,4 +1,5 @@
 "use client";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { CustomerLabels } from "@/components/customer-labels";
 
@@ -199,6 +200,7 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
+        {!readOnly && <StoreMemberConnectionPanel key={customer.id} customerId={customer.id} />}
         <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}

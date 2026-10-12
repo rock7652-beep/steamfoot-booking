@@ -99,20 +99,7 @@ export async function checkMonthlyBookingLimitOrThrow(
  * 檢查指定 store 的提醒發送是否超過月度上限
  * 回傳 { allowed, current, limit }（不 throw，讓 caller 決定行為）
  */
-export function checkReminderSendLimit(
-  store: StorePlanFields,
-  currentMonthSendCount: number
-): { allowed: boolean; current: number; limit: number | null } {
-  const limits = getPlanLimits(store);
-  if (limits.maxReminderSends === null) {
-    return { allowed: true, current: currentMonthSendCount, limit: null };
-  }
-  return {
-    allowed: currentMonthSendCount < limits.maxReminderSends,
-    current: currentMonthSendCount,
-    limit: limits.maxReminderSends,
-  };
-}
+export { checkReminderSendLimit } from "@/lib/reminder-send-limit";
 
 /**
  * 檢查指定 store 的報表生成是否超過月度上限

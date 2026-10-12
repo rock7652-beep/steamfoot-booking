@@ -42,6 +42,11 @@ if (process.env.VERCEL_GIT_COMMIT_REF === "feat/customer-unified-detail-20261012
   const { verifyUnregisteredParticipantSchema } = await import("./booking-unregistered-payment-readiness.mjs");
   await verifyUnregisteredParticipantSchema(process.env);
 }
+if (releaseMode === "member-workorder-preview") {
+  const { verifyStoreMemberWorkorderSchema } = await import("./store-member-workorder-review-gate.mjs");
+  await verifyStoreMemberWorkorderSchema(process.env);
+  process.exit(0); // Only separately authorized SQL; never run pending migrations.
+}
 if (process.env.VERCEL_GIT_COMMIT_REF === "fix/unregistered-companion-payment-20261011") {
   const { verifyUnregisteredParticipantSchema } = await import("./booking-unregistered-payment-readiness.mjs");
   await verifyUnregisteredParticipantSchema(process.env);

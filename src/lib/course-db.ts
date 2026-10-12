@@ -1,3 +1,5 @@
+import { assertStoreMemberWorkorderReviewOnly } from "../../scripts/store-member-workorder-review-gate.mjs";
+assertStoreMemberWorkorderReviewOnly();
 import { isGuideUiPreview, createGuideUiDisabledClient } from "../../scripts/guide-ui-preview-scope.mjs";
 import "server-only";
 import { PrismaClient } from "../../generated/course-client";

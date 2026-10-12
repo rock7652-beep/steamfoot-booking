@@ -1,4 +1,5 @@
 "use client";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
@@ -493,6 +494,7 @@ export function CourseMemberWorkspace({
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
                 <CourseCardBrowser compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
+              <StoreMemberConnectionPanel key={`membership-${person.id}`} customerId={person.id} />
               <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={() => router.refresh()}/>
               <CustomerDetailFields items={[
                 {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},

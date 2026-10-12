@@ -1,3 +1,4 @@
+vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
 // @vitest-environment jsdom
 
 import {act,createElement} from "react";

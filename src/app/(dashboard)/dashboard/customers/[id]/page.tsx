@@ -1,5 +1,6 @@
 import { getCustomerPanelContext } from "@/server/actions/customer-panel-context";
 import { CustomerStandaloneDetail } from "../_components/customer-standalone-detail";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
@@ -886,6 +887,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <div className="mt-3 border-t border-earth-100 pt-3">
                 {!simplified && <p className="mb-2 text-[11px] font-semibold text-earth-600">LINE 綁定操作</p>}
                 <CustomerDetailSection enabled={simplified} title="管理 LINE 綁定">
+                <StoreMemberConnectionPanel customerId={customer.id} />
                 <LineBindingSection
                   customerId={id}
                   lineLinkStatus={customer.lineLinkStatus}
