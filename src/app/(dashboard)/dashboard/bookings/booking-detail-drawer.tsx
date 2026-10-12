@@ -664,7 +664,7 @@ export function BookingDetailDrawer({
         open={open}
         onClose={() => { if (!participantBusy) onClose(); }}
         labelledById={attendanceOpen && !checkingResult ? "booking-attendance-title" : "booking-drawer-title"}
-        fitContent={!spaMode && !!data?.participantCheckout}
+        fitContent={false}
         width={spaMode ? undefined : 860}
       >
         {open && <BookingActionFeedback state={actionState} onCheck={() => { void saves.check(actionKey); }} />}
@@ -1067,10 +1067,10 @@ function DrawerContent({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <StatusBadge variant={meta.variant}>{statusLabel}</StatusBadge>
-            <span className="text-sm font-semibold tabular-nums text-earth-700">
+            {!participantMode && <span className="text-sm font-semibold tabular-nums text-earth-700">
               {booking.bookingDate.slice(5).replace("-", "/")}{" "}
               {booking.slotTime}
-            </span>
+            </span>}
           </div>
           <h2
             id="booking-drawer-title"

@@ -6,6 +6,7 @@ import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import { paymentMethodValues, type PaymentMethodValue } from "@/lib/payment-splits";
 import { BookingPersonDetails } from "./booking-person-details";
 import { BookingCompanionEditor, CompanionSlot } from "./booking-companion-editor";
+import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { AssignPlanForm } from "../customers/[id]/assign-plan-form";
 
 type Checkout = NonNullable<BookingDrawerPayload["participantCheckout"]>;
@@ -48,7 +49,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
   const selectedWalletId = selection !== undefined ? selection?.walletId : slot.selectedWalletId;
   const selectedPlanName = selection !== undefined ? selection?.name : slot.selectedPlanName;
   const canSell = !readOnly && checkout.canSell && ["PENDING", "COMPLETED"].includes(status) && !!slot.customerId && checkout.plans.length > 0;
-  const sellButton = canSell ? <button type="button" disabled={blocked || saving} onClick={() => { setExpanded(false); setUsingPlan(false); setSelling(!selling); }} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{selling ? "收合方案" : "指派方案"}</button> : null;
+  const sellButton = canSell ? <button type="button" disabled={blocked || saving} onClick={() => { setExpanded(false); setUsingPlan(false); setSelling(!selling); }} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{selling ? "收合方案" : "新增方案"}</button> : null;
   const dirty = expanded && (draft.amount !== String(checkout.settings.defaultPrice) || draft.method !== "CASH" || !!draft.note);
   useEffect(() => {
     if (!dirty) return;
@@ -70,31 +71,31 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
     } catch { if (mounted.current) setMessage("連線中斷，輸入已保留；請確認目前狀態後重試。"); }
     finally { busy.current = false; onBusy(false); if (mounted.current) setSaving(false); }
   }
-  return <div aria-label={slot.name ?? `同行者 ${slot.position - 1}`} className="@container border-t border-earth-100 py-3 first:border-0">
+  return <div aria-label={slot.name ?? `同行者 ${slot.position - 1}`} className="@container border-t border-earth-100 py-2 first:border-0">
     <div className="grid min-w-0 grid-cols-1 items-start gap-2 @min-[620px]:grid-cols-[minmax(0,1fr)_auto]">
       <div className="min-w-0 break-words text-base">
         <p className="font-semibold text-earth-900">{slot.name ?? `同行者 ${slot.position - 1}`}{slot.source === "WALK_IN" ? " · 臨時加入" : ""}</p>
         <p className="text-earth-600">{slot.position === 1 ? "預約人" : "同行者"} · {statusLabels[status] ?? status}{!slot.customerId ? " · 未建檔" : ""}</p>
         <p className="mt-1 break-words text-earth-900">本次：{isPlan || usedOwnPlan ? selectedPlanName ?? "方案" : `體驗 NT$ ${(amount ?? checkout.settings.defaultPrice).toLocaleString("zh-TW")}`}
           {isPlan && (selection || slot.selectedOwnerId) && <span className="text-earth-600"> · {selection || slot.selectedOwnerId === slot.customerId ? "本人方案" : `使用${slot.selectedOwnerName ?? "其他顧客"}的共卡`}</span>}
-          <span className="text-earth-600"> · {isPlan || usedOwnPlan ? status === "COMPLETED" ? "已扣 1 堂" : status === "PENDING" ? "尚未扣堂" : "未扣堂" : amount != null && !slot.receiptCorrected ? `已收體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : slot.receiptCorrected ? "收款已撤銷／退回" : "未收款"}</span>
+          <span className="text-earth-600"> · {isPlan || usedOwnPlan ? status === "COMPLETED" ? "已扣 1 堂" : status === "PENDING" ? "尚未扣堂" : "未扣堂" : amount != null && !slot.receiptCorrected ? `已收體驗費 NT$ ${amount.toLocaleString("zh-TW")}` : slot.receiptCorrected ? "收款已撤銷／退回" : "未收款"}{amount != null && !slot.receiptCorrected && !isPlan && !usedOwnPlan && (slot.collectedMethod || receipt != null) ? `・${methodLabels[(slot.collectedMethod ?? draft.method) as PaymentMethodValue] ?? slot.collectedMethod}` : ""}</span>
         </p>
       </div>
-      {!readOnly && status === "PENDING" && <div className="flex flex-wrap gap-2">
+      {!readOnly && status === "PENDING" && <div className="flex flex-wrap items-start gap-2">
         {checkout.canCollect && !isPlan && amount == null && (slot.customerId || checkout.canCollectUnregistered) && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setSelling(false); setExpanded(!expanded); }}
-          className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">收體驗費 ${checkout.settings.defaultPrice.toLocaleString("zh-TW")}</button>}
+          className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">收款並完成 ${checkout.settings.defaultPrice.toLocaleString("zh-TW")}</button>}
         {checkout.canResolve && (amount == null || slot.receiptCorrected) && slot.customerId && !!slot.wallets?.length && <button type="button" disabled={blocked || saving}
           onClick={() => { setExpanded(false); setSelling(false); setUsingPlan(!usingPlan); }}
           className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{isPlan ? "更換方案" : "改用方案"}</button>}
         {walletCount === 0 && sellButton}
-        {(checkout.canResolve || (canSell && walletCount !== 0)) && <details className="relative"><summary className="min-h-11 cursor-pointer rounded-lg px-3 py-2 text-base text-earth-600">更多</summary><div className="flex flex-wrap gap-2">
+        {(checkout.canResolve || (canSell && walletCount !== 0)) && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="更多 ▾"><div className="flex flex-col gap-1">
         {walletCount !== 0 && sellButton}
         {checkout.canResolve && <><button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`將${slot.name ?? "這位同行者"}標記未到？不會收取體驗費。`)) void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "NO_SHOW" }), "NO_SHOW");
         }} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">未到</button>
         <button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`取消${slot.name ?? "這位同行者"}的名額？其他人不受影響，不會收取體驗費。`)) void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "CANCELLED" }), "CANCELLED");
-        }} className="min-h-11 rounded-lg px-3 text-base text-earth-600 disabled:opacity-50">取消名額</button></>}</div></details>}
+        }} className="min-h-11 rounded-lg border-t border-earth-200 px-3 text-base text-red-700 disabled:opacity-50">取消名額</button></>}</div></ExclusiveMenu>}
         {checkout.canResolve && isPlan && selectedWalletId && <button type="button" disabled={blocked || saving}
           onClick={() => void run(() => completeBookingParticipantPlan({ bookingId, position: slot.position, revision: slot.revision, walletId: selectedWalletId }), "COMPLETED", null)}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">完成並扣 1 堂</button>}
@@ -107,7 +108,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
           void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "revert" }), "PENDING", amount); }}
         className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">撤回完成</button>}
     </div>
-    {status === "COMPLETED" && canSell && <details><summary className="min-h-11 cursor-pointer py-2 text-base text-earth-600">更多</summary>{sellButton}</details>}
+    {status === "COMPLETED" && canSell && <ExclusiveMenu label={`${slot.name ?? "同行者"}更多操作`} triggerText="更多 ▾">{sellButton}</ExclusiveMenu>}
     {slot.customerId && <BookingPersonDetails onOpenDetails={onOpenCustomer ? () => { if (saving || blocked || (dirty && !window.confirm("尚有未儲存的收款內容，確定查看顧客資料？"))) return; onOpenCustomer(slot.customerId!); } : undefined} key={slot.customerId} customerId={slot.customerId} revision={slot.revision} name={slot.name ?? "顧客"} initial={primaryCustomer?.id === slot.customerId ? primaryCustomer : undefined} canEditNote={!readOnly && !blocked && !!canEditNote} onWalletCount={setWalletCount} onNoteSaved={value => onPersonNoteSaved?.(slot.customerId!, value)} />}
     {status === "PENDING" && !slot.customerId && companions && <CompanionSlot embedded bookingId={bookingId} slot={slot} canEdit={!readOnly && companions.canEdit} canCreate={companions.canCreate} blocked={blocked || saving} onBusy={onBusy} onUpdated={onUpdated} />}
     {!readOnly && checkout.canCollect && (slot.customerId || checkout.canCollectUnregistered) && expanded && status === "PENDING" && <form className="mt-3 space-y-2" onSubmit={event => {

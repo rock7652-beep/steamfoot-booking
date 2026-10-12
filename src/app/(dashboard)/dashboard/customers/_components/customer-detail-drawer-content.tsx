@@ -160,6 +160,7 @@ export function CustomerDetailDrawerContent({
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
           </div>
+          <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
           <div>
             <CustomerStatusBadge
               stage={customer.customerStage}
@@ -219,7 +220,7 @@ export function CustomerDetailDrawerContent({
                 return (
                   <li
                     key={w.id}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 border-t border-earth-100 pt-2"
+                    className="flex flex-wrap items-start gap-x-3 gap-y-2 border-t border-earth-100 pt-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -241,8 +242,8 @@ export function CustomerDetailDrawerContent({
                         </div>
                       </div>
                     </div>
-                    <details className="group col-start-2 row-start-1 open:col-span-2 open:col-start-1 open:row-start-2">
-                      <summary aria-label={`${w.plan.name}方案操作`} className="flex min-h-11 cursor-pointer list-none items-center justify-end rounded-md border border-earth-200 px-3 text-sm font-medium text-primary-700 group-open:w-fit group-open:ml-auto hover:bg-earth-50">管理方案</summary>
+                    <details className="group shrink-0 max-w-full">
+                      <summary aria-label={`${w.plan.name}方案操作`} className="flex min-h-11 cursor-pointer list-none items-center justify-end rounded-md border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">管理方案</summary>
                       <div className="flex flex-wrap gap-2 border-t border-earth-100 py-2 mt-2 [&_button]:min-h-11">
                       {!readOnly && customer.canAssignPlan && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
                         <button
@@ -299,7 +300,6 @@ export function CustomerDetailDrawerContent({
           ) : null}
         </section>
 
-        <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
         <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
 
@@ -312,7 +312,7 @@ export function CustomerDetailDrawerContent({
           {customer.recentConsumption !== null && <CustomerPanelRecordsList customerId={customer.id} kind="consumption" active={recordsTab === "consumption"} revision={String(revision)} />}
         </section>
 
-        <CollapsibleSection title="更多資料">
+        <section aria-label="更多資料" className="space-y-1 border-t border-earth-100 pt-2">
         <CollapsibleSection title="基本資料">
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
@@ -439,7 +439,7 @@ export function CustomerDetailDrawerContent({
             </dd>
           </dl>
         </CollapsibleSection>
-        </CollapsibleSection>
+        </section>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <button type="button" onClick={() => { if (allowNavigation()) setView("overview"); }} className="mb-3 min-h-11 px-3 text-sm text-primary-700">← 返回顧客</button>
