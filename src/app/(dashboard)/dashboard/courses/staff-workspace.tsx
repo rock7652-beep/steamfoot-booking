@@ -226,7 +226,7 @@ export function CourseStaffWorkspace({
     .map((group) => ({
       ...group,
       codes: group.codes.filter(({ code, label }) =>
-        !["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay","teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule"].includes(code) && (!permissionQuery || `${label} ${code}`.toLocaleLowerCase().includes(permissionQuery)),
+        !["teacher.compensation.read","teacher.compensation.manage","teacher.settlement.read","teacher.settlement.confirm","teacher.settlement.pay","teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(code) && (!permissionQuery || `${label} ${code}`.toLocaleLowerCase().includes(permissionQuery)),
       ),
     }))
     .filter((group) => group.codes.length);
@@ -375,6 +375,8 @@ export function CourseStaffWorkspace({
               ["teacher.income.read.self","查看自己的薪酬"],
               ["teacher.booking.leave","代學員請假"],
               ["teacher.booking.reschedule","替學員改期"],
+              ["teacher.session.leave","自己請假（整堂停課）"],
+              ["teacher.session.reschedule","自己調課（整堂改時間）"],
             ] as const).map(([permission,label])=><CourseOwnIncomeSwitch key={`${person.id}:${permission}`} permission={permission} label={label} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes(permission)} canEdit={canManageOwnIncome&&!readOnly} blocked={dirty||transitionPending||request.pending||request.uncertain||incomePending} storeEnabled={personalIncomeEnabled} music={music} lineBound={person.coachLoginReady} onPendingChange={setIncomePending} onSaved={data=>{
               const updated={...person,updatedAt:data.updatedAt,permissions:[...person.permissions.filter(p=>p!==permission),...(data.enabled?[permission]:[])]};
               confirmed.confirm(updated);setPerson(updated);

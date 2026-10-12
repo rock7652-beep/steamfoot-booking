@@ -58,7 +58,7 @@ it("rechecks an owner who lost their role or active membership",async()=>{
  expect((await saveCourseOwnIncomeAccess(input)).success).toBe(false);expect(m.write).not.toHaveBeenCalled();
 });
 
-it.each(["teacher.booking.leave","teacher.booking.reschedule"] as const)("writes only the chosen work grant %s",async permission=>{
+it.each(["teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"] as const)("writes only the chosen work grant %s",async permission=>{
  expect((await saveCourseOwnIncomeAccess({...input,permission})).success).toBe(true);
  expect(m.write).toHaveBeenCalledWith(expect.anything(),"teacher-a",[{permission,granted:true}]);
 });

@@ -9,14 +9,14 @@ import { writeStaffPermissionChanges } from "@/server/services/staff-permission-
 import { revalidateStaffPermissions } from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
 
-const inputSchema = z.object({storeId:z.string().min(1).max(180),staffId:z.string().min(1).max(180),enabled:z.boolean(),previous:z.boolean(),permission:z.enum(["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule"]).default("teacher.income.read.self")});
+const inputSchema = z.object({storeId:z.string().min(1).max(180),staffId:z.string().min(1).max(180),enabled:z.boolean(),previous:z.boolean(),permission:z.enum(["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"]).default("teacher.income.read.self")});
 
 /** Partial grant: retains every other permission and the teacher's account. */
 export async function saveCourseOwnIncomeAccess(input: unknown) {
   try {
     const d = inputSchema.parse(input);
     const { user, storeId } = await courseManager("staff.manage");
-    if (getEffectiveActorRole(user) !== "OWNER") throw new AppError("FORBIDDEN", "只有老闆能設定薪酬查看權限");
+    if (getEffectiveActorRole(user) !== "OWNER") throw new AppError("FORBIDDEN", "只有老闆能設定我的工作權限");
     if (d.storeId !== storeId) throw new AppError("FORBIDDEN", "門市已切換，請重新開啟");
     const result = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
@@ -29,7 +29,7 @@ export async function saveCourseOwnIncomeAccess(input: unknown) {
       if (previous !== d.previous) throw new AppError("CONFLICT", "權限已更新，請重新開啟核對");
       await writeStaffPermissionChanges(tx,staff.id,[{permission:d.permission,granted:d.enabled}]);
       const updated = await tx.staff.update({where:{id:staff.id},data:{updatedAt:new Date()},select:{updatedAt:true}});
-      await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:"course",targetType:"StaffPermission",targetId:staff.id,action:"UPDATE",summary:d.permission==="teacher.income.read.self"?(d.enabled?"開放教師／教練查看自己的薪酬":"關閉教師／教練查看自己的薪酬"):`${d.enabled?"開放":"關閉"}授課人員${d.permission==="teacher.booking.leave"?"代學員請假":"替學員改期"}`,beforeJson:d.permission==="teacher.income.read.self"?{storeId,ownIncomeEnabled:previous}:{storeId,permission:d.permission,enabled:previous},afterJson:d.permission==="teacher.income.read.self"?{storeId,ownIncomeEnabled:d.enabled}:{storeId,permission:d.permission,enabled:d.enabled}}});
+      await tx.auditLog.create({data:{actorUserId:user.id,storeId,module:"course",targetType:"StaffPermission",targetId:staff.id,action:"UPDATE",summary:d.permission==="teacher.income.read.self"?(d.enabled?"開放教師／教練查看自己的薪酬":"關閉教師／教練查看自己的薪酬"):`${d.enabled?"開放":"關閉"}授課人員${d.permission==="teacher.booking.leave"?"代學員請假":d.permission==="teacher.booking.reschedule"?"替學員改期":d.permission==="teacher.session.leave"?"自己請假（整堂停課）":"自己調課（整堂改時間）"}`,beforeJson:d.permission==="teacher.income.read.self"?{storeId,ownIncomeEnabled:previous}:{storeId,permission:d.permission,enabled:previous},afterJson:d.permission==="teacher.income.read.self"?{storeId,ownIncomeEnabled:d.enabled}:{storeId,permission:d.permission,enabled:d.enabled}}});
       return {enabled:d.enabled,updatedAt:updated.updatedAt.toISOString()};
     });
     revalidateStaffPermissions();

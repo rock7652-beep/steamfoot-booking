@@ -8,7 +8,7 @@ import { NotificationSwitch } from "@/components/admin/notification-switch";
 export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,blocked,storeEnabled,lineBound=true,permission="teacher.income.read.self",label="查看自己的薪酬",onSaved,onPendingChange}:{
   storeId:string;staffId:string;initialEnabled:boolean;canEdit:boolean;blocked:boolean;storeEnabled:boolean;
   music?:boolean;lineBound?:boolean;
-  permission?:"teacher.income.read.self"|"teacher.booking.leave"|"teacher.booking.reschedule";label?:string;
+  permission?:"teacher.income.read.self"|"teacher.booking.leave"|"teacher.booking.reschedule"|"teacher.session.leave"|"teacher.session.reschedule";label?:string;
   onSaved:(data:{enabled:boolean;updatedAt:string})=>void;
   onPendingChange:(pending:boolean)=>void;
 }) {
