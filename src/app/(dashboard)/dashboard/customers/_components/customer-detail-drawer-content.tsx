@@ -467,7 +467,7 @@ function CollapsibleSection({
 }) {
   return (
     <details className="group rounded-lg border border-earth-100 bg-white" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-primary-900 hover:bg-earth-50">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-primary-900 hover:bg-earth-50">
         <span className="flex items-center gap-2">
           {title}
           {badge}
