@@ -88,6 +88,7 @@ function CustomerDrawer({
     );
   return (
     <RightSheet
+      className="spa-customer-header-offset"
       open
       onClose={onClose}
       width={620}
