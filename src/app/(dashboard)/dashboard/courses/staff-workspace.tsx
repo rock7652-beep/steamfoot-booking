@@ -372,7 +372,7 @@ export function CourseStaffWorkspace({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
-            {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<section><h3 className="mb-2 font-medium text-primary-900">我的工作權限</h3><div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-2">{([
+            {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<section className="mb-4 border-b border-earth-100 pb-4"><h3 className="mb-2 font-medium text-primary-900">我的工作權限</h3><div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,250px),1fr))] gap-2">{([
               ["teacher.income.read.self","查看自己的薪酬"],
               ["teacher.booking.leave","代學員請假"],
               ["teacher.booking.reschedule","替學員改期"],

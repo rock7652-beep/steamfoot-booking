@@ -35,12 +35,14 @@ export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,bl
     })();
   }
   const title="我的工作權限";
+  const detailStart=label.indexOf("（");
+  const name=detailStart<0?label:label.slice(0,detailStart);
+  const detail=detailStart<0?null:label.slice(detailStart+1,-1);
   return <section aria-label={title} className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1">
-    <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-
-      <label className="flex min-h-11 min-w-0 flex-wrap items-center gap-3">
-        <span>{label}</span>
-        <span className="flex min-h-11 items-center gap-2">
+    <div className="text-sm">
+      <label className="grid min-h-14 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <span className="min-w-0 break-words leading-5"><span className="block">{name}</span>{detail&&<span className="block text-earth-600">{detail}</span>}</span>
+        <span className="flex min-h-11 shrink-0 items-center gap-2">
           <NotificationSwitch checked={enabled} aria-checked={enabled} aria-label={label} disabled={!canEdit||pending||blocked||uncertain} style={pending?{opacity:1}:undefined} onChange={change}/>
           <span className="min-w-11 text-earth-600">{uncertain?"待核對":enabled?"開啟":"關閉"}</span>
         </span>
