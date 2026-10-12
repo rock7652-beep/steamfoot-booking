@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { createStaffSessionStamp, type StaffSecurityState } from "@/lib/staff-session-security";
+import { CUSTOMER_REVIEW_TARGETS } from "@/lib/customer-review-targets";
 
 const mocks = vi.hoisted(() => ({ findUnique: vi.fn(), findFirst: vi.fn(), capture: vi.fn(), compare: vi.fn() }));
 vi.mock("next-auth", () => ({ default: (config: unknown) => {
@@ -47,6 +48,44 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
+function enableModuleReview() {
+  const capability = "a".repeat(64);
+  for (const [key, value] of Object.entries({
+    VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/customer-unified-detail-20261012",
+    VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking",
+    DATABASE_URL: "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",
+    DIRECT_URL: "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",
+    CONSULTATION_PREVIEW_INTAKE_ENABLED: "false", CUSTOMER_REVIEW_TOKEN_SHA256: createHash("sha256").update(capability).digest("hex"),
+    CUSTOMER_REVIEW_ISSUED_AT: String(Date.now() - 1000), CUSTOMER_REVIEW_EXPIRES_AT: String(Date.now() + 60_000),
+  })) vi.stubEnv(key, value);
+  return capability;
+}
+
+it.each(["spa", "exercise", "music"] as const)("pins %s review to its verified identity, store and module", async module => {
+  const capability = enableModuleReview();
+  const target = CUSTOMER_REVIEW_TARGETS[module];
+  const fixture = state({ id: target.userId, staff: { id: target.staffId, storeId: target.storeId, status: "ACTIVE", store: { slug: target.slug, industryModule: target.industryModule } } } as Partial<StaffSecurityState>);
+  mocks.findUnique.mockResolvedValue(fixture);
+  const provider = config.providers.find(row => row.id === "customer-review")!;
+  const user = await provider.authorize({ token: capability, module });
+  expect(mocks.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: target.userId } }));
+  expect(user).toMatchObject({ id: target.userId, role: "OWNER", storeId: target.storeId });
+  const jwt = await config.callbacks.jwt({ token: {}, user: user! });
+  expect(config.callbacks.session({ session: { user: {} }, token: jwt! }).user.customerReviewStoreId).toBe(target.storeId);
+  mocks.findUnique.mockResolvedValue({ ...fixture, staff: { ...fixture.staff!, storeId: "other-store" } });
+  expect(await provider.authorize({ token: capability, module })).toBeNull();
+  expect(await config.callbacks.jwt({ token: jwt! })).toBeNull();
+  mocks.findUnique.mockResolvedValue({ ...fixture, staff: { ...fixture.staff!, store: { slug: target.slug, industryModule: "OTHER" } } });
+  expect(await config.callbacks.jwt({ token: jwt! })).toBeNull();
+});
+
+it.each(["hq", "hsinchu", "__proto__", "constructor", "spa/../../hq"])("rejects unknown review selection %s before reading any user", async module => {
+  const capability = enableModuleReview();
+  mocks.findUnique.mockClear();
+  expect(await config.providers.find(row => row.id === "customer-review")!.authorize({ token: capability, module })).toBeNull();
+  expect(mocks.findUnique).not.toHaveBeenCalled();
+});
+
 describe("staff session revocation through the real auth callbacks", () => {
   it("authenticates only the fixed isolated owner and expires the resulting review session", async () => {
     const capability = "a".repeat(64);
@@ -60,7 +99,7 @@ describe("staff session revocation through the real auth callbacks", () => {
       CONSULTATION_PREVIEW_INTAKE_ENABLED: "false", CUSTOMER_REVIEW_TOKEN_SHA256: digest,
       CUSTOMER_REVIEW_ISSUED_AT: String(Date.now()), CUSTOMER_REVIEW_EXPIRES_AT: String(expiresAt),
     })) vi.stubEnv(key, value);
-    const fixture = state({ id: "staging-user-owner", staff: { id: "staging-staff-owner", storeId: "staging-store", status: "ACTIVE", store: { slug: "staging" } } } as Partial<StaffSecurityState>);
+    const fixture = state({ id: "staging-user-owner", staff: { id: "staging-staff-owner", storeId: "staging-store", status: "ACTIVE", store: { slug: "staging", industryModule: "STEAMFOOT" } } } as Partial<StaffSecurityState>);
     mocks.findUnique.mockResolvedValue(fixture);
     const provider = config.providers.find(p => p.id === "customer-review")!;
     const user = await provider.authorize({ token: capability });

@@ -24,7 +24,8 @@ import { resolveCentralMemberCustomerForStore } from "@/server/services/central-
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 import { createStaffSessionStamp, isStaffSessionRole, matchesStaffSessionStamp } from "@/lib/staff-session-security";
-import { CUSTOMER_REVIEW_USER_ID, CUSTOMER_REVIEW_STORE_ID, CUSTOMER_REVIEW_STORE_SLUG, verifyCustomerReviewToken, customerReviewSessionValid } from "@/lib/customer-review-access";
+import { customerReviewTarget, customerReviewTargetForUser } from "@/lib/customer-review-targets";
+import { verifyCustomerReviewToken, customerReviewSessionValid } from "@/lib/customer-review-access";
 import { clearStoreContextCookies } from "@/server/auth/clear-store-context";
 
 // ============================================================
@@ -111,19 +112,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Owner-authorized, expiring capability for this isolated review only.
     Credentials({
       id: "customer-review",
-      credentials: { token: { label: "暫時存取", type: "text" } },
+      credentials: { token: { label: "暫時存取", type: "text" }, module: { label: "驗收模組", type: "text" } },
       async authorize(credentials, request) {
         const review = verifyCustomerReviewToken(credentials?.token);
-        if (!review) return null;
+        const target = customerReviewTarget(credentials?.module ?? "steamfoot");
+        if (!review || !target) return null;
         const user = await prisma.user.findUnique({
-          where: { id: CUSTOMER_REVIEW_USER_ID },
+          where: { id: target.userId },
           select: {
             id: true, name: true, email: true, role: true, status: true, passwordHash: true, updatedAt: true,
-            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true } } } },
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true, industryModule: true } } } },
           },
         });
-        if (!user || user.role !== "OWNER" || user.staff?.id !== "staging-staff-owner" ||
-          user.staff.storeId !== CUSTOMER_REVIEW_STORE_ID || user.staff.store.slug !== CUSTOMER_REVIEW_STORE_SLUG) return null;
+        if (!user || user.role !== "OWNER" || user.staff?.id !== target.staffId ||
+          user.staff.storeId !== target.storeId || user.staff.store.slug !== target.slug || user.staff.store.industryModule !== target.industryModule) return null;
         const staffSessionStamp = createStaffSessionStamp(user);
         if (!staffSessionStamp) return null;
         await clearStoreContextCookies();
@@ -1562,7 +1564,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       if (appToken.customerReviewDigest || appToken.customerReviewExpiresAt) {
         if (!customerReviewSessionValid(appToken.customerReviewDigest, appToken.customerReviewExpiresAt) ||
-          (user?.id ?? appToken.sub) !== CUSTOMER_REVIEW_USER_ID) return null;
+          !customerReviewTargetForUser(user?.id ?? appToken.sub)) return null;
       }
 
       if (isStaffSessionRole(user?.role ?? appToken.role) || appToken.staffSessionStamp) {
@@ -1575,14 +1577,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id },
           select: {
             id: true, role: true, status: true, passwordHash: true, updatedAt: true,
-            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true } } } },
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true, industryModule: true } } } },
           },
         });
         // DB failures propagate through Auth.js; never reuse stale privileges.
         if (!current || !matchesStaffSessionStamp(stamp, current)) return null;
-        if (appToken.customerReviewDigest && (current.role !== "OWNER" ||
-          current.staff?.id !== "staging-staff-owner" || current.staff.storeId !== CUSTOMER_REVIEW_STORE_ID ||
-          current.staff.store.slug !== CUSTOMER_REVIEW_STORE_SLUG)) return null;
+        const reviewTarget = customerReviewTargetForUser(current.id);
+        if (appToken.customerReviewDigest && (!reviewTarget || current.role !== "OWNER" ||
+          current.staff?.id !== reviewTarget.staffId || current.staff.storeId !== reviewTarget.storeId ||
+          current.staff.store.slug !== reviewTarget.slug || current.staff.store.industryModule !== reviewTarget.industryModule)) return null;
         appToken.sub = current.id;
         appToken.role = current.role;
         appToken.staffSessionStamp = stamp;
@@ -1808,7 +1811,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.customerId = appToken.customerId ?? null;
       session.user.storeId = appToken.storeId ?? null;
       session.user.storeSlug = appToken.storeSlug ?? null;
-      if (appToken.customerReviewDigest) session.user.customerReviewStoreId = CUSTOMER_REVIEW_STORE_ID;
+      if (appToken.customerReviewDigest) session.user.customerReviewStoreId = customerReviewTargetForUser(appToken.sub)?.storeId;
       else delete session.user.customerReviewStoreId;
       return session;
     },

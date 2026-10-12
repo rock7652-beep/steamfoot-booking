@@ -83,3 +83,17 @@ JWT 保留伺服器私有的授權版本與絕對到期時間；每次 auth 檢�
 - 本輪 17 檔、174 項相關測試、TypeScript、changed-file ESLint 與 diff check 通過；遠端完整檢查另發現跨模組舊 UI 預期及 customer action 靜態摘要依賴，修正後新增 3 檔 42 項回歸通過。摘要查詢仍只在顧客詳情入口授權後載入，不改資料或權限。
 - 本輪尚未完成最新版隔離 Preview 及完整業務驗收；先前蒸足驗收只適用原 52c6dcf 版本，不視為其他模組驗收。
 - 不進行真實收款、LINE 換綁或正式合併。
+
+
+## 已授權的三模組暫時驗收入口
+
+2026-10-12 使用者明確授權 SPA／運動／音樂新版 23 小時隔離驗收存取及持有者分享連結。入口新增模組選擇，限隔離資料庫 `ttworfzgwejdeolegkxl`、原 #1310 Preview 分支與 repository；正式與其他分支仍拒絕。
+
+- SPA：demo-store／spa-demo-user-owner／spa-demo-owner（SPA）。
+- 運動：store-course-start-0918-a／cmu6dappt0002l804k8dvyv19／cmu6dappt0004l804my3ll2oy（COURSE）。
+- 音樂：store-lubymusic／cmufcwavn0003l5044cxf6w7p／cmufcwavn0005l504kka385k3（COURSE）。
+- 保留原 staging-store 蒸足驗收入口。
+
+已唯讀確認這些身份在隔離資料庫為 ACTIVE OWNER、員工 ACTIVE、店別與模組一致。授權及每次 JWT 刷新重新核對固定 user／staff／store／slug／industryModule；每次登入只限一間測試門市，既有跨店與 HQ 禁止仍生效。陌生模組（含 prototype 名稱）在讀 DB 前拒絕；23 小時、分支、DB、digest 與 session stamp 撤銷檢查保留。
+
+77 項存取與 session 回歸、TypeScript 已通過。未改正式帳號、密碼或資料庫；環境值只調整此 Preview 支線的暫時 token 與期限。
