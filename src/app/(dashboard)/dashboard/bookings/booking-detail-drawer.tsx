@@ -1059,9 +1059,10 @@ function DrawerContent({
 
         </Section>
   );
-  if (showCustomer && !spaMode) return <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} readOnly={readOnly} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />;
   return (
     <>
+      {showCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} readOnly={readOnly} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
+      <div hidden={!!showCustomer && !spaMode} className={showCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
         <div className="min-w-0 flex-1">
@@ -1073,7 +1074,7 @@ function DrawerContent({
             </span>}
           </div>
           <h2
-            id="booking-drawer-title"
+            id={showCustomer && !spaMode ? undefined : "booking-drawer-title"}
             className={spaMode ? "mt-1 truncate text-lg font-bold text-earth-900" : "mt-2 break-words text-xl font-bold text-earth-900"}
           >
             {participantMode ? "預約詳情" : booking.customer.name}
@@ -1345,6 +1346,7 @@ function DrawerContent({
           spaMode={spaMode}
         />
       )}
+      </div>
     </>
   );
 }
