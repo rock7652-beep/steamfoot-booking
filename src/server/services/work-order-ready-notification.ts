@@ -27,6 +27,16 @@ export async function enqueueWorkOrderReady(tx: Prisma.TransactionClient, storeI
 export async function dispatchWorkOrderReadyNotification(id: string): Promise<void> {
   // Never probe or push from development, unknown environments, or Preview.
   if (isPreviewExternalIntegrationBlocked()) return;
+  return dispatchWithTransport(id, { probe: probeStoreLineRecipient, push: pushMessage });
+}
+
+type DeliveryTransport = {
+  probe: typeof probeStoreLineRecipient;
+  push: typeof pushMessage;
+  fixture?: boolean;
+};
+
+async function dispatchWithTransport(id: string, transport: DeliveryTransport): Promise<void> {
   const candidate = await prisma.workOrderReadyNotification.findUnique({ where: { id }, select: { storeId: true } });
   if (!candidate) return;
   try {
@@ -96,15 +106,16 @@ export async function dispatchWorkOrderReadyNotification(id: string): Promise<vo
       const link = customer.identityLinks.find(l => l.userId === connection.centralUserId && l.provider === connection.identityProvider && l.providerAccountId === connection.lineUserId);
       const account = await tx.account.findUnique({ where: { provider_providerAccountId: { provider: connection.identityProvider, providerAccountId: connection.lineUserId } }, select: { userId: true, user: { select: { status: true } } } });
       const config = getConfiguredStoreLine(delivery.storeId);
-      const expectedProvider = config ? storeLineIdentityProvider(config) : `line-messaging:${store.lineDestination}`;
-      const channelKey = config?.destination ?? store.lineDestination;
+      const fixtureChannel = transport.fixture ? "qa-member-workorder-20261012" : null;
+      const expectedProvider = config ? storeLineIdentityProvider(config) : `line-messaging:${store.lineDestination ?? fixtureChannel}`;
+      const channelKey = config?.destination ?? store.lineDestination ?? fixtureChannel;
       if (!link || account?.userId !== connection.centralUserId || account?.user.status !== "ACTIVE" || connection.channelKey !== channelKey || connection.identityProvider !== expectedProvider) { await finish("本店身分或 LINE 通道已變更，停止補送"); return; }
       const body = workOrderReadyMessage({ storeName: store.name, number: order!.workOrderNumber ?? order!.id, phone: setting?.shopPhone, address: setting?.address });
       const currentSnapshot = { body, recipient: connection.lineUserId, channelKey, provider: expectedProvider };
       const frozen = delivery.snapshot as typeof currentSnapshot | null;
       if (frozen && (frozen.recipient !== currentSnapshot.recipient || frozen.channelKey !== currentSnapshot.channelKey || frozen.provider !== currentSnapshot.provider)) { await finish("通知路徑已變更，停止補送"); return; }
       const snapshot = frozen ?? currentSnapshot;
-      const probe = await probeStoreLineRecipient(delivery.storeId, snapshot.recipient);
+      const probe = await transport.probe(delivery.storeId, snapshot.recipient);
       if (probe.status === "INCOMPATIBLE") { await finish("本店 LINE 身分不可通知：未加好友、封鎖或通道不相容"); return; }
       if (probe.status === "UNAVAILABLE") {
         await tx.workOrderReadyNotification.update({ where: { id }, data: { status: "FAILED", errorMessage: `本店 LINE 通道驗證暫時失敗（${probe.httpStatus ?? "網路逾時"}）`, attempts: { increment: 1 }, lastAttemptAt: new Date(), nextAttemptAt: new Date(Date.now() + 5 * 60_000) } });
@@ -113,7 +124,7 @@ export async function dispatchWorkOrderReadyNotification(id: string): Promise<vo
       if (delivery.retryUntil <= new Date()) { await finish("已超過安全重試期限，停止自動補送"); return; }
       await tx.workOrderReadyNotification.update({ where: { id }, data: { snapshot: snapshot as Prisma.InputJsonValue, attempts: { increment: 1 }, lastAttemptAt: now } });
       await tx.messageLog.upsert({ where: { id: logId }, create: { id: logId, storeId: delivery.storeId, customerId: delivery.customerId, status: "PENDING", channel: "LINE", lineRoute: "STORE", renderedBody: snapshot.body }, update: { status: "PENDING" } });
-      const result = await pushMessage(delivery.storeId, snapshot.recipient, [{ type: "text", text: snapshot.body }], delivery.retryKey);
+      const result = await transport.push(delivery.storeId, snapshot.recipient, [{ type: "text", text: snapshot.body }], delivery.retryKey);
       const status = result.success ? "SENT" : "FAILED";
       const sentAt = result.success ? new Date() : null;
       const errorMessage = result.success ? null : result.error ?? "LINE API 未接受或結果不確定";
@@ -124,6 +135,22 @@ export async function dispatchWorkOrderReadyNotification(id: string): Promise<vo
     // READY is already committed. Retain the same event/key after DB/API ambiguity.
     await prisma.workOrderReadyNotification.updateMany({ where: { id, status: { in: ["PENDING", "FAILED"] } }, data: { status: "FAILED", attempts: { increment: 1 }, lastAttemptAt: new Date(), errorMessage: "派送未完成或結果不確定；保留原事件安全重試", nextAttemptAt: new Date(Date.now() + 5 * 60_000) } }).catch(() => undefined);
   }
+}
+
+/** Only the authorized isolated fixture can execute the coordinator with a
+ * closed, local fake transport. The production/Preview dispatcher still never
+ * relaxes its outbound guard. No caller can supply a transport or endpoint. */
+export async function dispatchWorkOrderReadyIsolatedFixture(id: string, outcome: "accepted" | "failed" | "uncertain") {
+  const { assertStoreMemberWorkorderReviewOnly, STORE_MEMBER_WORKORDER_REVIEW_BRANCH } = await import("../../../scripts/store-member-workorder-review-gate.mjs");
+  assertStoreMemberWorkorderReviewOnly();
+  if (process.env.VERCEL_GIT_COMMIT_REF !== STORE_MEMBER_WORKORDER_REVIEW_BRANCH) throw new Error("Fixture is unavailable");
+  const delivery = await prisma.workOrderReadyNotification.findUnique({ where: { id }, select: { customerId: true, orderId: true } });
+  if (!delivery?.customerId.startsWith("qa-member-workorder-20261012:")) throw new Error("Not a synthetic fixture");
+  return dispatchWithTransport(id, {
+    fixture: true,
+    probe: async () => ({status:"COMPATIBLE"}),
+    push: async () => outcome === "accepted" ? {success:true} : outcome === "failed" ? {success:false,httpStatus:429,error:"Synthetic LINE 429; zero external calls"} : {success:false,error:"Synthetic timeout; zero external calls"},
+  });
 }
 
 export async function runWorkOrderReadyNotifications() {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ blocked: vi.fn(), push: vi.fn(), probe: vi.fn(), quota: vi.fn(), config: vi.fn(), transaction: vi.fn(),
   event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   order: vi.fn(), store: vi.fn(), setting: vi.fn(), connection: vi.fn(), customer: vi.fn(), account: vi.fn(), grants: vi.fn(),
@@ -10,7 +10,7 @@ vi.mock("@/lib/runtime-env", () => ({ isPreviewExternalIntegrationBlocked:m.bloc
 vi.mock("@/lib/line", () => ({ pushMessage:m.push, probeStoreLineRecipient:m.probe }));
 vi.mock("@/lib/reminder-send-limit", () => ({ checkReminderSendLimit:m.quota }));
 vi.mock("@/lib/store-line-config", () => ({ getConfiguredStoreLine:m.config, storeLineIdentityProvider:()=>"line-provider:901" }));
-import { dispatchWorkOrderReadyNotification, enqueueWorkOrderReady } from "@/server/services/work-order-ready-notification";
+import { dispatchWorkOrderReadyNotification, dispatchWorkOrderReadyIsolatedFixture, enqueueWorkOrderReady } from "@/server/services/work-order-ready-notification";
 import { workOrderSchema } from "@/lib/work-orders";
 import type { Prisma } from "@prisma/client";
 
@@ -52,4 +52,16 @@ describe("actual work-order notification dispatcher with isolated transports", (
     expect(m.logs.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({status:"PENDING",storeId:"a",customerId:"c"})}));
     expect(m.push).not.toHaveBeenCalled();
   });
+});
+
+afterEach(() => vi.unstubAllEnvs());
+describe("isolated coordinator never opens a real transport", () => {
+  function fixtureEnv() {
+    const values={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/store-member-link-workorder-line-20261012",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",CONSULTATION_PREVIEW_INTAKE_ENABLED:"false",DATABASE_URL:"postgresql://postgres:fake@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",DIRECT_URL:"postgresql://postgres:fake@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres"};
+    for(const [key,value] of Object.entries(values))vi.stubEnv(key,value);
+    vi.stubEnv("WORKERS_CI_BRANCH","");vi.stubEnv("CF_PAGES_BRANCH","");
+  }
+  it("refuses main without accessing a delivery",async()=>{vi.stubEnv("VERCEL_GIT_COMMIT_REF","main");await expect(dispatchWorkOrderReadyIsolatedFixture("e","accepted")).rejects.toThrow("unavailable");expect(m.event.findUnique).not.toHaveBeenCalled();});
+  it("refuses non-synthetic customers on the isolated branch",async()=>{fixtureEnv();await expect(dispatchWorkOrderReadyIsolatedFixture("e","accepted")).rejects.toThrow("synthetic");expect(m.push).not.toHaveBeenCalled();expect(m.probe).not.toHaveBeenCalled();});
+  it.each(["accepted","failed","uncertain"] as const)("uses only local stubs for %s",async outcome=>{fixtureEnv();m.event.findUnique.mockResolvedValueOnce({customerId:"qa-member-workorder-20261012:s",orderId:"o"});await dispatchWorkOrderReadyIsolatedFixture("e",outcome);expect(m.push).not.toHaveBeenCalled();expect(m.probe).not.toHaveBeenCalled();expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:outcome==="accepted"?"SENT":"FAILED"})}));});
 });

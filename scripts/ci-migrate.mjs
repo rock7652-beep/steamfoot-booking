@@ -1,7 +1,3 @@
-// Schema-dependent member/work-order review cannot auto-deploy before explicit authorization.
-if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/store-member-link-workorder-line-20261012")) {
-  throw new Error("Store member/work-order review branch deployment is disabled pending isolated schema and Preview authorization. No migration or database access is allowed.");
-}
 // Public article review must not trigger a preview build or database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
   throw new Error("Public article review branch deployment is disabled; production main remains enabled.");
@@ -40,6 +36,11 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "member-workorder-preview") {
+  const { verifyStoreMemberWorkorderSchema } = await import("./store-member-workorder-review-gate.mjs");
+  await verifyStoreMemberWorkorderSchema(process.env);
+  process.exit(0); // Only separately authorized SQL; never run pending migrations.
+}
 if (process.env.VERCEL_GIT_COMMIT_REF === "fix/unregistered-companion-payment-20261011") {
   const { verifyUnregisteredParticipantSchema } = await import("./booking-unregistered-payment-readiness.mjs");
   await verifyUnregisteredParticipantSchema(process.env);

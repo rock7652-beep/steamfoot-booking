@@ -84,7 +84,7 @@
 - 首次 dispatch 用 Next `after()`，補查沿用既有每日 cron，沒有增加平台 cron 或供應商費用。每日補查不保證五分鐘即重試；超出安全期限停止，結果如實顯示。
 - 列印 QR 改為本店連結入口；只有開關及官方帳號入口可用且有本環境 HTTPS origin 時才印指定引導。沒有把加好友視為綁定完成。
 - Schema 草案僅在 `docs/sql/store-member-workorder-line-draft-20261012.sql`，不加入自動 migrations。兩張空表＋通知預設 false 欄位＋唯一／跨店 FK／CHECK／RLS／browser roles revoke；不回填顧客或通知。
-- 精確 review branch 在 ci-migrate 與三個 DB client constructor 前禁止部署／DB 建立。PR 推送不授權 Preview 執行、套 migration 或真實外發。尚未修改 LINE／Supabase／Vercel 權限或遠端設定。
+- 初版以精確 review branch 阻擋部署；取得下列隔離環境授權後，僅放行精確 repo／branch 的隔離 Preview，其他環境仍拒絕。
 
 ## 本機驗證
 
@@ -95,12 +95,15 @@
 - 合成 Chromium 使用真正新增 UI 元件及 stub actions，測試 1366×900、1024×768、768×1024、560×768、390×844、360×800：無整頁水平溢出、電話草稿跨尺寸保留、三次同 tick 確認只一個 action、開關失敗保持權威值。輸出在 `/tmp/store-member-workorder-ui`，fixture／runner 在 scripts/qa。
 - 上述不是已登入的隔離 Preview 業務驗收，也不是實體 iPad／Safari、真實 LINE 加好友／OAuth／掃 QR 或實體列印。尚未驗 live PostgreSQL 多連線競態；現有工單金流及新 SQL／worker 測試不替代該證據。
 
-## 下一個具體授權點
+## 隔離資料庫與 Preview 授權／執行
 
-已透過 Supabase connected get_project 唯讀核實 `steamfoot-preview`，project ref `ttworfzgwejdeolegkxl`，ACTIVE_HEALTHY。未執行遠端 SQL。
+使用者明確授權「資料庫變更與隔離 Preview」。範圍僅既有 `steamfoot-preview`（`ttworfzgwejdeolegkxl`）、本次精確 SQL、合成資料及零真實外發驗收；不包含正式發布、真實顧客變更、會員合併或 LINE 通道／權限變更。
 
-需另授權：僅對此既有隔離 project 套精確增量 SQL，維持 browser roles revoke、不執行其他 pending migrations；接著使用既有隔離測試店與合成資料、禁止 LINE/SMS 外發，驗收 UI → action → PostgreSQL，以及同店多模組／跨店／Provider／封鎖／取消取件矩陣。Preview 放行必須先完成目標與 schema fail-closed preflight，不使用正式 DB fallback。正式合併與真實通知另外決定。
-
+- 已套用 `store_member_workorder_line_isolated_20261012`，SQL hash 同下。套用後兩張表均為空、通知啟用數 0、既有工單仍 23 筆；兩表 RLS 開啟，browser roles 無 table grant。
+- Preview 必須精確符合 repo／branch／Vercel Preview，DATABASE_URL 與 DIRECT_URL 都是隔離 project，公開 intake 關閉；建置和 runtime 都唯讀檢查 schema，跳過所有其他 migrations，沒有正式資料庫 fallback。
+- 僅新增此 branch 的非機密 `CONSULTATION_PREVIEW_INTAKE_ENABLED=false`；沿用既有 Preview 連線。LINE／SMS 全域 Preview 外發守門保留。
+- `/api/qa/member-workorder` 僅此隔離 branch 提供，仍需正常登入及 customer.update；只接受固定前綴合成 actor／同店合成顧客及零金額工單。封閉的本地 LINE stub 可驗實際 Prisma 派送交易，不接受外部網址或任意收件人，正式環境在 auth／DB 前即 404。
+- 合成來源不能證明真實 LINE HMAC／OAuth 或送達；實際來源驗證仍由既有 webhook 測試與後續另外授權的真實驗收涵蓋。
 
 ## main 整合
 
@@ -115,3 +118,5 @@ SQL 草案 SHA-256：`c96f4266f82eeb2a0e9f09a0f0baf5a0d05f7531d6ac8b61fe6842c1b4
 - quota reservation 與固定內容／路徑先一起提交；API 逾時或結果未知時 MessageLog 不標已送達，也不釋放本月預留。確定取消且沒有嘗試外發時釋放預留。保留預留是安全用量估算，不代表真的已發送或有新的付費扣款。
 - 本次 worker 16 項成功，含 API 結果未知、503 通道驗證暫時失敗、內容凍結與額度預留先於外部呼叫。另五組通知／身分／SQL 守門38項成功。
 - Changed-file ESLint 無錯誤；webhook 既有測試函式參數有11個 unused 警告，未改規則或關閉檢查。diff whitespace 通過。
+
+授權後隔離放行與 QA 守門回歸：完整 Vitest 1,053 檔成功、16 檔略過；9,996 項成功、129 項略過、0 失敗。TypeScript 及 changed-file ESLint 通過。包含正式環境 endpoint 在 DB 前 404、真實 actor 拒絕、僅同店固定合成顧客、三種本地派送結果均無真實 transport 呼叫。
