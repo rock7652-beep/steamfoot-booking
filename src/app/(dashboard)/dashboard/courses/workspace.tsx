@@ -572,6 +572,8 @@ export function CourseWorkspace({
   const [scheduleDate, setScheduleDate] = useState(selectedDate);
   const [scheduleCapacity,setScheduleCapacity]=useState(templates[0]?.capacity??1);
   const [scheduleLearners,setScheduleLearners]=useState<ScheduleLearner[]>([]);
+  const [scheduleOccurrenceCount,setScheduleOccurrenceCount]=useState(1);
+  const [scheduleLearnersValid,setScheduleLearnersValid]=useState(true);
   const [scheduleSeed,setScheduleSeed]=useState<{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
@@ -673,6 +675,7 @@ export function CourseWorkspace({
     try {
       const occurrences = buildCourseOccurrences(courseScheduleFormFields(fields, {templateId: chosen, requestKey}));
       const first = occurrences[0];
+      setScheduleOccurrenceCount(occurrences.length);
       setScheduleValidationError("");
       setScheduleSummary(`共 ${occurrences.length} 堂 · ${formatTWDateTime(first.startsAt)}–${formatTWDateTime(first.endsAt).slice(11)}${occurrences.length > 1 ? ` · 至 ${toLocalDateStr(occurrences[occurrences.length - 1].startsAt)}` : ""}`);
     } catch (cause) {
@@ -688,6 +691,7 @@ export function CourseWorkspace({
     setCopySource(null);
     setArrangement(businessProfile === "MUSIC" ? "choose" : "class");
     setScheduleLearners([]);setScheduleCapacity(templates[0]?.capacity??1);
+    setScheduleOccurrenceCount(1);setScheduleLearnersValid(true);
     setScheduleSeed(seed);
     setScheduleDate(seed.date ?? selectedDate);
     setChosen(templates[0]?.id ?? "");
@@ -2104,7 +2108,7 @@ export function CourseWorkspace({
                           aria-label="課程"
                           name="templateId"
                           value={chosen}
-                          onChange={(e) => {setChosen(e.target.value);setScheduleLearners([]);setScheduleCapacity(templates.find(item=>item.id===e.target.value)?.capacity??1);}}
+                          onChange={(e) => {setChosen(e.target.value);setScheduleLearners([]);setScheduleLearnersValid(true);setScheduleCapacity(templates.find(item=>item.id===e.target.value)?.capacity??1);}}
                           required
                         >
                           {templates.map((t) => (
@@ -2217,7 +2221,7 @@ export function CourseWorkspace({
                         required
                       />
                     </label>
-                    <CourseScheduleLearners key={chosen} scope={storeId??""} templateId={chosen} pointCost={template?.pointCost??1} capacity={scheduleCapacity} value={scheduleLearners} onChange={value=>{setScheduleLearners(value);setDirty(true);}} disabled={pending}/>
+                    <CourseScheduleLearners key={chosen} scope={storeId??""} templateId={chosen} pointCost={template?.pointCost??1} capacity={scheduleCapacity} occurrenceCount={scheduleOccurrenceCount} value={scheduleLearners} onChange={value=>{setScheduleLearners(value);setDirty(true);}} onValidityChange={setScheduleLearnersValid} disabled={pending}/>
                     {roomCapacityNotice && (
                       <p
                         role="status"
@@ -2281,7 +2285,7 @@ export function CourseWorkspace({
                 form="course-schedule-form"
                 type="submit"
                 className={`${primary} w-full`}
-                disabled={pending || (repeat && !!scheduleValidationError)}
+                disabled={pending || !scheduleLearnersValid || (repeat && !!scheduleValidationError)}
               >
                 {pending ? "建立中…" : "確認建立排課"}
               </button>
