@@ -39,12 +39,22 @@ export async function dispatchWorkOrderReadyNotification(id: string): Promise<vo
       const [connection, order, store, setting] = await Promise.all([
         tx.storeMemberConnection.findFirst({ where: { id: row.connectionId, storeId: row.storeId, customerId: row.customerId, status: "APPROVED" } }),
         tx.inventoryOrder.findFirst({ where: { id: row.orderId, storeId: row.storeId } }),
-        tx.store.findUnique({ where: { id: row.storeId }, select: { name: true } }),
+        tx.store.findUnique({ where: { id: row.storeId } }),
         tx.shopConfig.findUnique({ where: { storeId: row.storeId }, select: { shopPhone: true, address: true } }),
       ]);
       if (!connection || !order || !store) return;
+      const month = monthRange(toLocalMonthStr(new Date()));
+      const logId = `work-order-ready:${id}`;
+      const usage = await tx.messageLog.count({ where: { storeId: row.storeId, id: { not: logId }, OR: [{ status: "SENT", sentAt: { gte: month.start, lte: month.end } }, { status: "PENDING", createdAt: { gte: month.start, lte: month.end } }] } });
+      if (!checkReminderSendLimit(store, usage).allowed) {
+        await tx.workOrderReadyNotification.update({ where: { id }, data: { status: "SKIPPED", errorMessage: "本月通知額度已用完" } });
+        return;
+      }
       const body = workOrderReadyMessage({ storeName: store.name, number: order.workOrderNumber ?? order.id, phone: setting?.shopPhone, address: setting?.address });
       await tx.workOrderReadyNotification.update({ where: { id }, data: { snapshot: { body, recipient: connection.lineUserId, channelKey: connection.channelKey, provider: connection.identityProvider } } });
+      // Persist the quota reservation with the snapshot. A crash after API
+      // acceptance must not free budget for another event while outcome is unknown.
+      await tx.messageLog.upsert({ where: { id: logId }, create: { id: logId, storeId: row.storeId, customerId: row.customerId, status: "PENDING", channel: "LINE", lineRoute: "STORE", renderedBody: body }, update: {} });
     });
     await prisma.$transaction(async tx => {
       // Serializes workers with READY/cancel/collect and settings/identity approvals.
@@ -54,7 +64,12 @@ export async function dispatchWorkOrderReadyNotification(id: string): Promise<vo
       const delivery = await tx.workOrderReadyNotification.findUnique({ where: { id } });
       const now = new Date();
       if (!delivery || !["PENDING", "FAILED"].includes(delivery.status) || delivery.nextAttemptAt > now) return;
-      const finish = async (reason: string) => { await tx.workOrderReadyNotification.update({ where: { id }, data: { status: "SKIPPED", errorMessage: reason } }); };
+      const finish = async (reason: string) => {
+        await tx.workOrderReadyNotification.update({ where: { id }, data: { status: "SKIPPED", errorMessage: delivery.attempts ? `${reason}；先前嘗試結果請查通知紀錄` : reason } });
+        // An unattempted cancellation is safe to release; uncertain previous
+        // acceptance retains its reservation until the next usage month.
+        if (!delivery.attempts) await tx.messageLog.updateMany({ where: { id: `work-order-ready:${id}`, status: "PENDING" }, data: { status: "SKIPPED", errorMessage: reason } });
+      };
       if (delivery.retryUntil <= now || delivery.attempts >= 5) { await finish("已超過安全重試期限或次數，停止自動補送"); return; }
       const [order, store, setting, connection, grants] = await Promise.all([
         tx.inventoryOrder.findFirst({ where: { id: delivery.orderId, storeId: delivery.storeId, kind: "SALE" } }),
@@ -103,7 +118,7 @@ export async function dispatchWorkOrderReadyNotification(id: string): Promise<vo
       const sentAt = result.success ? new Date() : null;
       const errorMessage = result.success ? null : result.error ?? "LINE API 未接受或結果不確定";
       await tx.workOrderReadyNotification.update({ where: { id }, data: { status, errorMessage, sentAt, nextAttemptAt: new Date(Date.now() + 5 * 60_000) } });
-      await tx.messageLog.update({ where: { id: logId }, data: { status, errorMessage, sentAt } });
+      await tx.messageLog.update({ where: { id: logId }, data: { status: result.success ? "SENT" : result.httpStatus ? "FAILED" : "PENDING", errorMessage, sentAt } });
     }, { timeout: 30_000, maxWait: 5_000 });
   } catch {
     // READY is already committed. Retain the same event/key after DB/API ambiguity.

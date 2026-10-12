@@ -107,3 +107,11 @@
 整合 main `9216901e`（#1313）；唯一衝突是 member-workspace 頂部新增 import，保留本次本店連結元件及 main 的 courseTemplateLabel。未覆蓋 #1313 的課程名稱／教師資格呈現、vercel.json 或 Preview 白名單。另查開啟中的 #1314 是課程設定 HQ 三態，沒有本次首次會員確認／工單通知實作；後續如合併需保留兩邊設定接線。
 
 SQL 草案 SHA-256：`c96f4266f82eeb2a0e9f09a0f0baf5a0d05f7531d6ac8b61fe6842c1b4bafbfe`。只對此草案與既有隔離 project 提出下一階段授權，不包含其他 pending migrations、正式合併或外發。
+
+
+## 最終可靠性補驗
+
+- 已整合 #1313 後的九組回歸 81 項成功，TypeScript 通過。
+- quota reservation 與固定內容／路徑先一起提交；API 逾時或結果未知時 MessageLog 不標已送達，也不釋放本月預留。確定取消且沒有嘗試外發時釋放預留。保留預留是安全用量估算，不代表真的已發送或有新的付費扣款。
+- 本次 worker 16 項成功，含 API 結果未知、503 通道驗證暫時失敗、內容凍結與額度預留先於外部呼叫。另五組通知／身分／SQL 守門38項成功。
+- Changed-file ESLint 無錯誤；webhook 既有測試函式參數有11個 unused 警告，未改規則或關閉檢查。diff whitespace 通過。

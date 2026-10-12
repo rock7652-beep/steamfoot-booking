@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ blocked: vi.fn(), push: vi.fn(), probe: vi.fn(), quota: vi.fn(), config: vi.fn(), transaction: vi.fn(),
   event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   order: vi.fn(), store: vi.fn(), setting: vi.fn(), connection: vi.fn(), customer: vi.fn(), account: vi.fn(), grants: vi.fn(),
-  logs: { count: vi.fn(), upsert: vi.fn(), update: vi.fn() }, lock: vi.fn(),
+  logs: { count: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() }, lock: vi.fn(),
 }));
 const tx = { workOrderReadyNotification: m.event, inventoryOrder: {findFirst:m.order}, store: {findUnique:m.store}, shopConfig:{findUnique:m.setting}, storeMemberConnection:{findFirst:m.connection,findMany:m.connection}, customer:{findFirst:m.customer}, account:{findUnique:m.account}, storeFeatureEntitlement:{findMany:m.grants}, messageLog:m.logs, $queryRaw:m.lock };
 vi.mock("@/lib/db", () => ({ prisma: { $transaction:m.transaction, workOrderReadyNotification:m.event } }));
@@ -43,4 +43,13 @@ describe("actual work-order notification dispatcher with isolated transports", (
   it("API failure keeps READY and records the specific reason for retry",async()=>{m.push.mockResolvedValue({success:false,error:"LINE API 429: quota"});await dispatchWorkOrderReadyNotification("e"); expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"FAILED",errorMessage:"LINE API 429: quota"})})); expect(tx.inventoryOrder).not.toHaveProperty("update");});
   it("terminal acceptance and exhausted safety deadline never call LINE again",async()=>{m.event.findUnique.mockResolvedValue({storeId:"a",status:"SENT",nextAttemptAt:new Date(0)});await dispatchWorkOrderReadyNotification("e");expect(m.push).not.toHaveBeenCalled();});
   it("does not create another event on repeated READY",async()=>{await enqueueWorkOrderReady(tx as unknown as Prisma.TransactionClient,"a",{id:"o",partyId:"c"});expect(m.event.create).not.toHaveBeenCalled();});
+  it("keeps uncertain API outcomes reserved instead of presenting them as sent",async()=>{m.push.mockResolvedValue({success:false,error:"request timed out"});await dispatchWorkOrderReadyNotification("e");expect(m.logs.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"PENDING",sentAt:null,errorMessage:"request timed out"})}));expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"FAILED"})}));});
+  it("does not turn a temporary channel-verification outage into a binding failure",async()=>{m.probe.mockResolvedValue({status:"UNAVAILABLE",httpStatus:503});await dispatchWorkOrderReadyNotification("e");expect(m.push).not.toHaveBeenCalled();expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"FAILED",errorMessage:expect.stringContaining("503")})}));});
+  it("freezes content and reserves quota before the first external probe",async()=>{
+    m.event.findUnique.mockResolvedValueOnce({storeId:"a"}).mockResolvedValueOnce({id:"e",storeId:"a",orderId:"o",customerId:"c",connectionId:"r",status:"PENDING",snapshot:null}).mockResolvedValueOnce({id:"e",storeId:"a",orderId:"o",customerId:"c",connectionId:"r",status:"SENT",nextAttemptAt:new Date(0)});
+    await dispatchWorkOrderReadyNotification("e");
+    expect(m.event.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({snapshot:expect.objectContaining({channelKey:"channel",recipient:"line"})})}));
+    expect(m.logs.upsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({status:"PENDING",storeId:"a",customerId:"c"})}));
+    expect(m.push).not.toHaveBeenCalled();
+  });
 });
