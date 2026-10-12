@@ -76,7 +76,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const times=[...new Set(slots?.map(s=>s.time) ?? [])].sort();
   const pairs=slots?.filter(s=>s.time===time&&(!seed?.roomId||s.roomId===seed.roomId)).flatMap(s=>s.coachIds.map(coachId=>({roomId:s.roomId,coachId,fixedOrigin:s.fixedOriginCoachIds?.includes(coachId)??false}))) ?? [];
   const teacherIds=[...new Set(pairs.map(option=>option.coachId))];
-  const selectedCoachId=coachId || (teacherIds.length===1 ? teacherIds[0] : "");
+  const selectedCoachId=teacherIds.includes(coachId)?coachId:(teacherIds.length===1?teacherIds[0]:"");
   const availableRooms=pairs.filter(option=>option.coachId===selectedCoachId);
   const validRooms=availableRooms.filter(option=>!(option.fixedOrigin&&template?.musicScheduleMode==="FIXED"));
   const selectedPair=validRooms.find(option=>option.roomId===pair?.roomId&&option.coachId===pair?.coachId) ?? (validRooms.length===1?validRooms[0]:null);
@@ -129,6 +129,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
       {!seed?.time&&checkedAgain&&!!slots?.length&&<p role="status">請選時段</p>}
       {time&&teacherIds.length>0&&<section aria-label="合格老師與可用教室" className="space-y-2">
         <strong>老師</strong>
+        {seed?.coachId&&!teacherIds.includes(seed.coachId)&&<p className="text-amber-800">原選老師此時段無法授課</p>}
         {teacherIds.length===1?<p className="rounded-lg bg-earth-50 px-3 py-2">{coaches.find(c=>c.id===teacherIds[0])?.displayName}</p>:<div className="grid grid-cols-2 gap-2">{teacherIds.map(id=><button key={id} type="button" aria-pressed={selectedCoachId===id} className={`min-h-11 rounded-xl border px-3 text-left ${selectedCoachId===id?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setCoachId(id);setTeacherEdited(true);setPair(null);}}>{coaches.find(c=>c.id===id)?.displayName}</button>)}</div>}
         {selectedCoachId&&!seed?.roomId&&validRooms.length>1&&<div aria-label="老師可用教室" className="grid grid-cols-2 gap-2">{validRooms.map(option=><button key={option.roomId} type="button" aria-pressed={selectedPair?.roomId===option.roomId} className={`min-h-11 rounded-xl border px-3 text-left ${selectedPair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setPair(option);if(option.fixedOrigin)setRepeat(false);}}>{rooms.find(r=>r.id===option.roomId)?.name}</button>)}</div>}
       </section>}

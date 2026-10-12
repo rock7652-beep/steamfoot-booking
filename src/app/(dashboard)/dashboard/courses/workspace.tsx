@@ -2076,7 +2076,7 @@ export function CourseWorkspace({
                     onChange={updateScheduleForm}
                     className="grid grid-cols-1 gap-x-3 gap-y-2 min-[500px]:grid-cols-6"
                     onSubmit={(e) => {
-                      if(!scheduleLearnersValid){e.preventDefault();return;}
+                      if(!scheduleLearnersValid||!qualifiedScheduleCoaches.length||scheduleValidationError){e.preventDefault();return;}
                       submit(
                         e,
                         (data) =>
