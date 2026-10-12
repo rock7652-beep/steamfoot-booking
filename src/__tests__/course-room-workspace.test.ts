@@ -69,3 +69,5 @@ it("edits a confirmed room without refresh and preserves it through stale props"
   await act(async()=>root.render(render([{...changed,name:"之後修改"}])));expect(host.querySelector("tbody")!.textContent).toContain("之後修改");
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });
+
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(async()=>({success:true,cards:[]}))}));
