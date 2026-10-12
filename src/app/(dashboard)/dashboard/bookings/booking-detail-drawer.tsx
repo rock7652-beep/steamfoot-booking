@@ -2,7 +2,7 @@
 import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
 import dynamic from "next/dynamic";
-const CustomerInlineDetail = dynamic(() => import("../customers/_components/customer-inline-detail").then(module => module.CustomerInlineDetail), { loading: () => <p role="status" className="p-4 text-sm text-earth-500">讀取顧客資料中…</p> });
+const CustomerInlineDetail = dynamic(() => import("../customers/_components/customer-inline-detail").then(module => module.CustomerInlineDetail), { loading: () => <div><h2 id="booking-drawer-title" className="sr-only">顧客資料</h2><p role="status" className="p-4 text-sm text-earth-500">讀取顧客資料中…</p></div> });
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
 
@@ -1059,7 +1059,7 @@ function DrawerContent({
 
         </Section>
   );
-  if (showCustomer && !spaMode) return <CustomerInlineDetail key={showCustomer} customerId={showCustomer} readOnly={readOnly} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />;
+  if (showCustomer && !spaMode) return <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} readOnly={readOnly} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />;
   return (
     <>
       {/* Header */}
