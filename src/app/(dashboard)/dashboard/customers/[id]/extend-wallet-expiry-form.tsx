@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
 import { editWalletExpiry } from "@/server/actions/wallet-expiry";
@@ -6,6 +7,9 @@ import { toast } from "sonner";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 interface Props {
+  controlledOpen?: boolean;
+  onOpenChange?: (open:boolean)=>void;
+  onSuccess?: () => void;
   walletId: string;
   /** 目前到期日 "YYYY-MM-DD" */
   currentExpiry: string;
@@ -13,8 +17,11 @@ interface Props {
   expired: boolean;
 }
 
-export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Props) {
-  const [open, setOpen] = useState(false);
+export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuccess, controlledOpen, onOpenChange }: Props) {
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value:boolean) => { if(onOpenChange)onOpenChange(value);else setLocalOpen(value); };
+  const [reason, setReason] = useState("");
   const todayTW = toLocalDateStr();
   const [newExpiryDate, setNewExpiryDate] = useState(currentExpiry < todayTW ? todayTW : currentExpiry);
 
@@ -37,6 +44,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
         reason,
       });
       if (result.success) {
+        onSuccess?.();
         toast.success(
           expired ? "到期日已更新，方案已恢復可用" : "方案到期日已更新",
         );
@@ -49,13 +57,14 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
     { error: null },
   );
 
+  useSettingsPanelGuard(open && (newExpiryDate !== (currentExpiry < todayTW ? todayTW : currentExpiry) || !!reason), pending);
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
       >
-        📅 編輯到期日
+        延長期限
       </button>
     );
   }
@@ -88,6 +97,7 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
           <label className="block text-xs font-medium text-earth-600">修改原因（必填）</label>
           <input
             name="reason"
+            value={reason} onChange={e => setReason(e.target.value)}
             required
             maxLength={500}
             placeholder="例：請假展延／登記錯誤／與顧客確認後調整"
@@ -120,7 +130,10 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired }: Pro
         </button>
         <button
           type="button"
+          disabled={pending}
           onClick={() => {
+            if ((reason || newExpiryDate !== (currentExpiry < todayTW ? todayTW : currentExpiry)) && !window.confirm("捨棄尚未儲存的修改？")) return;
+            setReason("");
             setNewExpiryDate(currentExpiry < todayTW ? todayTW : currentExpiry);
             setOpen(false);
           }}

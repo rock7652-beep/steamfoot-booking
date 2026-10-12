@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
 import { backfillUsedSessions } from "@/server/actions/wallet";
@@ -6,6 +7,9 @@ import { toast } from "sonner";
 import { todayLocalDateString } from "@/lib/date-utils";
 
 interface Props {
+  controlledOpen?: boolean;
+  onOpenChange?: (open:boolean)=>void;
+  onSuccess?: () => void;
   walletId: string;
   available: number;
   reserved: number;
@@ -18,9 +22,14 @@ export function BackfillUsedSessionsForm({
   available,
   reserved,
   startDateLocal,
+  onSuccess,
+  controlledOpen, onOpenChange,
 }: Props) {
   const today = todayLocalDateString();
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value:boolean) => { if(onOpenChange)onOpenChange(value);else setLocalOpen(value); };
+  const [reason, setReason] = useState("");
   const [count, setCount] = useState(1);
   const [occurredAt, setOccurredAt] = useState(today);
 
@@ -51,6 +60,7 @@ export function BackfillUsedSessionsForm({
       });
 
       if (result.success) {
+        onSuccess?.();
         toast.success(
           `已補登 ${result.data.backfilledCount} 堂，剩餘 ${result.data.remainingAfter} 堂`
         );
@@ -65,13 +75,14 @@ export function BackfillUsedSessionsForm({
     { error: null }
   );
 
+  useSettingsPanelGuard(open && (count !== 1 || occurredAt !== today || !!reason), pending);
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:border-amber-400 hover:bg-amber-100"
       >
-        補登已使用堂數
+        補登已上課
       </button>
     );
   }
@@ -82,7 +93,7 @@ export function BackfillUsedSessionsForm({
   return (
     <form action={action} className="space-y-2 rounded border border-amber-200 bg-amber-50/40 p-3">
       <div className="text-[11px] font-medium text-amber-800">
-        補登已使用堂數（紙本卡轉線上）
+        補登已上課（紙本卡轉線上）
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
@@ -113,7 +124,7 @@ export function BackfillUsedSessionsForm({
         <div className="flex-1 min-w-[140px]">
           <label className="block text-xs text-earth-500">原因</label>
           <input
-            name="reason"
+            name="reason" value={reason} onChange={e => setReason(e.target.value)}
             placeholder="例：紙本卡轉線上"
             maxLength={200}
             className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
@@ -157,7 +168,7 @@ export function BackfillUsedSessionsForm({
         </button>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          disabled={pending} onClick={() => { if ((count !== 1 || occurredAt !== today || reason) && !window.confirm("捨棄尚未儲存的修改？")) return; setCount(1); setOccurredAt(today); setReason(""); setOpen(false); }}
           className="text-xs text-earth-400 hover:text-earth-600"
         >
           取消

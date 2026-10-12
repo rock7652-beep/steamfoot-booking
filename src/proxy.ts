@@ -4,6 +4,7 @@ import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/mark
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
 import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
+import { customerReviewConfig } from "@/lib/customer-review-access";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
@@ -650,6 +651,18 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  if (req.nextUrl.pathname === "/preview-review" || req.nextUrl.pathname.startsWith("/preview-review/")) {
+    const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
+    if (req.nextUrl.pathname !== "/preview-review" || !customerReviewConfig()) {
+      return new NextResponse("Not found", { status: 404, headers });
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      return new NextResponse("Method not allowed", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+    }
+    const response = routePassThrough(req);
+    Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
+  }
   if (req.nextUrl.pathname === "/single-pricing-preview" && !isSinglePricingUiPreview()) {
     return new NextResponse("Not found", { status: 404 });
   }

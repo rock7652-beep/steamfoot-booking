@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { loadMemberConnectionAction, approveMemberConnectionAction } from "@/server/actions/store-member-connection";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 type Result = Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>, { success: true; canConfirm: boolean }>;
@@ -8,6 +9,7 @@ export function StoreMemberConnectionPanel({ customerId }: { customerId: string 
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  useSettingsPanelGuard(false, busy);
   const sequence = useRef(0);
   const submitting = useRef(false);
   const reader = usePanelReader("store-member-connection", loadMemberConnectionAction, "", 0);

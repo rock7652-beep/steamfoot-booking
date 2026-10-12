@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getStoreFilter } from "@/lib/manager-visibility";
+import { enumerateBookableDates } from "@/lib/bookable-window";
+import { resolveBookableUntilDate } from "@/lib/shop-config";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { todayRange } from "@/lib/date-utils";
 import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
@@ -387,6 +390,10 @@ export async function getCustomerDrawerDetailForUser(
   customerId: string,
   activeStoreId?: string | null,
 ) {
+  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet] = await Promise.all([
+    checkPermission(user.role,user.staffId,"booking.read"), checkPermission(user.role,user.staffId,"booking.create"),
+    checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),
+  ]);
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     include: {
@@ -400,11 +407,12 @@ export async function getCustomerDrawerDetailForUser(
           planWallets: true,
         },
       },
+      bookings: canReadBookings ? { orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }], take: 50, select: { id: true, bookingDate: true, slotTime: true, bookingStatus: true, bookingType: true } } : false,
       planWallets: {
-        where: { status: "ACTIVE" },
         include: {
           plan: { select: { id: true, name: true, sessionCount: true } },
           sessions: { select: { status: true } },
+          bookings: { select: { bookingStatus: true, isMakeup: true, people: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -424,8 +432,10 @@ export async function getCustomerDrawerDetailForUser(
       throw new AppError("FORBIDDEN", "只能查看自己的資料");
     }
   }
+  const config = await prisma.shopConfig.findUnique({ where: { storeId: customer.storeId }, select: { bookableUntilDate: true } });
+  const bookingDays = enumerateBookableDates(toLocalDateStr(), resolveBookableUntilDate(config?.bookableUntilDate));
   const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
-  if (!canReadConsumption) return { ...customer, recentConsumption: null };
+  if (!canReadConsumption) return { ...customer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
   const [transactions, cashbookEntries] = await Promise.all([
     prisma.transaction.findMany({
       where: { storeId: customer.storeId, customerId: customer.id },
@@ -463,7 +473,7 @@ export async function getCustomerDrawerDetailForUser(
   ].sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime()).slice(0, 5)
     .map((row) => ({ id: row.id, date: row.date, label: row.label, amount: row.amount, payment: row.payment }));
 
-  return { ...customer, recentConsumption };
+  return { ...customer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption, canAdjustWallet };
 }
 
 // ============================================================

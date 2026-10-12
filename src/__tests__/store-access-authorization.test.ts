@@ -51,6 +51,16 @@ function installStoreQueryMock() {
 }
 
 describe("organization store authorization", () => {
+  it("limits a review session to its exact store for reads, writes and switching", async () => {
+    const { validateStoreAccess, getAccessibleStores } = await import("@/lib/store");
+    const review = { role: "OWNER", storeId: "hq", customerReviewStoreId: "hq" };
+    expect((await getAccessibleStores(review)).map(store => store.id)).toEqual(["hq"]);
+    for (const mode of ["read", "write", "switch"] as const) {
+      await expect(validateStoreAccess(review, "branch-a", mode)).rejects.toThrow("暫時驗收僅限測試店");
+      await expect(validateStoreAccess(review, "__all__", mode)).rejects.toThrow("暫時驗收僅限測試店");
+      await expect(validateStoreAccess(review, "hq", mode)).resolves.toBe("hq");
+    }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaderGet.mockReturnValue(null);

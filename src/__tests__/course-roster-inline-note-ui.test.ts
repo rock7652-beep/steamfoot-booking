@@ -153,7 +153,7 @@ it.each([false, true])("%s keeps the newer saved note when an older filtered-out
   expect(row().textContent).toContain("第二筆最新備註"); expect(row().textContent).not.toContain("第一筆已入庫");
   await open(); expect(textarea().value).toBe("第二筆最新備註");
 });
-it.each([false, true])("%s legacy details save supersedes a delayed inline save without changing its action contract", async music => {
+it.each([false, true])("%s detail note save supersedes a delayed inline save with a checked note version", async music => {
   const inlineResponse = deferred<{ success: boolean }>();
   m.save.mockReturnValueOnce(inlineResponse.promise).mockResolvedValueOnce({ success: true });
   m.quick.mockResolvedValue({ success: true, data: {
@@ -161,15 +161,14 @@ it.each([false, true])("%s legacy details save supersedes a delayed inline save 
   } });
   await render(music); await open(); await type("較早的行內備註"); await clickText("儲存");
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="甲同學 標籤與備註"]')!.click());
-  await clickText("編輯本次備註", document.querySelector('[role="dialog"]')!);
   const detailInput = document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(detailInput, "詳情最新備註");
     detailInput.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  await act(async () => detailInput.closest("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-  expect(m.save).toHaveBeenLastCalledWith({ sessionId: "session-a", bookingId: "a", note: "詳情最新備註" });
-  expect(m.quick).toHaveBeenCalledOnce(); expect(m.refresh).toHaveBeenCalledOnce();
+  await clickText("儲存", document.querySelector('[role="dialog"]')!);
+  expect(m.save).toHaveBeenLastCalledWith({ sessionId: "session-a", bookingId: "a", note: "詳情最新備註", expectedNote: "原始備註" });
+  expect(m.quick).not.toHaveBeenCalled(); expect(m.refresh).not.toHaveBeenCalled();
   expect(row().textContent).toContain("詳情最新備註");
   await act(async () => inlineResponse.resolve({ success: true }));
   expect(row().textContent).toContain("詳情最新備註"); expect(row().textContent).not.toContain("較早的行內備註");
@@ -188,6 +187,6 @@ it("keeps the existing teacher-note and explicit detail editor entrypoints", asy
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain("老師 · 教師備註");
   await clickText("取消", document.querySelector('[role="dialog"]')!);
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="甲同學 標籤與備註"]')!.click());
-  await clickText("編輯本次備註", document.querySelector('[role="dialog"]')!);
-  expect(document.querySelector('[role="dialog"] textarea')).toBeTruthy(); expect(textarea()).toBeNull();
+  await clickText("編輯", document.querySelector('[role="dialog"]')!);
+  expect(document.querySelector('[role="dialog"] textarea')).toBeTruthy(); expect(textarea()?.value).toBe("原始備註");
 });

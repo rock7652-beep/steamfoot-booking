@@ -20,6 +20,16 @@ vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({ AssignPlanForm: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/add-spa-staff-button", () => ({ AddSpaStaffButton: () => null }));
 
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced", () => ({ CustomerPanelAdvanced: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-records", () => ({ CustomerPanelRecordsList: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-summary", () => ({ CustomerPanelSummaryView: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-sessions", () => ({ CustomerPanelSessions: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/create-booking-form", () => ({ CreateBookingForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form", () => ({ EditCustomerForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form", () => ({ AdjustWalletForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form", () => ({ ExtendWalletExpiryForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/backfill-used-sessions-form", () => ({ BackfillUsedSessionsForm: () => null }));
+
 import { OperationScope } from "@/components/operations/operation-scope";
 import { BookingServiceNoteEditor } from "@/app/(dashboard)/dashboard/bookings/booking-service-note-editor";
 import { CustomerDetailDrawerContent } from "@/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content";
@@ -51,7 +61,7 @@ async function render(module: Module, { scope = "user:store-a", id = "a", value 
   } as unknown as React.ComponentProps<typeof CustomerDetailDrawerContent>["customer"];
   const spaCustomer = { id, name: `顧客 ${id}`, lastVisit: null, nextVisit: null } as React.ComponentProps<typeof SpaCustomerOverview>["customer"];
   const spaProfile: React.ComponentProps<typeof SpaCustomerOverview>["profile"] = {
-    success: true, customer: { id, name: `顧客 ${id}`, phone: "0900000000", serviceNote: value }, bookings: [],
+    success: true, customer: { id, name: `顧客 ${id}`, phone: "0900000000", serviceNote: value, updatedAt:new Date(), email:null,gender:null,birthday:null,height:null,lineName:null }, bookings: [],
   };
   const child = module === "steam"
     ? React.createElement(CustomerDetailDrawerContent, {

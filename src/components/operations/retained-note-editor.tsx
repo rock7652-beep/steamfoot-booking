@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useEffect, useRef, useState } from "react";
 import { useRetainedState } from "./operation-scope";
@@ -11,8 +12,8 @@ function validDraft(value: unknown): value is Draft {
   return (draft.base === null || typeof draft.base === "string") && typeof draft.text === "string" && draft.text.length <= 2000;
 }
 export type NoteSaveResult = { success: boolean; error?: string; currentValue?: string | null };
-export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", quiet = false, optimistic = false, save, onSaved }: {
-  quiet?: boolean; optimistic?: boolean; stateKey: string; title: string; hint: string; placeholder: string;
+export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, canEdit, maxLength, tone = "green", quiet = false, emptyActionLabel, optimistic = false, save, onSaved }: {
+  quiet?: boolean; emptyActionLabel?: string; optimistic?: boolean; stateKey: string; title: string; hint: string; placeholder: string;
   value: string | null; canEdit: boolean; maxLength: number; tone?: "green" | "gold";
   save: (text: string | null, expected: string | null) => Promise<NoteSaveResult>;
   onSaved: (value: string | null) => void;
@@ -28,6 +29,7 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const current = saved.source === value ? saved.value : value;
   const dirty = !!draft && (draft.text.trim() || null) !== draft.base;
+  useSettingsPanelGuard(dirty, saving);
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -62,12 +64,12 @@ export function RetainedNoteEditor({ stateKey, title, hint, placeholder, value, 
       if (mounted.current) setSaving(false);
     }
   }
-  return <div className={`${quiet ? "border-t border-earth-100 py-2" : `${tone === "gold" ? "steamfoot-brand-gold-accent" : "steamfoot-brand-green-accent"} rounded-xl border px-3 py-2.5`} col-span-2`}>
+  return <div className={`${quiet ? "border-t border-earth-100" : `${tone === "gold" ? "steamfoot-brand-gold-accent" : "steamfoot-brand-green-accent"} rounded-xl border px-3 py-2.5`} col-span-2`}>
     <div className="flex min-h-11 items-center justify-between gap-3">
-      <p className="text-sm font-semibold text-earth-700">{!quiet && !draft && !current?.trim() ? `尚無${title}` : title}</p>
+      {(!emptyActionLabel || draft || current?.trim()) && <p className="text-sm font-semibold text-earth-700">{!quiet && !draft && !current?.trim() ? `尚無${title}` : title}</p>}
       {canEdit && !draft && <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-700" onClick={() => {
         setDraft({ base: current, text: current ?? "" }); setMessage(""); setConflict(null); setUndo(null);
-      }}>{current?.trim() ? "編輯" : "＋新增"}</button>}
+      }}>{current?.trim() ? "編輯" : emptyActionLabel ?? "＋新增"}</button>}
       {canEdit && !draft && undo && current === undo.after && <button type="button" className="min-h-11 px-3 text-sm text-earth-600" onClick={() => {
         const restore = { base: undo.after, text: undo.before ?? "" };
         setDraft(restore); void submit(restore, true);

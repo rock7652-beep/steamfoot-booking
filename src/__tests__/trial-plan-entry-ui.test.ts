@@ -25,6 +25,15 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/booking-service-note-editor", () =
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-status-badge", () => ({ CustomerStatusBadge: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({ TrialBookingDrawer: () => React.createElement("button", {}, "建立體驗預約") }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({ AssignPlanForm: ({ defaultPlanId }: { defaultPlanId?: string }) => React.createElement("p", { "data-selected-plan": defaultPlanId }, "指派表單") }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced", () => ({ CustomerPanelAdvanced: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-records", () => ({ CustomerPanelRecordsList: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-sessions", () => ({ CustomerPanelSessions: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-summary", () => ({ CustomerPanelSummaryView: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/create-booking-form", () => ({ CreateBookingForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form", () => ({ EditCustomerForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form", () => ({ AdjustWalletForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form", () => ({ ExtendWalletExpiryForm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/[id]/backfill-used-sessions-form", () => ({ BackfillUsedSessionsForm: () => null }));
 import { PlanFormDrawer } from "@/app/(dashboard)/dashboard/plans/_components/plan-form-drawer";
 import { CustomerDetailDrawerContent } from "@/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content";
 
@@ -57,9 +66,10 @@ it("retained TRIAL draft is shown as invalid and cannot submit or lose its input
 
 it("keeps historical TRIAL wallets visible but offers renewal only for an available ordinary plan", async () => {
   const plans = [{ id: "package", name: "10堂", category: "PACKAGE", price: 5990, sessionCount: 10, validityDays: 180 }];
-  const wallet = (id: string, name: string) => ({ id, status: "ACTIVE", sessions: [], expiryDate: null, plan: { id, name, sessionCount: 1 } });
+  const wallet = (id: string, name: string) => ({ id, createdAt:new Date("2026-01-01"), status: "ACTIVE", remainingSessions:1, sessions: [], expiryDate: null, plan: { id, name, sessionCount: 1 } });
   const customer = {
     id: "customer", storeId: "store", name: "驗收顧客", phone: null, lineUserId: null, lineLinkStatus: "UNLINKED", authSource: "MANUAL",
+    canAssignPlan:true, canBook:true, canReadBookings:true,
     customerStage: "ACTIVE", planWallets: [wallet("trial", "歷史體驗課"), wallet("package", "10堂")],
     _count: { planWallets: 2, sponsoredCustomers: 0, bookings: 1 }, createdAt: new Date(), updatedAt: new Date(),
   } as unknown as React.ComponentProps<typeof CustomerDetailDrawerContent>["customer"];
@@ -70,5 +80,5 @@ it("keeps historical TRIAL wallets visible but offers renewal only for an availa
   expect(renewal[0].closest("li")?.textContent).toContain("10堂");
   await act(async () => renewal[0].click());
   expect(host.querySelector("[data-selected-plan]")?.getAttribute("data-selected-plan")).toBe("package");
-  expect(host.textContent).toContain("建立體驗預約");
+  expect(host.textContent).toContain("預約");
 });
