@@ -165,6 +165,7 @@ async function pushMessageWithAccessToken(
       return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
     }
     const res = await fetch(`${LINE_API_BASE}/message/push`, {
+      signal: AbortSignal.timeout(8_000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -9,6 +9,7 @@ import { productDetails, publicLines, type InventoryLine, type PriceCategory } f
 import { LABOR_PRODUCT_ID, workOrderDetails, workOrderSchema, workOrderPaymentSchema, workOrderStatusSchema, workOrderSettlementSchema, workOrderSettlementPlan, type WorkOrderView } from "@/lib/work-orders";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { lockCashDay } from "./cash-day";
+import { enqueueWorkOrderReady } from "./work-order-ready-notification";
 import { inventoryContext, inventoryTransaction, inventoryAudit, assertReplay, hashInput, saveInventoryOrder, createInventoryPayment, type InventoryContext } from "./inventory";
 
 export async function workOrderData(ctx: InventoryContext, query = "", page = 1, status = "all", payment = "all") {
@@ -70,6 +71,7 @@ export async function changeWorkOrderStatus(raw:unknown) {
     if(order.revision!==input.revision)throw new AppError("CONFLICT","工單已更新，請重新開啟");
     if(details.cancelled&&input.status!=="COLLECTED")throw new AppError("BUSINESS_RULE","已取消工單只能標記已取件");
     await tx.inventoryOrder.update({where:{id:order.id},data:{workOrder:{...details,status:input.status},revision:{increment:1}}});
+    if (input.status === "READY" && details.status !== "READY" && !details.cancelled) await enqueueWorkOrderReady(tx, ctx.storeId, order);
     await tx.inventoryCommand.create({data:{storeId:ctx.storeId,requestId:input.requestId,requestHash:hashInput(input),orderId:order.id}});
     await inventoryAudit(ctx,tx,"InventoryOrder",order.id,"更新工單進度",{status:input.status},{status:details.status});
     return order.id;

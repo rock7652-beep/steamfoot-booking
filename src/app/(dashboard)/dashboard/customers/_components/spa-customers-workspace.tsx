@@ -1,4 +1,5 @@
 "use client";
+import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import {
@@ -221,6 +222,7 @@ export function AccountPanel({
       labelledById="spa-account-title"
     >
       <div className="flex min-h-0 flex-1 flex-col">
+        {canEdit && <StoreMemberConnectionPanel key={customerId} customerId={customerId} />}
         <div className="shrink-0 border-b border-earth-100 bg-white px-5 pt-5">
           <header className="flex items-center justify-between gap-3 pb-3">
             <h2

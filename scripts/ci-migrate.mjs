@@ -36,6 +36,11 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "member-workorder-preview") {
+  const { verifyStoreMemberWorkorderSchema } = await import("./store-member-workorder-review-gate.mjs");
+  await verifyStoreMemberWorkorderSchema(process.env);
+  process.exit(0); // Only separately authorized SQL; never run pending migrations.
+}
 if (process.env.VERCEL_GIT_COMMIT_REF === "fix/unregistered-companion-payment-20261011") {
   const { verifyUnregisteredParticipantSchema } = await import("./booking-unregistered-payment-readiness.mjs");
   await verifyUnregisteredParticipantSchema(process.env);

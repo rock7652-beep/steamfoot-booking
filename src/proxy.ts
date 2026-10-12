@@ -417,6 +417,7 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
   if (pathname.startsWith("/api/")) {
     return withDomainCookie(routePassThrough(req), domainStoreId);
   }
+  if (pathname === "/member-connect") return routePassThrough(req);
 
   // ==========================================================
   // Legacy routes — redirect to new paths
