@@ -1,0 +1,5 @@
+import { expect, it } from "vitest";
+import { assertReviewedReleaseEnvironment, RETENTION_CLARITY_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+const env = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: RETENTION_CLARITY_PREVIEW_BRANCH, VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", DATABASE_URL: "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres", DIRECT_URL: "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres" };
+it("uses the existing isolated preview without migrations", () => { expect(assertReviewedReleaseEnvironment(env)).toBe("module-roster-preview"); });
+it.each([['VERCEL_ENV','production'], ['VERCEL_GIT_COMMIT_REF',RETENTION_CLARITY_PREVIEW_BRANCH+'-copy'], ['DATABASE_URL','postgresql://postgres:synthetic@db.production.supabase.co:5432/postgres'], ['DIRECT_URL','postgresql://postgres:synthetic@db.production.supabase.co:5432/postgres']])("rejects unsafe %s", (key, value) => { expect(() => assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow(); });
