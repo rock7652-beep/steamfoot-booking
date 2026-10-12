@@ -1,6 +1,6 @@
 "use client";
 import { CourseSetupStepBadge } from "@/components/admin/course-setup-step-badge";
-import { CourseOwnIncomeSwitch } from "@/components/admin/course-own-income-switch";
+import { CourseOwnIncomeSwitch, type CourseWorkPermissionFeedback } from "@/components/admin/course-own-income-switch";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { createPortal } from "react-dom";
 import styles from "@/components/admin/management-layout.module.css";
@@ -161,6 +161,7 @@ export function CourseStaffWorkspace({
   const [scheduleVisited,setScheduleVisited]=useState(false);
   const [availabilityGuard,setAvailabilityGuard]=useState({dirty:false,pending:false});
   const [incomePending,setIncomePending]=useState(false);
+  const [permissionFeedback,setPermissionFeedback]=useState<CourseWorkPermissionFeedback|null>(null);
   const updateAvailabilityGuard=useCallback((value:{dirty:boolean;pending:boolean})=>setAvailabilityGuard(value),[]);
   const [readOnly,setReadOnly]=useState(false);
   const [dirty,setDirty]=useState(false);
@@ -237,7 +238,7 @@ export function CourseStaffWorkspace({
   const currentStaffPage=Math.min(staffPage,staffPages-1);
   const visibleRows=[...activeRows.slice(currentStaffPage*20,(currentStaffPage+1)*20),...(inactiveExpanded?inactiveRows:[])];
   function edit(p: Person | null) {
-    if(locked)return;request.reset();
+    if(locked)return;request.reset();setPermissionFeedback(null);
     setAvailabilityGuard({dirty:false,pending:false});setScheduleVisited(false);
     setLinkedStaffId(p?.linkedStaffId??"");
     setMusicSettings({defaultRatio:null,subjectRules:{},revision:0});
@@ -377,10 +378,10 @@ export function CourseStaffWorkspace({
               ["teacher.booking.reschedule","替學員改期"],
               ["teacher.session.leave","自己請假（整堂停課）"],
               ["teacher.session.reschedule","自己調課（整堂改時間）"],
-            ] as const).map(([permission,label])=><CourseOwnIncomeSwitch key={`${person.id}:${permission}`} permission={permission} label={label} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes(permission)} canEdit={canManageOwnIncome&&!readOnly} blockedMessage={incomePending?"另一項權限儲存中…":"請先儲存其他修改。"} blocked={dirty||transitionPending||request.pending||request.uncertain||incomePending} storeEnabled={personalIncomeEnabled} music={music} lineBound={person.coachLoginReady} onPendingChange={setIncomePending} onSaved={data=>{
+            ] as const).map(([permission,label])=><CourseOwnIncomeSwitch key={`${person.id}:${permission}`} permission={permission} label={label} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes(permission)} canEdit={canManageOwnIncome&&!readOnly} onFeedback={setPermissionFeedback} blocked={dirty||transitionPending||request.pending||request.uncertain||incomePending} storeEnabled={personalIncomeEnabled} music={music} lineBound={person.coachLoginReady} onPendingChange={setIncomePending} onSaved={data=>{
               const updated={...person,updatedAt:data.updatedAt,permissions:[...person.permissions.filter(p=>p!==permission),...(data.enabled?[permission]:[])]};
               confirmed.confirm(updated);setPerson(updated);
-            }}/>)}</div></section>}
+            }}/>)}</div>{!personalIncomeEnabled&&<p className="mt-2 text-sm text-earth-600">門市尚未開放本人薪酬查詢。</p>}</section>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
                 {error}
@@ -654,7 +655,10 @@ export function CourseStaffWorkspace({
           </div>
           <footer className={fitnessEditorFooter}>
             {readOnly ? <button key="edit" type="button" className={button} disabled={!canManage || person?.canEdit === false} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <div className="flex items-center justify-end gap-2">
-              <span role="status" className="mr-auto text-sm text-earth-500">{incomePending?"權限儲存中…":pending||availabilityGuard.pending?"儲存中…":dirty||availabilityGuard.dirty?"未儲存":""}</span>
+              <div data-course-permission-feedback role={permissionFeedback?.status==="error"||permissionFeedback?.status==="uncertain"?"alert":"status"} className={`mr-auto flex h-11 min-w-0 flex-1 items-center gap-2 overflow-y-auto text-sm ${permissionFeedback?.status==="error"||permissionFeedback?.status==="uncertain"?"text-red-700":"text-earth-600"}`}>
+                <span className="min-w-0 break-words">{incomePending&&permissionFeedback?`${permissionFeedback.label}・儲存中…`:pending||availabilityGuard.pending?"儲存中…":dirty||availabilityGuard.dirty?"未儲存":permissionFeedback?`${permissionFeedback.label}・${permissionFeedback.status==="saved"?"已儲存 ✓":permissionFeedback.message??"請核對保存結果"}`:""}</span>
+                {permissionFeedback?.status==="uncertain"&&<button type="button" className="min-h-11 shrink-0 text-primary-800 underline" onClick={()=>window.location.reload()}>重新整理核對</button>}
+              </div>
               <button type="button" className={button} disabled={locked||availabilityGuard.pending} onClick={close}>取消</button>
               <button type="submit" form="course-staff-form" className={`${button} ${fitnessEditorSave} !border-primary-700 !bg-primary-700 !text-white`} disabled={locked||availabilityGuard.pending||(teachingDirty&&!feesReady)||(!!person&&!dirty&&!availabilityGuard.dirty)} onClick={event=>{
                 if(!availabilityGuard.dirty)return;

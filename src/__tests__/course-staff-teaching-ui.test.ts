@@ -198,3 +198,19 @@ it("adding a coach stays in the same editor and offers saved-person tabs",async(
  expect((document.body.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("新教練");
  expect(m.refresh).not.toHaveBeenCalled();
 });
+it("keeps permission save feedback in the fixed footer instead of changing the cards",async()=>{
+ let finish!:(value:unknown)=>void;m.income.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,canManageOwnIncome:true,personalIncomeEnabled:false,permissionGroups:[]})));
+ await click("編輯");await click("LINE 與權限");
+ const control=document.body.querySelector<HTMLInputElement>('[role="switch"][aria-label="代學員請假"]')!;
+ const cards=Array.from(document.body.querySelectorAll('section[aria-label="我的工作權限"]'));
+ const footer=()=>document.body.querySelector('[data-course-permission-feedback]')!;
+ await act(async()=>control.click());
+ expect(footer().textContent).toContain("代學員請假・儲存中…");
+ expect(cards.every(card=>!card.textContent?.includes("儲存中")&&!card.textContent?.includes("待綁定"))).toBe(true);
+ await act(async()=>finish({success:true,data:{enabled:true,updatedAt:"2026-10-12T03:00:00.000Z"}}));
+ expect(footer().textContent).toContain("代學員請假・已儲存 ✓");
+ expect(cards.every(card=>!card.textContent?.includes("已儲存"))).toBe(true);
+ expect(document.body.textContent).toContain("門市尚未開放本人薪酬查詢");
+ expect(m.refresh).not.toHaveBeenCalled();
+});
