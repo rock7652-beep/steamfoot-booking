@@ -1,5 +1,6 @@
 "use server";
 
+import { bookingDateToday, getNowTaipeiHHmm } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
@@ -13,12 +14,13 @@ import type { ActionResult } from "@/types";
 export type CustomerPanelRecord = { id: string; date: Date; label: string; status: string; amount?: number; payment?: string; note?: string | null };
 export type CustomerPanelRecords = { rows: CustomerPanelRecord[]; hasMore: boolean; page: number };
 
-export async function getCustomerPanelRecords(customerId: string, kind: "bookings" | "consumption", page = 1): Promise<ActionResult<CustomerPanelRecords>> {
+export async function getCustomerPanelRecords(customerId: string, kind: "bookings" | "consumption", page = 1, scope: "all" | "past" = "all"): Promise<ActionResult<CustomerPanelRecords>> {
   try {
     const user = await requirePermission("customer.read");
     if (kind !== "bookings" && kind !== "consumption") throw new AppError("VALIDATION", "紀錄種類不正確");
     await requirePermission(kind === "bookings" ? "booking.read" : "transaction.read");
     if (!Number.isSafeInteger(page) || page < 1) throw new AppError("VALIDATION", "頁數不正確");
+    if (scope !== "all" && scope !== "past") throw new AppError("VALIDATION", "紀錄範圍不正確");
     const context = await resolveStoreViewContextFromCookie(user);
     const storeId = storeIdForViewContext(await getActiveStoreForRead(user), context);
     const customer = await prisma.customer.findFirst({
@@ -29,7 +31,8 @@ export async function getCustomerPanelRecords(customerId: string, kind: "booking
     const where = { customerId: customer.id, storeId: customer.storeId };
     const take = 20;
     if (kind === "bookings") {
-      const records = await prisma.booking.findMany({ where, skip: (page - 1) * take, take: take + 1,
+      const today = bookingDateToday();
+      const records = await prisma.booking.findMany({ where: {...where, ...(scope === "past" ? { OR: [{ bookingDate: {lt: today} }, { bookingDate: today, slotTime: {lt: getNowTaipeiHHmm()} }] } : {})}, skip: (page - 1) * take, take: take + 1,
         orderBy: [{bookingDate:"desc"}, {slotTime:"desc"}, {id:"desc"}],
         select: {id:true, bookingDate:true, slotTime:true, bookingType:true, bookingStatus:true, people:true, notes:true} });
       return {success:true, data: {page, hasMore:records.length > take, rows: records.slice(0,take).map(b => ({id:b.id, date:b.bookingDate, label:`${b.slotTime} · ${formatBookingType(b.bookingType)} · ${b.people} 人`, status:b.bookingStatus, note:b.notes}))}};

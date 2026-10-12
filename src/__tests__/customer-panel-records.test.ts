@@ -27,3 +27,9 @@ it("keeps booking page queries bounded and scoped",async()=>{
  m.booking.mockResolvedValue([]);const result=await getCustomerPanelRecords("customer-a","bookings",3);expect(result.success).toBe(true);
  expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:{customerId:"customer-a",storeId:"store-a"},skip:40,take:21}));expect(m.transaction).not.toHaveBeenCalled();
 });
+
+it("filters past bookings before pagination while retaining store scope",async()=>{
+ m.booking.mockResolvedValue([]);
+ expect((await getCustomerPanelRecords("customer-a","bookings",2,"past")).success).toBe(true);
+ expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({customerId:"customer-a",storeId:"store-a",OR:expect.arrayContaining([expect.objectContaining({bookingDate:expect.objectContaining({lt:expect.any(Date)})}),expect.objectContaining({slotTime:expect.objectContaining({lt:expect.any(String)})})])}),skip:20,take:21}));
+});

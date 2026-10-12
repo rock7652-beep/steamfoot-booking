@@ -660,6 +660,7 @@ export function BookingDetailDrawer({
   return (
     <>
       <RightSheet
+        className={spaMode ? "" : "customer-review-panel"}
         presentation={spaMode ? "side" : "centered"}
         open={open}
         onClose={() => { if (!participantBusy) onClose(); }}
@@ -1061,7 +1062,7 @@ function DrawerContent({
   );
   return (
     <>
-      {showCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} readOnly={readOnly} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
+      {showCustomer && !spaMode && <CustomerInlineDetail labelledById="booking-drawer-title" key={showCustomer} customerId={showCustomer} readOnly={readOnly} onClose={onClose} onBack={() => setShowCustomer(null)} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
       <div hidden={!!showCustomer && !spaMode} className={showCustomer && !spaMode ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">

@@ -6,6 +6,7 @@ import { formatTWTime } from "@/lib/date-utils";
 import { STATUS_LABEL } from "@/lib/booking-constants";
 
 export function CustomerPanelRecordsList({customerId, kind, revision, active = true}: {customerId:string; kind:"bookings" | "consumption"; revision:string; active?:boolean}) {
+  const [scope,setScope] = useState<"past" | "all">("past");
   const [data,setData] = useState<CustomerPanelRecords | null>(null);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState("");
@@ -15,21 +16,22 @@ export function CustomerPanelRecordsList({customerId, kind, revision, active = t
     const token = ++request.current;
     setLoading(true); setError("");
     try {
-      const result = await getCustomerPanelRecords(customerId,kind,page);
+      const result = await getCustomerPanelRecords(customerId,kind,page,kind === "bookings" ? scope : "all");
       if(token !== request.current) return;
       if(!result.success) {setError(result.error ?? "讀取失敗");return;}
       setData(previous => ({...result.data, rows:append && previous ? [...previous.rows,...result.data.rows] : result.data.rows}));
     } catch {if(token===request.current)setError("讀取失敗，請重試");}
     finally {if(token===request.current)setLoading(false);}
-  }, [customerId,kind]);
+  }, [customerId,kind,scope]);
   useEffect(() => {
-    if (!active || loadedRevision.current === revision) return;
-    loadedRevision.current = revision;
+    if (!active || loadedRevision.current === `${revision}:${scope}`) return;
+    loadedRevision.current = `${revision}:${scope}`;
     void load(1);
 
-  },[load,revision,active]);
+  },[load,revision,active,scope]);
   useEffect(() => {const gate=request;return()=>{gate.current++;};},[]);
   return <div hidden={!active} role="tabpanel" aria-label={kind === "bookings" ? "預約紀錄" : "消費紀錄"}>
+    {kind === "bookings" && <div className="flex gap-2"><button type="button" aria-pressed={scope === "past"} onClick={()=>setScope("past")} className="min-h-11 px-3 text-sm text-primary-700">過往</button><button type="button" aria-pressed={scope === "all"} onClick={()=>setScope("all")} className="min-h-11 px-3 text-sm text-primary-700">全部</button></div>}
     {data?.rows.map(row => <details key={row.id} className="border-b border-earth-100">
       <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 py-2 text-sm">
         <span className="min-w-0"><span className="block break-words font-medium">{row.label}</span><span className="text-earth-500">{formatTWTime(row.date,{dateOnly:true})}</span></span>

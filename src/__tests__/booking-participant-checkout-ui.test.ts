@@ -72,9 +72,8 @@ describe("actual participant checkout component", () => {
     const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 9 }];
     h.change.mockResolvedValue({ success: true });
     await render(data); await click(buttons("改用方案")[0]);
-    expect(container.querySelector("select")?.value).toBe("");
-    expect(buttons("改用此方案")[0].disabled).toBe(true);
-    await chooseWallet();
+    expect(container.querySelector("select")).toBeNull();
+    expect(buttons("改用此方案")[0].disabled).toBe(false);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(h.change).toHaveBeenCalledWith({ bookingId: "booking", position: 1, revision: 1, operation: "selectPlan", walletId: "own" });
     expect(h.plan).not.toHaveBeenCalled();
@@ -191,10 +190,10 @@ it("failed plan selection retains pending state and the selected form", async ()
   const data = checkout(); data.slots[0].wallets=[{id:"own",name:"本人十堂",available:1}];
   h.change.mockResolvedValue({success:false,error:"方案已被預約"}); await render(data);
   await click(buttons("改用方案")[0]);
-  await chooseWallet();
+  expect(container.querySelector("select")).toBeNull();
   await act(async()=>container.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
   expect(container.textContent).toContain("已服務 0／2 人"); expect(container.textContent).toContain("方案已被預約");
-  expect(container.querySelector("select")?.value).toBe("own"); expect(h.plan).not.toHaveBeenCalled();
+  expect(container.textContent).toContain("本人十堂 · 可用 1 堂"); expect(h.plan).not.toHaveBeenCalled();
 });
 
 it("assignment refreshes only the assigned person's profile and shows all wallets in the original row", async () => {
@@ -270,7 +269,7 @@ it("shows service state and shared owner separately from the effective wallet su
   data.slots[1] = { ...data.slots[1], service: "PACKAGE_SESSION", selectedWalletId: "shared", selectedPlanName: "家庭十堂", selectedOwnerId: "primary", selectedOwnerName: "預約者" };
   await render(data);
   const friend = container.querySelector('[aria-label="朋友"]')!;
-  expect(friend.textContent).toContain("同行者 · 待到店");
+  expect(friend.textContent).toContain("待到店");
   expect(friend.textContent).toContain("本次：家庭十堂 · 使用預約者的共卡");
   expect(friend.textContent).toContain("尚未扣堂");
   expect(friend.textContent).not.toContain("未收款");
@@ -278,7 +277,7 @@ it("shows service state and shared owner separately from the effective wallet su
 });
 
 it("does not submit an unchosen or foreign wallet", async () => {
-  const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 1, expiryDate: "2026-12-31" }];
+  const data = checkout(); data.slots[0].wallets = [{ id: "own", name: "本人十堂", available: 1, expiryDate: "2026-12-31" }, { id: "second", name: "另一方案", available: 2 }];
   await render(data); await click(buttons("改用方案")[0]);
   await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   expect(h.change).not.toHaveBeenCalled();

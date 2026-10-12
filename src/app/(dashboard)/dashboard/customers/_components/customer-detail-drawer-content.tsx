@@ -98,6 +98,7 @@ export function CustomerDetailDrawerContent({
   const handleMutated = () => { setRevision(v => v+1); onMutated(); };
   const [showInactive, setShowInactive] = useState(false);
   const [view, setView] = useState<"overview" | "booking" | "edit">("overview");
+  const [lineOpen,setLineOpen] = useState(false);
   const [recordsTab, setRecordsTab] = useState<"bookings" | "consumption">(customer.canReadBookings ? "bookings" : "consumption");
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
@@ -160,12 +161,12 @@ export function CustomerDetailDrawerContent({
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
             {customer.lineName && <span>LINE {customer.lineName}</span>}
           </div>
-          <CustomerLabels maxVisible={5} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
+          <CustomerLabels maxVisible={2} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
           <div>
-            <CustomerStatusBadge
+            {customer.customerStage !== "ACTIVE" && <CustomerStatusBadge
               stage={customer.customerStage}
               lineLinkStatus={customer.lineLinkStatus}
-            />
+            />}
           </div>
         </div>
         <button
@@ -188,13 +189,16 @@ export function CustomerDetailDrawerContent({
           </div>
         ) : null}
 
+        <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
+          canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
+
         {/* Quick actions */}
         <section>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {!readOnly ? (
               <>
-                {customer.canBook && <button type="button" onClick={() => setView("booking")} className="min-h-11 rounded-md bg-primary-700 px-4 text-sm text-white">預約</button>}
-                {customer.canAssignPlan && <button type="button" onClick={() => { setAssignOpen(true); planSectionRef.current?.scrollIntoView({block:"start"}); }} className="min-h-11 rounded-md border px-4 text-sm text-primary-700">＋方案</button>}
+                {customer.canBook && <button type="button" onClick={() => setView("booking")} className="min-h-11 rounded-md bg-primary-700 px-4 text-sm text-white">新增預約</button>}
+                {customer.canAssignPlan && <button type="button" onClick={() => { setAssignOpen(true); planSectionRef.current?.scrollIntoView({block:"start"}); }} className="min-h-11 rounded-md border px-4 text-sm text-primary-700">新增方案</button>}
               </>
             ) : null}
           </div>
@@ -300,13 +304,12 @@ export function CustomerDetailDrawerContent({
           ) : null}
         </section>
 
-        <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
-          canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
+
 
         <section className="border-t border-earth-100 pt-3">
           <div className="flex gap-2" role="tablist" aria-label="顧客紀錄">
-            {customer.canReadBookings && <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "bookings" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>預約</button>}
-            {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "consumption" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>消費</button>}
+            {customer.canReadBookings && <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "bookings" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>預約紀錄</button>}
+            {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "consumption" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>消費紀錄</button>}
           </div>
           {customer.canReadBookings && <CustomerPanelRecordsList customerId={customer.id} kind="bookings" active={recordsTab === "bookings"} revision={String(revision)} />}
           {customer.recentConsumption !== null && <CustomerPanelRecordsList customerId={customer.id} kind="consumption" active={recordsTab === "consumption"} revision={String(revision)} />}
@@ -335,7 +338,8 @@ export function CustomerDetailDrawerContent({
 
         {/* 身份 / LINE 綁定 */}
         <CollapsibleSection
-          title="身份與 LINE 綁定"
+          title="LINE 與追蹤"
+          onOpen={()=>setLineOpen(true)}
           defaultOpen={identityWarning}
           badge={
             identityWarning ? (
@@ -388,6 +392,7 @@ export function CustomerDetailDrawerContent({
             ) : null}
           </dl>
 
+        <CustomerPanelAdvanced embedded active={lineOpen || identityWarning} customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         </CollapsibleSection>
 
         {/* 成長摘要 */}
@@ -416,10 +421,10 @@ export function CustomerDetailDrawerContent({
           </dl>
         </CollapsibleSection>
 
-        <CustomerPanelAdvanced customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
+
 
         {/* 系統資訊 */}
-        <CollapsibleSection title="系統資訊">
+        <CollapsibleSection title="進階資訊">
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
             <dt className="text-earth-500">Customer ID</dt>
             <dd className="break-all font-mono text-sm text-earth-600">
@@ -457,16 +462,18 @@ export function CustomerDetailDrawerContent({
 function CollapsibleSection({
   title,
   defaultOpen = false,
+  onOpen,
   badge,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  onOpen?:()=>void;
   badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-lg border border-earth-100 bg-white" open={defaultOpen}>
+    <details className="group rounded-lg border border-earth-100 bg-white" open={defaultOpen} onToggle={event=>{if(event.currentTarget.open)onOpen?.();}}>
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-semibold text-primary-900 hover:bg-earth-50">
         <span className="flex items-center gap-2">
           {title}
