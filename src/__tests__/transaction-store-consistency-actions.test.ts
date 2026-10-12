@@ -608,6 +608,21 @@ describe("transaction actions — store consistency", () => {
     expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
   });
 
+  it("does not treat voided records or a zero-effect adjustment as another wallet source", async () => {
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "void-package", reason: "誤建方案" });
+    expect(result.success).toBe(true);
+    expect(h.txTransactionCount).toHaveBeenCalledWith({
+      where: {
+        id: { not: expect.any(String) },
+        customerPlanWalletId: expect.any(String),
+        status: { notIn: ["VOIDED", "CANCELLED"] },
+        NOT: { transactionType: "ADJUSTMENT", amount: 0, quantity: 0 },
+      },
+    });
+    expect(h.txWalletUpdateMany).toHaveBeenCalled();
+  });
+
   it.each(["RESERVED", "COMPLETED"])(
     "still rejects a paid mistake entry when a session is %s",
     async (sessionStatus) => {
