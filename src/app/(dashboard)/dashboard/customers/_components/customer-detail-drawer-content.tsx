@@ -146,7 +146,7 @@ export function CustomerDetailDrawerContent({
       <header
         ref={headerRef}
         tabIndex={-1}
-        className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-4 outline-none"
+        className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-2 outline-none"
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2"><h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
@@ -176,7 +176,7 @@ export function CustomerDetailDrawerContent({
       </header>
 
       {/* Body */}
-      <div hidden={view !== "overview"} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-4 space-y-4">
+      <div hidden={view !== "overview"} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-3 space-y-3">
         {readOnly ? (
           <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
             查看模式提供完整閱讀能力，顧客操作請由該店自行完成。
@@ -215,7 +215,7 @@ export function CustomerDetailDrawerContent({
                 return (
                   <li
                     key={w.id}
-                    className="border-t border-earth-100 pt-3"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 border-t border-earth-100 pt-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -237,9 +237,9 @@ export function CustomerDetailDrawerContent({
                         </div>
                       </div>
                     </div>
-                    <details className="mt-2">
-                      <summary aria-label={`${w.plan.name}方案操作`} className="min-h-11 cursor-pointer text-sm font-medium text-primary-700">⋯</summary>
-                      <div className="flex flex-wrap gap-2 py-2">
+                    <details className="group col-start-2 row-start-1 open:col-span-2 open:col-start-1 open:row-start-2">
+                      <summary aria-label={`${w.plan.name}方案操作`} className="flex min-h-11 cursor-pointer list-none items-center justify-end rounded-md border border-earth-200 px-3 text-sm font-medium text-primary-700 group-open:w-fit group-open:ml-auto hover:bg-earth-50">管理方案</summary>
+                      <div className="flex flex-wrap gap-2 border-t border-earth-100 py-2 mt-2 [&_button]:min-h-11">
                       {!readOnly && customer.canAssignPlan && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
                         <button
                           type="button"
@@ -266,7 +266,7 @@ export function CustomerDetailDrawerContent({
           ) : null}
 
           {/* 指派新方案 — 預設收合，focus=plan 自動展開 */}
-          {!readOnly && customer.canAssignPlan ? (
+          {!readOnly && customer.canAssignPlan && assignOpen ? (
             <div className="mt-3">
             {assignOpen ? (
               <div className="border-t border-earth-100 pt-3">

@@ -669,6 +669,26 @@ export function BookingDetailDrawer({
       >
         {open && <BookingActionFeedback state={actionState} onCheck={() => { void saves.check(actionKey); }} />}
         {open && operationGuidePreview && !spaMode && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
+      {!readOnly &&
+        data &&
+        !data.participantCheckout &&
+        (data.booking.bookingType === "FIRST_TRIAL" ||
+          data.booking.bookingType === "PACKAGE_SESSION") &&
+        data.booking.people > 1 && (
+          <AttendanceModal
+            embedded
+            open={attendanceOpen && !checkingResult}
+            onClose={() => {
+              setAttendanceOpen(false);
+              setAttendanceIntent(null);
+            }}
+            people={data.booking.people}
+            trialDefaultUnit={data.booking.bookingType === "FIRST_TRIAL" ? data.trial?.settings.defaultPrice ?? null : null}
+            onConfirm={handleAttendanceConfirm}
+            loading={isActing}
+          />
+        )}
+        <div className={attendanceOpen && !checkingResult ? "hidden" : "contents"}>
         {hasFullData &&
         data &&
         spaMode &&
@@ -774,6 +794,7 @@ export function BookingDetailDrawer({
         ) : (
           spaMode ? <DrawerSkeleton onClose={onClose} error={error} /> : <PendingSteamDetail onClose={onClose} error={error} />
         )}
+        </div>
       </RightSheet>
       {!readOnly && (
         <NoShowModal
@@ -797,24 +818,6 @@ export function BookingDetailDrawer({
           }
         />
       )}
-      {!readOnly &&
-        data &&
-        !data.participantCheckout &&
-        (data.booking.bookingType === "FIRST_TRIAL" ||
-          data.booking.bookingType === "PACKAGE_SESSION") &&
-        data.booking.people > 1 && (
-          <AttendanceModal
-            open={attendanceOpen && !checkingResult}
-            onClose={() => {
-              setAttendanceOpen(false);
-              setAttendanceIntent(null);
-            }}
-            people={data.booking.people}
-            trialDefaultUnit={data.trial?.settings.defaultPrice ?? null}
-            onConfirm={handleAttendanceConfirm}
-            loading={isActing}
-          />
-        )}
       {!readOnly && data && (
         <RescheduleModal
           open={rescheduleOpen && !checkingResult}

@@ -21,6 +21,7 @@ interface AttendanceModalProps {
   /** 0 → caller 改走 markNoShow；1..people → caller 走 markCompleted。 */
   onConfirm: (attendedPeople: number) => void;
   loading?: boolean;
+  embedded?: boolean;
   /** 用於提示文字 — 顯示「實到 N 人收款預設 NT$xxx」。 */
   trialDefaultUnit?: number | null;
 }
@@ -73,8 +74,10 @@ export function AttendanceModal({
   onConfirm,
   loading = false,
   trialDefaultUnit,
+  embedded = false,
 }: AttendanceModalProps) {
-  const titleId = useId();
+  const generatedTitleId = useId();
+  const titleId = embedded ? "booking-drawer-title" : generatedTitleId;
   // 預設選「全部到店」，符合常見情境；店長若實際是部分到店再切換。
   // 關 → 開 的瞬間將 choice 重置為 people。採 React 19 官方建議的
   // same-render guard pattern（prevOpen 與 choice 在同一 render 內一起更新），
@@ -92,15 +95,12 @@ export function AttendanceModal({
 
   const options = buildOptions(people, trialDefaultUnit);
 
-  return (
-    <ModalPanel open={open} onClose={onClose} labelledById={titleId} pending={loading}>
+  const content = (
       <div className="min-h-0 w-full overflow-y-auto overscroll-contain p-5 [&_button]:min-h-11">
         <h3 id={titleId} className="mb-2 text-lg font-semibold text-earth-900">
-          此預約共 {people} 位，實際到店幾位？
+          到店人數
         </h3>
-        <p className="mb-3 text-[12px] leading-relaxed text-earth-500">
-          原預約人數會保留。體驗依實到人數計算收款；套餐未到者將在下一步選擇處理方式。
-        </p>
+        <p className="mb-3 text-sm text-earth-500">原預約 {people} 位</p>
 
         <div className="mb-4 space-y-2">
           {options.map((o) => {
@@ -127,8 +127,8 @@ export function AttendanceModal({
                   <span className="block font-medium text-earth-900">
                     {o.label}
                   </span>
-                  <span className="mt-0.5 block text-[12px] text-earth-500">
-                    {o.hint}
+                  <span className="mt-0.5 block text-sm text-earth-500">
+                    {checked && o.value > 0 && trialDefaultUnit != null && trialDefaultUnit > 0 ? `預設應收 NT$${(trialDefaultUnit * o.value).toLocaleString()}` : checked && o.value === 0 ? "標記全部未到" : null}
                   </span>
                 </span>
               </label>
@@ -151,10 +151,10 @@ export function AttendanceModal({
             disabled={loading}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {loading ? "處理中..." : "確認"}
+            {loading ? "處理中..." : choice === 0 ? "確認未到" : "下一步"}
           </button>
         </div>
       </div>
-    </ModalPanel>
   );
+  return embedded ? content : <ModalPanel open={open} onClose={onClose} labelledById={titleId} pending={loading}>{content}</ModalPanel>;
 }
