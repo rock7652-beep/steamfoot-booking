@@ -3,6 +3,7 @@ import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBooki
 
 import dynamic from "next/dynamic";
 const CustomerInlineDetail = dynamic(() => import("../customers/_components/customer-inline-detail").then(module => module.CustomerInlineDetail), { loading: () => <div><h2 id="booking-drawer-title" className="sr-only">顧客資料</h2><p role="status" className="p-4 text-sm text-earth-500">讀取顧客資料中…</p></div> });
+import { TrialCheckoutLoading } from "./trial-checkout-loading";
 import { LoadingStatus } from "@/components/loading-status";
 import { BookingGuideContext } from "@/components/operation-guide-shell";
 
@@ -762,8 +763,10 @@ export function BookingDetailDrawer({
               adjustToSingle: () => setAdjustToSingleOpen(true),
             }}
           />
+        ) : !spaMode && initialIntent === "collect" ? (
+          <TrialCheckoutLoading bookingDate={(prefill ?? summary)?.bookingDate} slotTime={(prefill ?? summary)?.slotTime} people={(prefill ?? summary)?.people} staffName={prefill?.revenueStaff?.displayName} error={error} onClose={onClose} />
         ) : showPrefill && prefill && !spaMode ? (
-          <PendingSteamDetail
+          <PendingSteamDetail collectionLoading={initialIntent === "collect"}
             prefill={prefillStatus ? { ...prefill, bookingStatus: prefillStatus, isCheckedIn: prefillStatus === "COMPLETED", customerPlanWallet: pendingBalance !== null && prefill.customerPlanWallet ? { ...prefill.customerPlanWallet, remainingSessions: pendingBalance } : prefill.customerPlanWallet } : prefill}
             durationMinutes={durationMinutes}
             error={error}
@@ -794,7 +797,7 @@ export function BookingDetailDrawer({
             onClose={onClose}
           />
         ) : (
-          spaMode ? <DrawerSkeleton onClose={onClose} error={error} /> : <PendingSteamDetail onClose={onClose} error={error} />
+          spaMode ? <DrawerSkeleton onClose={onClose} error={error} /> : <PendingSteamDetail collectionLoading={initialIntent === "collect"} onClose={onClose} error={error} />
         )}
         </div>
       </RightSheet>
@@ -1361,7 +1364,7 @@ function DrawerContent({
 /** Immediate snapshot. Unknown fields never masquerade as empty data.
  * Only eligible single-person completion is exposed before full detail arrives;
  * the server still authorizes and validates every mutation. */
-function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose, onComplete, isActing = false }: {
+function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose, onComplete, isActing = false, collectionLoading = false }: {
   prefill?: BookingPrefill;
   summary?: BookingSummary;
   durationMinutes?: number;
@@ -1369,8 +1372,10 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose,
   onClose: () => void;
   onComplete?: () => void;
   isActing?: boolean;
+  collectionLoading?: boolean;
 }) {
   const known = prefill ?? summary;
+  if (collectionLoading || (prefill?.bookingType === "FIRST_TRIAL" && !prefill.collected)) return <TrialCheckoutLoading bookingDate={known?.bookingDate} slotTime={known?.slotTime} people={known?.people} staffName={prefill?.revenueStaff?.displayName} error={error} onClose={onClose} />;
   const pending = <span className="text-earth-500">讀取中…</span>;
   const meta = known ? bookingStatusMeta(known.bookingStatus, prefill?.isCheckedIn ?? false) : null;
   const service = prefill
