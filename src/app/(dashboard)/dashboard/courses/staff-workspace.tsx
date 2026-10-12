@@ -314,7 +314,7 @@ export function CourseStaffWorkspace({
           <thead className="bg-earth-50">
             <tr>
               {["姓名", "聯絡方式", "身分", "LINE／通知", "操作"].map((t) => (
-                <th key={t} className={`px-3 py-2 font-medium ${!music ? ({"姓名":"w-[20%]","電話":"w-[16%]","E-mail":"w-[28%]","身分":"w-[18%]","系統通知":"w-[12%]"} as Record<string,string>)[t] ?? "" : ""} whitespace-nowrap ${!music&&t==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                <th key={t} className={`px-3 py-2 font-medium ${!music ? ({"姓名":"w-[20%]","電話":"w-[16%]","E-mail":"w-[28%]","身分":"w-[18%]","系統通知":"w-[12%]"} as Record<string,string>)[t] ?? "" : ""} whitespace-nowrap ${t==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {t}
                 </th>
               ))}
