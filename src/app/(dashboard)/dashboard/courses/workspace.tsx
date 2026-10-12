@@ -2077,7 +2077,8 @@ export function CourseWorkspace({
                     id="course-schedule-form"
                     onChange={updateScheduleForm}
                     className="grid grid-cols-1 gap-x-3 gap-y-2 min-[500px]:grid-cols-6"
-                    onSubmit={(e) =>
+                    onSubmit={(e) => {
+                      if(!scheduleLearnersValid){e.preventDefault();return;}
                       submit(
                         e,
                         (data) =>
@@ -2091,8 +2092,8 @@ export function CourseWorkspace({
                           confirmSchedule(result);
                           setScheduleCreated(courseScheduleCreatedDates(data, {templateId: chosen, requestKey}));
                         },
-                      )
-                    }
+                      );
+                    }}
                   >
                     <fieldset disabled={pending} className="contents">
                     {copySource ? (
