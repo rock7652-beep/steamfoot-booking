@@ -430,8 +430,16 @@ export async function createCourseSchedule(input: unknown) {
   try {
     const { user, storeId } = await writableStore();
     const data = courseScheduleInput
-      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100),cardId:z.string().min(1).max(100)})).max(500).default([]) })
+      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
+    let trialPricing: Awaited<ReturnType<typeof import("@/lib/shop-config").getTrialSettings>> | undefined;
+    if(data.learners.some(learner=>learner.cardId===null)){
+      await courseManager("trial.create");
+      const {getTrialSettings,clampTrialTotal}=await import("@/lib/shop-config");
+      trialPricing=await getTrialSettings(storeId);
+      if(!trialPricing.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
+      data.learners=data.learners.map(learner=>learner.cardId===null?{...learner,trialPrice:clampTrialTotal(learner.trialPrice,1,trialPricing!)}:learner);
+    }
     if(new Set(data.learners.map(learner=>learner.customerId)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
     if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
     const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
@@ -478,8 +486,8 @@ export async function createCourseSchedule(input: unknown) {
               "CONFLICT",
               "這次排課已送出，請重新開啟排課表單",
             );
-          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,cardId:true}});
-          if(enrolled.length!==existing.length*data.learners.length || existing.some(session=>data.learners.some(learner=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&booking.cardId===learner.cardId))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
+          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,cardId:true,trialPrice:true}});
+          if(enrolled.length!==existing.length*data.learners.length || existing.some(session=>data.learners.some(learner=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&booking.cardId===learner.cardId&&(learner.cardId!==null||booking.trialPrice===learner.trialPrice)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
           return { count: existing.length };
         }
         const source = data.sourceSessionId
@@ -595,7 +603,7 @@ export async function createCourseSchedule(input: unknown) {
           if(created.length!==occurrences.length)throw new AppError("CONFLICT","排課結果未完整確認，請重試");
           const {reserveCourseInTransaction}=await import("@/server/services/course-booking");
           for(const session of created)for(const learner of data.learners){
-            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId,cardId:learner.cardId,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId}`},limits!.maxMonthlyBookings);
+            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId}`},limits!.maxMonthlyBookings);
           }
         }
         return { count: occurrences.length };

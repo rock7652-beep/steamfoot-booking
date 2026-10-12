@@ -311,7 +311,7 @@ export async function reserveCourseInTransaction(
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
   if (occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId)) return fail("本堂課已滿班，請由店長確認加人");
-  if (session.template.musicSubject) {
+  if (input.customerId) {
     const overlap = await tx.courseBooking.findFirst({where:{storeId,customerId:input.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:session.endsAt},endsAt:{gt:session.startsAt}}},select:{id:true}});
     if(overlap) return fail("學員同時段已有課程，請先調整上課時間");
   }

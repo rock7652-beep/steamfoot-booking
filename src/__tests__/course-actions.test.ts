@@ -32,6 +32,7 @@ vi.mock("@/server/services/course-access", () => ({
   },
 }));
 vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:mocks.reserve}));
+vi.mock("@/lib/shop-config",()=>({getTrialSettings:async()=>({trialEnabled:true,trialDefaultPrice:300}),clampTrialTotal:(price:number|undefined)=>price??300}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:mocks.limits}));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: mocks.store }));
@@ -391,4 +392,14 @@ describe("inline schedule enrollment",()=>{
     mocks.reserve.mockRejectedValueOnce(new Error("方案不足"));
     expect(await createCourseSchedule({...input,learners})).toMatchObject({success:false});
   });
+});
+
+
+it("saves plan and trial learners together without debiting attended credits",async()=>{
+  mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"one"},{id:"two"},{id:"three"}]);
+  const result=await createCourseSchedule({...input,learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:null,trialPrice:300}]});
+  expect(result).toMatchObject({success:true});
+  expect(mocks.permission).toHaveBeenCalledWith("trial.create");
+  expect(mocks.reserve).toHaveBeenCalledTimes(6);
+  expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(),expect.anything(),expect.objectContaining({customerId:"b",cardId:null,trialPrice:300}),1000);
 });

@@ -11,9 +11,9 @@ it.each(["week","day"] as const)("%s opens a half-hour slot with room/time and b
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);const open=vi.fn();
  try {
   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,mode,occupiedSessions:[session],onOpenEmpty:open})));
-  const free=host.querySelector<HTMLButtonElement>(mode==="week"?'button[aria-label="2026-10-01 09:30 排課"]':'button[aria-label="09:30 可排 30 分鐘"]')!;
+  const free=host.querySelector<HTMLButtonElement>(mode==="week"?'button[aria-label="2026-10-01 09:30 排課"]':'button[aria-label="09:30 排課"]')!;
   expect(free.disabled).toBe(false);await act(async()=>free.click());
-  expect(open).toHaveBeenCalledWith({time:"09:30",roomId:"room",durationMinutes:30,...(mode==="week"?{date:"2026-10-01"}:{})});
+  expect(open).toHaveBeenCalledWith({time:"09:30",roomId:"room",durationMinutes:60,...(mode==="week"?{date:"2026-10-01"}:{})});
   const busy=host.querySelector<HTMLButtonElement>(mode==="week"?'button[aria-label="2026-10-01 10:00 已有課程"]':'button[aria-label="10:00 已有課"]')!;
   expect(busy.disabled).toBe(true);
  } finally {await act(async()=>root.unmount());host.remove();}
@@ -92,4 +92,16 @@ it("music keeps inactive historical rooms in the timeline and expands teacher co
   expect(host.querySelector('[aria-label="日表日期"]')?.textContent).toContain("2026-10-01");
   expect(host.querySelector('[style*="grid-template-columns: 64px repeat(2, minmax(200px, 1fr))"]')).not.toBeNull();
  } finally {await act(async()=>root.unmount());host.remove();}
+});
+
+it.each(["day","week"] as const)("music %s carries exactly the clicked room or teacher into a sixty-minute draft",async(mode)=>{
+ const host=document.createElement("div");const root=createRoot(host);const open=vi.fn();
+ try{
+  for(const resourceView of ["room","coach"] as const){
+   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,key:resourceView,businessProfile:"MUSIC",mode,initialResourceView:resourceView,onOpenEmpty:open})));
+   const free=host.querySelector<HTMLButtonElement>(mode==="week"?'button[aria-label="2026-10-01 09:00 排課"]':'button[aria-label="09:00 排課"]')!;
+   expect(free).toBeTruthy();await act(async()=>free.click());
+   expect(open).toHaveBeenLastCalledWith({time:"09:00",durationMinutes:60,...(mode==="week"?{date:"2026-10-01"}:{}),...(resourceView==="room"?{roomId:"room"}:{coachId:"coach"})});
+  }
+ }finally{await act(async()=>root.unmount());}
 });
