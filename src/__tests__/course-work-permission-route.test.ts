@@ -1,0 +1,11 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const save=vi.hoisted(()=>vi.fn());
+vi.mock("server-only",()=>({}));
+vi.mock("@/server/services/course-work-permission-save",()=>({saveCourseWorkPermission:save}));
+import {POST} from "@/app/api/course/settings/work-permission/route";
+const input={storeId:"s",staffId:"t",enabled:true,previous:false,permission:"teacher.session.leave"};
+const request=(origin="https://preview.test",body:unknown=input)=>new Request("https://preview.test/api/course/settings/work-permission",{method:"POST",headers:{origin,"Content-Type":"application/json"},body:JSON.stringify(body)});
+beforeEach(()=>{save.mockReset();save.mockResolvedValue({success:true,data:{enabled:true}});});
+it("uses the authorized service in route mode and returns private JSON",async()=>{const r=await POST(request());expect(r.status).toBe(200);expect(r.headers.get("cache-control")).toBe("private, no-store");expect(save).toHaveBeenCalledWith(input,"route");});
+it("rejects cross-origin writes before invoking authorization or the database",async()=>{expect((await POST(request("https://foreign.test"))).status).toBe(403);expect(save).not.toHaveBeenCalled();});
+it("rejects arbitrary grants and oversized bodies",async()=>{expect((await POST(request(undefined,{...input,permission:"staff.manage"}))).status).toBe(400);expect((await POST(request(undefined,{...input,staffId:"a".repeat(5000)}))).status).toBe(400);expect(save).not.toHaveBeenCalled();});

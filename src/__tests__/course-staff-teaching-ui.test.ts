@@ -7,7 +7,7 @@ vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:
 vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,loadCourseCustomerSearchIndex:async()=>({success:true,rows:[]})}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff",useSearchParams:()=>new URLSearchParams()}));
 vi.mock("@/server/actions/course-staff",()=>({readCourseStaffTeaching:m.read,saveCourseStaff:m.save}));
-vi.mock("@/server/actions/course-own-income-access",()=>({saveCourseOwnIncomeAccess:m.income}));
+vi.mock("@/lib/course-work-permission-client",()=>({saveCourseOwnIncomeAccess:m.income}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-status",()=>({setCourseStatus:vi.fn()}));
 vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));

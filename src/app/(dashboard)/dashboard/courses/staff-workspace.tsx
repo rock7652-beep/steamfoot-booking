@@ -377,7 +377,7 @@ export function CourseStaffWorkspace({
               ["teacher.booking.reschedule","替學員改期"],
               ["teacher.session.leave","自己請假（整堂停課）"],
               ["teacher.session.reschedule","自己調課（整堂改時間）"],
-            ] as const).map(([permission,label])=><CourseOwnIncomeSwitch key={`${person.id}:${permission}`} permission={permission} label={label} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes(permission)} canEdit={canManageOwnIncome&&!readOnly} blocked={dirty||transitionPending||request.pending||request.uncertain||incomePending} storeEnabled={personalIncomeEnabled} music={music} lineBound={person.coachLoginReady} onPendingChange={setIncomePending} onSaved={data=>{
+            ] as const).map(([permission,label])=><CourseOwnIncomeSwitch key={`${person.id}:${permission}`} permission={permission} label={label} storeId={previewStoreId} staffId={person.id} initialEnabled={person.permissions.includes(permission)} canEdit={canManageOwnIncome&&!readOnly} blockedMessage={incomePending?"另一項權限儲存中…":"請先儲存其他修改。"} blocked={dirty||transitionPending||request.pending||request.uncertain||incomePending} storeEnabled={personalIncomeEnabled} music={music} lineBound={person.coachLoginReady} onPendingChange={setIncomePending} onSaved={data=>{
               const updated={...person,updatedAt:data.updatedAt,permissions:[...person.permissions.filter(p=>p!==permission),...(data.enabled?[permission]:[])]};
               confirmed.confirm(updated);setPerson(updated);
             }}/>)}</div></section>}
@@ -654,13 +654,13 @@ export function CourseStaffWorkspace({
           </div>
           <footer className={fitnessEditorFooter}>
             {readOnly ? <button key="edit" type="button" className={button} disabled={!canManage || person?.canEdit === false} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <div className="flex items-center justify-end gap-2">
-              <span role="status" className="mr-auto text-sm text-earth-500">{pending||availabilityGuard.pending?"儲存中…":dirty||availabilityGuard.dirty?"未儲存":""}</span>
+              <span role="status" className="mr-auto text-sm text-earth-500">{incomePending?"權限儲存中…":pending||availabilityGuard.pending?"儲存中…":dirty||availabilityGuard.dirty?"未儲存":""}</span>
               <button type="button" className={button} disabled={locked||availabilityGuard.pending} onClick={close}>取消</button>
               <button type="submit" form="course-staff-form" className={`${button} ${fitnessEditorSave} !border-primary-700 !bg-primary-700 !text-white`} disabled={locked||availabilityGuard.pending||(teachingDirty&&!feesReady)||(!!person&&!dirty&&!availabilityGuard.dirty)} onClick={event=>{
                 if(!availabilityGuard.dirty)return;
                 event.preventDefault();
                 start(async()=>{if(!await availabilitySave.current?.save()){setTab("schedule");return;}if(dirty)setSubmitAfterTime(true);});
-              }}>{pending||availabilityGuard.pending?"儲存中…":request.uncertain?"重試確認儲存結果":!person?(accountKind==="coach"?(music?"新增教師":"新增教練"):"新增人員"):"儲存"}</button>
+              }}>{transitionPending||request.pending||availabilityGuard.pending?"儲存中…":request.uncertain?"重試確認儲存結果":!person?(accountKind==="coach"?(music?"新增教師":"新增教練"):"新增人員"):"儲存"}</button>
             </div>}
           </footer>
         </RightSheet>, document.body

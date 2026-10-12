@@ -3,7 +3,7 @@ import {act,createElement} from "react";
 import {createRoot, type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({save:vi.fn()}));
-vi.mock("@/server/actions/course-own-income-access",()=>({saveCourseOwnIncomeAccess:m.save}));
+vi.mock("@/lib/course-work-permission-client",()=>({saveCourseOwnIncomeAccess:m.save}));
 import {CourseOwnIncomeSwitch} from "@/components/admin/course-own-income-switch";
 let root:Root,host:HTMLDivElement;
 const saved=vi.fn(),guard=vi.fn();
@@ -64,3 +64,5 @@ it("does not change a grant while other teacher data is unsaved",async()=>{
 it("makes the existing store-wide prerequisite visible without automatically enabling it",async()=>{
  await render({initialEnabled:true,storeEnabled:false});expect(host.textContent).toContain("門市尚未開放本人收入查詢");expect(m.save).not.toHaveBeenCalled();
 });
+
+it("stops repeated writes after an unconfirmed receipt and does not call it saved",async()=>{m.save.mockResolvedValue({success:false,uncertain:true,error:"請重新開啟核對"});await render();const control=host.querySelector<HTMLInputElement>('[role="switch"]')!;await act(async()=>control.click());expect(control.disabled).toBe(true);expect(host.textContent).toContain("待核對");expect(saved).not.toHaveBeenCalled();control.click();expect(m.save).toHaveBeenCalledOnce();});
