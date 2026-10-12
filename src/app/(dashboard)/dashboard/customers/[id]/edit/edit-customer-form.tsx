@@ -115,17 +115,16 @@ export function EditCustomerForm({
 
   return (
     <FormShell width="md">
-      <form action={action} className={`${styles.form} space-y-6 pb-4`}>
+      <form action={action} className={`${styles.form} ${styles.denseCustomer} space-y-3 pb-4`}>
         <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
         <fieldset disabled={pending} className="contents">
         <div
-          className={`${styles.customerColumns} ${isSpa ? "gap-4" : "gap-6"}`}
+          className={styles.customerColumns}
         >
           {/* 左欄 */}
-          <div className="space-y-6">
+          <div className="space-y-3">
             <FormSection
               title="基本資料"
-              description="姓名與電話為必填，其餘欄位可稍後補"
             >
               <div>
                 <label className={labelCls}>
@@ -228,7 +227,7 @@ export function EditCustomerForm({
           </div>
 
           {/* 右欄 */}
-          <div className="space-y-6">
+          <div className="space-y-3">
             {isSpa && (
               <FormSection title="個人資訊">
                 <div className="space-y-4">

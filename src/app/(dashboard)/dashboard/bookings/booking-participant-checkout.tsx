@@ -116,7 +116,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
       void run(() => collectBookingParticipantTrial({ bookingId, position: slot.position, revision: slot.revision,
         amount: Number(draft.amount), paymentMethod: draft.method, note: draft.note }), "COMPLETED");
     }}>
-      <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">
+      <div className="grid max-w-lg grid-cols-1 gap-2 @min-[320px]:grid-cols-2">
         <label className="text-sm text-earth-700">體驗費<input aria-label={`${slot.name ?? `同行者 ${slot.position - 1}`}體驗費`} inputMode="numeric" value={draft.amount}
           disabled={saving || !checkout.settings.allowEdit} onChange={event => setDraft({ ...draft, amount: event.target.value })}
           className="mt-1 min-h-11 w-full rounded-lg border border-earth-300 px-3 text-base" /></label>
@@ -126,9 +126,11 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
           {paymentMethodValues.map(method => <option key={method} value={method}>{methodLabels[method]}</option>)}
         </select></label>
       </div>
-      <input aria-label="收款備註" placeholder="備註（例如由朋友代付）" maxLength={500} value={draft.note} disabled={saving}
+      <div className="grid grid-cols-1 items-start gap-2 @min-[540px]:grid-cols-[minmax(0,1fr)_auto]">
+      <input aria-label="收款備註" placeholder="備註（選填）" maxLength={500} value={draft.note} disabled={saving}
         onChange={event => setDraft({ ...draft, note: event.target.value })} className="min-h-11 w-full rounded-lg border border-earth-300 px-3 text-base" />
       <button type="submit" disabled={saving || blocked} className="min-h-11 w-full rounded-lg bg-primary-700 px-3 text-base font-medium text-white disabled:opacity-50">{saving ? "收款中…" : "收款並完成體驗"}</button>
+      </div>
     </form>}
     {!readOnly && checkout.canResolve && usingPlan && status === "PENDING" && <form className="mt-3 flex flex-wrap gap-2" onSubmit={event => {
       event.preventDefault();

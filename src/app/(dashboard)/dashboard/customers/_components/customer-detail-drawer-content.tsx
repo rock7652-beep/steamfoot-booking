@@ -145,7 +145,7 @@ export function CustomerDetailDrawerContent({
   const identityWarning = customer.authSource === "LINE" && !lineBound;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="@container/customer-detail flex h-full min-h-0 flex-col">
       {/* Header */}
       <header
         ref={headerRef}
@@ -314,7 +314,7 @@ export function CustomerDetailDrawerContent({
 
         <CollapsibleSection title="更多資料">
         <CollapsibleSection title="基本資料">
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
           </dl>
         </CollapsibleSection>
