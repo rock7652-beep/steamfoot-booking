@@ -78,7 +78,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const teacherIds=[...new Set(pairs.map(option=>option.coachId))];
   const availableRooms=pairs.filter(option=>option.coachId===coachId);
   function create(){
-    if(!template || !pair || !time || pending)return;
+    if(!template || !pair || !time || pending || !learnersValid)return;
     if(!Number.isInteger(capacity)||capacity<1||capacity>500){setError("人數上限請填 1–500 人");return;}
     setError("");
     startTransition(async()=>{
