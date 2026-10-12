@@ -1,3 +1,4 @@
+import { presentCourseTemplates } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -362,7 +363,7 @@ export default async function CoursesPage({
           ...room,
           uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
         }))}
-        templates={templates.map(t=>({...t,hasSessions:t._count.sessions>0}))}
+        templates={presentCourseTemplates(templates,await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}),businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
