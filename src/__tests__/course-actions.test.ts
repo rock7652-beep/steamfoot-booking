@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  reserve:vi.fn(),
+  limits:vi.fn(),
   bookings: vi.fn(),
   permission: vi.fn(),
   store: vi.fn(),
@@ -29,6 +31,8 @@ vi.mock("@/server/services/course-access", () => ({
     return { user, storeId };
   },
 }));
+vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:mocks.reserve}));
+vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:mocks.limits}));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: mocks.store }));
 vi.mock("@/lib/industry-module-server", () => ({
@@ -80,6 +84,7 @@ const input = {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.bookings.mockResolvedValue([]);
+  mocks.limits.mockResolvedValue({maxMonthlyBookings:1000});
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
@@ -360,5 +365,30 @@ describe("catalogue availability", () => {
     mocks.room.mockResolvedValue(null);
     expect(await createCourseSchedule(input)).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("inline schedule enrollment",()=>{
+  const input={templateId:"yoga",roomId:"room-a",coachId:"coach-a",date:"2099-09-22",time:"18:00",durationMinutes:60,capacity:3,requestKey:"00000000-0000-4000-8000-000000000017"};
+  it("rejects duplicate learners and over-capacity before creating classes",async()=>{
+    const learner={customerId:"student-a",cardId:"card-a"};
+    expect(await createCourseSchedule({...input,learners:[learner,learner]})).toMatchObject({success:false});
+    expect(await createCourseSchedule({...input,capacity:1,learners:[learner,{customerId:"student-b",cardId:"card-b"}]})).toMatchObject({success:false});
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("enrolls each learner in the creation transaction and reports enrollment errors",async()=>{
+    mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"new-session"}]);
+    mocks.reserve.mockResolvedValue({id:"booking"});
+    const learners=[{customerId:"student-a",cardId:"card-a"},{customerId:"student-b",cardId:"card-b"}];
+    const result=await createCourseSchedule({...input,learners});
+    expect(result).toMatchObject({success:true});
+    expect(mocks.reserve).toHaveBeenCalledTimes(2);
+    expect(mocks.reserve.mock.calls[0][2]).toMatchObject({sessionId:"new-session",customerId:"student-a",cardId:"card-a"});
+    expect(mocks.reserve.mock.calls[1][2]).toMatchObject({sessionId:"new-session",customerId:"student-b",cardId:"card-b"});
+    expect(mocks.reserve.mock.calls[0][0]).toBe(mocks.reserve.mock.calls[1][0]);
+    mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"new-session"}]);
+    mocks.reserve.mockRejectedValueOnce(new Error("方案不足"));
+    expect(await createCourseSchedule({...input,learners})).toMatchObject({success:false});
   });
 });
