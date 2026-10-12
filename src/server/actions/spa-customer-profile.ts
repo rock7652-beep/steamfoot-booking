@@ -17,7 +17,7 @@ export async function getSpaCustomerProfile(customerId: string) {
     const user = await requirePermission("customer.read");
     const customer = await prisma.customer.findFirst({
       where: { id: customerId, storeId },
-      select: { id: true, name: true, phone: true, serviceNote: true },
+      select: { id: true, updatedAt: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true },
     });
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
     const canReadBookings = await checkPermission(

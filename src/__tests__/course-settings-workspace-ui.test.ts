@@ -16,6 +16,8 @@ vi.mock("@/server/actions/course-booking-window", () => ({ saveCourseBookingWind
 vi.mock("@/server/actions/course-trial", () => ({ saveCourseTrialSettings: m.trialSave }));
 import { courseSettingsSectionRevision } from "@/lib/course-settings-sections";
 import { CourseSettingsWorkspace } from "@/app/(dashboard)/dashboard/courses/settings-workspace";
+import { FeaturePresentationProvider, type FeaturePresentationMap } from "@/components/feature-presentation";
+import { FEATURES } from "@/lib/feature-flags";
 let root: Root, host: HTMLDivElement;
 const defaults: ComponentProps<typeof CourseSettingsWorkspace> = { storeId: "a", name: "A 店", planLabel: "專業版", address: "地址", mapUrl: "", lineOfficialUrl: "https://line.me/a", bankName: "銀行", bankCode: "123", bankAccountNumber: "0001234567", bookingLeadMinutes: 10, cancellationLeadMinutes: 30, canEdit: true, canPayment: true, canStaff: true, canPlans: true, canHours: true, canDutyManage: true, canTrial: true, canReminders: true, canCare: true, subscriptionSummary: "使用中 · 到期日 2026-12-31" };
 async function render(props = defaults) { await act(async () => root.render(createElement(CourseSettingsWorkspace, props)));
@@ -41,6 +43,75 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host); m.save.mockResolvedValue({ success: true });
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove();vi.unstubAllGlobals(); });
+const notificationEntries = [
+  { title: "提醒管理", panel: "reminders", feature: FEATURES.LINE_REMINDER, permission: "canReminders" },
+  { title: "推薦分享", panel: "referral", feature: FEATURES.REFERRAL_SHARE, permission: "canReferralShare" },
+  { title: "數位管家", panel: "butler", feature: FEATURES.DIGITAL_BUTLER, permission: "canDigitalButler" },
+] as const;
+const notificationProps = { ...defaults, canReminders: true, canReferralShare: true, canDigitalButler: true, canCare: false, canUnassignedPlans: false };
+async function renderNotificationEntries(states: FeaturePresentationMap, props = notificationProps) {
+  const providerProps = { states, children: createElement(CourseSettingsWorkspace, props) };
+  await act(async () => root.render(createElement(FeaturePresentationProvider, providerProps)));
+}
+describe.each([false, true])("course notification three-state presentation (music=%s)", music => {
+  it.each(["/s/a/admin", "/hq"])("keeps each state and the panel link in %s", async prefix => {
+    window.history.replaceState(null, "", `${prefix}/dashboard/courses?view=settings&section=notifications`);
+    for (const state of ["HIDDEN", "LOCKED", "ENABLED"] as const) {
+      await renderNotificationEntries(Object.fromEntries(notificationEntries.map(entry => [entry.feature, state])), { ...notificationProps, music });
+      const section = host.querySelector('section[aria-label="通知與顧客經營"]')!;
+      for (const entry of notificationEntries) {
+        const link = section.querySelector(`a[aria-label="開啟${entry.title}"]`);
+        if (state === "ENABLED") {
+          const url = new URL(link!.getAttribute("href")!, window.location.origin);
+          expect(url.pathname).toBe(`${prefix}/dashboard/courses`);
+          expect(url.searchParams.get("section")).toBe("notifications");
+          expect(url.searchParams.get("panel")).toBe(entry.panel);
+          if (entry.panel === "reminders") expect(url.searchParams.get("panelQuery")).toBe("tab=customer");
+        } else {
+          expect(link).toBeNull();
+          if (state === "HIDDEN") expect(section.textContent).not.toContain(entry.title);
+          else expect(section.textContent).toContain(`${entry.title}未開通`);
+        }
+      }
+      expect(section.textContent?.includes("目前沒有可使用的通知設定")).toBe(state === "HIDDEN");
+      if (state === "LOCKED") expect(section.textContent?.match(/未開通/g)).toHaveLength(3);
+    }
+  });
+  it("resolves features independently and keeps a locked row out of the empty state", async () => {
+    window.history.replaceState(null, "", "/s/a/admin/dashboard/courses?view=settings&section=notifications");
+    await renderNotificationEntries({ [FEATURES.LINE_REMINDER]: "HIDDEN", [FEATURES.REFERRAL_SHARE]: "LOCKED", [FEATURES.DIGITAL_BUTLER]: "ENABLED" }, { ...notificationProps, music });
+    const section = host.querySelector('section[aria-label="通知與顧客經營"]')!;
+    expect(section.textContent).not.toContain("提醒管理");
+    expect(section.textContent).toContain("推薦分享未開通");
+    expect(section.querySelectorAll("a")).toHaveLength(1);
+    expect(section.querySelector('a[aria-label="開啟數位管家"]')).not.toBeNull();
+    expect(section.textContent).not.toContain("目前沒有可使用的通知設定");
+  });
+  it.each(notificationEntries)("never grants $title without its destination permission", async entry => {
+    window.history.replaceState(null, "", "/s/a/admin/dashboard/courses?view=settings&section=notifications");
+    for (const state of ["LOCKED", "ENABLED"] as const) {
+      await renderNotificationEntries(Object.fromEntries(notificationEntries.map(item => [item.feature, state])), { ...notificationProps, music, [entry.permission]: false });
+      expect(host.querySelector('section[aria-label="通知與顧客經營"]')?.textContent).not.toContain(entry.title);
+    }
+  });
+  it.each(notificationEntries)("does not mount a direct $panel editor when blocked or permission is withdrawn", async entry => {
+    window.history.replaceState(null, "", `/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=${entry.panel}`);
+    const probe = vi.fn(() => createElement("div", { "data-editor-probe": entry.panel }, "編輯器"));
+    const props = { ...notificationProps, music, panelContent: createElement(probe) };
+    for (const state of ["HIDDEN", "LOCKED"] as const) {
+      await renderNotificationEntries({ [entry.feature]: state }, props);
+      expect(probe).not.toHaveBeenCalled();
+      expect(document.querySelector('[data-course-settings-panel]')).toBeNull();
+    }
+    await renderNotificationEntries({ [entry.feature]: "ENABLED" }, props);
+    expect(probe).toHaveBeenCalled();
+    expect(document.querySelector('[data-editor-probe]')).not.toBeNull();
+    await renderNotificationEntries({ [entry.feature]: "LOCKED" }, props);
+    expect(document.querySelector('[data-editor-probe]')).toBeNull();
+    await renderNotificationEntries({ [entry.feature]: "ENABLED" }, { ...props, [entry.permission]: false });
+    expect(document.querySelector('[data-editor-probe]')).toBeNull();
+  });
+});
 describe("five-section course settings", () => {
   it("shows one section at a time and retains store prefix and query parameters", async () => {
     await render(); expect(host.querySelectorAll("nav button")).toHaveLength(5); expect(host.querySelectorAll("section[hidden]")).toHaveLength(4);

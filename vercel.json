@@ -89,6 +89,8 @@
       "fix/course-sidebar-setup-order-20261011": false,
       "fix/booking-customer-valid-plans-20261011": false,
       "fix/booking-person-card-20261011": false,
+      "fix/course-plan-teaching-clarity-20261012": false,
+      "feat/teacher-own-session-20261012": false,
       "feat/customer-retention-clarity-20261012": false
     }
   }

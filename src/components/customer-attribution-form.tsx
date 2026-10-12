@@ -207,7 +207,7 @@ export function CustomerAttributionForm({
         <button
           type="button"
           onClick={handleSave}
-          disabled={!dirty || saving || !staffId}
+          disabled={!dirty || saving || (!hideStaff && !staffId)}
           className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? "儲存中…" : "儲存歸屬"}

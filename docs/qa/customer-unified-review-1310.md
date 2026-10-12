@@ -62,3 +62,24 @@ JWT 保留伺服器私有的授權版本與絕對到期時間；每次 auth 檢�
 ## 體驗收款載入一致性
 
 正式main核對：收款快捷入口先渲染PendingSteamDetail舊摘要，完整資料後再判斷participantCheckout，造成視窗版型切換。收款shortcut現改用中性TrialCheckoutLoading外框，已知日期／人數直接顯示，未知金額與收款狀態不猜測、不提供交易操作；權威明細回來後才顯示可用流程。一般已收款快速完成與SPA原入口不變。39項相關檢查及TypeScript／範圍lint通過；尚待新版實際慢讀取畫面驗收。
+
+
+## 其他模組店長簡版（2026-10-12）
+
+- 運動／音樂顧客概況直接顯示電話、標籤、店內備註、歸屬／推薦人與有效方案；歷史與健康保留獨立分區。方案權威查詢仍經既有 course access，HIDDEN／LOCKED 共卡規則不變。
+- LINE 共用既有簡版綁定入口與 scoped panel reader；沒有建立新的解除綁定捷徑或調整重新綁定權限。
+- 運動／音樂預約詳情共用摘要，原視窗編輯本次備註與收體驗款。仍以 completeService=false 收款，出席與扣堂維持既有點名規則。
+- 本次備註與原列編輯共用保留草稿及 expectedNote；成功後原列即時更新，舊回應不得覆蓋新內容。
+- SPA 顧客概況加上既有方案與儲值摘要、店內備註優先、LINE 簡版入口，基本資料以既有 EditCustomerForm 在原面板編輯。帳務操作仍等既有權威帳戶查詢；不以摘要執行扣款。
+- 修正音樂推薦人編輯 hideStaff 時儲存按鈕錯誤要求 staffId。
+- 共用 useCustomerPanelGuard 收集原有備註、歸屬、LINE 與基本資料表單的 dirty／pending 狀態。
+- 已整合 main 5e0a8dc；Preview 分支白名單衝突保留雙方精確分支，不降低隔離檢查。
+
+### 驗收範圍與限制
+
+- 入口：運動／音樂顧客管理、課程學員預約詳情／體驗收款，SPA 顧客管理、SPA 服務結帳控制。
+- 桌機與 iPad 目標尺寸：1366px、1920px、1024×768、768×1024；共用元件另需 560px／360px 窄容器。
+- 已準備無資料庫版型 fixture；Cloud Browser 存取 localhost:4310 回報 ERR_CONNECTION_REFUSED，未完成畫面、溢出或尺寸驗收。
+- 本輪 17 檔、174 項相關測試、TypeScript、changed-file ESLint 與 diff check 通過。
+- 本輪尚未完成最新版隔離 Preview 及完整業務驗收；先前蒸足驗收只適用原 52c6dcf 版本，不視為其他模組驗收。
+- 不進行真實收款、LINE 換綁或正式合併。

@@ -8,6 +8,9 @@ import {
   isSpaExternalPayment,
   type SpaExternalPaymentMethod,
 } from "@/lib/spa-payment-methods";
+import { SettingsPanelContext } from "@/components/admin/settings-panel-context";
+import { useCustomerPanelGuard } from "@/components/admin/use-customer-panel-guard";
+import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SpaCustomerList } from "./spa-customer-list";
@@ -102,6 +105,7 @@ export function AccountPanel({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const supportGuard = useCustomerPanelGuard();
   const accountReader = usePanelReader("spa-customer-account", getSpaCustomerAccount);
   const retryProfile = usePanelReader("spa-customer-profile-retry", getSpaCustomerProfile);
   const customerId = customer.id;
@@ -200,6 +204,7 @@ export function AccountPanel({
         behavior: "smooth",
       });
   }, [refund]);
+  useCourseDraftGuard(supportGuard.dirty || !!mode || !!refund, pending || supportGuard.pending);
   const pack = account?.packages.find((p) => p.id === packageId);
   const reset = () => {
     setAccount(null);
@@ -211,10 +216,11 @@ export function AccountPanel({
     onChanged();
   };
   return (
-    <RightSheet
+    <SettingsPanelContext.Provider value={supportGuard.context}><RightSheet
+      className="spa-customer-header-offset"
       open
       onClose={() => {
-        if (!pending) onClose();
+        if (!pending && supportGuard.allowLeave()) onClose();
       }}
       width={620}
       labelledById="spa-account-title"
@@ -234,12 +240,12 @@ export function AccountPanel({
             <button
               className="shrink-0 rounded-lg px-3 py-2"
               disabled={pending}
-              onClick={onClose}
+              onClick={() => { if (!pending && supportGuard.allowLeave()) onClose(); }}
             >
               關閉
             </button>
           </header>
-          <nav aria-label="顧客資料分頁" className="flex gap-1 bg-white pb-2">
+          <nav aria-label="顧客資料分頁" className="flex flex-wrap gap-1 bg-white pb-2">
             {(
               [
                 ["overview", "顧客概況"],
@@ -253,7 +259,7 @@ export function AccountPanel({
                 key={value}
                 disabled={pending || !!mode || !!refund}
                 aria-pressed={tab === value}
-                onClick={() => setTab(value)}
+                onClick={() => { if (supportGuard.allowLeave()) setTab(value); }}
                 className={`flex-1 rounded-lg px-2 py-3 text-sm ${tab === value ? "bg-[#E8EDDF] font-bold text-[#4B5E3B]" : "text-earth-500"}`}
               >
                 {label}
@@ -308,6 +314,9 @@ export function AccountPanel({
               canBook={canBook}
               canReadBookings={canReadBookings}
               canManageStaff={canManageStaff}
+              canReadAccounts={canReadAccounts}
+              allowNavigation={supportGuard.allowLeave}
+              onAccount={() => { if (supportGuard.allowLeave()) setTab("credit"); }}
               onSaved={onChanged}
             />
           ) : (
@@ -1001,6 +1010,6 @@ export function AccountPanel({
           </div>
         </div>
       </div>
-    </RightSheet>
+    </RightSheet></SettingsPanelContext.Provider>
   );
 }

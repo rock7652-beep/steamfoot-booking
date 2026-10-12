@@ -277,7 +277,7 @@ export function CollectSingleModal({
       <div
         className={
           embedded
-            ? "h-full w-full overflow-y-auto overscroll-contain p-5"
+            ? "h-full min-h-0 w-full overflow-y-auto overscroll-contain p-4 [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_label]:text-sm"
             : `min-h-0 w-full overflow-y-auto overscroll-contain p-5${!spaMode ? " [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm" : ""}`
         }
       >

@@ -118,7 +118,7 @@ export function CourseStaffAvailabilityEditor({staffId,storeId="",fitness=false,
       {!!retained.length&&<><p role="status" className="text-sm text-primary-800">已更新；以下 {retained.length} 堂超出新時段，仍保留原安排。</p><CourseConflicts items={retained} label="保留的已排課程" compact/></>}
     </div>
     <div>
-      <h3 className="font-medium text-primary-900">可授課時間</h3>{fitness&&!externalSave&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
+      {!externalSave&&<h3 className="font-medium text-primary-900">可授課時間</h3>}{fitness&&!externalSave&&<p className="mt-1 text-sm text-earth-600">每週規則與單日例外分別儲存。</p>}
     </div>
     <fieldset disabled={locked || !ready} onChangeCapture={()=>setDirtyWeekly(true)} className="space-y-3"><div className={fitness?"flex flex-wrap items-center justify-between gap-3":"contents"}><label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={inherit} onChange={e=>setInherit(e.target.checked)}/>

@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { getCustomerPanelAdvanced } from "@/server/actions/customer-panel-advanced";
 import { LineBindingSection } from "../[id]/line-binding-section";
 import { CustomerStageForm } from "../[id]/customer-stage-form";
@@ -7,9 +8,26 @@ import { formatTWTime } from "@/lib/date-utils";
 import { CUSTOMER_FOLLOW_UP_RESULT_LABEL } from "@/lib/customer-follow-up";
 type Data=Extract<Awaited<ReturnType<typeof getCustomerPanelAdvanced>>,{success:true}>["data"];
 export function CustomerPanelAdvanced({customerId,readOnly,canEdit,onMutated,embedded=false,active=false,managerSimple=false}:{managerSimple?:boolean;embedded?:boolean;active?:boolean;customerId:string;readOnly:boolean;canEdit:boolean;onMutated:()=>void}) {
-  const [data,setData]=useState<Data|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(false);
-  const load=useCallback(async()=>{if(loading)return;setLoading(true);setError("");try{const result=await getCustomerPanelAdvanced(customerId);if(result.success)setData(result.data);else setError(result.error??"讀取失敗");}catch{setError("讀取失敗，請重試");}finally{setLoading(false);}},[customerId,loading]);
-  useEffect(()=>{if((embedded||managerSimple)&&active&&!data&&!loading&&!error)void load();},[embedded,managerSimple,active,data,loading,error,load]);
+  const reader = usePanelReader("customer-support", getCustomerPanelAdvanced);
+  const [revision, setRevision] = useState(0);
+  const [result, setResult] = useState<{ customerId: string; data?: Data; error?: string } | null>(null);
+  const [requested, setRequested] = useState(false);
+  const generation = useRef(0);
+  const visible = result?.customerId === customerId ? result : null;
+  const data = visible?.data ?? null;
+  const error = visible?.error ?? "";
+  const loading = (requested || ((embedded || managerSimple) && active)) && !visible;
+  const load = useCallback(() => { reader.invalidate(customerId); setResult(null); setRequested(true); setRevision(value => value + 1); }, [reader, customerId]);
+  useEffect(() => {
+    if (!requested && !((embedded || managerSimple) && active)) return;
+    const current = ++generation.current;
+    let live = true;
+    reader.read(customerId).then(response => {
+      if (!live || current !== generation.current) return;
+      setResult(response.success ? { customerId, data: response.data } : { customerId, error: response.error ?? "讀取失敗" });
+    }).catch(() => { if (live && current === generation.current) setResult({ customerId, error: "讀取失敗，請重試" }); });
+    return () => { live = false; };
+  }, [reader, customerId, requested, embedded, managerSimple, active, revision]);
   const c=data?.customer;
   if(managerSimple) return <section aria-label="LINE 綁定" className="border-t border-earth-100 py-2 text-sm">{loading && <p role="status">讀取LINE狀態中…</p>}{error && <p role="alert">{error}<button type="button" onClick={()=>void load()} className="min-h-11 px-3">重試</button></p>}{c && (readOnly || !canEdit ? <p>LINE：{c.lineLinkStatus === "LINKED" ? "已綁定" : "未綁定"}</p> : <LineBindingSection compact customerId={customerId} lineLinkStatus={c.lineLinkStatus} lineUserId={c.lineUserId} lineLinkedAt={c.lineLinkedAt?.toISOString()??null} lineBindingCode={c.lineBindingCode?.startsWith("trial:")?null:c.lineBindingCode} lineBindingCodeCreatedAt={c.lineBindingCodeCreatedAt?.toISOString()??null} canManageLineRebind={data.canManageLineRebind} canRunLineRebindDryRun={data.canRunLineRebindDryRun} activeLineRebindRequest={data.activeLineRebindRequest} onUpdated={()=>{void load();onMutated();}}/>)}</section>;
   const body = <div className="space-y-3 border-t border-earth-100 p-3 text-sm">

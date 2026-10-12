@@ -60,7 +60,7 @@ async function render(module: Module, { scope = "user:store-a", id = "a", value 
   } as unknown as React.ComponentProps<typeof CustomerDetailDrawerContent>["customer"];
   const spaCustomer = { id, name: `顧客 ${id}`, lastVisit: null, nextVisit: null } as React.ComponentProps<typeof SpaCustomerOverview>["customer"];
   const spaProfile: React.ComponentProps<typeof SpaCustomerOverview>["profile"] = {
-    success: true, customer: { id, name: `顧客 ${id}`, phone: "0900000000", serviceNote: value }, bookings: [],
+    success: true, customer: { id, name: `顧客 ${id}`, phone: "0900000000", serviceNote: value, updatedAt:new Date(), email:null,gender:null,birthday:null,height:null,lineName:null }, bookings: [],
   };
   const child = module === "steam"
     ? React.createElement(CustomerDetailDrawerContent, {

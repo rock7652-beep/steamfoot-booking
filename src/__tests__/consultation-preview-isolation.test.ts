@@ -210,3 +210,5 @@ describe("composed consultation and shared-card release modes", () => {
     expect(enabled.main).not.toBe(false);
   });
 });
+
+ it("isolates the teacher self-session branch before migrations",()=>{const result=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012"});expect(result.status).toBe(0);expect(result.output).toContain("migrations_skipped=true");const rejected=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012",DATABASE_URL:direct.replace("ttworfzgwejdeolegkxl","another-project")});expect(rejected.status).not.toBe(0);});

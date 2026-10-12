@@ -1,56 +1,53 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { saveCourseOwnIncomeAccess } from "@/server/actions/course-own-income-access";
+import { saveCourseOwnIncomeAccess } from "@/lib/course-work-permission-client";
 import { NotificationSwitch } from "@/components/admin/notification-switch";
 
-export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,blocked,storeEnabled,lineBound=true,permission="teacher.income.read.self",label="查看自己的薪酬",onSaved,onPendingChange}:{
+export type CourseWorkPermissionFeedback={label:string;status:"pending"|"saved"|"error"|"uncertain";message?:string};
+
+export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,blocked,permission="teacher.income.read.self",label="查看自己的薪酬",onFeedback,onSaved,onPendingChange}:{
   storeId:string;staffId:string;initialEnabled:boolean;canEdit:boolean;blocked:boolean;storeEnabled:boolean;
   music?:boolean;lineBound?:boolean;
-  permission?:"teacher.income.read.self"|"teacher.booking.leave"|"teacher.booking.reschedule";label?:string;
+  permission?:"teacher.income.read.self"|"teacher.booking.leave"|"teacher.booking.reschedule"|"teacher.session.leave"|"teacher.session.reschedule";label?:string;
+  onFeedback:(feedback:CourseWorkPermissionFeedback)=>void;
   onSaved:(data:{enabled:boolean;updatedAt:string})=>void;
   onPendingChange:(pending:boolean)=>void;
 }) {
   const [enabled,setEnabled]=useState(initialEnabled);
-  const [error,setError]=useState("");
-  const [saved,setSaved]=useState(false);
+  const [uncertain,setUncertain]=useState(false);
   const [pending,setPending]=useState(false);
   const busy=useRef(false);
-  const feedbackTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  useEffect(()=>()=>{if(feedbackTimer.current)clearTimeout(feedbackTimer.current);},[]);
   function change() {
-    if (!canEdit || blocked || busy.current) return;
+    if (!canEdit || blocked || busy.current || uncertain) return;
     const previous=enabled;
-    if(feedbackTimer.current)clearTimeout(feedbackTimer.current);
     busy.current=true;
     // Commit the visible switch before starting the server action/revalidation.
-    flushSync(()=>{setPending(true);setError("");setSaved(false);setEnabled(!previous);onPendingChange(true);});
+    flushSync(()=>{setPending(true);setEnabled(!previous);onPendingChange(true);onFeedback({label,status:"pending"});});
     void (async()=>{
       try {
         const result=await saveCourseOwnIncomeAccess({storeId,staffId,previous,enabled:!previous,permission});
-        if (!result.success) {setEnabled(previous);setError(result.error);}
-        else {setEnabled(result.data.enabled);onSaved(result.data);setSaved(true);feedbackTimer.current=setTimeout(()=>setSaved(false),2500);}
-      } catch {setEnabled(previous);setError("儲存結果未確認，請重新開啟核對");}
+        if (!result.success) {setEnabled(previous);setUncertain(result.uncertain===true);onFeedback({label,status:result.uncertain?"uncertain":"error",message:result.error});}
+        else {setEnabled(result.data.enabled);onSaved(result.data);onFeedback({label,status:"saved"});}
+      } catch {setUncertain(true);setEnabled(previous);onFeedback({label,status:"uncertain",message:"儲存結果未確認，請重新整理核對"});}
       finally {busy.current=false;setPending(false);onPendingChange(false);}
     })();
   }
   const title="我的工作權限";
+  const detailStart=label.indexOf("（");
+  const name=detailStart<0?label:label.slice(0,detailStart);
+  const detail=detailStart<0?null:label.slice(detailStart+1,-1);
   return <section aria-label={title} className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1">
-    <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-
-      <label className="flex min-h-11 min-w-0 flex-wrap items-center gap-3">
-        <span>{label}</span>
-        <span className="flex min-h-11 items-center gap-2">
-          <NotificationSwitch checked={enabled} aria-checked={enabled} aria-label={label} disabled={!canEdit||pending||blocked} style={pending?{opacity:1}:undefined} onChange={change}/>
-          <span className="min-w-7 text-earth-600">{enabled?"開啟":"關閉"}</span>
+    <div className="text-sm">
+      <label className="grid min-h-14 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <span className="min-w-0 break-words leading-5"><span className="block">{name}</span>{detail&&<span className="block text-earth-600">{detail}</span>}</span>
+        <span className="flex min-h-11 shrink-0 items-center gap-2">
+          <NotificationSwitch checked={enabled} aria-checked={enabled} aria-label={label} disabled={!canEdit||pending||blocked||uncertain} style={pending?{opacity:1}:undefined} onChange={change}/>
+          <span className="min-w-11 text-earth-600">{uncertain?"待核對":enabled?"開啟":"關閉"}</span>
         </span>
       </label>
-      {canEdit?(pending||saved)&&<span role="status" className="text-primary-800">{pending?"儲存中…":"已儲存 ✓"}</span>:<span className="text-earth-600">僅老闆可修改</span>}
-      {enabled&&!lineBound&&<span className="text-earth-600">待綁定 LINE</span>}
+      {!canEdit&&<span className="text-earth-600">僅老闆可修改</span>}
     </div>
-    {blocked&&canEdit&&<p className="text-sm text-earth-600">請先儲存其他修改。</p>}
-    {permission==="teacher.income.read.self"&&enabled&&!storeEnabled&&<p className="text-sm text-earth-600">門市尚未開放本人收入查詢。</p>}
-    {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   </section>;
 }
