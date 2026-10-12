@@ -22,6 +22,7 @@ interface AttendanceModalProps {
   onConfirm: (attendedPeople: number) => void;
   loading?: boolean;
   embedded?: boolean;
+  intent?: "collect" | "complete";
   /** 用於提示文字 — 顯示「實到 N 人收款預設 NT$xxx」。 */
   trialDefaultUnit?: number | null;
 }
@@ -75,9 +76,10 @@ export function AttendanceModal({
   loading = false,
   trialDefaultUnit,
   embedded = false,
+  intent = "complete",
 }: AttendanceModalProps) {
   const generatedTitleId = useId();
-  const titleId = embedded ? "booking-drawer-title" : generatedTitleId;
+  const titleId = embedded ? "booking-attendance-title" : generatedTitleId;
   // 預設選「全部到店」，符合常見情境；店長若實際是部分到店再切換。
   // 關 → 開 的瞬間將 choice 重置為 people。採 React 19 官方建議的
   // same-render guard pattern（prevOpen 與 choice 在同一 render 內一起更新），
@@ -151,7 +153,7 @@ export function AttendanceModal({
             disabled={loading}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {loading ? "處理中..." : choice === 0 ? "確認未到" : "下一步"}
+            {loading ? "處理中..." : choice === 0 ? "確認未到" : intent === "collect" || choice < people ? "下一步" : "完成服務"}
           </button>
         </div>
       </div>

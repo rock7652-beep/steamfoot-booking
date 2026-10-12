@@ -663,7 +663,7 @@ export function BookingDetailDrawer({
         presentation={spaMode ? "side" : "centered"}
         open={open}
         onClose={() => { if (!participantBusy) onClose(); }}
-        labelledById="booking-drawer-title"
+        labelledById={attendanceOpen && !checkingResult ? "booking-attendance-title" : "booking-drawer-title"}
         fitContent={!spaMode && !!data?.participantCheckout}
         width={spaMode ? undefined : 860}
       >
@@ -676,6 +676,7 @@ export function BookingDetailDrawer({
           data.booking.bookingType === "PACKAGE_SESSION") &&
         data.booking.people > 1 && (
           <AttendanceModal
+            intent={attendanceIntent ?? "complete"}
             embedded
             open={attendanceOpen && !checkingResult}
             onClose={() => {
