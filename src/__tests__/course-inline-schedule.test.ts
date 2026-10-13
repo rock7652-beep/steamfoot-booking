@@ -205,3 +205,31 @@ it("keeps regular and trial learner drafts separate while switching purpose",asy
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
   }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("keeps the form usable on slow slot reads and ignores stale results after rapid purpose switches",async()=>{
+  type MatchResult={success:true;data:{time:string;roomId:string;coachIds:string[]}[]};
+  const pending:Record<string,(value:MatchResult)=>void>={};
+  mocks.slots.mockImplementation(({templateId}:{templateId:string})=>new Promise<MatchResult>(resolve=>{pending[templateId]=resolve;}));
+  mocks.options.mockResolvedValue({success:true,cards:[]});
+  const onCancel=vi.fn();const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  const props={templates:[{id:"regular-slow",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"trial-slow",name:"體驗課",durationMinutes:60,capacity:2,defaultRoomId:null,musicTrialMode:"TRIAL"}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"slow-purpose-switch",onCreated:vi.fn(),onCancel};
+  try{
+    const started=performance.now();
+    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+    expect(performance.now()-started).toBeLessThan(1000);
+    const date=host.querySelector<HTMLInputElement>('[aria-label="找空位日期"]')!;
+    expect(date.disabled).toBe(false);
+    const cancel=[...host.querySelectorAll("button")].find(button=>button.textContent==="取消")!;
+    expect(cancel.disabled).toBe(false);
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
+    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+    expect(mocks.slots).toHaveBeenCalledTimes(2);
+    expect(date.value).toBe("2099-10-01");
+    await act(async()=>cancel.click());
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    await act(async()=>pending["trial-slow"]({success:true,data:[{time:"20:00",roomId:"room",coachIds:["teacher"]}]}));
+    expect(host.textContent).not.toContain("20:00");
+    await act(async()=>pending["regular-slow"]({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]}));
+    expect(host.textContent).toContain("18:00");
+  }finally{await act(async()=>root.unmount());host.remove();}
+});
