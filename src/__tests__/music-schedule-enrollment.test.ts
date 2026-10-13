@@ -41,3 +41,9 @@ it("keeps previously attended unpaid lessons and deducts them once when paid",as
  tx.courseBooking.findFirst.mockResolvedValue({id:"source",customerId:"a",bookingKind:"CARD",status:"ATTENDED",session});
  await attachUnpaidMusicBookings(db(),actor,"card","a","source");expect(tx.coursePointEntry.create).toHaveBeenCalledTimes(1);
 });
+
+it("continues an ongoing lesson as unpaid after its personal plan has been closed",async()=>{
+ tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),closedAt:new Date(),remaining:0});
+ await reserveScheduledMusicLearner(db(),actor,input,null);
+ expect(reserve.mock.calls[0][2]).toMatchObject({cardId:null,deferredPayment:true});
+});

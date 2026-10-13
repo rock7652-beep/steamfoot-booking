@@ -12,12 +12,12 @@ export async function reserveScheduledMusicLearner(tx:Prisma.TransactionClient,a
   let usableCardId:string|null=null;
   if(input.cardId){
     const card=await tx.coursePointCard.findFirst({where:{id:input.cardId,storeId:actor.storeId},include:{members:true}});
-    if(!card||card.closedAt||card.unit!=="SESSION"||!card.members.some(member=>member.customerId===input.customerId)||card.templateIds.length&&!card.templateIds.includes(session.templateId)||card.termSessionIds.length&&!card.termSessionIds.includes(input.sessionId))throw new AppError("VALIDATION","請使用此學員適用的個人方案");
+    if(!card||card.unit!=="SESSION"||!card.members.some(member=>member.customerId===input.customerId)||card.templateIds.length&&!card.templateIds.includes(session.templateId)||card.termSessionIds.length&&!card.termSessionIds.includes(input.sessionId))throw new AppError("VALIDATION","請使用此學員適用的個人方案");
     const held=await tx.courseBooking.aggregate({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},_sum:{pointCost:true}});
     const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
     const expiry=card.musicValidityDays&&!card.musicActivatedAt?musicCourseExpiry(first?.session.startsAt??session.startsAt,card.musicValidityDays):card.expiresAt;
     const join=card.musicJoinSessionId?await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId:actor.storeId},select:{startsAt:true}}):null;
-    if(card.remaining-(held._sum.pointCost??0)>0&&card.expiresAt>=new Date()&&session.startsAt<=expiry&&(!card.musicJoinSessionId||join&&session.startsAt>=join.startsAt))usableCardId=card.id;
+    if(!card.closedAt&&card.remaining-(held._sum.pointCost??0)>0&&card.expiresAt>=new Date()&&session.startsAt<=expiry&&(!card.musicJoinSessionId||join&&session.startsAt>=join.startsAt))usableCardId=card.id;
   }
   return reserveCourseInTransaction(tx,actor,{...input,cardId:usableCardId,deferredPayment:!usableCardId},limit);
 }
