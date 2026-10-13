@@ -59,7 +59,7 @@ describe("actual participant checkout component", () => {
 
   it("permanently removes only a pristine walk-in from the booking and releases its place", async () => {
     const data = checkout();
-    data.slots[1] = { ...data.slots[1], source: "WALK_IN" };
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN", customerId: null, name: null };
     h.remove.mockResolvedValue({ success: true });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await render(data);
