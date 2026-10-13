@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useRef,useState,useTransition} from "react";
-import {loadCourseScheduleEnrollmentOptions,createScheduleCustomer,loadCourseSchedulePurchaseOptions} from "@/server/actions/course-schedule-enrollment";
+import {loadCourseScheduleEnrollmentOptions,loadCourseScheduleCustomerCards,createScheduleCustomer,loadCourseSchedulePurchaseOptions} from "@/server/actions/course-schedule-enrollment";
 import {assignCoursePointCard} from "@/server/actions/course-members";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
@@ -11,6 +11,8 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const reader=usePanelReader("course-schedule-learners",loadCourseScheduleEnrollmentOptions,scope,8_000);
   const [cards,setCards]=useState<Card[]>([]);
   const [customers,setCustomers]=useState<{id:string;name:string;phone:string}[]>([]);
+  const [cardsLoading,setCardsLoading]=useState<Set<string>>(()=>new Set());
+  const [cardsLoaded,setCardsLoaded]=useState<Set<string>>(()=>new Set());
   const [trial,setTrial]=useState({enabled:false,price:0});
   const [newCustomer,setNewCustomer]=useState(false);
   const [supplementKey,setSupplementKey]=useState<string|null>(null);
@@ -34,6 +36,18 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [error,setError]=useState<{templateId:string;message:string}|null>(null);
   const [loadedTemplate,setLoadedTemplate]=useState("");
   const [retry,setRetry]=useState(0);
+  async function loadCardsFor(customerId:string) {
+    if(trialMode||cardsLoaded.has(customerId)||cardsLoading.has(customerId))return;
+    setCardsLoading(current=>new Set(current).add(customerId));
+    try {
+      const result=await loadCourseScheduleCustomerCards(templateId,customerId);
+      if(!result.success){setError({templateId,message:result.error??"學員方案讀取失敗"});return;}
+      setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===customerId)),...result.cards]);
+      setCardsLoaded(current=>new Set(current).add(customerId));
+      setError(null);
+    }catch{setError({templateId,message:"學員方案讀取失敗"});}
+    finally{setCardsLoading(current=>{const next=new Set(current);next.delete(customerId);return next;});}
+  }
   useEffect(()=>{
     let active=true;
     reader.read(templateId).then(result=>{if(!active)return;if(result.success){setCards(result.cards);setCustomers(result.customers??[]);setTrial(result.trialSettings??{enabled:false,price:0});setLoadedTemplate(templateId);setError(null);}else setError({templateId,message:result.error??"學員讀取失敗"});}).catch(()=>{if(active)setError({templateId,message:"學員讀取失敗"});});
@@ -64,8 +78,9 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       <button type="button" aria-label={`移除${row.name}`} disabled={disabled} className="min-h-11 min-w-11" onClick={()=>onChange(value.filter(item=>item.customerId!==row.customerId))}>×</button>
       {trial.enabled&&(row.cardId||row.trialPrice===undefined)&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:"",trialPrice:trial.price}:item))}>{row.cardId?"改為體驗":"設為體驗"}</button>}
       {!trialMode&&!row.cardId&&memberCards.length>0&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:memberCards[0].id,trialPrice:undefined}:item))}>使用學員方案</button>}
-      {!enough&&<p role="alert" className="w-full text-red-700">{!row.cardId&&row.trialPrice===undefined?"請選學員方案或體驗。":"請確認學員方案與可用額度。"}</p>}
-      {!trialMode&&!row.customerId.startsWith("trial-draft:")&&!memberCards.some(card=>card.available>=requiredFor(card))&&<button type="button" className="min-h-11 rounded-lg border border-primary-300 bg-white px-3 font-medium text-primary-800" disabled={disabled||purchasing||!ready} onClick={async()=>{
+      {cardsLoading.has(row.customerId)&&<p role="status" className="w-full text-earth-600">讀取學員方案中…</p>}
+      {!enough&&!cardsLoading.has(row.customerId)&&<p role="alert" className="w-full text-red-700">{!row.cardId&&row.trialPrice===undefined?"請選學員方案或體驗。":"請確認學員方案與可用額度。"}</p>}
+      {!trialMode&&!row.customerId.startsWith("trial-draft:")&&!cardsLoading.has(row.customerId)&&!memberCards.some(card=>card.available>=requiredFor(card))&&<button type="button" className="min-h-11 rounded-lg border border-primary-300 bg-white px-3 font-medium text-primary-800" disabled={disabled||purchasing||!ready} onClick={async()=>{
         const request=++purchaseLoadToken.current;
         setPurchaseError("");setPurchaseFor(row.customerId);setPurchaseOptions(null);setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseRequestKey(crypto.randomUUID());setPurchaseLoading(true);
         try {
@@ -96,11 +111,13 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
                 expectedListPrice:number("expectedListPrice"),expectedStoreCost:number("expectedStoreCost"),revenueStaffId:"",discountKind:textValue("discountKind"),discountValue:number("discountValue"),
                 paymentMethod:textValue("paymentMethod"),transferLastFour:textValue("transferLastFour")});
               if(!result.success){setPurchaseError(result.error??"繳費失敗");return;}
-              reader.invalidate(templateId);
-              const refreshed=await reader.read(templateId);
+              cardsLoaded.delete(row.customerId);
+              setCardsLoaded(current=>{const next=new Set(current);next.delete(row.customerId);return next;});
+              const refreshed=await loadCourseScheduleCustomerCards(templateId,row.customerId);
               if(!refreshed.success){setPurchaseError("繳費已完成，但學員方案更新失敗；請重試讀取方案");return;}
-              setCards(refreshed.cards);setCustomers(refreshed.customers??[]);
-              const purchased=refreshed.cards.find(card=>card.members.some(member=>member.id===row.customerId));
+              setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===row.customerId)),...refreshed.cards]);
+              setCardsLoaded(current=>new Set(current).add(row.customerId));
+              const purchased=refreshed.cards.find(card=>card.available>0);
               if(purchased)onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:purchased.id,trialPrice:undefined}:item));
               setPurchaseFor(null);setPurchaseOptions(null);setNotice("已完成繳費並帶入學員方案");
             });
@@ -113,7 +130,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       {purchaseFor===row.customerId&&purchaseOptions&&purchaseError&&<p role="alert" className="w-full text-red-700">{purchaseError}</p>}
     </div>;})}
     <input aria-label="搜尋排課學員" placeholder={value.length>=capacity?"已滿":ready?"姓名或電話":"學員資料載入中…"} className="min-h-11 w-full rounded-xl border border-earth-200 px-3" value={query} disabled={disabled||!ready||value.length>=capacity} onChange={event=>setQuery(event.target.value)}/>
-    {!newCustomer&&matches.length>0&&<div className="max-h-48 overflow-y-auto rounded-lg border border-earth-200">{matches.map(person=><button key={person.id} type="button" className="flex min-h-11 w-full items-center justify-between border-b border-earth-100 px-3 text-left" disabled={disabled||value.length>=capacity} onClick={()=>{const card=!trialMode?available.find(card=>card.members.some(member=>member.id===person.id)):undefined;onChange([...value,{customerId:person.id,cardId:card?.id??"",name:person.name,...(!card&&trialMode?{trialPrice:trial.price}:{})}]);setQuery("");}}>{person.name}<span className="ml-auto text-earth-500">{person.phone.slice(-3)}</span><span className="ml-2">＋</span></button>)}</div>}
+    {!newCustomer&&matches.length>0&&<div className="max-h-48 overflow-y-auto rounded-lg border border-earth-200">{matches.map(person=><button key={person.id} type="button" className="flex min-h-11 w-full items-center justify-between border-b border-earth-100 px-3 text-left" disabled={disabled||value.length>=capacity} onClick={()=>{const card=!trialMode?available.find(card=>card.members.some(member=>member.id===person.id)):undefined;onChange([...value,{customerId:person.id,cardId:card?.id??"",name:person.name,...(!card&&trialMode?{trialPrice:trial.price}:{})}]);setQuery("");if(!trialMode)void loadCardsFor(person.id);}}>{person.name}<span className="ml-auto text-earth-500">{person.phone.slice(-3)}</span><span className="ml-2">＋</span></button>)}</div>}
     {ready&&query.trim()&&!matches.length&&<p className="text-earth-600">沒有符合的學員</p>}
     {trialMode&&trial.enabled&&value.length<capacity&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled||creating||!ready} onClick={()=>{
       const customerId="trial-draft:"+crypto.randomUUID();
