@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRetainedState } from "@/components/operations/operation-scope";
-import { changeBookingParticipantService, completeBookingParticipantPlan, collectBookingParticipantTrial, resolveBookingParticipant } from "@/server/actions/booking-participants";
+import { changeBookingParticipantService, completeBookingParticipantPlan, collectBookingParticipantTrial, resolveBookingParticipant, removeBookingParticipant } from "@/server/actions/booking-participants";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import { paymentMethodValues, type PaymentMethodValue } from "@/lib/payment-splits";
 import { BookingPersonDetails } from "./booking-person-details";
@@ -84,8 +84,8 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
       </div>
       {!readOnly && status === "PENDING" && <div className="flex flex-wrap items-start gap-2">
         {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
-          if (window.confirm("移除這位臨時加入者？會釋放此人的名額並保留紀錄，其他人不受影響。"))
-            void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "CANCELLED" }), "CANCELLED");
+          if (window.confirm("從預約中刪除這位誤加的同行者？只會刪除尚未建檔、收款或開始服務的臨時名額，其他人不受影響。"))
+            void run(() => removeBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "REMOVED", null);
         }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 min-w-11 rounded-lg border border-red-200 px-3 text-2xl leading-none text-red-700 disabled:opacity-50">×</button>}
         {checkout.canCollect && !isPlan && amount == null && (slot.customerId || checkout.canCollectUnregistered) && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setSelling(false); setExpanded(!expanded); }}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">收款並完成 ${checkout.settings.defaultPrice.toLocaleString("zh-TW")}</button>}
@@ -170,10 +170,11 @@ export function BookingParticipantCheckout(props: { bookingId: string; checkout:
   onUpdated: () => void; onBusy: (busy: boolean) => void; companions?: BookingDrawerPayload["companions"]; canEditNote?: boolean; onPersonNoteSaved?: (customerId: string, value: string | null) => void; primaryCustomer?: BookingDrawerPayload["booking"]["customer"]; onOpenCustomer?: (customerId: string) => void }) {
   const [progress, setProgress] = useState<Record<string, { status: string; amount: number | null }>>({});
   const keyFor = (position: number, revision: number) => `${props.bookingId}:${position}:${revision}`;
-  const slots = props.checkout.slots.map(slot => {
+  const allSlots = props.checkout.slots.map(slot => {
     const result = progress[keyFor(slot.position, slot.revision)];
     return result ? { ...slot, status: result.status, collectedAmount: result.amount } : slot;
   });
+  const slots = allSlots.filter(slot => slot.status !== "REMOVED");
   const completed = slots.filter(slot => slot.status === "COMPLETED").length;
   const noShow = slots.filter(slot => slot.status === "NO_SHOW").length;
   const cancelled = slots.filter(slot => slot.status === "CANCELLED").length;
