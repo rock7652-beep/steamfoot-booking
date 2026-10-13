@@ -8,9 +8,9 @@ export function PlanPackageNotes() {
       <h3 className="font-semibold text-earth-900">限時優惠｜一次繳一年，再送 2 個月</h3>
       <p className="mt-2">所有方案依功能區分，顧客、人員、預約及自動提醒不限數量。訊息與金流等外部費用另計。</p>
       <p className="mt-2">店長、後台員工、教師／教練及技師／芳療師等服務人員皆不限數量，操作仍依角色與個別權限。</p>
-      <p className="mt-2">主方案一次支付 12 個月費用，共可使用 14 個月。基本版 NT$17,880、專業版 NT$29,880、展店版 NT$59,880 起。</p>
+      <p className="mt-2">主方案一次支付 12 個月費用，共可使用 14 個月。基本版 NT$17,880、專業版 NT$29,880、展店版 NT$35,760 起。</p>
       <p className="mt-2">三個付費方案皆內含 LINE 提醒、顧客標籤與 LINE 顧客入口（LIFF），可預約、取消及查詢方案堂數；保留各門市獨立開關。入口開啟不代表其他模組全部開通。</p>
-      <p className="mt-3">展店版每月 $4,990，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</p>
+      <p className="mt-3">展店版年繳 NT$35,760（計價每月 NT$2,980），優惠期間使用 14 個月，平均約 NT$2,554／月，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</p>
       <h4 className="mt-4 font-semibold text-earth-900">內含、免費任選、額外加購</h4>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>基本版：資料匯出／現金抽屜<strong>免費 2 選 1</strong>；另一項需要時再加購。</li>
