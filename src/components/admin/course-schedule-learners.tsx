@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useRef,useState,useTransition} from "react";
+import {useCallback,useEffect,useRef,useState,useTransition} from "react";
 import {loadCourseScheduleEnrollmentOptions,loadCourseScheduleCustomerCards,createScheduleCustomer,loadCourseSchedulePurchaseOptions} from "@/server/actions/course-schedule-enrollment";
 import {assignCoursePointCard} from "@/server/actions/course-members";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
@@ -13,6 +13,8 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [customers,setCustomers]=useState<{id:string;name:string;phone:string}[]>([]);
   const [cardsLoading,setCardsLoading]=useState<Set<string>>(()=>new Set());
   const [cardsLoaded,setCardsLoaded]=useState<Set<string>>(()=>new Set());
+  const cardsLoadedRef=useRef(new Set<string>());
+  const cardsInFlight=useRef(new Set<string>());
   const [trial,setTrial]=useState({enabled:false,price:0});
   const [newCustomer,setNewCustomer]=useState(false);
   const [supplementKey,setSupplementKey]=useState<string|null>(null);
@@ -36,18 +38,23 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [error,setError]=useState<{templateId:string;message:string}|null>(null);
   const [loadedTemplate,setLoadedTemplate]=useState("");
   const [retry,setRetry]=useState(0);
-  async function loadCardsFor(customerId:string) {
-    if(trialMode||cardsLoaded.has(customerId)||cardsLoading.has(customerId))return;
+  const loadCardsFor=useCallback(async(customerId:string)=>{
+    if(trialMode||cardsLoadedRef.current.has(customerId)||cardsInFlight.current.has(customerId))return;
+    cardsInFlight.current.add(customerId);
     setCardsLoading(current=>new Set(current).add(customerId));
     try {
       const result=await loadCourseScheduleCustomerCards(templateId,customerId);
       if(!result.success){setError({templateId,message:result.error??"學員方案讀取失敗"});return;}
       setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===customerId)),...result.cards]);
+      cardsLoadedRef.current.add(customerId);
       setCardsLoaded(current=>new Set(current).add(customerId));
       setError(null);
     }catch{setError({templateId,message:"學員方案讀取失敗"});}
-    finally{setCardsLoading(current=>{const next=new Set(current);next.delete(customerId);return next;});}
-  }
+    finally{
+      cardsInFlight.current.delete(customerId);
+      setCardsLoading(current=>{const next=new Set(current);next.delete(customerId);return next;});
+    }
+  },[templateId,trialMode]);
   useEffect(()=>{
     let active=true;
     reader.read(templateId).then(result=>{if(!active)return;if(result.success){setCards(result.cards);setCustomers(result.customers??[]);setTrial(result.trialSettings??{enabled:false,price:0});setLoadedTemplate(templateId);setError(null);}else setError({templateId,message:result.error??"學員讀取失敗"});}).catch(()=>{if(active)setError({templateId,message:"學員讀取失敗"});});
@@ -55,6 +62,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   },[reader,templateId,retry]);
   useEffect(()=>{purchaseLoadToken.current+=1;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseLoading(false);return()=>{purchaseLoadToken.current+=1;};},[templateId]);
   const ready=loadedTemplate===templateId;
+  useEffect(()=>{if(ready&&!trialMode)for(const row of value)if(!row.customerId.startsWith("trial-draft:"))void loadCardsFor(row.customerId);},[ready,trialMode,value,loadCardsFor]);
   const requiredFor=(card:Card)=>occurrenceCount*(card.unit==="SESSION"?1:pointCost);
   const available=ready?cards.filter(card=>card.available>=requiredFor(card)):[];
   const totalRequired=(card:Card)=>value.filter(row=>row.cardId===card.id).length*requiredFor(card);
@@ -111,11 +119,10 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
                 expectedListPrice:number("expectedListPrice"),expectedStoreCost:number("expectedStoreCost"),revenueStaffId:"",discountKind:textValue("discountKind"),discountValue:number("discountValue"),
                 paymentMethod:textValue("paymentMethod"),transferLastFour:textValue("transferLastFour")});
               if(!result.success){setPurchaseError(result.error??"繳費失敗");return;}
-              cardsLoaded.delete(row.customerId);
-              setCardsLoaded(current=>{const next=new Set(current);next.delete(row.customerId);return next;});
               const refreshed=await loadCourseScheduleCustomerCards(templateId,row.customerId);
               if(!refreshed.success){setPurchaseError("繳費已完成，但學員方案更新失敗；請重試讀取方案");return;}
               setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===row.customerId)),...refreshed.cards]);
+              cardsLoadedRef.current.add(row.customerId);
               setCardsLoaded(current=>new Set(current).add(row.customerId));
               const purchased=refreshed.cards.find(card=>card.available>0);
               if(purchased)onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:purchased.id,trialPrice:undefined}:item));
