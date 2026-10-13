@@ -12,6 +12,8 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [cards,setCards]=useState<Card[]>([]);
   const [customers,setCustomers]=useState<{id:string;name:string;phone:string}[]>([]);
   const [cardsLoading,setCardsLoading]=useState<Set<string>>(()=>new Set());
+  const latestValue=useRef(value);latestValue.current=value;
+  const latestOnChange=useRef(onChange);latestOnChange.current=onChange;
   const cardsLoadedRef=useRef(new Set<string>());
   const cardsInFlight=useRef(new Set<string>());
   const [trial,setTrial]=useState({enabled:false,price:0});
@@ -45,6 +47,9 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       const result=await loadCourseScheduleCustomerCards(templateId,customerId);
       if(!result.success){setError({templateId,message:result.error??"學員方案讀取失敗"});return;}
       setCards(current=>{const merged=new Map(current.map(card=>[card.id,card]));for(const card of result.cards){const existing=merged.get(card.id);merged.set(card.id,existing?{...card,members:[...existing.members,...card.members.filter(member=>!existing.members.some(item=>item.id===member.id))]}:card);}return [...merged.values()];});
+      const selected=latestValue.current.find(row=>row.customerId===customerId);
+      const enough=result.cards.filter(card=>card.available>=occurrenceCount*(card.unit==="SESSION"?1:pointCost));
+      if(selected&&!selected.cardId&&enough.length===1)latestOnChange.current(latestValue.current.map(row=>row.customerId===customerId?{...row,cardId:enough[0].id,trialPrice:undefined}:row));
       cardsLoadedRef.current.add(customerId);
       setError(null);
     }catch{setError({templateId,message:"學員方案讀取失敗"});}
@@ -52,7 +57,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       cardsInFlight.current.delete(customerId);
       setCardsLoading(current=>{const next=new Set(current);next.delete(customerId);return next;});
     }
-  },[templateId,trialMode]);
+  },[templateId,trialMode,occurrenceCount,pointCost]);
   useEffect(()=>{
     let active=true;
     reader.read(templateId).then(result=>{if(!active)return;if(result.success){setCards(result.cards);setCustomers(result.customers??[]);setTrial(result.trialSettings??{enabled:false,price:0});setLoadedTemplate(templateId);setError(null);}else setError({templateId,message:result.error??"學員讀取失敗"});}).catch(()=>{if(active)setError({templateId,message:"學員讀取失敗"});});
