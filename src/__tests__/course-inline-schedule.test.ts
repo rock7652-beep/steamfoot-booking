@@ -207,6 +207,7 @@ it("keeps regular and trial learner drafts separate while switching purpose",asy
 });
 
 it("keeps the form usable on slow slot reads and ignores stale results after rapid purpose switches",async()=>{
+  mocks.slots.mockClear();mocks.options.mockClear();mocks.create.mockClear();
   type MatchResult={success:true;data:{time:string;roomId:string;coachIds:string[]}[]};
   const pending:Record<string,(value:MatchResult)=>void>={};
   mocks.slots.mockImplementation(({templateId}:{templateId:string})=>new Promise<MatchResult>(resolve=>{pending[templateId]=resolve;}));
@@ -235,6 +236,7 @@ it("keeps the form usable on slow slot reads and ignores stale results after rap
 });
 
 it("keeps controls available and allows retry after slot loading fails",async()=>{
+  mocks.slots.mockClear();mocks.options.mockClear();mocks.create.mockClear();
   mocks.slots.mockRejectedValueOnce(new Error("temporary failure")).mockResolvedValueOnce({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
   mocks.options.mockResolvedValue({success:true,cards:[]});
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
