@@ -93,12 +93,41 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
       select: { userId: true, user: { select: { status: true, role: true } } },
     });
     if (account && (account.user.status !== "ACTIVE" || account.user.role !== "CUSTOMER")) throw new AppError("CONFLICT", "LINE 帳號需確認");
-    const conflict = connectionConflict(customer, account?.userId ?? null);
-    if (conflict) throw new AppError("CONFLICT", conflict);
+    // A store notification request is separate from the LINE identity captured
+    // during LIFF booking. If its provider-specific Account row is not present,
+    // reuse the one existing member owner after staff has verified the person;
+    // do not treat that valid membership as a different customer or create a
+    // second User. Multiple owners, or an Account owned by someone else, remain
+    // blocked for manual identity review.
+    const owners = new Set([
+      ...(customer.userId ? [customer.userId] : []),
+      ...customer.identityLinks.map(link => link.userId),
+    ]);
+    let userId: string;
+    if (account) {
+      const conflict = connectionConflict(customer, account.userId);
+      if (conflict) throw new AppError("CONFLICT", conflict);
+      userId = account.userId;
+    } else if (owners.size === 1) {
+      userId = [...owners][0];
+      const owner = await tx.user.findUnique({
+        where: { id: userId },
+        select: { status: true, role: true },
+      });
+      if (!owner || owner.status !== "ACTIVE" || owner.role !== "CUSTOMER") {
+        throw new AppError("CONFLICT", "會員帳號需確認");
+      }
+    } else if (owners.size > 1) {
+      throw new AppError("CONFLICT", "顧客有多筆帳號連結，需先確認身分");
+    } else {
+      userId = (await tx.user.create({
+        data: { name: customer.name, role: "CUSTOMER", status: "ACTIVE" },
+        select: { id: true },
+      })).id;
+    }
     if (customer.lineUserId && customer.lineUserId !== request.lineUserId) throw new AppError("CONFLICT", "本店已綁定其他 LINE，需確認");
     const other = await tx.customer.findFirst({ where: { storeId: ctx.storeId, lineUserId: request.lineUserId, id: { not: customerId } }, select: { id: true } });
     if (other) throw new AppError("CONFLICT", "LINE 已連結本店其他顧客");
-    const userId = account?.userId ?? (await tx.user.create({ data: { name: customer.name, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } })).id;
     const links = await tx.customerIdentityLink.findMany({ where: { storeId: ctx.storeId, OR: [{ userId }, { provider: request.identityProvider, providerAccountId: request.lineUserId }] }, select: { customerId: true } });
     if (links.some(link => link.customerId !== customerId)) throw new AppError("CONFLICT", "本店會員關係需確認");
     const existingProvider = customer.identityLinks.find(link => link.provider === request.identityProvider);
