@@ -19,7 +19,7 @@ import { paymentMethodValues } from "@/lib/payment-splits";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { checkCustomerLimitOrThrow } from "@/lib/usage-gate";
 import { recordOperationAudit } from "@/server/services/operation-audit";
-import { addBookingWalkIn, removeBookingWalkIn } from "@/server/services/booking-participant-walk-in";
+import { addBookingWalkIn, removeBookingCompanion } from "@/server/services/booking-participant-walk-in";
 import { createCustomerSchema } from "@/lib/validators/customer";
 
 // Keep the unfinished rollout inaccessible until the reviewed DDL is deployed.
@@ -31,7 +31,7 @@ function assertParticipantRollout() {
 
 const identitySchema = z.object({
   bookingId: z.string().min(1).max(128),
-  position: z.number().int().min(2).max(4),
+  position: z.number().int().min(2).max(1_000_000),
   customerId: z.string().min(1).max(128),
   revision: z.number().int().positive(),
 });
@@ -233,14 +233,14 @@ export async function removeBookingParticipant(input: {
     await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
     const data = z.object({
       bookingId: z.string().min(1).max(128),
-      position: z.number().int().min(2).max(4),
+      position: z.number().int().min(2).max(1_000_000),
       revision: z.number().int().positive(),
     }).parse(input);
     await prisma.$transaction(async tx => {
-      const removed = await removeBookingWalkIn(tx, { ...data, storeId });
+      const removed = await removeBookingCompanion(tx, { ...data, storeId });
       await recordOperationAudit({ actor: user, actorUserId: user.id, storeId, module: "STEAM",
         targetType: "Booking", targetId: data.bookingId, action: "REMOVE_BOOKING_PARTICIPANT",
-        summary: "移除誤加且尚未建檔的臨時同行者",
+        summary: "刪除尚未收款或服務的同行者名額",
         before: { participantId: removed.id, position: removed.position, people: removed.people + 1 },
         after: { removed: true, people: removed.people } }, tx);
     }, { timeout: 15_000 });

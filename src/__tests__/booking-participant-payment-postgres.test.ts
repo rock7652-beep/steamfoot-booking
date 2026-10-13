@@ -13,7 +13,7 @@ vi.mock("@/lib/business-hours-resolver", () => ({
   loadDayBusinessHoursContext: vi.fn(async () => ({ rule: { closed: false }, slotOverrides: [] })),
   applySlotOverrides: () => [{ startTime: "13:30", isEnabled: true, capacity: h.capacity }],
 }));
-import { addBookingWalkIn } from "@/server/services/booking-participant-walk-in";
+import { addBookingWalkIn, removeBookingCompanion } from "@/server/services/booking-participant-walk-in";
 import { computeRefundPlan } from "@/lib/refund-plan";
 import { initializeBookingParticipants, linkBookingParticipantCustomer } from "@/server/services/booking-participants";
 import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
@@ -95,8 +95,10 @@ beforeAll(async () => {
   await db.exec(readFileSync("docs/sql/booking-participants-draft.sql", "utf8"));
   await db.exec(readFileSync("docs/sql/booking-participants-lifecycle-upgrade.sql", "utf8"));
   await db.exec(readFileSync("docs/sql/booking-unregistered-participant-payment-upgrade.sql", "utf8"));
+  await db.exec(readFileSync("docs/sql/booking-participants-companion-removal-upgrade.sql", "utf8"));
 });
 beforeEach(async () => {
+  await db.exec(readFileSync("docs/sql/booking-participants-companion-removal-upgrade.sql", "utf8"));
   vi.resetAllMocks(); h.capacity = 4;
   h.snapshot.mockResolvedValue({}); h.award.mockResolvedValue(undefined);
   h.payment.mockImplementation(async (tx: Prisma.TransactionClient, { data }: Prisma.TransactionCreateArgs) => {
@@ -386,4 +388,60 @@ describe("select, complete, restore and cancel are separate participant operatio
     } finally { await db.exec(readFileSync("docs/sql/booking-participants-lifecycle-upgrade.sql","utf8")); }
   });
 
+});
+
+
+describe("reserved and added companion deletion", () => {
+  const remove = (position: number, revision = 1, storeId = "a") => db.transaction(tx =>
+    removeBookingCompanion(client(tx), { storeId, bookingId: "booking", position, revision }));
+  it("deletes the original second place without resurrecting it or changing the third person's identity", async () => {
+    const [primary] = await init();
+    const third = await db.transaction(tx => addBookingWalkIn(client(tx), { storeId: "a", bookingId: "booking", requestId: "third" }));
+    await remove(2);
+    expect(await init()).toEqual([primary, expect.objectContaining({ id: third.id, position: 3 })]);
+    expect((await db.query('SELECT people FROM "Booking"')).rows[0]).toEqual({ people: 2 });
+    const fourth = await db.transaction(tx => addBookingWalkIn(client(tx), { storeId: "a", bookingId: "booking", requestId: "fourth" }));
+    await remove(3);
+    const fifth = await db.transaction(tx => addBookingWalkIn(client(tx), { storeId: "a", bookingId: "booking", requestId: "fifth" }));
+    expect(fifth.position).toBe(5);
+    await db.transaction(tx => linkBookingParticipantCustomer(client(tx), { storeId: "a", participantId: fifth.id, customerId: "guest", revision: 1 }));
+    await collect(fifth.id, 2);
+    expect(await init()).toEqual([primary, expect.objectContaining({ id: fourth.id }), expect.objectContaining({ id: fifth.id, status: "COMPLETED" })]);
+  });
+  it("cancellation retains the second place while deletion removes it and reduces the total", async () => {
+    const [, guest] = await init();
+    await db.transaction(tx => resolveUnattendedParticipant(client(tx), { storeId: "a", participantId: guest.id, revision: 1, status: "CANCELLED" }));
+    expect(await init()).toHaveLength(2);
+    expect((await db.query('SELECT people FROM "Booking"')).rows[0]).toEqual({ people: 2 });
+    await remove(2, 2);
+    expect(await init()).toHaveLength(1);
+    expect((await db.query('SELECT people FROM "Booking"')).rows[0]).toEqual({ people: 1 });
+  });
+  it("deletes a linked but unserved companion and keeps their customer profile", async () => {
+    const [, guest] = await init();
+    await db.transaction(tx => linkBookingParticipantCustomer(client(tx), { storeId: "a", participantId: guest.id, customerId: "guest", revision: 1 }));
+    await remove(2, 2);
+    expect((await db.query(`SELECT id FROM "Customer" WHERE id='guest'` )).rows).toHaveLength(1);
+    expect(await init()).toHaveLength(1);
+  });
+  it("releases a reserved plan when deleting the unserved companion", async () => {
+    const [, guest] = await init();
+    await db.transaction(tx => linkBookingParticipantCustomer(client(tx), { storeId: "a", participantId: guest.id, customerId: "guest", revision: 1 }));
+    await db.exec(`INSERT INTO "CustomerPlanWallet" (id,"storeId","customerId") VALUES ('guest-wallet','a','guest');
+      INSERT INTO "WalletSession" (id,"walletId","sessionNo") VALUES ('guest-session','guest-wallet',1);`);
+    await db.transaction(tx => selectParticipantPlan(client(tx), { storeId: "a", participantId: guest.id, revision: 2, walletId: "guest-wallet", actorUserId: "actor" }));
+    await remove(2, 3);
+    expect((await db.query(`SELECT status,"bookingId" FROM "WalletSession" WHERE id='guest-session'`)).rows[0]).toEqual({ status: "AVAILABLE", bookingId: null });
+    expect(await init()).toHaveLength(1);
+  });
+  it("rejects deleting the booker, a stale revision, a foreign store, and completed or paid history", async () => {
+    const [, guest] = await init();
+    await expect(remove(1)).rejects.toThrow(/預約人/);
+    await expect(remove(2, 99)).rejects.toThrow(/紀錄/);
+    await expect(remove(2, 1, "b")).rejects.toThrow(/不屬於/);
+    await db.transaction(tx => linkBookingParticipantCustomer(client(tx), { storeId: "a", participantId: guest.id, customerId: "guest", revision: 1 }));
+    await collect(guest.id, 2);
+    await expect(remove(2, 3)).rejects.toThrow(/紀錄/);
+    expect(await init()).toHaveLength(2);
+  });
 });

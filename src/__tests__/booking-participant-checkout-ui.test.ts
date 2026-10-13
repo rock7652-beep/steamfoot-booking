@@ -63,11 +63,11 @@ describe("actual participant checkout component", () => {
     h.remove.mockResolvedValue({ success: true });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await render(data);
-    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="移除臨時加入"]')!;
-    expect(removeButton.textContent).toBe("刪除臨時名額");
+    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="刪除同行者"]')!;
+    expect(removeButton.textContent).toBe("× 刪除同行者");
     expect(removeButton.closest("[data-action-menu]")).not.toBeNull();
     await click(removeButton);
-    expect(confirm).toHaveBeenCalledWith("從預約中刪除這位誤加的同行者？只會刪除尚未建檔、收款或開始服務的臨時名額，其他人不受影響。");
+    expect(confirm).toHaveBeenCalledWith("刪除這位同行者？刪除後會從預約名單移除，人數減少 1；不保留取消紀錄。");
     expect(h.remove).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
     expect(h.resolve).not.toHaveBeenCalled();
     expect(container.querySelector('[aria-label="朋友"]')).toBeNull();
@@ -93,23 +93,24 @@ describe("actual participant checkout component", () => {
     h.remove.mockResolvedValue({ success: true });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await render(data);
-    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="移除臨時加入"]')!;
+    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="刪除同行者"]')!;
     await click(removeButton);
-    expect(confirm).toHaveBeenCalledWith("從預約中刪除這個已取消的空白臨時名額？只有未建檔、未收款、未開始服務的名額可刪除。");
+    expect(confirm).toHaveBeenCalledWith("刪除這位同行者？刪除後會從預約名單移除，人數減少 1；不保留取消紀錄。");
     expect(h.remove).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
     expect(container.querySelector('[aria-label="同行者 1"]')).toBeNull();
   });
 
-  it("does not offer direct removal for reserved, paid, or completed people", async () => {
+  it("offers reserved companion deletion but protects paid and completed people", async () => {
     const data = checkout();
     await render(data);
-    expect(container.querySelector('button[aria-label="移除臨時加入"]')).toBeNull();
+    expect(container.querySelectorAll('button[aria-label="刪除同行者"]')).toHaveLength(1);
+    expect(container.querySelector('[aria-label="預約者"] button[aria-label="刪除同行者"]')).toBeNull();
     data.slots[1] = { ...data.slots[1], source: "WALK_IN", collectedAmount: 499 };
     await render(data);
-    expect(container.querySelector('button[aria-label="移除臨時加入"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="刪除同行者"]')).toBeNull();
     data.slots[1] = { ...data.slots[1], collectedAmount: null, status: "COMPLETED" };
     await render(data);
-    expect(container.querySelector('button[aria-label="移除臨時加入"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="刪除同行者"]')).toBeNull();
   });
 
   it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {

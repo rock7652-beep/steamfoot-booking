@@ -38,7 +38,7 @@ async function lockOwnWallet(tx: Prisma.TransactionClient, input: Input, person:
       AND "startDate" <= ${person.bookingDate} AND ("expiryDate" IS NULL OR "expiryDate" >= ${person.bookingDate}) FOR UPDATE`;
   if (!wallets.length) throw new AppError("BUSINESS_RULE", "方案不屬於這位顧客，或在預約日期無法使用");
 }
-async function releaseReserved(tx: Prisma.TransactionClient, person: Person) {
+export async function releaseReserved(tx: Prisma.TransactionClient, person: Pick<Person, "walletSessionId" | "bookingId" | "storeId">) {
   if (!person.walletSessionId) return;
   const sessions = await tx.$queryRaw<{ id: string; walletId: string }[]>`
     SELECT s.id, s."walletId" FROM "WalletSession" s JOIN "CustomerPlanWallet" w ON w.id = s."walletId"

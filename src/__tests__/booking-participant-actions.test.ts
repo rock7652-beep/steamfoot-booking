@@ -17,7 +17,7 @@ vi.mock("@/server/services/booking-participant-payment", () => ({ collectPartici
 vi.mock("@/server/services/booking-participant-lifecycle", () => ({ selectParticipantPlan: h.selectPlan, revertParticipantService: h.revert, cancelParticipantPlan: h.cancelPlan, completePreviouslyPaidParticipant: h.completePaid, restoreCancelledParticipant: h.restoreParticipant }));
 vi.mock("@/server/services/referral-events", () => ({ createBookingCompletedEvent: h.event }));
 vi.mock("@/server/services/booking-participants", () => ({ initializeBookingParticipants: h.init, linkBookingParticipantCustomer: h.link }));
-vi.mock("@/server/services/booking-participant-walk-in", () => ({ addBookingWalkIn: vi.fn(), removeBookingWalkIn: h.removeWalkIn }));
+vi.mock("@/server/services/booking-participant-walk-in", () => ({ addBookingWalkIn: vi.fn(), removeBookingCompanion: h.removeWalkIn }));
 vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: h.audit }));
 vi.mock("@/lib/db", () => ({ prisma: {
   booking: { findFirst: h.booking }, customer: { findMany: h.search, findFirst: h.existing }, $transaction: h.transaction,
