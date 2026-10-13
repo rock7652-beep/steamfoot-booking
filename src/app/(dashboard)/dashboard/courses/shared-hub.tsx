@@ -62,14 +62,20 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
     const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
+    // Direct panel queries must not render protected server content for a hidden/locked
+    // feature, an unauthorized account or a read-only store view.
+    const featurePanelAllowed = panel === "reminders" ? !readOnly && canEdit && lineReminder
+      : panel === "referral" ? !readOnly && canPayment && referralShare
+      : panel === "butler" ? !readOnly && canPayment && digitalButler
+      : true;
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={storeId} manual {...await getCourseSetup(storeId,user.id)}/>}
       <CourseSettingsWorkspace
         music={music}
-        panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}
+        panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}
         key={storeId}
-        canDigitalButler={canPayment && !readOnly && digitalButler}
-        canReferralShare={canPayment && !readOnly && referralShare}
+        canDigitalButler={canPayment && !readOnly}
+        canReferralShare={canPayment && !readOnly}
         canUnassignedPlans={canPlans && await checkPermission(user.role,user.staffId,"customer.read")}
         subscriptionSummary={canPayment ? subscriptionSummary : undefined}
         today={toLocalDateStr()}
@@ -94,7 +100,7 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
         canEdit={canEdit && !readOnly}
         usageMetrics={usage?.metrics}
         canTrial={!readOnly && await checkPermission(user.role,user.staffId,"trial.manage")}
-        canReminders={!readOnly && lineReminder && await checkPermission(user.role,user.staffId,"business_hours.manage")}
+        canReminders={!readOnly && canEdit}
         canCare={customerCare && await checkPermission(user.role,user.staffId,"customer.read")}
         canDutyRead={await checkPermission(user.role,user.staffId,"duty.read")}
         canDutyManage={!readOnly && await checkPermission(user.role,user.staffId,"duty.manage")}

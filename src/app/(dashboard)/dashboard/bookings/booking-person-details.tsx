@@ -5,7 +5,8 @@ import { getBookingCustomerProfile } from "@/server/actions/booking-customer-pro
 import { BookingServiceNoteEditor } from "./booking-service-note-editor";
 type Profile = Extract<Awaited<ReturnType<typeof getBookingCustomerProfile>>, { success: true }>['data'];
 const statusLabels: Record<string, string> = { PENDING: "預約中", CONFIRMED: "預約中", COMPLETED: "已完成", CANCELLED: "已取消", NO_SHOW: "未到" };
-export function BookingPersonDetails({ customerId, revision = 0, canEditNote, onNoteSaved, onWalletCount, initial }: {
+export function BookingPersonDetails({ customerId, revision = 0, canEditNote, onNoteSaved, onWalletCount, initial, onOpenDetails }: {
+  onOpenDetails?: () => void;
   initial?: { id: string; name: string; phone: string; serviceNote: string | null };
   customerId: string; name: string; revision?: number; canEditNote: boolean; onNoteSaved?: (value: string | null) => void; onWalletCount?: (count: number | null) => void;
 }) {
@@ -66,12 +67,13 @@ export function BookingPersonDetails({ customerId, revision = 0, canEditNote, on
       </> : <p className="py-1 text-base text-earth-600">尚無有效方案</p>)}
     </section>
     <button type="button" aria-expanded={open} className="min-h-11 rounded-lg px-3 text-base text-primary-700" onClick={() => {
+      if (onOpenDetails) { onOpenDetails(); return; }
       setOpen(!open); if (!open && !loaded && !loading) void load();
     }}>{open ? "收合資料" : "顧客資料"}</button>
     {open && <div className="rounded-lg bg-earth-50 p-3">
       {profile && <>
         <p className="mb-2 text-base">電話：{profile.phone ? <a href={`tel:${profile.phone}`} className="inline-flex min-h-11 items-center text-primary-700">{profile.phone}</a> : "未提供"}</p>
-        <BookingServiceNoteEditor customerId={customerId} value={profile.serviceNote} canEdit={canEditNote && loaded && !loading && !error} onSaved={value => {
+        <BookingServiceNoteEditor compact customerId={customerId} value={profile.serviceNote} canEdit={canEditNote && loaded && !loading && !error} onSaved={value => {
           setProfile(previous => previous ? { ...previous, serviceNote: value } : previous); reader.invalidate(customerId); onNoteSaved?.(value);
         }} />
         <details className="mt-2"><summary className="min-h-11 cursor-pointer py-2 text-base">近期預約 {profile.bookings.length ? `（${profile.bookings.length} 筆）` : ""}</summary>

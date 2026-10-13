@@ -1,8 +1,10 @@
+vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
 // @vitest-environment jsdom
 
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced",()=>({CustomerPanelAdvanced:()=>null}));
 vi.mock("@/server/actions/course-display-order",()=>({saveCourseDisplayOrder:vi.fn()}));
 vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));
 vi.mock("@/components/customer-labels",()=>({CustomerLabels:()=>null}));
@@ -33,15 +35,16 @@ it("preserves the edit draft across tabs and closes without redundant confirmati
  await click("編輯顧客資料");
  const input=host.querySelector('input[name="name"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"尚未儲存姓名");input.dispatchEvent(new Event("input",{bubbles:true}));});
- await click("持有方案");await click("基本資料");
+ await click("紀錄");await click("顧客概況");
  expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存姓名");
  vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉");
- expect(window.confirm).not.toHaveBeenCalled();expect(host.querySelector('input[name="name"]')).toBeNull();expect(m.save).not.toHaveBeenCalled();
+ expect(window.confirm).toHaveBeenCalledOnce();expect(host.querySelector('input[name="name"]')).not.toBeNull();expect(m.save).not.toHaveBeenCalled();
+ vi.mocked(window.confirm).mockReturnValue(true);await click("關閉");expect(host.querySelector("aside")).toBeNull();
 });
 it("does not show unauthorized wallet, record, health, or edit controls",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,canEdit:false,canCreate:false,canAssign:false,canReadCards:false,canReadBookings:false,canReadTransactions:false,healthEnabled:false})));
  const buttons=[...host.querySelectorAll("button")].map(b=>b.textContent);
- for(const label of ["持有方案","購買與上課","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
+ for(const label of ["購買方案","紀錄","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
 });
 it("separates plan products and held plans into compact views",async()=>{
  const plans=[{id:"plan",name:"運動十點方案",points:10,price:1000,validDays:30,isActive:true,unit:"POINT",templateIds:[]}];
@@ -61,7 +64,7 @@ it("keeps the customer shell and navigation stable across internal pages",async(
  expect(shell?.getAttribute("data-width")).toBe("880");
  expect(shell?.getAttribute("data-fit-content")).toBe("false");
  expect(shell?.getAttribute("data-max-height")).toBe("720");
- for(const label of ["持有方案","購買與上課","健康追蹤","基本資料"]){
+ for(const label of ["購買方案","紀錄","健康追蹤","顧客概況"]){
   await click(label);
   expect(host.querySelector("aside")).toBe(shell);
   expect(shell?.getAttribute("data-width")).toBe("880");
@@ -71,7 +74,7 @@ it("keeps the customer shell and navigation stable across internal pages",async(
  }
  await click("編輯顧客資料");
  expect(host.querySelector('input[name="name"]')).not.toBeNull();
- await click("返回基本資料");
+ await click("返回顧客概況");
  expect([...host.querySelectorAll("button")].map(b=>b.textContent)).toContain("編輯顧客資料");
  expect(host.querySelector("aside")).toBe(shell);
 });

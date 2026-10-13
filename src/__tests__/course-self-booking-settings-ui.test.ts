@@ -7,7 +7,6 @@ vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
 vi.mock("next/navigation", () => ({ useRouter: () => m, usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/server/actions/course-settings", () => ({ saveCourseSelfBookingSettings: m.save }));
-vi.mock("@/components/feature-presentation", () => ({ FeatureEntry: ({ children }: { children: unknown }) => children }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabelsSettings: () => null }));
 vi.mock("@/components/desktop", () => ({ InfoList: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-section-editor", () => ({ CourseSettingsSectionEditor: () => null }));

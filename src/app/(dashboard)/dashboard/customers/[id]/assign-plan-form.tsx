@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState, useMemo, useEffect, useRef } from "react";
 import { assignPlanToCustomer } from "@/server/actions/wallet";
@@ -171,6 +172,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
 
   useEffect(() => { onPendingChange?.(pending); }, [pending, onPendingChange]);
 
+  useSettingsPanelGuard(open && (selectedPlanId !== (defaultPlanId ?? "") || paymentMethod !== "CASH" || !!referenceNo || !!bankLast5 || hasDiscount || expiryMode !== "PLAN_DEFAULT"), pending);
   if (!open && !alwaysOpen) {
     return (
       <button

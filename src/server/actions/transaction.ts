@@ -1045,10 +1045,18 @@ export async function voidTransaction(
           where: {
             id: { not: current.id },
             customerPlanWalletId: wallet.id,
+            status: { notIn: ["VOIDED", "CANCELLED"] },
+            // 不增減金額與堂數的調整只是紀錄，不是方案來源。
+            // 其他調整、退款與購買仍保留檢查，不能因金額為零就略過。
+            NOT: {
+              transactionType: "ADJUSTMENT",
+              amount: 0,
+              quantity: 0,
+            },
           },
         });
         if (otherWalletPurchases > 0) {
-          throw new AppError("BUSINESS_RULE", "此交易不是方案錢包的唯一來源，無法直接取消");
+          throw new AppError("BUSINESS_RULE", "此方案還有其他購買、退款或堂數調整紀錄，請先核對方案明細，再取消這筆交易");
         }
         if (wallet.remainingSessions !== wallet.totalSessions) {
           throw new AppError("BUSINESS_RULE", "此方案已有堂數異動，不能直接取消交易");

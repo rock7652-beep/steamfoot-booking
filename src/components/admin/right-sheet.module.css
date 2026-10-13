@@ -124,3 +124,13 @@
   overflow: hidden;
  }
 }
+
+/* Customer review dialogs stay anchored without filling empty screen space. */
+@media (min-width: 640px) {
+  :global(.customer-review-panel) .centered {
+    top: 1.5rem;
+    transform: translateX(-50%);
+    height: auto;
+    max-height: min(var(--sheet-max-height, 900px), calc(100dvh - 3rem));
+  }
+}

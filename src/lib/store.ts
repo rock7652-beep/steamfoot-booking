@@ -6,7 +6,7 @@ import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { ACCESSIBLE_STORE_OPERATING_STATUSES } from "@/lib/store-operating-status";
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 
-type SessionLike = { role: string; storeId?: string | null };
+type SessionLike = { role: string; storeId?: string | null; customerReviewStoreId?: string };
 
 export const ALL_STORES_ID = "__all__";
 
@@ -48,6 +48,13 @@ async function getAccessibleDescendantStoreIds(ownStoreId: string): Promise<stri
 }
 
 export async function getAccessibleStores(user: SessionLike): Promise<AccessibleStore[]> {
+  if (user.customerReviewStoreId) {
+    const { prisma } = await import("@/lib/db");
+    return prisma.store.findMany({
+      where: { id: user.customerReviewStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      select: { id: true, slug: true, name: true, isDefault: true },
+    });
+  }
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
     const rows=await prisma.store.findMany({
@@ -108,6 +115,9 @@ async function resolveAuthorizedStoreAccess(
   requestedStoreId: string,
   mode: StoreAccessMode,
 ): Promise<AuthorizedConcreteStore | null> {
+  if (user.customerReviewStoreId && requestedStoreId !== user.customerReviewStoreId) {
+    throw new AppError("FORBIDDEN", "暫時驗收僅限測試店");
+  }
   const hqStoreView = getHqStoreViewContext(user);
   if (hqStoreView && mode !== "switch" && requestedStoreId !== hqStoreView.storeId) {
     throw new AppError("FORBIDDEN", "店家檢視中無權存取其他店舖的資料");

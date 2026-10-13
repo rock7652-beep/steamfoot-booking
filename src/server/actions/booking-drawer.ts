@@ -55,7 +55,7 @@ export interface BookingDrawerPayload {
     plans: Array<{ id: string; name: string; category: string; price: number; sessionCount: number; validityDays: number | null }>;
     settings: { allowEdit: boolean; defaultPrice: number; minPrice: number; maxPrice: number };
     slots: Array<{ id: string | null; position: number; revision: number; customerId: string | null; name: string | null;
-      service: string; status: string; source?: string; collectedAmount: number | null;
+      service: string; status: string; source?: string; collectedAmount: number | null; collectedMethod?: string | null;
       selectedWalletId?: string | null; selectedPlanName?: string | null; selectedOwnerName?: string | null; selectedOwnerId?: string | null; receiptCorrected?: boolean;
       wallets?: Array<{ id: string; name: string; available: number; expiryDate?: string | null }> }>;
   };
@@ -422,7 +422,7 @@ async function fetchBookingDetailMeasured(
   let companions: BookingDrawerPayload["companions"];
   if (process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && isTrial && booking.people >= 1 && !booking.isMakeup && trialSettings) {
     const rows = await prisma.$queryRaw<NonNullable<BookingDrawerPayload["participantCheckout"]>["slots"]>`
-      SELECT p.id, p.position, p.revision, p."customerId", c.name, p.service, p.status, p.source, ws."walletId" AS "selectedWalletId", sp.name AS "selectedPlanName", pw."customerId" AS "selectedOwnerId", wc.name AS "selectedOwnerName",
+      SELECT p.id, p.position, p.revision, p."customerId", c.name, p.service, p.status, p.source, ws."walletId" AS "selectedWalletId", sp.name AS "selectedPlanName", pw."customerId" AS "selectedOwnerId", wc.name AS "selectedOwnerName", t."paymentMethod"::text AS "collectedMethod",
         CASE WHEN t.id IS NULL THEN NULL WHEN t.status::text IN ('VOIDED','CANCELLED') THEN 0
           ELSE GREATEST(0, t.amount - GREATEST(COALESCE(t."refundAmount",0),
             COALESCE((SELECT SUM(-r.amount) FROM "Transaction" r WHERE r."refundOfTransactionId" = t.id

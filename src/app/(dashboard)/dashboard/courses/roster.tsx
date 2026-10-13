@@ -4,6 +4,10 @@ import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
 import { RosterReminders as SharedRosterReminders } from "@/components/admin/roster-reminders";
 import { SportsRosterReminders } from "./sports-roster-reminders";
 import sportsRoster from "./sports-roster.module.css";
+import { SettingsPanelContext } from "@/components/admin/settings-panel-context";
+import { useCustomerPanelGuard } from "@/components/admin/use-customer-panel-guard";
+import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
+import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { CourseCompanionEditor } from "@/components/course-companion-editor";
 import { useRetainedState, retainedString, retainedPage } from "@/components/operations/operation-scope";
@@ -239,6 +243,7 @@ export function CourseRoster({
   const [requestKey, setRequestKey] = useState("");
   const [editingNote, setEditingNote] = useState<{bookingId?:string;name:string;value:string}|null>(null);
   const [noteDraft,setNoteDraft]=useState("");
+  const infoGuard = useCustomerPanelGuard();
   const [infoBooking,setInfoBooking]=useState<{id:string;sessionId:string}|null>(null);
   const [infoView, setInfoView] = useState<"notes" | "history">("notes");
   const infoBookingId=infoBooking?.sessionId===sessionId?infoBooking.id:null;
@@ -1332,7 +1337,7 @@ export function CourseRoster({
         if(infoView === "history") return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="course-roster-history-title" width={512}>
           <header className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-2">
             <h3 id="course-roster-history-title" className="min-w-0 break-words font-semibold">{booking.customerName} · 預約紀錄</h3>
-            <button type="button" className={reminderButton} onClick={()=>setInfoBookingId(null)}>關閉</button>
+            <div className="flex gap-2"><button type="button" className={reminderButton} onClick={()=>setInfoView("notes")}>返回詳情</button><button type="button" className={reminderButton} onClick={()=>setInfoBookingId(null)}>關閉</button></div>
           </header>
           <div className="min-h-0 space-y-4 overflow-y-auto p-4 text-sm">
             <section><h4 className="text-earth-500">本次預約</h4><p>{session && formatTWDateTime(new Date(session.startsAt))} · {courseName}</p><p>{booking.bookingSource}{booking.operatorName && ` · ${booking.operatorName}`}</p>{booking.createdAt && <p>建立：{formatTWDateTime(new Date(booking.createdAt))}</p>}<p>{booking.status === "ATTENDED" ? "已出席" : booking.status === "NO_SHOW" ? "曠課" : booking.absenceKind === "STUDENT_LEAVE" ? "請假・不扣堂" : booking.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假・扣堂" : booking.status === "CANCELLED" ? "已取消" : "待上課"}</p></section>
@@ -1345,18 +1350,26 @@ export function CourseRoster({
             <section><h4 className="text-earth-500">付款與下期紀錄</h4>{booking.termPayment || booking.nextTerm ? <TermPaymentHistory booking={booking}/> : <p>尚無本期／下期付款紀錄</p>}</section>
           </div>
         </ModalPanel>;
-        if(!musicLayout) return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="course-roster-info-title" width={512}>
-          <header className="flex items-center justify-between gap-3 border-b border-earth-100 px-4 py-2"><h3 id="course-roster-info-title" className="min-w-0 break-words font-semibold">{booking.customerName} · 預約詳情</h3><button type="button" className={reminderButton} onClick={()=>setInfoBookingId(null)}>關閉</button></header>
-          <div className="min-h-0 space-y-4 overflow-y-auto p-4 text-sm">
-            <div><h4 className="text-earth-500">使用方案</h4><p className="break-words">{booking.planName}</p>{booking.sharedCard && <p>共卡：此方案由既有授權成員共用餘額。</p>}</div>
-            <div><h4 className="text-earth-500">預約來源</h4><p className="break-words">{booking.bookingSource}</p>{!!booking.operatorCustomerId && booking.operatorCustomerId!==booking.customerId && !booking.companionIndex && <p>代約：由 {booking.operatorName || "已授權成員"} 協助預約，上課人為 {booking.customerName}；不會新增共卡授權。</p>}<p>{formatTWDateTime(new Date(booking.createdAt))}</p></div>
+        const payment = booking.trialPayments.find(item => item.status === "SUCCESS");
+        const note = inlineBookingNote(booking.id);
+        return <SettingsPanelContext.Provider value={infoGuard.context}><ModalPanel open onClose={() => { if (infoGuard.allowLeave()) { setPaymentBooking(null); setInfoBookingId(null); } }} labelledById="course-roster-info-title" width={640}>
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-earth-100 px-4 py-2"><h3 id="course-roster-info-title" className="min-w-0 break-words font-semibold">{booking.customerName} · 預約詳情</h3><button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) { setPaymentBooking(null); setInfoBookingId(null); } }}>關閉</button></header>
+          {payBooking?.id === booking.id && paymentSettings && !correctPayment ? <CollectTrialModal embedded key={booking.id} open onClose={() => setPaymentBooking(null)} bookingId={booking.id} customerName={booking.customerName} dateLabel={session ? formatTWDateTime(new Date(session.startsAt)) : ""} expectedAmount={booking.trialPrice} people={1} attendedPeople={null} settings={paymentSettings} courseMode saveAction={data => collectCourseTrial({ ...data, requestKey })} onCollected={() => { setPaymentBooking(null); void load(); router.refresh(); }}/> : <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain p-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2"><CustomerPhoneLink phone={booking.customerPhone}/><span>{session && formatTWDateTime(new Date(session.startsAt))}{courseName && ` · ${courseName}`}</span></div>
             {booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit}/>}
-            <div><h4 className="text-earth-500">店內備註</h4><p className="whitespace-pre-wrap break-words">{booking.serviceNote?.trim() || "尚無備註"}</p></div>
-            <div><h4 className="text-earth-500">本次備註</h4><p className="whitespace-pre-wrap break-words">{booking.notes?.trim() || "尚無備註"}</p></div>
-            {canEdit && booking.status!=="CANCELLED" && <button type="button" className={reminderButton} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}
-          </div>
-        </ModalPanel>;
-        return <ModalPanel open onClose={()=>setInfoBookingId(null)} labelledById="music-roster-info-title" width={512}><div className="min-h-0 w-full space-y-4 overflow-auto rounded-xl bg-white p-5 shadow-xl"><h3 id="music-roster-info-title" className="font-semibold">{booking.customerName} · 標籤與備註</h3><div className="text-sm"><span className="text-sm text-earth-500">預約時間</span><p>{formatTWDateTime(new Date(booking.createdAt))} · {booking.operatorName || "學員自約"}</p></div>{booking.customerId && <CustomerLabels customerId={booking.customerId} readOnly={!canEdit} />}<div><h4 className="text-sm text-earth-500">店內備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.serviceNote?.trim() || "尚無備註"}</p></div><div><h4 className="text-sm text-earth-500">本次備註</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{booking.notes?.trim() || "尚無備註"}</p></div><div className="flex justify-end gap-2">{canEdit && booking.status !== "CANCELLED" && <button type="button" className={reminderButton} onClick={()=>{setInfoBookingId(null);setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>編輯本次備註</button>}<button type="button" className={reminderButton} onClick={()=>setInfoBookingId(null)}>關閉</button></div></div></ModalPanel>;})()}
+            {booking.serviceNote?.trim() && <section className="border-t border-earth-100 py-2"><h4 className="font-semibold">店內備註</h4><p className="whitespace-pre-wrap break-words">{booking.serviceNote}</p></section>}
+            <section className="border-t border-earth-100 py-2"><h4 className="font-semibold">本次使用</h4><p className="break-words">{booking.bookingKind === "TRIAL" ? "體驗" : booking.planName}</p>
+              {booking.termCount > 0 && <p>{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂{(booking.nextPaidLessons ?? 0) > 0 && ` · 下期已繳 ${booking.nextPaidLessons} 堂`}</p>}
+              {booking.expiresAt && <p className="text-earth-600">期限：{toLocalDateStr(new Date(booking.expiresAt))}</p>}
+              {booking.sharedCard && <p className="text-earth-600">共卡：與授權成員共用餘額</p>}
+              {booking.bookingKind === "TRIAL" && <div className="flex min-h-11 flex-wrap items-center justify-between gap-2"><span>{payment ? `已收 NT$ ${payment.amount.toLocaleString("zh-TW")}` : booking.trialPrice == null ? "待收款" : `待收 NT$ ${booking.trialPrice.toLocaleString("zh-TW")}`}</span>{!payment && trial?.canCollect && booking.status !== "CANCELLED" && <button type="button" className={primaryButton} onClick={() => { if (infoGuard.allowLeave()) { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); } }}>收款</button>}</div>}
+            </section>
+            <RetainedNoteEditor quiet stateKey={`inline-roster-note:${note.scopeKey}`} title="本次備註" hint="" placeholder="記錄本次上課需要留意的事項" maxLength={note.maxLength} value={booking.notes || null} canEdit={canEdit && booking.status !== "CANCELLED"} save={note.save} onSaved={note.onSaved}/>
+            <div className="flex flex-wrap gap-2 border-t border-earth-100 pt-2"><button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setInfoView("history"); }}>預約紀錄</button>{payment && trial?.canCorrect && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setPaymentMenu(booking.id); }}>收款更正</button>}{canPurchase && booking.customerId && booking.bookingKind !== "TRIAL" && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) void openStudentPurchase(booking.id); }}>學員繳費</button>}</div>
+            <details className="border-t border-earth-100"><summary className="min-h-11 cursor-pointer py-3 text-earth-600">預約來源</summary><p>{booking.bookingSource}{booking.operatorName && ` · ${booking.operatorName}`}</p>{booking.createdAt && <p>{formatTWDateTime(new Date(booking.createdAt))}</p>}{!!booking.operatorCustomerId && booking.operatorCustomerId !== booking.customerId && !booking.companionIndex && <p>代約：{booking.operatorName || "已授權成員"} 替 {booking.customerName} 預約</p>}</details>
+          </div>}
+        </ModalPanel></SettingsPanelContext.Provider>;})()}
+
 
       {paymentMenu && (() => {
         const booking = roster.find(row => row.id === paymentMenu);
@@ -1572,7 +1585,7 @@ export function CourseRoster({
           {purchaseOptions?.plans.length ? <div className="flex justify-end border-t border-earth-200 p-4"><button className={primaryButton} type="submit" form="course-roster-purchase-form" disabled={purchasePending || !purchasePlanId || !purchaseSummary.valid}>{purchasePending ? "處理中…" : "確認已收款並建立方案"}</button></div> : null}
         </div>
       </div>}
-      {payBooking && paymentSettings && !correctPayment && (
+      {payBooking && payBooking.id !== infoBookingId && paymentSettings && !correctPayment && (
         <CollectTrialModal
           key={payBooking.id}
           open
