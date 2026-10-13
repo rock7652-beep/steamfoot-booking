@@ -29,6 +29,30 @@ describe("overrideLastVisitFromCompletedBookings", () => {
     expect(result[1].lastVisitAt).toEqual(D("2026-05-10")); // 舊 stale 值被覆蓋
   });
 
+  it("includes the latest completed companion visit with the booking owner's visits", () => {
+    const customers = [
+      { id: "owner", lastVisitAt: null },
+      { id: "companion", lastVisitAt: null },
+      { id: "stale", lastVisitAt: D("2024-01-01") },
+    ];
+    const groups = [
+      { customerId: "owner", _max: { bookingDate: D("2026-05-01") } },
+      { customerId: "stale", _max: { bookingDate: D("2026-04-01") } },
+    ];
+    const participantVisits = [
+      { customerId: "companion", bookingDate: D("2026-10-13") },
+      { customerId: "owner", bookingDate: D("2026-04-30") },
+      { customerId: null, bookingDate: D("2026-10-13") },
+      { customerId: "stale", bookingDate: D("2025-01-01") },
+    ];
+    const result = overrideLastVisitFromCompletedBookings(customers, groups, participantVisits);
+    expect(result.map(customer => customer.lastVisitAt)).toEqual([
+      D("2026-05-01"),
+      D("2026-10-13"),
+      D("2026-04-01"),
+    ]);
+  });
+
   it("無 COMPLETED booking → 退回 Customer.lastVisitAt（向後相容）", () => {
     const customers = [
       { id: "c1", lastVisitAt: D("2024-01-01") }, // 舊資料保留
