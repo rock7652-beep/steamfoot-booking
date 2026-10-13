@@ -86,7 +86,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm("移除這位臨時加入者？會釋放此人的名額並保留紀錄，其他人不受影響。"))
             void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "CANCELLED" }), "CANCELLED");
-        }} className="min-h-11 rounded-lg border border-red-200 px-3 text-base text-red-700 disabled:opacity-50">移除臨時加入</button>}
+        }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 min-w-11 rounded-lg border border-red-200 px-3 text-2xl leading-none text-red-700 disabled:opacity-50">×</button>}
         {checkout.canCollect && !isPlan && amount == null && (slot.customerId || checkout.canCollectUnregistered) && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setSelling(false); setExpanded(!expanded); }}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">收款並完成 ${checkout.settings.defaultPrice.toLocaleString("zh-TW")}</button>}
         {checkout.canResolve && (amount == null || slot.receiptCorrected) && slot.customerId && !!slot.wallets?.length && <button type="button" disabled={blocked || saving}
