@@ -193,7 +193,7 @@ export function BookingParticipantCheckout(props: { bookingId: string; checkout:
   return <section className="border-b border-earth-100 p-4" aria-label="逐人體驗結帳">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold text-earth-900">到店人員</h3>{props.companions && <BookingCompanionEditor bookingId={props.bookingId} companions={props.companions} readOnly={props.readOnly} blocked={props.blocked} onBusy={props.onBusy} onUpdated={props.onUpdated} addOnly />}</div>
     <p role="status" className="mb-2 break-words text-sm text-earth-600">已服務 {completed}／{slots.length} 人 · 已收 NT$ {collected.toLocaleString("zh-TW")}{noShow ? ` · 未到 ${noShow}` : ""}{cancelled ? ` · 已取消 ${cancelled}` : ""}</p>
-    {props.checkout.slots.map(slot => <ParticipantRow key={`${props.bookingId}:${slot.position}`} {...props} latestWalkInPosition={latestWalkInPosition} slot={slot}
+    {slots.map(slot => <ParticipantRow key={`${props.bookingId}:${slot.position}`} {...props} latestWalkInPosition={latestWalkInPosition} slot={slot}
       onProgress={(position, revision, status, amount) => setProgress(previous => ({ ...previous, [keyFor(position, revision)]: { status, amount } }))} />)}
   </section>;
 }
