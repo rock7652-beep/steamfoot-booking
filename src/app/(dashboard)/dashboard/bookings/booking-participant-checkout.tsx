@@ -89,7 +89,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
           onClick={() => { setExpanded(false); setSelling(false); setWalletId(slot.wallets?.length === 1 ? slot.wallets[0].id : ""); setUsingPlan(!usingPlan); }}
           className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{isPlan ? "更換方案" : "改用方案"}</button>}
         {walletCount === 0 && sellButton}
-        {(checkout.canResolve || (canSell && walletCount !== 0)) && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="⋯"><div className="flex flex-col gap-1">
+        {(checkout.canResolve || (canSell && walletCount !== 0)) && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="⋯ 更多操作"><div className="flex flex-col gap-1">
         {walletCount !== 0 && sellButton}
         {checkout.canResolve && <><button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`將${slot.name ?? "這位同行者"}標記未到？不會收取體驗費。`)) void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "NO_SHOW" }), "NO_SHOW");
@@ -108,7 +108,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
           onClick={() => void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "completePaid" }), "COMPLETED", amount)}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">完成服務</button>}
       </div>}
-      {!readOnly && checkout.canResolve && status === "CANCELLED" && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="⋯"><div className="flex flex-col gap-1">
+      {!readOnly && checkout.canResolve && status === "CANCELLED" && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="⋯ 更多操作"><div className="flex flex-col gap-1">
         <button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`恢復${slot.name ?? "這位同行者"}的名額？狀態會改回待到店；若要換人，請新增一位同行者。`))
             void run(() => restoreBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "PENDING", null);
