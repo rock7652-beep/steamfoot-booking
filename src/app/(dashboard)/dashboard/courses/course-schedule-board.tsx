@@ -278,7 +278,7 @@ function SessionCard({
   const presentation = businessProfile === "MUSIC"
     ? rental ? {label:"空間租借",dot:"bg-pink-500"}
       : trialClass ? {label:"體驗",dot:"bg-orange-500"}
-      : fixed ? {label:session.isBiweekly?"隔週固定":"固定課程",dot:"bg-blue-600"}
+      : fixed ? {label:session.isBiweekly?"隔週固定":"固定課程",dot:session.isBiweekly?"bg-violet-600":"bg-blue-600"}
       : {label:"單次課程",dot:"bg-emerald-600"}
     : courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, rental);
   const changed = session.previewKind === "CHANGED";
@@ -371,7 +371,7 @@ function SessionCard({
         )}
         {progressText && <span className={`text-xs font-semibold ${progressColor}`} title={teacherState || "點名完成度"}>{progressText}</span>}
         {fixed && businessProfile === "MUSIC" && (
-          <span className={"text-xs font-medium text-earth-600"}>
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${session.isBiweekly ? "bg-violet-50 text-violet-800" : "text-blue-700"}`}>
             {session.isBiweekly ? "隔週固定" : "每週固定"}
           </span>
         )}
@@ -940,7 +940,7 @@ export function CourseScheduleBoard({
                                : "原非固定課已調走；可核對後續時段再排固定課" : "";
                              const reason=moveClipboard
                                ? matchError || (!matchedSlots ? "正在核對空位" : "這裡沒有可排的合格老師或教室")
-                               : !enabled?"資源未啟用":!storeOpen?"店家���開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
+                               : !enabled?"資源未啟用":!storeOpen?"店家未開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
                              const coachIds = serverMatch?.coachIds ?? [];
                              const matches = resourceView === "coach" ? matchedSlots?.filter(s => s.time === startTime && s.coachIds.includes(resource.id)) ?? [] : [];
                              const choiceLabel = resourceView === "room" ? `${coachIds.length} 位老師可排` : `${matches.length} 間教室可排`;

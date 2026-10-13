@@ -150,7 +150,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
         const input={
           templateId,scheduleType:isTrial?"TRIAL":repeat?"FIXED":"SINGLE",scheduleFrequency:repeat?frequency:"NONE",sourceSessionId:templateId===initialTemplateId?sourceSessionId:undefined,roomId:selectedPair.roomId,coachId:selectedPair.coachId,time,
           durationMinutes:duration,capacity:workflow==="time"?Math.max(1,learners.length):capacity,
-          date:includedDates[0],additionalDates:repeat?includedDates.slice(1):undefined,
+          date:includedDates[0],additionalDates:repeat?includedDates.slice(1):undefined,fixedUntil:repeat&&validUntil?validUntil:undefined,
           requestKey,isTrial,learners:learners.map(({customerId,cardId,trialPrice,name})=>({customerId:customerId.startsWith("trial-draft:")?null:customerId,...(customerId.startsWith("trial-draft:")?{participantKey:customerId.slice(12),customerName:name}:{}),cardId:cardId||null,...(trialPrice!==undefined?{trialPrice}:{})})),
         };
         const check=await inspectCourseSchedule(input);
@@ -199,7 +199,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
           <label>頻率<select aria-label="固定課程頻率" className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" value={frequency} onChange={e=>{setFrequency(e.target.value as "WEEKLY"|"BIWEEKLY");setConflicts([]);}}><option value="WEEKLY">每週</option><option value="BIWEEKLY">隔週</option></select></label>
           <label>開始日期<input aria-label="固定課程開始日期" type="date" value={date} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-3" onChange={e=>{setDate(e.target.value);resetSlot();}}/></label>
           <label className="sm:col-span-2">有效期限（選填）<input aria-label="固定課程有效期限" type="date" min={date} value={validUntil} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-3" onChange={e=>{setValidUntil(e.target.value);setConflicts([]);}}/></label>
-          {!validUntil&&<p className="text-xs text-earth-500 sm:col-span-2">未填期限時，先安排至 {fixedSchedule.lastSupportedDate}，之後可再續排。</p>}
+          {!validUntil&&<p className="text-xs text-earth-500 sm:col-span-2">固定時段會持續保留；課表先顯示至 {fixedSchedule.lastSupportedDate}，取消後續才釋出。</p>}
           {validityError&&<p role="alert" className="text-red-700 sm:col-span-2">{validityError}</p>}
           <p className="text-earth-600 sm:col-span-2">將安排 {includedDates.length} 次，日期從 {date} 開始。</p>
         </div>}

@@ -68,7 +68,7 @@ it("music shares readable white cards, class dots and attendance progress",async
   const card=host.querySelector<HTMLButtonElement>('button[data-schedule-card="tracking"]')!;
   expect(card.className).toContain("bg-white");
   expect(card.className).not.toContain("border-l-4");
-  expect(card.querySelector('[aria-hidden="true"]')?.className).toContain("bg-emerald-600");
+  expect(card.querySelector('[aria-hidden="true"]')?.className).toContain("bg-violet-600");
   expect(card.textContent).toContain("10:00–11:30");
   expect(card.textContent).toContain("✓ 1/1");
   expect(card.textContent).toContain("隔週");

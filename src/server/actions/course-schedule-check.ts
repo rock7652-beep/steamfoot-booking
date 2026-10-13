@@ -5,6 +5,7 @@ import { coursePrisma } from "@/lib/course-db";
 import { courseScheduleInput, buildCourseOccurrences } from "@/lib/course-scheduling";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { handleCourseActionError, assertCourseResources } from "@/server/services/course-resources";
+import { findFixedSeriesConflicts } from "@/lib/course-series";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 import { assertMusicCourseAvailability } from "@/server/services/course-availability";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
@@ -17,11 +18,13 @@ export async function inspectCourseSchedule(input:unknown) {
     const occurrences=buildCourseOccurrences(data);
     await assertCourseResources(coursePrisma,storeId,data);
     const ranges=occurrences.map(range=>({startsAt:{lt:range.endsAt},endsAt:{gt:range.startsAt}}));
-    const [sessions,bookings]=await Promise.all([
+    const [sessions,bookings,fixedRules]=await Promise.all([
       coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,releasedAt:null,AND:[{OR:[{roomId:data.roomId},{coachId:data.coachId}]},{OR:ranges}]},select:{startsAt:true,endsAt:true,roomId:true}}),
       data.learners.length?coursePrisma.courseBooking.findMany({where:{storeId,customerId:{in:data.learners.map(row=>row.customerId).filter((id):id is string=>!!id)},status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,OR:ranges}},select:{customerId:true,customerName:true,session:{select:{startsAt:true,endsAt:true}}}}):Promise.resolve([]),
+      coursePrisma.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null,startsAt:{lt:occurrences[occurrences.length-1].endsAt},OR:[{untilDate:null},{untilDate:{gte:new Date(`${toLocalDateStr(occurrences[0].startsAt)}T00:00:00.000Z`)}}]}}),
     ]);
     const issues: {date:string;reason:string}[]=[];
+    issues.push(...findFixedSeriesConflicts(fixedRules,occurrences,{roomId:data.roomId,coachId:data.coachId},data.requestKey).map(({date,reason})=>({date,reason})));
     for(const [index,range] of occurrences.entries()){
       const date=toLocalDateStr(range.startsAt);
       const conflicts=sessions.filter(s=>s.startsAt<range.endsAt&&s.endsAt>range.startsAt);

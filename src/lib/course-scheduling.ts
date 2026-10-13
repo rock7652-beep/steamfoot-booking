@@ -41,6 +41,7 @@ export const courseScheduleInput = z.object({
   durationMinutes: z.number().int().min(1).max(480),
   capacity: z.number().int().min(1).max(500),
   repeatUntil: date.optional(),
+  fixedUntil: date.optional(),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
   additionalDates: z.array(date).max(52).optional(),
   requestKey: z.string().uuid(),

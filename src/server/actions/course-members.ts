@@ -19,7 +19,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
+import { addTaiwanDuration, dayRange, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import {
   courseManager,
   courseMember,
@@ -557,6 +557,12 @@ export async function cancelCourseSession(input: unknown) {
         where: { id: session.id },
         data: { cancelledAt: new Date() },
       });
+      const series = await tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: session.requestKey } } });
+      if (series && session.scheduleType === "FIXED") {
+        const date = toLocalDateStr(session.startsAt);
+        if (!series.excludedDates.includes(date))
+          await tx.courseScheduleSeries.update({ where: { id: series.id }, data: { excludedDates: [...series.excludedDates, date] } });
+      }
       await cancelCourseWaitlistForSession(tx, storeId, session.id);
     });
     refresh();
@@ -579,6 +585,7 @@ async function futureMusicCourseScope(
     select: { id: true, requestKey: true, templateId: true, startsAt: true },
   });
   if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+  const seriesRule = await tx.courseScheduleSeries.findUnique({ where: { storeId_requestKey: { storeId, requestKey: source.requestKey } }, select: { id: true, cancelledAt: true } });
   let customerId: string | undefined;
   let customerName: string | undefined;
   if (bookingId) {
@@ -612,6 +619,8 @@ async function futureMusicCourseScope(
     sessionIds: sessions.map((item) => item.id),
     bookingIds: allBookings.map((item) => item.id),
     customerName,
+    hasSeriesRule: Boolean(seriesRule && !seriesRule.cancelledAt),
+    seriesStopDate: effectiveDate ? addTaiwanDuration(effectiveDate, -1, "DAY") : toLocalDateStr(source.startsAt),
   };
 }
 
@@ -640,7 +649,7 @@ export async function stopFutureCourseLessons(input: unknown) {
       if (scope.sessionIds.join(",") !== data.expectedSessionIds.join(",") ||
           scope.bookingIds.join(",") !== data.expectedBookingIds.join(","))
         throw new AppError("CONFLICT", "後續課程或名單已變動，請重新開啟確認");
-      if (!scope.sessionIds.length || data.bookingId && !scope.bookingIds.length)
+      if ((!scope.sessionIds.length && !scope.hasSeriesRule) || data.bookingId && !scope.bookingIds.length)
         throw new AppError("VALIDATION", "沒有可停止的後續已排課");
       const affectedSessionIds = new Set<string>();
       for (const bookingId of scope.bookingIds) {
@@ -659,6 +668,12 @@ export async function stopFutureCourseLessons(input: unknown) {
           where: { storeId, id: { in: scope.sessionIds }, cancelledAt: null },
           data: { cancelledAt: new Date() },
         });
+        if (scope.hasSeriesRule) {
+          await tx.courseScheduleSeries.updateMany({
+            where: { storeId, requestKey: (await tx.courseSession.findFirstOrThrow({ where: { id: data.sessionId, storeId }, select: { requestKey: true } })).requestKey, cancelledAt: null },
+            data: { untilDate: new Date(`${scope.seriesStopDate}T00:00:00.000Z`) },
+          });
+        }
         for (const sessionId of scope.sessionIds)
           await cancelCourseWaitlistForSession(tx, storeId, sessionId);
         return [];

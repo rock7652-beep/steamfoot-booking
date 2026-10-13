@@ -1,14 +1,14 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({access:vi.fn(),resources:vi.fn(),hours:vi.fn(),availability:vi.fn(),duty:vi.fn(),sessions:vi.fn(),bookings:vi.fn()}));
+const m=vi.hoisted(()=>({access:vi.fn(),resources:vi.fn(),hours:vi.fn(),availability:vi.fn(),duty:vi.fn(),sessions:vi.fn(),bookings:vi.fn(),series:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.access}));
 vi.mock("@/server/services/course-resources",()=>({assertCourseResources:m.resources,handleCourseActionError:(e:Error)=>({success:false,error:e.message})}));
 vi.mock("@/server/services/course-business-hours",()=>({assertCourseSessionsFitHours:m.hours}));
 vi.mock("@/server/services/course-availability",()=>({assertMusicCourseAvailability:m.availability}));
 vi.mock("@/server/services/course-duty",()=>({assertCourseDutyCoverage:m.duty}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseSession:{findMany:m.sessions},courseBooking:{findMany:m.bookings}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseSession:{findMany:m.sessions},courseBooking:{findMany:m.bookings},courseScheduleSeries:{findMany:m.series}}}));
 import {inspectCourseSchedule} from "@/server/actions/course-schedule-check";
 const input={templateId:"guitar",roomId:"room",coachId:"teacher",capacity:2,date:"2099-10-01",time:"18:00",durationMinutes:60,additionalDates:["2099-10-08"],learners:[{customerId:"a",cardId:"card"}],requestKey:"00000000-0000-4000-8000-000000000017"};
-beforeEach(()=>{vi.resetAllMocks();m.access.mockResolvedValue({storeId:"store"});m.sessions.mockResolvedValue([]);m.bookings.mockResolvedValue([]);});
+beforeEach(()=>{vi.resetAllMocks();m.access.mockResolvedValue({storeId:"store"});m.sessions.mockResolvedValue([]);m.bookings.mockResolvedValue([]);m.series.mockResolvedValue([]);});
 it("reports room, student and availability conflicts across the entire batch without writing",async()=>{
   m.sessions.mockResolvedValue([{startsAt:new Date("2099-10-01T10:00:00Z"),endsAt:new Date("2099-10-01T11:00:00Z"),roomId:"room"}]);
   m.bookings.mockResolvedValue([{customerId:"a",customerName:"小安",session:{startsAt:new Date("2099-10-08T10:00:00Z"),endsAt:new Date("2099-10-08T11:00:00Z")}}]);
@@ -26,4 +26,19 @@ it("checks only the dates explicitly included in the request",async()=>{
   await inspectCourseSchedule({...input,additionalDates:[]});
   expect(m.hours).toHaveBeenCalledTimes(1);
   expect(m.availability).toHaveBeenCalledTimes(1);
+});
+it("reports a fixed-series reservation even when no CourseSession row exists for that date",async()=>{
+  m.series.mockResolvedValue([{
+    requestKey:"fixed",
+    roomId:"room",
+    coachId:"other-teacher",
+    startsAt:new Date("2099-10-01T10:00:00.000Z"),
+    endsAt:new Date("2099-10-01T11:00:00.000Z"),
+    frequency:"WEEKLY",
+    untilDate:null,
+    excludedDates:[],
+    cancelledAt:null,
+  }]);
+  const result=await inspectCourseSchedule({...input,additionalDates:[]});
+  expect(result).toMatchObject({success:true,issues:[{date:"2099-10-01",reason:"18:00 教室已有固定課"}]});
 });

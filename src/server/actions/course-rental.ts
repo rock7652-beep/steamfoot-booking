@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError } from "@/lib/errors";
-import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { findFixedSeriesConflicts } from "@/lib/course-series";
 import { rentalInput,rentalOccupation } from "@/lib/course-rental";
 import { courseManager,courseManagerRead,courseTransaction } from "@/server/services/course-access";
 import { handleCourseActionError } from "@/server/services/course-resources";
@@ -68,6 +69,9 @@ export async function saveCourseRental(input:unknown) {
       }
       const occupied=rentalOccupation(start,end,room.rentalBufferMinutes);
       await rentalConflict(tx,storeId,room.id,occupied.occupiedStartsAt,occupied.occupiedEndsAt,d.id);
+      const fixedRules=await tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null,startsAt:{lt:occupied.occupiedEndsAt},OR:[{untilDate:null},{untilDate:{gte:new Date(`${toLocalDateStr(occupied.occupiedStartsAt)}T00:00:00.000Z`)}}]}});
+      const fixedConflict=findFixedSeriesConflicts(fixedRules,[{startsAt:occupied.occupiedStartsAt,endsAt:occupied.occupiedEndsAt}],{roomId:room.id,coachId:""})[0];
+      if(fixedConflict)throw new AppError("CONFLICT",`${fixedConflict.date} · 空間已有固定課`);
       await assertCourseSessionsFitHours(tx,storeId,[{startsAt:start,endsAt:end}]);
       const fields={roomId:room.id,customerId:d.customerId,customerName:name,customerPhone:phone,startsAt:start,endsAt:end,...occupied,hourlyRateSnapshot:existing && existing.roomId===room.id && existing.startsAt.getTime()===start.getTime() && existing.endsAt.getTime()===end.getTime()?existing.hourlyRateSnapshot:room.rentalHourlyRate,amount:d.amount,note:d.note};
       const record=d.id?await tx.courseRental.update({where:{id:d.id,storeId},data:{...fields,revision:{increment:1}}}):await tx.courseRental.create({data:{...fields,storeId,requestKey:d.requestKey,createdById:user.id}});

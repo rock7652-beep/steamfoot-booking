@@ -9,6 +9,7 @@ import { courseDutyIntervals, dutyCoversCourse } from "@/lib/course-duty";
 import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
 import { dayRange, formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { handleCourseActionError } from "@/server/services/course-resources";
+import { fixedSeriesOccurrenceOnDate } from "@/lib/course-series";
 
 export type MusicSlotMatch = { time: string; roomId: string; coachIds: string[]; fixedOriginCoachIds?: string[] };
 export type MusicUnavailableSlot = {time:string;reason:string;fixTarget?:"hours"|"teacher"|"room"};
@@ -63,6 +64,13 @@ export async function getMusicSlotMatches(input: unknown) {
       coursePrisma.courseSession.findMany({ where: { storeId, cancelledAt: null, releasedAt: null, startsAt: { lt: dayRange(lastDate).end }, endsAt: { gt: dayRange(firstDate).start } }, select: { id: true, startsAt: true, endsAt: true, roomId: true, coachId: true } }),
     ]);
     const ignored = new Set(moved.map(s => s.id));
+    const fixedRules = await coursePrisma.courseScheduleSeries.findMany({
+      where: { storeId, cancelledAt: null, startsAt: { lt: dayRange(data.date).end }, OR: [{ untilDate: null }, { untilDate: { gte: dayRange(data.date).start } }] },
+    });
+    occupied.push(...fixedRules.flatMap(rule => {
+      const occurrence = fixedSeriesOccurrenceOnDate(rule, data.date);
+      return occurrence ? [{ id: `series:${rule.id}`, ...occurrence, roomId: rule.roomId, coachId: rule.coachId }] : [];
+    }));
     const storeCache = new Map<string, ReturnType<typeof resolvedCourseHours>>();
     const periodsFor = (date: string) => {
       if (!storeCache.has(date)) storeCache.set(date, resolvedCourseHours(date, hours, specials));
