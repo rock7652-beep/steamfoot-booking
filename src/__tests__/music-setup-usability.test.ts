@@ -19,20 +19,20 @@ const click=async(text:string)=>{const button=[...host.querySelectorAll("button"
 it("automatically selects a sole qualified pair and creates only after explicit submission",async()=>{
  m.slots.mockResolvedValue({success:true,data:[{time:"10:00",roomId:"room",coachIds:["teacher"]}]});m.create.mockResolvedValue({success:true,data:{sessionId:"new"}});
  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
- await click("10:00");expect(host.textContent).toContain("儲存排課");expect(m.create).not.toHaveBeenCalled();
- await click("儲存排課");expect(m.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"guitar",coachId:"teacher",roomId:"room",date:"2026-10-10",time:"10:00"}));
+ await click("10:00");expect(host.textContent).toContain("新增");expect(m.create).not.toHaveBeenCalled();
+ await click("新增");expect(m.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"guitar",coachId:"teacher",roomId:"room",date:"2026-10-10",time:"10:00"}));
 });
 it("does not auto-select a fixed-origin pair that the user cannot select",async()=>{
  m.slots.mockResolvedValue({success:true,data:[{time:"10:00",roomId:"room",coachIds:["teacher"],fixedOriginCoachIds:["teacher"]}]});
  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));await click("10:00");
- expect(host.querySelector<HTMLButtonElement>('footer button')?.disabled).toBe(true);
+ expect([...host.querySelectorAll<HTMLButtonElement>('footer button')].find(button=>button.textContent==="新增")?.disabled).toBe(true);
 });
-it("offers the relevant repair in another tab and refreshes while keeping entered settings",async()=>{
+it("offers the relevant repair inline and refreshes while keeping entered settings",async()=>{
  m.slots.mockResolvedValue({success:true,data:[],blocker:{reason:"沒有符合這門課資格的老師",fixTarget:"teacher"},unavailable:[]});
  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
  expect(host.querySelector("details")?.open).toBe(false);
  expect(host.querySelector('[role="status"]')?.textContent).toContain("沒有符合這門課資格的老師");
- const link=host.querySelector<HTMLAnchorElement>('a[href="/dashboard/teachers"]')!;expect(link.target).toBe("_blank");
+ const link=host.querySelector<HTMLAnchorElement>('a[href="/dashboard/teachers"]')!;expect(link.target).toBe("");
  const capacity=host.querySelector<HTMLInputElement>('input[type="number"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(capacity,"2");capacity.dispatchEvent(new Event("input",{bubbles:true}));});
  await click("重新檢查");expect(capacity.value).toBe("2");expect(m.slots).toHaveBeenCalledTimes(2);expect(host.querySelector<HTMLInputElement>('input[type="date"]')?.value).toBe("2026-10-10");
