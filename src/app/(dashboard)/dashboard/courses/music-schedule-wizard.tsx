@@ -139,7 +139,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
         </div>
       </details>}
       {!time&&<label className="block">日期<input aria-label="找空位日期" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 px-3" type="date" value={date} onChange={e=>{setDate(e.target.value);resetSlot();}}/></label>}
-      {!slots&&!error&&!!templateId&&<p role="status" className="text-earth-600">正在檢查時段…</p>}
+      {!slots&&!error&&!!templateId&&<p role="status" aria-live="polite" className="flex min-h-11 items-center text-earth-600">可用時段載入中…</p>}
       {(noSlot||!templateId)&&<div role="status" className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
         <p>{!templateId?(isTrial?"尚未設定體驗課程":"尚未建立課程"):reason}</p>
         <div className="flex flex-wrap items-center gap-3">

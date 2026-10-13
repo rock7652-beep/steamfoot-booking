@@ -219,6 +219,8 @@ it("keeps the form usable on slow slot reads and ignores stale results after rap
     await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
     const firstOpenMs=performance.now()-started;
     expect(firstOpenMs).toBeLessThan(1000);
+    expect(mocks.slots).toHaveBeenCalledTimes(2);
+    expect(pending["trial-slow"]).toBeTypeOf("function");
     const date=host.querySelector<HTMLInputElement>('[aria-label="找空位日期"]')!;
     expect(date.disabled).toBe(false);
     const cancel=[...host.querySelectorAll("button")].find(button=>button.textContent==="取消")!;
