@@ -62,7 +62,7 @@ function OnlinePayment() {
       </article>)}
     </div>
     <div className="mt-4 flex flex-col gap-1 border-t border-[#153B31]/15 pt-3 text-base leading-7 sm:flex-row sm:items-center sm:justify-between">
-      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,490、專業版 NT$2,490、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。請洽專人確認方案與付款方式。</span></p>
+      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,490、專業版 NT$2,490、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳請洽專人確認並取得載明每期金額、12 期總額、付款方式及服務期間的訂單；目前本網站不提供月繳自動扣款，需另行完成付款授權才會扣款。</span></p>
       <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">請洽專人 ↗</a>
     </div>
     <div className="mt-2 space-y-1 text-sm leading-6 text-[#4C6259]">

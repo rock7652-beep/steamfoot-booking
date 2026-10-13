@@ -264,13 +264,16 @@ export function SubscriptionForm({
         </div>
 
         <div className="sm:col-span-2">
-          <label className={labelCls}>備註（選填）</label>
+          <label className={labelCls}>備註／訂購同意紀錄（選填）</label>
+          <p className="mt-1 text-[11px] leading-5 text-earth-500">
+            月繳建議記錄已確認的每期金額、12 期總額、服務期間、付款方式，以及合約／付款授權文件編號與簽署日期。不要輸入完整信用卡號或安全碼。
+          </p>
           <textarea
             className={inputCls}
             rows={2}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="例如：創始店免收 / 轉帳末五碼 / 收款人"
+            placeholder="例如：月繳 NT$2,980 × 12 期；總額 NT$35,760；服務期間 2026/11/01–2027/10/31；合約編號／簽署日期；付款授權紀錄"
           />
         </div>
       </div>
