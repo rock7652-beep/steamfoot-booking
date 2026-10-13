@@ -233,3 +233,22 @@ it("keeps the form usable on slow slot reads and ignores stale results after rap
     expect(host.textContent).toContain("18:00");
   }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("keeps controls available and allows retry after slot loading fails",async()=>{
+  mocks.slots.mockRejectedValueOnce(new Error("temporary failure")).mockResolvedValueOnce({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[]});
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"retry-course",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"slot-retry",onCreated:vi.fn()})));
+  try{
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("空位讀取失敗");
+    expect(host.querySelector<HTMLInputElement>('[aria-label="找空位日期"]')!.disabled).toBe(false);
+    const cancel=[...host.querySelectorAll("button")].find(button=>button.textContent==="取消")!;
+    expect(cancel.disabled).toBe(false);
+    const retry=[...host.querySelectorAll("button")].find(button=>button.textContent==="重新檢查時段")!;
+    await act(async()=>retry.click());
+    await act(async()=>{await Promise.resolve();await Promise.resolve();});
+    expect(host.querySelector('[role="alert"]')).toBeNull();
+    expect(host.textContent).toContain("18:00");
+    expect(mocks.create).not.toHaveBeenCalled();
+  }finally{await act(async()=>root.unmount());host.remove();}
+});
