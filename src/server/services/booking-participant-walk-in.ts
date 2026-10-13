@@ -97,16 +97,16 @@ export async function removeBookingWalkIn(tx: Prisma.TransactionClient, input: {
   const participant = rows[0];
   if (!participant) throw new AppError("NOT_FOUND", "同行者不存在或不屬於本店");
   if (participant.source !== "WALK_IN" || participant.service !== "FIRST_TRIAL" ||
-      participant.status !== "PENDING" || participant.customerId !== null ||
+      !(["PENDING", "CANCELLED"].includes(participant.status)) || participant.customerId !== null ||
       participant.revision !== input.revision || participant.arrivedAt !== null ||
       participant.collectionTransactionId !== null || participant.walletSessionId !== null ||
       participant.hasLinkedTransaction || participant.hasParticipantAudit || !participant.latestWalkIn) {
-    throw new AppError("BUSINESS_RULE", "只有最後一位尚未建檔、收款或開始服務的臨時加入者，才能直接移除；其他情況請使用取消");
+    throw new AppError("BUSINESS_RULE", "只有最後一位尚未建檔、收款或開始服務的臨時加入者，才能直接移除；其他情況請恢復名額或新增同行者");
   }
 
   const deleted = await tx.$executeRaw`DELETE FROM "BookingParticipant"
     WHERE id = ${participant.id} AND "groupId" = ${groupId} AND "storeId" = ${input.storeId}
-      AND source = 'WALK_IN' AND status = 'PENDING' AND "customerId" IS NULL
+      AND source = 'WALK_IN' AND status::text = ${participant.status} AND "customerId" IS NULL
       AND service = 'FIRST_TRIAL' AND revision = ${input.revision}
       AND "arrivedAt" IS NULL AND "collectionTransactionId" IS NULL AND "walletSessionId" IS NULL`;
   if (deleted !== 1) throw new AppError("CONFLICT", "同行者資料已變更，請重新確認");
