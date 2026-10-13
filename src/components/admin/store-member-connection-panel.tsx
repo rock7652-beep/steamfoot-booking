@@ -31,8 +31,19 @@ export function StoreMemberConnectionPanel({ customerId }: { customerId: string 
       if (key !== sequence.current) return;
       if (!value.success) { setError(value.error); return; }
       reader.invalidate(customerId);
-      const latest = await reader.read(customerId);
-      if (key === sequence.current && latest.success && "canConfirm" in latest) setResult(latest);
+      // The server action only returns success after the approval transaction
+      // commits. Update the panel from that confirmation instead of waiting on
+      // a second read request before showing the completed state.
+      setResult(current => current ? {
+        ...current,
+        data: {
+          ...current.data,
+          membership: "已連結",
+          notification: "本店已確認，發送前再檢查通道",
+          pending: current.data.pending.filter(request => request.id !== id),
+          conflict: false,
+        },
+      } : current);
     } catch { if (key === sequence.current) setError("目前無法確認，請稍後再試"); }
     finally { submitting.current = false; if (key === sequence.current) setBusy(false); }
   }
