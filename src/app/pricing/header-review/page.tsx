@@ -5,7 +5,7 @@ import "../../spa-admin.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "後台頂部 RWD 驗收", robots: { index: false, follow: false } };
-const trial: TrialStatus = { isFree: true, course: true, staff: { current: 3, limit: 3 }, daysRemaining: 30, trialDays: 30, trialExpired: false, customers: { current: 0, limit: 100, pct: 0 }, bookings: { current: 0, limit: 100, pct: 0 }, overallPct: 0, stage: "normal", canCreateBooking: true, canCreateCustomer: true };
+const trial: TrialStatus = { isFree: true, course: true, staff: { current: 30, limit: Infinity }, daysRemaining: 30, trialDays: 30, trialExpired: false, customers: { current: 10000, limit: Infinity, pct: 0 }, bookings: { current: 10000, limit: Infinity, pct: 0 }, overallPct: 0, stage: "normal", canCreateBooking: true, canCreateCustomer: true };
 
 export default async function HeaderReviewPage({ searchParams }: { searchParams: Promise<{ frame?: string; width?: string; module?: string; role?: string }> }) {
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
