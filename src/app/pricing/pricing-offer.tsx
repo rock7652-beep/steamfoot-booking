@@ -50,14 +50,16 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         <p className="mt-1 text-lg font-medium">{plan.purpose}</p>
         <p className="mt-1 text-base leading-6 text-[#4C6259]">適合{plan.audience}</p>
         <div className="mt-3 border-t border-[#153B31]/15 pt-3">
-          <p className="text-sm font-medium text-[#4C6259]">月費</p>
+          <p className="text-sm font-medium text-[#4C6259]">月繳方案</p>
           <p className="mt-1 flex flex-wrap items-baseline gap-x-1"><span className="text-4xl font-semibold tracking-tight">NT${money(plan.monthly)}</span><span className="text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
-          <div className="mt-3 rounded-xl bg-[#F8F5EE] px-3 py-3">
-            <p className="text-sm font-medium text-[#4C6259]">年繳總額・一次繳清</p>
-            <p className="mt-1 text-2xl font-semibold">NT${money(plan.annual)}{plan.id === "ALLIANCE" ? " 起" : ""}</p>
+          <p className="mt-2 text-sm leading-6 text-[#4C6259]">月繳按 12 期支付，最低承諾 12 個月；{plan.id === "ALLIANCE" ? "展店版" : plan.name}合計 NT${money(plan.annual)}，不含年繳贈送月份。</p>
+          <div className="mt-3 rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] px-3 py-3">
+            <p className="text-sm font-semibold text-[#59441E]">年繳優惠方案{offer.active ? "・贈送 2 個月" : ""}</p>
+            <p className="mt-2 text-sm font-medium text-[#4C6259]">平均每月費用</p>
+            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1"><span className="text-3xl font-semibold tracking-tight">約 NT${money(Math.round(plan.annual / offer.months))}</span><span className="text-sm">／月</span></p>
+            <p className="mt-2 text-sm leading-6 text-[#4C6259]">年繳 NT${money(plan.annual)}，一次繳清</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#59441E]">{offer.active ? "支付 12 個月費用，共使用 14 個月" : "支付 12 個月費用，使用 12 個月"}</p>
           </div>
-          <p className="mt-3 text-sm leading-6 text-[#4C6259]">月繳 NT${money(plan.monthly)}／月 × 12 期，合計 NT${money(plan.annual)}；最低承諾 12 個月，不含贈送月份。</p>
-          <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-sm font-semibold leading-6 text-[#59441E]">{offer.active ? <>年繳加贈 2 個月<span className="block font-normal">12 個月費用，總使用 14 個月</span></> : "年繳使用 12 個月"}</p>
         </div>
         <ul className="my-3 space-y-1 text-sm leading-6">{plan.benefits.map(benefit => <li key={benefit} className="flex gap-2"><span aria-hidden="true" className="font-semibold text-[#805C1B]">✓</span><span>{benefit}</span></li>)}</ul>
         {plan.id === "ALLIANCE" && <p className="mb-3 text-sm leading-6 text-[#4C6259]">串接費依實際分店數另計；各分店系統月費另計。</p>}
