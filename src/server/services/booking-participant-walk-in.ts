@@ -7,7 +7,7 @@ import { initializeBookingParticipants } from "./booking-participants";
 
 /** people remains the capacity projection consumed by every existing availability
  * reader/writer; originalPeople and RESERVATION positions remain immutable.
- * Cancelled slots are retained conservatively, and never recycled as a new person.
+ * Cancelled slots remain for history; only a pristine latest WALK_IN slot can be deleted.
  */
 export async function addBookingWalkIn(tx: Prisma.TransactionClient, input: {
   storeId: string; bookingId: string; requestId: string;
@@ -26,6 +26,10 @@ export async function addBookingWalkIn(tx: Prisma.TransactionClient, input: {
   const id = `walk-in:${input.bookingId}:${input.requestId}`;
   const existing = slots.find(slot => slot.id === id);
   if (existing) return { ...existing, created: false };
+  const removedRequest = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "AuditLog"
+    WHERE "storeId" = ${input.storeId} AND "targetType" = 'Booking' AND "targetId" = ${input.bookingId}
+      AND action = 'REMOVE_BOOKING_PARTICIPANT' AND "beforeJson"->>'participantId' = ${id} LIMIT 1`;
+  if (removedRequest.length) throw new AppError("CONFLICT", "這筆臨時名額已移除，請重新新增");
   if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus))
     throw new AppError("BUSINESS_RULE", "預約已結束，不能加人");
   if (slots.length >= 4 || booking.people >= 4) throw new AppError("BUSINESS_RULE", "本組最多 4 人");
