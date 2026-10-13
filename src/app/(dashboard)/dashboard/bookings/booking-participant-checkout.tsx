@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRetainedState } from "@/components/operations/operation-scope";
-import { changeBookingParticipantService, completeBookingParticipantPlan, collectBookingParticipantTrial, resolveBookingParticipant, removeBookingParticipant } from "@/server/actions/booking-participants";
+import { changeBookingParticipantService, completeBookingParticipantPlan, collectBookingParticipantTrial, resolveBookingParticipant, removeBookingParticipant, restoreBookingParticipant } from "@/server/actions/booking-participants";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import { paymentMethodValues, type PaymentMethodValue } from "@/lib/payment-splits";
 import { BookingPersonDetails } from "./booking-person-details";
@@ -48,7 +48,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
   const isPlan = selection !== undefined ? selection !== null : slot.service === "PACKAGE_SESSION";
   const selectedWalletId = selection !== undefined ? selection?.walletId : slot.selectedWalletId;
   const selectedPlanName = selection !== undefined ? selection?.name : slot.selectedPlanName;
-  const canRemoveWalkIn = !readOnly && checkout.canResolve && slot.source === "WALK_IN" && slot.position === latestWalkInPosition && status === "PENDING" && amount == null && !isPlan;
+  const canRemoveWalkIn = !readOnly && checkout.canResolve && slot.source === "WALK_IN" && slot.position === latestWalkInPosition && ["PENDING", "CANCELLED"].includes(status) && !slot.customerId && amount == null && !isPlan;
   const canSell = !readOnly && checkout.canSell && ["PENDING", "COMPLETED"].includes(status) && !!slot.customerId && checkout.plans.length > 0;
   const sellButton = canSell ? <button type="button" disabled={blocked || saving} onClick={() => { setExpanded(false); setUsingPlan(false); setSelling(!selling); }} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{selling ? "收合方案" : "新增方案"}</button> : null;
   const dirty = expanded && (draft.amount !== String(checkout.settings.defaultPrice) || draft.method !== "CASH" || !!draft.note);
@@ -107,6 +107,16 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         {checkout.canResolve && !isPlan && amount != null && !slot.receiptCorrected && <button type="button" disabled={blocked || saving}
           onClick={() => void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "completePaid" }), "COMPLETED", amount)}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">完成服務</button>}
+      </div>}
+      {!readOnly && checkout.canResolve && status === "CANCELLED" && <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={blocked || saving} onClick={() => {
+          if (window.confirm(`恢復${slot.name ?? "這位同行者"}的名額？狀態會改回待到店；若要換人，請新增一位同行者。`))
+            void run(() => restoreBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "PENDING", null);
+        }} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">恢復名額</button>
+        {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
+          if (window.confirm("從預約中刪除這個已取消的空白臨時名額？只有未建檔、未收款、未開始服務的名額可刪除。"))
+            void run(() => removeBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "REMOVED", null);
+        }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 min-w-11 rounded-lg border border-red-200 px-3 text-2xl leading-none text-red-700 disabled:opacity-50">×</button>}
       </div>}
       {!readOnly && checkout.canResolve && status === "COMPLETED" && <button type="button" disabled={blocked || saving}
         onClick={() => { if (window.confirm(isPlan ? "撤回這位顧客的完成服務？退回 1 堂並保留預約。" : "撤回這位顧客的完成服務？原收款保留，不會退款。"))
