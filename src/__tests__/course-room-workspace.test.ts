@@ -30,6 +30,7 @@ it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, 
   const submit = async () => act(async () => host.querySelector("#course-room-create-form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   try {
     await act(async () => root.render(createElement(CourseWorkspace, { ...props, businessProfile })));
+    if (businessProfile === "MUSIC") expect(host.querySelector('input[name="rentalEnabled"]')).toBeTruthy();
     await setName("教室 A"); m.fetch.mockResolvedValueOnce({ json: async () => ({ success: false, error: "同名空間" }) });
     await submit(); expect(host.textContent).toContain("同名空間"); expect(host.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe("教室 A");
     expect(m.fetch.mock.calls[0][0]).toBe("/s/music-test/admin/dashboard/courses/rooms");
@@ -54,7 +55,7 @@ it("edits a confirmed room without refresh and preserves it through stale props"
  try{
   await act(async()=>root.render(render()));
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="查看教室")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="教室 A")!.click());
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="編輯教室")!.click());
   host.querySelector<HTMLInputElement>('#course-edit-form input[name="name"]')!.value="改名教室";
   m.fetch.mockResolvedValueOnce({json:async()=>{throw new Error("lost reply");}});

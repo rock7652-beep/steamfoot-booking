@@ -33,6 +33,7 @@ it("keeps the clicked room/time after changing the course and submits multiple l
       expect(add).toBeTruthy();await act(async()=>add.click());
     }
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("2 / 3 人");
+    expect(host.querySelector('[aria-label="名額"]')).toBeNull();
     expect(host.querySelector('select[aria-label="小安的方案"]')).toBeNull();
     expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.textContent).toContain("王老師");
     expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.querySelector("button")).toBeNull();
@@ -42,7 +43,7 @@ it("keeps the clicked room/time after changing the course and submits multiple l
     await act(async()=>select.dispatchEvent(new Event("change",{bubbles:true})));
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小明");
-    const save=[...host.querySelectorAll("button")].find(button=>button.textContent==="儲存排課")!;
+    const save=[...host.querySelectorAll("button")].find(button=>button.textContent==="新增")!;
     await act(async()=>save.click());
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"second",roomId:"room",time:"18:00",coachId:"teacher",learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:"card-b"}]}));
     expect(onCreated).toHaveBeenCalledTimes(1);
@@ -70,7 +71,7 @@ it("does not show an empty teacher chooser when the clicked room is unavailable"
     expect(host.querySelector('[aria-label="合格老師與可用教室"]')).toBeNull();
     expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00–19:00 · A教室");
     expect(host.textContent).toContain("此教室目前無法排入");
-    expect([...host.querySelectorAll("button")].find(button=>button.textContent==="儲存排課")!.disabled).toBe(true);
+    expect([...host.querySelectorAll("button")].find(button=>button.textContent==="新增")!.disabled).toBe(true);
   }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -79,14 +80,18 @@ it("keeps the clicked teacher when unavailable instead of silently replacing the
   mocks.options.mockResolvedValue({success:true,cards:[]});
   const host=document.createElement("div");const root=createRoot(host);
   try{
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他課",durationMinutes:90,capacity:1,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"},{id:"other",displayName:"李老師"}],initialDate:"2099-10-01",seed:{time:"18:00",coachId:"teacher",durationMinutes:30},requestKey:"test-request",onCreated:vi.fn()})));
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他課",durationMinutes:90,capacity:1,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"},{id:"other",displayName:"李老師"}],initialDate:"2099-10-01",seed:{time:"18:00",coachId:"teacher",durationMinutes:30},startMode:"course",requestKey:"test-request",onCreated:vi.fn()})));
     expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00–19:00");
     expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("王老師");
     expect(host.textContent).not.toContain("設定營業時間");
-    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="儲存排課")!;
+    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增")!;
     expect(save.disabled).toBe(true);
-    const other=[...host.querySelectorAll("button")].find(b=>b.textContent==="李老師")!;
-    await act(async()=>other.click());
+    expect(host.querySelector('[aria-label="更換排課老師"]')).toBeNull();
+    expect(host.textContent).not.toContain("李老師");
+    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="更換老師")!.click());
+    const teacher=[...host.querySelectorAll("select")].find(item=>item.getAttribute("aria-label")==="更換排課老師")!;
+    teacher.value="other";
+    await act(async()=>teacher.dispatchEvent(new Event("change",{bubbles:true})));
     expect(save.disabled).toBe(false);
   }finally{await act(async()=>root.unmount());}
 });
@@ -98,9 +103,8 @@ it("checks every repeated date before writing and lets the manager explicitly om
   mocks.create.mockClear().mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
   const host=document.createElement("div");const root=createRoot(host);
   try{
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他團班",durationMinutes:60,capacity:10,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{time:"18:00",roomId:"room"},requestKey:"test-request",onCreated:vi.fn()})));
-    await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
-    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="儲存排課")!;
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他團班",durationMinutes:60,capacity:10,musicTermLessons:4,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{time:"18:00",roomId:"room"},startMode:"course",isFixed:true,requestKey:"test-request",onCreated:vi.fn()})));
+    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增")!;
     await act(async()=>save.click());
     expect(mocks.create).not.toHaveBeenCalled();
     expect(host.querySelector('[aria-label="排課衝突日期"]')!.textContent).toContain("2099-10-08");
@@ -166,4 +170,25 @@ it("does not mark the draft dirty when switching to an empty trial purpose",asyn
   expect(onGuard).toHaveBeenLastCalledWith(false,false);
   expect(host.textContent).toContain("尚未設定體驗課程");
  }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("creates fixed classes at the selected weekly or every-other-week cadence",async()=>{
+  mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[]});
+  mocks.create.mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
+  const host=document.createElement("div");const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他團班",durationMinutes:60,capacity:10,musicTermLessons:3,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",isFixed:true,requestKey:"biweekly",onCreated:vi.fn()})));
+    await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="18:00")!.click());
+    const frequency=host.querySelector<HTMLSelectElement>('[aria-label="固定頻率"]')!;
+    frequency.value="biweekly";
+    await act(async()=>frequency.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(host.textContent).toContain("2099-10-15");
+    expect(host.textContent).toContain("2099-10-29");
+    expect(host.textContent).not.toContain("2099-10-08");
+    const add=[...host.querySelectorAll("button")].find(button=>button.textContent==="新增")!;
+    await act(async()=>add.click());
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({date:"2099-10-01",additionalDates:["2099-10-15","2099-10-29"]}));
+  }finally{await act(async()=>root.unmount());host.remove();}
 });
