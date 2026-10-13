@@ -48,19 +48,18 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [pair,setPair]=useState<{roomId:string;coachId:string}|null>(null);
   const [excludedDates,setExcludedDates]=useState<string[]>([]);
   const [conflicts,setConflicts]=useState<{date:string;reason:string}[]>([]);
-  const [repeat,setRepeat]=useState(isFixed);
+  const repeat=isFixed;
   const [editingArrangement,setEditingArrangement]=useState(false);
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
   const [checkedAgain,setCheckedAgain]=useState(false);
   const [reload,setReload]=useState(0);
   const [selectedPurpose,setSelectedPurpose]=useState(isTrial);
-  if(selectedPurpose!==isTrial){setSelectedPurpose(isTrial);setTemplateId(eligibleTemplates[0]?.id??"");setCapacity(eligibleTemplates[0]?.capacity??1);setSlots(null);setPair(null);setRepeat(false);setConflicts([]);setLearners([]);}
-  useEffect(()=>{setRepeat(isTrial?false:isFixed);},[isTrial,isFixed]);
+  if(selectedPurpose!==isTrial){setSelectedPurpose(isTrial);setTemplateId(eligibleTemplates[0]?.id??"");setCapacity(eligibleTemplates[0]?.capacity??1);setSlots(null);setPair(null);setConflicts([]);setLearners([]);}
   const purposeTemplateId=eligibleTemplates.find(t=>t.id===initialTemplateId)?.id??eligibleTemplates[0]?.id??"";
   const initialTemplate=eligibleTemplates.find(t=>t.id===purposeTemplateId);
   const initialDuration=60;
-  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==purposeTemplateId || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat || (repeat&&repeatInterval!=="weekly") || enrollmentDirty || learners.length>0;
+  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==purposeTemplateId || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat!==isFixed || (repeat&&repeatInterval!=="weekly") || enrollmentDirty || learners.length>0;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setPair(null);setError("");}
@@ -154,7 +153,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
         </div> : teacherIds.length===1&&(!coachId||teacherIds.includes(coachId))?<p className="rounded-lg bg-earth-50 px-3 py-2">{coaches.find(c=>c.id===teacherIds[0])?.displayName}</p>:<label className="block">選擇老師<select aria-label="更換排課老師" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={selectedCoachId} onChange={event=>{setCoachId(event.target.value);setTeacherEdited(true);setPair(null);}}><option value="">選擇可用老師</option>{seed?.coachId&&!teacherIds.includes(seed.coachId)&&<option value={seed.coachId}>{coaches.find(c=>c.id===seed.coachId)?.displayName??"原選老師"}（目前無法授課）</option>}{teacherIds.map(id=><option key={id} value={id}>{coaches.find(c=>c.id===id)?.displayName}</option>)}</select></label>}
         {seed?.coachId&&!teacherIds.includes(seed.coachId)&&<p className="text-amber-800">原選老師此時段無法授課，請更換老師或時間。</p>}
       </section>}
-        {selectedCoachId&&!roomId&&validRooms.length>1&&<label className="block">教室<select aria-label="選擇可用教室" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={selectedPair?.roomId??""} onChange={event=>{const option=validRooms.find(room=>room.roomId===event.target.value);setPair(option??null);if(option?.fixedOrigin)setRepeat(false);}}><option value="">選擇老師可用的教室</option>{validRooms.map(option=><option key={option.roomId} value={option.roomId}>{rooms.find(room=>room.id===option.roomId)?.name}</option>)}</select></label>}
+        {selectedCoachId&&!roomId&&validRooms.length>1&&<label className="block">教室<select aria-label="選擇可用教室" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={selectedPair?.roomId??""} onChange={event=>{const option=validRooms.find(room=>room.roomId===event.target.value);setPair(option??null);}}><option value="">選擇老師可用的教室</option>{validRooms.map(option=><option key={option.roomId} value={option.roomId}>{rooms.find(room=>room.id===option.roomId)?.name}</option>)}</select></label>}
       {isFixed&&templateId&&<fieldset className="space-y-3 rounded-lg border border-earth-200 p-3" aria-label="固定課程設定">
         <legend className="px-1 font-medium">固定課程</legend>
         <div className="grid grid-cols-2 gap-3">
