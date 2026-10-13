@@ -125,15 +125,23 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
         select: { id: true },
       })).id;
     }
-    if (customer.lineUserId && customer.lineUserId !== request.lineUserId) throw new AppError("CONFLICT", "本店已綁定其他 LINE，需確認");
     const other = await tx.customer.findFirst({ where: { storeId: ctx.storeId, lineUserId: request.lineUserId, id: { not: customerId } }, select: { id: true } });
     if (other) throw new AppError("CONFLICT", "LINE 已連結本店其他顧客");
     const links = await tx.customerIdentityLink.findMany({ where: { storeId: ctx.storeId, OR: [{ userId }, { provider: request.identityProvider, providerAccountId: request.lineUserId }] }, select: { customerId: true } });
     if (links.some(link => link.customerId !== customerId)) throw new AppError("CONFLICT", "本店會員關係需確認");
     const existingProvider = customer.identityLinks.find(link => link.provider === request.identityProvider);
-    if (existingProvider && existingProvider.providerAccountId !== request.lineUserId) throw new AppError("CONFLICT", "顧客已有不同 LINE 身分");
     if (!account) await tx.account.create({ data: { userId, provider: request.identityProvider, providerAccountId: request.lineUserId, type: "oauth" } });
-    if (!existingProvider) await tx.customerIdentityLink.create({ data: { userId, storeId: ctx.storeId, customerId, provider: request.identityProvider, providerAccountId: request.lineUserId } });
+    if (existingProvider && existingProvider.providerAccountId !== request.lineUserId) {
+      // Staff has confirmed the same customer using the fresh LINE confirmation
+      // code. Rebind only this store's identity link; keep the old global Account
+      // usable for sign-in and leave every other store's link untouched.
+      await tx.customerIdentityLink.update({
+        where: { id: existingProvider.id },
+        data: { providerAccountId: request.lineUserId, lineUserId: request.lineUserId },
+      });
+    } else if (!existingProvider) {
+      await tx.customerIdentityLink.create({ data: { userId, storeId: ctx.storeId, customerId, provider: request.identityProvider, providerAccountId: request.lineUserId } });
+    }
     // Scoped link is authoritative; Customer.userId is globally unique.
     await tx.customer.update({ where: { id: customerId }, data: { lineUserId: request.lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: new Date() } });
     await tx.storeMemberConnection.update({ where: { id: request.id }, data: { status: "APPROVED", centralUserId: userId, confirmedAt: new Date(), confirmedByUserId: ctx.user.id } });
