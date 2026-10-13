@@ -26,10 +26,10 @@ export async function reserveScheduledMusicLearner(tx:Prisma.TransactionClient,a
 export async function attachUnpaidMusicBookings(tx:Prisma.TransactionClient,actor:CourseActor,cardId:string,customerId:string,bookingId:string) {
   const source=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId,customerId},include:{session:true}});
   if(!source)throw new AppError("NOT_FOUND","找不到這位學員的本店預約");
-  if(source.bookingKind!=="UNPAID"||source.status!=="RESERVED")return;
+  if(source.bookingKind!=="UNPAID"||!["RESERVED","ATTENDED","NO_SHOW"].includes(source.status))return;
   const card=await tx.coursePointCard.findFirst({where:{id:cardId,storeId:actor.storeId},include:{members:true}});
   if(!card||card.unit!=="SESSION"||card.closedAt||!card.members.some(person=>person.customerId===customerId)||card.templateIds.length&&!card.templateIds.includes(source.session.templateId))throw new AppError("VALIDATION","新方案不適用本堂課");
-  const rows=await tx.courseBooking.findMany({where:{storeId:actor.storeId,customerId,bookingKind:"UNPAID",status:"RESERVED",session:{requestKey:source.session.requestKey,cancelledAt:null,startsAt:{gte:source.session.startsAt}}},include:{session:true},orderBy:{session:{startsAt:"asc"}}});
+  const rows=await tx.courseBooking.findMany({where:{storeId:actor.storeId,customerId,bookingKind:"UNPAID",status:{in:["RESERVED","ATTENDED","NO_SHOW"]},session:{requestKey:source.session.requestKey,cancelledAt:null,startsAt:{gte:source.session.startsAt}}},include:{session:true},orderBy:{session:{startsAt:"asc"}}});
   const held=await tx.courseBooking.aggregate({where:{storeId:actor.storeId,cardId,status:"RESERVED"},_sum:{pointCost:true}});
   let available=card.remaining-(held._sum.pointCost??0);
   const expiry=card.musicValidityDays&&!card.musicActivatedAt?musicCourseExpiry(source.session.startsAt,card.musicValidityDays):card.expiresAt;
@@ -37,7 +37,9 @@ export async function attachUnpaidMusicBookings(tx:Prisma.TransactionClient,acto
     if(available<1||row.session.startsAt>expiry)break;
     if(card.termSessionIds.length&&!card.termSessionIds.includes(row.sessionId))continue;
     await tx.courseBooking.update({where:{id:row.id},data:{cardId,bookingKind:"CARD",pointCost:1}});
-    await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId,bookingId:row.id,kind:"RESERVE",points:1,actorUserId:actor.userId}});
+    const consumed=row.status==="ATTENDED"||row.status==="NO_SHOW";
+    await tx.coursePointEntry.create({data:{storeId:actor.storeId,cardId,bookingId:row.id,kind:consumed?"DEBIT":"RESERVE",points:1,actorUserId:actor.userId}});
+    if(consumed)await tx.coursePointCard.update({where:{id:cardId},data:{remaining:{decrement:1},...(card.musicValidityDays&&!card.musicActivatedAt?{musicActivatedAt:source.session.startsAt,expiresAt:expiry}:{})}});
     available--;
   }
   const series=await tx.courseScheduleSeries.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:source.session.requestKey}}});

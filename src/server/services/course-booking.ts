@@ -413,7 +413,6 @@ export async function settleCourseBooking(
       WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`
     ).some(item => item.featureKey === "business.music") &&
     (await tx.courseTemplate.findFirst({where:{id:booking.session.templateId,storeId:actor.storeId},select:{classType:true}}))?.classType === "GROUP";
-  if (booking.bookingKind === "UNPAID" && ["ATTENDED","NO_SHOW"].includes(target)) return fail("請先完成此學員繳費或指定方案，再確認出席或扣堂");
   const shouldDebit =
     target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave;
   if (shouldDebit) {
@@ -507,7 +506,6 @@ export async function correctCourseAttendance(
   const cancellingLeave = target === "CANCELLED" && b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(b.absenceKind ?? "");
   if (!b || (b.status === "CANCELLED" && !restoringLeave && !cancellingLeave) || b.session.cancelledAt) return fail("此預約無法更正");
   if (["LEAVE", "NO_SHOW"].includes(b.session.teacherAttendance)) return fail("教師未授課，本堂免點名；請先恢復授課");
-  if (b.bookingKind === "UNPAID" && ["ATTENDED","NO_SHOW"].includes(target)) return fail("請先完成此學員繳費或指定方案，再確認出席或扣堂");
   if (b.status === target && !cancellingLeave) return b;
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
