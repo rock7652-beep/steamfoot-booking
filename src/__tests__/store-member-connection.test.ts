@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({transaction:vi.fn(), lock:vi.fn(), candidates:vi.fn(), customer:vi.fn(), account:vi.fn(), userFind:vi.fn(), userCreate:vi.fn(), accountCreate:vi.fn(),accountFind:vi.fn(),captureFind:vi.fn(),captureCreate:vi.fn(), customerUpdate:vi.fn(), links:vi.fn(), link:vi.fn(), linkCreate:vi.fn(), linkUpdate:vi.fn(), request:{findUnique:vi.fn(),findFirst:vi.fn(),upsert:vi.fn(),update:vi.fn(),updateMany:vi.fn()}, audit:vi.fn(),access:vi.fn(),config:vi.fn()}));
-const tx={$queryRaw:m.lock,customer:{findMany:m.candidates,findFirst:m.customer,update:m.customerUpdate},account:{findUnique:m.account,findFirst:m.accountFind,create:m.accountCreate},user:{findUnique:m.userFind,create:m.userCreate},customerIdentityLink:{findMany:m.links,findFirst:m.link,create:m.linkCreate,update:m.linkUpdate},lineRebindRequest:{findFirst:m.captureFind,create:m.captureCreate},storeMemberConnection:m.request,auditLog:{create:m.audit}};
+const m=vi.hoisted(()=>({transaction:vi.fn(), lock:vi.fn(), candidates:vi.fn(), customer:vi.fn(), account:vi.fn(), userFind:vi.fn(), userCreate:vi.fn(), accountCreate:vi.fn(),accountFind:vi.fn(),captureFind:vi.fn(),captureCreate:vi.fn(),captureExpire:vi.fn(), customerUpdate:vi.fn(), links:vi.fn(), link:vi.fn(), linkCreate:vi.fn(), linkUpdate:vi.fn(), request:{findUnique:vi.fn(),findFirst:vi.fn(),upsert:vi.fn(),update:vi.fn(),updateMany:vi.fn()}, audit:vi.fn(),access:vi.fn(),config:vi.fn()}));
+const tx={$queryRaw:m.lock,customer:{findMany:m.candidates,findFirst:m.customer,update:m.customerUpdate},account:{findUnique:m.account,findFirst:m.accountFind,create:m.accountCreate},user:{findUnique:m.userFind,create:m.userCreate},customerIdentityLink:{findMany:m.links,findFirst:m.link,create:m.linkCreate,update:m.linkUpdate},lineRebindRequest:{findFirst:m.captureFind,create:m.captureCreate,updateMany:m.captureExpire},storeMemberConnection:m.request,auditLog:{create:m.audit}};
 vi.mock("@/lib/db",()=>({prisma:{$transaction:m.transaction}}));
 vi.mock("@/lib/store-line-config",()=>({getConfiguredStoreLine:m.config,storeLineIdentityProvider:()=>"line-provider:901"}));
 vi.mock("@/server/services/inventory",()=>({inventoryTransactionAccess:m.access}));
@@ -28,6 +28,7 @@ it("staff messaging confirmation authorizes one first Login capture without copy
  m.request.findFirst.mockResolvedValue({id:"r",storeId:"a",customerId:"c",phone:"0912345678",status:"PENDING",expiresAt:new Date(Date.now()+3600000),identityProvider:"line-messaging:channel",channelKey:"channel",lineUserId:line});
  m.accountFind.mockResolvedValue(null);m.link.mockResolvedValue(null);m.captureFind.mockResolvedValue(null);
  await approveStoreMemberConnection(ctx,"r","c");
+ expect(m.captureExpire).toHaveBeenCalledWith({where:expect.objectContaining({status:{in:["PENDING_CAPTURE","CANDIDATE_CAPTURED"]},expiresAt:{lte:expect.any(Date)}}),data:{status:"EXPIRED",expiredAt:expect.any(Date)}});
  expect(m.captureCreate).toHaveBeenCalledWith({data:expect.objectContaining({customerId:"c",storeId:"a",createdByUserId:"staff",reason:"LIFF_LOGIN_FIRST_CAPTURE_V1",oldUserIdHash:null,status:"PENDING_CAPTURE"})});
  expect(m.captureCreate.mock.calls[0][0].data).not.toHaveProperty("candidateLineUserId");
  expect(m.accountCreate).toHaveBeenCalledWith({data:expect.objectContaining({provider:"line-messaging:channel"})});
@@ -38,4 +39,13 @@ it("does not authorize replacement when a Login account already exists",async()=
  m.accountFind.mockResolvedValue({id:"login"});m.link.mockResolvedValue(null);m.captureFind.mockResolvedValue(null);
  await approveStoreMemberConnection(ctx,"r","c");
  expect(m.captureCreate).not.toHaveBeenCalled();
+});
+
+it("preserves an active rebind of any kind when confirming messaging",async()=>{
+ m.config.mockReturnValue(null);
+ m.request.findFirst.mockResolvedValue({id:"r",storeId:"a",customerId:"c",phone:"0912345678",status:"PENDING",expiresAt:new Date(Date.now()+3600000),identityProvider:"line-messaging:channel",channelKey:"channel",lineUserId:line});
+ m.accountFind.mockResolvedValue(null);m.link.mockResolvedValue(null);m.captureFind.mockResolvedValue({id:"active-migration"});
+ await approveStoreMemberConnection(ctx,"r","c");
+ expect(m.captureCreate).not.toHaveBeenCalled();
+ expect(m.captureFind).toHaveBeenCalledWith({where:expect.objectContaining({status:{in:["PENDING_CAPTURE","CANDIDATE_CAPTURED"]}}),select:{id:true}});
 });

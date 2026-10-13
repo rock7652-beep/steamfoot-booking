@@ -159,10 +159,14 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
     // Messaging confirmation does not itself prove a Login subject. Authorize
     // one fresh verified Login capture instead of copying notification IDs.
     if (request.identityProvider.startsWith("line-messaging:")) {
+      const now = new Date();
+      // The partial unique index includes expired rows until their status is
+      // transitioned. Preserve any still-active rebind of either kind.
+      await tx.lineRebindRequest.updateMany({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
       const [loginAccount, loginLink, activeCapture] = await Promise.all([
         tx.account.findFirst({ where: { userId, provider: "line" }, select: { id: true } }),
         tx.customerIdentityLink.findFirst({ where: { customerId, provider: "line" }, select: { id: true } }),
-        tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId, reason: LIFF_LOGIN_FIRST_CAPTURE_REASON, status: "PENDING_CAPTURE", expiresAt: { gt: new Date() } }, select: { id: true } }),
+        tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { gt: now } }, select: { id: true } }),
       ]);
       if (!loginAccount && !loginLink && !activeCapture) {
         await tx.lineRebindRequest.create({ data: { storeId: ctx.storeId, customerId, createdByUserId: ctx.user.id, reason: LIFF_LOGIN_FIRST_CAPTURE_REASON, phoneHash: sha256(request.phone), oldUserIdHash: null, status: "PENDING_CAPTURE", expiresAt: new Date(Date.now() + 24 * 60 * 60_000) } });
