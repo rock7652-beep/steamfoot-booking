@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { courseScheduleCreatedDates, courseScheduleFormFields, courseWeeklyDates, shiftCourseOccurrenceDates } from "@/lib/course-schedule-form";
+import { courseScheduleCreatedDates, courseScheduleFormFields, courseWeeklyDates } from "@/lib/course-schedule-form";
+import { shiftCourseOccurrenceDates } from "@/lib/course-occurrence-shift";
 
 const defaults = { templateId: "yoga", requestKey: "cbd7b9ea-0638-4046-a1b4-11360f2cc955" };
 function fields(mode: string) {

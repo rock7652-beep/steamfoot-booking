@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import {CourseScheduleLearners,type ScheduleLearner} from "@/components/admin/course-schedule-learners";
 import { addTaiwanDuration, parseTaipeiDateTime, formatTWDateTime } from "@/lib/date-utils";
-import { shiftCourseOccurrenceDates } from "@/lib/course-schedule-form";
+import { shiftCourseOccurrenceDates } from "@/lib/course-occurrence-shift";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
 import { inspectCourseSchedule } from "@/server/actions/course-schedule-check";
 import { createCourseSchedule } from "@/server/actions/course";
