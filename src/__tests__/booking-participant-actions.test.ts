@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({
   permission: vi.fn(), writable: vi.fn(), store: vi.fn(), module: vi.fn(), subscription: vi.fn(),
   booking: vi.fn(), search: vi.fn(), existing: vi.fn(), count: vi.fn(), create: vi.fn(),
   init: vi.fn(), link: vi.fn(), limit: vi.fn(), usage: vi.fn(), revalidate: vi.fn(), transaction: vi.fn(),
-  selectPlan: vi.fn(), revert: vi.fn(), cancelPlan: vi.fn(), completePaid: vi.fn(), settings: vi.fn(), collect: vi.fn(), resolve: vi.fn(), event: vi.fn(),
+  selectPlan: vi.fn(), revert: vi.fn(), cancelPlan: vi.fn(), completePaid: vi.fn(), settings: vi.fn(), collect: vi.fn(), resolve: vi.fn(), removeWalkIn: vi.fn(), audit: vi.fn(), event: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission, requireWritablePermission: h.writable }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: h.store }));
@@ -17,22 +17,41 @@ vi.mock("@/server/services/booking-participant-payment", () => ({ collectPartici
 vi.mock("@/server/services/booking-participant-lifecycle", () => ({ selectParticipantPlan: h.selectPlan, revertParticipantService: h.revert, cancelParticipantPlan: h.cancelPlan, completePreviouslyPaidParticipant: h.completePaid }));
 vi.mock("@/server/services/referral-events", () => ({ createBookingCompletedEvent: h.event }));
 vi.mock("@/server/services/booking-participants", () => ({ initializeBookingParticipants: h.init, linkBookingParticipantCustomer: h.link }));
+vi.mock("@/server/services/booking-participant-walk-in", () => ({ addBookingWalkIn: vi.fn(), removeBookingWalkIn: h.removeWalkIn }));
+vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: h.audit }));
 vi.mock("@/lib/db", () => ({ prisma: {
   booking: { findFirst: h.booking }, customer: { findMany: h.search, findFirst: h.existing }, $transaction: h.transaction,
 } }));
-import { attachBookingCompanion, createBookingCompanion, findBookingCompanionByPhone, collectBookingParticipantTrial, resolveBookingParticipant, changeBookingParticipantService } from "@/server/actions/booking-participants";
+import { attachBookingCompanion, createBookingCompanion, findBookingCompanionByPhone, collectBookingParticipantTrial, resolveBookingParticipant, changeBookingParticipantService, removeBookingParticipant } from "@/server/actions/booking-participants";
 import { AppError } from "@/lib/errors";
 
 beforeEach(() => {
   vi.resetAllMocks(); vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
   h.writable.mockResolvedValue({ storeId: "untrusted-default" }); h.store.mockResolvedValue("authorized-store");
   h.booking.mockResolvedValue({ id: "booking" }); h.search.mockResolvedValue([{ id: "guest", name: "同行者", phone: "0912345678" }]);
-  h.limit.mockResolvedValue({ allowed: true }); h.count.mockResolvedValue(10); h.existing.mockResolvedValue(null);
+  h.limit.mockResolvedValue({ allowed: true }); h.count.mockResolvedValue(10); h.existing.mockResolvedValue(null); h.removeWalkIn.mockResolvedValue({ id: "walk-in", position: 3, people: 2 });
   h.create.mockResolvedValue({ id: "new", name: "新朋友" });
   h.settings.mockResolvedValue({ trialDefaultPrice: 499 });
   h.collect.mockResolvedValue({ transactionId: "receipt", bookingId: "booking", customerId: "guest", created: true });
   h.init.mockResolvedValue([{ id: "slot", position: 2, source: "RESERVATION", customerId: null, status: "PENDING", revision: 1 }]);
   h.transaction.mockImplementation(async work => work({ customer: { findFirst: h.existing, count: h.count, create: h.create } }));
+});
+
+describe("mistaken walk-in removal action", () => {
+  it("uses the authorized store, requires booking write access, and records the removed slot", async () => {
+    const result = await removeBookingParticipant({ bookingId: "booking", position: 3, revision: 2 });
+    expect(result).toEqual({ success: true, data: undefined });
+    expect(h.writable).toHaveBeenCalledWith("booking.update");
+    expect(h.removeWalkIn).toHaveBeenCalledWith(expect.anything(), {
+      storeId: "authorized-store", bookingId: "booking", position: 3, revision: 2,
+    });
+    expect(h.audit).toHaveBeenCalledWith(expect.objectContaining({
+      storeId: "authorized-store", targetType: "Booking", targetId: "booking",
+      action: "REMOVE_BOOKING_PARTICIPANT",
+      before: { participantId: "walk-in", position: 3, people: 3 },
+      after: { removed: true, people: 2 },
+    }), expect.anything());
+  });
 });
 
 describe("individual settlement action boundaries", () => {
