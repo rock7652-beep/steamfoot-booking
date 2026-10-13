@@ -11,7 +11,9 @@ export type UnregisteredVisit = Omit<IndividualVisit, "customerId"> & { customer
 export async function loadIndividualBookingFacts(storeId: string, latestDate: Date) {
   if (process.env.BOOKING_PARTICIPANTS_ENABLED !== "true") return { groupIds: new Set<string>(), originalPeopleByBooking: new Map<string, number>(), visits: [] as IndividualVisit[], unregisteredVisits: [] as UnregisteredVisit[] };
   const [groups, visits] = await Promise.all([
-    prisma.$queryRaw<{ bookingId: string; originalPeople: number }[]>`SELECT "bookingId", "originalPeople" FROM "BookingParticipantGroup" WHERE "storeId" = ${storeId}`,
+    prisma.$queryRaw<{ bookingId: string; originalPeople: number }[]>`SELECT g."bookingId", count(p.id)::int AS "originalPeople" FROM "BookingParticipantGroup" g
+      LEFT JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId" AND p.source = 'RESERVATION'
+      WHERE g."storeId" = ${storeId} GROUP BY g.id, g."bookingId"`,
     prisma.$queryRaw<Array<Omit<IndividualVisit, "customerId"> & { customerId: string | null }>>`
       SELECT g."bookingId", p."customerId", b."bookingDate", b."slotTime", p.service AS "bookingType", p.source, 1 AS people, 1 AS "attendedPeople"
       FROM "BookingParticipant" p JOIN "BookingParticipantGroup" g ON g.id = p."groupId" AND g."storeId" = p."storeId"

@@ -14,12 +14,12 @@ import type { BookingParticipantRow } from "@/server/services/booking-participan
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit, getTrialSettings } from "@/lib/shop-config";
 import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
-import { selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
+import { selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant, restoreCancelledParticipant } from "@/server/services/booking-participant-lifecycle";
 import { paymentMethodValues } from "@/lib/payment-splits";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { checkCustomerLimitOrThrow } from "@/lib/usage-gate";
 import { recordOperationAudit } from "@/server/services/operation-audit";
-import { addBookingWalkIn } from "@/server/services/booking-participant-walk-in";
+import { addBookingWalkIn, removeBookingCompanion } from "@/server/services/booking-participant-walk-in";
 import { createCustomerSchema } from "@/lib/validators/customer";
 
 // Keep the unfinished rollout inaccessible until the reviewed DDL is deployed.
@@ -31,7 +31,7 @@ function assertParticipantRollout() {
 
 const identitySchema = z.object({
   bookingId: z.string().min(1).max(128),
-  position: z.number().int().min(2).max(4),
+  position: z.number().int().min(2).max(1_000_000),
   customerId: z.string().min(1).max(128),
   revision: z.number().int().positive(),
 });
@@ -87,6 +87,26 @@ export async function resolveBookingParticipant(input: {
       if (person.service === "PACKAGE_SESSION") await cancelParticipantPlan(tx, { storeId, participantId: person.id,
         revision: data.revision, status: data.status, actorUserId: user.id, actor: user });
       else await resolveUnattendedParticipant(tx, { storeId, participantId: person.id, revision: data.revision, status: data.status });
+    });
+    revalidateBookingMutation();
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error); }
+}
+
+export async function restoreBookingParticipant(input: {
+  bookingId: string; position: number; revision: number;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = participantOperationSchema.parse(input);
+    await prisma.$transaction(async tx => {
+      const slots = await initializeBookingParticipants(tx, { storeId, bookingId: data.bookingId });
+      const person = slots.find(slot => slot.position === data.position);
+      if (!person) throw new AppError("NOT_FOUND", "本次預約沒有這個名額");
+      await restoreCancelledParticipant(tx, { storeId, participantId: person.id, revision: data.revision,
+        actorUserId: user.id, actor: user });
     });
     revalidateBookingMutation();
     return { success: true, data: undefined };
@@ -200,6 +220,32 @@ export async function addBookingParticipant(input: { bookingId: string; requestI
     }, { timeout: 15_000 });
     revalidateBookingMutation();
     return { success: true, data: person };
+  } catch (error) { return handleActionError(error); }
+}
+
+/** Delete only an accidentally added, still-empty walk-in slot; confirmed/cancelled visitors use the lifecycle action above. */
+export async function removeBookingParticipant(input: {
+  bookingId: string; position: number; revision: number;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = z.object({
+      bookingId: z.string().min(1).max(128),
+      position: z.number().int().min(2).max(1_000_000),
+      revision: z.number().int().positive(),
+    }).parse(input);
+    await prisma.$transaction(async tx => {
+      const removed = await removeBookingCompanion(tx, { ...data, storeId });
+      await recordOperationAudit({ actor: user, actorUserId: user.id, storeId, module: "STEAM",
+        targetType: "Booking", targetId: data.bookingId, action: "REMOVE_BOOKING_PARTICIPANT",
+        summary: "刪除尚未收款或服務的同行者名額",
+        before: { participantId: removed.id, position: removed.position, people: removed.people + 1 },
+        after: { removed: true, people: removed.people } }, tx);
+    }, { timeout: 15_000 });
+    revalidateBookingMutation();
+    return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }
 
