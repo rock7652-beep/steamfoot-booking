@@ -83,7 +83,7 @@ describe("actual participant checkout component", () => {
     expect(container.querySelector('button[aria-label="移除臨時加入"]')).toBeNull();
     data.slots[1] = { ...data.slots[1], collectedAmount: null, status: "COMPLETED" };
     await render(data);
-    expect(buttons("移除臨時加入")).toHaveLength(0);
+    expect(container.querySelector('button[aria-label="移除臨時加入"]')).toBeNull();
   });
 
   it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {
