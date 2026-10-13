@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState,useTransition} from "react";
+import {useEffect,useRef,useState,useTransition} from "react";
 import {loadCourseScheduleEnrollmentOptions,createScheduleCustomer,loadCourseSchedulePurchaseOptions} from "@/server/actions/course-schedule-enrollment";
 import {assignCoursePointCard} from "@/server/actions/course-members";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
@@ -24,6 +24,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [purchaseSummary,setPurchaseSummary]=useState<{paid:number|null;valid:boolean}>({paid:null,valid:false});
   const [purchaseError,setPurchaseError]=useState("");
   const [purchaseLoading,setPurchaseLoading]=useState(false);
+  const purchaseLoadToken=useRef(0);
   const [purchaseRequestKey,setPurchaseRequestKey]=useState(()=>crypto.randomUUID());
   const [purchasing,startPurchase]=useTransition();
   useEffect(()=>{onDraftChange?.(!!newName||!!newPhone);return()=>onDraftChange?.(false);},[newName,newPhone,onDraftChange]);
@@ -38,6 +39,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
     reader.read(templateId).then(result=>{if(!active)return;if(result.success){setCards(result.cards);setCustomers(result.customers??[]);setTrial(result.trialSettings??{enabled:false,price:0});setLoadedTemplate(templateId);setError(null);}else setError({templateId,message:result.error??"學員讀取失敗"});}).catch(()=>{if(active)setError({templateId,message:"學員讀取失敗"});});
     return()=>{active=false;};
   },[reader,templateId,retry]);
+  useEffect(()=>{purchaseLoadToken.current+=1;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseLoading(false);return()=>{purchaseLoadToken.current+=1;};},[templateId]);
   const ready=loadedTemplate===templateId;
   const requiredFor=(card:Card)=>occurrenceCount*(card.unit==="SESSION"?1:pointCost);
   const available=ready?cards.filter(card=>card.available>=requiredFor(card)):[];
@@ -64,17 +66,19 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       {!trialMode&&!row.cardId&&memberCards.length>0&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:memberCards[0].id,trialPrice:undefined}:item))}>使用學員方案</button>}
       {!enough&&<p role="alert" className="w-full text-red-700">{!row.cardId&&row.trialPrice===undefined?"請選學員方案或體驗。":"請確認學員方案與可用額度。"}</p>}
       {!trialMode&&!row.customerId.startsWith("trial-draft:")&&!memberCards.some(card=>card.available>=requiredFor(card))&&<button type="button" className="min-h-11 rounded-lg border border-primary-300 bg-white px-3 font-medium text-primary-800" disabled={disabled||purchasing||!ready} onClick={async()=>{
+        const request=++purchaseLoadToken.current;
         setPurchaseError("");setPurchaseFor(row.customerId);setPurchaseOptions(null);setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseRequestKey(crypto.randomUUID());setPurchaseLoading(true);
         try {
           const result=await loadCourseSchedulePurchaseOptions(templateId,row.customerId);
+          if(request!==purchaseLoadToken.current)return;
           if(!result.success){setPurchaseError(result.error??"讀取可購買方案失敗");return;}
           setPurchaseOptions(result.data);setPurchasePlanId(result.data.plans[0]?.id??"");
-        } catch {setPurchaseError("方案讀取失敗，請重試");}
-        finally {setPurchaseLoading(false);}
+        } catch {if(request===purchaseLoadToken.current)setPurchaseError("方案讀取失敗，請重試");}
+        finally {if(request===purchaseLoadToken.current)setPurchaseLoading(false);}
       }}>新增繳費</button>}
       {purchaseFor===row.customerId&&!purchaseOptions&&<div className="flex w-full items-center justify-between gap-2 rounded-xl border border-primary-200 bg-white p-3">
         <span role={purchaseError?"alert":"status"}>{purchaseError|| (purchaseLoading?"讀取適用方案中…":"")}</span>
-        <button type="button" className="min-h-11 px-2 text-earth-600 underline" disabled={purchasing} onClick={()=>{setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>取消</button>
+        <button type="button" className="min-h-11 px-2 text-earth-600 underline" disabled={purchasing} onClick={()=>{purchaseLoadToken.current+=1;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");setPurchaseLoading(false);}}>取消</button>
       </div>}
       {purchaseFor===row.customerId&&purchaseOptions&&<div className="w-full space-y-3 rounded-xl border border-primary-200 bg-white p-3">
         <div className="flex items-center justify-between gap-2"><strong>新增繳費</strong><button type="button" className="min-h-11 px-2 text-earth-600 underline" disabled={purchasing} onClick={()=>{setPurchaseFor(null);setPurchaseOptions(null);}}>取消</button></div>
