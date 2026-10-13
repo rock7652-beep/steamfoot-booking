@@ -48,6 +48,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
   const isPlan = selection !== undefined ? selection !== null : slot.service === "PACKAGE_SESSION";
   const selectedWalletId = selection !== undefined ? selection?.walletId : slot.selectedWalletId;
   const selectedPlanName = selection !== undefined ? selection?.name : slot.selectedPlanName;
+  const canRemoveWalkIn = !readOnly && checkout.canResolve && slot.source === "WALK_IN" && status === "PENDING" && amount == null && !isPlan;
   const canSell = !readOnly && checkout.canSell && ["PENDING", "COMPLETED"].includes(status) && !!slot.customerId && checkout.plans.length > 0;
   const sellButton = canSell ? <button type="button" disabled={blocked || saving} onClick={() => { setExpanded(false); setUsingPlan(false); setSelling(!selling); }} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{selling ? "收合方案" : "新增方案"}</button> : null;
   const dirty = expanded && (draft.amount !== String(checkout.settings.defaultPrice) || draft.method !== "CASH" || !!draft.note);
@@ -82,6 +83,10 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         </p>
       </div>
       {!readOnly && status === "PENDING" && <div className="flex flex-wrap items-start gap-2">
+        {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
+          if (window.confirm("移除這位臨時加入者？會釋放此人的名額並保留紀錄，其他人不受影響。"))
+            void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "CANCELLED" }), "CANCELLED");
+        }} className="min-h-11 rounded-lg border border-red-200 px-3 text-base text-red-700 disabled:opacity-50">移除臨時加入</button>}
         {checkout.canCollect && !isPlan && amount == null && (slot.customerId || checkout.canCollectUnregistered) && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setSelling(false); setExpanded(!expanded); }}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">收款並完成 ${checkout.settings.defaultPrice.toLocaleString("zh-TW")}</button>}
         {checkout.canResolve && (amount == null || slot.receiptCorrected) && slot.customerId && !!slot.wallets?.length && <button type="button" disabled={blocked || saving}
