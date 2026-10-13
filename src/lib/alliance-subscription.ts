@@ -1,5 +1,6 @@
 /** HQ subscription is separate from each branch subscription. No inherited plan. */
-export const ALLIANCE_BASE_MONTHLY = 4990;
+/** Annual pricing basis, not a monthly-payment quote; no billing mutation. */
+export const ALLIANCE_BASE_MONTHLY = 2980;
 export const ALLIANCE_STANDARD_BRANCH_LIMIT = 15;
 export const ALLIANCE_BRANCH_PRICING_COPY = "首間分店免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算。各分店系統月費另計，16 間起另行報價。";
 export type OrganizationStore = {
