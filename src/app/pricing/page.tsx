@@ -47,7 +47,7 @@ function OnlinePayment() {
   return <section id="payment" aria-labelledby="payment-title" className="mt-8 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
     <p className="text-sm font-semibold tracking-widest text-[#74603C]">綠界 ECPay 金流</p>
     <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
-    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案、加購項目及完整金額，再進行付款。一次付款不代表授權自動續扣。付款金額請填寫雙方確認的方案及加購總額。</p>
+    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案、加購項目及完整金額，再進行付款。此處年繳付款不代表授權自動續扣；月繳則透過綠界信用卡定期定額授權按月扣款。</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -62,11 +62,11 @@ function OnlinePayment() {
       </article>)}
     </div>
     <div className="mt-4 flex flex-col gap-1 border-t border-[#153B31]/15 pt-3 text-base leading-7 sm:flex-row sm:items-center sm:justify-between">
-      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">無年繳贈送，確認月費後提供專屬連結。</span></p>
-      <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">請洽專人 ↗</a>
+      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,490、專業版 NT$2,490、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳透過綠界信用卡定期定額授權按月扣款；請先洽專人確認每期金額、12 期總額與服務期間，並依指示至綠界完成授權。總部核對訂單與付款結果後開通服務，蒸管家內不提供付款操作。</span></p>
+      <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">洽詢月繳與授權 ↗</a>
     </div>
     <div className="mt-2 space-y-1 text-sm leading-6 text-[#4C6259]">
-      <p>付款後由專人核對並開通；綠界付款頁顯示的收款商店名稱為「陸比音樂」。</p>
+      <p>付款後由總部核對訂單與付款結果後開通；綠界付款頁顯示的收款商店名稱為「陸比音樂」。</p>
       <p>綠界 ATM 付款金額限 NT$16～49,999；超過上限請使用信用卡或洽專人確認轉帳方式。</p>
     </div>
   </section>;
@@ -163,7 +163,7 @@ export default async function PricingPage() {
         <details id="fee-details" className="mt-4 scroll-mt-24 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
-            <li>展店版年繳 NT$59,880，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
+            <li>展店版月繳 NT$2,980／月，最低承諾 12 個月（合計 NT$35,760，無贈送）；或年繳 NT$35,760，優惠期間使用 14 個月。年繳包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計；使用期間自正式啟用日起算。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>

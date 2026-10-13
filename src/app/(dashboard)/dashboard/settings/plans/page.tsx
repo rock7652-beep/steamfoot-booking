@@ -86,9 +86,9 @@ const PLANS: PlanCard[] = [
     name: "展店版",
     positioning: "多店與合作店長管理",
     cardSubline: "含總部管理；分店串接費與系統月費另計",
-    monthly: "NT$4,990 起",
+    monthly: "NT$2,980 起",
     originalPrice: "原價 NT$7,100/月起",
-    priceNote: "限時優惠價",
+    priceNote: "月繳 NT$2,980 × 12 期＝NT$35,760（無贈送）；年繳 NT$35,760，優惠期間使用14個月",
     description: "適合兩家店以上、多店經營與合作店長月結。",
     features: [
       "總部適用功能內含；分店依各自購買方案開通",

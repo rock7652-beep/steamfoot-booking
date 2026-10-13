@@ -359,7 +359,7 @@ async function StorePlanSection() {
           {platformStats.map(stats => <div key={stats.storeId} className="rounded-xl border border-earth-200 bg-white p-4 text-sm">
             <p className="font-semibold text-earth-800">{stats.storeName}</p>
             <p className="mt-2">已串接 {stats.branchCount} 間／已開通可串接 {stats.purchasedBranches} 間</p>
-            <p>主店展店版 NT$4,990／月；串接費 {stats.connectionFee === null ? "另行報價" : `NT$${stats.connectionFee.toLocaleString("zh-TW")}／月`}；合計 {stats.monthlyFee === null ? "另行報價" : `NT$${stats.monthlyFee.toLocaleString("zh-TW")}／月`}。各分店系統月費另計。</p>
+            <p>主店展店版年繳 NT$35,760（計價每月 NT$2,980；優惠14個月平均約NT$2,554／月）；串接費 {stats.connectionFee === null ? "另行報價" : `NT$${stats.connectionFee.toLocaleString("zh-TW")}／月`}；年繳計價月費加串接費 {stats.monthlyFee === null ? "另行報價" : `NT$${stats.monthlyFee.toLocaleString("zh-TW")}／月`}。各分店系統月費另計；此為年繳計價試算，非逐月付款報價。</p>
             {stats.branchCount > stats.purchasedBranches && <p className="mt-2 text-amber-700">目前分店數超過已開通間數，請聯絡平台確認。</p>}
           </div>)}
           <DashLink href="/hq/dashboard/stores/organization" className="inline-block text-primary-700 underline">管理總部串接額度</DashLink>
