@@ -8,7 +8,7 @@ export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPr
 type Card=Extract<Awaited<ReturnType<typeof loadCourseScheduleEnrollmentOptions>>,{success:true}>["cards"][number];
 type PurchaseData=Extract<Awaited<ReturnType<typeof loadCourseSchedulePurchaseOptions>>,{success:true}>["data"];
 export function CourseScheduleLearners({templateId,pointCost,capacity,value,onChange,disabled=false,scope="",occurrenceCount=1,onValidityChange,trialMode=false,canCreateCustomer=false,onPendingChange,onDraftChange}:{onDraftChange?:(dirty:boolean)=>void;onPendingChange?:(pending:boolean)=>void;trialMode?:boolean;canCreateCustomer?:boolean;templateId:string;pointCost:number;capacity:number;value:ScheduleLearner[];onChange:(value:ScheduleLearner[])=>void;disabled?:boolean;scope?:string;occurrenceCount?:number;onValidityChange?:(valid:boolean)=>void}) {
-  const reader=usePanelReader("course-schedule-learners",loadCourseScheduleEnrollmentOptions,scope,0);
+  const reader=usePanelReader("course-schedule-learners",loadCourseScheduleEnrollmentOptions,scope,8_000);
   const [cards,setCards]=useState<Card[]>([]);
   const [customers,setCustomers]=useState<{id:string;name:string;phone:string}[]>([]);
   const [trial,setTrial]=useState({enabled:false,price:0});

@@ -68,7 +68,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setPair(null);setError("");}
-  const slotReader=usePanelReader("music-schedule-matches",getMusicSlotMatches,"",0);
+  const slotReader=usePanelReader("music-schedule-matches",getMusicSlotMatches,"",8_000);
   useEffect(()=>{
     if(!templateId || !date) return;
     let active=true;

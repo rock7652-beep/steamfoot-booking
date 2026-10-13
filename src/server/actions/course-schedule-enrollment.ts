@@ -17,12 +17,14 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
     z.string().min(1).max(100).parse(templateId);
     const {storeId,user}=await courseManager("booking.create");
     await courseManager("customer.read");
-    const customers=await prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000});
-    const trialSettings=await getTrialSettings(storeId);
-    const template=await coursePrisma.courseTemplate.findFirst({where:{id:templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true,category:true}});
-    let canTrial=false;try{await courseManager("trial.create");canTrial=true;}catch{}
+    const [customers,trialSettings,template,canTrial,cards]=await Promise.all([
+      prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000}),
+      getTrialSettings(storeId),
+      coursePrisma.courseTemplate.findFirst({where:{id:templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true,category:true}}),
+      courseManager("trial.create").then(()=>true,()=>false),
+      getCourseCards(storeId,undefined,{where:{closedAt:null,expiresAt:{gte:new Date()},termSessionIds:{isEmpty:true},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:templateId}}]},skip:0,take:500,entries:false}),
+    ]);
     const visibleIds=new Set(customers.map(person=>person.id));
-    const cards=await getCourseCards(storeId,undefined,{where:{closedAt:null,expiresAt:{gte:new Date()},termSessionIds:{isEmpty:true},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:templateId}}]},skip:0,take:500,entries:false});
     return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:cards.map(card=>({id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
