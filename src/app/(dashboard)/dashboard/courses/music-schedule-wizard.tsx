@@ -21,13 +21,13 @@ function musicCourseOptionLabel(template:Template){
   return `${template.musicSubject.name}${classLabel?` · ${classLabel}`:""}`;
 }
 
-export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange}:{
+export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange,initialScheduleKind}:{
   templates:Template[];rooms:Room[];coaches:Coach[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
   seed?:{date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number};
   onCreated:(sessionId:string,date:string,sessions:unknown[])=>void;
   onGuard?:(dirty:boolean,pending:boolean)=>void;
   onPositionChange?:(position:{date:string;time:string;roomId?:string;coachId?:string;durationMinutes:number})=>void;
-  onRefresh?:()=>void; isTrial?:boolean; canCreateCustomer?:boolean;
+  onRefresh?:()=>void; isTrial?:boolean; canCreateCustomer?:boolean; initialScheduleKind? : "FIXED"|"SINGLE";
 }) {
   const workflow=seed?.time?"time":"course";
   const [originalPosition]=useState(()=>({date:initialDate,time:seed?.time??"",roomId:seed?.roomId??""}));
@@ -36,7 +36,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [templateId,setTemplateId]=useState(defaultTemplate?.id ?? "");
   const template=eligibleTemplates.find(t=>t.id===templateId);
   const [capacity,setCapacity]=useState(defaultTemplate?.capacity??1);
-  function chooseTemplate(id:string){setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);if(!isTrial)setScheduleKind(t?.musicScheduleMode==="FIXED"?"FIXED":"SINGLE");resetSlot();}
+  function chooseTemplate(id:string){setTemplateId(id);const t=templates.find(t=>t.id===id);setCapacity(t?.capacity??1);resetSlot();}
 
   const [duration,setDuration]=useState<30|60|90|120>(60);
   const [date,setDate]=useState(initialDate);
@@ -54,12 +54,11 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [learnersValid,setLearnersValid]=useState(true);
   const [pair,setPair]=useState<{roomId:string;coachId:string}|null>(null);
   const [conflicts,setConflicts]=useState<{date:string;reason:string}[]>([]);
-  const [scheduleKind,setScheduleKind]=useState<"FIXED"|"SINGLE">(template?.musicScheduleMode==="FIXED"?"FIXED":"SINGLE");
+  const [scheduleKind,setScheduleKind]=useState<"FIXED"|"SINGLE">(initialScheduleKind??(template?.musicScheduleMode==="FIXED"?"FIXED":"SINGLE"));
   const [frequency,setFrequency]=useState<"WEEKLY"|"BIWEEKLY">("WEEKLY");
   const [validUntil,setValidUntil]=useState("");
   const [conflictCheckPending,setConflictCheckPending]=useState(false);
   const [conflictCheckError,setConflictCheckError]=useState("");
-  const [editingArrangement,setEditingArrangement]=useState(false);
   const [error,setError]=useState("");
   const [pending,startTransition]=useTransition();
   const [checkedAgain,setCheckedAgain]=useState(false);
@@ -70,14 +69,14 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
     setSelectedPurpose(isTrial);
     const next=eligibleTemplates[0];
     setTemplateId(next?.id??"");setCapacity(next?.capacity??1);setSlots(null);setPair(null);
-    setScheduleKind(isTrial?"SINGLE":next?.musicScheduleMode==="FIXED"?"FIXED":"SINGLE");
     setValidUntil("");setConflicts([]);setLearners([]);setTime(seed?.time??"");setRoomId(seed?.roomId??"");
   },[eligibleTemplates,isTrial,seed?.roomId,seed?.time,selectedPurpose]);
+  useEffect(()=>{if(initialScheduleKind)setScheduleKind(initialScheduleKind);},[initialScheduleKind]);
   const initialTemplate=templates.find(t=>t.id===(initialTemplateId??templates[0]?.id));
   const initialDuration=60;
   const repeat=scheduleKind==="FIXED"&&!isTrial;
-  const initialScheduleKind: "FIXED"|"SINGLE"=isTrial?"SINGLE":initialTemplate?.musicScheduleMode==="FIXED"?"FIXED":"SINGLE";
-  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || scheduleKind!==initialScheduleKind || frequency!=="WEEKLY" || validUntil!=="" || enrollmentDirty || learners.length>0;
+  const derivedInitialScheduleKind: "FIXED"|"SINGLE"=isTrial?"SINGLE":initialTemplate?.musicScheduleMode==="FIXED"?"FIXED":"SINGLE";
+  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || scheduleKind!==(initialScheduleKind??derivedInitialScheduleKind) || frequency!=="WEEKLY" || validUntil!=="" || enrollmentDirty || learners.length>0;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setPair(null);setError("");setConflicts([]);}
@@ -166,17 +165,14 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
     });
   }
   return <fieldset disabled={pending} className="flex h-full min-h-0 min-w-0 flex-col text-sm">
-    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-3">
+    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-2">
       {time && <p aria-label="已選排課位置" className="rounded-lg bg-earth-50 px-3 py-2">{date} · {time}{end?`–${end}`:""} · {roomName??"教室待選"}{coachId?` · ${coaches.find(c=>c.id===coachId)?.displayName??"老師待確認"}`:""}<button type="button" className="ml-2 min-h-11 text-primary-700" onClick={()=>setEditingPosition(v=>!v)}>{editingPosition?"收合":"修改"}</button></p>}
       {editingPosition&&<div className="grid grid-cols-2 gap-3"><label>日期<input aria-label="排課日期" type="date" value={date} className="min-h-11 w-full rounded-lg border px-2" onChange={e=>{setDate(e.target.value);resetSlot();}}/></label><label>時間<input aria-label="排課時間" type="time" step={1800} value={time} className="min-h-11 w-full rounded-lg border px-2" onChange={e=>{setTime(e.target.value);setPair(null);}}/></label><label>教室<select aria-label="排課教室" value={roomId} className="min-h-11 w-full rounded-lg border px-2" onChange={e=>{setRoomId(e.target.value);setPair(null);}}><option value="">選擇可用教室</option>{rooms.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label><label>老師<select aria-label="更換排課老師" value={coachId} className="min-h-11 w-full rounded-lg border px-2" onChange={e=>{setCoachId(e.target.value);setTeacherEdited(true);setPair(null);}}><option value="">選擇可用老師</option>{coaches.map(c=><option key={c.id} value={c.id}>{c.displayName}</option>)}</select></label></div>}
       {eligibleTemplates.length>0&&<label className="block">課程<select aria-label="課程" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3" value={templateId} onChange={e=>chooseTemplate(e.target.value)}>{eligibleTemplates.map(t=><option key={t.id} value={t.id}>{musicCourseOptionLabel(t)}</option>)}</select></label>}
-      {eligibleTemplates.length>0&&<details open={editingArrangement} onToggle={event=>setEditingArrangement(event.currentTarget.open)} className="rounded-lg border border-earth-200 px-3">
-        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2"><span>{duration} 分鐘</span><span className="text-primary-700">{editingArrangement?"收合":"修改"}</span></summary>
-        <div className="grid grid-cols-2 gap-3 pb-3">
-          <label>時長<select aria-label="時長" className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-2" value={duration} onChange={e=>{setDuration(Number(e.target.value) as 30|60|90|120);resetSlot();}}>{[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}</select></label>
-          {workflow==="course"&&<label>名額<input aria-label="名額" className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-2" type="number" min="1" max="500" value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/></label>}
-        </div>
-      </details>}
+      {eligibleTemplates.length>0&&<div className="grid grid-cols-2 gap-2">
+        <label>時長<select aria-label="時長" className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-2" value={duration} onChange={e=>{setDuration(Number(e.target.value) as 30|60|90|120);resetSlot();}}>{[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}</select></label>
+        {workflow==="course"&&<label>名額<input aria-label="名額" className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-2" type="number" min="1" max="500" value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/></label>}
+      </div>}
       {!time&&<label className="block">日期<input aria-label="找空位日期" className="mt-1 min-h-11 w-full rounded-xl border border-earth-200 px-3" type="date" value={date} onChange={e=>{setDate(e.target.value);resetSlot();}}/></label>}
       {(noSlot||!templateId)&&<div role="status" className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
         <p>{!templateId?(isTrial?"尚未設定體驗課程":"尚未建立課程"):reason}</p>
@@ -193,16 +189,12 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
         <strong>可教這門課的老師</strong>
         {!slots&&coachId&&<p className="rounded-lg bg-earth-50 px-3 py-2">{coaches.find(c=>c.id===coachId)?.displayName??"原選老師"}</p>}
         {seed?.coachId&&!teacherIds.includes(seed.coachId)&&<p className="text-amber-800">原選老師此時段無法授課</p>}
-        {!!teacherIds.length&&(teacherIds.length===1&&(!coachId||teacherIds.includes(coachId))?<p className="rounded-lg bg-earth-50 px-3 py-2">{coaches.find(c=>c.id===teacherIds[0])?.displayName}</p>:<div className="grid grid-cols-2 gap-2">{teacherIds.map(id=><button key={id} type="button" aria-pressed={selectedCoachId===id} className={`min-h-11 rounded-xl border px-3 text-left ${selectedCoachId===id?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>{setCoachId(id);setTeacherEdited(true);setPair(null);}}>{coaches.find(c=>c.id===id)?.displayName}</button>)}</div>)}
+        {!!teacherIds.length&&(teacherIds.length===1&&(!coachId||teacherIds.includes(coachId))?<p className="mt-1 rounded-lg bg-earth-50 px-3 py-2">{coaches.find(c=>c.id===teacherIds[0])?.displayName}</p>:<select aria-label="授課老師" className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3" value={selectedCoachId} onChange={e=>{setCoachId(e.target.value);setTeacherEdited(true);setPair(null);}}><option value="">請選擇老師</option>{teacherIds.map(id=><option key={id} value={id}>{coaches.find(c=>c.id===id)?.displayName??"老師"}</option>)}</select>)}
 
       </section>}
-      {selectedCoachId&&!roomId&&validRooms.length>1&&<div aria-label="老師可用教室" className="grid grid-cols-2 gap-2">{validRooms.map(option=><button key={option.roomId} type="button" aria-pressed={selectedPair?.roomId===option.roomId} className={`min-h-11 rounded-xl border px-3 text-left ${selectedPair?.roomId===option.roomId?"border-primary-700 bg-primary-50":"border-earth-200"}`} onClick={()=>setPair(option)}>{rooms.find(r=>r.id===option.roomId)?.name}</button>)}</div>}
+      {selectedCoachId&&!roomId&&validRooms.length>1&&<label className="block font-medium">教室<select aria-label="排課教室" className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3" value={selectedPair?.roomId??""} onChange={e=>setPair(validRooms.find(option=>option.roomId===e.target.value)??null)}><option value="">請選擇教室</option>{validRooms.map(option=><option key={option.roomId} value={option.roomId}>{rooms.find(r=>r.id===option.roomId)?.name??"教室"}</option>)}</select></label>}
       {!slots&&!!templateId&&<p role="status" className="text-xs text-earth-500">{time?"正在確認這個時段可授課的老師…":"正在讀取可排時段…"}</p>}
-      {!isTrial&&draftPair&&templateId&&<section aria-label="排課類型" className="space-y-2 rounded-xl border border-earth-200 p-3">
-        <strong>上課方式</strong>
-        <div className="grid grid-cols-2 gap-2">
-          {([ ["FIXED","固定課程"], ["SINGLE","單次上課"] ] as const).map(([kind,label])=><button key={kind} type="button" aria-pressed={scheduleKind===kind} className={`min-h-11 rounded-lg border px-3 font-medium ${scheduleKind===kind?(kind==="FIXED"?"border-sky-700 bg-sky-700 text-white":"border-emerald-700 bg-emerald-700 text-white"):"border-earth-200 bg-white"}`} onClick={()=>{setScheduleKind(kind);setValidUntil("");setConflicts([]);setError("");}}>{label}</button>)}
-        </div>
+      {!isTrial&&scheduleKind==="FIXED"&&draftPair&&templateId&&<section aria-label="固定課程設定" className="grid grid-cols-2 gap-2 rounded-lg border border-earth-200 p-2">
         {repeat&&<div className="grid gap-3 sm:grid-cols-2">
           <label>頻率<select aria-label="固定課程頻率" className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" value={frequency} onChange={e=>{setFrequency(e.target.value as "WEEKLY"|"BIWEEKLY");setConflicts([]);}}><option value="WEEKLY">每週</option><option value="BIWEEKLY">隔週</option></select></label>
           <label>開始日期<input aria-label="固定課程開始日期" type="date" value={date} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-3" onChange={e=>{setDate(e.target.value);resetSlot();}}/></label>

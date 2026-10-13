@@ -30,10 +30,9 @@ it("does not auto-select a fixed-origin pair that the user cannot select",async(
 it("offers the relevant repair in another tab and refreshes while keeping entered settings",async()=>{
  m.slots.mockResolvedValue({success:true,data:[],blocker:{reason:"沒有符合這門課資格的老師",fixTarget:"teacher"},unavailable:[]});
  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
- expect(host.querySelector("details")?.open).toBe(false);
+ expect(host.querySelector("details")).toBeNull();
  expect(host.querySelector('[role="status"]')?.textContent).toContain("沒有符合這門課資格的老師");
  const link=host.querySelector<HTMLAnchorElement>('a[href="/dashboard/teachers"]')!;expect(link.target).toBe("_blank");
- await act(async()=>host.querySelector<HTMLElement>("details summary")?.click());
  const capacity=host.querySelector<HTMLInputElement>('[aria-label="名額"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(capacity.ownerDocument.defaultView!.HTMLInputElement.prototype,"value")!.set!.call(capacity,"2");capacity.dispatchEvent(new Event("input",{bubbles:true}));});
  await click("重新檢查");expect(capacity.value).toBe("2");expect(m.slots).toHaveBeenCalledTimes(2);expect(host.querySelector<HTMLInputElement>('input[type="date"]')?.value).toBe("2026-10-10");
@@ -54,7 +53,6 @@ it("protects drafts when only duration or capacity changes",async()=>{
  expect(guard).toHaveBeenLastCalledWith(true,false);
  await act(async()=>{duration.value="60";duration.dispatchEvent(new Event("change",{bubbles:true}));});
  expect(guard).toHaveBeenLastCalledWith(false,false);
- await act(async()=>host.querySelector<HTMLElement>("details summary")?.click());
  const capacity=host.querySelector<HTMLInputElement>('[aria-label="名額"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(capacity.ownerDocument.defaultView!.HTMLInputElement.prototype,"value")!.set!.call(capacity,"2");capacity.dispatchEvent(new Event("input",{bubbles:true}));});
  expect(guard).toHaveBeenLastCalledWith(true,false);

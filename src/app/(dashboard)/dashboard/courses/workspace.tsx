@@ -696,7 +696,7 @@ export function CourseWorkspace({
   }
   function openSchedule(seed: {date?:string;time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
-    setArrangement("class");
+    setArrangement(businessProfile==="MUSIC"?"single":"class");
     setScheduleLearners([]);setScheduleCapacity(templates[0]?.capacity??1);setScheduleDuration(60);setScheduleRoomId(seed.roomId??templates[0]?.defaultRoomId??(rooms.length===1?rooms[0].id:""));setScheduleCoachId(seed.coachId??"");setScheduleArrangementOpen(false);
     setScheduleOccurrenceCount(1);setScheduleLearnersValid(true);
     setScheduleSeed({...seed,durationMinutes:60});
@@ -1508,7 +1508,7 @@ export function CourseWorkspace({
                                       className={button}
                                       disabled={pending}
                                       onClick={() => {
-                                        setCopySource(session);setScheduleTime(formatTWDateTime(new Date(session.startsAt)).slice(11));setScheduleCoachId(session.coachId);setScheduleDate("");setArrangement(session.isTrial?"trial":"class");setScheduleLearners([]);setScheduleLearnersValid(true);setScheduleCapacity(session.capacity);setScheduleDuration((new Date(session.endsAt).getTime()-new Date(session.startsAt).getTime())/60000);setScheduleRoomId(session.roomId);
+                                        setCopySource(session);setScheduleTime(formatTWDateTime(new Date(session.startsAt)).slice(11));setScheduleCoachId(session.coachId);setScheduleDate("");setArrangement(session.isTrial?"trial":businessProfile==="MUSIC"?(session.isFixed?"fixed":"single"):"class");setScheduleLearners([]);setScheduleLearnersValid(true);setScheduleCapacity(session.capacity);setScheduleDuration((new Date(session.endsAt).getTime()-new Date(session.startsAt).getTime())/60000);setScheduleRoomId(session.roomId);
                                         setChosen(session.templateId);
                                         setRepeatMode("once");
                                         setScheduleCreated(null);
@@ -2015,6 +2015,7 @@ export function CourseWorkspace({
                 onPositionChange={updateSchedulePosition}
                 templates={templates}
                 isTrial={arrangement==="trial"}
+                initialScheduleKind={arrangement==="fixed"?"FIXED":"SINGLE"}
                 canCreateCustomer={rentalPermissions.customerCreate}
                 rooms={allRooms.filter(r=>r.isActive||r.id===scheduleSeed.roomId)}
                 coaches={coaches}
@@ -2042,7 +2043,7 @@ export function CourseWorkspace({
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
             {panel === "schedule" && !scheduleCreated && <>
-              <div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","課程"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} aria-pressed={arrangement===kind} className={`${button} ${arrangement===kind?(kind==="class"?"border-sky-700 bg-sky-700 text-white":kind==="trial"?"border-orange-600 bg-orange-600 text-white":"border-pink-600 bg-pink-600 text-white"):""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;if(kind==="trial")setRepeatMode("once");setArrangement(kind);}}>{label}</button>)}</div>
+              {businessProfile==="MUSIC"?<label className="mb-2 block shrink-0 text-sm font-medium">類型<select aria-label="安排類型" className={`${field} mt-1 min-h-10 w-full max-w-sm`} value={arrangement} onChange={event=>{if(pending||musicScheduleGuard.current.pending||roomSave.uncertain||rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;const next=event.target.value as "fixed"|"single"|"trial"|"rental";if(next==="trial")setRepeatMode("once");setArrangement(next);}}><option value="fixed">固定課程</option><option value="single">單次課程</option><option value="trial">體驗課</option><option value="rental">租借空間</option></select></label>:<div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","課程"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} aria-pressed={arrangement===kind} className={`${button} ${arrangement===kind?(kind==="class"?"border-sky-700 bg-sky-700 text-white":kind==="trial"?"border-orange-600 bg-orange-600 text-white":"border-pink-600 bg-pink-600 text-white"):""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;if(kind==="trial")setRepeatMode("once");setArrangement(kind);}}>{label}</button>)}</div>
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
               {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={businessProfile==="MUSIC"?{...scheduleSeed,date:scheduleSeed.date??selectedDate}:{date:scheduleDate,time:scheduleTime,roomId:scheduleRoomId,durationMinutes:scheduleDuration}} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} onGuard={updateRentalGuard} />}
             </>}
