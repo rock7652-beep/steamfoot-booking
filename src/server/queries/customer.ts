@@ -11,6 +11,7 @@ import { todayRange } from "@/lib/date-utils";
 import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
 import { checkPermission, requirePermission } from "@/lib/permissions";
+import { overrideLastVisitFromCompletedBookings } from "@/server/queries/customer-list-helpers";
 
 /**
  * 桌機版顧客列表 toolbar 支援的複合篩選：
@@ -146,12 +147,7 @@ export async function listCustomersForUser(
     prisma.customer.count({ where }),
   ]);
 
-  // 「最近來店」顯示來源：當頁 customers 的最近一筆 COMPLETED booking。
-  // 為何不用 Customer.lastVisitAt：prod 該欄位多數 stale/null，但顧客其實有
-  // COMPLETED bookings。本 PR 範圍只修「列表顯示」，不 backfill、不改 booking
-  // 完成流程、不動 schema。Known limitation（PR description 已記）：
-  //   - visit filter（本月/30天未到/從未到）與 sort 仍使用 Customer.lastVisitAt
-  //     → 顯示值與 filter/sort 可能短暫不一致，待 Phase 2 處理。
+  // 最近來店顯示包含已完成的預約本人與已完成同行者；未改寫篩選／排序資料。
   const customerIds = customers.map((c) => c.id);
   const latestCompletedBookings = customerIds.length
     ? await prisma.booking.groupBy({
@@ -163,18 +159,38 @@ export async function listCustomersForUser(
         _max: { bookingDate: true },
       })
     : [];
-  const lastVisitFromBooking = new Map<string, Date | null>(
-    latestCompletedBookings.map((r) => [r.customerId, r._max.bookingDate]),
+  const latestCompletedParticipants =
+    process.env.BOOKING_PARTICIPANTS_ENABLED === "true" && customers.length
+      ? await prisma.bookingParticipant.findMany({
+          where: {
+            status: "COMPLETED",
+            OR: customers.map((customer) => ({
+              customerId: customer.id,
+              storeId: customer.storeId,
+            })),
+          },
+          select: {
+            customerId: true,
+            group: { select: { booking: { select: { bookingDate: true } } } },
+          },
+        })
+      : [];
+  const participantVisits = latestCompletedParticipants.flatMap((participant) =>
+    participant.customerId
+      ? [{ customerId: participant.customerId, bookingDate: participant.group.booking.bookingDate }]
+      : [],
+  );
+  const customersWithLastVisit = overrideLastVisitFromCompletedBookings(
+    customers,
+    latestCompletedBookings,
+    participantVisits,
   );
 
   // 計算每位顧客的有效 PACKAGE 堂數加總 + 推薦數；以 booking-derived 取代顯示用 lastVisitAt。
   // 命名用 validPackageSessions（而非 totalRemainingSessions）以明示已收斂語意：
   // planWallets 已在上方 where 過濾為「有效 PACKAGE」，故此處 reduce 即為有效堂數。
-  const customersWithStats = customers.map((c) => ({
+  const customersWithStats = customersWithLastVisit.map((c) => ({
     ...c,
-    // 顯示優先：booking-derived；若該顧客沒任何 COMPLETED booking，
-    // 退回 Customer.lastVisitAt 維持向後相容（極少數舊資料場景）
-    lastVisitAt: lastVisitFromBooking.get(c.id) ?? c.lastVisitAt,
     validPackageSessions: c.planWallets.reduce(
       (sum, w) => sum + w.remainingSessions,
       0
