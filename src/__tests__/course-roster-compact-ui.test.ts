@@ -161,7 +161,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   });
   await setSearch("0900000019");
   await act(async()=>(host.querySelector('input[aria-label="全選搜尋結果中可操作的學員"]') as HTMLInputElement).click());
-  expect(host.textContent).toContain("點名這 1 人");
+  expect(host.textContent).toContain("點名這 1 ��");
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(1);
   await setSearch("");
   expect(host.querySelectorAll('input[aria-label^="選取 "]:checked')).toHaveLength(0);
@@ -540,4 +540,3 @@ it.each(["HIDDEN","LOCKED"] as const)("does not offer new companions from stale 
   expect(document.querySelector('[role="menu"]')?.textContent).toContain("變更使用方式");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
-

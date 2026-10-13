@@ -22,3 +22,4 @@ export function useCustomerPanelGuard() {
   const context = useMemo(() => ({ report, navigate: () => {} }), [report]);
   return { ...summary, context, allowLeave };
 }
+

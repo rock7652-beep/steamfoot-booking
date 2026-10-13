@@ -160,7 +160,7 @@ export async function saveCourseRoomSettings(input:unknown) {
     const {id,expectedStoreId,expectedRevision,requestKey,...fields}=courseRoomEditInput.parse(input);
     void requestKey; // Transport keeps the exact edit payload for an ambiguous retry.
     const {storeId}=await writableStore("booking.update");
-    if(storeId!==expectedStoreId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟空間設定。");
+    if(storeId!==expectedStoreId)throw new AppError("CONFLICT","目前門市已切換���請重新開啟空間設定。");
     const saved=await courseTransaction(storeId,async tx=>{
       const previous=await tx.courseRoom.findFirst({where:{id,storeId}});
       if(!previous)throw new AppError("NOT_FOUND","找不到本店空間");
@@ -247,7 +247,7 @@ export async function updateCourseSession(input: unknown) {
       .extend({
         id: z.string().min(1),
         templateId: z.string().min(1).optional(),
-        nameSnapshot: z.string().trim().min(1, "請填寫課程名稱").max(80),
+        nameSnapshot: z.string().trim().min(1, "請填寫課程���稱").max(80),
         pointCost: z.number().int().min(1).max(10000),
       })
       .parse(input);
@@ -480,6 +480,8 @@ export async function createCourseSchedule(input: unknown) {
                 session.coachId !== data.coachId ||
                 session.capacity !== data.capacity ||
                 session.isTrial !== data.isTrial ||
+                (session.scheduleType ?? "LEGACY") !== data.scheduleType ||
+                (session.scheduleFrequency ?? "NONE") !== data.scheduleFrequency ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
                 session.endsAt.getTime() !==
@@ -511,6 +513,7 @@ export async function createCourseSchedule(input: unknown) {
         const [template, room, coaches] = await Promise.all([
           tx.courseTemplate.findFirst({
             where: { id: data.templateId, storeId, isActive: true },
+            include: { musicSubject: { select: { name: true, isActive: true } } },
           }),
           tx.courseRoom.findFirst({
             where: { id: data.roomId, storeId, isActive: true },
@@ -520,7 +523,7 @@ export async function createCourseSchedule(input: unknown) {
             Array<{ id: string }>
           >`SELECT id FROM "Staff" WHERE id = ${data.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
         ]);
-        if (!template || !room || !coaches.length)
+        if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         await assertCourseResources(tx,storeId,data);
         const conflict = await tx.courseSession.findFirst({
@@ -547,7 +550,7 @@ export async function createCourseSchedule(input: unknown) {
           );
         // A moved fixed lesson still owns its original recurring slot. A one-off
         // lesson may use the released occurrence, but a new fixed series may not.
-        if (occurrences.length > 1 || template.musicScheduleMode === "FIXED") {
+        if (data.scheduleType === "FIXED" || (data.scheduleType === "LEGACY" && (occurrences.length > 1 || template.musicScheduleMode === "FIXED"))) {
           const movedOrigins = await tx.courseSession.findMany({
             where: {
               storeId,
@@ -592,8 +595,10 @@ export async function createCourseSchedule(input: unknown) {
             ...range,
             storeId,
             isTrial:data.isTrial,
+            scheduleType:data.scheduleType,
+            scheduleFrequency:data.scheduleFrequency,
             templateId: template.id,
-            nameSnapshot: source?.nameSnapshot ?? template.name,
+            nameSnapshot: source?.nameSnapshot ?? template.musicSubject?.name ?? template.name,
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
@@ -627,14 +632,16 @@ export async function createCourseSchedule(input: unknown) {
     const savedSessions = await coursePrisma.courseSession.findMany({
       where: { storeId, requestKey: data.requestKey, cancelledAt: null },
       orderBy: { requestIndex: "asc" },
-      include: { bookings: true, template: { select: { musicScheduleMode: true } } },
+      include: { bookings: true, template: { select: { musicScheduleMode: true, musicSubject: { select: { name: true } } } } },
     });
     const sessions = savedSessions.map(session => ({
       id: session.id, templateId: session.templateId, nameSnapshot: session.nameSnapshot,
       startsAt: session.startsAt.toISOString(), endsAt: session.endsAt.toISOString(),
       coachId: session.coachId, roomId: session.roomId, capacity: session.capacity,
       pointCost: session.pointCost, isTrial: session.isTrial, requestKey: session.requestKey,
-      isFixed: result.count > 1 || session.template.musicScheduleMode === "FIXED",
+      scheduleType: session.scheduleType,
+      isBiweekly: session.scheduleFrequency === "BIWEEKLY",
+      isFixed: session.scheduleType === "FIXED" || (session.scheduleType === "LEGACY" && (result.count > 1 || session.template.musicScheduleMode === "FIXED")),
       bookings: session.bookings.map(booking => ({
         id: booking.id, customerId: booking.customerId, customerName: booking.customerName,
         status: booking.status, bookingKind: booking.bookingKind,

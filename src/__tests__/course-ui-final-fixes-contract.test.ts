@@ -70,4 +70,3 @@ describe("course UI final fixes", () => {
     expect(roster).toContain("{canEdit && <OperationHistoryButton");
   });
 });
-

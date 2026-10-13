@@ -88,4 +88,3 @@ it("collected trial payments show a clear paid badge in the fee column", () => {
   expect(row).toContain("已結帳 · $${receipt.amount}");
   expect(row).toContain('>更正</button>');
 });
-

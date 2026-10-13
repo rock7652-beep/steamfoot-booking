@@ -85,6 +85,8 @@ model CourseTemplate {
 
 model CourseSession {
   isTrial Boolean @default(false)
+  scheduleType String @default("LEGACY")
+  scheduleFrequency String @default("NONE")
   id             String @id @default(cuid())
   storeId        String
   templateId     String

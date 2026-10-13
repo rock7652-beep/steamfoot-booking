@@ -17,50 +17,16 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
     z.string().min(1).max(100).parse(templateId);
     const {storeId,user}=await courseManager("booking.create");
     await courseManager("customer.read");
-    const [customers,trialSettings,template,canTrial]=await Promise.all([
-      prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000}),
-      getTrialSettings(storeId),
-      coursePrisma.courseTemplate.findFirst({where:{id:templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true,category:true}}),
-      courseManager("trial.create").then(()=>true,()=>false),
-    ]);
-    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:[] as Awaited<ReturnType<typeof getCourseCards>>};
+    const customers=await prisma.customer.findMany({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:[{name:"asc"},{id:"asc"}],take:2000});
+    const trialSettings=await getTrialSettings(storeId);
+    const template=await coursePrisma.courseTemplate.findFirst({where:{id:templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true}});
+    let canTrial=false;try{await courseManager("trial.create");canTrial=true;}catch{}
+    const visibleIds=new Set(customers.map(person=>person.id));
+    const cards=await getCourseCards(storeId,undefined,{where:{closedAt:null,expiresAt:{gte:new Date()},termSessionIds:{isEmpty:true},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:templateId}}]},skip:0,take:500,entries:false});
+    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:cards.map(card=>({id:card.id,name:card.name,unit:card.unit,available:card.available,expiresAt:card.expiresAt,members:card.members.filter(member=>!!member.id&&visibleIds.has(member.id))}))};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
 
-
-/** Fetch only the selected learner's eligible cards after their name is chosen. */
-export async function loadCourseScheduleCustomerCards(templateId:string,customerId:string) {
-  try {
-    z.string().min(1).max(100).parse(templateId);
-    z.string().min(1).max(100).parse(customerId);
-    const {storeId,user}=await courseManager("booking.create");
-    await courseManager("customer.read");
-    const visible=await prisma.customer.findFirst({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),id:customerId,storeId,mergedIntoCustomerId:null},select:{id:true}});
-    if(!visible)throw new AppError("NOT_FOUND","找不到可操作的本店學員");
-    const cards=await getCourseCards(storeId,customerId,{where:{closedAt:null,expiresAt:{gte:new Date()},termSessionIds:{isEmpty:true},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:templateId}}]},skip:0,take:500,entries:false});
-    return {success:true as const,cards:cards.map(card=>({...card,members:card.members.filter(member=>member.id===customerId)}))};
-  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員方案讀取失敗":failure.error};}
-}
-
-
-/** Load plans that can be paid for inline while scheduling, with the same store and permission checks as checkout. */
-export async function loadCourseSchedulePurchaseOptions(templateId:string,customerId:string) {
-  try {
-    z.string().min(1).max(100).parse(templateId);
-    z.string().min(1).max(100).parse(customerId);
-    const {storeId,user}=await courseManager("wallet.create");
-    await courseManager("transaction.create");
-    await courseManager("customer.read");
-    const visible=await prisma.customer.findFirst({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),id:customerId,storeId,mergedIntoCustomerId:null},select:{id:true}});
-    if(!visible)throw new AppError("NOT_FOUND","找不到可操作的本店學員");
-    const {checkPermission}=await import("@/lib/permissions");
-    const [plans,canDiscount]=await Promise.all([
-      coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true,unit:"SESSION",OR:[{templateIds:{isEmpty:true}},{templateIds:{has:templateId}}]},select:{id:true,name:true,points:true,price:true,storeCost:true,validDays:true,musicTerms:true,musicTermSizes:true,musicBonusLessons:true},orderBy:[{points:"asc"},{name:"asc"}]}),
-      checkPermission(user.role,user.staffId,"transaction.discount"),
-    ]);
-    return {success:true as const,data:{plans,canDiscount}};
-  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"讀取可購買方案失敗":failure.error};}
-}
 
 /** Inline enrollment reuses the same store customer and never overwrites a duplicate phone. */
 export async function createScheduleCustomer(input:unknown) {

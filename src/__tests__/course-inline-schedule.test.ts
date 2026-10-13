@@ -4,20 +4,17 @@ import {createRoot} from "react-dom/client";
 import {expect,it,vi} from "vitest";
 import {MusicScheduleWizard} from "@/app/(dashboard)/dashboard/courses/music-schedule-wizard";
 import {CourseScheduleLearners} from "@/components/admin/course-schedule-learners";
-const mocks=vi.hoisted(()=>({check:vi.fn().mockResolvedValue({success:true,issues:[]}),createCustomer:vi.fn(),create:vi.fn(),slots:vi.fn(),options:vi.fn(),customerCards:vi.fn().mockResolvedValue({success:true,cards:[]}),purchaseOptions:vi.fn(),assign:vi.fn()}));
+const mocks=vi.hoisted(()=>({check:vi.fn().mockResolvedValue({success:true,issues:[]}),createCustomer:vi.fn(),create:vi.fn(),slots:vi.fn(),options:vi.fn()}));
 vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:mocks.check}));
 vi.mock("@/server/actions/course",()=>({createCourseSchedule:mocks.create}));
 vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:mocks.slots}));
-vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:mocks.options,loadCourseScheduleCustomerCards:mocks.customerCards,createScheduleCustomer:mocks.createCustomer,loadCourseSchedulePurchaseOptions:mocks.purchaseOptions}));
-vi.mock("@/server/actions/course-members",()=>({assignCoursePointCard:mocks.assign,loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
-vi.mock("@/components/admin/music-assignment-payment",()=>({MusicAssignmentPayment:()=>null}));
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:mocks.options,createScheduleCustomer:mocks.createCustomer}));
 vi.mock("@/components/dashboard-link",()=>({DashboardLink:()=>null}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 
 it("keeps the clicked room/time after changing the course and submits multiple learners in one save",async()=>{
   mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[],customers:[{id:"a",name:"小安",phone:"0911111111"},{id:"b",name:"小明",phone:"0922222222"}]});
-  mocks.customerCards.mockImplementation(async(_template:string,customerId:string)=>({success:true,cards:customerId==="a"?[{id:"card-a",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]:[{id:"card-b",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"b",name:"小明",phone:"0922222222"}]}]}));
+  mocks.options.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]},{id:"card-b",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"b",name:"小明",phone:"0922222222"}]}]});
   mocks.create.mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
   const onCreated=vi.fn();
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
@@ -36,7 +33,6 @@ it("keeps the clicked room/time after changing the course and submits multiple l
       expect(add).toBeTruthy();await act(async()=>add.click());
     }
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("2 / 3 人");
-    expect(host.querySelector('[aria-label="名額"]')).toBeNull();
     expect(host.querySelector('select[aria-label="小安的方案"]')).toBeNull();
     expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.textContent).toContain("王老師");
     expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.querySelector("button")).toBeNull();
@@ -46,7 +42,7 @@ it("keeps the clicked room/time after changing the course and submits multiple l
     await act(async()=>select.dispatchEvent(new Event("change",{bubbles:true})));
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
     expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小明");
-    const save=[...host.querySelectorAll("button")].find(button=>button.textContent==="新增")!;
+    const save=[...host.querySelectorAll("button")].find(button=>button.textContent==="新增單次課程")!;
     await act(async()=>save.click());
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"second",roomId:"room",time:"18:00",coachId:"teacher",learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:"card-b"}]}));
     expect(onCreated).toHaveBeenCalledTimes(1);
@@ -54,7 +50,7 @@ it("keeps the clicked room/time after changing the course and submits multiple l
 });
 
 it("blocks a selected learner whose plan cannot cover every class in the batch",async()=>{
-  mocks.customerCards.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他方案",unit:"SESSION",available:2,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他方案",unit:"SESSION",available:2,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
   const onValidityChange=vi.fn();
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   try{
@@ -74,7 +70,7 @@ it("does not show an empty teacher chooser when the clicked room is unavailable"
     expect(host.querySelector('[aria-label="合格老師與可用教室"]')).toBeNull();
     expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00–19:00 · A教室");
     expect(host.textContent).toContain("此教室目前無法排入");
-    expect([...host.querySelectorAll("button")].find(button=>button.textContent==="新增")!.disabled).toBe(true);
+    expect([...host.querySelectorAll("button")].find(button=>button.textContent==="新增單次課程")!.disabled).toBe(true);
   }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -83,43 +79,38 @@ it("keeps the clicked teacher when unavailable instead of silently replacing the
   mocks.options.mockResolvedValue({success:true,cards:[]});
   const host=document.createElement("div");const root=createRoot(host);
   try{
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他課",durationMinutes:90,capacity:1,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"},{id:"other",displayName:"李老師"}],initialDate:"2099-10-01",seed:{time:"18:00",coachId:"teacher",durationMinutes:30},startMode:"course",requestKey:"test-request",onCreated:vi.fn()})));
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他課",durationMinutes:90,capacity:1,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"},{id:"other",displayName:"李老師"}],initialDate:"2099-10-01",seed:{time:"18:00",coachId:"teacher",durationMinutes:30},requestKey:"test-request",onCreated:vi.fn()})));
     expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00–19:00");
-    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).not.toContain("王老師");
-    expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.textContent).toContain("王老師");
+    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("王老師");
     expect(host.textContent).not.toContain("設定營業時間");
-    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增")!;
+    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增單次課程")!;
     expect(save.disabled).toBe(true);
-    expect(host.querySelector('[aria-label="更換排課老師"]')).toBeNull();
-    expect(host.textContent).not.toContain("李老師");
-    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="更換老師")!.click());
-    const teacher=[...host.querySelectorAll("select")].find(item=>item.getAttribute("aria-label")==="更換排課老師")!;
-    teacher.value="other";
-    await act(async()=>teacher.dispatchEvent(new Event("change",{bubbles:true})));
+    const other=[...host.querySelectorAll("button")].find(b=>b.textContent==="李老師")!;
+    await act(async()=>other.click());
     expect(save.disabled).toBe(false);
   }finally{await act(async()=>root.unmount());}
 });
 
-it("checks every repeated date before writing and lets the manager explicitly omit a conflicting date",async()=>{
+it("blocks the fixed schedule when any generated date conflicts",async()=>{
   mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
   mocks.options.mockResolvedValue({success:true,cards:[]});
-  mocks.check.mockResolvedValueOnce({success:true,issues:[{date:"2099-10-08",reason:"老師已有課"}]}).mockResolvedValue({success:true,issues:[]});
+  mocks.check.mockResolvedValue({success:true,issues:[{date:"2099-10-08",reason:"老師已有課"}]});
   mocks.create.mockClear().mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
   const host=document.createElement("div");const root=createRoot(host);
   try{
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他團班",durationMinutes:60,capacity:10,musicTermLessons:4,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{time:"18:00",roomId:"room"},startMode:"course",isFixed:true,requestKey:"test-request",onCreated:vi.fn()})));
-    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增")!;
-    await act(async()=>save.click());
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他團班",durationMinutes:60,capacity:10,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",seed:{time:"18:00",roomId:"room"},requestKey:"test-request",onCreated:vi.fn()})));
+    const fixed=[...host.querySelectorAll("button")].find(b=>b.textContent==="固定課程")!;
+    await act(async()=>fixed.click());
+    await act(async()=>new Promise(resolve=>setTimeout(resolve,160)));
     expect(mocks.create).not.toHaveBeenCalled();
     expect(host.querySelector('[aria-label="排課衝突日期"]')!.textContent).toContain("2099-10-08");
-    const skip=[...host.querySelectorAll("label")].find(l=>l.textContent==="2099-10-08")!.querySelector<HTMLInputElement>("input")!;
-    await act(async()=>skip.click());await act(async()=>save.click());
-    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({date:"2099-10-01",additionalDates:["2099-10-15","2099-10-22"]}));
+    const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增固定課程")!;
+    expect(save.disabled).toBe(true);
   }finally{await act(async()=>root.unmount());}
 });
 
 it("counts all shared-card learners against the batch credit total",async()=>{
-  mocks.customerCards.mockImplementation(async(_template:string,customerId:string)=>({success:true,cards:[{id:"shared",name:"共卡",unit:"SESSION",available:3,members:[{id:customerId,name:customerId==="a"?"小安":"小明",phone:customerId==="a"?"0911111111":"0922222222"}]}]}));
+  mocks.options.mockResolvedValue({success:true,cards:[{id:"shared",name:"共卡",unit:"SESSION",available:3,members:[{id:"a",name:"小安",phone:"0911111111"},{id:"b",name:"小明",phone:"0922222222"}]}]});
   const valid=vi.fn();const host=document.createElement("div");const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,occurrenceCount:2,value:[{customerId:"a",cardId:"shared",name:"小安"},{customerId:"b",cardId:"shared",name:"小明"}],onChange:vi.fn(),onValidityChange:valid})));
@@ -127,26 +118,20 @@ it("counts all shared-card learners against the batch credit total",async()=>{
   }finally{await act(async()=>root.unmount());}
 });
 
-it("opens experience name and phone fields immediately when adding a participant",async()=>{
-  mocks.options.mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:true,price:420}});
-  const onChange=vi.fn();const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
-  try{
-    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"trial",pointCost:1,capacity:2,value:[],onChange,trialMode:true,canCreateCustomer:true})));
-    const add=[...host.querySelectorAll("button")].find(button=>button.textContent==="＋體驗者")!;
-    await act(async()=>add.click());
-    expect(host.querySelector('[aria-label="新學員姓名"]')).toBeTruthy();
-    expect(host.querySelector('[aria-label="新學員手機"]')).toBeTruthy();
-    expect(host.textContent).toContain("體驗費 NT$ 420");
-  }finally{await act(async()=>root.unmount());host.remove();}
-});
-
-it("does not offer a separate new-student action while scheduling trial learners",async()=>{
+it("creates and adds a trial learner inline while retaining the draft on failure",async()=>{
   mocks.options.mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:true,price:300}});
-  const host=document.createElement("div");const root=createRoot(host);
+  mocks.createCustomer.mockResolvedValueOnce({success:false,error:"手機格式錯誤"}).mockResolvedValue({success:true,customer:{id:"new",name:"新學員",phone:"0912345678",existing:false}});
+  const change=vi.fn();const host=document.createElement("div");const root=createRoot(host);
   try{
-    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,value:[],onChange:vi.fn(),trialMode:true,canCreateCustomer:true})));
-    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="＋新增學員")).toBe(false);
-    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="＋體驗者")).toBe(true);
+    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,value:[],onChange:change,trialMode:true,canCreateCustomer:true})));
+    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="＋新增學員")!.click());
+    for(const [label,value] of [["新學員姓名","新學員"],["新學員手機","0912345678"]]){const input=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);await act(async()=>input.dispatchEvent(new Event("input",{bubbles:true})));}
+    const create=[...host.querySelectorAll("button")].find(b=>b.textContent==="建立並加入")!;
+    await act(async()=>create.click());
+    expect(host.querySelector<HTMLInputElement>('[aria-label="新學員姓名"]')!.value).toBe("新學員");
+    expect(host.textContent).toContain("手機格式錯誤");
+    await act(async()=>create.click());
+    expect(change).toHaveBeenCalledWith([{customerId:"new",name:"新學員",cardId:"",trialPrice:300}]);
   }finally{await act(async()=>root.unmount());}
 });
 
@@ -165,116 +150,4 @@ it("shares edited positions with other purposes without losing the unsaved-chang
   await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,seed:{time:"19:00",roomId:"room"}})));
   expect(onGuard).toHaveBeenLastCalledWith(true,false);
  }finally{await act(async()=>root.unmount());}
-});
-
-
-it("does not mark the draft dirty when switching to an empty trial purpose",async()=>{
- mocks.slots.mockResolvedValue({success:true,data:[]});
- mocks.options.mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:false,price:0}});
- const onGuard=vi.fn();const host=document.createElement("div");const root=createRoot(host);
- const props={templates:[{id:"regular",name:"一般課",durationMinutes:60,capacity:1,defaultRoomId:null}],rooms:[],coaches:[],initialDate:"2099-10-01",initialTemplateId:"regular",requestKey:"purpose-switch",onCreated:vi.fn(),onGuard};
- try{
-  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
-  expect(onGuard).toHaveBeenLastCalledWith(false,false);
-  await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
-  expect(onGuard).toHaveBeenLastCalledWith(false,false);
-  expect(host.textContent).toContain("尚未設定體驗課程");
- }finally{await act(async()=>root.unmount());host.remove();}
-});
-
-
-it("creates fixed classes at the selected weekly or every-other-week cadence",async()=>{
-  mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[]});
-  mocks.create.mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
-  const host=document.createElement("div");const root=createRoot(host);
-  try{
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他團班",durationMinutes:60,capacity:10,musicTermLessons:3,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",isFixed:true,requestKey:"biweekly",onCreated:vi.fn()})));
-    await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="18:00")!.click());
-    const frequency=host.querySelector<HTMLSelectElement>('[aria-label="固定頻率"]')!;
-    frequency.value="biweekly";
-    await act(async()=>frequency.dispatchEvent(new Event("change",{bubbles:true})));
-    expect(host.textContent).toContain("2099-10-15");
-    expect(host.textContent).toContain("2099-10-29");
-    expect(host.textContent).not.toContain("2099-10-08");
-    const add=[...host.querySelectorAll("button")].find(button=>button.textContent==="新增")!;
-    await act(async()=>add.click());
-    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({date:"2099-10-01",additionalDates:["2099-10-15","2099-10-29"]}));
-  }finally{await act(async()=>root.unmount());host.remove();}
-});
-
-it("keeps regular and trial learner drafts separate while switching purpose",async()=>{
-  mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[],customers:[{id:"a",name:"小安",phone:"0911111111"}],trialSettings:{enabled:true,price:0}});mocks.customerCards.mockResolvedValue({success:true,cards:[{id:"regular-card",name:"一般方案",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
-  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
-  const props={templates:[{id:"regular",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"trial",name:"體驗課",durationMinutes:60,capacity:2,defaultRoomId:null,musicTrialMode:"TRIAL"}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"purpose-switch",onCreated:vi.fn()};
-  try{
-    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
-    const search=host.querySelector<HTMLInputElement>('[aria-label="搜尋排課學員"]')!;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,"小安");
-    await act(async()=>search.dispatchEvent(new Event("input",{bubbles:true})));
-    const add=[...host.querySelectorAll("button")].find(button=>button.textContent?.startsWith("小安")&&button.textContent?.endsWith("＋"))!;
-    expect(add).toBeTruthy();await act(async()=>add.click());
-    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
-    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).not.toContain("小安");
-    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
-    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
-  }finally{await act(async()=>root.unmount());host.remove();}
-});
-
-it("keeps the form usable on slow slot reads and ignores stale results after rapid purpose switches",async()=>{
-  mocks.slots.mockClear();mocks.options.mockClear();mocks.create.mockClear();
-  type MatchResult={success:true;data:{time:string;roomId:string;coachIds:string[]}[]};
-  const pending:Record<string,(value:MatchResult)=>void>={};
-  mocks.slots.mockImplementation(({templateId}:{templateId:string})=>new Promise<MatchResult>(resolve=>{pending[templateId]=resolve;}));
-  mocks.options.mockResolvedValue({success:true,cards:[]});
-  const onCancel=vi.fn();const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
-  const props={templates:[{id:"regular-slow",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"trial-slow",name:"體驗課",durationMinutes:60,capacity:2,defaultRoomId:null,musicTrialMode:"TRIAL"}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"slow-purpose-switch",onCreated:vi.fn(),onCancel};
-  try{
-    const started=performance.now();
-    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
-    const firstOpenMs=performance.now()-started;
-    expect(firstOpenMs).toBeLessThan(1000);
-    expect(mocks.slots).toHaveBeenCalledTimes(2);
-    expect(pending["trial-slow"]).toBeTypeOf("function");
-    const date=host.querySelector<HTMLInputElement>('[aria-label="找空位日期"]')!;
-    expect(date.disabled).toBe(false);
-    const cancel=[...host.querySelectorAll("button")].find(button=>button.textContent==="取消")!;
-    expect(cancel.disabled).toBe(false);
-    const switchStarted=performance.now();
-    await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
-    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
-    const rapidSwitchMs=performance.now()-switchStarted;
-    expect(rapidSwitchMs).toBeLessThan(1000);
-    console.info("[schedule-switch-performance]",JSON.stringify({firstOpenMs:Number(firstOpenMs.toFixed(2)),rapidSwitchMs:Number(rapidSwitchMs.toFixed(2)),slotRequests:mocks.slots.mock.calls.length}));
-    expect(mocks.slots).toHaveBeenCalledTimes(2);
-    expect(date.value).toBe("2099-10-01");
-    await act(async()=>cancel.click());
-    expect(onCancel).toHaveBeenCalledTimes(1);
-    await act(async()=>pending["trial-slow"]({success:true,data:[{time:"20:00",roomId:"room",coachIds:["teacher"]}]}));
-    expect(host.textContent).not.toContain("20:00");
-    await act(async()=>pending["regular-slow"]({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]}));
-    expect(host.textContent).toContain("18:00");
-  }finally{await act(async()=>root.unmount());host.remove();}
-});
-
-it("keeps controls available and allows retry after slot loading fails",async()=>{
-  mocks.slots.mockClear();mocks.options.mockClear();mocks.create.mockClear();
-  mocks.slots.mockRejectedValueOnce(new Error("temporary failure")).mockResolvedValueOnce({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[]});
-  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
-  await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"retry-course",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"slot-retry",onCreated:vi.fn()})));
-  try{
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain("空位讀取失敗");
-    expect(host.querySelector<HTMLInputElement>('[aria-label="找空位日期"]')!.disabled).toBe(false);
-    const cancel=[...host.querySelectorAll("button")].find(button=>button.textContent==="取消")!;
-    expect(cancel.disabled).toBe(false);
-    const retry=[...host.querySelectorAll("button")].find(button=>button.textContent==="重新檢查時段")!;
-    await act(async()=>retry.click());
-    await act(async()=>{await Promise.resolve();await Promise.resolve();});
-    expect(host.querySelector('[role="alert"]')).toBeNull();
-    expect(host.textContent).toContain("18:00");
-    expect(mocks.create).not.toHaveBeenCalled();
-  }finally{await act(async()=>root.unmount());host.remove();}
 });

@@ -110,7 +110,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     expect(await testDb().courseTrialPayment.count({where:{storeId:f.storeId}})).toBe(2);
     expect(await testDb().courseTrialPayment.findUnique({where:{id:first.id}})).toMatchObject({status:"VOIDED",voidReason:input.reason});
     expect(await testDb().courseBooking.findUnique({where:{id:f.booking.id}})).toMatchObject({status:"RESERVED",checkedInAt:null});
-    await expect(collect(f,randomUUID(),input)).rejects.toThrow("原收款已變更");
+    await expect(collect(f,randomUUID(),input)).rejects.toThrow("原收���已變更");
   });
   it("cashbook failure rolls receipt back and allows safe retry",async()=>{
     const f=await fixture();await testDb().courseBooking.update({where:{id:f.booking.id},data:{customerName:"force-rollback"}});const key=randomUUID();

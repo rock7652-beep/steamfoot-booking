@@ -43,6 +43,7 @@ type Session = {
   pointCost: number;
   teacherAttendance?: string;
   requestKey?: string;
+  scheduleType?: "FIXED" | "SINGLE" | "TRIAL" | "LEGACY";
   isFixed?: boolean;
   isBiweekly?: boolean;
   rescheduledFromStartsAt?: string | null;
@@ -273,14 +274,19 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
-  const presentation = courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, session.previewKind === "RENTAL");
   const rental = session.previewKind === "RENTAL";
+  const presentation = businessProfile === "MUSIC"
+    ? rental ? {label:"空間租借",dot:"bg-pink-500"}
+      : trialClass ? {label:"體驗",dot:"bg-orange-500"}
+      : fixed ? {label:session.isBiweekly?"隔週固定":"固定課程",dot:"bg-blue-600"}
+      : {label:"單次課程",dot:"bg-emerald-600"}
+    : courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, rental);
   const changed = session.previewKind === "CHANGED";
-  const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
+  const scheduleLabel = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "單次";
   const destination = session.previewDestinationStartsAt
     ? `調至 ${hhmm(session.previewDestinationStartsAt)} · 教室 ${rooms.find(room=>room.id===session.previewDestinationRoomId)?.name??"待核對"}` : null;
-  const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
-  const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
+  const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "單次";
+  const secondaryType = copy.groupClass ? "團體" : ["體驗", "代課", "調課"].includes(primaryType) ? scheduleLabel : "";
   const attendance = courseAttendanceState(session.displayBookings ?? session.bookings, 0, session.teacherAttendance);
   const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
@@ -934,7 +940,7 @@ export function CourseScheduleBoard({
                                : "原非固定課已調走；可核對後續時段再排固定課" : "";
                              const reason=moveClipboard
                                ? matchError || (!matchedSlots ? "正在核對空位" : "這裡沒有可排的合格老師或教室")
-                               : !enabled?"資源未啟用":!storeOpen?"店家未開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
+                               : !enabled?"資源未啟用":!storeOpen?"店家���開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
                              const coachIds = serverMatch?.coachIds ?? [];
                              const matches = resourceView === "coach" ? matchedSlots?.filter(s => s.time === startTime && s.coachIds.includes(resource.id)) ?? [] : [];
                              const choiceLabel = resourceView === "room" ? `${coachIds.length} 位老師可排` : `${matches.length} 間教室可排`;
