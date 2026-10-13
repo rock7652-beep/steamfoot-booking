@@ -57,6 +57,34 @@ describe("actual participant checkout component", () => {
     expect(container.textContent).not.toContain("近期預約");
   });
 
+  it("shows a direct remove action for an unprocessed walk-in and cancels only that participant", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN" };
+    h.resolve.mockResolvedValue({ success: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await render(data);
+    expect(buttons("移除臨時加入")).toHaveLength(1);
+    await click(buttons("移除臨時加入")[0]);
+    expect(confirm).toHaveBeenCalledWith("移除這位臨時加入者？會釋放此人的名額並保留紀錄，其他人不受影響。");
+    expect(h.resolve).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2, status: "CANCELLED" });
+    expect(container.querySelector('[aria-label="朋友"]')?.textContent).toContain("已取消");
+    expect(container.textContent).toContain("已取消 1");
+    expect(updated).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer direct removal for reserved, paid, or completed people", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN" };
+    await render(data);
+    expect(buttons("移除臨時加入")).toHaveLength(0);
+    data.slots[1] = { ...data.slots[1], collectedAmount: 499 };
+    await render(data);
+    expect(buttons("移除臨時加入")).toHaveLength(0);
+    data.slots[1] = { ...data.slots[1], collectedAmount: null, status: "COMPLETED" };
+    await render(data);
+    expect(buttons("移除臨時加入")).toHaveLength(0);
+  });
+
   it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {
     const data = checkout(); data.canCollectUnregistered = true;
     data.slots[1].customerId = null; data.slots[1].name = null;
