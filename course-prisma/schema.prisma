@@ -103,6 +103,8 @@ model CourseSession {
   endsAt         DateTime @db.Timestamptz(3)
   pointCost      Int
   capacity       Int
+  enrollmentMode String @default("OPEN")
+  enrollmentFingerprint String?
   cancelledAt    DateTime? @db.Timestamptz(3)
   releasedAt     DateTime? @db.Timestamptz(3)
   requestKey     String
@@ -144,6 +146,8 @@ model CourseScheduleSeries {
   pointCost    Int
   capacity     Int
   frequency    String
+  enrollmentMode String @default("OPEN")
+  learnerSnapshot Json @default("[]")
   untilDate    DateTime? @db.Date
   generatedThrough DateTime @db.Date
   excludedDates String[] @default([])

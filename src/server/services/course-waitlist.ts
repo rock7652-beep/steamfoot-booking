@@ -95,6 +95,7 @@ export async function joinCourseWaitlist(
     if (!session) fail("找不到本店有效課程");
     if (!card) fail("找不到本店有效方案");
     const activeSession = session!;
+    if(actor.customerId&&activeSession.enrollmentMode==="ASSIGNED")fail("本堂為指定學員，不開放報名或候補");
     const activeCard = card!;
     if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
     if (!activeSession.template.waitlistEnabled) fail("本課程未開放候補");

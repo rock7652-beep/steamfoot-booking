@@ -25,7 +25,7 @@ import {
   courseScheduleInput,
   courseTemplateInput,
 } from "@/lib/course-scheduling";
-import { findFixedSeriesConflicts } from "@/lib/course-series";
+import { findFixedSeriesConflicts, findOngoingFixedSeriesConflicts } from "@/lib/course-series";
 import { formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 export async function scheduleTeacherMakeup(input: unknown) {
@@ -454,18 +454,38 @@ export async function createCourseSchedule(input: unknown) {
     const data = courseScheduleInput
       .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
+    const musicScheduling = data.enrollmentMode !== undefined;
+    if (musicScheduling) {
+      const music = await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+      if (!music) throw new AppError("FORBIDDEN","此排課流程僅適用音樂模組");
+      if (data.enrollmentMode === "ASSIGNED" && !data.learners.length) throw new AppError("VALIDATION","請指定至少一位學員");
+      if (data.enrollmentMode === "OPEN" && data.learners.length) throw new AppError("VALIDATION","開放報名建立時不指定學員");
+      if (data.enrollmentMode === "ASSIGNED") data.capacity = data.learners.length;
+      if (data.learners.length) {
+        await courseManager("customer.read");
+        const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
+        const ids=data.learners.flatMap(row=>row.customerId?[row.customerId]:[]);
+        const visible=await prisma.customer.count({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,id:{in:ids},mergedIntoCustomerId:null}});
+        if (visible!==new Set(ids).size) throw new AppError("FORBIDDEN","請選擇有權限查看的本店學員");
+      }
+      if(!data.isTrial&&data.learners.some(row=>row.trialPrice!==undefined||!row.customerId))throw new AppError("VALIDATION","正式課請選已建檔學員，體驗者請使用體驗課");
+      if(data.scheduleType==="FIXED"&&!["WEEKLY","BIWEEKLY"].includes(data.scheduleFrequency))throw new AppError("VALIDATION","請選每週或隔週");
+      const cards=data.learners.flatMap(row=>row.cardId?[row.cardId]:[]);
+      if(new Set(cards).size!==cards.length)throw new AppError("VALIDATION","音樂團體班每位學員須使用自己的方案");
+    }
     let trialPricing: Awaited<ReturnType<typeof import("@/lib/shop-config").getTrialSettings>> | undefined;
-    if(data.learners.some(learner=>learner.cardId===null)){
+    if(data.learners.some(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined))){
       await courseManager("trial.create");
       const {getTrialSettings}=await import("@/lib/shop-config");
       trialPricing=await getTrialSettings(storeId);
       if(!trialPricing.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
       const trialTemplate=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true}});
-      data.learners=data.learners.map(learner=>learner.cardId===null?{...learner,trialPrice:courseTrialPrice(learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
+      data.learners=data.learners.map(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined)?{...learner,trialPrice:courseTrialPrice(learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
     }
     if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
     if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
     if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
+    const enrollmentFingerprint=musicScheduling?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
     const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
     let occurrences: ReturnType<typeof buildCourseOccurrences>;
     try {
@@ -502,6 +522,8 @@ export async function createCourseSchedule(input: unknown) {
                 session.capacity !== data.capacity ||
                 session.isTrial !== data.isTrial ||
                 (session.scheduleType ?? "LEGACY") !== data.scheduleType ||
+                (session.enrollmentMode ?? "OPEN") !== (data.enrollmentMode ?? "OPEN") ||
+                (musicScheduling && session.enrollmentFingerprint !== enrollmentFingerprint) ||
                 (session.scheduleFrequency ?? "NONE") !== data.scheduleFrequency ||
                 session.startsAt.getTime() !==
                   occurrences[index].startsAt.getTime() ||
@@ -513,9 +535,9 @@ export async function createCourseSchedule(input: unknown) {
               "CONFLICT",
               "這次排課已送出，請重新開啟排課表單",
             );
-          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,customerName:true,cardId:true,trialPrice:true,requestKey:true}});
-          const expected=existing.flatMap((session,index)=>data.learners.filter(learner=>index===0||learner.cardId!==null).map(learner=>({session,learner})));
-          if(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&booking.cardId===learner.cardId&&(learner.cardId!==null||booking.trialPrice===learner.trialPrice)&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
+          const enrolled=await tx.courseBooking.findMany({where:{storeId,requestKey:{startsWith:`schedule:${data.requestKey}:`}},select:{sessionId:true,customerId:true,customerName:true,cardId:true,trialPrice:true,requestKey:true,bookingKind:true}});
+          const expected=existing.flatMap((session,index)=>data.learners.filter(learner=>index===0||learner.cardId!==null||musicScheduling&&!data.isTrial&&learner.trialPrice===undefined).map(learner=>({session,learner})));
+          if(!musicScheduling&&(enrolled.length!==expected.length||expected.some(({session,learner})=>!enrolled.some(booking=>booking.sessionId===session.id&&booking.customerId===learner.customerId&&(booking.cardId===learner.cardId||musicScheduling&&booking.bookingKind==="UNPAID")&&(learner.cardId!==null||booking.trialPrice===(learner.trialPrice??null))&&(!learner.participantKey||booking.requestKey===`schedule:${data.requestKey}:${session.id}:${learner.participantKey}`)))))throw new AppError("CONFLICT","這次排課已送出，學員或方案不同，請重新開啟排課");
           return { count: existing.length };
         }
         const source = data.sourceSessionId
@@ -547,6 +569,15 @@ export async function createCourseSchedule(input: unknown) {
         if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         await assertCourseResources(tx,storeId,data);
+        if(musicScheduling&&data.scheduleType==="FIXED"){
+          const [rules,occupied,rentals]=await Promise.all([
+            tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null}}),
+            tx.courseSession.findMany({where:{storeId,cancelledAt:null,releasedAt:null,endsAt:{gt:occurrences[0].startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}}),
+            tx.courseRental.findMany({where:{storeId,roomId:data.roomId,cancelledAt:null,occupiedEndsAt:{gt:occurrences[0].startsAt}},select:{occupiedStartsAt:true,occupiedEndsAt:true}}),
+          ]);
+          const issues=findOngoingFixedSeriesConflicts({requestKey:data.requestKey,roomId:data.roomId,coachId:data.coachId,startsAt:occurrences[0].startsAt,endsAt:occurrences[0].endsAt,frequency:data.scheduleFrequency,untilDate:null,excludedDates:[],cancelledAt:null},rules,[...occupied,...rentals.map(row=>({startsAt:row.occupiedStartsAt,endsAt:row.occupiedEndsAt,roomId:data.roomId}))]);
+          if(issues.length)throw new AppError("CONFLICT",issues.map(issue=>`${issue.date} · ${issue.reason}`).join("；"));
+        }
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -588,6 +619,8 @@ export async function createCourseSchedule(input: unknown) {
         )[0];
         if (ruleConflict)
           throw new AppError("CONFLICT", `${ruleConflict.date} · ${ruleConflict.reason}，整批尚未建立`);
+        const rental=await tx.courseRental.findFirst({where:{storeId,roomId:data.roomId,cancelledAt:null,OR:occurrences.map(range=>({occupiedStartsAt:{lt:range.endsAt},occupiedEndsAt:{gt:range.startsAt}}))},select:{occupiedStartsAt:true}});
+        if(rental)throw new AppError("CONFLICT",`${formatTWDateTime(rental.occupiedStartsAt)} 教室已有租借，整批尚未建立`);
         // A moved fixed lesson still owns its original recurring slot. A one-off
         // lesson may use the released occurrence, but a new fixed series may not.
         if (data.scheduleType === "FIXED" || (data.scheduleType === "LEGACY" && (occurrences.length > 1 || template.musicScheduleMode === "FIXED"))) {
@@ -643,6 +676,8 @@ export async function createCourseSchedule(input: unknown) {
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
             capacity: data.capacity,
+            enrollmentMode: data.enrollmentMode ?? "OPEN",
+            enrollmentFingerprint,
             requestKey: data.requestKey,
             requestIndex,
             createdById: user.id,
@@ -662,6 +697,8 @@ export async function createCourseSchedule(input: unknown) {
               pointCost: source?.pointCost ?? template.pointCost,
               capacity: data.capacity,
               frequency: data.scheduleFrequency,
+              enrollmentMode: data.enrollmentMode ?? "OPEN",
+              learnerSnapshot: musicScheduling ? data.learners.filter(row=>row.customerId&&!data.isTrial&&row.trialPrice===undefined).map(row=>({customerId:row.customerId,cardId:row.cardId})) : [],
               untilDate: data.fixedUntil ? new Date(`${data.fixedUntil}T00:00:00.000Z`) : null,
               generatedThrough: new Date(`${toLocalDateStr(occurrences[occurrences.length - 1].startsAt)}T00:00:00.000Z`),
               createdById: user.id,
@@ -673,7 +710,13 @@ export async function createCourseSchedule(input: unknown) {
           if(created.length!==occurrences.length)throw new AppError("CONFLICT","排課結果未完整確認，請重試");
           const {reserveCourseInTransaction}=await import("@/server/services/course-booking");
           for(const [index,session] of created.entries())for(const learner of data.learners){
-            if(index>0&&learner.cardId===null)continue;
+            const deferredRegular=musicScheduling&&!data.isTrial&&learner.trialPrice===undefined;
+            if(index>0&&learner.cardId===null&&!deferredRegular)continue;
+            if(deferredRegular){
+              const {reserveScheduledMusicLearner}=await import("@/server/services/music-schedule-enrollment");
+              await reserveScheduledMusicLearner(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId!,cardId:learner.cardId,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId}`},limits!.maxMonthlyBookings);
+              continue;
+            }
             await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId,customerName:learner.customerName,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId??learner.participantKey}`},limits!.maxMonthlyBookings);
           }
         }

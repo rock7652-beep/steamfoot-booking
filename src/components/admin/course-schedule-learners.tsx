@@ -4,7 +4,7 @@ import {loadCourseScheduleEnrollmentOptions,createScheduleCustomer} from "@/serv
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPrice?:number};
 type Card=Extract<Awaited<ReturnType<typeof loadCourseScheduleEnrollmentOptions>>,{success:true}>["cards"][number];
-export function CourseScheduleLearners({templateId,pointCost,capacity,value,onChange,disabled=false,scope="",occurrenceCount=1,onValidityChange,trialMode=false,canCreateCustomer=false,onPendingChange,onDraftChange}:{onDraftChange?:(dirty:boolean)=>void;onPendingChange?:(pending:boolean)=>void;trialMode?:boolean;canCreateCustomer?:boolean;templateId:string;pointCost:number;capacity:number;value:ScheduleLearner[];onChange:(value:ScheduleLearner[])=>void;disabled?:boolean;scope?:string;occurrenceCount?:number;onValidityChange?:(valid:boolean)=>void}) {
+export function CourseScheduleLearners({templateId,pointCost,capacity,value,onChange,disabled=false,scope="",occurrenceCount=1,onValidityChange,trialMode=false,canCreateCustomer=false,onPendingChange,onDraftChange,allowDeferred=false,showCapacity=true,useConfiguredTrialPrice=false}:{useConfiguredTrialPrice?:boolean;allowDeferred?:boolean;showCapacity?:boolean;onDraftChange?:(dirty:boolean)=>void;onPendingChange?:(pending:boolean)=>void;trialMode?:boolean;canCreateCustomer?:boolean;templateId:string;pointCost:number;capacity:number;value:ScheduleLearner[];onChange:(value:ScheduleLearner[])=>void;disabled?:boolean;scope?:string;occurrenceCount?:number;onValidityChange?:(valid:boolean)=>void}) {
   const reader=usePanelReader("course-schedule-learners",loadCourseScheduleEnrollmentOptions,scope,0);
   const [cards,setCards]=useState<Card[]>([]);
   const [customers,setCustomers]=useState<{id:string;name:string;phone:string}[]>([]);
@@ -28,28 +28,32 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
     return()=>{active=false;};
   },[reader,templateId,retry]);
   const ready=loadedTemplate===templateId;
-  const requiredFor=(card:Card)=>occurrenceCount*(card.unit==="SESSION"?1:pointCost);
+  useEffect(()=>{
+    if(!ready||!trialMode||!useConfiguredTrialPrice)return;
+    if(value.some(row=>!row.cardId&&row.trialPrice!==trial.price))onChange(value.map(row=>!row.cardId?{...row,trialPrice:trial.price}:row));
+  },[ready,trialMode,useConfiguredTrialPrice,trial.price,value,onChange]);
+  const requiredFor=(card:Card)=>(allowDeferred?1:occurrenceCount)*(card.unit==="SESSION"?1:pointCost);
   const available=ready?cards.filter(card=>card.available>=requiredFor(card)):[];
   const totalRequired=(card:Card)=>value.filter(row=>row.cardId===card.id).length*requiredFor(card);
   const enrollmentValid=value.length<=capacity&&value.every(row=>{
-    if(!row.cardId)return ready&&trial.enabled&&Number.isInteger(row.trialPrice)&&row.trialPrice!>=0;
+    if(!row.cardId)return ready&&((allowDeferred&&!trialMode&&row.trialPrice===undefined)||trial.enabled&&Number.isInteger(row.trialPrice)&&row.trialPrice!>=0);
     const card=cards.find(item=>item.id===row.cardId&&item.members.some(member=>member.id===row.customerId));
-    return !ready?false:!!card&&card.available>=totalRequired(card);
+    return !ready?false:!!card&&(allowDeferred ? card.available>=1 : card.available>=totalRequired(card));
   });
   useEffect(()=>{onValidityChange?.(enrollmentValid);},[enrollmentValid,onValidityChange]);
   const people=[...new Map([...customers.map(person=>[person.id,person] as const),...available.flatMap(card=>card.members.filter(member=>member.id).map(member=>[member.id!,{id:member.id!,name:member.name,phone:member.phone}] as const))]).values()];
   const matches=query.trim()?people.filter(person=>!value.some(row=>row.customerId===person.id)&&(person.name.includes(query.trim())||person.phone.includes(query.trim()))).slice(0,30):[];
   return <section aria-label="排課學員" className="col-span-full space-y-2 text-sm">
-    <div className="flex flex-wrap items-center justify-between gap-x-2"><strong>加入學員</strong><span>{value.length} / {capacity} 人{occurrenceCount>1?` · 共 ${occurrenceCount} 堂`:""}</span></div>
-    {value.map(row=>{const memberCards=cards.filter(card=>card.members.some(member=>member.id===row.customerId));const selectedCard=memberCards.find(card=>card.id===row.cardId);const enough=row.cardId?!!selectedCard&&selectedCard.available>=totalRequired(selectedCard):trial.enabled&&row.trialPrice!==undefined;return <div key={row.customerId} className="flex flex-wrap items-center gap-2 rounded-lg bg-earth-50 px-3 py-1">
+    <div className="flex flex-wrap items-center justify-between gap-x-2"><strong>加入學員</strong><span>{value.length}{showCapacity?` / ${capacity}`:""} 人{occurrenceCount>1?` · 共 ${occurrenceCount} 堂`:""}</span></div>
+    {value.map(row=>{const memberCards=cards.filter(card=>card.members.some(member=>member.id===row.customerId));const selectedCard=memberCards.find(card=>card.id===row.cardId);const enough=row.cardId?!!selectedCard&&(allowDeferred?selectedCard.available>=1:selectedCard.available>=totalRequired(selectedCard)):(allowDeferred&&!trialMode&&row.trialPrice===undefined)||trial.enabled&&row.trialPrice!==undefined;return <div key={row.customerId} className="flex flex-wrap items-center gap-2 rounded-lg bg-earth-50 px-3 py-1">
       <strong className="min-w-0 flex-1">{row.name}</strong>
-      {!row.cardId&&trial.enabled&&row.trialPrice!==undefined?<span className="text-earth-600">體驗 · ${row.trialPrice??trial.price} · 僅本堂</span>:memberCards.length===1&&enough?<span className="min-w-0 break-words text-earth-600">{selectedCard!.name} · 可用 {selectedCard!.available}{occurrenceCount>1?` · 本次需 ${requiredFor(selectedCard!)}`:""}</span>:<select aria-label={`${row.name}的方案`} className="min-h-11 max-w-full rounded-lg border border-earth-200 bg-white px-2" disabled={disabled} value={row.cardId} onChange={event=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:event.target.value,trialPrice:event.target.value?undefined:trial.price}:item))}>
-        {!selectedCard&&<option disabled value={row.cardId}>請選方案</option>}
+      {!row.cardId&&allowDeferred&&!trialMode&&row.trialPrice===undefined?<span className="text-amber-800">待繳費 · 可先排課</span>:!row.cardId&&trial.enabled&&row.trialPrice!==undefined?<span className="text-earth-600">體驗 · ${row.trialPrice??trial.price} · 僅本堂</span>:memberCards.length===1&&enough?<span className="min-w-0 break-words text-earth-600">{selectedCard!.name} · 可用 {selectedCard!.available}{occurrenceCount>1?` · 本次需 ${requiredFor(selectedCard!)}`:""}</span>:<select aria-label={`${row.name}的方案`} className="min-h-11 max-w-full rounded-lg border border-earth-200 bg-white px-2" disabled={disabled} value={row.cardId} onChange={event=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:event.target.value,trialPrice:event.target.value||allowDeferred&&!trialMode?undefined:trial.price}:item))}>
+        {allowDeferred&&!trialMode?<option value="">之後個別繳費</option>:!selectedCard&&<option disabled value={row.cardId}>請選方案</option>}
         {memberCards.map(card=><option key={card.id} value={card.id} disabled={card.available<requiredFor(card)}>{card.name} · 可用 {card.available} · 本次需 {requiredFor(card)}</option>)}
       </select>}
       {canCreateCustomer&&row.customerId.startsWith("trial-draft:")&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled||creating} onClick={()=>{setSupplementKey(row.customerId);setNewCustomer(true);setNewName("");setNewPhone("");setCreateError("");setQuery("");}}>補資料</button>}
       <button type="button" aria-label={`移除${row.name}`} disabled={disabled} className="min-h-11 min-w-11" onClick={()=>onChange(value.filter(item=>item.customerId!==row.customerId))}>×</button>
-      {trial.enabled&&(row.cardId||row.trialPrice===undefined)&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:"",trialPrice:trial.price}:item))}>{row.cardId?"改為體驗":"設為體驗"}</button>}
+      {!allowDeferred&&trial.enabled&&(row.cardId||row.trialPrice===undefined)&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:"",trialPrice:trial.price}:item))}>{row.cardId?"改為體驗":"設為體驗"}</button>}
       {!trialMode&&!row.cardId&&memberCards.length>0&&<button type="button" className="min-h-11 text-primary-700" disabled={disabled} onClick={()=>onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:memberCards[0].id,trialPrice:undefined}:item))}>使用方案</button>}
       {!enough&&<p role="alert" className="w-full text-red-700">{!row.cardId&&row.trialPrice===undefined?"請選方案或體驗。":"請確認方案與可用額度。"}</p>}
     </div>;})}

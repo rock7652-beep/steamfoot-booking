@@ -200,7 +200,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       const source=card?.bookings.find(source=>source.id===item.makeupForBookingId);
       return source ? [{originalDate:source.session.startsAt.toISOString(),date:item.session.startsAt.toISOString(),status:item.status==="ATTENDED"?"已補課":item.status==="NO_SHOW"?"補課曠課":item.absenceKind==="STUDENT_LEAVE"?"補課請假":"已安排補課"}] : [];
     }),
-    planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : "體驗（不使用方案）"),
+    planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : b.bookingKind === "UNPAID" ? "待繳費（尚未使用方案）" : "體驗（不使用方案）"),
     sharedCard: (card?.members.length ?? 0) > 1,
     canAddCompanion: canCreateShared && !b.companionIndex && !!b.customerId && !!card?.plan.allowShared && !card.termSessionIds.length,
     bookingSource: b.companionIndex ? `同行 · 預約人 ${b.reserverName ?? b.operatorName}` : b.operatorCustomerId

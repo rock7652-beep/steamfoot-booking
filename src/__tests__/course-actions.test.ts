@@ -55,6 +55,8 @@ vi.mock("@/lib/course-db", () => ({
           updateMany: mocks.cancelForMove,
         },
         courseSessionMove: { create: mocks.move },
+        courseScheduleSeries: {findMany:async()=>[],findUnique:async()=>null,create:async()=>null,update:async()=>null},
+        courseRental: {findFirst:async()=>null,findMany:async()=>[]},
         courseBooking: { findMany: mocks.bookings },
         courseTemplate: {
           findFirst: mocks.template,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNextFixedSeriesOccurrences, findFixedSeriesConflicts, fixedSeriesOccurrenceOnDate } from "@/lib/course-series";
+import { buildNextFixedSeriesOccurrences, findFixedSeriesConflicts, findOngoingFixedSeriesConflicts, fixedSeriesOccurrenceOnDate } from "@/lib/course-series";
 
 const series = {
   requestKey: "fixed-a",
@@ -35,4 +35,18 @@ describe("fixed course series reservations", () => {
       "2027-10-27T10:00:00.000Z",
     ]);
   });
+});
+
+it("checks a proposed ongoing rule against a series starting years after the materialized window",()=>{
+ const later={...series,requestKey:"later",startsAt:new Date("2031-10-15T10:00:00Z"),endsAt:new Date("2031-10-15T11:00:00Z")};
+ expect(findOngoingFixedSeriesConflicts(series,[later],[])).toHaveLength(1);
+ expect(findOngoingFixedSeriesConflicts({...series,frequency:"BIWEEKLY"},[{...series,requestKey:"opposite",frequency:"BIWEEKLY",startsAt:new Date("2026-10-21T10:00:00Z"),endsAt:new Date("2026-10-21T11:00:00Z")}],[])).toEqual([]);
+});
+it("checks a long-term rule against a one-off rental beyond the next four lessons",()=>{
+ const later={startsAt:new Date("2031-10-15T10:00:00Z"),endsAt:new Date("2031-10-15T11:00:00Z"),roomId:series.roomId};
+ expect(findOngoingFixedSeriesConflicts(series,[],[later])).toMatchObject([{date:"2031-10-15"}]);
+});
+it("detects an overnight fixed lesson starting on the previous local day",()=>{
+ const overnight={...series,startsAt:new Date("2026-10-14T15:30:00Z"),endsAt:new Date("2026-10-14T17:00:00Z")};
+ expect(findFixedSeriesConflicts([overnight],[{startsAt:new Date("2026-10-14T16:15:00Z"),endsAt:new Date("2026-10-14T17:15:00Z")}],{roomId:series.roomId,coachId:"other"})).toHaveLength(1);
 });

@@ -275,6 +275,7 @@ export async function assignCoursePointCard(input: unknown) {
       .object({
         planId: id,
         customerId: id,
+        bookingId: id.optional(),
         expiresDate: z
           .string()
           .refine((v) => !!parseTaipeiDateTime(v, "00:00")),
@@ -289,7 +290,13 @@ export async function assignCoursePointCard(input: unknown) {
       const music = !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
       if(music && plan?.unit==="POINT")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
-      return assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
+      const purchase=await assignCourseWithCheckout(tx, {storeId, userId:user.id, music}, {...data,...checkout});
+      if(music&&data.bookingId&&purchase.cardId){
+        await courseManager("booking.update");
+        const {attachUnpaidMusicBookings}=await import("@/server/services/music-schedule-enrollment");
+        await attachUnpaidMusicBookings(tx,{storeId,userId:user.id,name:user.name??"店長"},purchase.cardId,data.customerId,data.bookingId);
+      }
+      return purchase;
     });
     // The transaction is committed. Cache invalidation must not delay the
     // checkout response or turn a successful payment into a reported failure.
@@ -601,7 +608,7 @@ async function futureMusicCourseScope(
   const effectiveStart = effectiveDate ? dayRange(effectiveDate).start : undefined;
   const sessions = await tx.courseSession.findMany({
     where: { storeId, requestKey: source.requestKey, templateId: source.templateId,
-      startsAt: { gt: after, ...(effectiveStart ? { gte: effectiveStart } : {}) }, cancelledAt: null, releasedAt: null },
+      startsAt: { gte: effectiveStart && effectiveStart > after ? effectiveStart : after }, cancelledAt: null, releasedAt: null },
     select: { id: true, startsAt: true },
     orderBy: { startsAt: "asc" },
     take: 501,
@@ -620,7 +627,7 @@ async function futureMusicCourseScope(
     bookingIds: allBookings.map((item) => item.id),
     customerName,
     hasSeriesRule: Boolean(seriesRule && !seriesRule.cancelledAt),
-    seriesStopDate: effectiveDate ? addTaiwanDuration(effectiveDate, -1, "DAY") : toLocalDateStr(source.startsAt),
+    seriesStopDate: addTaiwanDuration(effectiveDate ?? toLocalDateStr(source.startsAt), -1, "DAY"),
   };
 }
 
@@ -677,6 +684,15 @@ export async function stopFutureCourseLessons(input: unknown) {
         for (const sessionId of scope.sessionIds)
           await cancelCourseWaitlistForSession(tx, storeId, sessionId);
         return [];
+      }
+      if(data.bookingId){
+        const learner=await tx.courseBooking.findFirstOrThrow({where:{id:data.bookingId,storeId},select:{customerId:true,session:{select:{requestKey:true,startsAt:true}}}});
+        const rule=await tx.courseScheduleSeries.findUnique({where:{storeId_requestKey:{storeId,requestKey:learner.session.requestKey}}});
+        if(rule){
+          const snapshot=z.array(z.object({customerId:z.string(),cardId:z.string().nullable().optional(),stopDate:z.string().optional()})).parse(rule.learnerSnapshot);
+          const stopDate=data.effectiveDate??toLocalDateStr(learner.session.startsAt);
+          await tx.courseScheduleSeries.update({where:{id:rule.id},data:{learnerSnapshot:snapshot.map(row=>row.customerId===learner.customerId?{...row,stopDate}:row)}});
+        }
       }
       return [...affectedSessionIds];
     });
@@ -900,7 +916,7 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
     const skip = z.number().int().min(0).max(1000000).parse(offset);
     const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, session: { startsAt: courseHistoryRange(range) } }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
-    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? "體驗（不使用方案）", expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
+    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? (b.bookingKind==="UNPAID"?"待繳費":"體驗（不使用方案）"), expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? (b.bookingKind==="UNPAID"?"SESSION":"TRIAL"), notes: b.notes, operator: b.operatorName })) };
   } catch (e) { const failure=handleActionError(e);return {success:false as const,error:failure.success?"讀取失敗":failure.error}; }
 }
 

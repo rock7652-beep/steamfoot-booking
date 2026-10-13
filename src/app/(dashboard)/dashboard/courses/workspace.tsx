@@ -1326,7 +1326,7 @@ export function CourseWorkspace({
       {panel && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
           compact={businessProfile === "MUSIC" && view !== "rooms" && panel !== "schedule"}
-          fixedHeight={view === "rooms"}
+          fixedHeight={view === "rooms" || panel === "schedule"}
           maxHeight={panel === "schedule" ? 900 : businessProfile !== "MUSIC" ? 680 : 900}
           open
           onClose={closePanel}
@@ -2013,6 +2013,9 @@ export function CourseWorkspace({
                 onGuard={updateMusicScheduleGuard}
                 onRefresh={()=>router.refresh()}
                 onPositionChange={updateSchedulePosition}
+                onArrangementChange={kind=>{if(!musicScheduleGuard.current.pending&&!rentalGuard.current.pending)setArrangement(kind);}}
+                active={arrangement!=="rental"}
+                onCancel={closePanel}
                 templates={templates}
                 isTrial={arrangement==="trial"}
                 initialScheduleKind={arrangement==="fixed"?"FIXED":"SINGLE"}
@@ -2043,9 +2046,9 @@ export function CourseWorkspace({
               <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => openSchedule()}>再排課</button><button type="button" className={primary} onClick={() => setPanel(null)}>完成</button></div>
             </section>}
             {panel === "schedule" && !scheduleCreated && <>
-              {businessProfile==="MUSIC"?<label className="mb-2 block shrink-0 text-sm font-medium">類型<select aria-label="安排類型" className={`${field} mt-1 min-h-10 w-full max-w-sm`} value={arrangement} onChange={event=>{if(pending||musicScheduleGuard.current.pending||roomSave.uncertain||rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;const next=event.target.value as "fixed"|"single"|"trial"|"rental";if(next==="trial")setRepeatMode("once");setArrangement(next);}}><option value="fixed">固定課程</option><option value="single">單次課程</option><option value="trial">體驗課</option><option value="rental">租借空間</option></select></label>:<div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","課程"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} aria-pressed={arrangement===kind} className={`${button} ${arrangement===kind?(kind==="class"?"border-sky-700 bg-sky-700 text-white":kind==="trial"?"border-orange-600 bg-orange-600 text-white":"border-pink-600 bg-pink-600 text-white"):""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;if(kind==="trial")setRepeatMode("once");setArrangement(kind);}}>{label}</button>)}</div>}
+              {businessProfile==="MUSIC"?null:<div className="order-first mb-2 flex shrink-0 gap-2" aria-label="安排類型">{([["class","課程"],["trial","體驗"],["rental","租借"]] as const).map(([kind,label])=><button type="button" key={kind} aria-pressed={arrangement===kind} className={`${button} ${arrangement===kind?(kind==="class"?"border-sky-700 bg-sky-700 text-white":kind==="trial"?"border-orange-600 bg-orange-600 text-white":"border-pink-600 bg-pink-600 text-white"):""}`} onClick={()=>{if(pending || musicScheduleGuard.current.pending || roomSave.uncertain || rentalGuard.current.pending)return;if(rentalGuard.current.dirty&&!window.confirm("放棄未儲存租借修改？"))return;if(kind==="trial")setRepeatMode("once");setArrangement(kind);}}>{label}</button>)}</div>}
               {arrangement === "choose" && <p className="text-earth-500">選擇這個時段的安排</p>}
-              {arrangement === "rental" && <RentalPanel customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={businessProfile==="MUSIC"?{...scheduleSeed,date:scheduleSeed.date??selectedDate}:{date:scheduleDate,time:scheduleTime,roomId:scheduleRoomId,durationMinutes:scheduleDuration}} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} onGuard={updateRentalGuard} />}
+              {(arrangement === "rental" || businessProfile === "MUSIC") && <div className={`${arrangement==="rental"?"flex":"hidden"} min-h-0 flex-1 flex-col`}><RentalPanel onCancel={closePanel} active={arrangement==="rental"} onPositionChange={businessProfile==="MUSIC"?updateSchedulePosition:undefined} typeControl={businessProfile==="MUSIC"?<label className="block rounded-lg border-l-4 border-pink-500 bg-pink-50 p-3 text-sm font-medium">排課類型<select aria-label="安排類型" className={`${field} mt-1 min-h-11 w-full`} value={arrangement} onChange={event=>{if(pending||musicScheduleGuard.current.pending||roomSave.uncertain||rentalGuard.current.pending)return;const next=event.target.value as "fixed"|"single"|"trial"|"rental";if(next==="trial")setRepeatMode("once");setArrangement(next);}}><option value="fixed">固定課</option><option value="single">單次課</option><option value="trial">體驗課</option><option value="rental">空間租借</option></select></label>:undefined} allowWeekly={businessProfile==="MUSIC"} customers={rentalCustomers} key={requestKey} rooms={allRooms} permissions={{...rentalPermissions,edit:canEdit}} seed={businessProfile==="MUSIC"?{...scheduleSeed,date:scheduleSeed.date??selectedDate}:{date:scheduleDate,time:scheduleTime,roomId:scheduleRoomId,durationMinutes:scheduleDuration}} onSaved={()=>{setPanel(null);setNotice("租借已儲存");router.refresh();}} onGuard={updateRentalGuard} /></div>}
             </>}
             {panel === "schedule" && businessProfile !== "MUSIC" && !scheduleCreated && (arrangement==="class" || arrangement==="trial") && (
               <>
@@ -2366,9 +2369,9 @@ export function CourseWorkspace({
                 <div className="shrink-0 space-y-2 border-b border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <strong className="mr-1 text-indigo-900">要調整哪些課？</strong>
-                    <button className={primary} type="button" onClick={() => beginMove(dialogSession, "SINGLE")}>這堂</button>
+                    <button className={primary} type="button" onClick={() => beginMove(dialogSession, "SINGLE")}>只改本次</button>
                     <button className={button} type="button" onClick={() => setMoveWeeksOpen((open) => !open)} aria-expanded={moveWeeksOpen}>連續幾週</button>
-                    <button className={button} type="button" onClick={() => beginMove(dialogSession, "FUTURE")}>換固定時段</button>
+                    <button className={button} type="button" onClick={() => beginMove(dialogSession, "FUTURE")}>本次起套用</button>
                     <button className="ml-auto text-xs text-earth-600" type="button" onClick={() => { setMoveChoice(null); setMoveWeeksOpen(false); }}>返回名單</button>
                   </div>
                   {moveWeeksOpen && <div className="flex flex-wrap gap-1" aria-label="選擇連續週數">

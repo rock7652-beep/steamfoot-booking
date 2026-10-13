@@ -30,6 +30,7 @@ export const courseTemplateInput = z.object({
   waitlistStopMinutes: z.number().int().min(0).max(10080).nullable().default(null),
 });
 export const courseScheduleInput = z.object({
+  enrollmentMode:z.enum(["ASSIGNED","OPEN"]).optional(),
   isTrial:z.boolean().default(false),
   scheduleType:z.enum(["FIXED","SINGLE","TRIAL","LEGACY"]).default("LEGACY"),
   scheduleFrequency:z.enum(["NONE","WEEKLY","BIWEEKLY"]).default("NONE"),

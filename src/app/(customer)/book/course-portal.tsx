@@ -131,6 +131,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             storeId,
             cancelledAt: null,
             template: {isActive:true,visibility:"PUBLIC"},
+            enrollmentMode: "OPEN",
             startsAt: { gte: range.start, lte: range.end },
           },
           include: sessionInclude,

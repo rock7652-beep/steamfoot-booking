@@ -120,6 +120,7 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
+  const blockedSeries = businessProfile === "MUSIC" ? await coursePrisma.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null,generationError:{not:null}},select:{id:true,nameSnapshot:true,generationError:true},take:50}) : [];
   const rentals = await coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}});
   const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
   const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
@@ -353,6 +354,7 @@ export default async function CoursesPage({
           ) : undefined}
         />
       )}
+      {blockedSeries.length>0&&<section role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>固定課未來日期尚未完整建立</strong><ul className="mt-1 space-y-1">{blockedSeries.map(series=><li key={series.id}>{series.nameSnapshot} · {series.generationError}</li>)}</ul></section>}
       <CourseWorkspace displayOrder={displayOrders.room} canDelete={user.role==="OWNER"&&!viewContext?.isViewMode}
         storeId={storeId}
         key={`${storeId}:${view}`}
