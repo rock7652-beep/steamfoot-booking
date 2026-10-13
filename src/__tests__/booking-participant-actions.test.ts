@@ -51,6 +51,7 @@ describe("mistaken walk-in removal action", () => {
       before: { participantId: "walk-in", position: 3, people: 3 },
       after: { removed: true, people: 2 },
     }), expect.anything());
+  });
 
   it("restores a cancelled slot through the authorized lifecycle action", async () => {
     h.init.mockResolvedValue([{ id: "slot", position: 2, source: "RESERVATION", customerId: "guest", status: "CANCELLED", revision: 4 }]);
