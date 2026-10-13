@@ -64,8 +64,8 @@ describe("actual participant checkout component", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await render(data);
     const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="移除臨時加入"]')!;
-    expect(removeButton.textContent).toBe("×");
-    expect(removeButton.className).toContain("min-w-11");
+    expect(removeButton.textContent).toBe("刪除臨時名額");
+    expect(removeButton.closest("[data-action-menu]")).not.toBeNull();
     await click(removeButton);
     expect(confirm).toHaveBeenCalledWith("從預約中刪除這位誤加的同行者？只會刪除尚未建檔、收款或開始服務的臨時名額，其他人不受影響。");
     expect(h.remove).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
