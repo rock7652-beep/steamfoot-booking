@@ -30,7 +30,7 @@ import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-
 import { assertStoreLiffContext, resolveStoreLiffContext } from "@/server/services/store-liff-context";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
-import { storePhoneNeedsConfirmation } from "@/server/services/store-member-connection";
+import { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } from "@/server/services/store-member-connection";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
@@ -115,7 +115,10 @@ export async function submitOnboarding(
   try {
     const member = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true });
     if (member) return { status: "ok" };
-    if (await storePhoneNeedsConfirmation(store.id, phone)) return { status: "identity_review_required" };
+    if (await storePhoneNeedsConfirmation(store.id, phone)) {
+      if (await completeAuthorizedFirstStoreLogin({ storeId: store.id, phone, candidateLineUserId: verified.lineUserId })) return { status: "ok" };
+      return { status: "identity_review_required" };
+    }
   } catch (error) {
     if (error instanceof LineIdentityReviewError) return { status: "ambiguous" };
     console.error("[liff/onboarding] identity lookup unavailable");
