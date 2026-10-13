@@ -5,6 +5,7 @@ import {
   assertConsultationPreviewEnvironment,
   assertReviewedReleaseEnvironment,
   CONSULTATION_PREVIEW_BRANCH,
+  COURSE_ROUTE_LOADING_PREVIEW_BRANCH,
   isConsultationMockedUnitTest,
   isIsolatedConsultationDatabaseUrl,
 } from "../../scripts/consultation-preview-scope.mjs";
@@ -210,6 +211,24 @@ describe("composed consultation and shared-card release modes", () => {
     expect(enabled.main).not.toBe(false);
   });
 });
+
+ describe("course route loading isolated Preview", () => {
+  const preview = { ...valid, VERCEL_GIT_COMMIT_REF: COURSE_ROUTE_LOADING_PREVIEW_BRANCH };
+  it("accepts the exact branch and skips migrations on the existing isolated database", () => {
+    expect(assertReviewedReleaseEnvironment(preview)).toBe("module-roster-preview");
+    const result = run({ VERCEL_GIT_COMMIT_REF: COURSE_ROUTE_LOADING_PREVIEW_BRANCH });
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("migrations_skipped=true");
+  });
+  it("rejects a different database and repository metadata", () => {
+    expect(() => assertReviewedReleaseEnvironment({
+      ...preview, DIRECT_URL: direct.replace("ttworfzgwejdeolegkxl", "another-project"),
+    })).toThrow();
+    expect(() => assertReviewedReleaseEnvironment({
+      ...preview, VERCEL_GIT_REPO_SLUG: "another-repo",
+    })).toThrow();
+  });
+ });
 
  it("isolates the teacher self-session branch before migrations",()=>{const result=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012"});expect(result.status).toBe(0);expect(result.output).toContain("migrations_skipped=true");const rejected=run({VERCEL_GIT_COMMIT_REF:"feat/teacher-own-session-20261012",DATABASE_URL:direct.replace("ttworfzgwejdeolegkxl","another-project")});expect(rejected.status).not.toBe(0);});
 

@@ -7,7 +7,6 @@ import { PreviewToolsMenu } from "./preview-tools-menu";
 import { resolveNavigationAccess } from "@/lib/navigation-access";
 import { CashDrawerShortcut } from "./cash-drawer-shortcut";
 import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
-import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
@@ -1052,7 +1051,6 @@ export default function DashboardShell({
   const renderNavGroups = (isCollapsed: boolean) => (
     <nav aria-label={isHqPlatformView ? "HQ 功能導覽" : "店舖功能導覽"} className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
       {isHqStoreView && <div className="mb-2 border-b border-earth-200 pb-2"><ReturnToHqButton collapsed={isCollapsed} /></div>}
-      {readingPage && <NavigationNotice />}
       <div className="space-y-1">
         {visibleGroups.map(({ group, categorizedItems }) => {
           const isCore = group.id === "core" || !!group.alwaysOpen;
