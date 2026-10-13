@@ -1,12 +1,18 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { assertReviewedReleaseEnvironment, assertModuleRosterPreviewEnvironment, MODULE_ROSTER_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
+import { assertReviewedReleaseEnvironment, assertModuleRosterPreviewEnvironment, MODULE_ROSTER_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const valid = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: MODULE_ROSTER_PREVIEW_BRANCH,
   VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", DATABASE_URL: pool, DIRECT_URL: direct };
+
+it("accepts the authorized walk-in participant review branch only on isolated Preview", () => {
+  const candidate = { ...valid, VERCEL_GIT_COMMIT_REF: WALK_IN_PARTICIPANT_PREVIEW_BRANCH };
+  expect(assertReviewedReleaseEnvironment(candidate)).toBe("module-roster-preview");
+  expect(() => assertModuleRosterPreviewEnvironment(candidate)).not.toThrow();
+});
 
 it("accepts only the exact isolated four-module roster Preview and needs no new flags", () => {
   expect(assertReviewedReleaseEnvironment(valid)).toBe("module-roster-preview");
