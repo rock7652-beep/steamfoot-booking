@@ -71,7 +71,6 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   useEffect(()=>{
     if(!templateId || !date) return;
     let active=true;
-    setError("");
     slotReader.read({date,templateId,durationMinutes:duration}).then(result=>{
       if(!active)return;
       if(result.success){
