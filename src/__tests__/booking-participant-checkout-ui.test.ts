@@ -63,8 +63,10 @@ describe("actual participant checkout component", () => {
     h.resolve.mockResolvedValue({ success: true });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await render(data);
-    expect(buttons("移除臨時加入")).toHaveLength(1);
-    await click(buttons("移除臨時加入")[0]);
+    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="移除臨時加入"]')!;
+    expect(removeButton.textContent).toBe("×");
+    expect(removeButton.className).toContain("min-w-11");
+    await click(removeButton);
     expect(confirm).toHaveBeenCalledWith("移除這位臨時加入者？會釋放此人的名額並保留紀錄，其他人不受影響。");
     expect(h.resolve).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2, status: "CANCELLED" });
     expect(container.querySelector('[aria-label="朋友"]')?.textContent).toContain("已取消");
