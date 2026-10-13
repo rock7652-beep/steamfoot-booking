@@ -63,7 +63,6 @@ describe("mistaken walk-in removal action", () => {
     });
     expect(h.revalidate).toHaveBeenCalled();
   });
-  });
 });
 
 describe("individual settlement action boundaries", () => {
