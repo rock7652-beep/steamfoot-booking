@@ -14,7 +14,7 @@ import type { BookingParticipantRow } from "@/server/services/booking-participan
 import type { ActionResult } from "@/types";
 import { checkCustomerLimit, getTrialSettings } from "@/lib/shop-config";
 import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
-import { selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
+import { selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant, restoreCancelledParticipant } from "@/server/services/booking-participant-lifecycle";
 import { paymentMethodValues } from "@/lib/payment-splits";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { checkCustomerLimitOrThrow } from "@/lib/usage-gate";
@@ -87,6 +87,26 @@ export async function resolveBookingParticipant(input: {
       if (person.service === "PACKAGE_SESSION") await cancelParticipantPlan(tx, { storeId, participantId: person.id,
         revision: data.revision, status: data.status, actorUserId: user.id, actor: user });
       else await resolveUnattendedParticipant(tx, { storeId, participantId: person.id, revision: data.revision, status: data.status });
+    });
+    revalidateBookingMutation();
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error); }
+}
+
+export async function restoreBookingParticipant(input: {
+  bookingId: string; position: number; revision: number;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = participantOperationSchema.parse(input);
+    await prisma.$transaction(async tx => {
+      const slots = await initializeBookingParticipants(tx, { storeId, bookingId: data.bookingId });
+      const person = slots.find(slot => slot.position === data.position);
+      if (!person) throw new AppError("NOT_FOUND", "本次預約沒有這個名額");
+      await restoreCancelledParticipant(tx, { storeId, participantId: person.id, revision: data.revision,
+        actorUserId: user.id, actor: user });
     });
     revalidateBookingMutation();
     return { success: true, data: undefined };
