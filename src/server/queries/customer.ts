@@ -7,7 +7,7 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { enumerateBookableDates } from "@/lib/bookable-window";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { todayRange } from "@/lib/date-utils";
+import { todayRange, monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
 import { checkPermission, requirePermission } from "@/lib/permissions";
