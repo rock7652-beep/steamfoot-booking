@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import {CourseScheduleLearners,type ScheduleLearner} from "@/components/admin/course-schedule-learners";
 import { addTaiwanDuration, parseTaipeiDateTime, formatTWDateTime } from "@/lib/date-utils";
 import { getMusicSlotMatches, type MusicSlotMatch, type MusicUnavailableSlot } from "@/server/actions/course-slot-matches";
@@ -41,7 +42,10 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [time,setTime]=useState(seed?.time ?? "");
   const [coachId,setCoachId]=useState(seed?.coachId ?? "");
   const [teacherEdited,setTeacherEdited]=useState(false);
-  const [learners,setLearners]=useState<ScheduleLearner[]>([]);
+  const [learnerDrafts,setLearnerDrafts]=useState<Record<"regular"|"trial",ScheduleLearner[]>>({regular:[],trial:[]});
+  const purposeKey:"regular"|"trial"=isTrial?"trial":"regular";
+  const learners=learnerDrafts[purposeKey];
+  const setLearners=(next:ScheduleLearner[]|((current:ScheduleLearner[])=>ScheduleLearner[]))=>setLearnerDrafts(current=>({...current,[purposeKey]:typeof next==="function"?next(current[purposeKey]):next}));
   const [enrollmentDirty,setEnrollmentDirty]=useState(false);
   const [enrollmentPending,setEnrollmentPending]=useState(false);
   const [learnersValid,setLearnersValid]=useState(true);
@@ -55,25 +59,27 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [checkedAgain,setCheckedAgain]=useState(false);
   const [reload,setReload]=useState(0);
   const [selectedPurpose,setSelectedPurpose]=useState(isTrial);
-  if(selectedPurpose!==isTrial){setSelectedPurpose(isTrial);setTemplateId(eligibleTemplates[0]?.id??"");setCapacity(eligibleTemplates[0]?.capacity??1);setSlots(null);setPair(null);setConflicts([]);setLearners([]);}
+  if(selectedPurpose!==isTrial){setSelectedPurpose(isTrial);setTemplateId(eligibleTemplates[0]?.id??"");setCapacity(eligibleTemplates[0]?.capacity??1);setRepeatCount(eligibleTemplates[0]?.musicTermLessons??4);setExcludedDates([]);setSlots(null);setBlocker(undefined);setUnavailable([]);setConflicts([]);setLearnersValid(false);setError("");}
   const purposeTemplateId=eligibleTemplates.find(t=>t.id===initialTemplateId)?.id??eligibleTemplates[0]?.id??"";
   const initialTemplate=eligibleTemplates.find(t=>t.id===purposeTemplateId);
   const initialDuration=60;
-  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==purposeTemplateId || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat!==isFixed || (repeat&&repeatInterval!=="weekly") || enrollmentDirty || learners.length>0;
+  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==purposeTemplateId || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat!==isFixed || (repeat&&repeatInterval!=="weekly") || enrollmentDirty || learnerDrafts.regular.length>0 || learnerDrafts.trial.length>0;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setPair(null);setError("");}
+  const slotReader=usePanelReader("music-schedule-matches",getMusicSlotMatches,"",0);
   useEffect(()=>{
     if(!templateId || !date) return;
     let active=true;
-    getMusicSlotMatches({date,templateId,durationMinutes:duration}).then(result=>{
+    setError("");
+    slotReader.read({date,templateId,durationMinutes:duration}).then(result=>{
       if(!active)return;
       if(result.success){
         setBlocker("blocker" in result?result.blocker:undefined);setSlots(result.data);setUnavailable("unavailable" in result ? result.unavailable??[] : []);}
       else setError(result.error ?? "空位讀取失敗");
     }).catch(()=>{if(active)setError("空位讀取失敗，請重新選擇日期");});
     return()=>{active=false;};
-  },[date,templateId,duration,reload,template?.musicScheduleMode]);
+  },[date,templateId,duration,reload,template?.musicScheduleMode,slotReader]);
   function refresh(){resetSlot();setCheckedAgain(true);setReload(value=>value+1);onRefresh?.();}
   const slotBlocker=templateId?(unavailable.find(slot=>slot.time===time)??blocker):undefined;
   const repairTargets=slotBlocker?.fixTarget?[slotBlocker.fixTarget]:[];
@@ -93,7 +99,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const endsAt=start?new Date(start.getTime()+duration*60000):null;
   const end=endsAt?`${formatTWDateTime(endsAt).slice(0,10)!==date?"隔日 ":""}${formatTWDateTime(endsAt).slice(11)}`:"";
   const roomName=rooms.find(room=>room.id===(roomId||selectedPair?.roomId))?.name;
-  const saveReason=!template?"請選課程":!slots?"正在檢查時段…":!time?"請選時段":!selectedPair?(noSlot?"":!selectedCoachId?"請選老師":"請選教室"):!learnersValid?"請確認學員方案與名額":workflow==="time"&&!learners.length?"請加入上課學員":template.classType&&template.classType!=="GROUP"&&!learners.length?"請加入學員":"";
+  const saveReason=!template?"請選課程":error?"時段讀取失敗，請重新檢查":!slots?"正在檢查時段…":!time?"請選時段":!selectedPair?(noSlot?"":!selectedCoachId?"請選老師":"請選教室"):!learnersValid?"請確認學員方案與名額":workflow==="time"&&!learners.length?"請加入上課學員":template.classType&&template.classType!=="GROUP"&&!learners.length?"請加入學員":"";
   const repeatDates=Array.from({length:Math.min(53,Math.max(0,repeatCount||0))},(_,i)=>addTaiwanDuration(date,i*(repeatInterval==="biweekly"?14:7),"DAY"));
   const includedDates=repeat&&!isTrial?repeatDates.filter(day=>!excludedDates.includes(day)):[date];
   function create(){
@@ -165,7 +171,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
       {!isTrial&&template?.classType==="GROUP"&&<p className="text-xs text-earth-600">可先加入既有學員；其他名額依課程報名設定提供學員報名。</p>}
       {templateId&&<CourseScheduleLearners templateId={templateId} pointCost={1} capacity={capacity} occurrenceCount={includedDates.length} canCreateCustomer={canCreateCustomer} trialMode={isTrial} value={learners} onChange={setLearners} onValidityChange={setLearnersValid} onDraftChange={setEnrollmentDirty} onPendingChange={setEnrollmentPending} disabled={pending}/>}
       {conflicts.length>0&&<ul aria-label="排課衝突日期" className="space-y-1 text-red-700">{conflicts.map((issue,i)=><li key={i}>{issue.date} · {issue.reason}</li>)}</ul>}
-      {error&&<p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{error}</p>}
+      {error&&<div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-red-700"><span>{error}</span><button type="button" className="min-h-11 px-2 underline" onClick={refresh}>重新檢查時段</button></div>}
     </div>
     <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-earth-100 bg-white pt-3">
       {saveReason&&!noSlot&&templateId&&<p role="status" className="mr-auto min-w-0 flex-1 text-sm text-earth-600">{saveReason}</p>}
