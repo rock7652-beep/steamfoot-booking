@@ -152,3 +152,18 @@ it("shares edited positions with other purposes without losing the unsaved-chang
   expect(onGuard).toHaveBeenLastCalledWith(true,false);
  }finally{await act(async()=>root.unmount());}
 });
+
+
+it("does not mark the draft dirty when switching to an empty trial purpose",async()=>{
+ mocks.slots.mockResolvedValue({success:true,data:[]});
+ mocks.options.mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:false,price:0}});
+ const onGuard=vi.fn();const host=document.createElement("div");const root=createRoot(host);
+ const props={templates:[{id:"regular",name:"一般課",durationMinutes:60,capacity:1,defaultRoomId:null}],rooms:[],coaches:[],initialDate:"2099-10-01",initialTemplateId:"regular",requestKey:"purpose-switch",onCreated:vi.fn(),onGuard};
+ try{
+  await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+  expect(onGuard).toHaveBeenLastCalledWith(false,false);
+  await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
+  expect(onGuard).toHaveBeenLastCalledWith(false,false);
+  expect(host.textContent).toContain("尚未設定體驗課程");
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
