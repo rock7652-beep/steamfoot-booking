@@ -4,8 +4,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 vi.mock("@/components/admin/exclusive-menu", () => ({ ExclusiveMenu: ({ children }: { children: React.ReactNode }) => createElement("div", { "data-action-menu": true }, children) }));
-const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), remove: vi.fn(), plan: vi.fn(), change: vi.fn(), profile: vi.fn() }));
-vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, removeBookingParticipant: h.remove, completeBookingParticipantPlan: h.plan, changeBookingParticipantService: h.change, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
+const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), remove: vi.fn(), restore: vi.fn(), plan: vi.fn(), change: vi.fn(), profile: vi.fn() }));
+vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, removeBookingParticipant: h.remove, restoreBookingParticipant: h.restore, completeBookingParticipantPlan: h.plan, changeBookingParticipantService: h.change, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({
   AssignPlanForm: ({ customerId, onSuccess, onPendingChange }: { customerId: string; onSuccess: () => void; onPendingChange: (pending: boolean) => void }) =>
     createElement("div", { "data-plan-customer": customerId }, "本人方案表單", createElement("button", {
@@ -73,6 +73,31 @@ describe("actual participant checkout component", () => {
     expect(container.querySelector('[aria-label="朋友"]')).toBeNull();
     expect(container.textContent).toContain("已服務 0／1 人");
     expect(updated).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores a cancelled companion and lets a pristine cancelled walk-in be removed", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], status: "CANCELLED" };
+    h.restore.mockResolvedValue({ success: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await render(data);
+    await click(buttons("恢復名額")[0]);
+    expect(confirm).toHaveBeenCalledWith("恢復朋友的名額？狀態會改回待到店；若要換人，請新增一位同行者。");
+    expect(h.restore).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
+    expect(container.textContent).toContain("待到店");
+  });
+
+  it("offers deletion only for an empty cancelled temporary walk-in", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN", customerId: null, name: null, status: "CANCELLED" };
+    h.remove.mockResolvedValue({ success: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await render(data);
+    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="移除臨時加入"]')!;
+    await click(removeButton);
+    expect(confirm).toHaveBeenCalledWith("從預約中刪除這個已取消的空白臨時名額？只有未建檔、未收款、未開始服務的名額可刪除。");
+    expect(h.remove).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
+    expect(container.querySelector('[aria-label="同行者 1"]')).toBeNull();
   });
 
   it("does not offer direct removal for reserved, paid, or completed people", async () => {
