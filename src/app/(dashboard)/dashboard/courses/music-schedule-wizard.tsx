@@ -54,9 +54,10 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [reload,setReload]=useState(0);
   const [selectedPurpose,setSelectedPurpose]=useState(isTrial);
   if(selectedPurpose!==isTrial){setSelectedPurpose(isTrial);setTemplateId(eligibleTemplates[0]?.id??"");setCapacity(eligibleTemplates[0]?.capacity??1);setSlots(null);setPair(null);setRepeat(false);setConflicts([]);setLearners([]);}
-  const initialTemplate=templates.find(t=>t.id===(initialTemplateId??templates[0]?.id));
+  const purposeTemplateId=eligibleTemplates.find(t=>t.id===initialTemplateId)?.id??eligibleTemplates[0]?.id??"";
+  const initialTemplate=eligibleTemplates.find(t=>t.id===purposeTemplateId);
   const initialDuration=60;
-  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==(initialTemplateId??templates[0]?.id??"") || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat || enrollmentDirty || learners.length>0;
+  const dirty=time!==originalPosition.time || roomId!==originalPosition.roomId || teacherEdited || date!==originalPosition.date || templateId!==purposeTemplateId || capacity!==(initialTemplate?.capacity??1) || duration!==initialDuration || repeat || enrollmentDirty || learners.length>0;
   useCourseDraftGuard(dirty,pending);
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   function resetSlot(){setCheckedAgain(false);setSlots(null);setBlocker(undefined);setUnavailable([]);setPair(null);setError("");}
