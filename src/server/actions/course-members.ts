@@ -159,7 +159,7 @@ export async function saveCoursePointPlan(input: unknown) {
     const { id: planId, expectedSnapshot, musicSetup, allowShared, receipt, ...fields } = schema.parse(input);
     const data = { ...fields, allowShared: allowShared ?? false };
     const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,receipt:true}).parse(JSON.parse(expectedSnapshot)) : null;
-    const { storeId } = await courseManager("plans.edit");
+    const { user, storeId } = await courseManager("plans.edit");
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const isMusic = await prisma.storeFeatureEntitlement.findFirst({
@@ -185,6 +185,24 @@ export async function saveCoursePointPlan(input: unknown) {
     if(isMusic && musicSetup){
       if(data.musicTerms===null || data.termSessionIds.length)throw new AppError("VALIDATION","請設定購買期數；實際上課日期由課表安排");
       const template=await resolveMusicSubjectRule(tx,storeId,musicSetup);
+      if(musicSetup.teacherIds){
+        const selected=[...new Set(musicSetup.teacherIds)];
+        const staffRows=await tx.$queryRaw<Array<{id:string;displayName:string;courseQualifiedTemplateIds:string[];courseQualificationsConfirmed:boolean}>>`SELECT id,"displayName","courseQualifiedTemplateIds","courseQualificationsConfirmed" FROM "Staff" WHERE "storeId"=${storeId} AND "courseCoachEnabled"=true AND status::text='ACTIVE' ORDER BY "displayName"`;
+        const invalid=selected.filter(id=>!staffRows.some(s=>s.id===id));
+        if(invalid.length)throw new AppError("CONFLICT","教師名單已更新，請重新開啟方案設定");
+        const removed=staffRows.filter(s=>s.courseQualifiedTemplateIds.includes(template.id)&&!selected.includes(s.id));
+        if(removed.length&&!musicSetup.confirmKeepScheduled){
+          const impacts=await tx.$queryRaw<Array<{coachId:string;count:bigint}>>`SELECT "coachId",count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} AND "templateId"=${template.id} AND "coachId"=ANY(${removed.map(s=>s.id)}::text[]) AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP GROUP BY "coachId"`;
+          if(impacts.length){const names=new Map(removed.map(s=>[s.id,s.displayName]));const detail=impacts.map(i=>`${names.get(i.coachId)??"老師"}仍有 ${Number(i.count)} 堂未結束課次；確認移除新排課資格並保留既有課次嗎？`).join("\\n");throw new AppError("CONFLICT",`資格調整確認：${detail}`);}
+        }
+        for(const staff of staffRows){
+          const wasQualified=staff.courseQualifiedTemplateIds.includes(template.id),shouldQualify=selected.includes(staff.id);
+          if(wasQualified===shouldQualify&&staff.courseQualificationsConfirmed)continue;
+          const nextIds=shouldQualify?[...new Set([...staff.courseQualifiedTemplateIds,template.id])]:staff.courseQualifiedTemplateIds.filter(id=>id!==template.id);
+          await tx.$executeRaw`UPDATE "Staff" SET "courseQualifiedTemplateIds"=${nextIds}::text[],"courseQualificationsConfirmed"=true,"updatedAt"=NOW() WHERE id=${staff.id} AND "storeId"=${storeId}`;
+          await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherQualification',${staff.id},'UPDATE',${JSON.stringify({storeId,templateId:template.id,qualified:wasQualified})}::jsonb,${JSON.stringify({storeId,templateId:template.id,qualified:shouldQualify,scheduledLessonsKept:true})}::jsonb,NOW())`;
+        }
+      }
       const {musicPlanQuote}=await import("@/lib/music-course-products");
       const quote=musicPlanQuote(template,data.musicTerms);
       data.templateIds=[template.id];data.points=quote.lessons+data.musicBonusLessons;

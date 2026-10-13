@@ -104,12 +104,13 @@ export async function CourseMemberPage({
     validPackageSessions:0,
   }));
   const canReadTermSessions = view === "plans" && await checkPermission(user.role, user.staffId, "booking.read");
-  const [assignmentStaff, termSessions, templates, subjects, displayOrders] = await Promise.all([
+  const [assignmentStaff, termSessions, templates, subjects, displayOrders, eligibleTeachers] = await Promise.all([
     prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
     canReadTermSessions ? coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [],
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]}),
     music ? coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}) : [],
     readCourseOrders(storeId),
+    view === "plans" && music ? prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true,user:{status:"ACTIVE"}},select:{id:true,displayName:true,courseQualifiedTemplateIds:true},orderBy:{displayName:"asc"}}) : [],
   ]);
   plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
   subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
@@ -132,7 +133,8 @@ export async function CourseMemberPage({
         canReadCards={canReadCards}
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
         termSessions={termSessions.map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString()}))}
-        templates={presentCourseTemplates(templates,plans,music)}
+        templates={presentCourseTemplates(templates,plans,music).map(t=>({...t,qualifiedTeacherIds:eligibleTeachers.filter(s=>s.courseQualifiedTemplateIds.includes(t.id)).map(s=>s.id)}))}
+        eligibleTeachers={eligibleTeachers.map(s=>({id:s.id,name:s.displayName}))}
         subjects={subjects}
         view={view}
         canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
