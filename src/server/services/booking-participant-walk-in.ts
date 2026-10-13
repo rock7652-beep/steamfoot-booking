@@ -82,13 +82,13 @@ export async function removeBookingWalkIn(tx: Prisma.TransactionClient, input: {
   const rows = await tx.$queryRaw<Array<{
     id: string; position: number; source: string; customerId: string | null; service: string; status: string;
     revision: number; arrivedAt: Date | null; collectionTransactionId: string | null; walletSessionId: string | null;
-    latestWalkIn: boolean; hasLinkedTransaction: boolean; hasParticipantAudit: boolean;
+    latestWalkIn: boolean; hasLinkedTransaction: boolean;
   }>>`SELECT p.id, p.position, p.source, p."customerId", p.service, p.status, p.revision, p."arrivedAt",
       p."collectionTransactionId", p."walletSessionId",
       p.position = (SELECT MAX(w.position) FROM "BookingParticipant" w
         WHERE w."groupId" = p."groupId" AND w."storeId" = p."storeId" AND w.source = 'WALK_IN') AS "latestWalkIn",
       EXISTS (SELECT 1 FROM "Transaction" t WHERE t."storeId" = p."storeId"
-        AND (t."unregisteredParticipantId" = p.id OR t.id = p."collectionTransactionId")) AS "hasLinkedTransaction",
+        AND (t."unregisteredParticipantId" = p.id OR t.id = p."collectionTransactionId")) AS "hasLinkedTransaction"
     FROM "BookingParticipant" p
     WHERE p.id = ${slot.id} AND p."groupId" = ${groupId} AND p."storeId" = ${input.storeId}
     FOR UPDATE OF p`;
