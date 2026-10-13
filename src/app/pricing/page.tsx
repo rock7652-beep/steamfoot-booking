@@ -23,6 +23,7 @@ const limits = [
   { label: "可啟用人員", field: "maxStaff", unit: "位" },
   { label: "顧客資料", field: "maxCustomers", unit: "筆" },
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
+  { label: "自動提醒", field: "maxReminderSends", unit: "次" },
 ] as const;
 const comparisonRows = [
   { label: "LINE 自動提醒", values: ["內含", "內含", "內含"] },
@@ -119,8 +120,8 @@ function FeatureComparison() {
       <div className="space-y-2 pb-3 text-[#4C6259]">
         <p>基本版：資料匯出／現金抽屜免費 2 選 1；專業版：健康追蹤／月結管理／課程候補免費 3 選 1。免費任選可之後再決定，由總部協助開通；同一淡金色區塊選 1 項免費，其餘可加購。</p>
         <p>展店版欄位指總部本身；旗下分店須各自購買基本版或專業版。</p>
-        <p>可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
-        <p>付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
+        <p>所有方案與體驗版皆不限顧客、人員、後台帳號及預約筆數；每位人員使用自己的帳號，操作仍依角色權限。</p>
+        <p>方案依功能區分。LINE 自動提醒功能內含、不限次數；LINE 官方帳號訊息費依 LINE 計費規則另計，金流與分店費用於開通前確認。</p>
       </div>
     </details>
   </section>;
@@ -145,7 +146,7 @@ export default async function PricingPage() {
           <a href={TRIAL_URL} className="inline-flex min-h-11 shrink-0 items-center justify-center self-start rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4 lg:self-center">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
         </div>
         <details id="trial-details" className="mt-3 scroll-mt-24 border-t border-[#153B31]/15 text-base leading-7">
-          <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看體驗額度與使用說明</summary>
+          <summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">查看體驗與使用說明</summary>
           <div className="space-y-2 pb-2 text-[#4C6259]">
             {Object.entries(PUBLIC_TRIAL_COPY).map(([key, text]) => <p key={key}>{text}</p>)}
           </div>

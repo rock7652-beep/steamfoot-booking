@@ -281,7 +281,7 @@ export default function NewStoreForm() {
               label="PricingPlan"
               value={plan}
               onChange={setPlan as (v: string) => void}
-              options={industryModule === "COURSE" ? [{ value: "EXPERIENCE", label: "30 天完整功能試用（3 位人員）" }] : [
+              options={industryModule === "COURSE" ? [{ value: "EXPERIENCE", label: "30 天完整功能試用（人員不限）" }] : [
                 { value: "EXPERIENCE", label: "EXPERIENCE" },
                 { value: "BASIC", label: "BASIC" },
                 { value: "GROWTH", label: "GROWTH" },

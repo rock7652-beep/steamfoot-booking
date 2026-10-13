@@ -373,7 +373,7 @@ export function CourseStaffWorkspace({
           </header>
           <nav aria-label="人員編輯分類" className="flex shrink-0 flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課設定"],["work","LINE 與權限"],...(person ? [["schedule","課表與時間"]] : [])]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" disabled={locked} className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>{setTab(id);if(id==="schedule")setScheduleVisited(true);}} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-            {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
+            {!person && tab === "basic" && (kind === "manager" || atLimit) && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount} 位。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : `店務使用信箱登入，${music?"教師":courseDisplayText("教練", music)}另建帳號並連結 LINE 會員。`}</p>}
             <CourseConflicts items={conflicts}/>
             {tab==="work"&&person?.kind==="coach"&&person.coachEnabled&&previewStoreId&&<section className="mb-4 border-b border-earth-100 pb-4"><h3 className="mb-2 font-medium text-primary-900">我的工作權限</h3><div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,250px),1fr))] gap-2">{([
               ["teacher.income.read.self","查看自己的薪酬"],

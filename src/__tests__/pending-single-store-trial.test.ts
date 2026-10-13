@@ -35,10 +35,10 @@ describe("unactivated 30 day trials", () => {
     expect(html).not.toContain("14 天");
     expect(html).not.toContain("已到期");
   });
-  it("uses the same scoped quotas for preparation UI and server checks", async () => {
+  it("allows preparation above the former quotas while retaining scoped statistics", async () => {
     m.customer.mockResolvedValue(100); m.booking.mockResolvedValue(100);
-    expect(await checkCustomerLimit("pending-store")).toEqual({ allowed: false, current: 100, limit: 100 });
-    expect(await checkBookingLimit("pending-store")).toEqual({ allowed: false, current: 100, limit: 100 });
+    expect(await checkCustomerLimit("pending-store")).toEqual({ allowed: true, current: 100, limit: Infinity });
+    expect(await checkBookingLimit("pending-store")).toEqual({ allowed: true, current: 100, limit: Infinity });
     expect(m.customer).toHaveBeenCalledWith({ where: { storeId: "pending-store" } });
     expect(m.config).not.toHaveBeenCalled();
   });
