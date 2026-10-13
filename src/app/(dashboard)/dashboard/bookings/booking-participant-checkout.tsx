@@ -24,7 +24,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
   primaryCustomer?: BookingDrawerPayload["booking"]["customer"];
   companions?: BookingDrawerPayload["companions"]; canEditNote?: boolean; onPersonNoteSaved?: (customerId: string, value: string | null) => void;
   bookingId: string; slot: Checkout["slots"][number]; checkout: Checkout; readOnly: boolean; blocked: boolean;
-  onUpdated: () => void; onBusy: (busy: boolean) => void;
+  onUpdated: () => void; onBusy: (busy: boolean) => void; latestWalkInPosition: number;
   onProgress: (position: number, revision: number, status: string, amount: number | null) => void;
 }) {
   const [draft, setDraft] = useRetainedState<Draft>(`participant-collect:${bookingId}:${slot.position}`,
@@ -48,7 +48,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
   const isPlan = selection !== undefined ? selection !== null : slot.service === "PACKAGE_SESSION";
   const selectedWalletId = selection !== undefined ? selection?.walletId : slot.selectedWalletId;
   const selectedPlanName = selection !== undefined ? selection?.name : slot.selectedPlanName;
-  const canRemoveWalkIn = !readOnly && checkout.canResolve && slot.source === "WALK_IN" && status === "PENDING" && amount == null && !isPlan;
+  const canRemoveWalkIn = !readOnly && checkout.canResolve && slot.source === "WALK_IN" && slot.position === latestWalkInPosition && status === "PENDING" && amount == null && !isPlan;
   const canSell = !readOnly && checkout.canSell && ["PENDING", "COMPLETED"].includes(status) && !!slot.customerId && checkout.plans.length > 0;
   const sellButton = canSell ? <button type="button" disabled={blocked || saving} onClick={() => { setExpanded(false); setUsingPlan(false); setSelling(!selling); }} className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{selling ? "收合方案" : "新增方案"}</button> : null;
   const dirty = expanded && (draft.amount !== String(checkout.settings.defaultPrice) || draft.method !== "CASH" || !!draft.note);
@@ -175,6 +175,7 @@ export function BookingParticipantCheckout(props: { bookingId: string; checkout:
     return result ? { ...slot, status: result.status, collectedAmount: result.amount } : slot;
   });
   const slots = allSlots.filter(slot => slot.status !== "REMOVED");
+  const latestWalkInPosition = Math.max(-1, ...slots.filter(slot => slot.source === "WALK_IN").map(slot => slot.position));
   const completed = slots.filter(slot => slot.status === "COMPLETED").length;
   const noShow = slots.filter(slot => slot.status === "NO_SHOW").length;
   const cancelled = slots.filter(slot => slot.status === "CANCELLED").length;
@@ -182,7 +183,7 @@ export function BookingParticipantCheckout(props: { bookingId: string; checkout:
   return <section className="border-b border-earth-100 p-4" aria-label="逐人體驗結帳">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold text-earth-900">到店人員</h3>{props.companions && <BookingCompanionEditor bookingId={props.bookingId} companions={props.companions} readOnly={props.readOnly} blocked={props.blocked} onBusy={props.onBusy} onUpdated={props.onUpdated} addOnly />}</div>
     <p role="status" className="mb-2 break-words text-sm text-earth-600">已服務 {completed}／{slots.length} 人 · 已收 NT$ {collected.toLocaleString("zh-TW")}{noShow ? ` · 未到 ${noShow}` : ""}{cancelled ? ` · 已取消 ${cancelled}` : ""}</p>
-    {props.checkout.slots.map(slot => <ParticipantRow key={`${props.bookingId}:${slot.position}`} {...props} slot={slot}
+    {props.checkout.slots.map(slot => <ParticipantRow key={`${props.bookingId}:${slot.position}`} {...props} latestWalkInPosition={latestWalkInPosition} slot={slot}
       onProgress={(position, revision, status, amount) => setProgress(previous => ({ ...previous, [keyFor(position, revision)]: { status, amount } }))} />)}
   </section>;
 }
