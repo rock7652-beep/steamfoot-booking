@@ -322,7 +322,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     memberEnabled,
     hasWork: !!workLink,
     incomeAvailable: !!incomeAccess,
-    teacherChangePermissions:workLink&&!access?(await prisma.staffPermission.findMany({where:{staffId:workLink.staffId,permission:{in:["teacher.booking.leave","teacher.booking.reschedule"]}},select:{permission:true}})).map(p=>p.permission):[],
+    teacherChangePermissions:workLink&&!access?(await prisma.staffPermission.findMany({where:{staffId:workLink.staffId,granted:true,permission:{in:["teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"]}},select:{permission:true}})).map(p=>p.permission):[],
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     selfBookingEnabled: bookingRule?.selfBookingEnabled ?? true,
@@ -405,6 +405,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       expiresAt: b.card?.expiresAt.toISOString() ?? null,
     })),
     work: work.map((s) => ({
+      teacherAttendance:s.teacherAttendance,
       id: s.id,
       name: s.nameSnapshot,
       cost: s.pointCost,

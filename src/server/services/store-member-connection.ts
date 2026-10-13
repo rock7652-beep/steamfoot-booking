@@ -1,0 +1,132 @@
+import "server-only";
+import { randomBytes } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { normalizePhone } from "@/lib/normalize";
+import { AppError } from "@/lib/errors";
+import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-line-config";
+import { connectionConflict } from "@/lib/store-member-connection";
+import type { InventoryContext } from "./inventory";
+
+export function connectionChannel(storeId: string, destination: string) {
+  const config = getConfiguredStoreLine(storeId);
+  if (config && config.destination !== destination) throw new AppError("FORBIDDEN", "LINE 通道不符");
+  // Legacy channel evidence proves messaging ownership, not central Login.
+  return {
+    identityProvider: config ? storeLineIdentityProvider(config) : `line-messaging:${destination}`,
+    channelKey: destination,
+  };
+}
+
+/** Used only after the provider has verified the LINE subject. A supplied
+ * phone must never activate an existing store Customer through onboarding. */
+export async function storePhoneNeedsConfirmation(storeId: string, phone: string) {
+  return !!await prisma.customer.findFirst({ where: { storeId, phone: normalizePhone(phone), mergedIntoCustomerId: null }, select: { id: true } });
+}
+
+/** Internal boundary: caller must have verified this physical channel's webhook HMAC. */
+export async function captureStoreMemberConnection(input: {
+  storeId: string; destination: string; lineUserId: string; phone: string; timestamp: number;
+}): Promise<"pending" | "linked" | "review" | "unavailable"> {
+  const phone = normalizePhone(input.phone);
+  const now = new Date();
+  if (!/^09\d{8}$/.test(phone) || !/^U[a-f0-9]{32}$/.test(input.lineUserId) ||
+      !Number.isFinite(input.timestamp) || Math.abs(now.getTime() - input.timestamp) > 10 * 60_000) return "review";
+  const channel = connectionChannel(input.storeId, input.destination);
+  try {
+    return await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id"=${input.storeId} FOR UPDATE`;
+      const previous = await tx.storeMemberConnection.findUnique({
+        where: { storeId_lineUserId: { storeId: input.storeId, lineUserId: input.lineUserId } },
+      });
+      if (previous?.status === "APPROVED") {
+        if (previous.phone !== phone || previous.channelKey !== channel.channelKey || previous.identityProvider !== channel.identityProvider) return "review";
+        const link = await tx.customerIdentityLink.findFirst({ where: { storeId: input.storeId, customerId: previous.customerId, userId: previous.centralUserId ?? "", provider: channel.identityProvider, providerAccountId: input.lineUserId, customer: { mergedIntoCustomerId: null } }, select: { id: true } });
+        return link ? "linked" : "review";
+      }
+      const rows = await tx.customer.findMany({
+        where: { storeId: input.storeId, phone, mergedIntoCustomerId: null },
+        select: { id: true }, take: 2,
+      });
+      // Never disclose candidate names or create Customer from a phone claim.
+      if (rows.length !== 1) return "review";
+      // Existing verified provider membership is evidence; it can be reused
+      // without another staff confirmation. The phone merely selected the row.
+      const account = await tx.account.findUnique({ where: { provider_providerAccountId: { provider: channel.identityProvider, providerAccountId: input.lineUserId } }, select: { userId: true, user: { select: { status: true, role: true } } } });
+      const member = account && account.user.status === "ACTIVE" && account.user.role === "CUSTOMER"
+        ? await tx.customer.findFirst({ where: { id: rows[0].id, storeId: input.storeId }, include: { identityLinks: true } }) : null;
+      const verified = member && !connectionConflict(member, account!.userId) && member.identityLinks.some(l => l.userId === account!.userId && l.provider === channel.identityProvider && l.providerAccountId === input.lineUserId);
+      if (verified) {
+        await tx.storeMemberConnection.upsert({ where: { storeId_lineUserId: { storeId: input.storeId, lineUserId: input.lineUserId } }, create: { ...channel, verificationCode: randomBytes(3).toString("hex").toUpperCase(), storeId: input.storeId, customerId: rows[0].id, phone, lineUserId: input.lineUserId, status: "APPROVED", centralUserId: account!.userId, confirmedAt: now, expiresAt: now }, update: { status: "APPROVED", centralUserId: account!.userId, confirmedAt: now } });
+        return "linked";
+      }
+      if (previous && previous.expiresAt > now && (previous.customerId !== rows[0].id || previous.phone !== phone)) return "review";
+      await tx.storeMemberConnection.upsert({
+        where: { storeId_lineUserId: { storeId: input.storeId, lineUserId: input.lineUserId } },
+        create: { ...channel, verificationCode: randomBytes(3).toString("hex").toUpperCase(), storeId: input.storeId, customerId: rows[0].id, lineUserId: input.lineUserId, phone, expiresAt: new Date(now.getTime() + 24 * 60 * 60_000) },
+        update: { ...channel, verificationCode: previous && previous.expiresAt > now ? previous.verificationCode : randomBytes(3).toString("hex").toUpperCase(), customerId: rows[0].id, phone, status: "PENDING", expiresAt: new Date(now.getTime() + 24 * 60 * 60_000), centralUserId: null, confirmedAt: null, confirmedByUserId: null },
+      });
+      return "pending";
+    });
+  } catch {
+    return "unavailable";
+  }
+}
+
+/** Staff approval connects this exact candidate only. Never merges or transfers accounts. */
+export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "user" | "storeId">, requestId: string, customerId: string) {
+  const { inventoryTransactionAccess } = await import("./inventory");
+  return prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id"=${ctx.storeId} FOR UPDATE`;
+    const access = await inventoryTransactionAccess(tx, ctx);
+    if (!access("customer.update")) throw new AppError("FORBIDDEN", "沒有確認顧客資料的權限");
+    const request = await tx.storeMemberConnection.findFirst({ where: { id: requestId, storeId: ctx.storeId, customerId } });
+    if (!request) throw new AppError("NOT_FOUND", "找不到本店連結申請");
+    if (request.status === "APPROVED") return;
+    if (request.status !== "PENDING" || request.expiresAt <= new Date()) throw new AppError("CONFLICT", "申請已逾時，請顧客重新操作");
+    const config = getConfiguredStoreLine(ctx.storeId);
+    if (config && (config.destination !== request.channelKey || storeLineIdentityProvider(config) !== request.identityProvider)) throw new AppError("CONFLICT", "LINE 設定已變更，請重新確認");
+    const customer = await tx.customer.findFirst({ where: { id: customerId, storeId: ctx.storeId }, include: { identityLinks: true } });
+    if (!customer || customer.phone !== request.phone) throw new AppError("CONFLICT", "顧客電話已變更，請重新確認");
+    const account = await tx.account.findUnique({
+      where: { provider_providerAccountId: { provider: request.identityProvider, providerAccountId: request.lineUserId } },
+      select: { userId: true, user: { select: { status: true, role: true } } },
+    });
+    if (account && (account.user.status !== "ACTIVE" || account.user.role !== "CUSTOMER")) throw new AppError("CONFLICT", "LINE 帳號需確認");
+    const conflict = connectionConflict(customer, account?.userId ?? null);
+    if (conflict) throw new AppError("CONFLICT", conflict);
+    if (customer.lineUserId && customer.lineUserId !== request.lineUserId) throw new AppError("CONFLICT", "本店已綁定其他 LINE，需確認");
+    const other = await tx.customer.findFirst({ where: { storeId: ctx.storeId, lineUserId: request.lineUserId, id: { not: customerId } }, select: { id: true } });
+    if (other) throw new AppError("CONFLICT", "LINE 已連結本店其他顧客");
+    const userId = account?.userId ?? (await tx.user.create({ data: { name: customer.name, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } })).id;
+    const links = await tx.customerIdentityLink.findMany({ where: { storeId: ctx.storeId, OR: [{ userId }, { provider: request.identityProvider, providerAccountId: request.lineUserId }] }, select: { customerId: true } });
+    if (links.some(link => link.customerId !== customerId)) throw new AppError("CONFLICT", "本店會員關係需確認");
+    const existingProvider = customer.identityLinks.find(link => link.provider === request.identityProvider);
+    if (existingProvider && existingProvider.providerAccountId !== request.lineUserId) throw new AppError("CONFLICT", "顧客已有不同 LINE 身分");
+    if (!account) await tx.account.create({ data: { userId, provider: request.identityProvider, providerAccountId: request.lineUserId, type: "oauth" } });
+    if (!existingProvider) await tx.customerIdentityLink.create({ data: { userId, storeId: ctx.storeId, customerId, provider: request.identityProvider, providerAccountId: request.lineUserId } });
+    // Scoped link is authoritative; Customer.userId is globally unique.
+    await tx.customer.update({ where: { id: customerId }, data: { lineUserId: request.lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: new Date() } });
+    await tx.storeMemberConnection.update({ where: { id: request.id }, data: { status: "APPROVED", centralUserId: userId, confirmedAt: new Date(), confirmedByUserId: ctx.user.id } });
+    await tx.storeMemberConnection.updateMany({ where: { storeId: ctx.storeId, customerId, status: "PENDING", id: { not: request.id } }, data: { status: "REJECTED" } });
+    await tx.auditLog.create({ data: { actorUserId: ctx.user.id, targetType: "StoreMemberConnection", targetId: request.id, action: "APPROVE_STORE_MEMBER", afterJson: { storeId: ctx.storeId, customerId } } });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function readStoreMemberConnection(storeId: string, customerId: string) {
+  const [customer, connections] = await Promise.all([
+    prisma.customer.findFirst({ where: { storeId, id: customerId }, select: { lineLinkStatus: true, userId: true, identityLinks: { select: { userId: true } } } }),
+    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true }, orderBy: { createdAt: "desc" }, take: 3 }),
+  ]);
+  if (!customer) throw new AppError("NOT_FOUND", "找不到顧客");
+  const owners = new Set([...(customer.userId ? [customer.userId] : []), ...customer.identityLinks.map(l => l.userId)]);
+  const pending = connections.filter(c => c.status === "PENDING" && c.expiresAt > new Date());
+  return { membership: owners.size > 1 ? "需確認" : owners.size === 1 ? "已連結" : "尚未連結", notification: customer.lineLinkStatus === "BLOCKED" ? "已封鎖，無法通知" : connections.some(c => c.status === "APPROVED") ? "本店已確認，發送前再檢查通道" : "本店通知尚未確認", pending: pending.map(c => ({ id: c.id, verificationCode: c.verificationCode })), conflict: owners.size > 1 };
+}
+
+export async function connectionReplyText(result: "pending" | "linked" | "review" | "unavailable", storeId: string, lineUserId: string) {
+  const { connectionResultLabels } = await import("@/lib/store-member-connection");
+  if (result !== "pending") return connectionResultLabels[result];
+  const request = await prisma.storeMemberConnection.findUnique({ where: { storeId_lineUserId: { storeId, lineUserId } }, select: { verificationCode: true, status: true } });
+  return `${connectionResultLabels.pending}${request?.status === "PENDING" ? `\n請出示本訊息，確認碼：${request.verificationCode}` : ""}`;
+}

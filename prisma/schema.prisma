@@ -1328,6 +1328,51 @@ model HealthflowLinkCallback {
 // CustomerIdentityLink（跨店登入身份 → 店內 Customer）
 // ============================================================
 
+// Own-channel webhook evidence; phone selects a candidate but never approves it.
+// Scoped FKs and RLS are defined in the separately reviewed SQL draft.
+model StoreMemberConnection {
+  @@unique([storeId, id])
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  identityProvider String
+  lineUserId String
+  channelKey String
+  phone String
+  verificationCode String
+  status String @default("PENDING")
+  centralUserId String?
+  expiresAt DateTime
+  confirmedAt DateTime?
+  confirmedByUserId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([storeId, lineUserId])
+  @@index([storeId, customerId, status])
+}
+
+model WorkOrderReadyNotification {
+  id String @id @default(cuid())
+  storeId String
+  orderId String
+  customerId String
+  connectionId String?
+  status String @default("PENDING")
+  retryKey String @unique
+  snapshot Json?
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  retryUntil DateTime
+  sentAt DateTime?
+  lastAttemptAt DateTime?
+  errorMessage String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([storeId, orderId])
+  @@index([status, nextAttemptAt])
+  @@index([storeId, customerId])
+}
+
 model CustomerIdentityLink {
   id                String   @id @default(cuid())
   userId            String
@@ -2351,6 +2396,7 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
+  workOrderReadyNotificationEnabled Boolean @default(false)
   id                       String    @id @default(cuid())
   storeId                  String    @unique
   shopName                 String    @default("蒸足")
@@ -3280,6 +3326,7 @@ model InventoryProduct {
   @@index([storeId, active])
 }
 model InventoryOrder {
+  @@unique([storeId, id])
   settlements Json @default("[]")
   voided Boolean @default(false)
   id String @id @default(cuid())

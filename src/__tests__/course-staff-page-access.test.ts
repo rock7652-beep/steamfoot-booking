@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => ({ prisma: {
 } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: {
   courseTemplate: { findMany: async () => [] },
+  coursePointPlan: { findMany: async () => [] },
   courseSession: { findMany: async () => [] },
 } }));
 vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: async () => ({ maxStaff: 10 }) }));

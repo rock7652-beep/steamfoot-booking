@@ -1,4 +1,5 @@
 "use client";
+import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useEffect, useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { savedCoursePlan } from "@/lib/course-plan-save";
@@ -89,7 +90,7 @@ export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...call
                 </fieldset>
               </fieldset></form>;
 }
-export function CoursePlanDraftForm({storeId,plan,templates,subjects=[],termSessions,profitEnabled,music=false,sharedCardState="ENABLED",initialTemplateId,...callbacks}:Callbacks&{storeId:string;subjects?:{id:string;name:string;category:string;isActive:boolean}[];plan:Plan|null;templates:{id:string;name:string;category:string;isActive:boolean;musicTeacherShare?:number|null;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicSubjectId?:string|null;classType?:string|null;musicScheduleMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean;sharedCardState?:FeaturePresentationState;initialTemplateId?:string}){
+export function CoursePlanDraftForm({storeId,plan,templates,subjects=[],termSessions,profitEnabled,music=false,sharedCardState="ENABLED",initialTemplateId,...callbacks}:Callbacks&{storeId:string;subjects?:{id:string;name:string;category:string;isActive:boolean}[];plan:Plan|null;templates:{id:string;name:string;displayName?:string;category:string;isActive:boolean;musicTeacherShare?:number|null;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null;musicSubjectId?:string|null;classType?:string|null;musicScheduleMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean;sharedCardState?:FeaturePresentationState;initialTemplateId?:string}){
  async function savePlanInput(input:Record<string,unknown>) {const result=await mutation.save(input);return result.success?{...result,confirmedPlan:result.data}:result;}
  const pathname=usePathname();
  const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/plan`,storeId,savedCoursePlan);
@@ -181,7 +182,7 @@ export function CoursePlanDraftForm({storeId,plan,templates,subjects=[],termSess
                         const selected=selectedTemplateIds.includes(t.id);
                         return <label key={t.id} className={`flex min-h-10 items-center gap-2 rounded-md px-2 ${t.isActive?"hover:bg-earth-50":"bg-earth-50 text-earth-400"}`}>
                           <input type="checkbox" value={t.id} checked={selected} disabled={!t.isActive} onChange={e=>{setSelectedTemplateIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>
-                          <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                          <span className="min-w-0 flex-1 truncate">{courseTemplateLabel(t)}</span>
                           {!t.isActive&&<span className="rounded-full bg-earth-200 px-2 py-0.5 text-[11px]">已下架</span>}
                         </label>;
                       })}

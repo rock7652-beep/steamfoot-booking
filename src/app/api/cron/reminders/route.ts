@@ -46,6 +46,13 @@ export async function GET(request: NextRequest) {
   const runId = await safeCreateCronRunStart();
 
   const results: Record<string, unknown> = {};
+  try {
+    const { runWorkOrderReadyNotifications } = await import("@/server/services/work-order-ready-notification");
+    await runWorkOrderReadyNotifications();
+    results.workOrderNotifications = "processed";
+  } catch {
+    results.workOrderNotifications = { error: "工單通知佇列處理失敗" };
+  }
 
   // ── 1. Reminders (next-day batch) ──
   try {

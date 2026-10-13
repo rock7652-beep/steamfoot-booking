@@ -165,3 +165,6 @@ export function revalidateBusinessHoursInRoute(){
  revalidateTag(CACHE_TAGS.businessHours,{expire:0});revalidateTag(CACHE_TAGS.specialDays,{expire:0});
  revalidatePath("/dashboard/settings/hours");revalidatePath("/dashboard/duty");revalidatePath("/book");
 }
+
+/** Permission receipts expire authorization caches without returning a new page tree. */
+export function revalidateStaffPermissionsInRoute(){revalidateTag(CACHE_TAGS.staffPermissions,{expire:0});}

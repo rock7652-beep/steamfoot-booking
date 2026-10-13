@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ customer: vi.fn(), transactions: vi.fn(), cashbook: vi.fn(), permission: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
   customer: { findFirst: m.customer },
+  shopConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   transaction: { findMany: m.transactions },
   cashbookEntry: { findMany: m.cashbook },
 } }));

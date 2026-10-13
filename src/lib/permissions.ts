@@ -67,6 +67,8 @@ export const ALL_PERMISSIONS = [
   "customer.identity.rebind", // 店長核准式 LINE 重新綁定（捕捉/執行分離）
   "teacher.booking.leave",
   "teacher.booking.reschedule",
+  "teacher.session.leave",
+  "teacher.session.reschedule",
   "teacher.income.read.self",
   // 預約
   "booking.read",
@@ -133,7 +135,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "顧客管理",
     codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export", "customer.identity.rebind"],
   },
-  teacher_booking: {label:"授課操作",codes:["teacher.booking.leave","teacher.booking.reschedule"]},
+  teacher_booking: {label:"授課操作",codes:["teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"]},
   booking: {
     label: "預約管理",
     codes: ["booking.read", "booking.create", "booking.update"],
@@ -189,6 +191,8 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
 export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "teacher.booking.leave":"代學員請假（自己的課）",
   "teacher.booking.reschedule":"替學員改期（自己的課）",
+  "teacher.session.leave":"自己請假（整堂停課）",
+  "teacher.session.reschedule":"自己調課（整堂改時間）",
   "teacher.income.read.self":"查看自己的薪酬",
   "work_order.read":"查看工單",
   "work_order.write":"編輯工單、更新進度與收款",
@@ -534,8 +538,23 @@ function measurePermission<T>(timing: PermissionTiming | undefined, name: string
 export async function requirePermission(
   permission: PermissionCode,
   timing?: PermissionTiming,
-  options: { deferSubscriptionGuard?: boolean; storeId?: string } = {},
+  options: { deferSubscriptionGuard?: boolean; storeId?: string; courseTeacherSelfService?: boolean } = {},
 ) {
+  // LINE instructors use their member login, not a dashboard staff session.
+  // This explicit server-only path is limited to the four own-class grants.
+  if (options.courseTeacherSelfService) {
+    if (!["teacher.booking.leave", "teacher.booking.reschedule", "teacher.session.leave", "teacher.session.reschedule"].includes(permission)) {
+      const { AppError } = await import("@/lib/errors");
+      throw new AppError("FORBIDDEN", "此權限不適用授課人員入口");
+    }
+    const { courseTeacherChangeActor } = await import("@/server/services/course-teacher-change-access");
+    const actor = await courseTeacherChangeActor(permission as import("@/server/services/course-teacher-change-access").TeacherChangePermission, !options.deferSubscriptionGuard);
+    if (options.storeId && options.storeId !== actor.storeId) {
+      const { AppError } = await import("@/lib/errors");
+      throw new AppError("FORBIDDEN", "不能處理其他門市的課程");
+    }
+    return { ...actor.user, storeId: actor.storeId, staffId: actor.staffId };
+  }
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
   const user = await measurePermission(timing, "permission.session", () => requireStaffSession());

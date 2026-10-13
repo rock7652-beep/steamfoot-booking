@@ -57,7 +57,7 @@ export async function inventoryExportEnabled(storeId: string) {
     return hasDataExportFeature(storeId);
 }
 /** Read current grants through the transaction connection, after the Store lock. */
-export async function inventoryTransactionAccess(tx: Prisma.TransactionClient, ctx: InventoryContext) {
+export async function inventoryTransactionAccess(tx: Prisma.TransactionClient, ctx: Pick<InventoryContext, "user" | "storeId">) {
     const account = await tx.user.findUnique({ where: { id: ctx.user.id }, select: { role: true, status: true } });
     if (!account || account.status !== "ACTIVE" || account.role !== ctx.user.role)
         throw new AppError("FORBIDDEN", "帳號權限已變更，請重新登入");

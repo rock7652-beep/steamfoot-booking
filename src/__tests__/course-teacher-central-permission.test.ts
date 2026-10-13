@@ -1,0 +1,13 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const m=vi.hoisted(()=>({actor:vi.fn(),staffSession:vi.fn()}));
+vi.mock("@/lib/db",()=>({prisma:{}}));
+vi.mock("next/cache",()=>({unstable_cache:(fn:unknown)=>fn}));
+vi.mock("@/lib/session",()=>({requireStaffSession:m.staffSession}));
+vi.mock("@/server/services/course-teacher-change-access",()=>({courseTeacherChangeActor:m.actor}));
+import {requirePermission} from "@/lib/permissions";
+beforeEach(()=>{vi.resetAllMocks();m.actor.mockResolvedValue({storeId:"store",staffId:"teacher",user:{id:"member",role:"CUSTOMER"}});});
+it("uses the linked instructor grant for a LINE member without requiring a dashboard login",async()=>{expect(await requirePermission("teacher.session.leave",undefined,{courseTeacherSelfService:true})).toMatchObject({id:"member",role:"CUSTOMER",storeId:"store",staffId:"teacher"});expect(m.actor).toHaveBeenCalledWith("teacher.session.leave",true);expect(m.staffSession).not.toHaveBeenCalled();});
+it("the read path preserves its read subscription guard",async()=>{await requirePermission("teacher.session.reschedule",undefined,{courseTeacherSelfService:true,deferSubscriptionGuard:true});expect(m.actor).toHaveBeenCalledWith("teacher.session.reschedule",false);});
+it("cannot use the self-service path for arbitrary dashboard grants",async()=>{await expect(requirePermission("staff.manage",undefined,{courseTeacherSelfService:true})).rejects.toThrow();expect(m.actor).not.toHaveBeenCalled();});
+it("rejects a different explicit store",async()=>{await expect(requirePermission("teacher.session.leave",undefined,{courseTeacherSelfService:true,storeId:"other"})).rejects.toThrow();});
+it("does not bypass a revoked instructor grant",async()=>{m.actor.mockRejectedValue(new Error("revoked"));await expect(requirePermission("teacher.session.leave",undefined,{courseTeacherSelfService:true})).rejects.toThrow("revoked");});

@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useEffect, useActionState, useRef } from "react";
 import { createBooking } from "@/server/actions/booking";
@@ -21,11 +22,13 @@ interface Props {
   days: string[];
   activeWallets: ActiveWallet[];
   simplified?: boolean;
+  onSuccess?: () => void;
 }
 
 type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 
-export function CreateBookingForm({ customerId, days, activeWallets, simplified = false }: Props) {
+export function CreateBookingForm({ customerId, days, activeWallets, simplified = false, onSuccess }: Props) {
+  const [dirty, setDirty] = useState(false);
   const requestKey = useBookingRequestKey();
   const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
   const [calendarRefresh, setCalendarRefresh] = useState(0);
@@ -33,7 +36,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(days.length > 0);
   // 防呆：有可用 wallet → bookingType 預設 PACKAGE_SESSION + 自動選 FEFO 首張
-  const [bookingType, setBookingType] = useState<BookingType>("PACKAGE_SESSION");
+  const [bookingType, setBookingType] = useState<BookingType>(activeWallets.length > 0 ? "PACKAGE_SESSION" : "FIRST_TRIAL");
   const [walletId, setWalletId] = useState<string>(activeWallets[0]?.id ?? "");
 
   const loadSlots = useCallback(async (date: string) => {
@@ -74,7 +77,9 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
         people,
       }, { requestKey: requestKey.current(), source: "customer-detail" });
       if (result.success) {
+        setDirty(false);
         requestKey.complete();
+        onSuccess?.();
         toast.success("預約已建立");
         setCalendarRefresh((count) => count + 1);
         // 重新載入時段（反映新預約）
@@ -88,8 +93,10 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
     { error: null, success: false }
   );
 
+  useSettingsPanelGuard(dirty, pending);
+
   return (
-    <form action={action} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <form onChange={() => setDirty(true)} action={action} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {state.success && (
         <div className="col-span-4 rounded bg-green-50 px-3 py-2 text-sm text-green-700">
           預約建立成功！
@@ -110,7 +117,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
         ) : simplified ? (
           <SteamfootBookingCalendar days={days} value={selectedDate} customerId={customerId}
             disabled={pending} refreshKey={calendarRefresh}
-            onChange={(date) => { if (date !== selectedDate) { setLoadingSlots(true); setSelectedDate(date); } }} />
+            onChange={(date) => { if (date !== selectedDate) { setDirty(true); setLoadingSlots(true); setSelectedDate(date); } }} />
         ) : (
           <select
             name="bookingDate"
@@ -154,7 +161,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
           onChange={(e) => setBookingType(e.target.value as BookingType)}
           className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
         >
-          <option value="PACKAGE_SESSION">課程堂數</option>
+          <option value="PACKAGE_SESSION" disabled={activeWallets.length === 0}>課程堂數</option>
           <option value="FIRST_TRIAL">體驗</option>
           <option value="SINGLE">單次付費，不扣堂</option>
         </select>

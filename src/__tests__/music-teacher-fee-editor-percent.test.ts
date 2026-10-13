@@ -12,7 +12,7 @@ it("uses percentages while keeping the stored default ratio and exception rule u
  async function change(el:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(el,value);el.dispatchEvent(new Event("input",{bubbles:true}));});}
  try {
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
-  const input=host.querySelector<HTMLInputElement>('[aria-label="教師彈性拆帳比例"]')!;
+  const input=host.querySelector<HTMLInputElement>('[aria-label="教師拆帳比例"]')!;
   expect(input.value).toBe("29");expect(input.max).toBe("100");
   await change(input,"40");expect(onSettings).toHaveBeenLastCalledWith(expect.objectContaining({defaultRatio:0.4}));
   await change(input,"0");expect(onSettings).toHaveBeenLastCalledWith(expect.objectContaining({defaultRatio:0}));
@@ -35,7 +35,7 @@ it("selects courses before showing fees, preserves per-course exceptions, and pr
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,{...props,qualificationIds:["p"]})));
   expect(Array.from(host.querySelectorAll("button")).some(b=>b.textContent==="完成選擇")).toBe(false);
   expect(host.textContent).toContain("彈性拆帳 · 40% · 定價試算 $320／堂");
-  const ratio=host.querySelector('[aria-label="教師彈性拆帳比例"]') as HTMLInputElement;
+  const ratio=host.querySelector('[aria-label="教師拆帳比例"]') as HTMLInputElement;
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(ratio,"50");ratio.dispatchEvent(new Event("input",{bubbles:true}));});
   expect(onSettings).toHaveBeenLastCalledWith(expect.objectContaining({defaultRatio:0.5}));expect(onFees).not.toHaveBeenCalled();
  }finally{await act(async()=>root.unmount());host.remove();}
@@ -70,4 +70,15 @@ it("hides generated course codes while keeping same-name course selection indepe
   await act(async()=>labels[1].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
   expect(onQualification).toHaveBeenLastCalledWith("version",true);
  }finally{await act(async()=>root.unmount());host.remove();}
+});
+it("keeps selected historical qualifications and limits batch selection to the visible current list",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");const root=createRoot(host);const onQualification=vi.fn();
+ const props={templates:[{id:"current",name:"raw",displayName:"個別課 $800",currentTeaching:true},{id:"selected-old",name:"已選舊課",currentTeaching:false},{id:"hidden-old",name:"其他舊課",currentTeaching:false}],qualificationIds:["selected-old"],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:0},onSettings:vi.fn(),onFees:vi.fn(),onQualification};
+ try {
+  await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
+  expect(host.textContent).toContain("個別課 $800");expect(host.textContent).toContain("已選舊課");expect(host.textContent).not.toContain("其他舊課");
+  const batch=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="勾選這 2 項")!;await act(async()=>batch.click());
+  expect(onQualification.mock.calls).toEqual([["current",true]]);
+  const other=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="其他項目（1）")!;await act(async()=>other.click());expect(host.textContent).toContain("其他舊課");
+ } finally {await act(async()=>root.unmount());host.remove();}
 });

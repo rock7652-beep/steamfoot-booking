@@ -7,7 +7,7 @@ vi.mock("@/server/actions/course-availability",()=>({getCourseStaffAvailability:
 vi.mock("@/server/actions/course-browse",()=>({searchCourseCustomers:m.search,loadCourseCustomerSearchIndex:async()=>({success:true,rows:[]})}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),usePathname:()=>"/dashboard/staff",useSearchParams:()=>new URLSearchParams()}));
 vi.mock("@/server/actions/course-staff",()=>({readCourseStaffTeaching:m.read,saveCourseStaff:m.save}));
-vi.mock("@/server/actions/course-own-income-access",()=>({saveCourseOwnIncomeAccess:m.income}));
+vi.mock("@/lib/course-work-permission-client",()=>({saveCourseOwnIncomeAccess:m.income}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-status",()=>({setCourseStatus:vi.fn()}));
 vi.mock("@/server/actions/course-batch",()=>({applyCourseBatchStatus:vi.fn(),courseStatusImpact:vi.fn()}));
@@ -106,7 +106,7 @@ it("music qualification editors with read-only pay access can change qualificati
  expect(phone.value).toBe("0912345678");
  await click("授課設定");
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
- expect((document.body.querySelector('[aria-label="教師彈性拆帳比例"]') as HTMLInputElement).disabled).toBe(true);
+ expect((document.body.querySelector('[aria-label="教師拆帳比例"]') as HTMLInputElement).disabled).toBe(true);
 
  const qualification=Array.from(document.body.querySelectorAll("label")).find(l=>l.textContent==="鋼琴")!.querySelector("input")!;
  expect(qualification.disabled).toBe(false);
@@ -197,4 +197,31 @@ it("adding a coach stays in the same editor and offers saved-person tabs",async(
  expect(document.body.textContent).toContain("課表與時間");
  expect((document.body.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("新教練");
  expect(m.refresh).not.toHaveBeenCalled();
+});
+it("keeps permission save feedback in the fixed footer instead of changing the cards",async()=>{
+ let finish!:(value:unknown)=>void;m.income.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,canManageOwnIncome:true,personalIncomeEnabled:false,permissionGroups:[]})));
+ await click("編輯");await click("LINE 與權限");
+ const control=document.body.querySelector<HTMLInputElement>('[role="switch"][aria-label="代學員請假"]')!;
+ const cards=Array.from(document.body.querySelectorAll('section[aria-label="我的工作權限"]'));
+ const footer=()=>document.body.querySelector('[data-course-permission-feedback]')!;
+ await act(async()=>control.click());
+ expect(footer().textContent).toContain("代學員請假・儲存中…");
+ expect(cards.every(card=>!card.textContent?.includes("儲存中")&&!card.textContent?.includes("待綁定"))).toBe(true);
+ await act(async()=>finish({success:true,data:{enabled:true,updatedAt:"2026-10-12T03:00:00.000Z"}}));
+ expect(footer().textContent).toContain("代學員請假・已儲存 ✓");
+ expect(cards.every(card=>!card.textContent?.includes("已儲存"))).toBe(true);
+ expect(document.body.textContent).toContain("門市尚未開放本人薪酬查詢");
+ expect(m.refresh).not.toHaveBeenCalled();
+});
+it("collapsing a bound LINE picker keeps its submitted identity and switching tabs retains it",async()=>{
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",accountKind:"coach",staff:[{...staff,customerId:"member-a",coachLoginReady:true}],maxStaff:10,templates:[],customers:[{id:"member-a",name:"驗收會員"}],canManage:true,feeEnabled:false,permissionGroups:[]})));
+ await click("老師");await click("LINE 與權限");
+ expect(document.querySelector('#course-staff-title')?.textContent).toContain("老師");
+ expect(new FormData(document.querySelector('#course-staff-form') as HTMLFormElement).get("customerId")).toBe("member-a");
+ const control=Array.from(document.querySelectorAll('button')).find(b=>b.textContent==="更換綁定")!;
+ expect(control.getAttribute("aria-expanded")).toBe("false");
+ await click("更換綁定");expect(control.getAttribute("aria-expanded")).toBe("true");
+ await click("基本資料");await click("LINE 與權限");
+ expect(new FormData(document.querySelector('#course-staff-form') as HTMLFormElement).get("customerId")).toBe("member-a");
 });
