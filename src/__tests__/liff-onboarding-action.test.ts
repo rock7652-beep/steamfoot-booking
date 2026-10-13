@@ -1,4 +1,4 @@
-vi.mock("@/server/services/store-member-connection", () => ({ storePhoneNeedsConfirmation: vi.fn(async () => false) }));
+vi.mock("@/server/services/store-member-connection", () => ({ storePhoneNeedsConfirmation: vi.fn(async () => false), completeAuthorizedFirstStoreLogin: vi.fn(async () => false) }));
 /**
  * submitOnboarding server action (PR-C2) 行為測試
  *
@@ -89,6 +89,16 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 }
 
 describe("submitOnboarding action (PR-C2)", () => {
+  it("completes staff-authorized first login before the phone collision guard", async () => {
+    const { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } = await import("@/server/services/store-member-connection");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
+    vi.mocked(completeAuthorizedFirstStoreLogin).mockResolvedValueOnce(true);
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({ status: "ok" });
+    expect(completeAuthorizedFirstStoreLogin).toHaveBeenCalledWith({ storeId: STORE.id, phone: VALID_INPUT.phone, candidateLineUserId: LINE_USER_ID });
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
   it("does not activate an existing Customer from phone input alone", async () => {
     const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());

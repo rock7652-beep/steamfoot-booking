@@ -322,4 +322,30 @@ describe("authorized first LIFF Login capture", () => {
     expect(tx().customer).not.toHaveProperty("update");
     expect(tx().customer).not.toHaveProperty("updateMany");
   });
+  it("uses the unique store-linked owner when Customer.userId is empty", async () => {
+    h.customerFind.mockResolvedValue({ id: "customer-1", storeId: "store-1", phone, userId: null, mergedIntoCustomerId: null, user: null, identityLinks: [{ userId: "user-1" }] });
+    h.userFind.mockResolvedValue({ id: "user-1", status: "ACTIVE", role: "CUSTOMER" });
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toEqual({ status: "executed", requestId: "capture-1" });
+    expect(h.accountCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: "user-1" }) });
+  });
+  it("rejects conflicting store-linked owners even with staff authorization", async () => {
+    h.customerFind.mockResolvedValue({ id: "customer-1", storeId: "store-1", phone, userId: "user-1", mergedIntoCustomerId: null, identityLinks: [{ userId: "other" }] });
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "rejected", code: "CUSTOMER_STATE_CHANGED" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
+  });
+  it("cannot capture without an active staff authorization", async () => {
+    h.queryRaw.mockReset().mockResolvedValue([]);
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toEqual({ status: "not_authorized" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
+  });
+  it("rejects a duplicate phone and preserves existing identity rows", async () => {
+    h.customerCount.mockResolvedValue(2);
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "rejected", code: "LOGIN_IDENTITY_CONFLICT" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
+  });
+  it("cannot replace an existing Login account during first capture", async () => {
+    h.accountsFind.mockResolvedValue([{ id: "existing-login" }]);
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId })).resolves.toMatchObject({ status: "rejected", code: "LOGIN_IDENTITY_CONFLICT" });
+    expect(h.accountCreate).not.toHaveBeenCalled();
+  });
 });

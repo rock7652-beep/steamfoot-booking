@@ -7,6 +7,16 @@ import { AppError } from "@/lib/errors";
 import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-line-config";
 import { connectionConflict } from "@/lib/store-member-connection";
 import type { InventoryContext } from "./inventory";
+import { sha256 } from "./line-rebind";
+import { LIFF_LOGIN_FIRST_CAPTURE_REASON, tryExecuteAuthorizedLiffLoginFirstCapture } from "./liff-login-rebind";
+
+/** Phone selects a row; only a prior staff authorization may activate it. */
+export async function completeAuthorizedFirstStoreLogin(input: { storeId: string; phone: string; candidateLineUserId: string }) {
+  const rows = await prisma.customer.findMany({ where: { storeId: input.storeId, phone: normalizePhone(input.phone), mergedIntoCustomerId: null }, select: { id: true }, take: 2 });
+  if (rows.length !== 1) return false;
+  const result = await tryExecuteAuthorizedLiffLoginFirstCapture({ ...input, customerId: rows[0].id });
+  return result.status === "executed";
+}
 
 export function connectionChannel(storeId: string, destination: string) {
   const config = getConfiguredStoreLine(storeId);
@@ -146,6 +156,18 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
     await tx.customer.update({ where: { id: customerId }, data: { lineUserId: request.lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: new Date() } });
     await tx.storeMemberConnection.update({ where: { id: request.id }, data: { status: "APPROVED", centralUserId: userId, confirmedAt: new Date(), confirmedByUserId: ctx.user.id } });
     await tx.storeMemberConnection.updateMany({ where: { storeId: ctx.storeId, customerId, status: "PENDING", id: { not: request.id } }, data: { status: "REJECTED" } });
+    // Messaging confirmation does not itself prove a Login subject. Authorize
+    // one fresh verified Login capture instead of copying notification IDs.
+    if (request.identityProvider.startsWith("line-messaging:")) {
+      const [loginAccount, loginLink, activeCapture] = await Promise.all([
+        tx.account.findFirst({ where: { userId, provider: "line" }, select: { id: true } }),
+        tx.customerIdentityLink.findFirst({ where: { customerId, provider: "line" }, select: { id: true } }),
+        tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId, reason: LIFF_LOGIN_FIRST_CAPTURE_REASON, status: "PENDING_CAPTURE", expiresAt: { gt: new Date() } }, select: { id: true } }),
+      ]);
+      if (!loginAccount && !loginLink && !activeCapture) {
+        await tx.lineRebindRequest.create({ data: { storeId: ctx.storeId, customerId, createdByUserId: ctx.user.id, reason: LIFF_LOGIN_FIRST_CAPTURE_REASON, phoneHash: sha256(request.phone), oldUserIdHash: null, status: "PENDING_CAPTURE", expiresAt: new Date(Date.now() + 24 * 60 * 60_000) } });
+      }
+    }
     await tx.auditLog.create({ data: { actorUserId: ctx.user.id, targetType: "StoreMemberConnection", targetId: request.id, action: "APPROVE_STORE_MEMBER", afterJson: { storeId: ctx.storeId, customerId } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

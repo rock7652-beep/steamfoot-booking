@@ -482,23 +482,26 @@ export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
       if (lockedCustomers.length !== 1) throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       const customer = await tx.customer.findUnique({
         where: { id: input.customerId },
-        select: { id: true, storeId: true, phone: true, userId: true, mergedIntoCustomerId: true, user: { select: { id: true, status: true, role: true } } },
+        select: { id: true, storeId: true, phone: true, userId: true, mergedIntoCustomerId: true, user: { select: { id: true, status: true, role: true } }, identityLinks: { select: { userId: true } } },
       });
-      if (!customer || customer.storeId !== input.storeId || customer.mergedIntoCustomerId || !customer.userId ||
-          customer.user?.id !== customer.userId || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER" ||
-          normalizePhone(customer.phone) !== phone) throw new RebindRejected("CUSTOMER_STATE_CHANGED");
+      if (!customer || customer.storeId !== input.storeId || customer.mergedIntoCustomerId || normalizePhone(customer.phone) !== phone) throw new RebindRejected("CUSTOMER_STATE_CHANGED");
+      const owners = new Set([...(customer.userId ? [customer.userId] : []), ...(customer.identityLinks ?? []).map(link => link.userId)]);
+      if (owners.size !== 1) throw new RebindRejected("CUSTOMER_STATE_CHANGED");
+      const ownerUserId = [...owners][0];
+      const owner = customer.user ?? await tx.user.findUnique({ where: { id: ownerUserId }, select: { id: true, status: true, role: true } });
+      if (!owner || owner.id !== ownerUserId || owner.status !== "ACTIVE" || owner.role !== "CUSTOMER") throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       const [storePhoneCount, existingLinks, userAccounts, candidateLinks, candidateAccounts] = await Promise.all([
         tx.customer.count({ where: { storeId: input.storeId, phone: customer.phone, mergedIntoCustomerId: null } }),
         tx.customerIdentityLink.findMany({ where: { customerId: customer.id, provider: "line" }, select: { id: true }, take: 2 }),
-        tx.account.findMany({ where: { userId: customer.userId, provider: "line" }, select: { id: true }, take: 2 }),
+        tx.account.findMany({ where: { userId: ownerUserId, provider: "line" }, select: { id: true }, take: 2 }),
         tx.customerIdentityLink.findMany({ where: { provider: "line", providerAccountId: input.candidateLineUserId }, select: { id: true }, take: 1 }),
         tx.account.findMany({ where: { provider: "line", providerAccountId: input.candidateLineUserId }, select: { id: true }, take: 1 }),
       ]);
       if (storePhoneCount !== 1 || existingLinks.length !== 0 || userAccounts.length !== 0 || candidateLinks.length !== 0 || candidateAccounts.length !== 0) {
         throw new RebindRejected("LOGIN_IDENTITY_CONFLICT");
       }
-      await tx.account.create({ data: { userId: customer.userId, type: "oauth", provider: "line", providerAccountId: input.candidateLineUserId } });
-      await tx.customerIdentityLink.create({ data: { userId: customer.userId, storeId: customer.storeId, customerId: customer.id, provider: "line", providerAccountId: input.candidateLineUserId, lineUserId: input.candidateLineUserId } });
+      await tx.account.create({ data: { userId: ownerUserId, type: "oauth", provider: "line", providerAccountId: input.candidateLineUserId } });
+      await tx.customerIdentityLink.create({ data: { userId: ownerUserId, storeId: customer.storeId, customerId: customer.id, provider: "line", providerAccountId: input.candidateLineUserId, lineUserId: input.candidateLineUserId } });
       const consumed = await tx.lineRebindRequest.updateMany({
         where: { id: request.id, status: "PENDING_CAPTURE", consumedAt: null, expiresAt: { gt: now } },
         data: { status: "CONSUMED", consumedAt: now },
