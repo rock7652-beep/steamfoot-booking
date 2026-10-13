@@ -12,7 +12,6 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [cards,setCards]=useState<Card[]>([]);
   const [customers,setCustomers]=useState<{id:string;name:string;phone:string}[]>([]);
   const [cardsLoading,setCardsLoading]=useState<Set<string>>(()=>new Set());
-  const [cardsLoaded,setCardsLoaded]=useState<Set<string>>(()=>new Set());
   const cardsLoadedRef=useRef(new Set<string>());
   const cardsInFlight=useRef(new Set<string>());
   const [trial,setTrial]=useState({enabled:false,price:0});
@@ -47,7 +46,6 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       if(!result.success){setError({templateId,message:result.error??"學員方案讀取失敗"});return;}
       setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===customerId)),...result.cards]);
       cardsLoadedRef.current.add(customerId);
-      setCardsLoaded(current=>new Set(current).add(customerId));
       setError(null);
     }catch{setError({templateId,message:"學員方案讀取失敗"});}
     finally{
@@ -123,7 +121,6 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
               if(!refreshed.success){setPurchaseError("繳費已完成，但學員方案更新失敗；請重試讀取方案");return;}
               setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===row.customerId)),...refreshed.cards]);
               cardsLoadedRef.current.add(row.customerId);
-              setCardsLoaded(current=>new Set(current).add(row.customerId));
               const purchased=refreshed.cards.find(card=>card.available>0);
               if(purchased)onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:purchased.id,trialPrice:undefined}:item));
               setPurchaseFor(null);setPurchaseOptions(null);setNotice("已完成繳費並帶入學員方案");
