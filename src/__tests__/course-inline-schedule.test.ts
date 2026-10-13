@@ -123,20 +123,13 @@ it("counts all shared-card learners against the batch credit total",async()=>{
   }finally{await act(async()=>root.unmount());}
 });
 
-it("creates and adds a trial learner inline while retaining the draft on failure",async()=>{
+it("does not offer a separate new-student action while scheduling trial learners",async()=>{
   mocks.options.mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:true,price:300}});
-  mocks.createCustomer.mockResolvedValueOnce({success:false,error:"手機格式錯誤"}).mockResolvedValue({success:true,customer:{id:"new",name:"新學員",phone:"0912345678",existing:false}});
-  const change=vi.fn();const host=document.createElement("div");const root=createRoot(host);
+  const host=document.createElement("div");const root=createRoot(host);
   try{
-    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,value:[],onChange:change,trialMode:true,canCreateCustomer:true})));
-    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="＋新增學員")!.click());
-    for(const [label,value] of [["新學員姓名","新學員"],["新學員手機","0912345678"]]){const input=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);await act(async()=>input.dispatchEvent(new Event("input",{bubbles:true})));}
-    const create=[...host.querySelectorAll("button")].find(b=>b.textContent==="建立並加入")!;
-    await act(async()=>create.click());
-    expect(host.querySelector<HTMLInputElement>('[aria-label="新學員姓名"]')!.value).toBe("新學員");
-    expect(host.textContent).toContain("手機格式錯誤");
-    await act(async()=>create.click());
-    expect(change).toHaveBeenCalledWith([{customerId:"new",name:"新學員",cardId:"",trialPrice:300}]);
+    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,value:[],onChange:vi.fn(),trialMode:true,canCreateCustomer:true})));
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="＋新增學員")).toBe(false);
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="＋體驗者")).toBe(true);
   }finally{await act(async()=>root.unmount());}
 });
 
