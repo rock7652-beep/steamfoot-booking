@@ -217,13 +217,18 @@ it("keeps the form usable on slow slot reads and ignores stale results after rap
   try{
     const started=performance.now();
     await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
-    expect(performance.now()-started).toBeLessThan(1000);
+    const firstOpenMs=performance.now()-started;
+    expect(firstOpenMs).toBeLessThan(1000);
     const date=host.querySelector<HTMLInputElement>('[aria-label="找空位日期"]')!;
     expect(date.disabled).toBe(false);
     const cancel=[...host.querySelectorAll("button")].find(button=>button.textContent==="取消")!;
     expect(cancel.disabled).toBe(false);
+    const switchStarted=performance.now();
     await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
     await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+    const rapidSwitchMs=performance.now()-switchStarted;
+    expect(rapidSwitchMs).toBeLessThan(1000);
+    console.info("[schedule-switch-performance]",JSON.stringify({firstOpenMs:Number(firstOpenMs.toFixed(2)),rapidSwitchMs:Number(rapidSwitchMs.toFixed(2)),slotRequests:mocks.slots.mock.calls.length}));
     expect(mocks.slots).toHaveBeenCalledTimes(2);
     expect(date.value).toBe("2099-10-01");
     await act(async()=>cancel.click());
