@@ -375,7 +375,7 @@ async function StorePlanSection() {
           <h2 className="text-base font-bold text-earth-900">本店方案（單店）</h2>
         </div>
         <p className="mt-1 text-xs text-earth-400">
-          各店舖的收費方案與功能權限，用量接近上限時會顯示警示
+          各店舖的方案與功能權限；顧客、人員、預約及自動提醒不限數量
         </p>
       </div>
 
@@ -595,9 +595,7 @@ function UsageCard({ metric }: { metric: StoreUsage["metrics"][number] }) {
         <span className="text-lg font-bold text-earth-900">
           {metric.current.toLocaleString()}
         </span>
-        <span className="text-xs text-earth-400">
-          / {metric.limit !== null ? metric.limit.toLocaleString() : "無限制"}
-        </span>
+        {metric.limit !== null && <span className="text-sm text-earth-400">/ {metric.limit.toLocaleString()}</span>}
       </div>
       {metric.limit !== null && (
         <div className="mt-2 h-1.5 w-full rounded-full bg-earth-100">
@@ -606,9 +604,6 @@ function UsageCard({ metric }: { metric: StoreUsage["metrics"][number] }) {
             style={{ width: `${Math.min(100, metric.pct)}%` }}
           />
         </div>
-      )}
-      {metric.status === "unlimited" && (
-        <p className="mt-1 text-[10px] text-earth-400">無限制</p>
       )}
       {(metric.status === "warning" || metric.status === "danger") && (() => {
         const copy = getMetricUpgradeCopy(metric.label, metric.status);

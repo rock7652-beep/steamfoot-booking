@@ -35,11 +35,11 @@ describe("SPA booking actions", () => {
     expect((await createSpaBookingAction(input)).success).toBe(false);
     expect(m.tx).not.toHaveBeenCalled();
   });
-  it("blocks the 101st monthly trial booking inside the schedule lock", async () => {
+  it("allows monthly trial bookings beyond the former quota", async () => {
     m.plan.mockResolvedValue({ plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date(), planExpiresAt: new Date() });
-    m.count.mockResolvedValue(100);
-    expect((await createSpaBookingAction(input)).success).toBe(false);
-    expect(m.create).not.toHaveBeenCalled();
+    m.count.mockResolvedValue(10000);
+    expect((await createSpaBookingAction(input)).success).toBe(true);
+    expect(m.create).toHaveBeenCalled();
   });
   it("auto assigns one compatible location and snapshots buffer in the end time", async () => {
     expect((await createSpaBookingAction(input)).success).toBe(true);

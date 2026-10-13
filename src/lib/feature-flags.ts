@@ -7,7 +7,7 @@
  * 唯一方案分級系統，綁定 Store.plan。
  */
 
-import { isSingleStoreTrial, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
+import { isSingleStoreTrial, type TrialStore } from "@/lib/single-store-trial";
 import type { PricingPlan, Store } from "@prisma/client";
 import { AppError } from "@/lib/app-error";
 
@@ -187,27 +187,27 @@ export type PlanLimits = {
 
 export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
   EXPERIENCE: {
-    maxStaff: 3,
-    maxCustomers: 100,
-    maxMonthlyBookings: 100,
+    maxStaff: null,
+    maxCustomers: null,
+    maxMonthlyBookings: null,
     maxMonthlyReports: 0,
-    maxReminderSends: 50,
+    maxReminderSends: null,
     maxStores: 2,
   },
   BASIC: {
-    maxStaff: 5,
-    maxCustomers: 500,
+    maxStaff: null,
+    maxCustomers: null,
     maxMonthlyBookings: null,
     maxMonthlyReports: 0,
-    maxReminderSends: 500,
+    maxReminderSends: null,
     maxStores: 1,
   },
   GROWTH: {
-    maxStaff: 15,
-    maxCustomers: 3000,
+    maxStaff: null,
+    maxCustomers: null,
     maxMonthlyBookings: null,
     maxMonthlyReports: 200,
-    maxReminderSends: 3000,
+    maxReminderSends: null,
     maxStores: 1,
   },
   ALLIANCE: {
@@ -303,20 +303,14 @@ export function getPlanLimits(
   > & Partial<TrialStore>
 ): PlanLimits {
   const base = PLAN_LIMITS[store.plan];
-  if (isSingleStoreTrial(store)) return {
-    maxStaff: SINGLE_STORE_TRIAL_STAFF, maxCustomers: base.maxCustomers,
-    maxMonthlyBookings: base.maxMonthlyBookings, maxMonthlyReports: null,
-    maxReminderSends: base.maxReminderSends, maxStores: Math.max(2, store.maxStoresOverride ?? 2),
-  };
+  // Growth is not quota-gated, including existing HQ overrides. Keep legacy
+  // columns for compatibility; reports and branch entitlements remain separate.
   return {
-    maxStaff: store.maxStaffOverride ?? base.maxStaff,
-    maxCustomers: store.maxCustomersOverride ?? base.maxCustomers,
-    // Paid subscriptions are feature-based; legacy overrides must not block bookings.
-    maxMonthlyBookings: store.plan === "EXPERIENCE"
-      ? store.maxMonthlyBookingsOverride ?? base.maxMonthlyBookings
-      : null,
-    maxMonthlyReports: store.maxMonthlyReportsOverride ?? base.maxMonthlyReports,
-    maxReminderSends: store.maxReminderSendsOverride ?? base.maxReminderSends,
+    maxStaff: null,
+    maxCustomers: null,
+    maxMonthlyBookings: null,
+    maxReminderSends: null,
+    maxMonthlyReports: isSingleStoreTrial(store) ? null : store.maxMonthlyReportsOverride ?? base.maxMonthlyReports,
     maxStores: store.plan === "EXPERIENCE" ? Math.max(2, store.maxStoresOverride ?? base.maxStores ?? 2) : store.maxStoresOverride ?? base.maxStores,
   };
 }

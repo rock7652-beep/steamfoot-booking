@@ -365,8 +365,8 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
   }
 
   const limits = PLAN_LIMITS.EXPERIENCE;
-  const maxCustomers = limits.maxCustomers ?? 100;
-  const maxBookings = limits.maxMonthlyBookings ?? 100;
+  const maxCustomers = limits.maxCustomers ?? Infinity;
+  const maxBookings = limits.maxMonthlyBookings ?? Infinity;
 
   // 取 ShopConfig.createdAt 作為 trial 起算日（建店日期）
   const config = await prisma.shopConfig.findUnique({
@@ -430,7 +430,7 @@ export async function checkCustomerLimit(storeId: string): Promise<{ allowed: bo
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 
   const limits = PLAN_LIMITS.EXPERIENCE;
-  const maxCustomers = limits.maxCustomers ?? 100;
+  const maxCustomers = limits.maxCustomers ?? Infinity;
 
   const config = await getShopConfig(storeId);
   const trialExpired = isTrialExpired(config.createdAt);
@@ -454,7 +454,7 @@ export async function checkBookingLimit(storeId: string): Promise<{ allowed: boo
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 
   const limits = PLAN_LIMITS.EXPERIENCE;
-  const maxBookings = limits.maxMonthlyBookings ?? 100;
+  const maxBookings = limits.maxMonthlyBookings ?? Infinity;
 
   const config = await getShopConfig(storeId);
   const trialExpired = isTrialExpired(config.createdAt);

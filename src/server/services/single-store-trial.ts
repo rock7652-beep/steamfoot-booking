@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
-import { trialDates, SINGLE_STORE_TRIAL_NOTE, SINGLE_STORE_TRIAL_DAYS, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
+import { trialDates, SINGLE_STORE_TRIAL_NOTE, SINGLE_STORE_TRIAL_DAYS } from "@/lib/single-store-trial";
 
 type OpenTrialInput = { storeId: string; actorId: string; startDate: string; days?: number; entryAcceptanceConfirmed?: boolean };
 /** Caller must authorize ADMIN before entering this transaction. Never writes customer data. */
@@ -35,9 +35,6 @@ export async function openSingleStoreTrialInTransaction(tx: Prisma.TransactionCl
   if (store.plan !== "EXPERIENCE" && store.planStatus !== "TRIAL") {
     throw new AppError("CONFLICT", "正式方案店家不可改為試用，請使用續約或方案變更");
   }
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${input.storeId}`}, 0))`;
-  const staffCount = await tx.staff.count({ where: { storeId: input.storeId, status: "ACTIVE" } });
-  if (staffCount > SINGLE_STORE_TRIAL_STAFF) throw new AppError("CONFLICT", "試用最多 3 位啟用人員（含店長），請先整理人員");
   const startedAt = parseTaiwanDateToDbDate(dates.startDate);
   const expiresAt = parseTaiwanDateToDbDate(dates.endDate);
   if (store.currentSubscriptionId) await tx.storeSubscription.update({

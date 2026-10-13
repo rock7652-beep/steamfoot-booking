@@ -2,7 +2,7 @@ import type { FeatureKey } from "@/lib/feature-flags";
 import { addTaiwanDuration, toLocalDateStr, parseTaipeiDateTime } from "@/lib/date-utils";
 
 export const SINGLE_STORE_TRIAL_DAYS = 30;
-export const SINGLE_STORE_TRIAL_STAFF = 3;
+
 export const SINGLE_STORE_TRIAL_NOTE = "完整功能試用";
 export type TrialStore = {
   plan: string;

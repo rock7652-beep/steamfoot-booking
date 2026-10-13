@@ -69,19 +69,9 @@ describe("checkMonthlyBookingLimitOrThrow — storeId path skips staff session",
     expect(mockRequireStaffSession).not.toHaveBeenCalled();
   });
 
-  it("帶 storeId 且超過上限時，throw FORBIDDEN（不是 staff-only 訊息）", async () => {
+  it("trial booking count never blocks customer self-service", async () => {
     const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
-    // EXPERIENCE 方案上限 100；傳 999 強制超標
-    await expect(
-      checkMonthlyBookingLimitOrThrow(999, STORE_A),
-    ).rejects.toThrow(/方案每月最多.*筆預約/);
-    // 但訊息不可是 staff-only 那組
-    try {
-      await checkMonthlyBookingLimitOrThrow(999, STORE_A);
-    } catch (e) {
-      const msg = (e as Error).message;
-      expect(msg).not.toMatch(/僅限員工|僅限.*管理者|僅限店主|沒有此操作的權限/);
-    }
+    await expect(checkMonthlyBookingLimitOrThrow(10000, STORE_A)).resolves.not.toThrow();
     expect(mockRequireStaffSession).not.toHaveBeenCalled();
   });
 
@@ -100,13 +90,13 @@ describe("checkMonthlyBookingLimitOrThrow — storeId path skips staff session",
 });
 
 describe("checkCustomerLimitOrThrow / checkStaffLimitOrThrow — storeId path 同樣不觸發 staff session", () => {
-  it("uses only the transaction connection and still enforces its customer override", async () => {
+  it("uses only the transaction connection and ignores its legacy customer override", async () => {
     mockStoreFindUnique.mockRejectedValue(new Error("the only connection is held by the transaction"));
     const findUnique = vi.fn().mockResolvedValue({ id: STORE_A, plan: "EXPERIENCE", maxCustomersOverride: 12 });
     const { checkCustomerLimitOrThrow } = await import("@/lib/usage-gate");
     const tx = { store: { findUnique } } as unknown as Pick<Prisma.TransactionClient, "store">;
     await expect(checkCustomerLimitOrThrow(11, STORE_A, tx)).resolves.not.toThrow();
-    await expect(checkCustomerLimitOrThrow(12, STORE_A, tx)).rejects.toThrow(/最多 12 位顧客/);
+    await expect(checkCustomerLimitOrThrow(10000, STORE_A, tx)).resolves.not.toThrow();
     expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: STORE_A } }));
     expect(mockStoreFindUnique).not.toHaveBeenCalled();
     expect(mockRequireStaffSession).not.toHaveBeenCalled();
