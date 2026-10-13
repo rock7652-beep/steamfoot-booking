@@ -7,6 +7,7 @@ import {
   CONSULTATION_PREVIEW_BRANCH,
   isConsultationMockedUnitTest,
   isIsolatedConsultationDatabaseUrl,
+  PRICING_PLAN_CLARITY_PREVIEW_BRANCH,
 } from "../../scripts/consultation-preview-scope.mjs";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
@@ -166,6 +167,15 @@ describe("composed consultation and shared-card release modes", () => {
     CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined,
     PRODUCTION_MIGRATION_TARGET: undefined,
   };
+
+  it("allows the pricing plan review only on its exact isolated Preview branch", () => {
+    const pricing = {
+      ...valid, VERCEL_GIT_COMMIT_REF: PRICING_PLAN_CLARITY_PREVIEW_BRANCH,
+      CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined,
+    };
+    expect(assertReviewedReleaseEnvironment(pricing)).toBe("module-roster-preview");
+    expect(() => assertReviewedReleaseEnvironment({ ...pricing, VERCEL_GIT_REPO_SLUG: "other" })).toThrow("Module roster requires its exact authorized Vercel Preview branch and repository.");
+  });
 
   it("retains each exact Preview's own parser and feature requirements", () => {
     const consultation = { ...valid, DIRECT_URL: direct + "?sslmode=verify-full&sslaccept=strict" };

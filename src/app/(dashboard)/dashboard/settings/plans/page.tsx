@@ -27,7 +27,6 @@ interface PlanCard {
   /** 卡片內定位副說明（目前僅展店版使用，回答「為何比專業版貴」） */
   cardSubline?: string;
   monthly: string;
-  originalPrice: string;
   priceNote: string;
   badge?: string;
   description: string;
@@ -43,9 +42,8 @@ const PLANS: PlanCard[] = [
     key: "BASIC",
     name: "基本版",
     positioning: "單店基本營運",
-    monthly: "NT$1,490",
-    originalPrice: "原價 NT$2,100/月",
-    priceNote: "限時優惠價",
+    monthly: "NT$1,480",
+    priceNote: "年繳優惠平均約 NT$1,269／月",
     description: "適合單店先把預約、顧客、方案堂數與收款管理好。",
     features: [
       "預約管理",
@@ -63,9 +61,8 @@ const PLANS: PlanCard[] = [
     key: "PROFESSIONAL",
     name: "專業版",
     positioning: "顧客經營與現場管理",
-    monthly: "NT$2,490",
-    originalPrice: "原價 NT$3,600/月",
-    priceNote: "限時優惠價",
+    monthly: "NT$2,480",
+    priceNote: "年繳優惠平均約 NT$2,126／月",
     badge: "推薦方案",
     recommended: true,
     isCurrent: true,
@@ -87,8 +84,7 @@ const PLANS: PlanCard[] = [
     positioning: "多店與合作店長管理",
     cardSubline: "含總部管理；分店串接費與系統月費另計",
     monthly: "NT$2,980 起",
-    originalPrice: "原價 NT$7,100/月起",
-    priceNote: "月繳 NT$2,980 × 12 期＝NT$35,760（無贈送）；年繳 NT$35,760，優惠期間使用14個月",
+    priceNote: "年繳優惠平均約 NT$2,554／月；年繳 NT$35,760，使用 14 個月",
     description: "適合兩家店以上、多店經營與合作店長月結。",
     features: [
       "總部適用功能內含；分店依各自購買方案開通",
@@ -133,7 +129,7 @@ const COMPARE_ROWS: {
 const CURRENT_PLAN = {
   name: "專業版",
   positioning: "顧客經營與現場管理",
-  monthly: "NT$2,490",
+  monthly: "NT$2,480",
   store: "竹北店",
   payment: "現金 / 轉帳",
   renewAt: "2026/12/31",
@@ -367,9 +363,6 @@ export default async function PlansCenterPage() {
 
               {/* 價格 */}
               <div className="mt-3">
-                <p className="text-[11px] font-medium text-earth-400 line-through">
-                  {plan.originalPrice}
-                </p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-[26px] font-bold leading-none tabular-nums text-earth-900">
                     {plan.monthly}
