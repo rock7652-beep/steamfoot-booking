@@ -133,7 +133,7 @@ export async function reserveCourseMembers(
   });
 }
 
-export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number }) {
+export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string|null; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number;customerName?:string }) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null }, limits.maxMonthlyBookings));
 }
@@ -174,7 +174,8 @@ export async function reserveCourseInTransaction(
       (previous.companionIndex ?? null) !== (input.companionIndex ?? null) ||
       (input.companionIndex && previous.customerName !== input.customerName) ||
       (previous.makeupForBookingId ?? null) !== (input.makeupForBookingId ?? null) ||
-      (input.cardId === null && previous.trialPrice !== input.trialPrice)
+      (input.cardId === null && previous.trialPrice !== input.trialPrice) ||
+      (!input.customerId && !input.companionIndex && previous.customerName!==input.customerName)
     )
       fail("預約請求已使用，請重新開啟表單");
     return previous;
@@ -227,7 +228,8 @@ export async function reserveCourseInTransaction(
     else assertCourseSelfBookingEnabled(rule);
   }
   if (session && ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance)) return fail("教師未授課，無法預約本堂");
-  if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length))
+  const unidentifiedTrial=input.cardId===null&&!input.customerId&&!input.companionIndex&&!!input.customerName?.trim()&&input.customerName.length<=80&&!actor.customerId;
+  if (!session || (input.cardId !== null && !card) || (!input.companionIndex && !customers.length && !unidentifiedTrial))
     return fail("請選擇本店有效課程、方案與上課人");
   if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
   if (!session.template.isActive || session.template.musicSubject?.isActive===false || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
@@ -311,7 +313,7 @@ export async function reserveCourseInTransaction(
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
   if (occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId)) return fail("本堂課已滿班，請由店長確認加人");
-  if (session.template.musicSubject) {
+  if (input.customerId) {
     const overlap = await tx.courseBooking.findFirst({where:{storeId,customerId:input.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:session.endsAt},endsAt:{gt:session.startsAt}}},select:{id:true}});
     if(overlap) return fail("學員同時段已有課程，請先調整上課時間");
   }
@@ -327,7 +329,7 @@ export async function reserveCourseInTransaction(
       operatorUserId: actor.userId,
       operatorCustomerId: actor.customerId ?? null,
       operatorName: actor.name,
-      customerName: input.companionIndex ? input.customerName! : customers[0].name,
+      customerName: input.companionIndex || unidentifiedTrial ? input.customerName! : customers[0].name,
       companionIndex: input.companionIndex,
       reserverCustomerId: input.reserverCustomerId,
       reserverName: input.reserverName,

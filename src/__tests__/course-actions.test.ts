@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  reserve:vi.fn(),
+  limits:vi.fn(),
   bookings: vi.fn(),
   permission: vi.fn(),
   store: vi.fn(),
@@ -29,6 +31,9 @@ vi.mock("@/server/services/course-access", () => ({
     return { user, storeId };
   },
 }));
+vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:mocks.reserve}));
+vi.mock("@/lib/shop-config",()=>({getTrialSettings:async()=>({trialEnabled:true,trialDefaultPrice:300}),clampTrialTotal:(price:number|undefined)=>price??300}));
+vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:mocks.limits}));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: mocks.store }));
 vi.mock("@/lib/industry-module-server", () => ({
@@ -37,7 +42,8 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
-    courseSession: { findFirst: async()=>({id:"session-created"}) },
+    courseTemplate: {findFirst:mocks.template},
+    courseSession: { findFirst: async()=>({id:"session-created"}), findMany: async()=>[] },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
         $queryRaw: mocks.raw,
@@ -80,6 +86,7 @@ const input = {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.bookings.mockResolvedValue([]);
+  mocks.limits.mockResolvedValue({maxMonthlyBookings:1000});
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
@@ -213,7 +220,7 @@ describe("course scheduling action", () => {
       storeId: "victim",
       pointCost: 0,
     });
-    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created" } });
+    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created", sessions: [] } });
     const rows = mocks.create.mock.calls[0][0].data;
     expect(rows).toHaveLength(3);
     expect(
@@ -253,7 +260,7 @@ describe("course scheduling action", () => {
     );
     expect(await createCourseSchedule(input)).toEqual({
       success: true,
-      data: { count: 3, sessionId: "session-created" },
+      data: { count: 3, sessionId: "session-created", sessions: [] },
     });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(
@@ -361,4 +368,39 @@ describe("catalogue availability", () => {
     expect(await createCourseSchedule(input)).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
   });
+});
+
+
+describe("inline schedule enrollment",()=>{
+  const input={templateId:"yoga",roomId:"room-a",coachId:"coach-a",date:"2099-09-22",time:"18:00",durationMinutes:60,capacity:3,requestKey:"00000000-0000-4000-8000-000000000017"};
+  it("rejects duplicate learners and over-capacity before creating classes",async()=>{
+    const learner={customerId:"student-a",cardId:"card-a"};
+    expect(await createCourseSchedule({...input,learners:[learner,learner]})).toMatchObject({success:false});
+    expect(await createCourseSchedule({...input,capacity:1,learners:[learner,{customerId:"student-b",cardId:"card-b"}]})).toMatchObject({success:false});
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("enrolls each learner in the creation transaction and reports enrollment errors",async()=>{
+    mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"new-session"}]);
+    mocks.reserve.mockResolvedValue({id:"booking"});
+    const learners=[{customerId:"student-a",cardId:"card-a"},{customerId:"student-b",cardId:"card-b"}];
+    const result=await createCourseSchedule({...input,learners});
+    expect(result).toMatchObject({success:true});
+    expect(mocks.reserve).toHaveBeenCalledTimes(2);
+    expect(mocks.reserve.mock.calls[0][2]).toMatchObject({sessionId:"new-session",customerId:"student-a",cardId:"card-a"});
+    expect(mocks.reserve.mock.calls[1][2]).toMatchObject({sessionId:"new-session",customerId:"student-b",cardId:"card-b"});
+    expect(mocks.reserve.mock.calls[0][0]).toBe(mocks.reserve.mock.calls[1][0]);
+    mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"new-session"}]);
+    mocks.reserve.mockRejectedValueOnce(new Error("方案不足"));
+    expect(await createCourseSchedule({...input,learners})).toMatchObject({success:false});
+  });
+});
+
+
+it("saves plan and trial learners together without debiting attended credits",async()=>{
+  mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"one"},{id:"two"},{id:"three"}]);
+  const result=await createCourseSchedule({...input,learners:[{customerId:"a",cardId:"card-a"},{customerId:"b",cardId:null,trialPrice:300}]});
+  expect(result).toMatchObject({success:true});
+  expect(mocks.permission).toHaveBeenCalledWith("trial.create");
+  expect(mocks.reserve).toHaveBeenCalledTimes(4);
+  expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(),expect.anything(),expect.objectContaining({customerId:"b",cardId:null,trialPrice:300}),1000);
 });

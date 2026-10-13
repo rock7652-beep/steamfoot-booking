@@ -83,6 +83,9 @@ it("day timetable balances width by active resource count", () => {
 
 
 it("collected trial payments show a clear paid badge in the fee column", () => {
-  expect(roster).toContain("已收 ${paid.amount}");
-  expect(roster).toContain("aria-label={`更正 ${booking.customerName} 收款`}");
+  expect(roster).toContain("CourseTrialPersonRow");
+  const row=readFileSync("src/components/admin/course-trial-person-row.tsx","utf8");
+  expect(row).toContain("已結帳 · $${receipt.amount}");
+  expect(row).toContain('>更正</button>');
 });
+

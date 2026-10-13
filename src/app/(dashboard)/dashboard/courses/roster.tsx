@@ -1,4 +1,6 @@
 "use client";
+import {CourseTrialParticipants} from "@/components/admin/course-trial-participants";
+import {CourseTrialPersonRow} from "@/components/admin/course-trial-person-row";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseBookingContextIndicator } from "./course-shared-card-indicator";
 import { RosterReminders as SharedRosterReminders } from "@/components/admin/roster-reminders";
@@ -22,7 +24,6 @@ import { type AssignmentSummary } from "@/components/admin/course-assignment-pay
 import { scheduleTeacherMakeup } from "@/server/actions/course";
 import { CorrectTrialCollectionModal } from "../bookings/correct-trial-collection-modal";
 import {
-  createCourseTrial,
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
@@ -42,7 +43,6 @@ import {
   createCourseBooking,
   loadCourseStudentPurchase,
   assignCoursePointCard,
-  saveCourseCustomer,
   updateCourseBookingStatus,
   cancelCourseSession,
   previewFutureCourseStop,
@@ -110,6 +110,7 @@ export function CourseRoster({
   coachId = "",
   roomId = "",
   initialAssignedCoach = "all",
+  onTrialGuard,
 }: {
   sessionId: string;
   capacity: number;
@@ -130,12 +131,14 @@ export function CourseRoster({
   courseName?: string;
   coachId?: string;
   roomId?: string;
+  onTrialGuard?:(pending:boolean,dirty:boolean)=>void;
   initialAssignedCoach?: string;
 }) {
   const router = useRouter();
   const noteEditorTitleId = useId();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const readVersion = useRef(0);
+  const trialRowGuards=useRef(new Map<string,{pending:boolean;dirty:boolean}>());
   // A new session owns its locks and feedback. Late responses from a closed
   // session cannot unlock or relabel the current roster, even after A → B → A.
   const operationScope = useRef({ sessionId, locked: false, uncertain: false, inFlight: new Set<string>(), sequence: 0 });
@@ -230,8 +233,6 @@ export function CourseRoster({
   const [retainedRows, setRetainedRows] = useState<string[]>([]);
   function resetFilterSelection() { setSelected([]); setRetainedRows([]); }
 
-  const [trialQuery, setTrialQuery] = useState("");
-  const [trialMode, setTrialMode] = useState<"existing" | "new">("new");
   const [message, setMessage] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [futureStopTarget, setFutureStopTarget] = useState<{ bookingId?: string; name: string } | null>(null);
@@ -316,7 +317,7 @@ export function CourseRoster({
     let active = true;
 
     const refresh = () => {
-      if (operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve();
+      if (operationScope.current.locked || operationScope.current.inFlight.size > 0 || [...trialRowGuards.current.values()].some(g=>g.pending||g.dirty)) return Promise.resolve();
       const version = ++readVersion.current;
       return loadCourseSessionDetail(sessionId, view === "roster")
 
@@ -343,12 +344,12 @@ export function CourseRoster({
     };
     void refresh();
     const refreshVisibleRoster = () => {
-      if (view === "roster" && document.visibilityState === "visible") {
+      if (view !== "member-booking" && document.visibilityState === "visible") {
         void refresh();
       }
     };
     const timer =
-      view === "roster"
+      view !== "member-booking"
         ? window.setInterval(refreshVisibleRoster, 60_000)
         : undefined;
     window.addEventListener("focus", refreshVisibleRoster);
@@ -596,11 +597,9 @@ export function CourseRoster({
   const clearRosterFilters = () => {setMemberQuery("");setStatusFilter("all");setPaymentFilter("all");setKindFilter("all");setAssignedFilter("all");resetFilterSelection();};
   const rosterFilterClass = (value: string) => `${button} mt-1 block min-h-11 bg-white ${value !== "all" ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : ""}`;
   const activeFilterLabels = [normalizedRosterQuery && `搜尋：${memberQuery.trim()}`, statusFilter !== "all" && `點名：${({pending:"待點名",attended:"已出席",deducted:"缺席・扣堂",leave:"缺席・不扣堂"} as Record<string,string>)[statusFilter]}`, paymentFilter !== "all" && `收款：${paymentFilter === "unpaid" ? "體驗未收款" : "體驗已收款"}`, kindFilter !== "all" && `類型：${({CARD:"一般",TRIAL:"體驗",TEACHER_MAKEUP:"免費券"} as Record<string,string>)[kindFilter]}`, !musicLayout && assignedFilter !== "all" && `所屬店長：${assignedFilter === "none" ? "未指定" : coachOptions.find(([id]) => id === assignedFilter)?.[1] ?? "所選店長"}`].filter((label): label is string => Boolean(label));
-  const trialBadge = (booking: typeof roster[number]) => {
-    if (booking.bookingKind !== "TRIAL") return null;
-    const paid = booking.trialPayments.find(payment => payment.status === "SUCCESS");
-    return <span data-course-trial-badge className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-normal"><span className="text-amber-700">體驗 ·</span>{paid ? <><span>已收 ${paid.amount}</span>{allowTrialActions && trial?.canCorrect && <button type="button" className="min-h-11 min-w-11 rounded text-earth-600" aria-label={`更正 ${booking.customerName} 收款`} onClick={() => setPaymentMenu(booking.id)}>✎</button>}</> : allowTrialActions && trial?.canCollect && booking.status !== "CANCELLED" ? <button type="button" className="min-h-11 rounded px-1 font-medium text-amber-800" disabled={pending} onClick={() => {setRequestKey(crypto.randomUUID());setCorrectPayment(false);setPaymentBooking(booking.id);}}>待收 ${booking.trialPrice}</button> : <span className="text-amber-800">待收 ${booking.trialPrice}</span>}</span>;
-  };
+  const trialBadge = (booking: typeof roster[number]) => booking.bookingKind === "TRIAL" ? <span data-course-trial-badge className="text-amber-700">體驗</span> : null;
+  const reportTrialGuard=useCallback((id:string,pending:boolean,dirty:boolean)=>{trialRowGuards.current.set(id,{pending,dirty});onTrialGuard?.([...trialRowGuards.current.values()].some(g=>g.pending),[...trialRowGuards.current.values()].some(g=>g.dirty));},[onTrialGuard]);
+  const trialTools=(booking:typeof roster[number])=>booking.bookingKind==="TRIAL"&&trial?<div className="w-full min-w-0 basis-full"><CourseTrialPersonRow person={booking} settings={trial.settings} canCollect={allowTrialActions&&trial.canCollect} canCorrect={allowTrialActions&&trial.canCorrect} canSupplement={canEdit} showName={false} onUpdated={async()=>{await load();router.refresh();}} onGuard={(pending,dirty)=>reportTrialGuard(booking.id,pending,dirty)}/></div>:null;
   const selectableRows = searchedRows.filter((booking) => {
     if (booking.status === "CANCELLED") return false;
     if (batchTarget === "ATTENDED") return booking.status === "RESERVED";
@@ -679,18 +678,6 @@ export function CourseRoster({
     onMemberBookingReadyChange?.(memberBookingReady);
     return () => onMemberBookingReadyChange?.(false);
   }, [memberBookingReady, onMemberBookingReadyChange, view]);
-
-  const normalizedTrialQuery = trialQuery.trim().toLocaleLowerCase();
-  const normalizedTrialPhoneQuery = trialQuery.replace(/\D/g, "");
-  const filteredTrialCustomers =
-    normalizedTrialQuery && trial
-      ? trial.customers.filter(
-          (customer) =>
-            customer.name.toLocaleLowerCase().includes(normalizedTrialQuery) ||
-            (normalizedTrialPhoneQuery &&
-              customer.phone.replace(/\D/g, "").includes(normalizedTrialPhoneQuery)),
-        )
-      : [];
 
   if (!loaded) {
     return (
@@ -889,195 +876,8 @@ export function CourseRoster({
   }
 
   if (view === "trial-booking") {
-    if (!allowTrialActions || !trial?.canCreate || !trial.settings.trialEnabled) {
-      return <p className="text-sm text-earth-600">目前未開放建立體驗預約。</p>;
-    }
-    const priceField = (
-      <label className="block text-sm font-medium">
-        體驗金額
-        <input
-          name="price"
-          type="number"
-          required
-          readOnly={!trial.settings.trialAllowPriceEdit}
-          min={trial.settings.trialMinPrice}
-          max={trial.settings.trialMaxPrice}
-          defaultValue={trial.settings.trialDefaultPrice}
-          className={`${field} mt-1`}
-        />
-      </label>
-    );
-    const noteField = (
-      <label className="block text-sm font-medium">
-        本次備註
-        <textarea
-          name="notes"
-          maxLength={1000}
-          className={`${field} mt-1 min-h-20`}
-        />
-      </label>
-    );
-    return (
-      <section className="space-y-4">
-
-      {message && (
-          <p role="status" className="text-sm text-primary-700">
-            {message}
-          </p>
-        )}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className={`${button} ${trialMode === "new" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-            onClick={() => setTrialMode("new")}
-          >
-            ＋ 新增體驗客
-          </button>
-          <button
-            type="button"
-            className={`${button} ${trialMode === "existing" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-            onClick={() => setTrialMode("existing")}
-          >
-            已有顧客資料
-          </button>
-        </div>
-
-        {trialMode === "existing" ? (
-          <form
-            id="course-trial-booking-form"
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const allowOverCapacity = occupiedCount >= capacity;
-              if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
-              const data = new FormData(event.currentTarget);
-              run(() =>
-                createCourseTrial({
-                  allowOverCapacity,
-                  sessionId,
-                  customerId: data.get("trial-customer-choice"),
-                  price: Number(data.get("price")),
-                  notes: data.get("notes"),
-                  requestKey,
-                }),
-              );
-            }}
-          >
-            <div>
-              <label
-                htmlFor="course-trial-search"
-                className="mb-1 block text-sm font-medium"
-              >
-                找到既有顧客就直接加入
-              </label>
-              <input
-                id="course-trial-search"
-                className={field}
-                value={trialQuery}
-                onChange={(event) => setTrialQuery(event.target.value)}
-                placeholder="輸入部分姓名或手機末幾碼"
-                autoFocus
-              />
-              {!normalizedTrialQuery && (
-                <p className="mt-2 text-sm text-earth-500">
-                  輸入關鍵字後才會顯示符合的顧客。
-                </p>
-              )}
-            </div>
-            {normalizedTrialQuery && (
-              <div className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
-                {filteredTrialCustomers.length ? (
-                  filteredTrialCustomers.map((customer) => (
-                    <label
-                      key={customer.id}
-                      className="flex min-h-12 cursor-pointer items-center gap-3 px-3 hover:bg-primary-50"
-                    >
-                      <input
-                        type="radio"
-                        name="trial-customer-choice"
-                        value={customer.id}
-                        required
-                      />
-                      <span>
-                        <strong className="block">{customer.name}</strong>
-                        <span className="text-xs text-earth-500">{customer.phone || "未填電話"}</span>
-                      </span>
-                    </label>
-                  ))
-                ) : (
-                  <p className="p-4 text-sm text-earth-500">
-                    找不到既有顧客，可切換「建立新體驗客」快速建檔。
-                  </p>
-                )}
-              </div>
-            )}
-            {priceField}
-            {noteField}
-            <p className="text-sm text-earth-600">
-              先建立未收款預約並保留名額；收款與出席分開，不占用其他方案。
-            </p>
-          </form>
-        ) : (
-          <form
-            id="course-trial-booking-form"
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const allowOverCapacity = occupiedCount >= capacity;
-              if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
-              const data = new FormData(event.currentTarget);
-              run(async () => {
-                const saved = await saveCourseCustomer({
-                  name: data.get("name"),
-                  phone: data.get("phone"),
-                });
-                if (!saved.success) return saved;
-                return createCourseTrial({
-                  allowOverCapacity,
-                  sessionId,
-                  customerId: saved.data.id,
-                  price: Number(data.get("price")),
-                  notes: data.get("notes"),
-                  requestKey,
-                });
-              });
-            }}
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block text-sm font-medium">
-                姓名
-                <input
-                  name="name"
-                  required
-                  maxLength={80}
-                  className={`${field} mt-1`}
-                  autoFocus
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                手機
-                <input
-                  name="phone"
-                  required
-                  maxLength={30}
-                  inputMode="tel"
-                  placeholder="09xxxxxxxx"
-                  className={`${field} mt-1`}
-                />
-              </label>
-            </div>
-            <p className="text-sm text-earth-500">
-              若手機已存在，請改用「選擇既有顧客」，避免重複建檔。
-            </p>
-            {priceField}
-            {noteField}
-            <p className="text-sm text-earth-600">
-              建立顧客後會直接加入本堂，並先保留一位名額。
-            </p>
-          </form>
-        )}
-      </section>
-    );
+    if (!allowTrialActions || !trial?.settings.trialEnabled)return <p>目前未開放體驗。</p>;
+    return <CourseTrialParticipants sessionId={sessionId} capacity={capacity} occupiedCount={occupiedCount} people={roster.filter(row=>row.bookingKind==="TRIAL"&&row.status!=="CANCELLED")} settings={trial.settings} canCreate={trial.canCreate} canCollect={trial.canCollect} canCorrect={trial.canCorrect} canSupplement={canEdit} onUpdated={async()=>{await load();router.refresh();}} onGuard={onTrialGuard}/>;
   }
 
   return (
@@ -1254,7 +1054,7 @@ export function CourseRoster({
                 <div className={`flex min-w-0 flex-wrap items-center gap-2 ${largeMusicGroup ? "w-full lg:w-auto lg:flex-none lg:flex-nowrap" : "w-full"}`}>
                   {canEdit && batchMode && !oneToOneMusic && !teacherAbsent && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={bulkPending || !selectableRows.some((row) => row.id === booking.id)} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
                   <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded" aria-label={`${booking.customerName}：${booking.status === "ATTENDED" ? "已出席" : "點名"}`} disabled={!canEdit || rowPending(booking.id) || teacherAbsent} data-roster-action-trigger onClick={event => booking.status === "RESERVED" ? run(() => updateCourseBookingStatus({bookingId:booking.id,status:"ATTENDED"}),`已記錄 ${booking.customerName} 出席`,{bookingId:booking.id,status:"ATTENDED"}) : toggleRosterMenu(event.currentTarget,booking.id)}><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 ${booking.status === "ATTENDED" ? "border-primary-700 bg-primary-700 text-white" : "border-earth-400"}`}>{booking.status === "ATTENDED" ? "✓" : booking.status === "NO_SHOW" || booking.status === "CANCELLED" ? "−" : ""}</span></button>
-                  <div className="min-w-0 basis-64 flex-1"><CustomerListIdentity showLabels={false} name={<span className="inline-flex flex-wrap items-center gap-x-2"><span>{booking.customerName}</span>{trialBadge(booking)}</span>} phone={booking.customerPhone} /></div>
+                  <div className="min-w-0 basis-64 flex-1"><CustomerListIdentity showLabels={false} name={<span className="inline-flex flex-wrap items-center gap-x-2"><span>{booking.customerName}</span>{trialBadge(booking)}</span>} phone={booking.customerPhone} />{trialTools(booking)}</div>
                   {booking.status !== "RESERVED" && booking.status !== "ATTENDED" && <span className="text-xs text-amber-800">{booking.absenceKind === "TEACHER_ABSENT" ? "本堂免扣" : booking.status === "NO_SHOW" ? "曠課・扣堂" : booking.absenceKind === "STUDENT_LEAVE" ? "請假・不扣堂" : booking.absenceKind === "GROUP_LEAVE_FORFEITED" ? "請假・扣堂" : "已取消"}</span>}
                   {!musicLayout && booking.absenceCount > 0 && <details name="course-roster-details" className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
                   {booking.bookingKind !== "TRIAL" && booking.termIndex !== null && booking.termCount > 0 && <span className="whitespace-nowrap text-xs font-semibold text-primary-800">{booking.bonusPeriod ? "贈課第" : "本期第"} {booking.termIndex}/{booking.termCount} 堂</span>}
@@ -1316,6 +1116,7 @@ export function CourseRoster({
                 {batchMode && canEdit && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={bulkPending} onChange={event => setSelected(old => event.target.checked ? [...old, booking.id] : old.filter(id => id !== booking.id))} />}
                 <button type="button" className={rosterStatusButtonClassName} aria-label={`${booking.customerName}：${label}`} title={booking.status === "RESERVED" ? "標記出席" : "更正點名"} disabled={!canEdit || rowPending(booking.id) || teacherAbsent || (booking.status === "CANCELLED" && !leave)} data-roster-action-trigger onClick={event => booking.status === "RESERVED" ? run(() => updateCourseBookingStatus({bookingId:booking.id,status:"ATTENDED"}), `已將 ${booking.customerName} 標記出席`, {bookingId:booking.id,status:"ATTENDED"}) : toggleRosterMenu(event.currentTarget, booking.id)}><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 ${booking.status === "ATTENDED" ? "border-primary-700 bg-primary-700 text-white" : deducted ? "border-amber-600 text-amber-700" : leave ? "border-earth-400 text-earth-600" : "border-earth-400"}`}>{booking.status === "ATTENDED" ? "✓" : leave || booking.status === "NO_SHOW" ? "−" : booking.status === "CANCELLED" ? "×" : ""}</span></button>
                 <div className="min-w-0 flex-1"><CustomerListIdentity showLabels={false} name={<><span data-roster-name-flow className="flex min-w-0 max-w-full flex-nowrap items-center gap-x-2"><button type="button" data-sports-roster-name className={`${sportsRoster.nameButton} relative z-20 h-11 min-h-11 min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-primary-600`} aria-label={`${booking.customerName} 預約詳情`} onClick={()=>setInfoBookingId(booking.id)}><span className="block w-full truncate">{booking.customerName}</span><span className={sportsRoster.ownerInline} data-sports-roster-owner-inline>{booking.assignedCoachName || "未指定所屬店長"}</span></button><CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>{(leave || booking.status === "NO_SHOW" || booking.status === "CANCELLED") && <span className={`min-w-0 truncate text-xs font-normal ${deducted ? "text-amber-700" : "text-earth-600"}`}>{label}</span>}{trialBadge(booking)}</span></>} phone={booking.customerPhone} />
+                  {trialTools(booking)}
                   {rowFeedback(booking.id)}
                 </div>
               </div>

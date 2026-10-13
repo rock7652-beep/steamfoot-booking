@@ -7,6 +7,7 @@ import { courseRoomInput } from "@/lib/course-room-input";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=rooms&action=create") }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
+vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:vi.fn().mockResolvedValue({success:true,issues:[]})}));
 vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
@@ -29,6 +30,7 @@ it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, 
   const submit = async () => act(async () => host.querySelector("#course-room-create-form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   try {
     await act(async () => root.render(createElement(CourseWorkspace, { ...props, businessProfile })));
+    if (businessProfile === "MUSIC") expect(host.querySelector('input[name="rentalEnabled"]')).toBeTruthy();
     await setName("教室 A"); m.fetch.mockResolvedValueOnce({ json: async () => ({ success: false, error: "同名空間" }) });
     await submit(); expect(host.textContent).toContain("同名空間"); expect(host.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe("教室 A");
     expect(m.fetch.mock.calls[0][0]).toBe("/s/music-test/admin/dashboard/courses/rooms");
@@ -53,7 +55,7 @@ it("edits a confirmed room without refresh and preserves it through stale props"
  try{
   await act(async()=>root.render(render()));
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="查看教室")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="教室 A")!.click());
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="編輯教室")!.click());
   host.querySelector<HTMLInputElement>('#course-edit-form input[name="name"]')!.value="改名教室";
   m.fetch.mockResolvedValueOnce({json:async()=>{throw new Error("lost reply");}});
@@ -69,3 +71,5 @@ it("edits a confirmed room without refresh and preserves it through stale props"
   await act(async()=>root.render(render([{...changed,name:"之後修改"}])));expect(host.querySelector("tbody")!.textContent).toContain("之後修改");
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });
+
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(async()=>({success:true,cards:[]}))}));
