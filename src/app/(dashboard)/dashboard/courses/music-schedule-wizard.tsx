@@ -9,8 +9,9 @@ import { inspectCourseSchedule } from "@/server/actions/course-schedule-check";
 import { createCourseSchedule } from "@/server/actions/course";
 import { DashboardLink } from "@/components/dashboard-link";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
+import { isMusicTrialTemplate } from "@/lib/music-trial-template";
 
-type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; classType?:string|null; musicTrialMode?:string|null; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
+type Template = { musicSubjectId?:string|null;musicSubject?:{id:string;name:string;isActive:boolean}|null; id:string; name:string; durationMinutes:number; capacity:number; classType?:string|null; musicTrialMode?:string|null; category?:string|null; musicTermLessons?:number|null; musicScheduleMode?:string|null; defaultRoomId:string|null };
 type Room = { id:string; name:string };
 type Coach = { id:string; displayName:string };
 
@@ -24,7 +25,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
 }) {
   const workflow=startMode??(seed?.time?"time":"course");
   const [originalPosition]=useState(()=>({date:initialDate,time:seed?.time??"",roomId:seed?.roomId??""}));
-  const eligibleTemplates=templates.filter(t=>isTrial?!!t.musicTrialMode:!t.musicTrialMode);
+  const eligibleTemplates=templates.filter(t=>isTrial?isMusicTrialTemplate(t):!isMusicTrialTemplate(t));
   const [templateId,setTemplateId]=useState(initialTemplateId ?? eligibleTemplates[0]?.id ?? "");
   const template=eligibleTemplates.find(t=>t.id===templateId);
   const [capacity,setCapacity]=useState(eligibleTemplates.find(t=>t.id===(initialTemplateId??eligibleTemplates[0]?.id))?.capacity??1);
