@@ -19,7 +19,7 @@ import { paymentMethodValues } from "@/lib/payment-splits";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import { checkCustomerLimitOrThrow } from "@/lib/usage-gate";
 import { recordOperationAudit } from "@/server/services/operation-audit";
-import { addBookingWalkIn } from "@/server/services/booking-participant-walk-in";
+import { addBookingWalkIn, removeBookingWalkIn } from "@/server/services/booking-participant-walk-in";
 import { createCustomerSchema } from "@/lib/validators/customer";
 
 // Keep the unfinished rollout inaccessible until the reviewed DDL is deployed.
@@ -200,6 +200,32 @@ export async function addBookingParticipant(input: { bookingId: string; requestI
     }, { timeout: 15_000 });
     revalidateBookingMutation();
     return { success: true, data: person };
+  } catch (error) { return handleActionError(error); }
+}
+
+/** Delete only an accidentally added, still-empty walk-in slot; confirmed/cancelled visitors use the lifecycle action above. */
+export async function removeBookingParticipant(input: {
+  bookingId: string; position: number; revision: number;
+}): Promise<ActionResult<void>> {
+  try {
+    const user = await requireWritablePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSteamfootStore(storeId); await assertStoreSubscriptionWritable(storeId); assertParticipantRollout();
+    const data = z.object({
+      bookingId: z.string().min(1).max(128),
+      position: z.number().int().min(2).max(4),
+      revision: z.number().int().positive(),
+    }).parse(input);
+    await prisma.$transaction(async tx => {
+      const removed = await removeBookingWalkIn(tx, { ...data, storeId });
+      await recordOperationAudit({ actor: user, actorUserId: user.id, storeId, module: "STEAM",
+        targetType: "Booking", targetId: data.bookingId, action: "REMOVE_BOOKING_PARTICIPANT",
+        summary: "移除誤加且尚未建檔的臨時同行者",
+        before: { participantId: removed.id, position: removed.position, people: removed.people + 1 },
+        after: { removed: true, people: removed.people } }, tx);
+    }, { timeout: 15_000 });
+    revalidateBookingMutation();
+    return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }
 
