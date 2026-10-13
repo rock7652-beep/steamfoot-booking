@@ -10,7 +10,7 @@ import { awardPaidServiceAttendanceInTransaction } from "@/server/services/paid-
 
 type LockedParticipant = {
   id: string; groupId: string; storeId: string; customerId: string | null; service: string; status: string;
-  revision: number; collectionTransactionId: string | null; walletSessionId: string | null;
+  revision: number; collectionTransactionId: string | null; walletSessionId: string | null; arrivedAt: Date | null;
   bookingId: string; bookingStatus: string; bookingDate: Date; slotTime: string; servicePlanId: string | null;
 };
 
@@ -26,7 +26,7 @@ export async function lockPaymentParticipant(tx: Prisma.TransactionClient, store
     SELECT g.id FROM "BookingParticipantGroup" g JOIN "BookingParticipant" p ON p."groupId" = g.id AND p."storeId" = g."storeId"
     WHERE p.id = ${participantId} AND g."storeId" = ${storeId} FOR UPDATE OF g`;
   const participants = await tx.$queryRaw<LockedParticipant[]>`
-    SELECT p.id, p."groupId", p."storeId", p."customerId", p.service, p.status, p.revision, p."collectionTransactionId", p."walletSessionId",
+    SELECT p.id, p."groupId", p."storeId", p."customerId", p.service, p.status, p.revision, p."collectionTransactionId", p."walletSessionId", p."arrivedAt",
       b.id AS "bookingId", b."bookingStatus", b."bookingDate", b."slotTime", b."servicePlanId"
     FROM "BookingParticipant" p
     JOIN "BookingParticipantGroup" g ON g.id = p."groupId" AND g."storeId" = p."storeId"
