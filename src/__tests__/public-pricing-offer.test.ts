@@ -1,5 +1,8 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { getPublicOfferHighlights, getPublicAddonOffer, DOUBLE_TEN_OFFER_END, getPublicPricingOffer, PUBLIC_PRICING_PLANS, YEAR_END_OFFER_END } from "@/lib/public-pricing-offer";
+import { PricingOffer } from "@/app/pricing/pricing-offer";
 
 describe("public year-end payment offer", () => {
   it("ends at Taiwan midnight, with no grace period or negative countdown", () => {
@@ -8,10 +11,16 @@ describe("public year-end payment offer", () => {
     expect(getPublicPricingOffer(YEAR_END_OFFER_END + 86400000).countdown).toEqual([0, 0, 0, 0]);
   });
   it("keeps monthly prices distinct from the 2 gifted months on annual plans", () => {
-    expect(PUBLIC_PRICING_PLANS.map(plan => plan.monthly)).toEqual([1490, 2490, 2980]);
+    expect(PUBLIC_PRICING_PLANS.map(plan => plan.monthly)).toEqual([1480, 2480, 2980]);
     expect(PUBLIC_PRICING_PLANS.map(plan => plan.annual)).toEqual(PUBLIC_PRICING_PLANS.map(plan => plan.monthly * 12));
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 1).months).toBe(14);
     expect(getPublicPricingOffer(YEAR_END_OFFER_END).months).toBe(12);
+  });
+  it("shows monthly price before the annual offer and its average monthly cost", () => {
+    const html = renderToStaticMarkup(createElement(PricingOffer, { initialNow: Date.parse("2026-10-13T12:00:00+08:00"), trialUrl: "/trial" }));
+    for (const text of ["月繳方案", "年繳優惠方案", "平均每月費用", "約 NT$1,269", "約 NT$2,126", "約 NT$2,554", "年繳 NT$17,760", "年繳 NT$29,760", "年繳 NT$35,760", "共使用 14 個月"]) expect(html).toContain(text);
+    expect(html.indexOf("月繳方案")).toBeLessThan(html.indexOf("年繳優惠方案"));
+    expect(html).not.toContain("原價 NT$");
   });
   it("counts actual elapsed time even after returning from a background tab", () => {
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 90061000).countdown).toEqual([1, 1, 1, 1]);
