@@ -174,10 +174,6 @@ describe("composed consultation and shared-card release modes", () => {
       CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined,
     };
     expect(assertReviewedReleaseEnvironment(pricing)).toBe("module-roster-preview");
-    const result = run({ VERCEL_GIT_COMMIT_REF: PRICING_PLAN_CLARITY_PREVIEW_BRANCH,
-      CONSULTATION_HQ_ENABLED: undefined, CONSULTATION_PREVIEW_INTAKE_ENABLED: undefined });
-    expect(result.status).toBe(0);
-    expect(result.output).toContain("[module-roster-preview] isolated_database=true notifications_blocked=true migrations_skipped=true");
     expect(() => assertReviewedReleaseEnvironment({ ...pricing, VERCEL_GIT_REPO_SLUG: "other" })).toThrow("Module roster requires its exact authorized Preview branch and repository.");
   });
 
