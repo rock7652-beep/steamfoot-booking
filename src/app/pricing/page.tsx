@@ -47,7 +47,7 @@ function OnlinePayment() {
   return <section id="payment" aria-labelledby="payment-title" className="mt-8 scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white p-5 sm:p-6">
     <p className="text-sm font-semibold tracking-widest text-[#74603C]">綠界 ECPay 金流</p>
     <h2 id="payment-title" className="mt-1 text-2xl font-semibold">線上付款</h2>
-    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案、加購項目及完整金額，再進行付款。一次付款不代表授權自動續扣。付款金額請填寫雙方確認的方案及加購總額。</p>
+    <p className="mt-2 text-base leading-7 text-[#4C6259]">請先與專人確認方案、加購項目及完整金額，再進行付款。此處年繳付款不代表授權自動續扣；月繳則透過綠界信用卡定期定額授權按月扣款。</p>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {methods.map(method => <article key={method.href} className="flex min-w-0 flex-col gap-y-2 rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -62,8 +62,8 @@ function OnlinePayment() {
       </article>)}
     </div>
     <div className="mt-4 flex flex-col gap-1 border-t border-[#153B31]/15 pt-3 text-base leading-7 sm:flex-row sm:items-center sm:justify-between">
-      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,490、專業版 NT$2,490、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳請洽專人確認每期金額、12 期總額、付款方式與服務期間；目前收款及開通由總部人工確認，本網站不提供自動扣款。</span></p>
-      <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">請洽專人 ↗</a>
+      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,490、專業版 NT$2,490、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳透過綠界信用卡定期定額授權按月扣款；請先洽專人確認每期金額、12 期總額與服務期間，並依指示至綠界完成授權。總部人工核對訂單與付款結果後開通服務，蒸管家內不提供付款操作。</span></p>
+      <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">洽詢月繳與授權 ↗</a>
     </div>
     <div className="mt-2 space-y-1 text-sm leading-6 text-[#4C6259]">
       <p>付款後由專人核對並開通；綠界付款頁顯示的收款商店名稱為「陸比音樂」。</p>
