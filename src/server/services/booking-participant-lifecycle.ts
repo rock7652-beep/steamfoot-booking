@@ -122,6 +122,26 @@ export async function revertParticipantService(tx: Prisma.TransactionClient, inp
   return { customerId: person.customerId, created: true };
 }
 
+/** Restores a previously cancelled participant without undoing any payment or attendance history. */
+export async function restoreCancelledParticipant(tx: Prisma.TransactionClient, input: Input) {
+  await assertLifecycleReady(tx);
+  const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
+  if (person.status === "PENDING" && person.revision === input.revision + 1)
+    return { customerId: person.customerId, created: false };
+  if (person.status !== "CANCELLED" || person.revision !== input.revision ||
+      person.collectionTransactionId || person.walletSessionId || person.arrivedAt ||
+      !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) {
+    throw new AppError("CONFLICT", "只有尚未收款、開始服務且預約仍有效的取消名額可以恢復");
+  }
+  await authorizeCorrection(tx, input, person, "PENDING");
+  await tx.$executeRaw`UPDATE "BookingParticipant" SET status = 'PENDING',
+    revision = revision + 1, "updatedAt" = CURRENT_TIMESTAMP
+    WHERE id = ${person.id} AND "storeId" = ${input.storeId} AND status = 'CANCELLED'
+      AND revision = ${input.revision}`;
+  await finishCorrection(tx, input, person);
+  return { customerId: person.customerId, created: true };
+}
+
 export async function cancelParticipantPlan(tx: Prisma.TransactionClient, input: Input & { status: "CANCELLED" | "NO_SHOW" }) {
   await assertLifecycleReady(tx);
   const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
