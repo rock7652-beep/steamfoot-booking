@@ -111,6 +111,16 @@ export async function upsertStoreSubscription(
       const currentStore = await tx.store.findUniqueOrThrow({ where: { id: data.storeId } });
       const existing = data.subscriptionId ? await tx.storeSubscription.findUnique({ where: { id: data.subscriptionId } }) : null;
       if (data.subscriptionId && (!existing || existing.storeId !== data.storeId)) throw new AppError("NOT_FOUND", "訂閱紀錄不存在");
+      const recurringAgreement = await tx.ecpayRecurringAgreement.findFirst({
+        where: { storeId: data.storeId, status: { in: ["PENDING_AUTHORIZATION", "ACTIVE", "PAST_DUE", "CANCEL_REQUESTED"] } },
+        select: { subscriptionId: true },
+      });
+      if (recurringAgreement && existing?.id === recurringAgreement.subscriptionId) {
+        throw new AppError("CONFLICT", "此訂閱由綠界信用卡定期扣款管理，請使用訂購狀態與取消續扣操作");
+      }
+      if (recurringAgreement && data.status === "ACTIVE") {
+        throw new AppError("CONFLICT", "此店已有待授權或使用中的綠界定期扣款，請先處理該訂單");
+      }
       const saved = existing
         ? await tx.storeSubscription.update({ where: { id: existing.id }, data: { ...common, isTrial: false, updatedBy: user.id } })
         : await tx.storeSubscription.create({ data: { storeId: data.storeId, ...common, isTrial: false, createdBy: user.id, updatedBy: user.id } });

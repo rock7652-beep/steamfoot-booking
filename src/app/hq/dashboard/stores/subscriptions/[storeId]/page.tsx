@@ -48,6 +48,12 @@ export default async function StoreSubscriptionFormPage({
       slug: true,
       plan: true,
       currentSubscription: { select: subSelect },
+      ecpayRecurringAgreements: {
+        where: { status: { in: ["PENDING_AUTHORIZATION", "ACTIVE", "PAST_DUE", "CANCEL_REQUESTED"] } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true, status: true, successfulPaymentCount: true, initialTermMonths: true, monthlyAmount: true, cancelAfterSuccessCount: true },
+      },
       subscriptions: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -91,7 +97,7 @@ export default async function StoreSubscriptionFormPage({
         }
       />
       {store.plan === "EXPERIENCE" && <Link href={`/hq/dashboard/stores/subscriptions/${store.id}/trial`} className="text-sm text-primary-700 underline">開通或延長單店試用</Link>}
-      <SubscriptionForm storeId={store.id} isEdit={isEdit} initial={initial} />
+      <SubscriptionForm storeId={store.id} isEdit={isEdit} initial={initial} recurringAgreement={store.ecpayRecurringAgreements[0] ?? null} />
     </PageShell>
   );
 }

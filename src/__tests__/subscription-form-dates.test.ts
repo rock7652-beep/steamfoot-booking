@@ -7,6 +7,10 @@ const mocks = vi.hoisted(() => ({ save: vi.fn(), push: vi.fn(), error: vi.fn() }
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: mocks.error } }));
 vi.mock("@/server/actions/store-subscription", () => ({ upsertStoreSubscription: mocks.save }));
+vi.mock("@/server/actions/ecpay-recurring", () => ({
+  createEcpayRecurringCheckoutLink: vi.fn(),
+  requestEcpayRecurringCancellation: vi.fn(),
+}));
 import { SubscriptionForm } from "@/app/hq/dashboard/stores/subscriptions/[storeId]/subscription-form";
 
 let host: HTMLDivElement, root: Root;
@@ -19,6 +23,7 @@ beforeEach(async () => {
   root = createRoot(host);
   await act(async () => root.render(createElement(SubscriptionForm, {
     storeId: "disposable-date-fixture", isEdit: true,
+    recurringAgreement: null,
     initial: { subscriptionId: "existing-subscription", plan: "BASIC", status: "ACTIVE", billingCycle: "MONTHLY", startedAt: "2026-09-20", effectiveAt: "", expiresAt: "2026-10-19", billingStatus: "WAIVED", paymentMethod: "", priceAmount: 0, note: "Synthetic fixture" },
   })));
 });
@@ -38,7 +43,7 @@ it("submits visible native date values even without a React change event", async
 it("preserves cycle autofill and permits a subsequent manual override", async () => {
   const fill = Array.from(host.querySelectorAll("button")).find(b => b.textContent === "依週期帶入")!;
   await act(async () => fill.click());
-  expect(date("expiresAt").value).toBe("2026-10-19");
+  expect(date("expiresAt").value).toBe("2027-09-19");
   date("expiresAt").value = "2026-11-02";
   await submit();
   expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ expiresAt: "2026-11-02" }));
