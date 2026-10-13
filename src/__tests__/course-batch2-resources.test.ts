@@ -15,3 +15,12 @@ it("hidden permits manager scheduling; off only preserves old unchanged course",
 it("capacity and revoked coach remain guarded for old classes",async()=>{await expect(assertCourseResources(tx as never,"s",{...input,capacity:6},input)).rejects.toThrow("容量");tx.$queryRaw.mockResolvedValue([{courseCoachEnabled:false}]);await expect(assertCourseResources(tx as never,"s",input,input)).rejects.toThrow("授課人員身分");});
 it("resource conflicts include in-progress classes and exclude ended/cancelled at the boundary",async()=>{const now=new Date('2026-09-19T01:00:00Z');tx.courseSession.findMany.mockResolvedValue([{id:"one",nameSnapshot:"Class",startsAt:new Date('2026-09-19T00:30:00Z'),capacity:6}]);try{await assertNoCourseResourceUse(tx as never,"s",{roomId:"r",capacity:5},now);throw Error("expected rejection");}catch(e){const r=handleCourseActionError(e);expect(r.conflicts[0]).toMatchObject({id:"one",capacity:6});expect(r.success).toBe(false);}expect(tx.courseSession.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"s",cancelledAt:null,endsAt:{gt:now},roomId:"r",capacity:{gt:5}}}));});
 it("music subjects can use the same room above its old chair count",async()=>{tx.courseTemplate.findFirst.mockResolvedValue({isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true}});await expect(assertCourseResources(tx as never,"s",{...input,capacity:15})).resolves.toBeUndefined();});
+
+it("music scheduling rejects unlinked or disabled teaching items while legacy sports remains available",async()=>{
+ await expect(assertCourseResources(tx as never,"s",{...input,requireMusicSubject:true})).rejects.toThrow("教學項目");
+ await expect(assertCourseResources(tx as never,"s",input)).resolves.toBeUndefined();
+ tx.courseTemplate.findFirst.mockResolvedValue({isActive:true,visibility:"PUBLIC",musicSubjectId:"subject",musicSubject:{isActive:false}});
+ await expect(assertCourseResources(tx as never,"s",{...input,requireMusicSubject:true})).rejects.toThrow("教學項目");
+ tx.courseTemplate.findFirst.mockResolvedValue({isActive:true,visibility:"PUBLIC",musicSubjectId:"subject",musicSubject:{isActive:true}});
+ await expect(assertCourseResources(tx as never,"s",{...input,requireMusicSubject:true})).resolves.toBeUndefined();
+});

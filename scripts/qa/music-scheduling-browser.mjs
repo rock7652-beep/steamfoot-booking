@@ -5,7 +5,7 @@ import {createRequire} from "node:module";
 import {mkdirSync,writeFileSync} from "node:fs";
 import path from "node:path";
 const require=createRequire(import.meta.url);
-const {chromium}=require(process.env.QA_PLAYWRIGHT_MODULE||"playwright");
+const {chromium,webkit}=require(process.env.QA_PLAYWRIGHT_MODULE||"playwright");
 const root=process.cwd(),out=process.env.QA_OUTPUT||"/tmp/music-scheduling-visual",stub="\0music-schedule-qa:";
 mkdirSync(out,{recursive:true});
 const actionSource=`
@@ -22,10 +22,10 @@ const actionSource=`
  `;
 const server=await createServer({root,cacheDir:"/tmp/music-schedule-vite",configFile:false,plugins:[react(),{name:"synthetic-actions",configureServer(server){server.middlewares.use((req,res,next)=>{if(req.url!=="/")return next();res.setHeader("Content-Type","text/html");server.transformIndexHtml("/",'<html lang="zh-Hant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/scripts/qa/music-scheduling-fixture.tsx"></script></body></html>').then(html=>res.end(html));});},resolveId(id){if(id.startsWith(stub))return id;},load(id){if(id===stub+"actions")return actionSource;if(id===stub+"navigation")return 'export const useRouter=()=>({refresh(){}});';}}],resolve:{alias:[{find:/^@\/server\/actions\/.*$/,replacement:stub+"actions"},{find:"next/navigation",replacement:stub+"navigation"},{find:"@",replacement:path.join(root,"src")}]},server:{host:"127.0.0.1",port:0}});
 await server.listen();
-const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_EXECUTABLE||"/usr/bin/chromium",args:["--no-sandbox","--disable-gpu"],headless:true});
+const browser=process.env.QA_BROWSER==="webkit"?await webkit.launch({headless:true}):await chromium.launch({executablePath:process.env.QA_CHROMIUM_EXECUTABLE||"/usr/bin/chromium",args:["--no-sandbox","--disable-gpu"],headless:true});
 const results=[];
 try{
- for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[390,844]]){
+ for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[390,844],[360,740],[588,1000]]){
   const page=await browser.newPage({viewport:{width,height},locale:"zh-TW"}),errors=[];
   page.on("pageerror",error=>errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
@@ -37,8 +37,17 @@ try{
    if(kind==='fixed')await page.getByLabel('固定課程頻率',{exact:true}).selectOption('BIWEEKLY');
    if(kind==='rental'){await page.locator('input[name="name"]').fill('租借測試者');await page.locator('input[name="phone"]').fill('0900000003');}
    boxes.push(await dialog.boundingBox());
+   const overflow=await dialog.evaluate(root=>Array.from(root.querySelectorAll('*')).filter(el=>el.getClientRects().length&&el.clientWidth>0&&el.scrollWidth>el.clientWidth+1).map(el=>({tag:el.tagName,label:el.getAttribute('aria-label'),width:el.clientWidth,scrollWidth:el.scrollWidth})).filter(el=>el.tag!=='SELECT'));
+   if(overflow.length)errors.push(`${kind} local overflow: ${JSON.stringify(overflow)}`);
+   const controlsFit=await dialog.evaluate(root=>Array.from(root.querySelectorAll('input,select')).filter(el=>el.getClientRects().length).every(el=>el.getBoundingClientRect().right<=root.getBoundingClientRect().right&&el.getBoundingClientRect().left>=root.getBoundingClientRect().left));
+   if(!controlsFit)errors.push(`${kind}: controls outside dialog`);
    await page.screenshot({path:path.join(out,`${width}x${height}-${kind}.png`)});
   }
+  await page.locator('[aria-label="排課學員"]:visible').evaluate(el=>el.parentElement.scrollTop=300);
+  await page.getByLabel('安排類型',{exact:true}).filter({visible:true}).selectOption('fixed');
+  const resetScroll=await page.locator('[aria-label="時間與教室"]:visible').evaluate(el=>el.parentElement.scrollTop===0);
+  if(!resetScroll)errors.push('type change retained the old scroll position');
+  await page.getByLabel('安排類型',{exact:true}).filter({visible:true}).selectOption('single');
   const retained=await page.locator('[aria-label="排課學員"]:visible').textContent();
   await page.getByRole('radio',{name:'開放報名',exact:true}).check();await page.getByLabel('名額',{exact:true}).fill('8');
   await page.getByRole('button',{name:'新增',exact:true}).click();

@@ -25,7 +25,7 @@ export async function inspectCourseSchedule(input:unknown) {
     }
     const occurrences=buildCourseOccurrences(data);
     const ongoing=data.scheduleType==="FIXED"&&data.enrollmentMode!==undefined;
-    await assertCourseResources(coursePrisma,storeId,data);
+    await assertCourseResources(coursePrisma,storeId,{...data,requireMusicSubject:!!data.enrollmentMode});
     const ranges=occurrences.map(range=>({startsAt:{lt:range.endsAt},endsAt:{gt:range.startsAt}}));
     const [sessions,bookings,fixedRules,rentals]=await Promise.all([
       coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,releasedAt:null,AND:[{OR:[{roomId:data.roomId},{coachId:data.coachId}]},{...(ongoing?{endsAt:{gt:occurrences[0].startsAt}}:{OR:ranges})}]},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}}),

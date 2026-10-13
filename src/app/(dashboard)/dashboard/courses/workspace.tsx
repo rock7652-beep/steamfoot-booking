@@ -2016,7 +2016,7 @@ export function CourseWorkspace({
                 onArrangementChange={kind=>{if(!musicScheduleGuard.current.pending&&!rentalGuard.current.pending)setArrangement(kind);}}
                 active={arrangement!=="rental"}
                 onCancel={closePanel}
-                templates={templates}
+                templates={allTemplates}
                 isTrial={arrangement==="trial"}
                 initialScheduleKind={arrangement==="fixed"?"FIXED":"SINGLE"}
                 canCreateCustomer={rentalPermissions.customerCreate}

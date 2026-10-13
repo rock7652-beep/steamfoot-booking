@@ -568,7 +568,7 @@ export async function createCourseSchedule(input: unknown) {
         ]);
         if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
-        await assertCourseResources(tx,storeId,data);
+        await assertCourseResources(tx,storeId,{...data,requireMusicSubject:musicScheduling});
         if(musicScheduling&&data.scheduleType==="FIXED"){
           const [rules,occupied,rentals]=await Promise.all([
             tx.courseScheduleSeries.findMany({where:{storeId,cancelledAt:null}}),

@@ -38,7 +38,7 @@ it("creates and adds a trial learner inline while retaining the draft on failure
   const change=vi.fn();const host=document.createElement("div");const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,value:[],onChange:change,trialMode:true,canCreateCustomer:true})));
-    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="＋新增學員")!.click());
+    await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="＋建立新學員")!.click());
     for(const [label,value] of [["新學員姓名","新學員"],["新學員手機","0912345678"]]){const input=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);await act(async()=>input.dispatchEvent(new Event("input",{bubbles:true})));}
     const create=[...host.querySelectorAll("button")].find(b=>b.textContent==="建立並加入")!;
     await act(async()=>create.click());
