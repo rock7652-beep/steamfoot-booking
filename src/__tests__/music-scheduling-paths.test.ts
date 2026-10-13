@@ -100,3 +100,12 @@ it("only lists active courses linked to enabled teaching items",async()=>{
  await mount({templates:[...props.templates,{id:"legacy",name:"虛構驗收舊課",durationMinutes:60,capacity:1,defaultRoomId:null},{...props.templates[0],id:"inactive",musicSubject:{id:"subject",name:"停用項目",isActive:false}},{...props.templates[0],id:"off",visibility:"OFF"}]});await mode("開放報名");
  const options=Array.from(host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.options).map(option=>option.value);expect(options).toEqual(["","guitar"]);
 });
+
+it("uses the existing display label without repeating the subject or exposing an internal suffix",async()=>{
+ await mount({templates:[{...props.templates[0],name:"木吉他 · 個別課 4堂 · 455fd5",displayName:"木吉他個別課・每堂 $800",musicSubject:{id:"subject",name:"木吉他",isActive:true}}]});await mode("開放報名");await select("課程","guitar");
+ expect(host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.selectedOptions[0].textContent).toBe("木吉他個別課・每堂 $800");expect(host.textContent).not.toContain("455fd5");expect(host.textContent).not.toContain("木吉他 · 木吉他");
+});
+it("provides a qualification settings path when no teachers qualify, keeping the draft",async()=>{
+ m.slots.mockResolvedValue({success:true,data:[],unavailable:[{time:"18:00",reason:"沒有符合這門課資格的老師",fixTarget:"teacher"}]});await mount();await add("小安");await select("課程","guitar");
+ const link=host.querySelector<HTMLAnchorElement>('a[href="/dashboard/teachers"]')!;expect(link.target).toBe("_blank");expect(host.textContent).toContain("小安");expect(host.querySelector('footer')!.textContent).toContain("沒有符合這門課資格的老師");expect(host.querySelector<HTMLButtonElement>('footer button')!.disabled).toBe(true);expect(m.create).not.toHaveBeenCalled();
+});
