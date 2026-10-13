@@ -23,7 +23,7 @@ export async function loadCourseScheduleEnrollmentOptions(templateId:string) {
       coursePrisma.courseTemplate.findFirst({where:{id:templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true,category:true}}),
       courseManager("trial.create").then(()=>true,()=>false),
     ]);
-    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:[]};
+    return {success:true as const,customers,trialSettings:{enabled:canTrial&&trialSettings.trialEnabled,price:courseTrialPrice(undefined,trialSettings,template??undefined)},cards:[] as Awaited<ReturnType<typeof getCourseCards>>};
   }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?"學員讀取失敗":failure.error};}
 }
 
