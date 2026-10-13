@@ -1325,7 +1325,7 @@ export function CourseWorkspace({
       )}
       {panel && (
         <RightSheet className={businessProfile === "MUSIC" ? undefined : "fitness-management-editor"} presentation="centered"
-          compact={businessProfile === "MUSIC" && view !== "rooms"}
+          compact={businessProfile === "MUSIC" && view !== "rooms" && panel !== "schedule"}
           fixedHeight={view === "rooms"}
           maxHeight={panel === "schedule" ? 900 : businessProfile !== "MUSIC" ? 680 : 900}
           open

@@ -4,11 +4,13 @@ import {createRoot} from "react-dom/client";
 import {expect,it,vi} from "vitest";
 import {MusicScheduleWizard} from "@/app/(dashboard)/dashboard/courses/music-schedule-wizard";
 import {CourseScheduleLearners} from "@/components/admin/course-schedule-learners";
-const mocks=vi.hoisted(()=>({check:vi.fn().mockResolvedValue({success:true,issues:[]}),createCustomer:vi.fn(),create:vi.fn(),slots:vi.fn(),options:vi.fn()}));
+const mocks=vi.hoisted(()=>({check:vi.fn().mockResolvedValue({success:true,issues:[]}),createCustomer:vi.fn(),create:vi.fn(),slots:vi.fn(),options:vi.fn(),purchaseOptions:vi.fn(),assign:vi.fn()}));
 vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:mocks.check}));
 vi.mock("@/server/actions/course",()=>({createCourseSchedule:mocks.create}));
 vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:mocks.slots}));
-vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:mocks.options,createScheduleCustomer:mocks.createCustomer}));
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:mocks.options,createScheduleCustomer:mocks.createCustomer,loadCourseSchedulePurchaseOptions:mocks.purchaseOptions}));
+vi.mock("@/server/actions/course-members",()=>({assignCoursePointCard:mocks.assign,loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
+vi.mock("@/components/admin/music-assignment-payment",()=>({MusicAssignmentPayment:()=>null}));
 vi.mock("@/components/dashboard-link",()=>({DashboardLink:()=>null}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 
@@ -82,7 +84,8 @@ it("keeps the clicked teacher when unavailable instead of silently replacing the
   try{
     await act(async()=>root.render(createElement(MusicScheduleWizard,{templates:[{id:"guitar",name:"吉他課",durationMinutes:90,capacity:1,defaultRoomId:null}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"},{id:"other",displayName:"李老師"}],initialDate:"2099-10-01",seed:{time:"18:00",coachId:"teacher",durationMinutes:30},startMode:"course",requestKey:"test-request",onCreated:vi.fn()})));
     expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("18:00–19:00");
-    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).toContain("王老師");
+    expect(host.querySelector('[aria-label="已選排課位置"]')!.textContent).not.toContain("王老師");
+    expect(host.querySelector('[aria-label="合格老師與可用教室"]')!.textContent).toContain("王老師");
     expect(host.textContent).not.toContain("設定營業時間");
     const save=[...host.querySelectorAll("button")].find(b=>b.textContent==="新增")!;
     expect(save.disabled).toBe(true);
@@ -121,6 +124,19 @@ it("counts all shared-card learners against the batch credit total",async()=>{
     await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,occurrenceCount:2,value:[{customerId:"a",cardId:"shared",name:"小安"},{customerId:"b",cardId:"shared",name:"小明"}],onChange:vi.fn(),onValidityChange:valid})));
     expect(valid).toHaveBeenLastCalledWith(false);
   }finally{await act(async()=>root.unmount());}
+});
+
+it("opens experience name and phone fields immediately when adding a participant",async()=>{
+  mocks.options.mockResolvedValue({success:true,cards:[],customers:[],trialSettings:{enabled:true,price:420}});
+  const onChange=vi.fn();const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"trial",pointCost:1,capacity:2,value:[],onChange,trialMode:true,canCreateCustomer:true})));
+    const add=[...host.querySelectorAll("button")].find(button=>button.textContent==="＋體驗者")!;
+    await act(async()=>add.click());
+    expect(host.querySelector('[aria-label="新學員姓名"]')).toBeTruthy();
+    expect(host.querySelector('[aria-label="新學員手機"]')).toBeTruthy();
+    expect(host.textContent).toContain("體驗費 NT$ 420");
+  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
 it("does not offer a separate new-student action while scheduling trial learners",async()=>{
