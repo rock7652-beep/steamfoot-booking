@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({
   permission: vi.fn(), writable: vi.fn(), store: vi.fn(), module: vi.fn(), subscription: vi.fn(),
   booking: vi.fn(), search: vi.fn(), existing: vi.fn(), count: vi.fn(), create: vi.fn(),
   init: vi.fn(), link: vi.fn(), limit: vi.fn(), usage: vi.fn(), revalidate: vi.fn(), transaction: vi.fn(),
-  selectPlan: vi.fn(), revert: vi.fn(), cancelPlan: vi.fn(), completePaid: vi.fn(), settings: vi.fn(), collect: vi.fn(), resolve: vi.fn(), removeWalkIn: vi.fn(), audit: vi.fn(), event: vi.fn(),
+  selectPlan: vi.fn(), revert: vi.fn(), cancelPlan: vi.fn(), completePaid: vi.fn(), restoreParticipant: vi.fn(), settings: vi.fn(), collect: vi.fn(), resolve: vi.fn(), removeWalkIn: vi.fn(), audit: vi.fn(), event: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission, requireWritablePermission: h.writable }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: h.store }));
@@ -14,7 +14,7 @@ vi.mock("@/lib/shop-config", () => ({ checkCustomerLimit: h.limit, getTrialSetti
 vi.mock("@/lib/usage-gate", () => ({ checkCustomerLimitOrThrow: h.usage }));
 vi.mock("@/lib/booking-route-mutation", () => ({ revalidateBookingMutation: h.revalidate, revalidateBookingTransactionMutation: h.revalidate }));
 vi.mock("@/server/services/booking-participant-payment", () => ({ collectParticipantTrialInTransaction: h.collect, resolveUnattendedParticipant: h.resolve }));
-vi.mock("@/server/services/booking-participant-lifecycle", () => ({ selectParticipantPlan: h.selectPlan, revertParticipantService: h.revert, cancelParticipantPlan: h.cancelPlan, completePreviouslyPaidParticipant: h.completePaid }));
+vi.mock("@/server/services/booking-participant-lifecycle", () => ({ selectParticipantPlan: h.selectPlan, revertParticipantService: h.revert, cancelParticipantPlan: h.cancelPlan, completePreviouslyPaidParticipant: h.completePaid, restoreCancelledParticipant: h.restoreParticipant }));
 vi.mock("@/server/services/referral-events", () => ({ createBookingCompletedEvent: h.event }));
 vi.mock("@/server/services/booking-participants", () => ({ initializeBookingParticipants: h.init, linkBookingParticipantCustomer: h.link }));
 vi.mock("@/server/services/booking-participant-walk-in", () => ({ addBookingWalkIn: vi.fn(), removeBookingWalkIn: h.removeWalkIn }));
@@ -22,14 +22,14 @@ vi.mock("@/server/services/operation-audit", () => ({ recordOperationAudit: h.au
 vi.mock("@/lib/db", () => ({ prisma: {
   booking: { findFirst: h.booking }, customer: { findMany: h.search, findFirst: h.existing }, $transaction: h.transaction,
 } }));
-import { attachBookingCompanion, createBookingCompanion, findBookingCompanionByPhone, collectBookingParticipantTrial, resolveBookingParticipant, changeBookingParticipantService, removeBookingParticipant } from "@/server/actions/booking-participants";
+import { attachBookingCompanion, createBookingCompanion, findBookingCompanionByPhone, collectBookingParticipantTrial, resolveBookingParticipant, changeBookingParticipantService, removeBookingParticipant, restoreBookingParticipant } from "@/server/actions/booking-participants";
 import { AppError } from "@/lib/errors";
 
 beforeEach(() => {
   vi.resetAllMocks(); vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
   h.writable.mockResolvedValue({ storeId: "untrusted-default" }); h.store.mockResolvedValue("authorized-store");
   h.booking.mockResolvedValue({ id: "booking" }); h.search.mockResolvedValue([{ id: "guest", name: "同行者", phone: "0912345678" }]);
-  h.limit.mockResolvedValue({ allowed: true }); h.count.mockResolvedValue(10); h.existing.mockResolvedValue(null); h.removeWalkIn.mockResolvedValue({ id: "walk-in", position: 3, people: 2 });
+  h.limit.mockResolvedValue({ allowed: true }); h.count.mockResolvedValue(10); h.existing.mockResolvedValue(null); h.removeWalkIn.mockResolvedValue({ id: "walk-in", position: 3, people: 2 }); h.restoreParticipant.mockResolvedValue({ customerId: null, created: true });
   h.create.mockResolvedValue({ id: "new", name: "新朋友" });
   h.settings.mockResolvedValue({ trialDefaultPrice: 499 });
   h.collect.mockResolvedValue({ transactionId: "receipt", bookingId: "booking", customerId: "guest", created: true });
@@ -51,6 +51,17 @@ describe("mistaken walk-in removal action", () => {
       before: { participantId: "walk-in", position: 3, people: 3 },
       after: { removed: true, people: 2 },
     }), expect.anything());
+
+  it("restores a cancelled slot through the authorized lifecycle action", async () => {
+    h.init.mockResolvedValue([{ id: "slot", position: 2, source: "RESERVATION", customerId: "guest", status: "CANCELLED", revision: 4 }]);
+    const result = await restoreBookingParticipant({ bookingId: "booking", position: 2, revision: 4 });
+    expect(result).toEqual({ success: true, data: undefined });
+    expect(h.writable).toHaveBeenCalledWith("booking.update");
+    expect(h.restoreParticipant).toHaveBeenCalledWith(expect.anything(), {
+      storeId: "authorized-store", participantId: "slot", revision: 4, actorUserId: undefined, actor: { storeId: "untrusted-default" },
+    });
+    expect(h.revalidate).toHaveBeenCalled();
+  });
   });
 });
 
