@@ -55,6 +55,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
           <p className="mt-2 text-sm font-medium text-[#4C6259]">年繳換算・平均每月{offer.active ? "約" : ""}</p>
           <p className="mt-1 flex flex-wrap items-baseline gap-x-1"><span className="text-4xl font-semibold tracking-tight">NT${money(Math.round(plan.annual / offer.months))}</span><span className="text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
           <p className="mt-2 text-base font-semibold">年繳 NT${money(plan.annual)}{plan.id === "ALLIANCE" ? "起" : ""}<span className="block text-sm font-normal text-[#4C6259]">一次繳清</span></p>
+          <p className="mt-2 text-sm leading-6 text-[#4C6259]">月繳 NT${money(Math.round(plan.annual / 12))}／月 × 12 期＝NT${money(plan.annual)}，最低承諾 12 個月，無年繳贈送。</p>
           <p className="mt-2 text-lg font-semibold text-[#805C1B]">年繳省 NT${money(annualSavings(plan))}</p>
           <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active ? <>12 個月<span className="ml-1 text-[#805C1B]">＋贈送 2 個月</span></> : "使用 12 個月"}</p>
         </div>
@@ -106,7 +107,7 @@ export function AddonOffer({ initialNow }: { initialNow: number }) {
     </div>
     <p className="mt-3 text-sm leading-6 text-[#4C6259]">進銷存、工單各自加購，展店版亦不內含。{PUBLIC_WORK_ORDER_DEPENDENCY}</p>
     <p className="mt-3 text-base font-medium text-[#805C1B]">{offer.months === 14 ? "年繳 12 個月＋贈送 2 個月，使用 14 個月。" : "年繳使用 12 個月。"}</p>
-    <p className="mt-3 text-sm leading-6 text-[#4C6259]">以上月費以年繳總額 ÷ 12 個月計價，優惠不提供月繳；贈送月份另計。加購與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">卡片顯示的平均月費依年繳總額 ÷ 使用月數計算，採一次年繳；另可選月繳，按 12 期支付並承諾使用 12 個月，期內提前取消仍須支付剩餘期款，服務可使用至約定期滿。月繳不含年繳贈送月份。加購與主方案一起購買，自正式啟用日起算並同步到期。{offer.months === 14 && "贈送 2 個月優惠至 2026/12/31；雙十加購降價僅至 10/31。"}</p>
   </div>;
 }
 

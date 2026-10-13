@@ -61,13 +61,13 @@ export function SubscriptionForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const [pending, setPending] = useState(false);
 
-  /** 依週期帶入到期日：起始日 + N 個月 − 1 天（月繳 1 / 年繳 14） */
+  /** 依新約週期帶入到期日：月繳最低承諾 12 個月；年繳活動約定 14 個月。 */
   function fillExpires() {
     if (!startedAt) {
       toast.error("請先填起始日");
       return;
     }
-    const months = billingCycle === "YEARLY" ? 14 : 1;
+    const months = billingCycle === "YEARLY" ? 14 : 12;
     const plus = addTaiwanDuration(startedAt, months, "MONTH");
     setExpiresAt(addTaiwanDuration(plus, -1, "DAY"));
   }
@@ -119,7 +119,7 @@ export function SubscriptionForm({
       onSubmit={handleSubmit}
       className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm"
     >
-      <p className="mb-4 text-sm text-earth-600">轉正式：選擇購買方案及「使用中」，確認起迄日與付款紀錄後儲存，沿用原店家帳號及資料。試用開通或延長請使用試用入口。</p>
+      <p className="mb-4 text-sm text-earth-600">轉正式：選擇購買方案及「使用中」，確認服務期間、合約總額與付款紀錄後儲存，沿用原店家帳號及資料。月繳新約最低承諾 12 個月，期滿後按月續約；年繳依訂單所列期間（活動可能含 2 個贈送月）。本頁只記錄訂閱，不會執行金流扣款。試用開通或延長請使用試用入口。</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>
@@ -200,7 +200,7 @@ export function SubscriptionForm({
         </div>
 
         <div>
-          <label className={labelCls}>金額（NT$）</label>
+          <label className={labelCls}>合約總額（NT$；月繳填 12 期合計）</label>
           <input
             type="number"
             min={0}
@@ -259,8 +259,7 @@ export function SubscriptionForm({
             onInput={(e) => setExpiresAt(e.currentTarget.value)}
           />
           <p className="mt-1 text-[11px] text-earth-400">
-            月繳＝起始日 + 1 個月 − 1 天；年繳＝起始日 + 14 個月 − 1
-            天（加贈 2 個月）。可手動覆寫。
+            月繳新約＝起始日起 12 個月；年繳優惠＝起始日起 14 個月（含贈送 2 個月）。可手動覆寫；既有合約期間依原約定。
           </p>
         </div>
 
