@@ -67,7 +67,7 @@ export async function removeBookingWalkIn(tx: Prisma.TransactionClient, input: {
     select: { bookingDate: true, slotTime: true, bookingStatus: true, people: true },
   });
   if (!before) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
-  if (!["PENDING", "CONFIRMED"].includes(before.bookingStatus))
+  if (!["PENDING", "CONFIRMED", "CANCELLED", "NO_SHOW"].includes(before.bookingStatus))
     throw new AppError("BUSINESS_RULE", "預約已結束，不能移除同行者");
   const date = before.bookingDate.toISOString().slice(0, 10);
   await acquireBookingSlotLocks(tx, [{ storeId: input.storeId, bookingDate: date, slotTime: before.slotTime }]);
