@@ -16,6 +16,7 @@ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 
 it("keeps the clicked room/time after changing the course and submits multiple learners in one save",async()=>{
   mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[],customers:[{id:"a",name:"小安",phone:"0911111111"},{id:"b",name:"小明",phone:"0922222222"}]});
   mocks.customerCards.mockImplementation(async(_template:string,customerId:string)=>({success:true,cards:customerId==="a"?[{id:"card-a",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]:[{id:"card-b",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"b",name:"小明",phone:"0922222222"}]}]}));
   mocks.create.mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
   const onCreated=vi.fn();
@@ -204,7 +205,7 @@ it("creates fixed classes at the selected weekly or every-other-week cadence",as
 
 it("keeps regular and trial learner drafts separate while switching purpose",async()=>{
   mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[],trialSettings:{enabled:true,price:0}});mocks.customerCards.mockResolvedValue({success:true,cards:[{id:"regular-card",name:"一般方案",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[],customers:[{id:"a",name:"小安",phone:"0911111111"}],trialSettings:{enabled:true,price:0}});mocks.customerCards.mockResolvedValue({success:true,cards:[{id:"regular-card",name:"一般方案",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   const props={templates:[{id:"regular",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"trial",name:"體驗課",durationMinutes:60,capacity:2,defaultRoomId:null,musicTrialMode:"TRIAL"}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"purpose-switch",onCreated:vi.fn()};
   try{
