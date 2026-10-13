@@ -181,11 +181,11 @@ export default async function StoreSubscriptionsListPage({
               <th className="px-3 py-2.5 font-medium">狀態</th>
               <th className="px-3 py-2.5 font-medium">付款狀態</th>
               <th className="px-3 py-2.5 font-medium">付款方式</th>
-              <th className="px-3 py-2.5 font-medium">週期</th>
+              <th className="px-3 py-2.5 font-medium">付款週期</th>
               <th className="px-3 py-2.5 font-medium">起始日</th>
-              <th className="px-3 py-2.5 font-medium">到期日</th>
+              <th className="px-3 py-2.5 font-medium">服務可用截止日</th>
               <th className="px-3 py-2.5 font-medium">剩餘天數</th>
-              <th className="px-3 py-2.5 text-right font-medium">金額</th>
+              <th className="px-3 py-2.5 text-right font-medium">實收金額</th>
               <th className="px-3 py-2.5 font-medium">備註</th>
               <th className="px-4 py-2.5 text-right font-medium">操作</th>
             </tr>
@@ -231,7 +231,7 @@ export default async function StoreSubscriptionsListPage({
                       {fmtDate(sub.startedAt)}
                     </td>
                     <td className="px-3 py-3 tabular-nums text-earth-700">
-                      {fmtDate(sub.expiresAt)}
+                      {sub.expiresAt ? fmtDate(sub.expiresAt) : "待核"}
                     </td>
                     <td
                       className={`px-3 py-3 tabular-nums ${lc.isSuspended ? "text-red-600" : lc.isExpired ? "text-orange-600" : "text-earth-700"}`}
@@ -241,7 +241,7 @@ export default async function StoreSubscriptionsListPage({
                     <td className="px-3 py-3 text-right tabular-nums text-earth-700">
                       {sub.priceAmount != null
                         ? `NT$${sub.priceAmount.toLocaleString()}`
-                        : "—"}
+                        : "待核"}
                     </td>
                     <td className="max-w-[160px] truncate px-3 py-3 text-earth-500">
                       {sub.note ?? "—"}

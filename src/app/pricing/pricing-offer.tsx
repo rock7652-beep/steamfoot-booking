@@ -54,7 +54,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
           <p className="mt-1 flex flex-wrap items-baseline gap-x-1"><span className="text-4xl font-semibold tracking-tight">NT${money(plan.monthly)}</span><span className="text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
           <p className="mt-2 text-sm leading-6 text-[#4C6259]">月繳按 12 期支付，最低承諾 12 個月；{plan.id === "ALLIANCE" ? "展店版" : plan.name}合計 NT${money(plan.annual)}，不含年繳贈送月份。</p>
           <div className="mt-3 rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] px-3 py-3">
-            <p className="text-sm font-semibold text-[#59441E]">年繳優惠方案{offer.active ? "・贈送 2 個月" : ""}</p>
+            <p className="text-sm font-semibold text-[#59441E]">{offer.active ? "年繳優惠方案・贈送 2 個月" : "年繳方案"}</p>
             <p className="mt-2 text-sm font-medium text-[#4C6259]">平均每月費用</p>
             <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1"><span className="text-3xl font-semibold tracking-tight">約 NT${money(Math.round(plan.annual / offer.months))}</span><span className="text-sm">／月</span></p>
             <p className="mt-2 text-sm leading-6 text-[#4C6259]">年繳 NT${money(plan.annual)}，一次繳清</p>

@@ -82,3 +82,10 @@ describe("pricing and growth plan copy", () => {
     expect(source).not.toContain("蒸足預約管理系統");
   });
 });
+
+it("keeps the internal primary prices and branch example aligned with current new quotes", () => {
+  const doc = readSource("docs/pricing-and-feature-packages.md");
+  for (const oldPrice of ["1,490", "2,490", "17,880", "29,880", "11,450"]) expect(doc).not.toContain(oldPrice);
+  for (const price of ["1,480", "2,480", "2,980", "17,760", "29,760", "35,760", "11,420"]) expect(doc).toContain(price);
+  expect(doc).toContain("既有合約金額與期間依原約，不用現價回算");
+});

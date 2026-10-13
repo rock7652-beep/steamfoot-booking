@@ -1,5 +1,5 @@
 /** HQ subscription is separate from each branch subscription. No inherited plan. */
-/**展店版主方案月繳為 NT$2,980 × 12 期；年繳總額同為 NT$35,760。僅供試算，不執行扣款。 */
+/** 現行新報價基準，不代表既有合約費率、應收或實收，不執行扣款。 */
 export const ALLIANCE_BASE_MONTHLY = 2980;
 export const ALLIANCE_STANDARD_BRANCH_LIMIT = 15;
 export const ALLIANCE_BRANCH_PRICING_COPY = "首間分店免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算。各分店系統月費另計，16 間起另行報價。";
@@ -38,6 +38,7 @@ export function organizationDescendants(stores: OrganizationStore[], rootId: str
   }
   return seen;
 }
+/** Organization topology cannot establish historical contract rates. Quote fields are current-price references only. */
 export function organizationSubscriptionRows(stores: OrganizationStore[]) {
   return stores.filter(s => s.plan === "ALLIANCE").map(s => {
     const branchCount = organizationDescendants(stores, s.id).size;
@@ -45,8 +46,8 @@ export function organizationSubscriptionRows(stores: OrganizationStore[]) {
     storeId: s.id, storeName: s.name,
     branchCount,
     purchasedBranches: branchCapacity(s),
-    monthlyFee: managementMonthlyFee(branchCount),
-    connectionFee: branchConnectionMonthlyFee(branchCount),
+    newQuoteMonthlyFee: managementMonthlyFee(branchCount),
+    newQuoteConnectionFee: branchConnectionMonthlyFee(branchCount),
     };
   });
 }

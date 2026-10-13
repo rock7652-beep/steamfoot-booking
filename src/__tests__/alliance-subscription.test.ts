@@ -16,11 +16,12 @@ describe("independent HQ and branch subscriptions", () => {
     expect(rows.find(s => s.id === "a0")?.plan).toBe("BASIC");
     expect(() => assertOrganizationCapacity([...rows, store("over", "hq-a")], "hq-a")).toThrow("額度不足");
   });
-  it("bills connected stores independently of unused capacity and updates after removal", () => {
+  it("quotes current prices for connected stores without treating them as historical contract amounts", () => {
     const hq = store("hq", null, "ALLIANCE", 16);
     const rows = [hq, store("a", "hq"), store("b", "hq"), store("c", "b")];
-    expect(organizationSubscriptionRows(rows)[0]).toMatchObject({ branchCount: 3, purchasedBranches: 15, connectionFee: 1000, monthlyFee: 3980 });
-    expect(organizationSubscriptionRows(rows.slice(0, 2))[0]).toMatchObject({ branchCount: 1, connectionFee: 0, monthlyFee: 2980 });
+    expect(organizationSubscriptionRows(rows)[0]).not.toHaveProperty("monthlyFee");
+    expect(organizationSubscriptionRows(rows)[0]).toMatchObject({ branchCount: 3, purchasedBranches: 15, newQuoteConnectionFee: 1000, newQuoteMonthlyFee: 3980 });
+    expect(organizationSubscriptionRows(rows.slice(0, 2))[0]).toMatchObject({ branchCount: 1, newQuoteConnectionFee: 0, newQuoteMonthlyFee: 2980 });
   });
   it("counts a moved subtree at every subscribed receiving ancestor", () => {
     const rows = [store("hq", null, "ALLIANCE", 3), store("branch", "hq"), store("child", "branch"), store("grandchild", "child")];

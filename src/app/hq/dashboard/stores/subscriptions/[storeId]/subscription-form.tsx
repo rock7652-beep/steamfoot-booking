@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { addTaiwanDuration } from "@/lib/date-utils";
 import { upsertStoreSubscription } from "@/server/actions/store-subscription";
 import {
   PLAN_OPTIONS,
@@ -61,17 +60,6 @@ export function SubscriptionForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const [pending, setPending] = useState(false);
 
-  /** 依現行週期帶入到期日；月繳服務期間依訂單手動確認。 */
-  function fillExpires() {
-    if (!startedAt) {
-      toast.error("請先填起始日");
-      return;
-    }
-    const months = billingCycle === "YEARLY" ? 14 : 1;
-    const plus = addTaiwanDuration(startedAt, months, "MONTH");
-    setExpiresAt(addTaiwanDuration(plus, -1, "DAY"));
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     // Read the submitted controls, including native date-picker/input edits.
@@ -119,7 +107,7 @@ export function SubscriptionForm({
       onSubmit={handleSubmit}
       className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm"
     >
-      <p className="mb-4 text-sm text-earth-600">轉正式：選擇購買方案及「使用中」，確認服務期間、合約總額與付款紀錄後儲存，沿用原店家帳號及資料。月繳新約最低承諾 12 個月，透過綠界信用卡定期定額授權按月扣款；年繳優惠依訂單使用 14 個月。總部核對訂單與付款結果後開通（並確認服務期間），並在此表單記錄方案與付款狀態；此表單不執行扣款。試用開通或延長請使用試用入口。</p>
+      <p className="mb-4 text-sm text-earth-600">轉正式：核對原合約、外部收款紀錄與服務可用期間後儲存，沿用原店家帳號及資料。付款週期不代表合約承諾期或服務可用期；既有合約依原約定。此表單僅供總部手動登記，不執行扣款。試用開通或延長請使用試用入口。</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>
@@ -200,20 +188,21 @@ export function SubscriptionForm({
         </div>
 
         <div>
-          <label className={labelCls}>合約總額（NT$；月繳填 12 期合計）</label>
+          <label htmlFor="subscription-priceAmount" className={labelCls}>實收金額（NT$）</label>
           <input
             type="number"
+            id="subscription-priceAmount"
             min={0}
             step={1}
             className={inputCls}
             value={priceAmount}
             onChange={(e) => setPriceAmount(e.target.value)}
-            placeholder="例如 39800"
+            placeholder="依收款紀錄填寫；未確認請留空"
           />
         </div>
 
         <div>
-          <label htmlFor="subscription-startedAt" className={labelCls}>起始日</label>
+          <label htmlFor="subscription-startedAt" className={labelCls}>訂閱起始日</label>
           <input
             type="date"
             className={inputCls}
@@ -226,7 +215,7 @@ export function SubscriptionForm({
         </div>
 
         <div>
-          <label htmlFor="subscription-effectiveAt" className={labelCls}>生效日（選填）</label>
+          <label htmlFor="subscription-effectiveAt" className={labelCls}>服務生效日（選填）</label>
           <input
             type="date"
             className={inputCls}
@@ -239,16 +228,7 @@ export function SubscriptionForm({
         </div>
 
         <div className="sm:col-span-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="subscription-expiresAt" className={labelCls}>到期日（最後一天仍可使用）</label>
-            <button
-              type="button"
-              onClick={fillExpires}
-              className="rounded-md border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700 hover:bg-primary-100"
-            >
-              依週期帶入
-            </button>
-          </div>
+          <label htmlFor="subscription-expiresAt" className={labelCls}>服務可用截止日（最後一天仍可使用）</label>
           <input
             type="date"
             className={inputCls}
@@ -258,8 +238,8 @@ export function SubscriptionForm({
             onChange={(e) => setExpiresAt(e.target.value)}
             onInput={(e) => setExpiresAt(e.currentTarget.value)}
           />
-          <p className="mt-1 text-[11px] text-earth-400">
-            月繳新約最低承諾 12 個月，請依訂單手動確認完整服務期間；年繳優惠為 14 個月（含贈送 2 個月）。既有合約期間依原約定。
+          <p className="mt-1 text-sm text-earth-600">
+            請依原合約核對已付與贈送期間後填寫，不依付款週期推算。合約總額與承諾期間：待核原合約；此處不自動計算，已確認內容可記於備註。
           </p>
         </div>
 
@@ -270,7 +250,7 @@ export function SubscriptionForm({
             rows={2}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="例如：月繳 NT$2,980 × 12 期；總額 NT$35,760；服務期間；付款方式與收款紀錄"
+            placeholder="例如：合約版本／期間、付款期數、已付與贈送可用期間、收款紀錄；不明項目標待核"
           />
         </div>
       </div>

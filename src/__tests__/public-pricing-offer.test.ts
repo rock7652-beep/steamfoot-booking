@@ -22,6 +22,13 @@ describe("public year-end payment offer", () => {
     expect(html.indexOf("月繳方案")).toBeLessThan(html.indexOf("年繳優惠方案"));
     expect(html).not.toContain("原價 NT$");
   });
+  it.each([YEAR_END_OFFER_END, YEAR_END_OFFER_END + 86400000])("uses neutral annual headings after the offer expires at %s", now => {
+    const html = renderToStaticMarkup(createElement(PricingOffer, { initialNow: now, trialUrl: "/trial" }));
+    expect(html).not.toContain("年繳優惠方案");
+    expect(html.match(/>年繳方案</g)).toHaveLength(3);
+    expect(html).toContain("支付 12 個月費用，使用 12 個月");
+    for (const price of ["17,760", "29,760", "35,760"]) expect(html).toContain(`年繳 NT$${price}`);
+  });
   it("counts actual elapsed time even after returning from a background tab", () => {
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 90061000).countdown).toEqual([1, 1, 1, 1]);
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 60000).countdown).toEqual([0, 0, 1, 0]);
