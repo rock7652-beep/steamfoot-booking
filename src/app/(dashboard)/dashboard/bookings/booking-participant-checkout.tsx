@@ -83,24 +83,24 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         </p>
       </div>
       {!readOnly && status === "PENDING" && <div className="flex flex-wrap items-start gap-2">
-        {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
-          if (window.confirm("從預約中刪除這位誤加的同行者？只會刪除尚未建檔、收款或開始服務的臨時名額，其他人不受影響。"))
-            void run(() => removeBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "REMOVED", null);
-        }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 min-w-11 rounded-lg border border-red-200 px-3 text-2xl leading-none text-red-700 disabled:opacity-50">×</button>}
         {checkout.canCollect && !isPlan && amount == null && (slot.customerId || checkout.canCollectUnregistered) && <button type="button" disabled={blocked || saving} onClick={() => { setUsingPlan(false); setSelling(false); setExpanded(!expanded); }}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">收款並完成 ${checkout.settings.defaultPrice.toLocaleString("zh-TW")}</button>}
         {checkout.canResolve && (amount == null || slot.receiptCorrected) && slot.customerId && !!slot.wallets?.length && <button type="button" disabled={blocked || saving}
           onClick={() => { setExpanded(false); setSelling(false); setWalletId(slot.wallets?.length === 1 ? slot.wallets[0].id : ""); setUsingPlan(!usingPlan); }}
           className="min-h-11 rounded-lg border border-primary-200 px-3 text-base text-primary-700 disabled:opacity-50">{isPlan ? "更換方案" : "改用方案"}</button>}
         {walletCount === 0 && sellButton}
-        {(checkout.canResolve || (canSell && walletCount !== 0)) && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="更多 ▾"><div className="flex flex-col gap-1">
+        {(checkout.canResolve || (canSell && walletCount !== 0)) && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="⋯"><div className="flex flex-col gap-1">
         {walletCount !== 0 && sellButton}
         {checkout.canResolve && <><button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`將${slot.name ?? "這位同行者"}標記未到？不會收取體驗費。`)) void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "NO_SHOW" }), "NO_SHOW");
         }} className="min-h-11 rounded-lg border border-earth-300 px-3 text-base disabled:opacity-50">未到</button>
         <button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`取消${slot.name ?? "這位同行者"}的名額？其他人不受影響，不會收取體驗費。`)) void run(() => resolveBookingParticipant({ bookingId, position: slot.position, revision: slot.revision, status: "CANCELLED" }), "CANCELLED");
-        }} className="min-h-11 rounded-lg border-t border-earth-200 px-3 text-base text-red-700 disabled:opacity-50">取消名額</button></>}</div></ExclusiveMenu>}
+        }} className="min-h-11 rounded-lg border-t border-earth-200 px-3 text-base text-red-700 disabled:opacity-50">取消名額</button>
+        {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
+          if (window.confirm("從預約中刪除這位誤加的同行者？只會刪除尚未建檔、收款或開始服務的臨時名額，其他人不受影響。"))
+            void run(() => removeBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "REMOVED", null);
+        }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 rounded-lg border-t border-red-100 px-3 text-base text-red-700 disabled:opacity-50">刪除臨時名額</button>}</>}</div></ExclusiveMenu>}
         {checkout.canResolve && isPlan && selectedWalletId && <button type="button" disabled={blocked || saving}
           onClick={() => void run(() => completeBookingParticipantPlan({ bookingId, position: slot.position, revision: slot.revision, walletId: selectedWalletId }), "COMPLETED", null)}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">完成並扣 1 堂</button>}
@@ -108,7 +108,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
           onClick={() => void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "completePaid" }), "COMPLETED", amount)}
           className="min-h-11 rounded-lg bg-primary-700 px-3 text-base text-white disabled:opacity-50">完成服務</button>}
       </div>}
-      {!readOnly && checkout.canResolve && status === "CANCELLED" && <div className="flex flex-wrap gap-2">
+      {!readOnly && checkout.canResolve && status === "CANCELLED" && <ExclusiveMenu label={`${slot.name ?? `同行者 ${slot.position - 1}`}更多操作`} triggerText="⋯"><div className="flex flex-col gap-1">
         <button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm(`恢復${slot.name ?? "這位同行者"}的名額？狀態會改回待到店；若要換人，請新增一位同行者。`))
             void run(() => restoreBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "PENDING", null);
@@ -116,8 +116,8 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
         {canRemoveWalkIn && <button type="button" disabled={blocked || saving} onClick={() => {
           if (window.confirm("從預約中刪除這個已取消的空白臨時名額？只有未建檔、未收款、未開始服務的名額可刪除。"))
             void run(() => removeBookingParticipant({ bookingId, position: slot.position, revision: slot.revision }), "REMOVED", null);
-        }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 min-w-11 rounded-lg border border-red-200 px-3 text-2xl leading-none text-red-700 disabled:opacity-50">×</button>}
-      </div>}
+        }} aria-label="移除臨時加入" title="移除臨時加入" className="min-h-11 rounded-lg border-t border-red-100 px-3 text-base text-red-700 disabled:opacity-50">刪除臨時名額</button>}
+      </div></ExclusiveMenu>}
       {!readOnly && checkout.canResolve && status === "COMPLETED" && <button type="button" disabled={blocked || saving}
         onClick={() => { if (window.confirm(isPlan ? "撤回這位顧客的完成服務？退回 1 堂並保留預約。" : "撤回這位顧客的完成服務？原收款保留，不會退款。"))
           void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "revert" }), "PENDING", amount); }}
