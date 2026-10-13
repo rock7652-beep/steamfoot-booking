@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPublicAnnualSavings, getPublicOfferHighlights, getPublicAddonOffer, DOUBLE_TEN_OFFER_END, getPublicPricingOffer, PUBLIC_PRICING_PLANS, YEAR_END_OFFER_END } from "@/lib/public-pricing-offer";
+import { getPublicOfferHighlights, getPublicAddonOffer, DOUBLE_TEN_OFFER_END, getPublicPricingOffer, PUBLIC_PRICING_PLANS, YEAR_END_OFFER_END } from "@/lib/public-pricing-offer";
 
 describe("public year-end payment offer", () => {
   it("ends at Taiwan midnight, with no grace period or negative countdown", () => {
@@ -7,10 +7,11 @@ describe("public year-end payment offer", () => {
     expect(getPublicPricingOffer(YEAR_END_OFFER_END)).toEqual({ active: false, months: 12, countdown: [0, 0, 0, 0] });
     expect(getPublicPricingOffer(YEAR_END_OFFER_END + 86400000).countdown).toEqual([0, 0, 0, 0]);
   });
-  it("keeps annual charges unchanged while reverting averages from 14 to 12 months", () => {
-    const averages = (time: number) => PUBLIC_PRICING_PLANS.map(plan => Math.round(plan.annual / getPublicPricingOffer(time).months));
-    expect(averages(YEAR_END_OFFER_END - 1)).toEqual([1277, 2134, 2554]);
-    expect(averages(YEAR_END_OFFER_END)).toEqual([1490, 2490, 2980]);
+  it("keeps monthly prices distinct from the 2 gifted months on annual plans", () => {
+    expect(PUBLIC_PRICING_PLANS.map(plan => plan.monthly)).toEqual([1490, 2490, 2980]);
+    expect(PUBLIC_PRICING_PLANS.map(plan => plan.annual)).toEqual(PUBLIC_PRICING_PLANS.map(plan => plan.monthly * 12));
+    expect(getPublicPricingOffer(YEAR_END_OFFER_END - 1).months).toBe(14);
+    expect(getPublicPricingOffer(YEAR_END_OFFER_END).months).toBe(12);
   });
   it("counts actual elapsed time even after returning from a background tab", () => {
     expect(getPublicPricingOffer(YEAR_END_OFFER_END - 90061000).countdown).toEqual([1, 1, 1, 1]);
@@ -29,16 +30,15 @@ describe("Double Ten addon offer", () => {
 });
 
 describe("homepage savings highlights", () => {
-  it("uses the same annual savings as the plan cards without counting gifted months", () => {
-    expect(PUBLIC_PRICING_PLANS.map(getPublicAnnualSavings)).toEqual([7320, 13320, 49440]);
-    expect(getPublicOfferHighlights(Date.parse("2026-10-03T12:00:00+08:00"))).toEqual({annualSavings: 49440, addonSavings: 3600, bonusMonths: 2});
+  it("shows addon savings and annual bonus months without claiming a main-plan discount", () => {
+    expect(getPublicOfferHighlights(Date.parse("2026-10-03T12:00:00+08:00"))).toEqual({addonSavings: 3600, bonusMonths: 2});
   });
   it("removes only the October addon discount at its cutoff", () => {
     expect(getPublicOfferHighlights(DOUBLE_TEN_OFFER_END - 1).addonSavings).toBe(3600);
-    expect(getPublicOfferHighlights(DOUBLE_TEN_OFFER_END)).toEqual({annualSavings: 49440, addonSavings: 0, bonusMonths: 2});
+    expect(getPublicOfferHighlights(DOUBLE_TEN_OFFER_END)).toEqual({addonSavings: 0, bonusMonths: 2});
   });
-  it("removes gifted months at year end and keeps the unchanged annual plan savings", () => {
+  it("removes gifted months at year end while leaving annual prices unchanged", () => {
     expect(getPublicOfferHighlights(YEAR_END_OFFER_END - 1).bonusMonths).toBe(2);
-    expect(getPublicOfferHighlights(YEAR_END_OFFER_END)).toEqual({annualSavings: 49440, addonSavings: 0, bonusMonths: 0});
+    expect(getPublicOfferHighlights(YEAR_END_OFFER_END)).toEqual({addonSavings: 0, bonusMonths: 0});
   });
 });
