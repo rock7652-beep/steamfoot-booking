@@ -19,7 +19,7 @@ function validDraft(value: unknown): value is Draft {
   return typeof draft.amount === "string" && draft.amount.length < 20 && paymentMethodValues.includes(draft.method) && typeof draft.note === "string" && draft.note.length <= 500;
 }
 
-function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdated, onBusy, onProgress, companions, canEditNote, onPersonNoteSaved, primaryCustomer, onOpenCustomer }: {
+function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdated, onBusy, onProgress, companions, canEditNote, onPersonNoteSaved, primaryCustomer, onOpenCustomer, latestWalkInPosition }: {
   onOpenCustomer?: (customerId: string) => void;
   primaryCustomer?: BookingDrawerPayload["booking"]["customer"];
   companions?: BookingDrawerPayload["companions"]; canEditNote?: boolean; onPersonNoteSaved?: (customerId: string, value: string | null) => void;
