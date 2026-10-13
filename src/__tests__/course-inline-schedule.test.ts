@@ -4,11 +4,11 @@ import {createRoot} from "react-dom/client";
 import {expect,it,vi} from "vitest";
 import {MusicScheduleWizard} from "@/app/(dashboard)/dashboard/courses/music-schedule-wizard";
 import {CourseScheduleLearners} from "@/components/admin/course-schedule-learners";
-const mocks=vi.hoisted(()=>({check:vi.fn().mockResolvedValue({success:true,issues:[]}),createCustomer:vi.fn(),create:vi.fn(),slots:vi.fn(),options:vi.fn(),purchaseOptions:vi.fn(),assign:vi.fn()}));
+const mocks=vi.hoisted(()=>({check:vi.fn().mockResolvedValue({success:true,issues:[]}),createCustomer:vi.fn(),create:vi.fn(),slots:vi.fn(),options:vi.fn(),customerCards:vi.fn().mockResolvedValue({success:true,cards:[]}),purchaseOptions:vi.fn(),assign:vi.fn()}));
 vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:mocks.check}));
 vi.mock("@/server/actions/course",()=>({createCourseSchedule:mocks.create}));
 vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:mocks.slots}));
-vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:mocks.options,createScheduleCustomer:mocks.createCustomer,loadCourseSchedulePurchaseOptions:mocks.purchaseOptions}));
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:mocks.options,loadCourseScheduleCustomerCards:mocks.customerCards,createScheduleCustomer:mocks.createCustomer,loadCourseSchedulePurchaseOptions:mocks.purchaseOptions}));
 vi.mock("@/server/actions/course-members",()=>({assignCoursePointCard:mocks.assign,loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
 vi.mock("@/components/admin/music-assignment-payment",()=>({MusicAssignmentPayment:()=>null}));
 vi.mock("@/components/dashboard-link",()=>({DashboardLink:()=>null}));
@@ -16,7 +16,7 @@ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 
 it("keeps the clicked room/time after changing the course and submits multiple learners in one save",async()=>{
   mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]},{id:"card-b",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"b",name:"小明",phone:"0922222222"}]}]});
+  mocks.customerCards.mockImplementation(async(_template:string,customerId:string)=>({success:true,cards:customerId==="a"?[{id:"card-a",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]:[{id:"card-b",name:"吉他4堂",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"b",name:"小明",phone:"0922222222"}]}]}));
   mocks.create.mockResolvedValue({success:true,data:{sessionId:"saved",sessions:[]}});
   const onCreated=vi.fn();
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
@@ -53,7 +53,7 @@ it("keeps the clicked room/time after changing the course and submits multiple l
 });
 
 it("blocks a selected learner whose plan cannot cover every class in the batch",async()=>{
-  mocks.options.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他方案",unit:"SESSION",available:2,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
+  mocks.customerCards.mockResolvedValue({success:true,cards:[{id:"card-a",name:"吉他方案",unit:"SESSION",available:2,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
   const onValidityChange=vi.fn();
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   try{
@@ -118,7 +118,7 @@ it("checks every repeated date before writing and lets the manager explicitly om
 });
 
 it("counts all shared-card learners against the batch credit total",async()=>{
-  mocks.options.mockResolvedValue({success:true,cards:[{id:"shared",name:"共卡",unit:"SESSION",available:3,members:[{id:"a",name:"小安",phone:"0911111111"},{id:"b",name:"小明",phone:"0922222222"}]}]});
+  mocks.customerCards.mockImplementation(async(_template:string,customerId:string)=>({success:true,cards:[{id:"shared",name:"共卡",unit:"SESSION",available:3,members:[{id:customerId,name:customerId==="a"?"小安":"小明",phone:customerId==="a"?"0911111111":"0922222222"}]}]}));
   const valid=vi.fn();const host=document.createElement("div");const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(CourseScheduleLearners,{templateId:"guitar",pointCost:1,capacity:2,occurrenceCount:2,value:[{customerId:"a",cardId:"shared",name:"小安"},{customerId:"b",cardId:"shared",name:"小明"}],onChange:vi.fn(),onValidityChange:valid})));
@@ -204,7 +204,7 @@ it("creates fixed classes at the selected weekly or every-other-week cadence",as
 
 it("keeps regular and trial learner drafts separate while switching purpose",async()=>{
   mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
-  mocks.options.mockResolvedValue({success:true,cards:[{id:"regular-card",name:"一般方案",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}],trialSettings:{enabled:true,price:0}});
+  mocks.options.mockResolvedValue({success:true,cards:[],trialSettings:{enabled:true,price:0}});mocks.customerCards.mockResolvedValue({success:true,cards:[{id:"regular-card",name:"一般方案",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}]});
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   const props={templates:[{id:"regular",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"trial",name:"體驗課",durationMinutes:60,capacity:2,defaultRoomId:null,musicTrialMode:"TRIAL"}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"purpose-switch",onCreated:vi.fn()};
   try{

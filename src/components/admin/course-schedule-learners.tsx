@@ -44,7 +44,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
     try {
       const result=await loadCourseScheduleCustomerCards(templateId,customerId);
       if(!result.success){setError({templateId,message:result.error??"學員方案讀取失敗"});return;}
-      setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===customerId)),...result.cards]);
+      setCards(current=>{const merged=new Map(current.map(card=>[card.id,card]));for(const card of result.cards){const existing=merged.get(card.id);merged.set(card.id,existing?{...card,members:[...existing.members,...card.members.filter(member=>!existing.members.some(item=>item.id===member.id))]}:card);}return [...merged.values()];});
       cardsLoadedRef.current.add(customerId);
       setError(null);
     }catch{setError({templateId,message:"學員方案讀取失敗"});}
@@ -119,7 +119,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
               if(!result.success){setPurchaseError(result.error??"繳費失敗");return;}
               const refreshed=await loadCourseScheduleCustomerCards(templateId,row.customerId);
               if(!refreshed.success){setPurchaseError("繳費已完成，但學員方案更新失敗；請重試讀取方案");return;}
-              setCards(current=>[...current.filter(card=>!card.members.some(member=>member.id===row.customerId)),...refreshed.cards]);
+              setCards(current=>{const merged=new Map(current.map(card=>[card.id,card]));for(const card of refreshed.cards)merged.set(card.id,card);return [...merged.values()];});
               cardsLoadedRef.current.add(row.customerId);
               const purchased=refreshed.cards.find(card=>card.available>0);
               if(purchased)onChange(value.map(item=>item.customerId===row.customerId?{...item,cardId:purchased.id,trialPrice:undefined}:item));
