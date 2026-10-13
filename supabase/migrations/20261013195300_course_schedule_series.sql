@@ -58,3 +58,6 @@ GROUP BY s."storeId", s."requestKey", s."templateId", s."roomId", s."coachId"
 HAVING COUNT(*) > 1
    AND COUNT(DISTINCT s."scheduleFrequency") = 1
 ON CONFLICT ("storeId", "requestKey") DO NOTHING;
+
+-- Keep this public-schema table inaccessible to direct client roles.
+ALTER TABLE public."CourseScheduleSeries" ENABLE ROW LEVEL SECURITY;
