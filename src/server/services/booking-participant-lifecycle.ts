@@ -55,7 +55,7 @@ async function releaseReserved(tx: Prisma.TransactionClient, person: Person) {
 export async function selectParticipantPlan(tx: Prisma.TransactionClient, input: Input & { walletId: string | null }) {
   await assertLifecycleReady(tx);
   const person = await lockPaymentParticipant(tx, input.storeId, input.participantId);
-  if (person.status !== "PENDING" || person.revision !== input.revision || !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) {
+  if (person.status !== "PENDING" || person.revision !== input.revision || !["PENDING", "CONFIRMED", "CANCELLED", "NO_SHOW"].includes(person.bookingStatus)) {
     throw new AppError("CONFLICT", "這位顧客的狀態已變更，請重新確認");
   }
   if (person.collectionTransactionId) {
@@ -131,7 +131,7 @@ export async function restoreCancelledParticipant(tx: Prisma.TransactionClient, 
   if (person.status !== "CANCELLED" || person.revision !== input.revision ||
       person.collectionTransactionId || person.walletSessionId || person.arrivedAt ||
       !["PENDING", "CONFIRMED"].includes(person.bookingStatus)) {
-    throw new AppError("CONFLICT", "只有尚未收款、開始服務且預約仍有效的取消名額可以恢復");
+    throw new AppError("CONFLICT", "只有尚未收款或開始服務的取消名額可以恢復");
   }
   await authorizeCorrection(tx, input, person, "PENDING");
   await tx.$executeRaw`UPDATE "BookingParticipant" SET status = 'PENDING',
