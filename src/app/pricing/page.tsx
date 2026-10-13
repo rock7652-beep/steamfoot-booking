@@ -62,7 +62,7 @@ function OnlinePayment() {
       </article>)}
     </div>
     <div className="mt-4 flex flex-col gap-1 border-t border-[#153B31]/15 pt-3 text-base leading-7 sm:flex-row sm:items-center sm:justify-between">
-      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,490、專業版 NT$2,490、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳透過綠界信用卡定期定額授權按月扣款；請先洽專人確認每期金額、12 期總額與服務期間，並依指示至綠界完成授權。總部核對訂單與付款結果後開通服務，蒸管家內不提供付款操作。</span></p>
+      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,480、專業版 NT$2,480、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳透過綠界信用卡定期定額授權按月扣款；請先洽專人確認每期金額、12 期總額與服務期間，並依指示至綠界完成授權。總部核對訂單與付款結果後開通服務，蒸管家內不提供付款操作。</span></p>
       <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">洽詢月繳與授權 ↗</a>
     </div>
     <div className="mt-2 space-y-1 text-sm leading-6 text-[#4C6259]">
@@ -163,7 +163,7 @@ export default async function PricingPage() {
         <details id="fee-details" className="mt-4 scroll-mt-24 border-t border-[#153B31]/15 py-3"><summary className="min-h-11 cursor-pointer py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-4">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li><PricingOfferTerms initialNow={initialNow} /></li>
-            <li>展店版月繳 NT$2,980／月，最低承諾 12 個月（合計 NT$35,760，無贈送）；或年繳 NT$35,760，優惠期間使用 14 個月。年繳包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</li>
+            <li>展店版月繳 NT$2,980／月，最低承諾 12 個月（合計 NT$35,760，無贈送）；或年繳 NT$35,760，優惠期間使用 14 個月。年繳包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版或專業版。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月；各分店基本版 NT$1,480／月、專業版 NT$2,480／月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計；使用期間自正式啟用日起算。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
