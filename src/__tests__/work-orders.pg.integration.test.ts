@@ -27,7 +27,6 @@ vi.mock("@/lib/feature-gate", () => ({
   hasStoreFeature: vi.fn(async () => true), checkCurrentStoreFeature: vi.fn(async () => true),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: vi.fn() }));
 import { prisma as appDb } from "@/lib/db";
 import { saveOrder } from "@/server/actions/inventory";

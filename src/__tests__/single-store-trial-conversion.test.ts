@@ -13,7 +13,7 @@ beforeEach(() => {
   m.storeFind.mockResolvedValue({ id: "store", plan: "EXPERIENCE", planStatus: "TRIAL", currentSubscriptionId: "trial" });
   m.subFind.mockResolvedValue({ id: "trial", storeId: "store", isTrial: true });
   m.subSave.mockImplementation(async ({ data }) => ({ id: "trial", ...data }));
-  m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, store: { findUniqueOrThrow: m.storeFind, update: m.storeSave }, storeSubscription: { findUnique: m.subFind, update: m.subSave, create: m.subSave }, ecpayRecurringAgreement: { findFirst: vi.fn().mockResolvedValue(null) }, storePlanChange: { create: m.log } }));
+  m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, store: { findUniqueOrThrow: m.storeFind, update: m.storeSave }, storeSubscription: { findUnique: m.subFind, update: m.subSave, create: m.subSave }, storePlanChange: { create: m.log } }));
 });
 describe("original-store trial conversion", () => {
   it.each(["BASIC", "GROWTH", "ALLIANCE"])("upgrades to %s at the final millisecond of retention day 30", async plan => {

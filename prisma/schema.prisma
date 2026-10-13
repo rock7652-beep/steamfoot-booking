@@ -453,15 +453,6 @@ enum SubscriptionPaymentMethod {
   CREDIT_CARD
 }
 
-enum EcpayRecurringStatus {
-  PENDING_AUTHORIZATION
-  ACTIVE
-  PAST_DUE
-  CANCEL_REQUESTED
-  CANCELLED
-  COMPLETED
-}
-
 enum PlanChangeType {
   TRIAL_STARTED
   UPGRADE_APPROVED
@@ -654,7 +645,6 @@ model Store {
 
   currentSubscription         StoreSubscription?          @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id])
   subscriptions               StoreSubscription[]         @relation("StoreSubscriptions")
-  ecpayRecurringAgreements    EcpayRecurringAgreement[]
   planChanges                 StorePlanChange[]
   featureEntitlements         StoreFeatureEntitlement[]
   digitalButlerFlows          StoreDigitalButlerFlow[]
@@ -2881,67 +2871,11 @@ model StoreSubscription {
   store           Store             @relation("StoreSubscriptions", fields: [storeId], references: [id])
   currentForStore Store?            @relation("CurrentSubscription")
   planChanges     StorePlanChange[]
-  ecpayRecurringAgreement EcpayRecurringAgreement?
 
   @@index([storeId])
   @@index([status])
   @@index([expiresAt])
   @@index([billingStatus])
-}
-
-// Billing agreements and signed provider notifications for merchant monthly subscriptions.
-// Consent snapshots are immutable; raw card data must never be stored here.
-model EcpayRecurringAgreement {
-  id                         String                @id @default(cuid())
-  storeId                    String
-  subscriptionId             String                @unique
-  merchantTradeNo            String                @unique @db.VarChar(20)
-  checkoutTokenHash          String                @unique
-  plan                       PricingPlan
-  monthlyAmount              Int
-  initialTermMonths          Int                   @default(12)
-  termsVersion               String
-  termsSnapshot              String                @db.Text
-  termsAcceptedAt            DateTime?
-  consentingName             String?
-  consentingEmail            String?
-  status                     EcpayRecurringStatus  @default(PENDING_AUTHORIZATION)
-  successfulPaymentCount     Int                   @default(0)
-  lastPaymentAt              DateTime?
-  cancelRequestedAt          DateTime?
-  cancelAfterSuccessCount    Int?
-  cancelledAt                DateTime?
-  lastProviderCode           String?
-  lastProviderMessage        String?
-  tokenExpiresAt             DateTime
-  createdBy                  String?
-  createdAt                  DateTime              @default(now())
-  updatedAt                  DateTime              @updatedAt
-
-  store        Store                         @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  subscription StoreSubscription             @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
-  events       EcpayRecurringPaymentEvent[]
-
-  @@index([storeId, status])
-  @@index([status, tokenExpiresAt])
-}
-
-model EcpayRecurringPaymentEvent {
-  id                  String   @id @default(cuid())
-  agreementId         String
-  eventKey            String   @unique
-  merchantTradeNo     String   @db.VarChar(20)
-  providerTradeNo     String?
-  rtnCode             Int
-  amount              Int?
-  totalSuccessTimes   Int?
-  processDate         String?
-  simulatedPaid       Boolean  @default(false)
-  receivedAt          DateTime @default(now())
-
-  agreement EcpayRecurringAgreement @relation(fields: [agreementId], references: [id], onDelete: Restrict)
-
-  @@index([agreementId, receivedAt])
 }
 
 // ============================================================
