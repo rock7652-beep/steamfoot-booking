@@ -185,3 +185,23 @@ it("creates fixed classes at the selected weekly or every-other-week cadence",as
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({date:"2099-10-01",additionalDates:["2099-10-15","2099-10-29"]}));
   }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("keeps regular and trial learner drafts separate while switching purpose",async()=>{
+  mocks.slots.mockResolvedValue({success:true,data:[{time:"18:00",roomId:"room",coachIds:["teacher"]}]});
+  mocks.options.mockResolvedValue({success:true,cards:[{id:"regular-card",name:"一般方案",unit:"SESSION",available:4,expiresAt:"2099-12-31T00:00:00Z",members:[{id:"a",name:"小安",phone:"0911111111"}]}],trialSettings:{enabled:true,price:0}});
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  const props={templates:[{id:"regular",name:"一般課",durationMinutes:60,capacity:2,defaultRoomId:null},{id:"trial",name:"體驗課",durationMinutes:60,capacity:2,defaultRoomId:null,musicTrialMode:"TRIAL"}],rooms:[{id:"room",name:"A教室"}],coaches:[{id:"teacher",displayName:"王老師"}],initialDate:"2099-10-01",requestKey:"purpose-switch",onCreated:vi.fn()};
+  try{
+    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+    const search=host.querySelector<HTMLInputElement>('[aria-label="搜尋排課學員"]')!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,"小安");
+    await act(async()=>search.dispatchEvent(new Event("input",{bubbles:true})));
+    const add=[...host.querySelectorAll("button")].find(button=>button.textContent?.startsWith("小安")&&button.textContent?.endsWith("＋"))!;
+    expect(add).toBeTruthy();await act(async()=>add.click());
+    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
+    await act(async()=>root.render(createElement(MusicScheduleWizard,{...props,isTrial:true})));
+    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).not.toContain("小安");
+    await act(async()=>root.render(createElement(MusicScheduleWizard,props)));
+    expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");
+  }finally{await act(async()=>root.unmount());host.remove();}
+});
