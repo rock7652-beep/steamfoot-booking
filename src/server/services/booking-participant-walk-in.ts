@@ -89,8 +89,6 @@ export async function removeBookingWalkIn(tx: Prisma.TransactionClient, input: {
         WHERE w."groupId" = p."groupId" AND w."storeId" = p."storeId" AND w.source = 'WALK_IN') AS "latestWalkIn",
       EXISTS (SELECT 1 FROM "Transaction" t WHERE t."storeId" = p."storeId"
         AND (t."unregisteredParticipantId" = p.id OR t.id = p."collectionTransactionId")) AS "hasLinkedTransaction",
-      EXISTS (SELECT 1 FROM "AuditLog" a WHERE a."storeId" = p."storeId"
-        AND a."targetType" = 'BookingParticipant' AND a."targetId" = p.id) AS "hasParticipantAudit"
     FROM "BookingParticipant" p
     WHERE p.id = ${slot.id} AND p."groupId" = ${groupId} AND p."storeId" = ${input.storeId}
     FOR UPDATE OF p`;
@@ -100,7 +98,7 @@ export async function removeBookingWalkIn(tx: Prisma.TransactionClient, input: {
       !(["PENDING", "CANCELLED"].includes(participant.status)) || participant.customerId !== null ||
       participant.revision !== input.revision || participant.arrivedAt !== null ||
       participant.collectionTransactionId !== null || participant.walletSessionId !== null ||
-      participant.hasLinkedTransaction || participant.hasParticipantAudit || !participant.latestWalkIn) {
+      participant.hasLinkedTransaction || !participant.latestWalkIn) {
     throw new AppError("BUSINESS_RULE", "只有最後一位尚未建檔、收款或開始服務的臨時加入者，才能直接移除；其他情況請恢復名額或新增同行者");
   }
 
