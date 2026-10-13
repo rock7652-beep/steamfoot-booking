@@ -93,7 +93,7 @@ export async function removeBookingWalkIn(tx: Prisma.TransactionClient, input: {
   const participant = rows[0];
   if (!participant) throw new AppError("NOT_FOUND", "同行者不存在或不屬於本店");
   if (participant.source !== "WALK_IN" || participant.service !== "FIRST_TRIAL" ||
-      participant.status !== "PENDING" || participant."customerId" !== null ||
+      participant.status !== "PENDING" || participant.customerId !== null ||
       participant.revision !== input.revision || participant.arrivedAt !== null ||
       participant.collectionTransactionId !== null || participant.walletSessionId !== null ||
       participant.hasLinkedTransaction || participant.hasParticipantAudit || !participant.latestWalkIn) {
