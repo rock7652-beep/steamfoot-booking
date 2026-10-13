@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPublicAddonOffer, getPublicAnnualSavings, getPublicOfferHighlights, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
+import { getPublicAddonOffer, getPublicOfferHighlights, getPublicPricingOffer, PUBLIC_PRICING_PLANS } from "@/lib/public-pricing-offer";
 import { PUBLIC_ADDON_GROUPS, PUBLIC_WORK_ORDER_DEPENDENCY } from "@/lib/public-marketing-copy";
 import { MarketingIcon } from "./marketing-icon";
 
@@ -21,7 +21,6 @@ function useNow(initialNow: number) {
   return now;
 }
 const money = (amount: number) => amount.toLocaleString("zh-TW");
-const annualSavings = getPublicAnnualSavings;
 
 export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; trialUrl: string }) {
   const offer = getPublicPricingOffer(useNow(initialNow));
@@ -31,7 +30,7 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         <div>
           <p className="text-sm font-semibold tracking-widest text-[#ECD5A4]">2026 年底前限定優惠</p>
           <h2 id="yearend-offer" className="scroll-mt-24 mt-2 text-2xl font-semibold leading-snug sm:text-3xl">年繳 12 個月<span className="block text-[#ECD5A4] sm:ml-3 sm:inline">再送 2 個月</span></h2>
-          <p className="mt-2 text-lg font-semibold text-[#ECD5A4]">年繳最高省 NT${money(Math.max(...PUBLIC_PRICING_PLANS.map(annualSavings)))}</p>
+          <p className="mt-2 text-lg font-semibold text-[#ECD5A4]">各方案年繳金額不變，額外贈送 2 個月。</p>
         </div>
         <div className="shrink-0">
           <p className="mb-2 text-sm text-[#E0E9E3]">優惠倒數</p>
@@ -51,20 +50,23 @@ export function PricingOffer({ initialNow, trialUrl }: { initialNow: number; tri
         <p className="mt-1 text-lg font-medium">{plan.purpose}</p>
         <p className="mt-1 text-base leading-6 text-[#4C6259]">適合{plan.audience}</p>
         <div className="mt-3 border-t border-[#153B31]/15 pt-3">
-          <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
-          <p className="mt-2 text-sm font-medium text-[#4C6259]">年繳換算・平均每月{offer.active ? "約" : ""}</p>
-          <p className="mt-1 flex flex-wrap items-baseline gap-x-1"><span className="text-4xl font-semibold tracking-tight">NT${money(Math.round(plan.annual / offer.months))}</span><span className="text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
-          <p className="mt-2 text-base font-semibold">年繳 NT${money(plan.annual)}{plan.id === "ALLIANCE" ? "起" : ""}<span className="block text-sm font-normal text-[#4C6259]">一次繳清</span></p>
-          <p className="mt-2 text-sm leading-6 text-[#4C6259]">月繳 NT${money(Math.round(plan.annual / 12))}／月 × 12 期＝NT${money(plan.annual)}，最低承諾 12 個月，無年繳贈送。</p>
-          <p className="mt-2 text-lg font-semibold text-[#805C1B]">年繳省 NT${money(annualSavings(plan))}</p>
-          <p className="mt-2 rounded-lg border border-[#C39A51]/30 bg-[#FBF4E5] px-3 py-2 text-base font-semibold text-[#59441E]">{offer.active ? <>12 個月<span className="ml-1 text-[#805C1B]">＋贈送 2 個月</span></> : "使用 12 個月"}</p>
+          <p className="text-sm font-medium text-[#4C6259]">月繳方案</p>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-1"><span className="text-4xl font-semibold tracking-tight">NT${money(plan.monthly)}</span><span className="text-base">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
+          <p className="mt-2 text-sm leading-6 text-[#4C6259]">月繳按 12 期支付，最低承諾 12 個月；{plan.id === "ALLIANCE" ? "展店版" : plan.name}合計 NT${money(plan.annual)}，不含年繳贈送月份。</p>
+          <div className="mt-3 rounded-xl border border-[#C39A51]/40 bg-[#FBF4E5] px-3 py-3">
+            <p className="text-sm font-semibold text-[#59441E]">年繳優惠方案{offer.active ? "・贈送 2 個月" : ""}</p>
+            <p className="mt-2 text-sm font-medium text-[#4C6259]">平均每月費用</p>
+            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1"><span className="text-3xl font-semibold tracking-tight">約 NT${money(Math.round(plan.annual / offer.months))}</span><span className="text-sm">／月</span></p>
+            <p className="mt-2 text-sm leading-6 text-[#4C6259]">年繳 NT${money(plan.annual)}，一次繳清</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#59441E]">{offer.active ? "支付 12 個月費用，共使用 14 個月" : "支付 12 個月費用，使用 12 個月"}</p>
+          </div>
         </div>
         <ul className="my-3 space-y-1 text-sm leading-6">{plan.benefits.map(benefit => <li key={benefit} className="flex gap-2"><span aria-hidden="true" className="font-semibold text-[#805C1B]">✓</span><span>{benefit}</span></li>)}</ul>
         {plan.id === "ALLIANCE" && <p className="mb-3 text-sm leading-6 text-[#4C6259]">串接費依實際分店數另計；各分店系統月費另計。</p>}
         <a href={trialUrl} className="mt-auto inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 py-3 text-base font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請 30 天免費體驗<span aria-hidden="true" className="ml-2">→</span></a>
       </article>)}
     </section>
-    <p className="mt-3 text-sm leading-6 text-[#4C6259]">年繳省額依原價月費 × 12 − 年繳總額計算，不含贈送月份價值。平均月費依年繳總額 ÷ {offer.months} 個月{offer.active ? "計算，四捨五入至整元" : "計算"}，採一次年繳。使用期間自正式啟用日起算。LINE 訊息、金流、加購功能與分店相關費用另計，開通前確認。</p>
+    <p className="mt-3 text-sm leading-6 text-[#4C6259]">年繳一次支付 12 個月費用；優惠期間額外贈送 2 個月，年繳金額不變。月繳按月收取 12 期，最低承諾 12 個月，不含贈送月份。使用期間自正式啟用日起算。LINE 訊息、金流、加購功能與分店相關費用另計，開通前確認。</p>
   </>;
 }
 export function PricingOfferTerms({ initialNow }: { initialNow: number }) {
@@ -120,14 +122,14 @@ export function AddonRate({ initialNow, original }: { initialNow: number; origin
 export function HomepageOffer({ initialNow }: { initialNow: number }) {
   const offer = getPublicOfferHighlights(useNow(initialNow));
   return <aside aria-labelledby="home-offer-title" className="rounded-2xl bg-[#123E32] px-5 py-4 text-[#F8F5EE] sm:p-6">
-    <h3 id="home-offer-title" className="text-xl font-semibold">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "限時優惠，年繳更划算。" : "年繳更划算。"}</h3>
+    <h3 id="home-offer-title" className="text-xl font-semibold">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "限時優惠，年繳多送 2 個月。" : "了解年繳方案。"}</h3>
     <dl className="mt-3 grid gap-3 sm:mt-4 sm:gap-4">
-      <div><dt className="text-base text-[#D4E0D8]">主方案年繳最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.annualSavings)}</dd></div>
+      {offer.bonusMonths > 0 && <div><dt className="text-base text-[#D4E0D8]">年繳加贈</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">{offer.bonusMonths} 個月</dd></div>}
       {offer.addonSavings > 0 && <div><dt className="text-base text-[#D4E0D8]">加購功能年繳，每項最高省</dt><dd className="mt-1 text-3xl font-semibold tracking-tight text-[#ECD5A4] sm:text-4xl">NT${money(offer.addonSavings)}</dd></div>}
     </dl>
     {offer.bonusMonths > 0 && <p className="mt-3 text-base font-semibold sm:mt-4">年繳再送 {offer.bonusMonths} 個月</p>}
     <div className="mt-3 border-t border-white/15 pt-2 text-sm leading-5 text-[#D4E0D8] sm:leading-6">
-      <p>省額依方案{offer.addonSavings > 0 ? "／加購項目" : ""}而定。</p>
+      {offer.addonSavings > 0 && <p>加購優惠金額依所選功能而定。</p>}
       {(offer.addonSavings > 0 || offer.bonusMonths > 0) && <p>{offer.addonSavings > 0 && <span className="block">加購優惠至 2026/10/31</span>}{offer.bonusMonths > 0 && <span className="block">贈送月份至 2026/12/31</span>}期限前完成付款，自正式啟用日起算。</p>}
     </div>
     <a href="/pricing" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#F5EEDC] px-5 py-2 text-base font-semibold text-[#123E32] hover:bg-[#ECD5A4] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ECD5A4] sm:w-auto">{offer.addonSavings > 0 || offer.bonusMonths > 0 ? "查看優惠詳情" : "查看方案詳情"}<span aria-hidden="true" className="ml-2">→</span></a>

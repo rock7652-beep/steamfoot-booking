@@ -7,7 +7,7 @@ describe("independent HQ and branch subscriptions", () => {
     expect([0, 1, 2, 3, 5, 6, 10, 15, 16, 31].map(managementMonthlyFee)).toEqual([2980, 2980, 3480, 3980, 4980, 5280, 6480, 7980, null, null]);
     expect([0, 1, 2, 5, 6, 10, 15, 16].map(branchConnectionMonthlyFee)).toEqual([0, 0, 500, 2000, 2300, 3500, 5000, null]);
     for (const invalid of [-1, 1.5, NaN, Infinity]) expect(() => managementMonthlyFee(invalid)).toThrow();
-    expect(managementMonthlyFee(3)! + 3 * 2490).toBe(11450);
+    expect(managementMonthlyFee(3)! + 3 * 2480).toBe(11420);
   });
   it("supports over 30 branches without pooling unrelated organizations", () => {
     const rows = [store("hq-a", null, "ALLIANCE", 32), store("hq-b", null, "ALLIANCE"), store("other", "hq-b"), ...Array.from({ length: 31 }, (_, i) => store(`a${i}`, "hq-a", i % 2 ? "GROWTH" : "BASIC"))];
