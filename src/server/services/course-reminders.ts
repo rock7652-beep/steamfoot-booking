@@ -2,9 +2,7 @@ import { currentPreviewLineAcceptance, withAcceptanceRetryKey } from "@/lib/prev
 import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
-import { coursePrisma } from "@/lib/course-db";
-import { addTaiwanDuration,dayRange,formatTWDateTime,monthRange,toLocalDateStr,toLocalMonthStr } from "@/lib/date-utils";
-import { courseMemberNotificationUrl, courseBookingActionUrl } from "./course-delivery-links";
+import { monthRange,toLocalMonthStr } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
@@ -15,21 +13,9 @@ import { resolveCentralLineRecipientForCustomer } from "./central-line-recipient
 import { resolveVerifiedReminderLineRoute } from "./verified-reminder-line-route";
 import { buildPackageBookingReminderLineMessages, buildPackageBookingTestReminderLineMessages } from "./trial-booking-reminder-line-message";
 
-export const COURSE_REMINDER_TRIGGER="COURSE_NEXT_DAY";
-export const COURSE_REMINDER_DEFAULT="請記得準時到課；如需取消，請依店家規則在會員專區逐位處理。";
-export const courseReminderId=(storeId:string)=>`course-next-day:${storeId}`;
-export async function getCourseReminderCandidates(storeId:string,now=new Date()) {
- const store=await prisma.store.findFirst({where:{id:storeId,industryModule:"COURSE"},select:{id:true,name:true,slug:true}});
- if(!store) throw new Error("此提醒僅適用本店課程");
- const date=addTaiwanDuration(toLocalDateStr(now),1,"DAY"),range=dayRange(date);
- const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,status:"RESERVED",session:{storeId,cancelledAt:null,startsAt:{gte:range.start,lte:range.end}}},include:{session:true}});
- const customers=await prisma.customer.findMany({where:{storeId,id:{in:bookings.map(b=>b.customerId ?? b.reserverCustomerId).filter((id): id is string => !!id)},mergedIntoCustomerId:null},select:{id:true,name:true,lineUserId:true}});
- return bookings.flatMap(booking=>{const customer=customers.find(c=>c.id===(booking.customerId ?? booking.reserverCustomerId));return customer?[{booking,customer,store,date}]:[];});
-}
-function retryKey(id:string) {
- const hex=createHash("sha256").update(id).digest("hex");
- return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20,32)}`;
-}
+import { COURSE_REMINDER_TRIGGER, COURSE_REMINDER_DEFAULT, getCourseReminderCandidates, prepareCourseReminderEvent, courseReminderRetryKey } from "./course-reminder-events";
+export { COURSE_REMINDER_TRIGGER, COURSE_REMINDER_DEFAULT, courseReminderId, getCourseReminderCandidates } from "./course-reminder-events";
+
 export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
  const acceptance=currentPreviewLineAcceptance();
  if(acceptance && onlyStoreId!==acceptance.storeId) throw new Error("驗收店家不匹配");
@@ -42,11 +28,9 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
   for(const {booking,customer,store,date} of candidates) {
    if(acceptance && (booking.id!==acceptance.bookingId || customer.id!==acceptance.customerId)) continue;
    summary.total++;
-   const id=`course-reminder:${createHash("sha256").update(`${store.id}:${booking.id}:${booking.session.startsAt.toISOString()}`).digest("hex")}`;
-   const url=courseMemberNotificationUrl(store.slug,"bookings",date);
-   const text=rule.template?.body??COURSE_REMINDER_DEFAULT;
-   const body=`${customer.name}｜${formatTWDateTime(booking.session.startsAt)}｜${booking.session.nameSnapshot}\n${text}\n${url}`;
-   const triggerAt=new Date(`${toLocalDateStr(now)}T18:00:00+08:00`);
+   const {id,url,body,triggerAt,messageInput} = prepareCourseReminderEvent(
+     {booking,customer,store,date}, rule.template?.body??COURSE_REMINDER_DEFAULT, now, map,
+   );
    try {
     const status=await prisma.$transaction(async tx=>{
      // One delivery/quota claim at a time for a course store, including retries.
@@ -68,9 +52,9 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient,customer.id,tx);
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
      if(acceptance && (route.channel!=="STORE" || createHash("sha256").update(route.recipientLineUserId).digest("hex")!==acceptance.recipientHash)) return skip("驗收收件人或通道不匹配");
-     const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,address:map?.address??undefined,mapUrl:map?.mapUrl && /^https:\/\//.test(map.mapUrl) ? map.mapUrl : undefined,courseActions:{...(booking.bookingKind==="TRIAL"?{confirm:courseBookingActionUrl(store.slug,date,booking.id,"confirm")}:{}),reschedule:courseBookingActionUrl(store.slug,date,booking.id,"reschedule"),cancel:courseBookingActionUrl(store.slug,date,booking.id,"cancel")}},url.toString(),booking.id);
-     const deliver=()=>route.channel==="STORE"?pushMessage(store.id,route.recipientLineUserId,messages,retryKey(id)):pushSteamButlerMessage(route.recipientLineUserId,messages,retryKey(id));
-     const sent=acceptance?await withAcceptanceRetryKey(retryKey(id),deliver):await deliver();
+     const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)(messageInput,url.toString(),booking.id);
+     const deliver=()=>route.channel==="STORE"?pushMessage(store.id,route.recipientLineUserId,messages,courseReminderRetryKey(id)):pushSteamButlerMessage(route.recipientLineUserId,messages,courseReminderRetryKey(id));
+     const sent=acceptance?await withAcceptanceRetryKey(courseReminderRetryKey(id),deliver):await deliver();
      await tx.messageLog.update({where:{id},data:{status:sent.success?"SENT":"FAILED",lineRoute:route.channel,sentAt:sent.success?now:null,errorMessage:sent.success?null:sent.error}});
      return sent.success?"SENT" as const:"FAILED" as const;
     },{timeout:25000});

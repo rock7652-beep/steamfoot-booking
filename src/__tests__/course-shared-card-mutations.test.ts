@@ -26,6 +26,7 @@ import { saveCoursePointPlan, setCourseCardMembers } from "@/server/actions/cour
 const planInput = { name: "自由選課", points: 10, price: 100, validDays: 30, unit: "POINT", templateIds: [], termSessionIds: [] };
 const oldPlan = { id: "plan", ...planInput, allowShared: true };
 const tx = {
+  courseTemplate: {findFirst: m.template, count: vi.fn().mockResolvedValue(1)},
   coursePointPlan: { findFirst: m.plan, create: m.createPlan, updateMany: m.updatePlan },
   coursePointCard: { findFirst: m.card }, courseBooking: { findMany: m.bookings },
   courseCardMember: { deleteMany: m.remove, createMany: m.add }, $queryRaw: m.raw,
@@ -90,7 +91,7 @@ describe("shared-card plan mutations", () => {
     expect(m.state).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])("rejects a stale music profile before allowing new sharing (initial music=%s)", async initialMusic => {
+  it.each([false, true])("validates the profile read under the store lock before allowing new sharing (stale UI music=%s)", async initialMusic => {
     m.music.mockResolvedValue(initialMusic ? { storeId: "sports" } : null);
     m.raw.mockResolvedValue(initialMusic ? [] : [{ featureKey: "business.music" }]);
     m.state.mockResolvedValue("ENABLED");
@@ -98,7 +99,7 @@ describe("shared-card plan mutations", () => {
     const input = initialMusic
       ? { ...planInput, unit: "SESSION", templateIds: ["music-template"], musicTerms: 1, allowShared: true }
       : { ...planInput, allowShared: true };
-    expect(await saveCoursePointPlan(input)).toMatchObject({ success: false, error: "店家課程類型已變更，請重新確認方案" });
+    expect(await saveCoursePointPlan(input)).toMatchObject({ success: false, error: initialMusic ? "運動方案不使用音樂課期數" : "音樂教室方案以堂數計算；每次上課使用 1 堂" });
     expect(m.createPlan).not.toHaveBeenCalled();
     expect(m.updatePlan).not.toHaveBeenCalled();
     expect(m.state).not.toHaveBeenCalled();

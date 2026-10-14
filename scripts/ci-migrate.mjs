@@ -1,3 +1,9 @@
+import { assertCourseBusinessBoundariesPreview } from "./course-business-boundaries-preview-scope.mjs";
+if (assertCourseBusinessBoundariesPreview(process.env)) {
+  console.info("[course-business-boundaries-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
+}
+
 // Public article review must not trigger a preview build or database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("content/approved-business-guides-20261008")) {
   throw new Error("Public article review branch deployment is disabled; production main remains enabled.");

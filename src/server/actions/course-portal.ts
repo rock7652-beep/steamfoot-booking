@@ -1,5 +1,7 @@
 "use server";
 import {musicPurchaseTerms} from "@/lib/music-course-products";
+import { isMusicCourseStore } from "@/server/services/course-business-profile";
+import { assertCoursePurchaseUnit } from "@/server/services/course-purchase-rules";
 import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
 import {validateCourseTerm,enrollCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
@@ -138,9 +140,8 @@ export async function purchaseCoursePlan(input: unknown) {
         where: { id: data.planId, storeId, isActive: true, customerPurchasable: true },
       });
       if (!plan) throw new AppError("NOT_FOUND", "此方案目前不開放顧客購買");
-      if(plan.unit==="POINT"){
-        const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-        if(music.some(row=>row.featureKey==="business.music"))throw new AppError("VALIDATION","音樂教室只販售堂數方案");
+      if (plan.unit === "POINT") {
+        assertCoursePurchaseUnit(await isMusicCourseStore(tx, storeId), plan.unit, "音樂教室只販售堂數方案");
       }
       const owners=await tx.$queryRaw<Array<{assignedStaffId:string|null}>>`SELECT "assignedStaffId" FROM "Customer" WHERE id=${customer.id} AND "storeId"=${storeId}`;
       const allocation=await courseSaleSnapshot(tx,storeId,plan.price,plan.storeCost,owners[0]?.assignedStaffId??null);
@@ -193,9 +194,8 @@ export async function confirmCoursePurchase(input: unknown) {
       >`SELECT id FROM "Customer" WHERE id=${order.customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;
       if (!customers.length)
         throw new AppError("VALIDATION", "顧客資料已變更，請先核對");
-      const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-      const musicCard=music.some(row=>row.featureKey==="business.music");
-      if(musicCard && order.unit!=="SESSION")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
+      const musicCard = await isMusicCourseStore(tx, storeId);
+      assertCoursePurchaseUnit(musicCard, order.unit, "音樂教室只使用堂數方案");
       const card = await tx.coursePointCard.create({
         data: {
           storeId,

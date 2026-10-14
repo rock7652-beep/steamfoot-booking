@@ -1,3 +1,4 @@
+import { installAuditOutboxTestSchema } from "./helpers/audit-outbox-test-schema";
 import { reserveCourseInTransaction, settleCourseBooking } from "@/server/services/course-booking";
 import { personalIncomeView, summarizePersonalIncome } from "@/lib/course-personal-income";
 import { confirmCourseMonthlySettlement } from "@/server/actions/course-monthly-settlement";
@@ -9,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { PrismaClient } from "../../generated/course-client";
+import { PrismaClient, type CourseSession, type CourseBooking } from "../../generated/course-client";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
 import { deleteUnusedCourseItems } from "@/server/services/course-delete";
@@ -36,6 +37,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
   beforeAll(async () => {
     await testDb().$executeRawUnsafe(`CREATE SCHEMA "${schemaName}"`);
     created = true;
+    await installAuditOutboxTestSchema(databaseUrl!, testDb());
     const ddl = execFileSync("node_modules/.bin/prisma", ["migrate", "diff", "--from-empty", "--to-schema-datamodel", "course-prisma/schema.prisma", "--script"], { encoding: "utf8" });
     // Prisma emits DDL statements without function bodies; each statement runs in this test schema.
     for (const statement of ddl.split(";").map(s => s.trim()).filter(Boolean)) {
@@ -52,7 +54,8 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
       note text CHECK (note NOT LIKE '%force-rollback%'), "staffId" text, "createdByUserId" text, "updatedAt" timestamp)`);
     await testDb().$executeRawUnsafe(`CREATE TABLE "AuditLog" (
       id text PRIMARY KEY, "actorUserId" text, "targetType" text, "targetId" text,
-      action text, "beforeJson" jsonb, "afterJson" jsonb, "createdAt" timestamp)`);
+      action text, "beforeJson" jsonb, "afterJson" jsonb, "createdAt" timestamp, "storeId" text, module text, summary text, "actorNameSnapshot" text)`);
+    await testDb().$executeRawUnsafe('CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)');
     await testDb().$executeRawUnsafe('CREATE TABLE "User" (id text PRIMARY KEY,status text,role text)');
     await testDb().$executeRawUnsafe('CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"userId" text,"displayName" text,status text)');
     await testDb().$executeRawUnsafe('CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,"mergedIntoCustomerId" text, name text)');
@@ -144,6 +147,68 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
       expect(cash).toHaveLength(5); // purchase, profit, fee, fee reversal, replacement
       expect(cash.reduce((sum,e)=>sum+(e.type==="INCOME"?e.amount:-e.amount),0)).toBe(400);
       expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:1});
+    } finally { vi.useRealTimers(); }
+  });
+  it("music purchase, attendance and private/group leave retain quota, v2 fees, monthly confirmation and payment", async () => {
+    vi.useFakeTimers({toFake:["Date"]});
+    vi.setSystemTime(new Date("2026-09-25T01:00:00Z"));
+    try {
+      const f={...await fixture(),discountValue:0,expectedListPrice:2600};
+      await testDb().$executeRaw`INSERT INTO "StoreFeatureEntitlement" VALUES (${f.storeId},'business.music','ENABLED')`;
+      const coachId=randomUUID();
+      await testDb().$executeRaw`INSERT INTO "Staff" VALUES (${coachId},${f.storeId},${coachId},'驗收音樂教師','ACTIVE')`;
+      const actor={storeId:f.storeId,userId:f.storeId,name:"驗收店長"};
+      const run=<T,>(work:(tx:import("../../generated/course-client").Prisma.TransactionClient)=>Promise<T>)=>testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return work(tx);});
+      vi.mocked(courseManager).mockResolvedValue({storeId:f.storeId,user:{id:f.storeId,role:"OWNER"}} as Awaited<ReturnType<typeof courseManager>>);
+      vi.mocked(courseTransaction).mockImplementation(async (_storeId,work)=>run(work));
+      const room=await testDb().courseRoom.create({data:{storeId:f.storeId,name:"音樂驗收教室"}});
+      const templates=await Promise.all((["PRIVATE","GROUP"] as const).map(classType=>testDb().courseTemplate.create({data:{storeId:f.storeId,name:classType,durationMinutes:60,pointCost:1,capacity:5,classType,musicTermLessons:4}})));
+      await testDb().coursePointPlan.update({where:{id:f.planId},data:{points:4,price:2600,unit:"SESSION",musicTerms:1,musicTermSizes:[4],templateIds:templates.map(t=>t.id),validDays:35}});
+      const purchase=()=>run(tx=>assignCourseWithCheckout(tx,{storeId:f.storeId,userId:f.storeId,music:true},f));
+      const order=await purchase();
+      expect((await purchase()).id).toBe(order.id);
+      expect(order).toMatchObject({price:2600,points:4,storeCostSnapshot:2600,developerProfitSnapshot:0});
+      const sessions:Array<{session:CourseSession;booking:CourseBooking}>=[];
+      for (const [index,template] of [templates[0],templates[1],templates[0]].entries()) {
+        const startsAt=new Date(`2026-09-25T0${2+index*2}:00:00Z`);
+        const session=await testDb().courseSession.create({data:{storeId:f.storeId,templateId:template.id,roomId:room.id,coachId,nameSnapshot:template.name,startsAt,endsAt:new Date(startsAt.getTime()+3600000),capacity:5,pointCost:1,requestKey:randomUUID(),requestIndex:0,createdById:f.storeId}});
+        await testDb().courseCompensationSnapshot.create({data:{sessionId:session.id,storeId:f.storeId,staffId:coachId,rule:{mode:"SHARE",value:65,calculationVersion:2},revision:1,durationMinutes:60,musicPricePerLesson:650}});
+        const booking=await run(tx=>reserveCourseInTransaction(tx,actor,{sessionId:session.id,cardId:order.cardId!,customerId:f.customerId,requestKey:randomUUID()},null));
+        sessions.push({session,booking});
+      }
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:4,musicActivatedAt:null});
+      vi.setSystemTime(new Date("2026-09-25T09:00:00Z"));
+      await run(tx=>settleCourseBooking(tx,actor,sessions[0].booking.id,"ATTENDED"));
+      await run(tx=>settleCourseBooking(tx,actor,sessions[1].booking.id,"STUDENT_LEAVE"));
+      await run(tx=>settleCourseBooking(tx,actor,sessions[2].booking.id,"STUDENT_LEAVE"));
+      // Replays must not debit the same attendance or group leave twice.
+      await run(tx=>settleCourseBooking(tx,actor,sessions[1].booking.id,"STUDENT_LEAVE"));
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:2,musicActivatedAt:sessions[0].session.startsAt,expiresAt:new Date("2026-10-29T15:59:59.999Z")});
+      expect(await testDb().courseBooking.findUnique({where:{id:sessions[1].booking.id}})).toMatchObject({status:"CANCELLED",absenceKind:"GROUP_LEAVE_FORFEITED"});
+      expect(await testDb().courseBooking.findUnique({where:{id:sessions[2].booking.id}})).toMatchObject({status:"CANCELLED",absenceKind:"STUDENT_LEAVE"});
+      expect(await testDb().coursePointEntry.count({where:{cardId:order.cardId!,kind:"DEBIT"}})).toBe(2);
+      const read=()=>run(tx=>readCourseMonthlySettlement(tx,f.storeId,"2026-09"));
+      let report=await read();
+      expect(report.lines.filter(l=>l.kind==="FEE").map(l=>l.amount)).toEqual([423,423]);
+      expect(report.lines.some(l=>l.issue)).toBe(false);
+      const confirmation={month:"2026-09",fingerprint:report.fingerprint,revision:0,reason:"音樂隔離完整流程驗收"};
+      expect(await confirmCourseMonthlySettlement(confirmation)).toEqual({success:true});
+      expect(await confirmCourseMonthlySettlement(confirmation)).toEqual({success:true});
+      for (const {session} of sessions.slice(0,2)) {
+        const payment={sessionId:session.id,expectedAmount:423,method:"OTHER",note:"驗收授課費登錄",requestKey:randomUUID()};
+        await run(tx=>recordCourseFeePayment(tx,actor,payment));
+        await run(tx=>recordCourseFeePayment(tx,actor,payment));
+      }
+      report=await read();
+      expect(report.revisions).toHaveLength(1);
+      const own=personalIncomeView(coachId,report.lines,report.revisions[0]);
+      expect(summarizePersonalIncome(own.lines)).toEqual({total:846,paid:846,remaining:0,overpaid:0});
+      expect(await testDb().courseFeePayment.count({where:{storeId:f.storeId}})).toBe(2);
+      const cash=await testDb().$queryRaw<Array<{type:string;amount:number}>>`SELECT type,amount FROM "CashbookEntry" WHERE "storeId"=${f.storeId}`;
+      expect(cash).toHaveLength(3);
+      expect(cash.reduce((sum,e)=>sum+(e.type==="INCOME"?e.amount:-e.amount),0)).toBe(1754);
+
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:2});
     } finally { vi.useRealTimers(); }
   });
   it("concurrent retries issue one card and one receipt at the discounted amount",async()=>{

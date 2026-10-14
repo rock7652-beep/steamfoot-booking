@@ -35,4 +35,27 @@ describe("course portal mutations",()=>{
  it("accepts exactly four transfer digits",async()=>{expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"12345"})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
  it("replayed purchase cannot be claimed by another customer",async()=>{m.order.mockResolvedValue({customerId:"other",planId:"p",transferLastFive:"1234"});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false});expect(m.createOrder).not.toHaveBeenCalled();});
  it("replayed confirmation never issues a second card or receipt",async()=>{m.order.mockResolvedValue({status:"CONFIRMED"});expect(await confirmCoursePurchase({purchaseId:"p"})).toEqual({success:true});expect(m.createCard).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();});
+ it("blocks music point purchases before creating an order", async () => {
+   m.plan.mockResolvedValue({id:"p",unit:"POINT"});
+   m.raw.mockResolvedValue([{featureKey:"business.music"}]);
+   expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false,error:"音樂教室只販售堂數方案"});
+   expect(m.createOrder).not.toHaveBeenCalled();
+   expect(m.createCard).not.toHaveBeenCalled();
+ });
+ it("blocks confirmation of a point order at a music store without issuing quota or recording money", async () => {
+   m.order.mockResolvedValue({status:"PENDING",unit:"POINT",customerId:"c",termSessionIds:[]});
+   m.raw.mockImplementation(async sql => sql.join("").includes("StoreFeatureEntitlement") ? [{featureKey:"business.music"}] : [{id:"c"}]);
+   expect(await confirmCoursePurchase({purchaseId:"p"})).toMatchObject({success:false,error:"音樂教室只使用堂數方案"});
+   expect(m.createCard).not.toHaveBeenCalled();
+   expect(m.execute).not.toHaveBeenCalled();
+   expect(m.updateOrder).not.toHaveBeenCalled();
+ });
+ it("confirms music from the immutable order amount and quota with first-use validity", async () => {
+   m.order.mockResolvedValue({id:"p",status:"PENDING",unit:"SESSION",customerId:"c",planId:"plan",name:"四堂",points:5,price:0,validDays:35,musicTermSizes:[4],musicBonusLessons:1,termSessionIds:[],templateIds:["t"]});
+   m.raw.mockImplementation(async sql => sql.join("").includes("StoreFeatureEntitlement") ? [{featureKey:"business.music"}] : [{id:"c"}]);
+   m.createCard.mockResolvedValue({id:"card",termSessionIds:[]});
+   expect(await confirmCoursePurchase({purchaseId:"p"})).toEqual({success:true});
+   expect(m.createCard).toHaveBeenCalledWith({data:expect.objectContaining({remaining:5,musicTermSizes:[4],musicBonusLessons:1,musicValidityDays:35,expiresAt:new Date("2099-12-31T15:59:59.999Z")})});
+   expect(m.plan).not.toHaveBeenCalled();
+ });
 });

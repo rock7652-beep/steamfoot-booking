@@ -1,3 +1,4 @@
+import { isMusicCourseStore } from "./course-business-profile";
 import "server-only";
 import { ResourceConflict } from "./course-resources";
 import type { Prisma } from "../../../generated/course-client";
@@ -7,13 +8,6 @@ import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 type Reader=Pick<Prisma.TransactionClient,"$queryRaw">;
 type SessionRange={startsAt:Date;endsAt:Date};
-
-async function isMusicCourseStore(tx:Reader,storeId:string) {
-  const music=await tx.$queryRaw<{featureKey:string}[]>`
-    SELECT "featureKey" FROM "StoreFeatureEntitlement"
-    WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-  return music.length>0;
-}
 
 export async function assertMusicCourseDuration(tx:Reader,storeId:string,durationMinutes:number) {
   if(!(await isMusicCourseStore(tx,storeId))) return;

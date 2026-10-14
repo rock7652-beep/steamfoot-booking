@@ -1,3 +1,4 @@
+import { isMusicCourseStore } from "./course-business-profile";
 import "server-only";
 import { isDeepStrictEqual } from "node:util";
 import { AppError } from "@/lib/errors";
@@ -29,8 +30,8 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   if (!booking?.companionIndex || !booking.reserverCustomerId || !booking.reserverCardId || booking.status === "CANCELLED" || booking.session.cancelledAt)
     return fail("找不到可變更的同行預約");
   if (booking.updatedAt.toISOString() !== input.expectedUpdatedAt) return fail("預約已更新，請重新確認");
-  const music = await tx.$queryRaw<Array<{featureKey: string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
-  if (music.length || booking.card?.termSessionIds.length) return fail("僅適用運動自由選課同行預約");
+  const music = await isMusicCourseStore(tx, actor.storeId);
+  if (music || booking.card?.termSessionIds.length) return fail("僅適用運動自由選課同行預約");
   const customerId = input.customerId ?? booking.customerId;
   const customers = customerId ? await tx.$queryRaw<Array<{id: string; name: string}>>`SELECT id,name FROM "Customer" WHERE id=${customerId} AND "storeId"=${actor.storeId} AND "mergedIntoCustomerId" IS NULL` : [];
   if (customerId && !customers.length) return fail("請選擇本店有效學員");
