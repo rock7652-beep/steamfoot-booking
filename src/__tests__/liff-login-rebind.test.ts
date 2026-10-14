@@ -29,7 +29,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/normalize", () => ({ normalizePhone: (value: string) => value }));
 vi.mock("@/server/services/line-rebind", () => ({ sha256: h.sha }));
 
-import { tryAutoMigrateRecentLiffLoginIdentity, tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "@/server/services/liff-login-rebind";
+import { tryAutoMigrateRecentLiffLoginIdentity, tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind, verifiedLiffLoginRebindReason } from "@/server/services/liff-login-rebind";
 
 const phone = "0963770378";
 const oldLoginId = "U-old-login";
@@ -62,7 +62,7 @@ function tx() {
 
 describe("authorized LIFF Login rebind", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     h.sha.mockImplementation(hash);
     h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) =>
       callback(tx()),
@@ -134,6 +134,30 @@ describe("authorized LIFF Login rebind", () => {
     expect(serialized).not.toContain(phone);
     expect(tx().customer).not.toHaveProperty("update");
     expect(tx().customer).not.toHaveProperty("updateMany");
+  });
+
+  it("consumes a recovery pinned to the exact verified subject and store", async () => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, reason: verifiedLiffLoginRebindReason("store-1", newLoginId) });
+    expect(await tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .toEqual({ status: "executed", requestId: "request-1" });
+    expect(h.queryRaw.mock.calls[0]).toContain(verifiedLiffLoginRebindReason("store-1", newLoginId));
+    expect(h.auditCreate.mock.calls[0][0].data.afterJson.authorizationBasis).toContain("verified_candidate");
+    expect(h.accountCreate).toHaveBeenCalledWith({ data: { userId: "user-1", type: "oauth", provider: "line", providerAccountId: newLoginId } });
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+    expect(h.accountDelete).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["store-1", "U-different-verified-subject"],
+    ["store-other", newLoginId],
+  ])("rejects a pinned grant for another namespace (%s)", async (storeId, subject) => {
+    const original = await h.requestFind();
+    h.requestFind.mockResolvedValue({ ...original, reason: verifiedLiffLoginRebindReason(storeId, subject) });
+    expect(await tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .toEqual({ status: "rejected", code: "REQUEST_STATE_CHANGED" });
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+    expect(h.linkUpdate).not.toHaveBeenCalled();
+    expect(h.requestUpdate).not.toHaveBeenCalled();
   });
 
   it("recovers a missing store link only from the authorized Account snapshot", async () => {
@@ -228,7 +252,7 @@ describe("authorized LIFF Login rebind", () => {
 
 describe("recent new-customer LIFF auto migration", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     h.sha.mockImplementation(hash);
     h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) => callback(tx()));
     h.queryRaw.mockResolvedValue([{ id: "customer-1" }]);
@@ -291,7 +315,7 @@ describe("recent new-customer LIFF auto migration", () => {
 
 describe("authorized first LIFF Login capture", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     h.sha.mockImplementation(hash);
     h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) => callback(tx()));
     h.queryRaw.mockResolvedValueOnce([{ id: "capture-1" }]).mockResolvedValueOnce([{ id: "customer-1" }]);
