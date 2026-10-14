@@ -4,7 +4,13 @@ import { submitMusicSourceImport, exportMusicSourceBatch, type MusicSourceImport
 
 const initial: MusicSourceImportState = { status: "IDLE", message: "選擇音教雲備份檔，先預覽資料。" };
 export function OpeningImportForm() {
-  const [state, action, pending] = useActionState(submitMusicSourceImport, initial);
+  // React resets uncontrolled fields after a successful form action. Retain
+  // the File in this component only so the confirmation sends the same bytes.
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [state, action, pending] = useActionState(async (previous: MusicSourceImportState, form: FormData) => {
+    if (selectedFile) form.set("manifest", selectedFile);
+    return submitMusicSourceImport(previous, form);
+  }, initial);
   const [version, setVersion] = useState(0), [confirmed, setConfirmed] = useState(false);
   const [search, setSearch] = useState(""), [filter, setFilter] = useState("ALL"), [page, setPage] = useState(0);
   const [exportMessage, setExportMessage] = useState(""), [exporting, setExporting] = useState(false);
@@ -29,8 +35,9 @@ export function OpeningImportForm() {
     <p role="status" aria-live="polite" className="break-words text-base">{state.message}</p>
     <input type="hidden" name="fileVersion" value={version} /><input type="hidden" name="contentHash" value={valid ? state.contentHash : ""} /><input type="hidden" name="planHash" value={valid ? state.planHash : ""} />
     <label htmlFor="opening-manifest" className="text-base font-medium">1. 選擇來源備份檔</label>
-    <input id="opening-manifest" name="manifest" type="file" accept="application/json,.json" required disabled={locked}
-      onChange={() => { setVersion(v => v + 1); setConfirmed(false); setPage(0); }} className="w-full min-w-0 rounded border p-3 text-base" />
+    <input id="opening-manifest" name="manifest" type="file" accept="application/json,.json" required={!selectedFile} disabled={locked}
+      onChange={event => { setSelectedFile(event.target.files?.[0] ?? null); setVersion(v => v + 1); setConfirmed(false); setPage(0); }} className="w-full min-w-0 rounded border p-3 text-base" />
+    {selectedFile && <p className="break-words text-base">已選擇：{selectedFile.name}</p>}
     <p className="text-base text-gray-600">每批最多 100 位學生、500 KB。共用電話或既有資料差異先封存、待核對。</p>
     <button name="intent" value="preview" type="submit" disabled={locked} className="min-h-11 self-start rounded-lg border px-5 py-3 text-base disabled:opacity-50">{pending ? "處理中…" : "2. 預覽與核對"}</button>
     {preview && <section aria-label="來源預覽" className="min-w-0 space-y-4">
