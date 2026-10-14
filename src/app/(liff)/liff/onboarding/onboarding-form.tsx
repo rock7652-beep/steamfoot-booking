@@ -186,7 +186,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       case "not_found":
       case "identity_review_required":
       case "ambiguous":
-        setState({ kind: "identity_review_required" });
+        setState({ kind: "identity_review_required", ...("referenceId" in result ? { referenceId: result.referenceId } : {}) });
         return;
 
       case "expired":
