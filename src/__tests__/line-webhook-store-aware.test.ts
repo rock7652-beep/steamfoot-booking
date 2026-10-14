@@ -158,6 +158,10 @@ describe("LINE webhook store-aware signature and reply", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.customer.findMany.mockReset();
+    mockPrisma.customer.findMany.mockResolvedValue([]);
+    mockPrisma.customer.updateMany.mockReset();
+    mockPrisma.customer.updateMany.mockResolvedValue({ count: 0 });
     captureStoreMemberConnectionMock.mockResolvedValue("pending");
     mockPrisma.store.findMany.mockImplementation(async (arg: unknown) => { const value = await mockPrisma.store.findFirst(arg); return value ? [value] : []; });
     mockPrisma.store.findUnique.mockResolvedValue({lineDestination:"D_hsinchu"});
@@ -281,19 +285,40 @@ describe("LINE webhook store-aware signature and reply", () => {
     );
   });
 
-  it("only captures a pending request from a supplied phone; never overwrites a customer", async () => {
+  it.each([
+    { lineUserId: "U-hsinchu-store", probe: null, count: 1, expected: "通知設定完成", updates: 1 },
+    { lineUserId: "U-other", probe: "COMPATIBLE", count: 1, expected: "已綁定其他 LINE", updates: 0 },
+    { lineUserId: "U-other", probe: "UNAVAILABLE", count: 1, expected: "已綁定其他 LINE", updates: 0 },
+    { lineUserId: "U-old-login", probe: "INCOMPATIBLE", count: 1, expected: "通知設定完成", updates: 1 },
+    { lineUserId: null, probe: null, count: 0, expected: "已綁定其他 LINE", updates: 1 },
+  ])("handles repeated or conflicting phone notification binding: $expected / $probe", async ({ lineUserId, probe, count, expected, updates }) => {
+    mockPrisma.customer.findMany.mockResolvedValueOnce([{ id: "customer-hsinchu", userId: null, lineUserId }]);
+    mockPrisma.customer.updateMany.mockResolvedValueOnce({ count });
+    if (probe) probeStoreLineRecipientMock.mockResolvedValueOnce({ status: probe });
+    const { POST } = await import("@/app/api/line/webhook/route");
+    await POST(postReq({ destination: "D_hsinchu", events: [{ type: "message", replyToken: "phone-retry", source: { userId: "U-hsinchu-store" }, message: { type: "text", id: "retry", text: "0912345678" } }] }));
+    expect(mockPrisma.customer.updateMany).toHaveBeenCalledTimes(updates);
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "phone-retry", [{ type: "text", text: expect.stringContaining(expected) }]);
+    expect(captureStoreMemberConnectionMock).not.toHaveBeenCalled();
+    expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
+    if (!probe) expect(probeStoreLineRecipientMock).not.toHaveBeenCalled();
+  });
+
+  it("restores notification binding for a supplied phone", async () => {
+    mockPrisma.customer.findMany.mockResolvedValueOnce([{ id: "customer-hsinchu", userId: null, lineUserId: null }]);
+    mockPrisma.customer.updateMany.mockResolvedValueOnce({ count: 1 });
     const { POST } = await import("@/app/api/line/webhook/route");
     const response = await POST(postReq({ destination: "D_hsinchu", events: [{ type: "message", replyToken: "reply-token-phone", source: { type: "user", userId: "U-hsinchu-store" }, message: { type: "text", text: "0912345678" }, timestamp: Date.now() }] }));
     expect(response.status).toBe(200);
-    expect(captureStoreMemberConnectionMock).toHaveBeenCalledWith(expect.objectContaining({storeId:"store-hsinchu",phone:"0912345678",lineUserId:"U-hsinchu-store"}));
-    expect(mockPrisma.customer.updateMany).not.toHaveBeenCalled();
-    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-phone", [{type:"text",text:expect.stringContaining("尚未完成綁定")}]);
+    expect(captureStoreMemberConnectionMock).not.toHaveBeenCalled();
+    expect(mockPrisma.customer.updateMany).toHaveBeenCalledOnce();
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-phone", [{type:"text",text:expect.stringContaining("通知設定完成")}]);
   });
 
   it.each([
-    { candidates: [{ id: "customer-hsinchu", userId: null, lineUserId: null }], expected: "尚未完成綁定", updates: 0 },
-    { candidates: [], expected: "資料需要確認", updates: 0 },
-    { candidates: [{ id: "one", userId: null, lineUserId: null }, { id: "two", userId: null, lineUserId: null }], expected: "資料需要確認", updates: 0 },
+    { candidates: [{ id: "customer-hsinchu", userId: null, lineUserId: null }], expected: "通知設定完成", updates: 1 },
+    { candidates: [], expected: "查無顧客資料", updates: 0 },
+    { candidates: [{ id: "one", userId: null, lineUserId: null }, { id: "two", userId: null, lineUserId: null }], expected: "多筆相同手機", updates: 0 },
   ])("reports binding result instead of menu validation: $expected", async ({ candidates, expected, updates }) => {
     digitalButlerHandleTextMock.mockResolvedValueOnce({
       handled: true,
@@ -500,11 +525,11 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "已收到電話，請門市核對本人後確認；尚未完成綁定。" }],
+      [{ type: "text", text: "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。" }],
     );
   });
 
-  it("queues an unregistered customer for staff confirmation without mutating login identity", async () => {
+  it("binds notifications for an unregistered customer without mutating login identity", async () => {
     mockPrisma.customer.findMany.mockResolvedValueOnce([{
       id: "customer-hsinchu",
       userId: null,
@@ -526,12 +551,12 @@ describe("LINE webhook store-aware signature and reply", () => {
 
     expect(res.status).toBe(200);
     expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
-    expect(captureStoreMemberConnectionMock).toHaveBeenCalledOnce();
-    expect(mockPrisma.customer.updateMany).not.toHaveBeenCalled();
+    expect(captureStoreMemberConnectionMock).not.toHaveBeenCalled();
+    expect(mockPrisma.customer.updateMany).toHaveBeenCalledOnce();
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "已收到電話，請門市核對本人後確認；尚未完成綁定。" }],
+      [{ type: "text", text: "通知設定完成！之後您將可收到預約提醒與方案通知。若尚未註冊蒸管家，可繼續完成會員註冊。" }],
     );
   });
 
