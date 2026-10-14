@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useId,useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "@/components/use-stable-router";
 import { usePathname, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -29,6 +29,7 @@ export function SettingsPanel({
   const [navigating, startNavigation] = useTransition();
   const root = useRef<HTMLDivElement>(null);
   const currentHref=useRef("");
+  const trapId=useId(),backTarget=useRef<string|null>(null),backSteps=useRef(0),allowPop=useRef(false);
   useEffect(()=>{currentHref.current=window.location.href;},[searchString]);
 
   const dirty = Object.values(states).some(state => state.dirty);
@@ -55,6 +56,8 @@ export function SettingsPanel({
 
   const go = useCallback((href: string) => {
     setDestination(null);
+    if(backTarget.current===href&&backSteps.current){backTarget.current=null;allowPop.current=true;window.history.go(backSteps.current);return;}
+    backTarget.current=null;
     if(navigateLocal)navigateLocal(href);
     else startNavigation(() => router.replace(href, { scroll: false }));
   }, [router,navigateLocal]);
@@ -84,6 +87,18 @@ export function SettingsPanel({
     request(url.href);
   }, [closeHref, pathname, request, searchString, sourceHref]);
 
+  useEffect(()=>{
+    if(!navigateLocal)return;
+    if(dirty||pending){
+      if(window.history.state?.__settingsDraftTrap!==trapId){
+        currentHref.current=window.location.href;
+        window.history.pushState({...window.history.state,__settingsDraftTrap:trapId},"",window.location.href);
+      }
+    }else if(window.history.state?.__settingsDraftTrap===trapId){
+      allowPop.current=true;window.history.back();
+    }
+  },[dirty,pending,navigateLocal,trapId]);
+
   useEffect(() => {
     const unload = (event: BeforeUnloadEvent) => {
       if (dirty || pending) {
@@ -99,10 +114,15 @@ export function SettingsPanel({
       else request(closeHref);
     };
     const pop=(event:PopStateEvent)=>{
+      if(allowPop.current){allowPop.current=false;return;}
       if(!navigateLocal||(!dirty&&!pending))return;
-      const target=window.location.href;
+      // The same-URL entry keeps Next from unmounting the editor before this listener runs.
+      const previous=window.history.state?.__settingsPreviousHref;
+      const target=typeof previous==="string"?previous:closeHref;
+      backSteps.current=typeof previous==="string"?-2:0;
       event.stopImmediatePropagation();
-      window.history.pushState(null,"",currentHref.current);
+      window.history.pushState({...window.history.state,__settingsDraftTrap:trapId},"",currentHref.current);
+      backTarget.current=target;
       setDestination(target);
     };
     window.addEventListener("popstate",pop,true);
@@ -113,7 +133,7 @@ export function SettingsPanel({
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("keydown", escape);
     };
-  }, [dirty, pending, request, closeHref, destination,navigateLocal]);
+  }, [dirty, pending, request, closeHref, destination,navigateLocal,trapId]);
 
   const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved,local:!!navigateLocal }), [report, navigate, navigateLocal, request, onSaved]);
 
@@ -144,7 +164,7 @@ export function SettingsPanel({
           <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
             <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
             <div className="mt-2 flex flex-wrap gap-3">
-              <button autoFocus className="min-h-11 rounded border px-3 text-sm" onClick={() => setDestination(null)}>繼續編輯</button>
+              <button autoFocus className="min-h-11 rounded border px-3 text-sm" onClick={() => {backTarget.current=null;setDestination(null);}}>繼續編輯</button>
               {!pending ? (
                 <button className="min-h-11 rounded bg-primary-700 px-3 text-sm text-white" onClick={() => go(destination)}>
                   {destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}

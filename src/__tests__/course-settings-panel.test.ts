@@ -75,7 +75,7 @@ it('uses local navigation for clean close and guards dirty browser Back',async()
  await act(async()=>root.render(el(CourseSettingsPanel,{panel:'reminders',navigate,closeHref:close,children:el(Form)})));
  await click('關閉視窗');expect(navigate).toHaveBeenCalledWith(close);expect(m.replace).not.toHaveBeenCalled();navigate.mockClear();
  await click('修改');const before=window.location.href;
- await act(async()=>{window.history.replaceState(null,'',close);window.dispatchEvent(new PopStateEvent('popstate'))});
+ await act(async()=>{window.history.replaceState({__settingsPreviousHref:close},'',close);window.dispatchEvent(new PopStateEvent('popstate'))});
  expect(window.location.href).toBe(before);expect(host.textContent).toContain('尚有未儲存');expect(navigate).not.toHaveBeenCalled();
- await click('不儲存並切換');expect(navigate).toHaveBeenCalledOnce();expect(m.replace).not.toHaveBeenCalled();
+ const go=vi.spyOn(window.history,'go').mockImplementation(()=>{});await click('不儲存並關閉');expect(go).toHaveBeenCalledWith(-2);expect(navigate).not.toHaveBeenCalled();expect(m.replace).not.toHaveBeenCalled();go.mockRestore();
 });

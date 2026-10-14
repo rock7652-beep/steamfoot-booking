@@ -21,3 +21,7 @@
 其他待辦：卡片重疊、教師資格批選（本次不實作）。
 
 合成量測：兩次開啟各14/16ms（下一frame），讀取stub各5/2ms；2次開啟共2次reader呼叫，取消確認/儲存關閉沒有router呼叫。這些是fixture資料，不是實際網路或DB時間。另移除推薦文案receipt後等待個人模板使用紀錄的串行步驟；紀錄獨立執行，不拖延已确认儲存狀態。
+
+登入實測：隔離音樂測試店Owner可登入。dfee4fb6推薦視窗外框80ms、局部讀取1137ms、整頁navigation=0；店家資料連點兩次只有一次JSON寫入，其他分類银行草稿保留，成功收合，還原店名及捨棄銀行草稿後dirty清除。response約1.1–1.4秒、receipt後下一frame約1–8ms。d5cd15a2推薦文案成功關閉、重開讀到保存內容、原文案及原預設狀態已還原；保存response1377ms、還原783ms，整頁navigation=0。這些樣本含網路時間，不代表全站所有設定時間。
+
+真實返回測試發現Next先處理popstate並卸載視窗，原listener尚未執行；手動dispatch的unit未能重現。共用Panel在dirty/pending時使用同URL保護entry，先保留實際編輯內容再確認，捨棄才完成原生遍歷；沒有本地前一位置的直接網址改為原地關閉。新增真正Chromium history遍歷fixture，36案例與返回流程通過，後續部署仍需登入重驗。設定讀取亦轉換目的頁的Next notFound/redirect為局部錯誤，不將權限拒絕變成主頁跳轉。

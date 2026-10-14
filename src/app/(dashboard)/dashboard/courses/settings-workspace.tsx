@@ -155,10 +155,18 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
       const params=new URLSearchParams(window.location.search);
       params.delete("panel");params.delete("panelQuery");
       target.searchParams.forEach((value,key)=>params.set(key,value));
-      if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash)window.history.pushState(null,"",pathname+"?"+params+window.location.hash);
+      if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash){
+        const closing=!params.has("panel")&&new URLSearchParams(window.location.search).has("panel");
+        if(closing)window.history.replaceState(null,"",pathname+"?"+params+window.location.hash);
+        else window.history.pushState({__settingsPreviousHref:window.location.pathname+window.location.search+window.location.hash},"",pathname+"?"+params+window.location.hash);
+      }
     }else if(local==="/dashboard/settings"||local==="/dashboard"){
       const params=new URLSearchParams(window.location.search);params.delete("panel");params.delete("panelQuery");
-      if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash)window.history.pushState(null,"",pathname+"?"+params+window.location.hash);
+      if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash){
+        const closing=!params.has("panel")&&new URLSearchParams(window.location.search).has("panel");
+        if(closing)window.history.replaceState(null,"",pathname+"?"+params+window.location.hash);
+        else window.history.pushState({__settingsPreviousHref:window.location.pathname+window.location.search+window.location.hash},"",pathname+"?"+params+window.location.hash);
+      }
     }else router.push(href);
   },[pathname,router]);
   const context = useMemo(() => ({ report, navigate: navigateLocal, saved:collapse,local:true }), [report, navigateLocal,collapse]);
@@ -187,7 +195,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
     if (pending || section === active) return;
     setExpandedRow(null);
     const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
-    window.history.pushState(null, "", pathname + "?" + params.toString()+window.location.hash);
+    window.history.pushState({__settingsPreviousHref:window.location.pathname+window.location.search+window.location.hash}, "", pathname + "?" + params.toString()+window.location.hash);
   }
   const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} onCancel={()=>setExpandedRow(null)} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsPanelContext.Provider value={context}><div onClickCapture={event=>{

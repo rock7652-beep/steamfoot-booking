@@ -32,7 +32,7 @@ export const readCourseSettingsPanel=async(storeId,panel,query)=>{window.__reads
     });
     builder.onLoad({ filter: /.*/, namespace: "qa" }, args => {
       if (args.path === "navigation") return { contents: `import {useSyncExternalStore} from 'react';
-        const subscribe=cb=>{window.addEventListener('qa-route',cb);return()=>window.removeEventListener('qa-route',cb)};
+        const subscribe=cb=>{window.addEventListener('qa-route',cb);window.addEventListener('popstate',cb);return()=>{window.removeEventListener('qa-route',cb);window.removeEventListener('popstate',cb)}};
         const oldPush=history.pushState.bind(history);history.pushState=(...args)=>{oldPush(...args);window.dispatchEvent(new Event('qa-route'));};
         const oldReplace=history.replaceState.bind(history);history.replaceState=(...args)=>{oldReplace(...args);window.dispatchEvent(new Event('qa-route'));};
         const navigate=href=>{window.__routerCalls=(window.__routerCalls??0)+1;history.replaceState(null,'',href);};
@@ -91,6 +91,12 @@ try {
   await page.getByLabel("未儲存草稿").fill("尺寸切換草稿");
   await page.setViewportSize({ width: 560, height: 768 });
   if (await page.getByLabel("未儲存草稿").inputValue() !== "尺寸切換草稿") throw new Error("Draft lost after resize");
+  await page.goBack();
+  await page.getByText('尚有未儲存的修改，要捨棄嗎？').waitFor();
+  await page.getByRole('button',{name:'不儲存並關閉',exact:true}).click();
+  await page.getByRole('button',{name:'關閉視窗',exact:true}).waitFor({state:'hidden'});
+  await page.getByRole('link',{name:'開啟推薦分享'}).click();
+  await page.getByLabel('未儲存草稿').fill('尺寸切換草稿');
   await page.getByRole('button',{name:'關閉視窗',exact:true}).click();
   await page.getByText('尚有未儲存的修改，要捨棄嗎？').waitFor();
   await page.getByRole('button',{name:'繼續編輯',exact:true}).click();
@@ -114,6 +120,6 @@ try {
   }
   if(await page.evaluate(()=>window.__routerCalls??0))throw new Error('Settings operation navigated');
   if (failures.length) throw new Error(failures.join("\n"));
-  writeFileSync(path.join(output, "results.json"), JSON.stringify({ synthetic: true, businessAcceptance: false, safari: false, timings, reads:await page.evaluate(()=>window.__reads??0), routerCalls:await page.evaluate(()=>window.__routerCalls??0), cases: results, draftResize: true, revokedEditorUnmounted: true }, null, 2));
+  writeFileSync(path.join(output, "results.json"), JSON.stringify({ synthetic: true, businessAcceptance: false, safari: false, timings, reads:await page.evaluate(()=>window.__reads??0), routerCalls:await page.evaluate(()=>window.__routerCalls??0), cases: results, draftResize: true, browserBackProtected:true,revokedEditorUnmounted: true }, null, 2));
   console.log(`Synthetic Chromium: ${results.length} cases passed; results and screenshots at ${output}`);
 } finally { await browser?.close(); }
