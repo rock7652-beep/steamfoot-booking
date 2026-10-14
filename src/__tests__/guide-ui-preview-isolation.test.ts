@@ -481,6 +481,13 @@ describe("SPA retirement read-only preview", () => {
     expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
     expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
+  it.each(["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"])("serves rewritten destination %s without an alias loop", path => {
+    const response = route(path);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("location")).toBeNull();
+    expect(spies.auth).not.toHaveBeenCalled();
+  });
   it("hides the synthetic review page in normal deployments", () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main"); vi.stubEnv("VERCEL_ENV", "production");
     expect(route("/spa-retirement-preview").status).toBe(404);

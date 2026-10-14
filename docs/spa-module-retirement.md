@@ -34,5 +34,7 @@
 - 沿用三個資料库 client 的停用實作；不讀取或替換繼承的連線憑證。ci-migrate 在資料庫工作前退出，LINE／Messenger／Email／HealthFlow 發送受既有邊界阻擋。
 - 僅開放官網、三模組介紹、政策／申請表及 `/spa-retirement-preview`；其他 HQ／門市／API 入口被封鎖。POST／Server Action 等寫入為 405，SPA 舊入口為 410。
 - 開店預覽共用真實 NewStoreForm，設定 previewOnly 後建立按鈕停用、提交函式直接返回，不新增資料。
-- 本機 435 項隔離與路由檢查、ESLint 及完整 `npm run build` 通過；日誌確認 `database_disabled=true migrations_skipped=true`。
+- 本機 439 項隔離與路由檢查、ESLint 及完整 `npm run build` 通過；日誌確認 `database_disabled=true migrations_skipped=true`。
 - 線上 HTTP 與瀏覽器驗收腳本：`scripts/qa/spa-retirement-deployment.mjs`。實際部署 URL、提交與遠端驗收結果以 PR #1333 更新為準。
+
+- 真實 Next 預覽驗收發現 canonical alias 與 rewrite destination 的迴圈；本次精確預覽模式直接提供核准的 rewrite destination，避免官網／申請表及政策頁互相轉址。正式模式的路由維持原設定。

@@ -32,6 +32,7 @@ try {
     await page.close();
   }
   for (const [path, expected] of [
+    ["/", 200], ["/apply", 200], ["/terms", 200], ["/refunds", 200],
     ["/pricing/features/slots", 200], ["/pricing/features/music", 200], ["/pricing/features/fitness", 200],
     ["/spa-preview", 410], ["/s/demo/admin/dashboard/spa-schedule", 410], ["/api/spa/settings/service", 410],
     ["/pricing/features/services", 410], ["/hq/dashboard", 404], ["/api/auth/session", 404],

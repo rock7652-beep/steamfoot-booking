@@ -679,6 +679,10 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     if (isSpaRetirementUiPreview()) {
       if (!isSpaRetirementPreviewPath(path))
         return new NextResponse("Not available in module review", { status: 404, headers });
+      // Rewrite destinations may pass through Proxy again; serve the exact
+      // destination rather than redirecting it back to the canonical alias.
+      if (["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"].includes(path))
+        return NextResponse.next({ headers });
       const marketing = marketingRoute(path);
       if (!marketing) return NextResponse.next({ headers });
       if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
