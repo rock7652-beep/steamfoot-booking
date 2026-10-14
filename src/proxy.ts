@@ -1,5 +1,5 @@
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
-import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -668,11 +668,26 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   if (req.nextUrl.pathname === "/hq-usage-preview" && !isHqUsageUiPreview()) {
     return new NextResponse("Not found", { status: 404 });
   }
+  if (req.nextUrl.pathname === "/spa-retirement-preview" && !isSpaRetirementUiPreview()) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   if (isGuideUiPreview()) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
     if (req.method !== "GET" && req.method !== "HEAD")
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
+    if (isSpaRetirementUiPreview()) {
+      if (!isSpaRetirementPreviewPath(path))
+        return new NextResponse("Not available in module review", { status: 404, headers });
+      const marketing = marketingRoute(path);
+      if (!marketing) return NextResponse.next({ headers });
+      if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
+      const url = req.nextUrl.clone();
+      url.pathname = marketing.destination;
+      const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
+      Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+      return response;
+    }
     if (isMarketingStickyUiPreview()) {
       const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);
