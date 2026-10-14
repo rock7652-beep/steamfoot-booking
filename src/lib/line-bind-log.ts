@@ -35,6 +35,7 @@ export type LineBindResultStatus =
   | "verify_failed"
   | "store_not_found"
   | "session_mint_failed"
+  | "identity_review_required"
   // webhook bind code results
   | "bind_code_success"
   | "bind_code_already_linked"
@@ -248,6 +249,7 @@ function classifyLevel(status: LineBindResultStatus): "info" | "warn" | "error" 
     case "verify_failed":
     case "store_not_found":
     case "session_mint_failed":
+    case "identity_review_required":
     case "bind_code_already_linked":
     case "bind_code_invalid":
     case "bind_code_expired":

@@ -2,7 +2,7 @@ export type LiffSessionInput = { idToken: string; storeSlug: string };
 export type LiffSessionResult =
   | { status: "session_created"; displayName: string | null }
   | { status: "need_onboarding"; displayName: string | null }
-  | { status: "identity_review_required" }
+  | { status: "identity_review_required"; referenceId?: string }
   | { status: "expired" }
   | { status: "service_unavailable" };
 
@@ -36,7 +36,7 @@ export async function refreshLiffSession(
         "displayName" in body && typeof body.displayName === "string" ? body.displayName : null };
     }
     if (body.status === "error" && "code" in body && body.code === "IDENTITY_REVIEW_REQUIRED") {
-      return { status: "identity_review_required" };
+      return { status: "identity_review_required", ...("referenceId" in body && typeof body.referenceId === "string" && /^[a-f0-9-]{36}$/.test(body.referenceId) ? { referenceId: body.referenceId } : {}) };
     }
     if (body.status === "error" && "code" in body &&
         (body.code === "ID_TOKEN_EXPIRED" || body.code === "ID_TOKEN_INVALID")) {

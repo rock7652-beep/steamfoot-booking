@@ -66,6 +66,7 @@ vi.mock("@/server/services/liff-login-rebind", () => ({
 }));
 
 import { submitOnboarding } from "@/app/(liff)/liff/onboarding/actions";
+import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { LiffIdTokenError } from "@/lib/liff/verify-id-token";
 
 const CHANNEL = "channel-123";
@@ -104,9 +105,27 @@ describe("submitOnboarding action (PR-C2)", () => {
     mockVerify.mockResolvedValue(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValue(STORE);
     vi.mocked(storePhoneNeedsConfirmation).mockResolvedValueOnce(true);
-    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({status:"identity_review_required"});
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({status:"identity_review_required", referenceId: expect.stringMatching(/^[a-f0-9-]{36}$/)});
     expect(mockBindLine).not.toHaveBeenCalled();
   });
+  it.each(["account_owner_conflict", "store_membership_unconfirmed", "ambiguous_legacy_identity", "customer_owner_conflict", "store_membership_conflict", "account_unavailable"] as const)("retains private onboarding rejection evidence for %s without granting access", async reason => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockMember.mockRejectedValueOnce(new LineIdentityReviewError(reason));
+    const result = await submitOnboarding(VALID_INPUT);
+    expect(result).toEqual({ status: "ambiguous", referenceId: expect.stringMatching(/^[a-f0-9-]{36}$/) });
+    expect(result).not.toHaveProperty("reason");
+    expect(mockBindLine).not.toHaveBeenCalled();
+    expect(mockIdentitySync).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith("[line-bind][liff-exchange] identity_review_required", expect.objectContaining({
+      extra: expect.objectContaining({ reason, entryPoint: "onboarding", stage: "verified_identity_lookup",
+        referenceId: "referenceId" in result ? result.referenceId : undefined }),
+    }));
+    const evidence = JSON.stringify(warn.mock.calls);
+    for (const privateValue of [VALID_INPUT.idToken, VALID_INPUT.phone, VALID_INPUT.name, LINE_USER_ID]) expect(evidence).not.toContain(privateValue);
+  });
+
   it("does not report successful login when the store link fails to persist", async () => {
     mockVerify.mockResolvedValue(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValue(STORE);
@@ -134,6 +153,7 @@ describe("submitOnboarding action (PR-C2)", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("routes verified course onboarding through the atomic service without legacy mutations", async () => {

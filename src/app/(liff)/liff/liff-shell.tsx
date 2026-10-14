@@ -77,7 +77,7 @@ type State =
   | { kind: "need_onboarding"; displayName: string | null }
   | { kind: "signed_in"; displayName: string | null }
   | { kind: "expired" }
-  | { kind: "identity_review_required" }
+  | { kind: "identity_review_required"; referenceId?: string }
   | { kind: "service_unavailable" };
 
 interface LiffShellProps {
@@ -231,7 +231,7 @@ export function LiffShell({
         }
 
         if (body.status === "identity_review_required") {
-          setState({ kind: "identity_review_required" });
+          setState({ kind: "identity_review_required", referenceId: body.referenceId });
           return;
         }
         // error path — 只區分 expired vs service_unavailable（顧客面）
@@ -300,7 +300,8 @@ export function LiffShell({
       {state.kind === "identity_review_required" && (
         <InfoBlock
           tone="red"
-          body={liffMessages.error.identityReview}
+          body={`${liffMessages.error.identityReview} 店家確認處理完成後，可重新嘗試登入。${state.referenceId ? ` 查核編號：${state.referenceId}` : ""}`}
+          showRetry
           showContactStore
           contactUrl={contactUrl}
         />
