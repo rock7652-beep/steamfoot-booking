@@ -1,5 +1,5 @@
 "use client";
-import {Component,useCallback,useEffect,useRef,useState,type ReactNode} from "react";
+import {Component,Suspense,useCallback,useEffect,useRef,useState,type ReactNode} from "react";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 type Receipt={storeId:string;panel:string;query:string;content:ReactNode};
 class ContentBoundary extends Component<{children:ReactNode;retry:()=>void},{failed:boolean}>{
@@ -9,6 +9,7 @@ class ContentBoundary extends Component<{children:ReactNode;retry:()=>void},{fai
 /** Account/store scope comes from OperationScope; each returned receipt is checked again. */
 export function LocalPanelContent({storeId,panel,query,initialKey,initialContent,read}:{storeId:string;panel:string;query:string;initialKey?:string;initialContent?:ReactNode;read:(storeId:string,panel:string,query:string)=>Promise<Receipt>}){
  const key=JSON.stringify([storeId,panel,query]);
+ const [seed]=useState(()=>({key:initialKey,content:initialContent}));
  const reader=usePanelReader("settings-panel",read,storeId,0);
  const [seedFailed,setSeedFailed]=useState(false);
  const [result,setResult]=useState<{key:string;content?:ReactNode;error?:string}>();
@@ -25,9 +26,9 @@ export function LocalPanelContent({storeId,panel,query,initialKey,initialContent
   }).catch(()=>{if(token.active)setResult({key,error:"設定讀取失敗，請重試。"});});
   return ()=>{token.active=false;};
  },[reader,storeId,panel,query,key]);
- useEffect(()=>{if(key!==initialKey||seedFailed)return load();},[key,initialKey,load,seedFailed]);
- if(key===initialKey&&!seedFailed)return <ContentBoundary key={key} retry={()=>setSeedFailed(true)}>{initialContent}</ContentBoundary>;
+ useEffect(()=>{if(key!==seed.key||seedFailed)return load();},[key,seed.key,load,seedFailed]);
+ if(key===seed.key&&!seedFailed)return <ContentBoundary key={key} retry={()=>setSeedFailed(true)}><Suspense fallback={<p role="status" className="p-6">正在讀取設定…</p>}>{seed.content}</Suspense></ContentBoundary>;
  if(result?.key!==key||(!("content" in result)&&!result.error))return <p role="status" className="p-6">正在讀取設定…</p>;
  if(result.error)return <div role="alert" className="p-6">{result.error}<button type="button" className="ml-3 min-h-11 rounded border px-4" onClick={()=>{setResult({key});load();}}>重新讀取</button></div>;
- return <ContentBoundary key={key} retry={()=>{reader.invalidate(storeId,panel,query);setResult({key});load();}}>{result.content}</ContentBoundary>;
+ return <ContentBoundary key={key} retry={()=>{reader.invalidate(storeId,panel,query);setResult({key});load();}}><Suspense fallback={<p role="status" className="p-6">正在讀取設定…</p>}>{result.content}</Suspense></ContentBoundary>;
 }

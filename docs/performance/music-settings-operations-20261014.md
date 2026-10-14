@@ -25,3 +25,9 @@
 登入實測：隔離音樂測試店Owner可登入。dfee4fb6推薦視窗外框80ms、局部讀取1137ms、整頁navigation=0；店家資料連點兩次只有一次JSON寫入，其他分類银行草稿保留，成功收合，還原店名及捨棄銀行草稿後dirty清除。response約1.1–1.4秒、receipt後下一frame約1–8ms。d5cd15a2推薦文案成功關閉、重開讀到保存內容、原文案及原預設狀態已還原；保存response1377ms、還原783ms，整頁navigation=0。這些樣本含網路時間，不代表全站所有設定時間。
 
 真實返回測試發現Next先處理popstate並卸載視窗，原listener尚未執行；手動dispatch的unit未能重現。共用Panel在dirty/pending時使用同URL保護entry，先保留實際編輯內容再確認，捨棄才完成原生遍歷；沒有本地前一位置的直接網址改為原地關閉。新增真正Chromium history遍歷fixture，36案例與返回流程通過，後續部署仍需登入重驗。設定讀取亦轉換目的頁的Next notFound/redirect為局部錯誤，不將權限拒絕變成主頁跳轉。
+
+0cc1d466登入重驗：返回鍵dirty保護通過；1366×900、1440×900、1024×768、768×1024、560×768皆無整頁溢出，草稿保留且關閉可到達。直接URL已有內容額外reader=0、無修改關閉reader=0；唯一document load是驗收明確goto直接URL，不是內部切換。
+
+額外RSC讀取定位：`x-action-revalidated=1`來自proxy重寫相同store-slug context cookie。只在courses/settings的同scope Server Action省略同值context cookie寫入；GET續期、切店、認證cookie、強制request header及後端權限維持原樣。此修正包含HQ與店家case及偽造HQ拒絕測試。局部讀取加Suspense以隔離Server Component/程式chunk等待，初始化seed只採一次，背景RSC props不能重置編輯器。
+
+補齊體驗後關懷設定guard、in-flight lock及JSON canonical rules回寫/收合；數位流程建立、草稿、發布、啟停在local setting用JSON transport，保留原service驗證。切換流程/觸發另一內部操作前沿用共用discard確認，不另做音樂UI。停止個別顧客後續關懷是日常顧客處置，沿用原有權限与同步，未重構其業務紀錄模型。

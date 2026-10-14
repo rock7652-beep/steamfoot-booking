@@ -25,7 +25,7 @@ export function SettingsPanel({
   const search = useSearchParams();
   const searchString = search.toString();
   const [states, setStates] = useState<Record<string, SettingsPanelState>>({});
-  const [destination, setDestination] = useState<string | null>(null);
+  const [destination, setDestination] = useState<string | (()=>void) | null>(null);
   const [navigating, startNavigation] = useTransition();
   const root = useRef<HTMLDivElement>(null);
   const currentHref=useRef("");
@@ -54,16 +54,17 @@ export function SettingsPanel({
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchString, closeTarget]);
 
-  const go = useCallback((href: string) => {
+  const go = useCallback((href: string|(()=>void)) => {
     setDestination(null);
+    if(typeof href==="function"){backTarget.current=null;href();return;}
     if(backTarget.current===href&&backSteps.current){backTarget.current=null;allowPop.current=true;window.history.go(backSteps.current);return;}
     backTarget.current=null;
     if(navigateLocal)navigateLocal(href);
     else startNavigation(() => router.replace(href, { scroll: false }));
   }, [router,navigateLocal]);
 
-  const request = useCallback((href: string) => {
-    if (dirty || pending) setDestination(href);
+  const request = useCallback((href: string|(()=>void)) => {
+    if (dirty || pending) setDestination(()=>href);
     else go(href);
   }, [dirty, pending, go]);
 
@@ -135,7 +136,7 @@ export function SettingsPanel({
     };
   }, [dirty, pending, request, closeHref, destination,navigateLocal,trapId]);
 
-  const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved,local:!!navigateLocal }), [report, navigate, navigateLocal, request, onSaved]);
+  const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved,discard:request,local:!!navigateLocal }), [report, navigate, navigateLocal, request, onSaved]);
 
   return (
     <div ref={root} data-settings-panel>

@@ -11,7 +11,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { trialCareRulesSchema } from "@/lib/trial-care";
 
 const schema = z.object({ storeId: z.string().min(1), enabled: z.boolean(), rules: trialCareRulesSchema });
-export async function saveTrialCareSettings(input: z.infer<typeof schema>) {
+export async function saveTrialCareSettings(input: z.infer<typeof schema>,receiptOnly=false) {
   try {
     const user = await requireWritablePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
@@ -28,9 +28,9 @@ export async function saveTrialCareSettings(input: z.infer<typeof schema>) {
         update: { enabled: data.enabled, rules: data.rules, activatedAt },
       });
     });
-    revalidatePath("/dashboard/reminders");
-    revalidatePath("/dashboard/courses/reminders");
-    return { success: true as const };
+    if(!receiptOnly){revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");}
+    return { success: true as const,data:{enabled:data.enabled,rules:data.rules} };
   } catch (e) { return handleActionError(e); }
 }
 

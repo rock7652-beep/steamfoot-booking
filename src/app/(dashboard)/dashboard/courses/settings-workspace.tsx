@@ -86,7 +86,7 @@ function SectionGuard({ section, context, children }: { section: string; context
   const report = context.report;
   const navigate = context.navigate;
   const scopedReport = useCallback((id: string, state: SettingsPanelState | null) => report(`${section}:${id}`, state), [section, report]);
-  const scoped = useMemo(() => ({ report: scopedReport, navigate, saved:context.saved,local:context.local }), [scopedReport, navigate, context.saved,context.local]);
+  const scoped = useMemo(() => ({ report: scopedReport, navigate, saved:context.saved,discard:context.discard,local:context.local }), [scopedReport, navigate, context.saved,context.discard,context.local]);
   return <SettingsPanelContext.Provider value={scoped}>{children}</SettingsPanelContext.Provider>;
 }
 const lead = (minutes: number) => {

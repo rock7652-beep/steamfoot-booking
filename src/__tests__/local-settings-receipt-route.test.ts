@@ -1,11 +1,12 @@
 import {beforeEach,it,expect,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const m=vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),referral:vi.fn(),draft:vi.fn(),reminder:vi.fn(),tag:vi.fn()}));
+const m=vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),referral:vi.fn(),draft:vi.fn(),reminder:vi.fn(),care:vi.fn(),create:vi.fn(),publish:vi.fn(),enabled:vi.fn(),tag:vi.fn()}));
 vi.mock('@/lib/permissions',()=>({requireWritablePermission:m.permission}));
 vi.mock('@/lib/store',()=>({resolveWriteStoreId:m.store}));
 vi.mock('@/server/actions/referral-share-template',()=>({updateReferralShareTemplate:m.referral}));
-vi.mock('@/app/(dashboard)/dashboard/settings/digital-butler/actions',()=>({saveDigitalButlerFlowAction:m.draft}));
+vi.mock('@/app/(dashboard)/dashboard/settings/digital-butler/actions',()=>({saveDigitalButlerFlowAction:m.draft,createDigitalButlerFlowAction:m.create,publishDigitalButlerFlowAction:m.publish,setDigitalButlerFlowEnabledAction:m.enabled}));
 vi.mock('@/server/actions/course-plan-reminders',()=>({saveCoursePlanReminderSetting:m.reminder}));
+vi.mock('@/server/actions/trial-care',()=>({saveTrialCareSettings:m.care}));
 vi.mock('next/cache',()=>({revalidateTag:m.tag}));
 import {POST} from '@/app/(dashboard)/dashboard/settings-save/panel/route';
 const request=(origin='https://test.invalid',storeId='a')=>new Request('https://test.invalid/hq/dashboard/settings-save/panel',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({kind:'REFERRAL',storeId,input:{referralShareTemplate:'{url}'}})});

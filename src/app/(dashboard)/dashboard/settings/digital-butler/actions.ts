@@ -12,7 +12,7 @@ import { resolveWriteStoreId } from "@/lib/store";
 import { prisma } from "@/lib/db";
 import { DigitalButlerService } from "@/server/services/digital-butler";
 
-type ActionResult = { success: true } | { success: false; error: string };
+type ActionResult = { success: true; data?:{id?:string;name?:string;definition?:unknown;flowId?:string;enabled?:boolean} } | { success: false; error: string };
 type PublishActionResult =
   | {
     success: true;
@@ -50,16 +50,16 @@ function message(error: unknown): string {
 export async function createDigitalButlerFlowAction(input: {
   name: string;
   definition: unknown;
-}): Promise<ActionResult> {
+},receiptOnly=false): Promise<ActionResult> {
   try {
     const storeId = await writableStoreId();
-    await new DigitalButlerService().createDraftFlow({
+    const row=await new DigitalButlerService().createDraftFlow({
       storeId,
       name: input.name.trim(),
       draftDefinition: input.definition as never,
     });
-    revalidatePath("/dashboard/settings/digital-butler");
-    return { success: true };
+    if(!receiptOnly)revalidatePath("/dashboard/settings/digital-butler");
+    return { success: true,data:{id:row.id,name:input.name.trim(),definition:input.definition} };
   } catch (error) {
     return { success: false, error: message(error) };
   }
@@ -85,12 +85,12 @@ export async function saveDigitalButlerFlowAction(input: {
   }
 }
 
-export async function publishDigitalButlerFlowAction(flowId: string): Promise<PublishActionResult> {
+export async function publishDigitalButlerFlowAction(flowId: string,receiptOnly=false): Promise<PublishActionResult> {
   let storeId: string | null = null;
   try {
     storeId = await writableStoreId();
     const publishedVersion = await new DigitalButlerService().publishFlow(storeId, flowId);
-    revalidatePath("/dashboard/settings/digital-butler");
+    if(!receiptOnly)revalidatePath("/dashboard/settings/digital-butler");
     return {
       success: true,
       publishedVersion: {
@@ -112,13 +112,13 @@ export async function publishDigitalButlerFlowAction(flowId: string): Promise<Pu
 
 export async function setDigitalButlerFlowEnabledAction(
   flowId: string,
-  enabled: boolean,
+  enabled: boolean,receiptOnly=false,
 ): Promise<ActionResult> {
   try {
     const storeId = await writableStoreId();
     await new DigitalButlerService().setFlowEnabled(storeId, flowId, enabled);
-    revalidatePath("/dashboard/settings/digital-butler");
-    return { success: true };
+    if(!receiptOnly)revalidatePath("/dashboard/settings/digital-butler");
+    return { success: true,data:{flowId,enabled} };
   } catch (error) {
     return { success: false, error: message(error) };
   }

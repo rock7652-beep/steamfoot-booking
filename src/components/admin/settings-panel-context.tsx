@@ -7,6 +7,7 @@ export const SettingsPanelContext = createContext<{
   navigate: (href: string) => void;
   saved?:()=>void;
   local?:boolean;
+  discard?:(operation:()=>void)=>void;
 } | null>(null);
 
 /** Optional: standalone pages retain their original behavior. */
@@ -22,3 +23,5 @@ export function useSettingsPanelNavigation() {
 }
 
 export function useSettingsPanelSaved(){return useContext(SettingsPanelContext)?.saved;}
+
+export function useSettingsPanelDiscard(){return useContext(SettingsPanelContext)?.discard;}
