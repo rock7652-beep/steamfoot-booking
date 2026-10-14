@@ -202,7 +202,7 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   useCourseDraftGuard(!!panel&&(dirty || supportGuard.dirty),!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
-  function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
+  function finishDraftForm(row?:Plan){toast.success(panel === "plan" ? (music ? (plan ? "班型與學費已更新" : "已新增班型與學費") : (plan ? "方案已更新" : "已新增方案")) : person ? "顧客資料已更新" : "已新增顧客");if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
