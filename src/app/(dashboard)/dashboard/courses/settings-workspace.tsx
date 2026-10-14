@@ -86,7 +86,7 @@ function SectionGuard({ section, context, children }: { section: string; context
   const report = context.report;
   const navigate = context.navigate;
   const scopedReport = useCallback((id: string, state: SettingsPanelState | null) => report(`${section}:${id}`, state), [section, report]);
-  const scoped = useMemo(() => ({ report: scopedReport, navigate, saved:context.saved }), [scopedReport, navigate, context.saved]);
+  const scoped = useMemo(() => ({ report: scopedReport, navigate, saved:context.saved,local:context.local }), [scopedReport, navigate, context.saved,context.local]);
   return <SettingsPanelContext.Provider value={scoped}>{children}</SettingsPanelContext.Provider>;
 }
 const lead = (minutes: number) => {
@@ -161,7 +161,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
       if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash)window.history.pushState(null,"",pathname+"?"+params+window.location.hash);
     }else router.push(href);
   },[pathname,router]);
-  const context = useMemo(() => ({ report, navigate: navigateLocal, saved:collapse }), [report, navigateLocal,collapse]);
+  const context = useMemo(() => ({ report, navigate: navigateLocal, saved:collapse,local:true }), [report, navigateLocal,collapse]);
   useEffect(() => {
     if (!hasDirty && !pending) return;
     function intercept(event: MouseEvent) {

@@ -115,7 +115,7 @@ export function SettingsPanel({
     };
   }, [dirty, pending, request, closeHref, destination,navigateLocal]);
 
-  const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved }), [report, navigate, navigateLocal, request, onSaved]);
+  const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved,local:!!navigateLocal }), [report, navigate, navigateLocal, request, onSaved]);
 
   return (
     <div ref={root} data-settings-panel>

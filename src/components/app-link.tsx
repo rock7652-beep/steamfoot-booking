@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { NavigationNotice } from "./navigation-notice";
 import Link, { useLinkStatus } from "next/link";
+import {useContext} from "react";
+import {SettingsPanelContext} from "@/components/admin/settings-panel-context";
 import { useState, type ComponentProps } from "react";
 
 function PendingFeedback() {
@@ -14,6 +16,7 @@ function PendingFeedback() {
 /** Warm read-only form routes on intent; retain explicit prefetch opt-outs. */
 export function AppLink({ children, prefetch, onMouseEnter, onFocus, onClick, ...props }: ComponentProps<typeof Link>) {
   const pathname = usePathname();
+  const localSettings=useContext(SettingsPanelContext)?.local;
   const [intentHref, setIntentHref] = useState<string | null>(null);
   const href = typeof props.href === "string" ? props.href : "";
   const target = href ? new URL(href, `https://navigation.invalid${pathname}`) : null;
@@ -23,7 +26,7 @@ export function AppLink({ children, prefetch, onMouseEnter, onFocus, onClick, ..
   const warmForm = /\/dashboard\/customers\/[^/?#]+(?:\/edit)?$/.test(href)
     || /^\/s\/[^/]+\/profile$/.test(href);
   return (
-    <Link {...props} scroll={props.scroll ?? (localQuery ? false : undefined)} prefetch={prefetch === undefined || prefetch === null ? (warmForm && intentHref === href ? true : null) : prefetch}
+    <Link {...props} scroll={props.scroll ?? (localQuery ? false : undefined)} prefetch={localSettings ? false : prefetch === undefined || prefetch === null ? (warmForm && intentHref === href ? true : null) : prefetch}
       onClick={event => {
         onClick?.(event);
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || props.target === "_blank" || props.download) return;

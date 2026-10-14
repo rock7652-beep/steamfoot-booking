@@ -6,6 +6,7 @@ export const SettingsPanelContext = createContext<{
   report: (id: string, state: SettingsPanelState | null) => void;
   navigate: (href: string) => void;
   saved?:()=>void;
+  local?:boolean;
 } | null>(null);
 
 /** Optional: standalone pages retain their original behavior. */
