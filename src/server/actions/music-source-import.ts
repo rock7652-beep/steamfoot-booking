@@ -25,7 +25,6 @@ export async function submitMusicSourceImport(_previous: MusicSourceImportState,
     return { status: "IMPORTED", batchId: result.batchId, fileVersion, message: result.duplicate ? "同一份來源已匯入，已讀回批次，不重複新增。" : `已封存 ${checked.preview.counts.students} 位學生的來源資料；新增 ${checked.preview.create} 位學生，${checked.preview.review} 位待核對。歷史紀錄可下載核對。` };
   } catch (error) {
     if (started && !(error instanceof AppError)) return { status: "RECONCILE", batchId: recoveryBatchId, message: "尚未取得完整結果。請保留這份檔案，用下方按鈕讀回同一批次；不要更改來源後另建批次。" };
-    if (error instanceof AppError && error.message === "BUSINESS_HOURS_IMPORT_PAUSED") return { status: "HOLD", message: "營業時段可預覽；寫入請在營業時間外執行。" };
     if (error instanceof AppError && error.code === "CONFLICT") return { status: "HOLD", message: "資料已變動或讀回未通過，交易已中止。請重新預覽。" };
     return { status: "HOLD", message: "資料格式、權限或隔離環境檢查未通過，尚未確認匯入。" };
   }

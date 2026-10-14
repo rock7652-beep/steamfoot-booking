@@ -38,6 +38,7 @@ function adapter(sql: { query: (q: string, values?: unknown[]) => Promise<{ rows
 }
 describe("structured source importer — PGlite PostgreSQL transaction adapter", () => {
   it("writes profiles and immutable-source payload atomically; identical reimport is a no-op", async () => {
+    vi.setSystemTime(new Date("2026-10-14T06:00:00Z")); // Taipei business hours: explicitly allowed in exact Preview.
     const data = parseMusicSourceImport(sourceFixture()), plan = planMusicSourceImport(data, []);
     const run = () => db.transaction(sql => commitMusicSourceImportInTransaction(adapter(sql), actor, data, sourceImportHash(plan)));
     const first = await run(), second = await run();
@@ -54,11 +55,11 @@ describe("structured source importer — PGlite PostgreSQL transaction adapter",
     await expect(db.transaction(sql => commitMusicSourceImportInTransaction(adapter(sql), actor, sourceFixture(), "stale"))).rejects.toThrow("重新預覽");
     expect((await db.query('SELECT count(*)::int AS n FROM "Customer"')).rows).toEqual([{ n: 0 }]);
   });
-  it("scope and business-hour rejection happen before database queries", async () => {
+  it("wrong store and production rejection happen before database queries", async () => {
     const query = vi.fn(); const tx = { $queryRaw: query } as unknown as Prisma.TransactionClient;
     await expect(commitMusicSourceImportInTransaction(tx, { ...actor, storeId: "another-store" }, sourceFixture(), "x")).rejects.toThrow();
-    vi.setSystemTime(new Date("2026-10-14T06:00:00Z"));
-    await expect(commitMusicSourceImportInTransaction(tx, actor, sourceFixture(), "x")).rejects.toThrow("BUSINESS_HOURS");
+    vi.stubEnv("VERCEL_ENV", "production");
+    await expect(commitMusicSourceImportInTransaction(tx, actor, sourceFixture(), "x")).rejects.toThrow();
     expect(query).not.toHaveBeenCalled();
   });
   it.each(["anon", "authenticated"])("%s has no archive access", async role => {

@@ -2,7 +2,6 @@ import "server-only";
 import { AppError } from "@/lib/errors";
 import { parseMusicSourceImport, planMusicSourceImport, sourceImportHash, sourceBatchId, sourceCustomerId, sourceStudentMarker, type MusicSourceImport, type SourceCustomer } from "@/lib/music-source-import";
 import { assertMusicOpeningPreviewEnvironment, MUSIC_OPENING_STORE } from "../../../scripts/music-opening-preview-scope.mjs";
-import { assertMusicOpeningImportWindow } from "./music-opening-import";
 import type { Prisma } from "@prisma/client";
 
 type Actor = { storeId: string; userId: string; name: string; role: string };
@@ -44,8 +43,8 @@ export async function previewMusicSourceImport(raw: unknown) {
  * cards, payroll or LINE identities. No notification kick runs after commit. */
 export async function commitMusicSourceImportInTransaction(tx: Prisma.TransactionClient, actor: Actor, raw: unknown, expectedPlanHash: string) {
   assertScope(actor);
-  assertMusicOpeningImportWindow();
-  assertMusicOpeningImportWindow(new Date(Date.now() + 60_000));
+  // User-approved test import is available at any hour. assertScope still
+  // requires the exact isolated Preview branch, connections, store and role.
   const data = parseMusicSourceImport(raw), hash = sourceImportHash(data);
   await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${actor.storeId} FOR UPDATE`;
   const stored = await tx.$queryRaw<Array<{ id: string; payload: unknown; result: unknown }>>`
@@ -80,7 +79,6 @@ export async function commitMusicSourceImportInTransaction(tx: Prisma.Transactio
     const saved = customers.find(c => c.id === sourceCustomerId(row.sourceStudentId));
     if (!saved || saved.name !== row.name || saved.phone !== row.phone.trim() || saved.serviceNote !== sourceStudentMarker(row.sourceStudentId)) throw new AppError("CONFLICT", "學生讀回核對未通過");
   }
-  assertMusicOpeningImportWindow();
   return { batchId, duplicate: false, result };
 }
 export async function commitMusicSourceImport(raw: unknown, expectedPlanHash: string) {

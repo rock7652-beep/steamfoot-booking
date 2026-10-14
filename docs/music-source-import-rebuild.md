@@ -15,7 +15,7 @@
 
 ## 隔離與驗收
 
-沿用既有精確 branch/repo/Preview/兩條 DB 連線/store-lubymusic 守門。讀寫均須原 wallet、booking 與 customer read/create 權限。營業時間可預覽，但既有寫入時段守門保留。
+沿用既有精確 branch/repo/Preview/兩條 DB 連線/store-lubymusic 守門。讀寫均須原 wallet、booking 與 customer read/create 權限。使用者於 2026-10-14 明確授權解除這個測試環境的來源匯入時段限制：學生基本資料及歷史封存可於營業時間匯入。其他環境、正式系統與舊權益 materializer 的守門不變。
 
 SQL 位於 `docs/sql/music-source-import-preview.sql`，只手動套既有隔離 Preview，不進 production migration runner。表啟用 RLS、撤銷公開與 client 存取；沒有 client policy 是 server-only 模型的預期狀態。
 
