@@ -1,6 +1,6 @@
-import { isIsolatedConsultationDatabaseUrl } from "./consultation-preview-scope.mjs";
+import { isIsolatedConsultationDatabaseUrl, COURSE_BUSINESS_BOUNDARIES_BRANCH } from "./consultation-preview-scope.mjs";
 
-export const COURSE_BUSINESS_BOUNDARIES_BRANCH = "codex/course-business-boundaries-20261014";
+export { COURSE_BUSINESS_BOUNDARIES_BRANCH };
 
 /** Guard the exact review candidate before migration subprocesses or DB clients. */
 export function assertCourseBusinessBoundariesPreview(env) {
