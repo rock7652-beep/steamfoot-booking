@@ -23,10 +23,10 @@ describe("trial opening transaction", () => {
     await expect(openSingleStoreTrialInTransaction(tx, input)).rejects.toThrow("正式方案");
     expect(m.create).not.toHaveBeenCalled(); expect(m.update).not.toHaveBeenCalled();
   });
-  it("does not silently deactivate a fourth person", async () => {
+  it("opens trial for a larger team without deactivating anyone", async () => {
     m.count.mockResolvedValue(4);
-    await expect(openSingleStoreTrialInTransaction(tx, input)).rejects.toThrow("3 位");
-    expect(m.create).not.toHaveBeenCalled(); expect(m.update).not.toHaveBeenCalled();
+    await expect(openSingleStoreTrialInTransaction(tx, input)).resolves.toEqual({ id: "trial-1" });
+    expect(m.count).not.toHaveBeenCalled();
   });
   it("starts only on the actual opening day", async () => {
     await expect(openSingleStoreTrialInTransaction(tx, { ...input, startDate: "2026-09-12" })).rejects.toThrow("今天");

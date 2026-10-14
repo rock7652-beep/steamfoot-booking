@@ -12,54 +12,14 @@ import { PRICING_PLAN_INFO, PLAN_LIMITS } from "@/lib/feature-flags";
 // 用量指標升級文案
 // ============================================================
 
-type MetricKey = "可啟用人員" | "顧客數" | "本月預約";
-
-const METRIC_COPY: Record<
-  MetricKey,
-  {
-    warning: { message: string; valueProp: string };
-    danger: { message: string; valueProp: string };
-  }
-> = {
-  可啟用人員: {
-    warning: {
-      message: "可啟用人員接近上限，建議升級以確保排班彈性",
-      valueProp: "升級後可新增更多人員，靈活調度人力",
-    },
-    danger: {
-      message: "可啟用人員已達上限，店長、後台員工與服務人員共用額度。升級可擴充人員名額。",
-      valueProp: "升級後立即解鎖更多人員名額",
-    },
-  },
-  顧客數: {
-    warning: {
-      message: "顧客數即將達上限，升級可避免影響新客接待",
-      valueProp: "升級後可容納更多顧客，持續擴展客群",
-    },
-    danger: {
-      message: "顧客數已達上限，新客將無法建檔。升級可擴充顧客容量。",
-      valueProp: "升級後立即擴充顧客容量",
-    },
-  },
-  本月預約: {
-    warning: {
-      message: "本月預約量接近上限，建議升級以維持營運彈性",
-      valueProp: "升級後可處理更多預約，不錯過任何商機",
-    },
-    danger: {
-      message: "本月預約已達上限，新預約將無法建立。升級可解除限制。",
-      valueProp: "升級後立即解除預約限制",
-    },
-  },
-};
-
+/** Growth counters are informational; never upsell because a store grew. */
 export function getMetricUpgradeCopy(
-  label: string,
-  status: "warning" | "danger"
+  _label: string,
+  _status: "warning" | "danger"
 ): { message: string; valueProp: string } | null {
-  const copy = METRIC_COPY[label as MetricKey];
-  if (!copy) return null;
-  return copy[status];
+  void _label;
+  void _status;
+  return null;
 }
 
 // ============================================================
@@ -102,7 +62,7 @@ export const TRIAL_CONVERSION_COPY = {
   /** CTA 文字 */
   retainCta: "升級保留完整功能",
   /** 進度條下方提示 */
-  retainHint: "轉正式後依所購方案開通功能與額度，資料完整保留",
+  retainHint: "轉正式後依所購方案開通功能，資料完整保留",
   /** TrialLimitModal 的加強文案 */
   modalCta: "立即升級，繼續使用",
   modalRetainNote: "升級後立即生效，現有資料完整保留",

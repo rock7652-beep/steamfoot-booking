@@ -725,7 +725,7 @@ function OrganizationCapacityEditor({ store, count }: { store: StoreOrganization
     <label className="block">可串接分店間數
       <input aria-label="可串接分店間數" type="number" min={Math.max(1, count)} step="1" value={slots} onChange={e => setSlots(e.target.value)} disabled={pending} className="mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2" />
     </label>
-    <p>依目前已串接 {count} 間計算：主店展店版 NT$4,990／月，串接費 {connectionFee === null ? "另行報價" : `NT$${connectionFee.toLocaleString("zh-TW")}／月`}，合計 {monthlyFee === null ? "另行報價" : `NT$${monthlyFee.toLocaleString("zh-TW")}／月`}。</p>
+    <p>依目前已串接 {count} 間計算：主店月繳 NT$2,980 × 12 期＝NT$35,760（最低承諾 12 個月，無贈送）；或年繳 NT$35,760，優惠期間使用 14 個月（平均約 NT$2,554／月）。若採月繳，主店月費加分店串接費每月合計 {monthlyFee === null ? "另行報價" : `NT$${monthlyFee.toLocaleString("zh-TW")}／月`}；若採年繳，分店串接費 {connectionFee === null ? "另行報價" : `NT$${connectionFee.toLocaleString("zh-TW")}／月`}另按月計。</p>
     <p className="text-xs leading-5 text-earth-600">{ALLIANCE_BRANCH_PRICING_COPY} 此處設定可串接幾間，費用只按實際已串接間數計算，不會自動扣款。</p>
     {valid && value > 15 && <p className="text-amber-700">16 間起須另行報價，請確認報價及開通安排後再儲存。</p>}
     <button type="button" disabled={pending || !valid} className="rounded-lg bg-primary-600 px-3 py-2 text-white disabled:opacity-50" onClick={() => startTransition(async () => {

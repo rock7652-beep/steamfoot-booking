@@ -26,8 +26,8 @@ export default async function PublicGuidePage({ params }: Props) {
   const guide = findPublicGuide((await params).slug);
   if (!guide) notFound();
   const category = GUIDE_CATEGORIES.find(item => item.id === guide.category)!;
-  const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-leave-reschedule-notifications", "music-school-teacher-fee-reconciliation"].includes(guide.id);
-  const isFitnessGuide = guide.id === "pilates-studio-equipment-scheduling";
+  const isMusicGuide = ["music-school-leave-makeup-lesson-balance", "music-school-leave-reschedule-notifications", "music-school-teacher-fee-reconciliation", "music-school-renewal-confirmation"].includes(guide.id);
+  const isFitnessGuide = ["pilates-studio-equipment-scheduling", "fitness-studio-substitute-teacher-handover"].includes(guide.id);
   const url = `${MARKETING_ORIGIN}${guidePath(guide)}`;
   // No invented byline, publication date, review, or customer-result claims.
   const structuredData = {

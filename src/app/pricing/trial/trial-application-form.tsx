@@ -328,7 +328,7 @@ export function TrialApplicationForm() {
               hint: "例如 butler；使用小寫英文、數字或短橫線。留空由我們協助，送出後確認是否可用。",
             })}
             {field("additionalManagers", "其他後台使用者姓名／Email（選填）", {
-              hint: "體驗版最多 3 位後台使用者；教練前台 LINE 身分另行設定，也可開通後再新增。",
+              hint: "體驗版後台帳號與教練人數不限；教練前台 LINE 身分另行設定，也可開通後再新增。",
             })}
           </div>
         </details>

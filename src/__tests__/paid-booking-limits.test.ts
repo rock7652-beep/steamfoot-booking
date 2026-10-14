@@ -11,8 +11,8 @@ describe("feature-based paid subscriptions", () => {
     expect(limits.maxCustomers).toBe(PLAN_LIMITS[plan].maxCustomers);
     expect(limits.maxReminderSends).toBe(PLAN_LIMITS[plan].maxReminderSends);
   });
-  it("preserves trial caps and trial overrides", () => {
-    expect(getPlanLimits({ plan: "EXPERIENCE", ...overrides, maxMonthlyBookingsOverride: null }).maxMonthlyBookings).toBe(100);
-    expect(getPlanLimits({ plan: "EXPERIENCE", ...overrides, maxMonthlyBookingsOverride: 20 }).maxMonthlyBookings).toBe(20);
+  it("ignores former trial booking caps and overrides", () => {
+    expect(getPlanLimits({ plan: "EXPERIENCE", ...overrides, maxMonthlyBookingsOverride: null }).maxMonthlyBookings).toBeNull();
+    expect(getPlanLimits({ plan: "EXPERIENCE", ...overrides, maxMonthlyBookingsOverride: 20 }).maxMonthlyBookings).toBeNull();
   });
 });

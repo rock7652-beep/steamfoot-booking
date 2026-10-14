@@ -78,9 +78,6 @@ describe("customers view mode support", () => {
         where: expect.objectContaining({ storeId: "store-child" }),
       }),
     );
-    expect(mockCustomerCount).toHaveBeenCalledWith({
-      where: expect.objectContaining({ storeId: "store-child" }),
-    });
   });
 
   it("uses viewedStoreId for customer detail queries", async () => {

@@ -176,8 +176,6 @@ export function TrialLimitModal({
   const reasons: string[] = [];
   if (trial.pendingActivation) reasons.push("試用尚未啟用，請聯繫總部確認交付狀態");
   if (trial.trialExpired) reasons.push(`${trial.trialDays} 天體驗期已結束`);
-  if (trial.customers.pct >= 100) reasons.push(`顧客數已達 ${trial.customers.limit} 位上限`);
-  if (trial.bookings.pct >= 100) reasons.push(`預約數已達 ${trial.bookings.limit} 筆上限`);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -198,7 +196,7 @@ export function TrialLimitModal({
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-earth-900">體驗版已達使用上限</h3>
+          <h3 className="text-lg font-bold text-earth-900">體驗版目前無法使用</h3>
           <div className="mt-2 space-y-1">
             {reasons.map((r) => (
               <p key={r} className="text-sm text-earth-500">{r}</p>
@@ -329,17 +327,13 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
   if (trial.course) {
     const warnings = [
       trial.trialExpired ? "體驗已到期" : !trial.pendingActivation && Math.round((1 - trial.daysRemaining / trial.trialDays) * 100) >= 80 ? `體驗剩 ${trial.daysRemaining} 天` : null,
-      trial.staff && trial.staff.current >= trial.staff.limit ? "啟用人員已達上限" : null,
-      trial.customers.pct >= 100 ? "顧客已達上限" : trial.customers.pct >= 80 ? "顧客接近上限" : null,
-      trial.bookings.pct >= 100 ? "本月預約已達上限" : trial.bookings.pct >= 80 ? "本月預約接近上限" : null,
     ].filter(Boolean);
-    const limit = (n: number) => Number.isFinite(n) ? n.toLocaleString() : "不限";
     return <section aria-label="體驗版用量" className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1"><strong className="text-primary-800">體驗版 · {trialLabel}</strong>
         {trial.expiresOn && <span>到期日 {trial.expiresOn}</span>}
-        {trial.staff && <span>啟用人員 {trial.staff.current}／{limit(trial.staff.limit)}</span>}
-        <span>顧客 {trial.customers.current.toLocaleString()}／{limit(trial.customers.limit)}</span><span>本月預約 {trial.bookings.current.toLocaleString()}／{limit(trial.bookings.limit)}</span>
-        <details><summary className="inline-flex min-h-11 cursor-pointer items-center text-primary-700">ⓘ 用量說明</summary><p className="max-w-xs pb-2 leading-relaxed">本月預約按台灣月份的建立時間，每位學員的一筆預約計一筆，含取消、未到與體驗；不是上課月份或今日有效預約。取消不返還本月用量。</p></details>
+        {trial.staff && <span>啟用人員 {trial.staff.current} 位</span>}
+        <span>顧客 {trial.customers.current.toLocaleString()} 位</span><span>本月預約 {trial.bookings.current.toLocaleString()} 筆</span>
+        <details><summary className="inline-flex min-h-11 cursor-pointer items-center text-primary-700">ⓘ 用量說明</summary><p className="max-w-xs pb-2 leading-relaxed">本月預約依台灣月份的建立時間統計，每位學員的一筆預約計一筆，含取消、未到與體驗。顧客、人員、預約與自動提醒不限數量。</p></details>
         <a href="/pricing" className="ml-auto inline-flex min-h-11 items-center text-primary-700 underline">查看方案</a>
       </div>
       {warnings.length > 0 && <p role="status" className="border-t border-amber-200 py-2 text-amber-800">{warnings.join("；")}。<a href="/pricing" className="underline">查看升級方案</a>。</p>}
@@ -365,7 +359,7 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
           {trial.stage === "blocked" && (
             <>
               <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
-                已達上限
+                {trial.pendingActivation ? "待啟用" : "體驗已到期"}
               </span>
               <span className="text-[10px] text-red-500">
                 {TRIAL_CONVERSION_COPY.blockedAction}
@@ -396,7 +390,7 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
         </p>
       )}
 
-      <div className="mt-2 grid grid-cols-3 gap-3">
+      <div className="mt-2 grid gap-3 sm:grid-cols-3">
         {/* 天數 */}
         <ProgressItem
           label="體驗期"
@@ -404,20 +398,8 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
           pct={trial.pendingActivation ? 0 : Math.round(((trial.trialDays - trial.daysRemaining) / trial.trialDays) * 100)}
           stage={trial.trialExpired ? "blocked" : trial.stage}
         />
-        {/* 顧客 */}
-        <ProgressItem
-          label="顧客"
-          value={`${trial.customers.current}/${trial.customers.limit}`}
-          pct={trial.customers.pct}
-          stage={trial.customers.pct >= 100 ? "blocked" : trial.stage}
-        />
-        {/* 預約 */}
-        <ProgressItem
-          label="預約"
-          value={`${trial.bookings.current}/${trial.bookings.limit}`}
-          pct={trial.bookings.pct}
-          stage={trial.bookings.pct >= 100 ? "blocked" : trial.stage}
-        />
+        <div className="min-w-0 text-sm text-earth-700">顧客 {trial.customers.current.toLocaleString()} 位</div>
+        <div className="min-w-0 text-sm text-earth-700">預約 {trial.bookings.current.toLocaleString()} 筆</div>
       </div>
 
       {/* 升級保留提示 */}

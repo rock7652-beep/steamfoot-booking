@@ -4,8 +4,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 vi.mock("@/components/admin/exclusive-menu", () => ({ ExclusiveMenu: ({ children }: { children: React.ReactNode }) => createElement("div", { "data-action-menu": true }, children) }));
-const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), plan: vi.fn(), change: vi.fn(), profile: vi.fn() }));
-vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, completeBookingParticipantPlan: h.plan, changeBookingParticipantService: h.change, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
+const h = vi.hoisted(() => ({ collect: vi.fn(), resolve: vi.fn(), remove: vi.fn(), restore: vi.fn(), plan: vi.fn(), change: vi.fn(), profile: vi.fn() }));
+vi.mock("@/server/actions/booking-participants", () => ({ collectBookingParticipantTrial: h.collect, resolveBookingParticipant: h.resolve, removeBookingParticipant: h.remove, restoreBookingParticipant: h.restore, completeBookingParticipantPlan: h.plan, changeBookingParticipantService: h.change, addBookingParticipant: vi.fn(), attachBookingCompanion: vi.fn(), createBookingCompanion: vi.fn(), findBookingCompanionByPhone: vi.fn() }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({
   AssignPlanForm: ({ customerId, onSuccess, onPendingChange }: { customerId: string; onSuccess: () => void; onPendingChange: (pending: boolean) => void }) =>
     createElement("div", { "data-plan-customer": customerId }, "本人方案表單", createElement("button", {
@@ -55,6 +55,62 @@ describe("actual participant checkout component", () => {
     expect(h.collect).not.toHaveBeenCalled();
     expect(h.change).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("近期預約");
+  });
+
+  it("permanently removes only a pristine walk-in from the booking and releases its place", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN", customerId: null, name: null };
+    h.remove.mockResolvedValue({ success: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await render(data);
+    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="刪除同行者"]')!;
+    expect(removeButton.textContent).toBe("× 刪除同行者");
+    expect(removeButton.closest("[data-action-menu]")).not.toBeNull();
+    await click(removeButton);
+    expect(confirm).toHaveBeenCalledWith("刪除這位同行者？刪除後會從預約名單移除，人數減少 1；不保留取消紀錄。");
+    expect(h.remove).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
+    expect(h.resolve).not.toHaveBeenCalled();
+    expect(container.querySelector('[aria-label="朋友"]')).toBeNull();
+    expect(container.textContent).toContain("已服務 0／1 人");
+    expect(updated).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores a cancelled companion and lets a pristine cancelled walk-in be removed", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], status: "CANCELLED" };
+    h.restore.mockResolvedValue({ success: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await render(data);
+    await click(buttons("恢復名額")[0]);
+    expect(confirm).toHaveBeenCalledWith("恢復朋友的名額？狀態會改回待到店；若要換人，請新增一位同行者。");
+    expect(h.restore).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
+    expect(container.textContent).toContain("待到店");
+  });
+
+  it("offers deletion only for an empty cancelled temporary walk-in", async () => {
+    const data = checkout();
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN", customerId: null, name: null, status: "CANCELLED" };
+    h.remove.mockResolvedValue({ success: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await render(data);
+    const removeButton = container.querySelector<HTMLButtonElement>('button[aria-label="刪除同行者"]')!;
+    await click(removeButton);
+    expect(confirm).toHaveBeenCalledWith("刪除這位同行者？刪除後會從預約名單移除，人數減少 1；不保留取消紀錄。");
+    expect(h.remove).toHaveBeenCalledWith({ bookingId: "booking", position: 2, revision: 2 });
+    expect(container.querySelector('[aria-label="同行者 1"]')).toBeNull();
+  });
+
+  it("offers reserved companion deletion but protects paid and completed people", async () => {
+    const data = checkout();
+    await render(data);
+    expect(container.querySelectorAll('button[aria-label="刪除同行者"]')).toHaveLength(1);
+    expect(container.querySelector('[aria-label="預約者"] button[aria-label="刪除同行者"]')).toBeNull();
+    data.slots[1] = { ...data.slots[1], source: "WALK_IN", collectedAmount: 499 };
+    await render(data);
+    expect(container.querySelector('button[aria-label="刪除同行者"]')).toBeNull();
+    data.slots[1] = { ...data.slots[1], collectedAmount: null, status: "COMPLETED" };
+    await render(data);
+    expect(container.querySelector('button[aria-label="刪除同行者"]')).toBeNull();
   });
 
   it("unregistered companion has their own collection form when enabled, without a customer selection", async () => {

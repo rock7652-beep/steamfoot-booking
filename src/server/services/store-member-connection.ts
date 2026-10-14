@@ -7,6 +7,16 @@ import { AppError } from "@/lib/errors";
 import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-line-config";
 import { connectionConflict } from "@/lib/store-member-connection";
 import type { InventoryContext } from "./inventory";
+import { sha256 } from "./line-rebind";
+import { LIFF_LOGIN_FIRST_CAPTURE_REASON, tryExecuteAuthorizedLiffLoginFirstCapture } from "./liff-login-rebind";
+
+/** Phone selects a row; only a prior staff authorization may activate it. */
+export async function completeAuthorizedFirstStoreLogin(input: { storeId: string; phone: string; candidateLineUserId: string }) {
+  const rows = await prisma.customer.findMany({ where: { storeId: input.storeId, phone: normalizePhone(input.phone), mergedIntoCustomerId: null }, select: { id: true }, take: 2 });
+  if (rows.length !== 1) return false;
+  const result = await tryExecuteAuthorizedLiffLoginFirstCapture({ ...input, customerId: rows[0].id });
+  return result.status === "executed";
+}
 
 export function connectionChannel(storeId: string, destination: string) {
   const config = getConfiguredStoreLine(storeId);
@@ -93,22 +103,75 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
       select: { userId: true, user: { select: { status: true, role: true } } },
     });
     if (account && (account.user.status !== "ACTIVE" || account.user.role !== "CUSTOMER")) throw new AppError("CONFLICT", "LINE 帳號需確認");
-    const conflict = connectionConflict(customer, account?.userId ?? null);
-    if (conflict) throw new AppError("CONFLICT", conflict);
-    if (customer.lineUserId && customer.lineUserId !== request.lineUserId) throw new AppError("CONFLICT", "本店已綁定其他 LINE，需確認");
+    // A store notification request is separate from the LINE identity captured
+    // during LIFF booking. If its provider-specific Account row is not present,
+    // reuse the one existing member owner after staff has verified the person;
+    // do not treat that valid membership as a different customer or create a
+    // second User. Multiple owners, or an Account owned by someone else, remain
+    // blocked for manual identity review.
+    const owners = new Set([
+      ...(customer.userId ? [customer.userId] : []),
+      ...customer.identityLinks.map(link => link.userId),
+    ]);
+    let userId: string;
+    if (account) {
+      const conflict = connectionConflict(customer, account.userId);
+      if (conflict) throw new AppError("CONFLICT", conflict);
+      userId = account.userId;
+    } else if (owners.size === 1) {
+      userId = [...owners][0];
+      const owner = await tx.user.findUnique({
+        where: { id: userId },
+        select: { status: true, role: true },
+      });
+      if (!owner || owner.status !== "ACTIVE" || owner.role !== "CUSTOMER") {
+        throw new AppError("CONFLICT", "會員帳號需確認");
+      }
+    } else if (owners.size > 1) {
+      throw new AppError("CONFLICT", "顧客有多筆帳號連結，需先確認身分");
+    } else {
+      userId = (await tx.user.create({
+        data: { name: customer.name, role: "CUSTOMER", status: "ACTIVE" },
+        select: { id: true },
+      })).id;
+    }
     const other = await tx.customer.findFirst({ where: { storeId: ctx.storeId, lineUserId: request.lineUserId, id: { not: customerId } }, select: { id: true } });
     if (other) throw new AppError("CONFLICT", "LINE 已連結本店其他顧客");
-    const userId = account?.userId ?? (await tx.user.create({ data: { name: customer.name, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } })).id;
     const links = await tx.customerIdentityLink.findMany({ where: { storeId: ctx.storeId, OR: [{ userId }, { provider: request.identityProvider, providerAccountId: request.lineUserId }] }, select: { customerId: true } });
     if (links.some(link => link.customerId !== customerId)) throw new AppError("CONFLICT", "本店會員關係需確認");
     const existingProvider = customer.identityLinks.find(link => link.provider === request.identityProvider);
-    if (existingProvider && existingProvider.providerAccountId !== request.lineUserId) throw new AppError("CONFLICT", "顧客已有不同 LINE 身分");
     if (!account) await tx.account.create({ data: { userId, provider: request.identityProvider, providerAccountId: request.lineUserId, type: "oauth" } });
-    if (!existingProvider) await tx.customerIdentityLink.create({ data: { userId, storeId: ctx.storeId, customerId, provider: request.identityProvider, providerAccountId: request.lineUserId } });
+    if (existingProvider && existingProvider.providerAccountId !== request.lineUserId) {
+      // Staff has confirmed the same customer using the fresh LINE confirmation
+      // code. Rebind only this store's identity link; keep the old global Account
+      // usable for sign-in and leave every other store's link untouched.
+      await tx.customerIdentityLink.update({
+        where: { id: existingProvider.id },
+        data: { providerAccountId: request.lineUserId, lineUserId: request.lineUserId },
+      });
+    } else if (!existingProvider) {
+      await tx.customerIdentityLink.create({ data: { userId, storeId: ctx.storeId, customerId, provider: request.identityProvider, providerAccountId: request.lineUserId } });
+    }
     // Scoped link is authoritative; Customer.userId is globally unique.
     await tx.customer.update({ where: { id: customerId }, data: { lineUserId: request.lineUserId, lineLinkStatus: "LINKED", lineLinkedAt: new Date() } });
     await tx.storeMemberConnection.update({ where: { id: request.id }, data: { status: "APPROVED", centralUserId: userId, confirmedAt: new Date(), confirmedByUserId: ctx.user.id } });
     await tx.storeMemberConnection.updateMany({ where: { storeId: ctx.storeId, customerId, status: "PENDING", id: { not: request.id } }, data: { status: "REJECTED" } });
+    // Messaging confirmation does not itself prove a Login subject. Authorize
+    // one fresh verified Login capture instead of copying notification IDs.
+    if (request.identityProvider.startsWith("line-messaging:")) {
+      const now = new Date();
+      // The partial unique index includes expired rows until their status is
+      // transitioned. Preserve any still-active rebind of either kind.
+      await tx.lineRebindRequest.updateMany({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { lte: now } }, data: { status: "EXPIRED", expiredAt: now } });
+      const [loginAccount, loginLink, activeCapture] = await Promise.all([
+        tx.account.findFirst({ where: { userId, provider: "line" }, select: { id: true } }),
+        tx.customerIdentityLink.findFirst({ where: { customerId, provider: "line" }, select: { id: true } }),
+        tx.lineRebindRequest.findFirst({ where: { storeId: ctx.storeId, customerId, status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] }, expiresAt: { gt: now } }, select: { id: true } }),
+      ]);
+      if (!loginAccount && !loginLink && !activeCapture) {
+        await tx.lineRebindRequest.create({ data: { storeId: ctx.storeId, customerId, createdByUserId: ctx.user.id, reason: LIFF_LOGIN_FIRST_CAPTURE_REASON, phoneHash: sha256(request.phone), oldUserIdHash: null, status: "PENDING_CAPTURE", expiresAt: new Date(Date.now() + 24 * 60 * 60_000) } });
+      }
+    }
     await tx.auditLog.create({ data: { actorUserId: ctx.user.id, targetType: "StoreMemberConnection", targetId: request.id, action: "APPROVE_STORE_MEMBER", afterJson: { storeId: ctx.storeId, customerId } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

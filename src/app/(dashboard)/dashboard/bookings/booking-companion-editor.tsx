@@ -9,7 +9,7 @@ import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 type Candidate = { id: string; name: string; phoneMasked: string };
 type Slot = NonNullable<BookingDrawerPayload["companions"]>["slots"][number];
 
-export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, onUpdated, embedded = false }: { embedded?: boolean; bookingId: string; slot: Slot; canEdit: boolean; canCreate: boolean; blocked: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void }) {
+export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, onUpdated, embedded = false, displayPosition = slot.position }: { displayPosition?: number; embedded?: boolean; bookingId: string; slot: Slot; canEdit: boolean; canCreate: boolean; blocked: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void }) {
   const reader = usePanelReader("booking-companion-phone", findBookingCompanionByPhone);
   const [phone, setPhone] = useRetainedState<string>(`companion-phone:${bookingId}:${slot.position}`, "",
     (value): value is string => typeof value === "string" && value.length <= 30);
@@ -49,7 +49,7 @@ export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, on
   }
   const name = slot.name ?? linked?.name;
   return <div className={embedded ? "mt-1" : "border-t border-earth-100 py-2"}>
-    {!embedded && <p className="text-base font-medium text-earth-800">同行者 {slot.position - 1} · {name ?? "待建檔"}</p>}
+    {!embedded && <p className="text-base font-medium text-earth-800">同行者 {displayPosition - 1} · {name ?? "待建檔"}</p>}
     {canEdit && !slot.customerId && !linked && !editing && <button type="button"
       disabled={blocked || working} onClick={() => setEditing(true)} className="min-h-11 px-3 text-base font-medium text-primary-700">資料建檔</button>}
     {canEdit && !slot.customerId && !linked && editing && <div className="mt-1 space-y-2">
@@ -67,10 +67,10 @@ export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, on
         });
       }}>
         <div className="flex flex-wrap gap-2">
-          {canCreate && <input aria-label={`同行者 ${slot.position - 1} 姓名`} value={newName} maxLength={100} disabled={working || blocked}
+          {canCreate && <input aria-label={`同行者 ${displayPosition - 1} 姓名`} value={newName} maxLength={100} disabled={working || blocked}
             autoComplete="name" onChange={event => setNewName(event.target.value)} placeholder="姓名"
             className="min-h-11 min-w-0 flex-[1_1_140px] rounded-lg border border-earth-300 px-3 text-base" />}
-          <input type="tel" inputMode="tel" autoComplete="tel" aria-label={`同行者 ${slot.position - 1} 手機號碼`}
+          <input type="tel" inputMode="tel" autoComplete="tel" aria-label={`同行者 ${displayPosition - 1} 手機號碼`}
             value={phone} maxLength={30} disabled={working || blocked} placeholder="電話"
             onChange={event => { setPhone(event.target.value); setCandidates([]); setMessage(""); }}
             className="min-h-11 min-w-0 flex-[1_1_180px] rounded-lg border border-earth-300 px-3 text-base" />

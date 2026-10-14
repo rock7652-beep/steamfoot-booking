@@ -50,7 +50,11 @@ const teacherFeeSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-
 function enableTeacherFee() {
   for (const [key, value] of Object.entries(teacherFeeSafe)) vi.stubEnv(key, value);
 }
-const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }];
+const renewalSafe = { ...waitlistSafe, VERCEL_GIT_COMMIT_REF: "content/music-school-renewal-confirmation" };
+function enableRenewal() {
+  for (const [key, value] of Object.entries(renewalSafe)) vi.stubEnv(key, value);
+}
+const previewModes = [{ name: "original", enable }, { name: "waitlist", enable: enableWaitlist }, { name: "migration", enable: enableMigration }, { name: "pilates", enable: enablePilates }, { name: "teacher fee", enable: enableTeacherFee }, { name: "renewal", enable: enableRenewal }];
 
 const normalGlobals = globalThis as unknown as Record<string, unknown>;
 const priorCache = { prisma: normalGlobals.prisma, spaPrisma: normalGlobals.spaPrisma, coursePrisma: normalGlobals.coursePrisma };
@@ -101,7 +105,7 @@ describe("exact guide UI preview scope", () => {
 
 describe.each(previewModes)("$name outer request boundary before auth", ({ name, enable: enableMode }) => {
   beforeEach(enableMode);
-  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
+  it.each(["/guides", "/guides/solo-store", "/guides/music-school-leave-makeup-lesson-balance", "/guides/yoga-studio-waitlist-order", "/guides/music-school-leave-reschedule-notifications", "/guides/pilates-studio-equipment-scheduling", "/guides/music-school-teacher-fee-reconciliation", "/guides/music-school-renewal-confirmation", "/pricing/guides", "/pricing/guides/solo-store", "/robots.txt", "/sitemap.xml", "/pricing/brand/steam-butler-logo.png", "/_next/static/chunks/test.js", "/favicon.ico"])("permits only read-only editorial request %s", path => {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: path })).toBe(true);
     const response = route(path);
     expect([200, 308]).toContain(response.status);
@@ -356,5 +360,29 @@ describe("marketing collapse preview provenance", () => {
     expect(() => isMarketingStickyUiPreview({ ...env, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
     expect(() => isMarketingStickyUiPreview({ ...env, WORKERS_CI_BRANCH: env.VERCEL_GIT_COMMIT_REF })).toThrow();
     expect(isMarketingStickyUiPreview({ ...env, VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+  });
+});
+
+
+describe("renewal publication exact Preview provenance", () => {
+  it("accepts only the exact repository and branch without database credentials", () => {
+    expect(isGuideUiPreview({ ...renewalSafe, DATABASE_URL: "", DIRECT_URL: "" })).toBe(true);
+    expect(isGuideUiPreview({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toBe(false);
+    expect(isGuideUiPreview({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "another-branch" })).toBe(false);
+  });
+  it.each(["VERCEL", "VERCEL_ENV", "VERCEL_GIT_REPO_OWNER", "VERCEL_GIT_REPO_SLUG"])("rejects missing %s", key => {
+    expect(() => isGuideUiPreview({ ...renewalSafe, [key]: undefined })).toThrow(/isolation rejected/);
+  });
+  it.each([["VERCEL", "0"], ["VERCEL_ENV", "production"], ["VERCEL_GIT_REPO_OWNER", "other"], ["VERCEL_GIT_REPO_SLUG", "other"], ["WORKERS_CI_BRANCH", "main"], ["CF_PAGES_BRANCH", "content/music-school-renewal-confirmation"], ["GUIDE_UI_PREVIEW", "1"]])("rejects conflicting %s", (key, value) => {
+    expect(() => isGuideUiPreview({ ...renewalSafe, [key]: value })).toThrow(/isolation rejected/);
+  });
+  it.each(["WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])("rejects branch identity supplied only by %s", key => {
+    expect(() => isGuideUiPreview({ ...renewalSafe, VERCEL_GIT_COMMIT_REF: "main", [key]: "content/music-school-renewal-confirmation" })).toThrow(/isolation rejected/);
+  });
+  it("skips migrations before database work with no database", () => {
+    const result = spawnSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...process.env, ...renewalSafe, DATABASE_URL: "", DIRECT_URL: "", PRODUCTION_MIGRATION_TARGET: "unapproved-target" }, encoding: "utf8", timeout: 15000 });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("database_disabled=true migrations_skipped=true");
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
 });

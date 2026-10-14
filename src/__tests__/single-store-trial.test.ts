@@ -13,8 +13,8 @@ describe("explicit single-store trial policy", () => {
     expect(trialDates("2028-02-01").endDate).toBe("2028-03-01");
     expect(() => trialDates("2026-09-13", 1.5)).toThrow();
   });
-  it("gives three shared people and enables report use without expanding customer or external message quotas", () => {
-    expect(getPlanLimits({ ...trial, ...overrides, maxStaffOverride: 99 })).toEqual({ maxStaff: 3, maxCustomers: 100, maxMonthlyBookings: 100, maxMonthlyReports: null, maxReminderSends: 50, maxStores: 2 });
+  it("removes growth quotas while preserving trial feature and branch scope", () => {
+    expect(getPlanLimits({ ...trial, ...overrides, maxStaffOverride: 99 })).toEqual({ maxStaff: null, maxCustomers: null, maxMonthlyBookings: null, maxMonthlyReports: null, maxReminderSends: null, maxStores: 2 });
     for (const feature of [FEATURES.MEMBER_PORTAL, FEATURES.LINE_REMINDER, FEATURES.DATA_EXPORT, FEATURES.BASIC_REPORTS, FEATURES.CASH_DRAWER]) expect(isSingleStoreFeature(feature)).toBe(true);
     for (const feature of [FEATURES.MULTI_STORE, FEATURES.HEADQUARTER_VIEW, FEATURES.ALLIANCE_ANALYTICS]) expect(isSingleStoreFeature(feature)).toBe(false);
   });
@@ -27,7 +27,7 @@ describe("explicit single-store trial policy", () => {
   });
   it("keeps trial access while an upgrade awaits payment", () => {
     expect(isSingleStoreTrial({ ...trial, planStatus: "PAYMENT_PENDING" })).toBe(true);
-    expect(getPlanLimits({ ...trial, ...overrides, planStatus: "PAYMENT_PENDING" }).maxStaff).toBe(3);
+    expect(getPlanLimits({ ...trial, ...overrides, planStatus: "PAYMENT_PENDING" }).maxStaff).toBeNull();
   });
   it("keeps expired subscriptions expired, including those missing an end date", () => {
     expect(computeLifecycle({ status: "EXPIRED", expiresAt: null }, "2026-10-13").isExpired).toBe(true);

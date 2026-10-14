@@ -6,18 +6,8 @@
  */
 
 /**
- * Pure helper: 用 booking groupBy 結果蓋掉 customer 的 lastVisitAt 顯示值。
- *
- * 規則：
- *   - 有 COMPLETED booking → 用該 booking 的最新 bookingDate
- *   - 無 COMPLETED booking → 退回 Customer.lastVisitAt（極少數舊資料場景）
- *
- * 為什麼這樣設計：prod 多數 Customer.lastVisitAt 是 stale/null，但顧客
- * 其實有 COMPLETED bookings。本 helper 讓「列表顯示」用 booking 真實
- * 結果，不 backfill、不動 booking 完成流程、不動 schema。
- *
- * Known limitation（listCustomers 使用處的 comment 已記）：
- *   - visit filter 與 sort 仍使用 Customer.lastVisitAt，未在本 PR 修正。
+ * 顧客清單顯示最近完成的到店日期，合併預約本人及同行者的完成紀錄。
+ * 若沒有可用的完成紀錄，保留 Customer.lastVisitAt 作為舊資料備援。
  */
 export function overrideLastVisitFromCompletedBookings<
   T extends { id: string; lastVisitAt: Date | null },
@@ -27,12 +17,25 @@ export function overrideLastVisitFromCompletedBookings<
     customerId: string;
     _max: { bookingDate: Date | null };
   }>,
+  participantVisits: Array<{
+    customerId: string | null;
+    bookingDate: Date | null;
+  }> = [],
 ): T[] {
-  const lastVisitMap = new Map<string, Date | null>(
-    bookingGroups.map((r) => [r.customerId, r._max.bookingDate]),
-  );
-  return customers.map((c) => ({
-    ...c,
-    lastVisitAt: lastVisitMap.get(c.id) ?? c.lastVisitAt,
+  const lastVisitMap = new Map<string, Date>();
+  for (const booking of bookingGroups) {
+    const date = booking._max.bookingDate;
+    if (!date) continue;
+    const current = lastVisitMap.get(booking.customerId);
+    if (!current || date > current) lastVisitMap.set(booking.customerId, date);
+  }
+  for (const visit of participantVisits) {
+    if (!visit.customerId || !visit.bookingDate) continue;
+    const current = lastVisitMap.get(visit.customerId);
+    if (!current || visit.bookingDate > current) lastVisitMap.set(visit.customerId, visit.bookingDate);
+  }
+  return customers.map((customer) => ({
+    ...customer,
+    lastVisitAt: lastVisitMap.get(customer.id) ?? customer.lastVisitAt,
   }));
 }

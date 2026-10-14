@@ -61,7 +61,7 @@ export function SubscriptionForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const [pending, setPending] = useState(false);
 
-  /** 依週期帶入到期日：起始日 + N 個月 − 1 天（月繳 1 / 年繳 14） */
+  /** 依現行週期帶入到期日；月繳服務期間依訂單手動確認。 */
   function fillExpires() {
     if (!startedAt) {
       toast.error("請先填起始日");
@@ -119,7 +119,7 @@ export function SubscriptionForm({
       onSubmit={handleSubmit}
       className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm"
     >
-      <p className="mb-4 text-sm text-earth-600">轉正式：選擇購買方案及「使用中」，確認起迄日與付款紀錄後儲存，沿用原店家帳號及資料。試用開通或延長請使用試用入口。</p>
+      <p className="mb-4 text-sm text-earth-600">轉正式：選擇購買方案及「使用中」，確認服務期間、合約總額與付款紀錄後儲存，沿用原店家帳號及資料。月繳新約最低承諾 12 個月，透過綠界信用卡定期定額授權按月扣款；年繳優惠依訂單使用 14 個月。總部核對訂單與付款結果後開通（並確認服務期間），並在此表單記錄方案與付款狀態；此表單不執行扣款。試用開通或延長請使用試用入口。</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>
@@ -200,7 +200,7 @@ export function SubscriptionForm({
         </div>
 
         <div>
-          <label className={labelCls}>金額（NT$）</label>
+          <label className={labelCls}>合約總額（NT$；月繳填 12 期合計）</label>
           <input
             type="number"
             min={0}
@@ -259,19 +259,18 @@ export function SubscriptionForm({
             onInput={(e) => setExpiresAt(e.currentTarget.value)}
           />
           <p className="mt-1 text-[11px] text-earth-400">
-            月繳＝起始日 + 1 個月 − 1 天；年繳＝起始日 + 14 個月 − 1
-            天（加贈 2 個月）。可手動覆寫。
+            月繳新約最低承諾 12 個月，請依訂單手動確認完整服務期間；年繳優惠為 14 個月（含贈送 2 個月）。既有合約期間依原約定。
           </p>
         </div>
 
         <div className="sm:col-span-2">
-          <label className={labelCls}>備註（選填）</label>
+          <label className={labelCls}>備註／訂購紀錄（選填）</label>
           <textarea
             className={inputCls}
             rows={2}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="例如：創始店免收 / 轉帳末五碼 / 收款人"
+            placeholder="例如：月繳 NT$2,980 × 12 期；總額 NT$35,760；服務期間；付款方式與收款紀錄"
           />
         </div>
       </div>

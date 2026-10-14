@@ -659,7 +659,8 @@ export const additionalGuides: OperationGuide[] = [
     "keywords": "歷史 歷次 過往紀錄 展開 進階查看 消費 紀錄 篩選 合計 方案 零售 服務 退款 付款方式",
     "details": [
       "方案交易、退款與店內手動收入會依各自日期合併排序；支出不列為顧客消費。",
-      "店內收入若未選關聯顧客，不會事後依姓名或備註猜測歸戶。"
+      "店內收入若未選關聯顧客，不會事後依姓名或備註猜測歸戶。",
+      "蒸足多人首次體驗按每位已完成者計入本人到店紀錄與最近到店日，不必等整組結束；未建檔同行不會冒用預約人的紀錄。已服務後退款也不會抹掉服務事實。"
     ],
     "modules": [
       "steamfoot",
@@ -670,7 +671,9 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
+      "src/server/queries/customer-list-helpers.ts",
+      "src/server/queries/booking-participant-facts.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -708,22 +711,23 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C07",
     "category": "customers",
     "title": "顧客登入後看不到原本方案，先查什麼？",
-    "summary": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。",
+    "summary": "店家先查正確門市的既有顧客、方案效期與本店 LINE 確認；看不到方案不一定是資料消失。",
     "path": "顧客管理 → 顧客資料 → LINE 與通知設定",
     "steps": [
       "確認顧客開啟的是正確門市入口。",
-      "請顧客進入方案頁；若有「已過期」或「歷史方案」標題，點標題展開，再核對方案名稱與期限。",
+      "在後台顧客詳情核對持有方案名稱、效期及歷史狀態；過期方案不會因重新登入恢復。",
       "用原本電話查找舊資料，核對預約、方案與 LINE 綁定。",
-      "若疑似登入另一身分，保留錯誤畫面與時間，交由有權限的人員核對。"
+      "若顯示需門市確認，從顧客詳情的「本店會員與 LINE」核對本人及手機確認碼，再由具顧客修改權限的人員選「已核對本人，確認綁定」；不要新增同名顧客或重發方案。"
     ],
     "important": "不要先新增同名顧客或重發方案，避免把資料分散到另一個身分。",
     "success": "",
-    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時 已過期 歷史方案 收合 展開",
+    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時 已過期 歷史方案 收合 展開 本店會員與LINE 已核對本人 確認綁定 首次會員登入",
     "details": [
-      "方案頁的「已過期」與「歷史方案」預設收合，標題旁顯示該區筆數；沒有該類方案時不顯示區塊。展開只是查看，不會恢復效期、增加堂數或改變扣堂規則。",
+      "後台查到方案仍須核對顧客身分、所屬門市與資格。查看歷史不會恢復效期、增加堂數或改變扣堂規則。",
       "顯示「您已有會員帳號」時，請使用原本的 LINE 登入方式，或聯繫店家核對；不要另建帳號。",
       "顯示「會員資料需要店家協助確認」屬於身分核對，不需要重新註冊或解除 LINE 綁定。",
-      "顯示「服務暫時無法使用」不代表是新客；保留畫面與時間，稍後再試或聯繫店家。只有「登入已逾時」才依提示重新從 LINE 開啟。"
+      "顯示「服務暫時無法使用」不代表是新客；保留畫面與時間，稍後再試或聯繫店家。只有「登入已逾時」才依提示重新從 LINE 開啟。",
+      "公開體驗後已買方案但首次會員登入受阻時，先核對同一筆本店顧客與確認狀態。通知 LINE 與登入身分分開；門市核對後只授權一次首次登入確認，不能以電話直接覆蓋既有登入帳號。"
     ],
     "modules": [
       "steamfoot",
@@ -737,28 +741,32 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
       "src/app/(liff)/liff/wallets/wallets-list.tsx",
       "src/lib/liff/messages.ts",
-      "src/server/services/verified-line-customer.ts"
+      "src/server/services/verified-line-customer.ts",
+      "src/components/admin/store-member-connection-panel.tsx",
+      "src/server/services/store-member-connection.ts",
+      "src/server/services/liff-login-rebind.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。"
+    "answer": "在後台核對既有顧客與方案，再查本店會員及 LINE 確認；不要先新增顧客或重發方案。"
   },
   {
     "id": "C08",
     "category": "customers",
     "title": "顧客換 LINE 或綁定有衝突怎麼辦？",
     "summary": "先分清中央會員身分、本店會員連結與接收通知的 LINE；有衝突時核對本人及原資料，不能只憑同名合併或重綁。",
-    "path": "顧客管理 → 顧客資料 → 管理 LINE 綁定",
+    "path": "顧客管理 → 顧客資料 → 本店會員與 LINE／管理 LINE 綁定",
     "steps": [
       "先核對顧客本人、電話、中央會員身分、本店會員連結及目前通知綁定紀錄。",
-      "由具 LINE 重新綁定權限的人員查看申請與診斷資訊。",
+      "有 LINE 待確認時，由具顧客修改權限的人員核對本人、電話及手機確認碼，選「已核對本人，確認綁定」；沒有待確認申請而需重新綁定時，另走具 LINE 重新綁定權限的管理流程。",
       "依畫面處理；無法唯一確認身分時，整理資料請支援協助。"
     ],
     "important": "不能因為同名就直接移轉身分；重新綁定不等於新建會員。",
     "success": "",
-    "keywords": "換帳號 重綁 衝突 中央會員 本店會員連結 首次確認 通知綁定 登入身分 會員資料需要店家協助確認",
+    "keywords": "換帳號 重綁 衝突 中央會員 本店會員連結 首次確認 通知綁定 登入身分 會員資料需要店家協助確認 本店會員與LINE 確認碼 已核對本人 確認綁定 已連結",
     "details": [
-      "中央會員、本店會員連結與接收通知的 LINE 不一定是同一件事。首次確認只建立經核對的本店連結，不能用來覆蓋其他店或原登入帳號。",
+      "中央會員、本店會員連結與接收通知的 LINE 不一定是同一件事。門市核對同一人後可沿用唯一既有會員，不另建重複帳號；同一位換 LINE 時只更新本店連結，不覆蓋其他店或刪除原登入帳號。",
+      "確認成功後畫面直接顯示已連結及本店已確認；這不代表 LINE 已送達。申請逾時、電話已變更、多人身分衝突或 LINE 屬於本店別人時仍會阻擋，不可強制合併。",
       "若顯示「您的會員資料需要店家協助確認」，請聯繫店家，不需要重新註冊或解除 LINE 綁定；不要把身分衝突當成暫時連線問題反覆重試。"
     ],
     "modules": [
@@ -771,7 +779,10 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
       "src/server/actions/customer-auth.ts",
       "src/server/services/bind-line-to-customer.ts",
-      "src/lib/liff/messages.ts"
+      "src/lib/liff/messages.ts",
+      "src/components/admin/store-member-connection-panel.tsx",
+      "src/server/actions/store-member-connection.ts",
+      "src/server/services/store-member-connection.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -2686,11 +2697,11 @@ export const additionalGuides: OperationGuide[] = [
       "首間分店免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算；16 間起另行報價。",
       "增加串接額度或超過 15 間時，聯繫平台確認費用及開通安排。各分店系統月費另計。"
     ],
-    "important": "展店版的功能全含適用於購買展店版的總部店，不會自動把同樣功能開給所有分店。",
+    "important": "展店版適用工具與經營功能內含於購買展店版的總部店；進銷存、工單額外加購，不會自動把同樣功能開給所有分店。",
     "success": "",
-    "keywords": "分店串接費 展店版 額度 已串接 自動扣款 500 300 分段計算",
+    "keywords": "分店串接費 展店版 額度 已串接 自動扣款 500 300 分段計算 2980 月繳 年繳 十二個月承諾 十四個月 加購",
     "details": [
-      "例：串接 6 間，串接費為 首間免費 ＋ 4 × $500 ＋ 1 × $300 ＝ $2,300／月；加上目前總部展店版 $4,990，共 $7,290／月，未包含各分店系統月費。",
+      "例：串接 6 間，串接費為 首間免費 ＋ 4 × $500 ＋ 1 × $300 ＝ $2,300／月。採月繳時，總部方案 NT$2,980／月，最低承諾 12 個月（主方案合約總額 NT$35,760），加串接費每月共 NT$5,280；採年繳時，總部主方案 NT$35,760，優惠期間使用 14 個月，平均約 NT$2,554／月，串接費 NT$2,300／月另計。兩種方式皆未包含各分店系統月費。",
       "已開通可串接 10 間、實際只串接 3 間時，串接費按 3 間計算，首間免費，其餘 2 間各 $500，即 $1,000／月；本頁試算不是自動扣款。"
     ],
     "modules": [

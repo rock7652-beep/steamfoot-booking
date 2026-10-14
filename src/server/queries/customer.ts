@@ -7,10 +7,11 @@ import { getStoreFilter } from "@/lib/manager-visibility";
 import { enumerateBookableDates } from "@/lib/bookable-window";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { todayRange } from "@/lib/date-utils";
+import { todayRange, monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
 import { checkPermission, requirePermission } from "@/lib/permissions";
+import { overrideLastVisitFromCompletedBookings } from "@/server/queries/customer-list-helpers";
 
 /**
  * 桌機版顧客列表 toolbar 支援的複合篩選：
@@ -62,28 +63,16 @@ export async function listCustomersForUser(
   options: ListCustomersOptions & { activeStoreId?: string | null } = {},
 ) {
   const {
-    stage,
-    status,
-    visit,
-    referral,
-    search,
-    assignedStaffId,
-    sort = "recent",
-    activeStoreId,
-    page = 1,
-    pageSize = 20,
+    stage, status, visit, referral, search, assignedStaffId,
+    sort = "recent", activeStoreId, page = 1, pageSize = 20,
   } = options;
 
-  // 不再依 Manager 隔離 — 所有店長都能看全部顧客
-  // 已合併（mergedIntoCustomerId != null）/ User=SUSPENDED 的 row 仍出現在列表，
-  // 由 UI 灰掉並隱藏「+指派/查看」操作（防店長誤操作 placeholder/duplicate）。
-  // searchCustomers (autocomplete) / getCustomerDetail 仍會擋掉，這裡只是列表呈現。
   const labelStore = activeStoreId ?? user.storeId;
-  const labelIds = labelStore ? await customerLabelFilterIds(labelStore,options.labelId) : null;
+  const labelIds = labelStore ? await customerLabelFilterIds(labelStore, options.labelId) : null;
   const where: Prisma.CustomerWhereInput = {
-    ...(labelIds === null ? {} : {id:{in:labelIds}}),
+    ...(labelIds === null ? {} : { id: { in: labelIds } }),
     ...getStoreFilter(user, activeStoreId),
-    ...customerListFilterWhere({ stage, status, visit, referral, assignedStaffId }),
+    ...customerListFilterWhere({ stage, status, referral, assignedStaffId }),
     ...(search
       ? {
           OR: [
@@ -96,28 +85,17 @@ export async function listCustomersForUser(
       : {}),
   };
 
-  // ----- 排序 -----
-  // 已合併（mergedIntoCustomerId != null）的 row 永遠沉到列表最底（稽核用、非有效顧客）。
-  // 必須是 orderBy 第一順位且在 DB 層、分頁前套用，否則 merged row 會散落在各頁中間。
-  // nulls:"first" → active（null）在前、merged（non-null）在後；其餘排序為次要鍵。
   const mergedLastOrder: Prisma.CustomerOrderByWithRelationInput = {
     mergedIntoCustomerId: { sort: "asc", nulls: "first" },
   };
-  // lastVisitAt 可能為 null → 用 nulls:"last" 避免空資料排前面（Prisma 6 支援）
   const baseOrderBy: Prisma.CustomerOrderByWithRelationInput[] =
     sort === "created"
       ? [{ createdAt: "desc" }]
       : sort === "points"
         ? [{ totalPoints: "desc" }, { createdAt: "desc" }]
         : [{ lastVisitAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
-  const orderBy: Prisma.CustomerOrderByWithRelationInput[] = [
-    mergedLastOrder,
-    ...baseOrderBy,
-  ];
+  const orderBy = [mergedLastOrder, ...baseOrderBy];
 
-  // 「有效堂數」只計 PACKAGE 類方案：ACTIVE + 尚有剩餘 + 未過期。
-  // 排除 TRIAL / SINGLE / 點數型 / 已過期 / 已用完，避免店長誤判是否需提醒儲值。
-  // expiryDate 用 todayRange().start（本地日 00:00）判界，當天到期仍算有效；不手刻時區。
   const { start: todayStartLocal } = todayRange();
   const validPackageWalletWhere: Prisma.CustomerPlanWalletWhereInput = {
     status: "ACTIVE",
@@ -125,66 +103,146 @@ export async function listCustomersForUser(
     plan: { category: "PACKAGE" },
     OR: [{ expiryDate: null }, { expiryDate: { gte: todayStartLocal } }],
   };
+  const include = {
+    user: { select: { email: true, status: true } },
+    assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
+    sponsor: { select: { id: true, name: true } },
+    planWallets: {
+      where: validPackageWalletWhere,
+      select: { remainingSessions: true },
+    },
+    _count: { select: { sponsoredCustomers: true } },
+  } satisfies Prisma.CustomerInclude;
 
-  const [customers, total] = await Promise.all([
-    prisma.customer.findMany({
+  // 最近來店排序或來店篩選時，先以本人與同行者的完成紀錄算出一致日期，
+  // 再篩選、排序和分頁，避免只修顯示造成名單結果不一致。
+  const deriveVisitOrder = sort === "recent" || visit != null;
+  let customers: Awaited<ReturnType<typeof prisma.customer.findMany<{ include: typeof include }>>>;
+  let total: number;
+
+  if (deriveVisitOrder) {
+    const candidates = await prisma.customer.findMany({
       where,
-      include: {
-        user: { select: { email: true, status: true } },
-        assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
-        sponsor: { select: { id: true, name: true } },
-        planWallets: {
-          where: validPackageWalletWhere,
-          select: { remainingSessions: true },
-        },
-        _count: { select: { sponsoredCustomers: true } },
+      select: {
+        id: true, storeId: true, lastVisitAt: true, createdAt: true,
+        totalPoints: true, mergedIntoCustomerId: true,
       },
-      orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.customer.count({ where }),
-  ]);
+    });
+    const ids = candidates.map((customer) => customer.id);
+    const [bookingGroups, participantRows] = ids.length
+      ? await Promise.all([
+          prisma.booking.groupBy({
+            by: ["customerId"],
+            where: { customerId: { in: ids }, bookingStatus: "COMPLETED" },
+            _max: { bookingDate: true },
+          }),
+          process.env.BOOKING_PARTICIPANTS_ENABLED === "true"
+            ? prisma.bookingParticipant.findMany({
+                where: {
+                  status: "COMPLETED",
+                  OR: candidates.map((customer) => ({
+                    customerId: customer.id,
+                    storeId: customer.storeId,
+                  })),
+                },
+                select: {
+                  customerId: true,
+                  group: { select: { booking: { select: { bookingDate: true } } } },
+                },
+              })
+            : Promise.resolve([]),
+        ])
+      : [[], []];
 
-  // 「最近來店」顯示來源：當頁 customers 的最近一筆 COMPLETED booking。
-  // 為何不用 Customer.lastVisitAt：prod 該欄位多數 stale/null，但顧客其實有
-  // COMPLETED bookings。本 PR 範圍只修「列表顯示」，不 backfill、不改 booking
-  // 完成流程、不動 schema。Known limitation（PR description 已記）：
-  //   - visit filter（本月/30天未到/從未到）與 sort 仍使用 Customer.lastVisitAt
-  //     → 顯示值與 filter/sort 可能短暫不一致，待 Phase 2 處理。
-  const customerIds = customers.map((c) => c.id);
-  const latestCompletedBookings = customerIds.length
-    ? await prisma.booking.groupBy({
-        by: ["customerId"],
-        where: {
-          customerId: { in: customerIds },
-          bookingStatus: "COMPLETED",
-        },
-        _max: { bookingDate: true },
-      })
-    : [];
-  const lastVisitFromBooking = new Map<string, Date | null>(
-    latestCompletedBookings.map((r) => [r.customerId, r._max.bookingDate]),
-  );
+    const participantVisits = participantRows.flatMap((participant) =>
+      participant.customerId
+        ? [{ customerId: participant.customerId, bookingDate: participant.group.booking.bookingDate }]
+        : [],
+    );
+    const withVisits = overrideLastVisitFromCompletedBookings(candidates, bookingGroups, participantVisits);
+    const monthStart = monthRange(toLocalMonthStr()).start;
+    const staleCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const filtered = withVisits.filter((customer) => {
+      if (visit === "month") return customer.lastVisitAt !== null && customer.lastVisitAt >= monthStart;
+      if (visit === "stale30") return customer.lastVisitAt !== null && customer.lastVisitAt < staleCutoff;
+      if (visit === "never") return customer.lastVisitAt === null;
+      return true;
+    });
+    filtered.sort((a, b) => {
+      const mergedComparison = Number(a.mergedIntoCustomerId !== null) - Number(b.mergedIntoCustomerId !== null);
+      if (mergedComparison !== 0) return mergedComparison;
+      if (sort === "created") return b.createdAt.getTime() - a.createdAt.getTime();
+      if (sort === "points") return b.totalPoints - a.totalPoints || b.createdAt.getTime() - a.createdAt.getTime();
+      const visitComparison = (b.lastVisitAt?.getTime() ?? -Infinity) - (a.lastVisitAt?.getTime() ?? -Infinity);
+      return visitComparison || b.createdAt.getTime() - a.createdAt.getTime();
+    });
 
-  // 計算每位顧客的有效 PACKAGE 堂數加總 + 推薦數；以 booking-derived 取代顯示用 lastVisitAt。
-  // 命名用 validPackageSessions（而非 totalRemainingSessions）以明示已收斂語意：
-  // planWallets 已在上方 where 過濾為「有效 PACKAGE」，故此處 reduce 即為有效堂數。
-  const customersWithStats = customers.map((c) => ({
-    ...c,
-    // 顯示優先：booking-derived；若該顧客沒任何 COMPLETED booking，
-    // 退回 Customer.lastVisitAt 維持向後相容（極少數舊資料場景）
-    lastVisitAt: lastVisitFromBooking.get(c.id) ?? c.lastVisitAt,
-    validPackageSessions: c.planWallets.reduce(
-      (sum, w) => sum + w.remainingSessions,
-      0
-    ),
-    sponsoredCount: c._count.sponsoredCustomers,
+    total = filtered.length;
+    const pageIds = filtered.slice((page - 1) * pageSize, page * pageSize).map((customer) => customer.id);
+    const rows = pageIds.length
+      ? await prisma.customer.findMany({
+          where: { AND: [where, { id: { in: pageIds } }] },
+          include,
+          orderBy,
+        })
+      : [];
+    const rowById = new Map(rows.map((customer) => [customer.id, customer]));
+    customers = pageIds.flatMap((id) => {
+      const row = rowById.get(id);
+      return row ? [row] : [];
+    }).map((customer) => ({
+      ...customer,
+      lastVisitAt: withVisits.find((item) => item.id === customer.id)?.lastVisitAt ?? customer.lastVisitAt,
+    }));
+  } else {
+    const [rows, count] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        include,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.customer.count({ where }),
+    ]);
+    const ids = rows.map((customer) => customer.id);
+    const [bookingGroups, participantRows] = ids.length
+      ? await Promise.all([
+          prisma.booking.groupBy({
+            by: ["customerId"],
+            where: { customerId: { in: ids }, bookingStatus: "COMPLETED" },
+            _max: { bookingDate: true },
+          }),
+          process.env.BOOKING_PARTICIPANTS_ENABLED === "true"
+            ? prisma.bookingParticipant.findMany({
+                where: {
+                  status: "COMPLETED",
+                  OR: rows.map((customer) => ({ customerId: customer.id, storeId: customer.storeId })),
+                },
+                select: {
+                  customerId: true,
+                  group: { select: { booking: { select: { bookingDate: true } } } },
+                },
+              })
+            : Promise.resolve([]),
+        ])
+      : [[], []];
+    const participantVisits = participantRows.flatMap((participant) =>
+      participant.customerId
+        ? [{ customerId: participant.customerId, bookingDate: participant.group.booking.bookingDate }]
+        : [],
+    );
+    customers = overrideLastVisitFromCompletedBookings(rows, bookingGroups, participantVisits);
+    total = count;
+  }
+
+  const customersWithStats = customers.map((customer) => ({
+    ...customer,
+    validPackageSessions: customer.planWallets.reduce((sum, wallet) => sum + wallet.remainingSessions, 0),
+    sponsoredCount: customer._count.sponsoredCustomers,
   }));
-
   return { customers: customersWithStats, total, page, pageSize };
 }
-
 // Helper 抽到 ./customer-list-helpers.ts 供 vitest 直接 import 測試
 // （避免測試環境拉進 next-auth / session 等 side-effect）。
 
