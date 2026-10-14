@@ -304,7 +304,7 @@ describe("預設營業時間", () => {
 // ============================================================
 
 describe("產業模組隔離", () => {
-  it("建立 SPA 店不會寫入蒸足 BookingSlot 或 BusinessHours", async () => {
+  it("SPA 已移除，建立要求不會寫入任何門市或時段", async () => {
     const { prisma } = await import("@/lib/db");
     const { createStoreAction } = await import("@/server/actions/store-onboarding");
 
@@ -332,13 +332,9 @@ describe("產業模組隔離", () => {
       owner: { name: "Owner", email: "spa-owner@example.com", password: "123456" },
     });
 
-    expect(result.success).toBe(true);
-    expect(prisma.store.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        industryModule: "SPA",
-        moduleInstallation: { create: expect.objectContaining({ status: "PROVISIONING" }) },
-      }),
-    }));
+    expect(result).toEqual({ success: false, error: "僅支援時段（蒸足）、運動教室與音樂教室模組" });
+    expect(prisma.store.create).not.toHaveBeenCalled();
+    expect(prisma.user.create).not.toHaveBeenCalled();
     expect(prisma.bookingSlot.createMany).not.toHaveBeenCalled();
     expect(prisma.businessHours.createMany).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
@@ -381,9 +377,9 @@ describe("SPA HQ readiness", () => {
     const {prisma}=await readyStore();
     vi.mocked(prisma.store.update).mockResolvedValue({planStatus:"ACTIVE"} as never);
     const {activateStoreAction}=await import("@/server/actions/store-onboarding");
-    expect((await activateStoreAction("ready")).success).toBe(true);
+    expect(await activateStoreAction("ready")).toEqual({ success: false, error: "SPA 模組已移除" });
     const {createTrialSubscription}=await import("@/server/actions/store-subscription");
-    expect(createTrialSubscription).toHaveBeenCalledWith(expect.objectContaining({storeId:"ready",plan:"EXPERIENCE",trialDays:30}));
+    expect(createTrialSubscription).not.toHaveBeenCalled();
   });
   it("missing catalog still blocks activation", async () => {
     const {prisma,spaPrisma}=await readyStore();

@@ -28,7 +28,10 @@ export async function getStoreIndustryModule(
     LIMIT 1
   `;
   if (!stores[0]) throw new AppError("NOT_FOUND", "店舖不存在");
-  if (!["STEAMFOOT", "SPA", "COURSE"].includes(stores[0].industryModule)) {
+  if (stores[0].industryModule === "SPA") {
+    throw new AppError("FORBIDDEN", "SPA 模組已移除");
+  }
+  if (!["STEAMFOOT", "COURSE"].includes(stores[0].industryModule)) {
     throw new AppError("FORBIDDEN", "店舖模組設定無效");
   }
   return resolveIndustryModuleId(stores[0].industryModule);

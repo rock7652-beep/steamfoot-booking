@@ -16,7 +16,6 @@ import {
 } from "@/lib/store-operating-status";
 import { ActivateTrialButton } from "./activate-trial-button";
 import { RenameStoreForm } from "./rename-store-form";
-import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -40,7 +39,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
-  const coursePlan = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
+  const coursePlan = summary.store.industryModule === "COURSE" && !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
     ? await getStoreForPlanByStoreId(storeId) : null;
   const retention = coursePlan ? getTrialRetention(coursePlan) : null;
   const trialStarted = Boolean(coursePlan?.planEffectiveAt && coursePlan?.planExpiresAt);
@@ -101,13 +100,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
             label="已選模組"
             value={summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室（COURSE 引擎）" : "運動教室（COURSE 引擎）") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
-          {summary.store.industryModule === "SPA" && !summary.canActivate && (
-            <>
-              <p className="mt-2 text-xs leading-relaxed text-amber-700">
-                SPA 專屬資料與排程尚在佈建，因此此店不會啟用，也不會使用蒸足預約資料。
-              </p>
-              <SpaProvisionButton storeId={storeId} />
-            </>
+          {summary.store.industryModule === "SPA" && (
+            <p role="status" className="mt-2 text-sm text-amber-700">SPA 模組已移除，既有資料保留封存。</p>
           )}
         </Section>
 
