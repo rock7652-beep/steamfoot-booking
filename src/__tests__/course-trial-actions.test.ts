@@ -1,7 +1,8 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),reserve:vi.fn(),collect:vi.fn(),voidPayment:vi.fn(),settings:vi.fn(),upsert:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),reserve:vi.fn(),collect:vi.fn(),voidPayment:vi.fn(),settings:vi.fn(),upsert:vi.fn(),session:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/lib/revalidation",()=>({revalidateShopConfig:vi.fn()}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseSession:{findFirst:m.session}}}));
 vi.mock("@/lib/db",()=>({prisma:{shopConfig:{upsert:m.upsert}}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/server/services/course-booking",()=>({reserveTrialCourse:m.reserve}));
@@ -9,7 +10,7 @@ vi.mock("@/server/services/course-trial-payment",()=>({collectCourseTrialInTrans
 vi.mock("@/lib/shop-config",()=>({getTrialSettings:m.settings,clampTrialTotal:(price:number)=>price??499}));
 import {collectCourseTrial,createCourseTrial,saveCourseTrialSettings,voidCourseTrialPayment} from "@/server/actions/course-trial";
 const key="f34a8337-9380-4bc4-b218-c450bb3c7aca";
-beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"authorized-store",user:{id:"manager",name:"店長"}});m.transaction.mockImplementation(async(_store,work)=>work({}));m.settings.mockResolvedValue({trialEnabled:true,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000});});
+beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"authorized-store",user:{id:"manager",name:"店長"}});m.transaction.mockImplementation(async(_store,work)=>work({}));m.collect.mockResolvedValue({id:"receipt",amount:499,status:"SUCCESS",paymentMethod:"CASH"});m.session.mockResolvedValue({template:{musicTrialMode:"PAID",musicPricePerLesson:499}});m.settings.mockResolvedValue({trialDefaultPrice:499,trialEnabled:true,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000});});
 it("uses the authenticated store and does not accept caller attendance or store overrides",async()=>{
  const result=await collectCourseTrial({bookingId:"trial",requestKey:key,amount:499,paymentMethod:"CASH",storeId:"other",completeService:true});
  expect(result.success).toBe(true);expect(m.manager).toHaveBeenCalledWith("trial.confirm");
@@ -34,4 +35,17 @@ it("requires void permission and scopes reversals to the authorized store",async
 it("rejects inconsistent price settings without saving",async()=>{
  expect((await saveCourseTrialSettings({trialEnabled:true,trialDefaultPrice:499,trialAllowPriceEdit:true,trialMinPrice:500,trialMaxPrice:1000})).success).toBe(false);
  expect(m.manager).toHaveBeenCalledWith("trial.manage");expect(m.upsert).not.toHaveBeenCalled();
+});
+
+it("records an explicit zero checkout without requiring a payment method",async()=>{
+ m.collect.mockResolvedValue({id:"free-receipt",amount:0,status:"SUCCESS",paymentMethod:"OTHER"});
+ expect(await collectCourseTrial({bookingId:"trial",requestKey:key,amount:0})).toMatchObject({success:true,receipt:{amount:0,status:"SUCCESS"}});
+ expect(m.collect.mock.calls[0][2]).toMatchObject({amount:0,paymentMethod:"OTHER"});
+});
+it("adds an unnamed customer trial using a stable participant booking",async()=>{
+ expect(await createCourseTrial({sessionId:"class",customerName:"體驗者 1",requestKey:key})).toMatchObject({success:true});
+ expect(m.reserve.mock.calls[0][1]).toMatchObject({customerId:null,customerName:"體驗者 1",trialPrice:499,requestKey:key});
+});
+it("requires a payment method for positive amounts before writing",async()=>{
+ expect(await collectCourseTrial({bookingId:"trial",requestKey:key,amount:499})).toMatchObject({success:false});expect(m.collect).not.toHaveBeenCalled();
 });

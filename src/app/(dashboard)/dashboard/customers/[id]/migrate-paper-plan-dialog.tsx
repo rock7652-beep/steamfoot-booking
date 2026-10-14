@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { migratePaperPlan } from "@/server/actions/wallet";
 import { toast } from "sonner";
 

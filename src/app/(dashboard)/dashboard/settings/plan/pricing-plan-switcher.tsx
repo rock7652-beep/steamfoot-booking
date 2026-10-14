@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "@/components/use-stable-router";
 import { useState } from "react";
 import { updateStorePlan } from "@/server/actions/shop";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function PricingPlanSwitcher({ storeId, storeName, currentPlan }: Props) {
+  const router = useRouter();
   const [selected, setSelected] = useState(currentPlan);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -25,8 +27,8 @@ export function PricingPlanSwitcher({ storeId, storeName, currentPlan }: Props) 
     try {
       const result = await updateStorePlan(storeId, selected);
       if (result.success) {
-        setMessage("方案已更新，頁面將重新載入...");
-        setTimeout(() => window.location.reload(), 1000);
+        setMessage("方案已更新");
+        router.refresh();
       } else {
         setMessage(result.error ?? "更新失敗");
       }

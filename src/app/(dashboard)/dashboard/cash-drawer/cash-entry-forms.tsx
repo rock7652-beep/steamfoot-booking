@@ -8,7 +8,7 @@
  * 共用，避免兩份相同的表單 JSX 各自維護（"不要複製邏輯"）。
  *
  * A-1：表單外殼改用 CashDrawerActionForm（client wrapper，useActionState +
- *   成功後 window.location.assign）取代原本 server `<form action>` + redirect，
+ *   成功後原地更新伺服器資料）取代原本 server `<form action>` + redirect，
  *   避免 action 成功後 same-URL inline RSC 重渲染在正式站炸掉整頁 error boundary。
  *   本檔仍只負責 render 欄位；真正業務邏輯仍在 addCashDrawerEntryAction（單一來源）。
  *   各 caller 用 closure 綁好 sessionId / returnPath 後，把 `(prev, formData) => Promise<ActionResult>`
@@ -40,7 +40,6 @@ export function WithdrawalForm({ action, returnPath }: FormProps) {
       action={action}
       returnPath={returnPath}
       submitLabel="送出提領"
-      successPendingLabel="已送出，跳轉中…"
       submitClassName="min-h-[44px] w-full bg-orange-600 px-5 text-base text-white hover:bg-orange-700 md:ml-auto md:flex md:w-auto md:min-w-40"
       className={`${styles.container} space-y-3 p-4 md:space-y-4`}
     >
@@ -85,7 +84,6 @@ export function DepositForm({ action, returnPath }: FormProps) {
       action={action}
       returnPath={returnPath}
       submitLabel="送出補入"
-      successPendingLabel="已送出，跳轉中…"
       submitClassName="min-h-[44px] w-full bg-green-600 px-5 text-base text-white hover:bg-green-700 md:ml-auto md:flex md:w-auto md:min-w-40"
       className={`${styles.container} space-y-3 p-4 md:space-y-4`}
     >
@@ -130,7 +128,6 @@ export function AdjustmentForm({ action, returnPath }: FormProps) {
       action={action}
       returnPath={returnPath}
       submitLabel="送出調整"
-      successPendingLabel="已送出，跳轉中…"
       submitClassName="min-h-[44px] bg-earth-700 px-5 text-base text-white hover:bg-earth-800"
       className={`${styles.container} space-y-3 p-4 md:space-y-4`}
     >

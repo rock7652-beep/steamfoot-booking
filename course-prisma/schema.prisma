@@ -85,6 +85,8 @@ model CourseTemplate {
 
 model CourseSession {
   isTrial Boolean @default(false)
+  scheduleType String @default("LEGACY")
+  scheduleFrequency String @default("NONE")
   id             String @id @default(cuid())
   storeId        String
   templateId     String
@@ -101,12 +103,15 @@ model CourseSession {
   endsAt         DateTime @db.Timestamptz(3)
   pointCost      Int
   capacity       Int
+  enrollmentMode String @default("OPEN")
+  enrollmentFingerprint String?
   cancelledAt    DateTime? @db.Timestamptz(3)
   releasedAt     DateTime? @db.Timestamptz(3)
   requestKey     String
   requestIndex   Int
   createdById    String
   createdAt      DateTime @default(now())
+  rescheduleShadowHidden Boolean @default(false)
   rescheduledFromStartsAt DateTime? @db.Timestamptz(3)
   rescheduledFromEndsAt   DateTime? @db.Timestamptz(3)
   rescheduledFromRoomId   String?
@@ -124,6 +129,39 @@ model CourseSession {
   @@index([storeId, startsAt])
   @@index([storeId, coachId, startsAt])
   @@index([storeId, roomId, startsAt])
+}
+
+// The durable reservation rule for a weekly/biweekly fixed course. CourseSession
+// rows are materialized for the calendar and attendance workflow, while this
+// row keeps the recurring slot occupied beyond the currently generated dates.
+model CourseScheduleSeries {
+  id           String   @id @default(cuid())
+  storeId      String
+  requestKey   String
+  templateId   String
+  nameSnapshot String
+  roomId       String
+  coachId      String
+  startsAt     DateTime @db.Timestamptz(3)
+  endsAt       DateTime @db.Timestamptz(3)
+  pointCost    Int
+  capacity     Int
+  frequency    String
+  enrollmentMode String @default("OPEN")
+  learnerSnapshot Json @default("[]")
+  untilDate    DateTime? @db.Date
+  generatedThrough DateTime @db.Date
+  excludedDates String[] @default([])
+  generationError String?
+  cancelledAt  DateTime? @db.Timestamptz(3)
+  createdById  String
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([storeId, requestKey])
+  @@index([storeId, cancelledAt, startsAt])
+  @@index([storeId, roomId, startsAt])
+  @@index([storeId, coachId, startsAt])
 }
 
 model CourseSessionMove {

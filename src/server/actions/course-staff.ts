@@ -173,6 +173,17 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
         const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
         const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
+        const teachingIds=qualificationIds.filter(id=>id.startsWith("teaching:"));
+        if(teachingIds.length){
+          const music=await tx.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+          if(!music)throw new AppError("FORBIDDEN","教學項目資格僅適用音樂模組");
+          for(const key of teachingIds){
+            const subjectId=key.slice("teaching:".length);
+            const subjects=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "MusicSubject" WHERE id=${subjectId} AND "storeId"=${storeId} AND "isActive"=true`;
+            if(!subjects.length)throw new AppError("FORBIDDEN","請選擇本店啟用教學項目");
+            await tx.$executeRaw`INSERT INTO "CourseTemplate" (id,"storeId",name,"musicSubjectId",category,"durationMinutes","pointCost",capacity,"updatedAt") SELECT ${key},"storeId",'教學項目：'||name,id,category,60,1,500,NOW() FROM "MusicSubject" WHERE id=${subjectId} AND "storeId"=${storeId} ON CONFLICT (id) DO NOTHING`;
+          }
+        }
         if (qualificationIds.length) {
           const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseTemplate" WHERE "storeId"=${storeId} AND id=ANY(${qualificationIds}::text[])`;
           if(rows.length!==qualificationIds.length) throw new AppError("FORBIDDEN","授課資格包含非本店課程");

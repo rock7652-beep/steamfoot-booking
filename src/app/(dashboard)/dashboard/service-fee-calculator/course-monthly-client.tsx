@@ -1,7 +1,7 @@
 "use client";
 import {CourseFeePaymentButton} from "../revenue/_components/course-fee-payment-button";
 import { Children, type ReactNode, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { confirmCourseMonthlySettlement, saveCourseSettlementSettings, payCourseProfit, correctCourseProfit } from "@/server/actions/course-monthly-settlement";
 import { summarizeSettlement, type SettlementLine } from "@/lib/course-monthly-settlement";
 import type { SettlementSettings } from "@/server/services/course-monthly-settlement";

@@ -1,7 +1,9 @@
 "use client";
+import {useSettingsPanelGuard,useSettingsPanelNavigation} from "@/components/admin/settings-panel-context";
+import {saveSettingsReceipt} from "@/components/settings/save-settings-receipt";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { defaultCourseTrialCareRules, defaultTrialCareRules, TRIAL_CARE_LABELS, renderTrialCareBody, type TrialCareRule } from "@/lib/trial-care";
 import { saveTrialCareSettings, stopCustomerTrialCare } from "@/server/actions/trial-care";
 
@@ -22,7 +24,9 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
   const textareas = useRef<(HTMLTextAreaElement | null)[]>([]);
   const id = useId();
   const router = useRouter();
+  const panel=useSettingsPanelNavigation(),saving=useRef(false);
   const dirty = enabled !== saved.enabled || JSON.stringify(rules) !== JSON.stringify(saved.rules);
+  useSettingsPanelGuard(dirty,pending);
   function update(index: number, patch: Partial<TrialCareRule>) {
     setMessage("");
     setRules(previous => previous.map((rule, i) => i === index ? { ...rule, ...patch } : rule));
@@ -45,14 +49,16 @@ export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules
       <p className="font-medium">{saved.enabled ? "整組已啟用，依已儲存設定發送" : "整組尚未啟用，不會發送"}</p>
       {dirty && <p className="mt-1 text-xs">有尚未儲存的變更，按下方儲存後才會生效。</p>}
     </div>
-    <form className="mt-4" onSubmit={e => {
+    <form aria-label="體驗後關懷設定" className="mt-4" onSubmit={e => {
       e.preventDefault();
+      if(saving.current||pending)return;
+      saving.current=true;
       start(async () => {
         try {
-          const result = await saveTrialCareSettings({ storeId, enabled, rules });
-          if (result.success) { setSaved({ enabled, rules }); setMessage("設定已儲存"); router.refresh(); }
+          const result = panel?await saveSettingsReceipt<{enabled:boolean;rules:TrialCareRule[]}>("TRIAL_CARE",storeId,{enabled,rules}):await saveTrialCareSettings({ storeId, enabled, rules });
+          if (result.success) { setEnabled(result.data.enabled);setRules(result.data.rules);setSaved(result.data);setExpanded(null);setMessage("設定已儲存");if(!panel)router.refresh(); }
           else setMessage(result.error);
-        } catch { setMessage("儲存失敗，請稍後重試"); }
+        } catch { setMessage("儲存失敗，請稍後重試"); }finally{saving.current=false;}
       });
     }}>
       <div className="space-y-3 px-5">

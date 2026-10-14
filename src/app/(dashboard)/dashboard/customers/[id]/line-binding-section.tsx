@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { generateLineBindingCode, unlinkLineAccount } from "@/server/actions/reminder";
 import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunLineRebind, executeLineRebindAction } from "@/server/actions/line-rebind";
 

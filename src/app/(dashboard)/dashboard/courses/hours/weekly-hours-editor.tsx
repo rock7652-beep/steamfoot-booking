@@ -1,4 +1,5 @@
 "use client";
+import {useSettingsPanelSaved} from "@/components/admin/settings-panel-context";
 import { useRef, useState, useTransition } from "react";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import {savedWeeklyHours,weeklyState} from "@/lib/course-weekly-hours-save";
@@ -9,6 +10,7 @@ type Period = { openTime: string; closeTime: string };
 type Day = { dayOfWeek: number; dayName: string; persisted?: boolean; isOpen: boolean; periods: Period[]; openTime: string | null; closeTime: string | null };
 export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }: { storeId:string; initial: Day[]; canManage: boolean; onSaved: (days: Day[]) => Promise<void> }) {
   const [days, setDays] = useState(() => initial.map(day => ({ ...day, periods: day.periods.length ? day.periods.map(p => ({ openTime: p.openTime, closeTime: p.closeTime })) : [{ openTime: day.openTime ?? "10:00", closeTime: day.closeTime ?? "22:00" }] })));
+  const panelSaved=useSettingsPanelSaved();
   const [saved, setSaved] = useState(() => days.filter(day => day.persisted !== false));
   const initialDays = useRef(days);
   const [source, setSource] = useState(1);
@@ -32,6 +34,7 @@ export function CourseWeeklyHoursEditor({ initial, storeId, canManage, onSaved }
         const confirmed=result.data.map(day=>({...day,periods:day.periods.length?day.periods:[{openTime:day.openTime??"10:00",closeTime:day.closeTime??"22:00"}]}));
         setAuthority(result.data);setDays(confirmed);setSaved(confirmed.filter(day=>day.persisted));setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存每週營業時間");
         // Calendar reconciliation is independent of the committed editor state.
+        panelSaved?.();
         void Promise.resolve().then(()=>onSaved(result.data)).catch(()=>setMessage("每週設定已儲存；月曆更新失敗，請重新整理核對。"));
       } catch { setMessage("連線失敗，修改已保留，請重試"); }
       finally { saving.current = false; }

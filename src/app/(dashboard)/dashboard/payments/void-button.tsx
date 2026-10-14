@@ -3,7 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import styles from "@/components/admin/commerce-layout.module.css";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { voidPendingTransaction } from "@/server/actions/transaction";
 

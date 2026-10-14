@@ -1,6 +1,6 @@
 "use client";
 import { useId, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { refundCoursePurchase } from "@/server/actions/course-refund";
 import { editCoursePurchase, voidCoursePurchase } from "@/server/actions/course-purchase-correction";

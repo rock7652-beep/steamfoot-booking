@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import {
   initLiff,

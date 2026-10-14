@@ -1,4 +1,6 @@
 "use client";
+import {LocalPanelContent} from "@/components/settings/local-panel-content";
+import {readCourseSettingsPanel} from "@/server/actions/course-settings-panel";
 import {CourseOperationSwitch} from "@/components/admin/course-operation-switch";
 
 import { trialSettingsRevision } from "@/lib/shop-settings-save";
@@ -8,7 +10,8 @@ import { FeatureEntry, useFeaturePresentation } from "@/components/feature-prese
 import { FEATURES } from "@/lib/feature-flags";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { InfoList } from "@/components/desktop";
@@ -31,7 +34,7 @@ import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from "@
 type Props = {
   music?:boolean; shopPhone?:string; lineOfficialId?:string;
   today?: string; trialSettings?: TrialSettings;
-  panelContent?: ReactNode;
+  panelContent?: ReactNode; initialPanel?:string; initialPanelQuery?:string;
   storeId: string; name: string; planLabel: string; address: string; mapUrl: string; lineOfficialUrl: string;
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
@@ -83,7 +86,7 @@ function SectionGuard({ section, context, children }: { section: string; context
   const report = context.report;
   const navigate = context.navigate;
   const scopedReport = useCallback((id: string, state: SettingsPanelState | null) => report(`${section}:${id}`, state), [section, report]);
-  const scoped = useMemo(() => ({ report: scopedReport, navigate }), [scopedReport, navigate]);
+  const scoped = useMemo(() => ({ report: scopedReport, navigate, saved:context.saved,discard:context.discard,local:context.local }), [scopedReport, navigate, context.saved,context.discard,context.local]);
   return <SettingsPanelContext.Provider value={scoped}>{children}</SettingsPanelContext.Provider>;
 }
 const lead = (minutes: number) => {
@@ -111,7 +114,6 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const dutySource=useMemo(()=>[{id:"duty",enabled:sourceProps.dutyEnabled??false}],[sourceProps.dutyEnabled]);
   const confirmedDuty=useConfirmedSettingsRows(dutySource,row=>String(row.enabled));
   const props:Props={...sourceProps,dutyEnabled:confirmedDuty.rows[0].enabled,...Object.assign({},...sections),waitlistSettings:confirmedWaitlist.rows[0]?.values,trialSettings:confirmed.rows.find(row=>row.id==="trial")?.values as TrialSettings|undefined};
-  const onSaved=(row:CourseSettingsSectionInput)=>confirmed.confirm({id:row.section,values:row});
   const router = useRouter();
   const search = useSearchParams();
   const pathname = usePathname();
@@ -129,6 +131,8 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const allowLeave = useRef(false);
+  const onSaved=(row:CourseSettingsSectionInput)=>{confirmed.confirm({id:row.section,values:row});setExpandedRow(null);};
+  const collapse=useCallback(()=>setExpandedRow(null),[]);
   const hasDirty = Object.values(status).some(value => value.dirty);
   const sectionDirty = (section: string) => Object.entries(status).some(([key, state]) => (key === section || key.startsWith(section + ":")) && state.dirty);
   const pending = Object.values(status).some(value => value.pending);
@@ -141,7 +145,31 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
       const next = { ...previous }; if (state) next[id] = state; else delete next[id]; return next;
     });
   }, []);
-  const context = useMemo(() => ({ report, navigate: (href: string) => router.push(href) }), [report, router]);
+  const [initialInvalid,setInitialInvalid]=useState(false);
+  const navigateLocal=useCallback((href:string)=>{
+    const url=new URL(href,window.location.origin);
+    const local=url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "");
+    const mapped=courseSettingsPanelHref(local+url.search);
+    const target=new URL(mapped,window.location.origin);
+    if(target.pathname==="/dashboard/courses" && target.searchParams.get("view")==="settings"){
+      const params=new URLSearchParams(window.location.search);
+      params.delete("panel");params.delete("panelQuery");
+      target.searchParams.forEach((value,key)=>params.set(key,value));
+      if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash){
+        const closing=!params.has("panel")&&new URLSearchParams(window.location.search).has("panel");
+        if(closing)window.history.replaceState(null,"",pathname+"?"+params+window.location.hash);
+        else window.history.pushState({__settingsPreviousHref:window.location.pathname+window.location.search+window.location.hash},"",pathname+"?"+params+window.location.hash);
+      }
+    }else if(local==="/dashboard/settings"||local==="/dashboard"){
+      const params=new URLSearchParams(window.location.search);params.delete("panel");params.delete("panelQuery");
+      if(pathname+"?"+params+window.location.hash!==window.location.pathname+window.location.search+window.location.hash){
+        const closing=!params.has("panel")&&new URLSearchParams(window.location.search).has("panel");
+        if(closing)window.history.replaceState(null,"",pathname+"?"+params+window.location.hash);
+        else window.history.pushState({__settingsPreviousHref:window.location.pathname+window.location.search+window.location.hash},"",pathname+"?"+params+window.location.hash);
+      }
+    }else router.push(href);
+  },[pathname,router]);
+  const context = useMemo(() => ({ report, navigate: navigateLocal, saved:collapse,local:true }), [report, navigateLocal,collapse]);
   useEffect(() => {
     if (!hasDirty && !pending) return;
     function intercept(event: MouseEvent) {
@@ -164,13 +192,21 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
     setExpandedRow(id);
   }
   function select(section: CourseSettingsSection) {
-    if (pending) return;
+    if (pending || section === active) return;
     setExpandedRow(null);
     const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
-    window.history.replaceState(null, "", pathname + "?" + params.toString());
+    window.history.pushState({__settingsPreviousHref:window.location.pathname+window.location.search+window.location.hash}, "", pathname + "?" + params.toString()+window.location.hash);
   }
-  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
-  return <SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
+  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} onCancel={()=>setExpandedRow(null)} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
+  return <SettingsPanelContext.Provider value={context}><div onClickCapture={event=>{
+    if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey|| (event.target as Element).closest("[data-course-settings-panel]"))return;
+    const link=(event.target as Element).closest("a[href]");if(!(link instanceof HTMLAnchorElement)||link.target==="_blank"||link.origin!==window.location.origin)return;
+    const url=new URL(link.href);if(url.pathname===pathname&&url.searchParams.get("view")==="settings"){
+      const started=performance.now();
+      event.preventDefault();event.stopPropagation();navigateLocal(link.href);
+      requestAnimationFrame(()=>console.info("[SETTINGS_PANEL_PERF]",{phase:"open",ms:Math.round(performance.now()-started)}));
+    }
+  }}><SettingsWorkspaceFrame
     nav={<>
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
       <SettingsWorkspaceNav
@@ -202,7 +238,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
             expanded={expandedRow === "waitlist"}
             onEdit={props.canEdit ? () => openRow("waitlist") : undefined}
           >
-            <CourseWaitlistSettings key={props.storeId} storeId={props.storeId} initial={props.waitlistSettings} canEdit={props.canEdit} onSaved={values=>confirmedWaitlist.confirm({id:"waitlist",values})} />
+            <CourseWaitlistSettings onCancel={collapse} key={props.storeId} storeId={props.storeId} initial={props.waitlistSettings} canEdit={props.canEdit} onSaved={values=>{confirmedWaitlist.confirm({id:"waitlist",values});setExpandedRow(null);}} />
           </Row>
         )}
         </FeatureEntry>
@@ -218,7 +254,7 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
           summary={`${props.trialSettings.trialEnabled ? "開啟" : "關閉"}・預設 NT$ ${props.trialSettings.trialDefaultPrice}・調價 ${props.trialSettings.trialAllowPriceEdit ? `NT$ ${props.trialSettings.trialMinPrice}–${props.trialSettings.trialMaxPrice}` : "關閉"}`}
           expanded={expandedRow === "trial"}
           onEdit={() => openRow("trial")}
-        ><TrialSettingsForm onSaved={values=>confirmed.confirm({id:"trial",values})} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
+        ><TrialSettingsForm onCancel={collapse} onSaved={values=>{confirmed.confirm({id:"trial",values});setExpandedRow(null);}} storeId={props.storeId} initial={props.trialSettings} courseMode compact forceExpanded /></Row> : props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </SectionGuard></section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
         <CourseOperationSwitch key={`notices:${props.storeId}:${props.backendNoticesEnabled}`} storeId={props.storeId} title="後台異動通知" setting="backendNoticesEnabled" initialEnabled={props.backendNoticesEnabled??false} canEdit={props.canEdit}/>
@@ -234,7 +270,9 @@ export function CourseSettingsWorkspace(sourceProps: Props) {
         <Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />
         {props.usageMetrics && <Row title="目前用量" summary={props.usageMetrics.map(metric => `${metric.label} ${metric.current.toLocaleString("zh-TW")} / ${metric.limit === null ? "不限" : metric.limit.toLocaleString("zh-TW")}`).join("・")} />}
       </section>
-    {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
-    {isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
-  </SettingsWorkspaceFrame></SettingsPanelContext.Provider>;
+    {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; router.push(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
+    {isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel} navigate={navigateLocal} closeHref={(()=>{const params=new URLSearchParams(search.toString());params.delete("panel");params.delete("panelQuery");return pathname+"?"+params;})()} onSaved={()=>{
+      setInitialInvalid(true);const params=new URLSearchParams(window.location.search);params.delete("panel");params.delete("panelQuery");window.history.replaceState(null,"",pathname+"?"+params+window.location.hash);
+    }}><LocalPanelContent storeId={props.storeId} panel={panel} query={search.get("panelQuery")??""} initialKey={!initialInvalid&&props.initialPanel?JSON.stringify([props.storeId,props.initialPanel,props.initialPanelQuery??""]):undefined} initialContent={props.panelContent} read={readCourseSettingsPanel}/></CourseSettingsPanel>}
+  </SettingsWorkspaceFrame></div></SettingsPanelContext.Provider>;
 }

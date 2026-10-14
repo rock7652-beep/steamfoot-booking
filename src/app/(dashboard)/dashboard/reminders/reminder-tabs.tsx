@@ -1,12 +1,7 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
-import { useSettingsPanelNavigation } from "@/components/admin/settings-panel-context";
 export function ReminderTabs({
   active,
-  explicit,
-  storeId,
   baseHref = "/dashboard/reminders",
   customerOnly = false,
   coach = false,
@@ -20,24 +15,6 @@ export function ReminderTabs({
   coach?: boolean;
   music?: boolean;
 }) {
-  const router = useRouter();
-  const panelNavigate = useSettingsPanelNavigation();
-  const storageKey = `reminder-tab:${storeId}:${baseHref}`;
-  useEffect(() => {
-    try {
-      if (explicit) {
-        localStorage.setItem(storageKey, active);
-        return;
-      }
-      const saved = localStorage.getItem(storageKey);
-      if (
-        saved &&
-        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs", ...(coach?["coach"]:[])]).includes(saved) &&
-        saved !== active
-      )
-        if (panelNavigate) panelNavigate(`${baseHref}?tab=${saved}`); else router.replace(`?tab=${saved}`);
-    } catch {}
-  }, [active, explicit, router, storageKey, customerOnly, coach, panelNavigate, baseHref]);
   return (
     <nav aria-label="提醒管理分頁" className="flex border-b border-earth-200">
       {[

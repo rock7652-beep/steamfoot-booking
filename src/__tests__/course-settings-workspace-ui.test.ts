@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/course-settings-panel",()=>({readCourseSettingsPanel:vi.fn()}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
@@ -97,7 +98,7 @@ describe.each([false, true])("course notification three-state presentation (musi
   it.each(notificationEntries)("does not mount a direct $panel editor when blocked or permission is withdrawn", async entry => {
     window.history.replaceState(null, "", `/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=${entry.panel}`);
     const probe = vi.fn(() => createElement("div", { "data-editor-probe": entry.panel }, "編輯器"));
-    const props = { ...notificationProps, music, panelContent: createElement(probe) };
+    const props = { ...notificationProps, music, initialPanel:entry.panel,panelContent: createElement(probe) };
     for (const state of ["HIDDEN", "LOCKED"] as const) {
       await renderNotificationEntries({ [entry.feature]: state }, props);
       expect(probe).not.toHaveBeenCalled();

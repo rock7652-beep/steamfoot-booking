@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/course-settings-panel",()=>({readCourseSettingsPanel:vi.fn()}));
 // @vitest-environment jsdom
 import { act, createElement as el, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";

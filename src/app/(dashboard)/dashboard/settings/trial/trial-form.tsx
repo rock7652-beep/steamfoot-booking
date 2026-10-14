@@ -1,4 +1,5 @@
 "use client";
+import {useSettingsPanelSaved} from "@/components/admin/settings-panel-context";
 import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
@@ -11,7 +12,7 @@ import type { TrialSettings } from "@/lib/shop-config";
 
 interface Props {
   storeId: string;
-  onSaved?:(values:TrialSettings)=>void;
+  onSaved?:(values:TrialSettings)=>void; onCancel?:()=>void;
   initial: TrialSettings;
   courseMode?: boolean;
   compact?: boolean;
@@ -27,7 +28,8 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false, compact = false, forceExpanded = false }: Props) {
+export function TrialSettingsForm({ storeId, initial, onSaved,onCancel,courseMode = false, compact = false, forceExpanded = false }: Props) {
+  const panelSaved=useSettingsPanelSaved();
   const formId = useId();
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
@@ -39,6 +41,7 @@ export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false
   const pending=mutation.pending;
   const revision=useRef(trialSettingsRevision(initial));
   const [error,setError]=useState("");
+  const [discard,setDiscard]=useState(false);
   const [expanded, setExpanded] = useState(forceExpanded || !compact);
   const saving = useRef(false);
   const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
@@ -71,6 +74,7 @@ export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false
       const row=result.data.values;
       setTrialEnabled(row.trialEnabled);setDefaultPrice(String(row.trialDefaultPrice));setAllowEdit(row.trialAllowPriceEdit);setMinPrice(String(row.trialMinPrice));setMaxPrice(String(row.trialMaxPrice));
       setSavedDraft(JSON.stringify([row.trialEnabled,String(row.trialDefaultPrice),row.trialAllowPriceEdit,String(row.trialMinPrice),String(row.trialMaxPrice)]));
+      panelSaved?.();
       toast.success(result.syncWarning?"體驗設定已儲存；其他頁面更新失敗，請重新整理核對。":"體驗課設定已更新");
     }).finally(()=>{saving.current=false;});
   }
@@ -196,6 +200,8 @@ export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false
             <span className="text-sm text-earth-500">
               {pending ? "儲存中..." : draft !== savedDraft ? "未儲存" : ""}
             </span>
+            {onCancel&&<button type="button" disabled={pending||mutation.uncertain} onClick={()=>draft===savedDraft?onCancel():setDiscard(true)} className="min-h-11 rounded border px-3">取消</button>}
+            {discard&&<div role="alert"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><button type="button" onClick={()=>setDiscard(false)} className="min-h-11 px-3">繼續編輯</button><button type="button" className="min-h-11 px-3" onClick={()=>{const [enabled,price,edit,min,max]=JSON.parse(savedDraft);setTrialEnabled(enabled);setDefaultPrice(price);setAllowEdit(edit);setMinPrice(min);setMaxPrice(max);setDiscard(false);onCancel?.();}}>捨棄本區修改</button></div>}
             <button type="button" disabled={pending || mutation.uncertain || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
             <button
               type="submit"

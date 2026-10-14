@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { activateStoreAction } from "@/server/actions/store-onboarding";
 
 export function ActivateTrialButton({ storeId, course = false }: { storeId: string; course?: boolean }) {
@@ -18,8 +18,7 @@ export function ActivateTrialButton({ storeId, course = false }: { storeId: stri
           const result = await activateStoreAction(storeId, accepted);
           if (!result.success) { setMessage(result.error); return; }
           router.push(`/hq/dashboard/stores/subscriptions/${storeId}`);
-          router.refresh();
-        } catch { setMessage("開通失敗，請稍後再試"); }
+          } catch { setMessage("開通失敗，請稍後再試"); }
       });
     }}>{pending ? "開通中…" : "開通 30 天單店試用"}</button>
     {message && <p role="alert" className="mt-2 text-sm text-red-600">{message}</p>}

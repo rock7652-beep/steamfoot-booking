@@ -7,7 +7,9 @@ import { courseTemplateInput } from "@/lib/course-scheduling";
 import { courseTemplateRevision } from "@/lib/course-template-save";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=catalog&action=create") }));
+vi.mock("@/server/actions/music-schedule-rooms",()=>({getMusicScheduleRooms:vi.fn().mockResolvedValue({success:true,roomIds:["room"]})}));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
+vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:vi.fn().mockResolvedValue({success:true,issues:[]})}));
 vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
@@ -40,3 +42,5 @@ it("shows a confirmed course without RSC refresh; retries preserve the same payl
   await act(async()=>root.render(render([{...row,name:"後續更新"}])));expect(host.querySelector("tbody")!.textContent).toContain("後續更新");
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();vi.restoreAllMocks();}
 });
+
+vi.mock("@/server/actions/course-schedule-enrollment",()=>({loadCourseScheduleEnrollmentOptions:vi.fn(async()=>({success:true,cards:[]}))}));

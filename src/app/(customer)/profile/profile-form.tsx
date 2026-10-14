@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { useSession } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { useOneShotActionState } from "@/hooks/use-one-shot-action-state";
@@ -61,7 +61,6 @@ export function ProfileForm({
       } catch (err) {
         console.warn("[profile-form] session update failed", err);
       }
-      router.refresh();
 
       // dest 必須帶 /s/{slug} 前綴 — 否則裸 "/book" 在 LIFF 內建瀏覽器
       // 經 middleware 解析時若沒拿到 store-slug cookie 會 fallback / 404，
@@ -74,6 +73,8 @@ export function ProfileForm({
       });
       if (dest) {
         window.location.replace(dest);
+      } else {
+        router.refresh();
       }
     },
   });

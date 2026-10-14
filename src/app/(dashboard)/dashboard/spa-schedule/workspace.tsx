@@ -11,7 +11,8 @@ import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 
 import { SpaCheckoutPanel } from "./checkout-panel";
 import { useEffect, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";

@@ -1,6 +1,6 @@
 "use client";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { useEffect, useRef, useState } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { getSpaCustomerDrawer } from "@/server/actions/spa-customer-drawer";

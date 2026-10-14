@@ -1,6 +1,6 @@
 "use client";
 import {useState,useTransition,useRef,useEffect} from "react";
-import {useRouter} from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import {applyCourseBatchStatus,courseStatusImpact,deleteCourseItems} from "@/server/actions/course-batch";
 type Kind="room"|"plan"|"staff"|"template"|"subject";
 export function CourseBatchBar({kind,ids,selected,onChange,names={},deleteOnly=false,canDelete=false,onApplied,onPendingChange,blockedIds=[],states={}}:{kind:Kind;states?:Record<string,boolean>;blockedIds?:string[];onPendingChange?:(ids:string[],busy:boolean)=>void;names?:Record<string,string>;deleteOnly?:boolean;canDelete?:boolean;ids:string[];selected:string[];onChange:(ids:string[])=>void;onApplied?:(ids:string[],active:boolean)=>void}) {

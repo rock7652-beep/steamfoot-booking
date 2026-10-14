@@ -26,7 +26,9 @@ export function useSettingsSave<T>(endpoint:string, storeId:string, rowSchema:z.
       if(receipt.storeId!==storeId)throw new Error("stale store response");
       const data=rowSchema.parse(result.data);
       attempt.current=null;setUncertain(false);
-      console.info("[SETTINGS_SAVE_CLIENT_PERF]",{responseMs:Math.round(performance.now()-started)});
+      const confirmedAt=performance.now();
+      console.info("[SETTINGS_SAVE_CLIENT_PERF]",{responseMs:Math.round(confirmedAt-started)});
+      requestAnimationFrame(()=>console.info("[SETTINGS_SAVE_CLIENT_PERF]",{phase:"paint-after-receipt",ms:Math.round(performance.now()-confirmedAt)}));
       return {success:true as const,data,syncWarning:!!receipt.syncWarning};
     }catch{
       if(active.current)setUncertain(true);

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { SteamBookingDrawer } from "../../bookings/steam-booking-drawer";

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 
 type FilterOption = { value: string; label: string };
 

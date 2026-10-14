@@ -3,7 +3,7 @@ import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { createPortal } from "react-dom";
 
 import { useState, useTransition, useId, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {

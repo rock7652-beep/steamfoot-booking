@@ -28,3 +28,10 @@ it("keeps zero, fixed amount and unset fee distinct in a settlement snapshot",()
  expect(capturedTeacherFee({rule:{mode:"CLASS",value:500},revision:1},attended)).toMatchObject({amount:500,issue:null});
  expect(capturedTeacherFee({rule:null,revision:1},attended).amount).toBeNull();
 });
+
+it("keeps a captured tuition-specific fixed fee once per class after scheduling by teaching item",async()=>{
+ const {capturedTeacherFee}=await import("@/server/services/course-teacher-fee");
+ const snapshot={revision:1,rule:{mode:"SHARE",value:50,tuitionRules:{paid:{mode:"CLASS",value:500}}}};
+ expect(capturedTeacherFee(snapshot,[{...seat,tuitionTemplateId:"paid"},{...seat,id:"b",tuitionTemplateId:"paid"}]).amount).toBe(500);
+ expect(capturedTeacherFee(snapshot,[{...seat,tuitionTemplateId:"paid"},{...seat,id:"b",tuitionTemplateId:"other"}]).issue).toContain("規則不同");
+});

@@ -1,7 +1,8 @@
 "use client";
+import { toast } from "sonner";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 import { useActionState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
@@ -24,7 +25,7 @@ export function NewCustomerForm({ isSpa, staffOptions, save, returnUrl }: {
       const result=await save(data);
       if(!draft.mounted.current)return previous;
       if(!result.success)return {error:result.error??"新增失敗，輸入已保留",existingCustomerId:result.existingCustomerId??""};
-      draft.clear();router.push(returnUrl);router.refresh();
+      draft.clear();toast.success("已新增顧客");router.push(returnUrl);
       return {error:"",existingCustomerId:""};
     }catch{return {error:"連線中斷，輸入已保留，請稍後重試。",existingCustomerId:""};}
     finally{draft.busy.current=false;}

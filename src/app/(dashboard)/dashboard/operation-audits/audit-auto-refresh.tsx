@@ -1,7 +1,9 @@
 "use client";
+import { backgroundRefreshAllowed } from "@/lib/background-refresh";
 
 import { useEffect, useRef, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { PageHeader } from "@/components/desktop/page-header";
 import { toLocalDateStr } from "@/lib/date-utils";
 
@@ -22,7 +24,7 @@ export function AuditAutoRefresh({ children, renderedAt, dateTo, followToday, pa
 
   useEffect(() => {
     const update = () => {
-      if (document.visibilityState !== "visible" || !navigator.onLine || busy.current || Date.now() - lastRequested.current < 2_000) return;
+      if (!backgroundRefreshAllowed() || busy.current || Date.now() - lastRequested.current < 2_000) return;
       // Leave historical pages, expanded records and in-progress filters alone.
       if (dirtyFilter.current || page > 1 || root.current?.querySelector("details[data-record][open]") ||
         (document.activeElement instanceof Element && root.current?.contains(document.activeElement) && document.activeElement.closest("form"))) return;

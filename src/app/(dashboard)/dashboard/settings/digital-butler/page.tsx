@@ -42,7 +42,7 @@ export default async function DigitalButlerSettingsPage() {
         }
       />
       <DigitalButlerFlowEditor
-        flows={flows}
+        flows={flows} storeId={storeId}
         courseMode={store.industryModule === "COURSE"}
         leadCollectionUpgrade={canUpgradeLeadCollection ? { storeName: store.name, storeSlug: store.slug } : null}
       />

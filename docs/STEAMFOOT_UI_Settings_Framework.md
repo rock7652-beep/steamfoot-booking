@@ -488,7 +488,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 - Settings Center → `src/components/settings/`
 - Settings Workspace / Nav / List Row → 共用 settings primitives
-- Settings Panel → 共用 panel 容器，逐步取代只屬於單一模組的 panel wrapper
+- Settings Panel → `src/components/settings/settings-panel.tsx`；課程／音樂僅保留業務路徑 adapter，共用容器、dirty guard 與關閉操作。局部讀取使用 `local-panel-content.tsx` 與既有 `usePanelReader`。
 - Reminder Center → 共用 tabs、panel、dirty guard、發送紀錄與健康狀態元件
 - 顧客詳情的備註、歸屬、LINE 與基本資料編輯 → `src/components/admin/use-customer-panel-guard.ts` 收集既有 SettingsPanelContext 的 dirty／pending 狀態；運動／音樂與 SPA 各自注入原有資料及業務操作。
 - 大量清單 → 共用搜尋／篩選／排序／批次操作模式
@@ -628,7 +628,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 - **MUST** 先顯示視窗外框及已知摘要，不以頁面重新導航作為開啟 client 表單的前置條件。
 - 顧客清單開啟詳情時，姓名、電話與目前門市已載入的標籤 **MUST** 直接呈現；摘要只供辨識，權限與帳務操作等完整資料讀取成功後才提供。換顧客、讀取錯誤或重試時不得顯示上一位的摘要或明細。
-- 已由 RSC／頁面 props 提供的資料直接顯示；設定中心沿用 DashboardLink／Next 路由預讀與 SettingsPanel，不為同一份資料增加 client 請求。
+- 已由 RSC／頁面 props 提供的資料直接顯示；直接網址與首次頁面沿用 RSC 預讀。課程／音樂設定視窗在目前頁面以 history 管理網址，沿用 SettingsPanel 與共用 panel reader 局部載入，不為已提供的初始內容增加請求。
 - client 讀取共用 `src/lib/client-read-cache.ts`；跨入口用 `src/components/operations/panel-read-cache.tsx` 的 `usePanelReader`／`usePanelReadCache`。既有 booking transport 使用同一核心的 adapter，保留門市參數與 authoritative payload 檢查。
 - `PanelReadProvider` 僅掛在帳號／門市／模組／權限 keyed OperationScope 內；**禁止** module global、localStorage 或跨使用者共享個資快取。額外門市、權限或 loader 捕捉的變數，以及 server 資料修訂，必須納入 scopeVersion。
 - **SHOULD** 對可預讀入口用 pointer enter、focus 與 touch intent；同鍵的預讀與開啟共用 in-flight 請求。錯誤與 `{success:false}` 不快取，實際開啟可重試。

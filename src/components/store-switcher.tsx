@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect, useId } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { switchHqStoreView } from "@/lib/hq-store-switch-client";
 import { hqStoreSwitchDestination } from "@/lib/hq-navigation";
 import { toast } from "sonner";

@@ -1,6 +1,7 @@
 import { compensationRule } from "./course-compensation";
 
 export type TeacherFeeSeat = {
+  tuitionTemplateId?:string|null;
   id: string;
   customerName: string;
   status: string;

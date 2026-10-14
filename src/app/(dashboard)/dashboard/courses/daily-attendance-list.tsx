@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { formatTWDateTime } from "@/lib/date-utils";
 import { saveCourseLeaveNote, updateCourseDailyAttendanceBatch } from "@/server/actions/course-members";
 

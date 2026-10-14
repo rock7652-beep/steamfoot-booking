@@ -2,7 +2,8 @@
 import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
 import { useState, useTransition } from "react";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";

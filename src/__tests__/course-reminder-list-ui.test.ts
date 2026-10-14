@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ save: vi.fn() }));
-vi.mock("@/server/actions/course-plan-reminders", () => ({ saveCoursePlanReminderSetting: mocks.save }));
+vi.mock("@/server/actions/course-plan-reminders", () => ({ saveCoursePlanReminderSetting: async(input:unknown)=>{const result=await mocks.save(input);return result.success?{...result,data:input}:result;} }));
 import { CourseLowBalanceSettings } from "@/app/(dashboard)/dashboard/courses/reminders/low-balance-settings";
 let root: Root, host: HTMLDivElement;
 const plans = Array.from({ length: 21 }, (_, i) => ({ id: `p${i}`, name: `方案${String(i).padStart(2,"0")}`, unit: "SESSION", isActive: true, lowBalanceEnabled: true, lowBalanceThreshold: 3 }));

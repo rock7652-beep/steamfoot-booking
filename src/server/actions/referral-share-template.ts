@@ -31,8 +31,8 @@ const inputSchema = z.object({
  * Client-supplied storeId is intentionally ignored/stripped.
  */
 export async function updateReferralShareTemplate(
-  input: unknown,
-): Promise<ActionResult<void>> {
+  input: unknown, receiptOnly=false,
+): Promise<ActionResult<{referralShareTemplate:string|null}>> {
   try {
     const user = await requireWritablePermission("plans.edit");
     const storeId = await resolveWriteStoreId(user);
@@ -57,10 +57,10 @@ export async function updateReferralShareTemplate(
       update: { referralShareTemplate },
     });
 
-    revalidateShopConfig();
+    if(!receiptOnly){revalidateShopConfig();
     revalidatePath("/dashboard/settings");
-    revalidatePath("/dashboard/settings/referral-share");
-    return { success: true, data: undefined };
+    revalidatePath("/dashboard/settings/referral-share");}
+    return { success: true, data: {referralShareTemplate} };
   } catch (error) {
     return handleActionError(error);
   }

@@ -277,7 +277,6 @@ function EmptyStateCard({
           action={handleInitialize}
           returnPath={returnPath}
           submitLabel="啟用現金抽屜"
-          successPendingLabel="已啟用，跳轉中…"
           submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
           className="mt-6 space-y-4"
         >
@@ -413,7 +412,6 @@ function WarningLastOpenCard({
             action={handleCatchUpClose}
             returnPath={returnPath}
             submitLabel="完成補關"
-            successPendingLabel="已補關，跳轉中…"
             submitClassName="min-h-[44px] w-full bg-orange-600 text-base text-white hover:bg-orange-700"
             className="space-y-4 p-4"
           >
@@ -479,7 +477,7 @@ function NotOpenedTodayCard({
    * closure 內綁好，client 不會看到也不會改到。
    *
    * 與舊版差異：成功時**不** call `redirect()`，而是 return success result，
-   * 讓 client `useActionState` 收到後自己 `window.location.assign(returnPath)`，
+   * 讓 client `useActionState` 收到後原地刷新伺服器資料，
    * 走真正的 hard navigation（=F5 等效），繞開 Next.js same-URL redirect 在
    * action response 內 inline RSC payload 的卡死路徑（PR #227 Preview 觀察）。
    * 錯誤路徑保留既有「redirect 帶 `?cashDrawerError=` + FormErrorToast」UX。
@@ -887,7 +885,6 @@ function CloseDrawerAction({
           action={handleClose}
           returnPath={returnPath}
           submitLabel="完成今日閉店點錢"
-          successPendingLabel="已閉店，跳轉中…"
           submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
           className="space-y-4"
         >
@@ -1195,7 +1192,6 @@ function ClosedActionsArea({
                 action={handleReopen}
                 returnPath={returnPath}
                 submitLabel="確認撤銷閉店"
-                successPendingLabel="已撤銷，跳轉中…"
                 submitClassName="min-h-[44px] w-full bg-amber-600 text-white hover:bg-amber-700"
                 className="space-y-3"
               >

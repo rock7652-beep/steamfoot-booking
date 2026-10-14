@@ -2,7 +2,8 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ read: vi.fn() }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock("@/lib/booking-month-read", () => ({ readBookingMonth: mocks.read }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/bookings-manager", async () => {
  const { useBookingMonthNavigation } = await import("@/app/(dashboard)/dashboard/bookings/booking-month-context");
@@ -17,7 +18,7 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/bookings-manager", async () => {
 import { BookingMonthWorkspace } from "@/app/(dashboard)/dashboard/bookings/booking-month-workspace";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const snapshot = { monthData: [], monthSchedule: {} };
-afterEach(() => { vi.useRealTimers(); mocks.read.mockReset(); });
+afterEach(() => { vi.useRealTimers(); mocks.read.mockReset(); mocks.refresh.mockReset(); });
 function setup() {
  const container = document.createElement("div");
  const root = createRoot(container);
@@ -58,4 +59,13 @@ it("invalidates prepared months after a mutation and distinguishes read failure 
   expect(container.textContent).toContain("尚無法判斷本月預約");
   expect(container.textContent).not.toContain("loaded 2026-10");
  } finally { act(() => root.unmount()); }
+});
+
+it("restores a booking deep link through server reconciliation without reloading the document", async () => {
+ const { root } = setup();
+ try {
+  history.replaceState(null, "", "/dashboard/bookings?bookingId=synthetic");
+  await act(async () => window.dispatchEvent(new PopStateEvent("popstate")));
+  expect(mocks.refresh).toHaveBeenCalledOnce();
+ } finally { act(() => root.unmount()); history.replaceState(null, "", "/"); }
 });

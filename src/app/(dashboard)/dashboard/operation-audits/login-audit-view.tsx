@@ -1,3 +1,4 @@
+import { QueryForm } from "@/components/query-form";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell } from "@/components/desktop";
@@ -64,7 +65,7 @@ export async function LoginAuditView(input: {
       <Link className="rounded-lg bg-primary-50 p-3" href={`/dashboard/operation-audits?tab=login&dateFrom=${input.dateFrom}&dateTo=${input.dateTo}&dateMode=${input.followToday ? "today" : "fixed"}`}>登入紀錄</Link>
     </nav>
     {backHref ? <Link className="w-fit min-h-11 py-3 text-sm text-primary-800 underline" href={backHref}>← 返回紀錄列表</Link> : null}
-    <form className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm" method="get">
+    <QueryForm className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm" method="get">
       <input type="hidden" name="dateMode" value={input.followToday ? "today" : "fixed"} />
       <input type="hidden" name="tab" value="login" />
       {input.login ? <input type="hidden" name="login" value={input.login} /> : null}
@@ -78,7 +79,7 @@ export async function LoginAuditView(input: {
       <select aria-label="人員" className="h-11 min-w-0 max-w-full rounded-lg border border-earth-200 bg-white px-2 sm:w-32" name="actor" defaultValue={input.actor ?? ""}><option value="">全部人員</option>{actors.map(actor => <option key={actor.actorUserId!} value={actor.actorUserId!}>{actor.actorNameSnapshot ?? "未識別"}</option>)}</select>
       <select aria-label="結果" className="h-11 rounded-lg border border-earth-200 bg-white px-2" name="outcome" defaultValue={input.outcome ?? ""}><option value="">全部結果</option><option value="SUCCESS">成功</option><option value="FAILED">失敗</option></select>
       <button className="min-h-11 rounded-lg border border-earth-200 bg-white px-2" type="submit">查詢</button><Link className="min-h-11 px-2 py-3 text-earth-600" href="/dashboard/operation-audits?tab=login">清除</Link>
-    </form>
+    </QueryForm>
     <AuditListState viewKey={`${input.viewerKey ?? ""}:${input.storeId ?? "all"}:${returnQuery}`}>
     <div className="min-w-0 overflow-hidden rounded-xl border border-earth-200 bg-white">
       <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-sm text-earth-500"><span>共 {total} 筆</span><span>第 {input.page}／{pages} 頁</span></div>

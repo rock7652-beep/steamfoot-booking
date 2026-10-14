@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 /**
  * 讀取 URL ?error=... 參數並以 toast 顯示錯誤訊息
@@ -16,24 +16,24 @@ const ERROR_PARAM_NAMES = ["error", "cashDrawerError"] as const;
 
 export function FormErrorToast() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   // 任何 ERROR_PARAM_NAMES 中第一個有值的 param 都會被顯示
   const error =
     ERROR_PARAM_NAMES.map((name) => searchParams.get(name)).find((v) => v) ?? null;
 
   useEffect(() => {
-    if (error) {
+    if (error && ERROR_PARAM_NAMES.some(name => new URLSearchParams(window.location.search).get(name) === error)) {
       toast.error(error);
       // 顯示後一次清掉所有可能的 error 命名，避免 reload 重彈
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       for (const name of ERROR_PARAM_NAMES) params.delete(name);
       const remaining = params.toString();
       const newUrl = remaining
         ? `${window.location.pathname}?${remaining}`
         : window.location.pathname;
-      router.replace(newUrl, { scroll: false });
+      // Feedback cleanup changes URL state only, never reloads the displayed page.
+      window.history.replaceState(null, "", newUrl + window.location.hash);
     }
-  }, [error, searchParams, router]);
+  }, [error, searchParams]);
 
   return null;
 }

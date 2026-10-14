@@ -32,7 +32,8 @@
 | --- | --- |
 | 現金收支編輯、方案表單、獎金規則、SPA 方案／人員編輯、值班日編輯 | props 直接顯示，不額外等待 |
 | 課程工作台課次、今日名單、音樂科目、方案購買／交易操作、SPA 營收操作 | props 直接顯示；mutation 沿用後端版本與額度檢查、router.refresh |
-| 共用設定中心、課程設定、工時／提醒／數位管家等設定面板 | RSC／DashboardLink 路由預讀，面板內容由伺服器提供，保留 dirty/pending guard |
+| 共用設定中心 | RSC／DashboardLink 路由預讀，共用 SettingsPanel 與 dirty/pending guard |
+| 課程／音樂設定功能視窗 | 初始RSC內容直接顯示；後續原頁history切換，settings-panel/usePanelReader TTL0，門市receipt核對、在途去重、晚到回應隔離、局部錯誤重試；關閉不讀取。保存後invalidate初始seed。 |
 | CourseStatusButton 停用／下架確認 | 不快取權威 impact，使用者操作時新查；避免預讀造成錯誤影響數量 |
 | 操作說明、課程設定引導、手機導覽 | 靜態內容直接顯示 |
 | 共用顧客標籤 | 已有 RSC seed、batch 讀取、版本／本地修改保護與訂閱更新；維持專用一致性流程，不另加互相干擾的 cache |

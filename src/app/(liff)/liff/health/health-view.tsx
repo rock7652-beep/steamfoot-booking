@@ -22,7 +22,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { HealthHistoryList } from "@/components/health-history-list";
 import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 import {

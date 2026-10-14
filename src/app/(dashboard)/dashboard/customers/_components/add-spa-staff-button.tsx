@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { createSpaPersonFromMember } from "@/server/actions/spa-person";
 
 export function AddSpaStaffButton({ customerId }: { customerId: string }) {

@@ -36,7 +36,7 @@
  *   _components/success-card.tsx                   ← SuccessCard
  */
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {

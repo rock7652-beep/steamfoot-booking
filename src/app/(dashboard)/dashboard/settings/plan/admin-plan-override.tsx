@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "@/components/use-stable-router";
 import { useState } from "react";
 import { adminChangeStorePlan } from "@/server/actions/upgrade-request";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function AdminPlanOverride({ storeId, storeName, currentPlan }: Props) {
+  const router = useRouter();
   const [selected, setSelected] = useState(currentPlan);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
@@ -42,7 +44,7 @@ export function AdminPlanOverride({ storeId, storeName, currentPlan }: Props) {
       if (result.success) {
         toast.success("方案已調整");
         setReason("");
-        setTimeout(() => window.location.reload(), 1000);
+        router.refresh();
       } else {
         toast.error(result.error ?? "操作失敗");
       }

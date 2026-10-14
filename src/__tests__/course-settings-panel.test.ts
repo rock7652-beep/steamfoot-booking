@@ -2,16 +2,18 @@
 import { act, createElement as el, Fragment, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
-const m = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+const m = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), operation:vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => m, usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) }));
 import { CourseSettingsPanel } from "@/app/(dashboard)/dashboard/courses/settings-panel";
-import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
+import { useSettingsPanelGuard,useSettingsPanelDiscard } from "@/components/admin/settings-panel-context";
 import { COURSE_SETTINGS_PANELS, courseSettingsPanelHref } from "@/lib/course-settings-panels";
 let root: Root, host: HTMLDivElement;
 function Form({ pending = false }: { pending?: boolean }) {
   const [dirty, setDirty] = useState(false);
+  const discard=useSettingsPanelDiscard();
   useSettingsPanelGuard(dirty, pending);
   return el(Fragment, null,
+    el("button", { onClick:()=>discard?.(m.operation) }, "切換流程"),
     el("button", { onClick: () => setDirty(true) }, "修改"), el("button", { onClick: () => setDirty(false) }, "模擬儲存成功"),
     el("a", { href: "/s/a/admin/dashboard/courses/reminders?tab=logs" }, "發送紀錄"), el("a", { href: "/s/a/admin/dashboard/courses?view=settings&section=notifications" }, "返回設定"),
     el("form", { "data-settings-panel-filter": true }, el("input", { name: "tab", defaultValue: "logs" }), el("input", { name: "search", defaultValue: "測試" }), el("button", null, "篩選")));
@@ -69,3 +71,15 @@ it("keeps the same outer window geometry across loading and different settings p
  expect(host.querySelector('[role="dialog"]')).toBe(dialog);
  expect(dialog.getAttribute('style')).toBe(geometry);
 });
+
+it('uses local navigation for clean close and guards dirty browser Back',async()=>{
+ const navigate=vi.fn();const close='/s/a/admin/dashboard/courses?view=settings&section=notifications&month=2026-09';
+ await act(async()=>root.render(el(CourseSettingsPanel,{panel:'reminders',navigate,closeHref:close,children:el(Form)})));
+ await click('關閉視窗');expect(navigate).toHaveBeenCalledWith(close);expect(m.replace).not.toHaveBeenCalled();navigate.mockClear();
+ await click('修改');const before=window.location.href;
+ await act(async()=>{window.history.replaceState({__settingsPreviousHref:close},'',close);window.dispatchEvent(new PopStateEvent('popstate'))});
+ expect(window.location.href).toBe(before);expect(host.textContent).toContain('尚有未儲存');expect(navigate).not.toHaveBeenCalled();
+ const go=vi.spyOn(window.history,'go').mockImplementation(()=>{});await click('不儲存並關閉');expect(go).toHaveBeenCalledWith(-2);expect(navigate).not.toHaveBeenCalled();expect(m.replace).not.toHaveBeenCalled();go.mockRestore();
+});
+
+it("confirms an internal settings operation without executing it as a state updater",async()=>{await render();await click("修改");await click("切換流程");expect(m.operation).not.toHaveBeenCalled();await click("不儲存並切換");expect(m.operation).toHaveBeenCalledOnce();expect(m.replace).not.toHaveBeenCalled()});

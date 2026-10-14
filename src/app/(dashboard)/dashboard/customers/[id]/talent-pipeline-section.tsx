@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import type { TalentStage } from "@prisma/client";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { UpgradeEligibility } from "@/types/talent";

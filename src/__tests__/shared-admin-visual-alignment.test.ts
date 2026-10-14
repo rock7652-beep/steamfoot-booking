@@ -76,7 +76,9 @@ describe("shared admin visual alignment", () => {
 
   it("uses one geometry source for course and shared settings", () => {
     expect(ADMIN_SETTINGS_PANEL).toEqual({ width: 1100, maxHeight: 900 });
-    for (const path of ["src/components/settings/settings-panel.tsx", "src/app/(dashboard)/dashboard/courses/settings-panel.tsx"]) {
+    const adapter=readFileSync("src/app/(dashboard)/dashboard/courses/settings-panel.tsx","utf8");
+    expect(adapter).toContain("<SettingsPanel");expect(adapter).not.toContain("<RightSheet");
+    for (const path of ["src/components/settings/settings-panel.tsx"]) {
       expect(readFileSync(path, "utf8")).toContain("ADMIN_SETTINGS_PANEL.width");
       expect(readFileSync(path, "utf8")).toContain("ADMIN_SETTINGS_PANEL.maxHeight");
     }

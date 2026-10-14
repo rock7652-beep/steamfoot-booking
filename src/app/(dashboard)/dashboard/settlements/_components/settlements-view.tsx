@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { useSearchParams } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import type {

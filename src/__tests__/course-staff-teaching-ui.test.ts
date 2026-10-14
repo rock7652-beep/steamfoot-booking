@@ -181,6 +181,22 @@ it("music close protects only actual edits and can continue or discard",async()=
  await click("關閉");expect(document.body.textContent).toContain("放棄未儲存的修改？");await click("繼續編輯");expect(phone.value).toBe("0912345678");
  await click("關閉");await click("放棄修改");expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 });
+it("confirmed music teaching save closes the editor and reopening closes without a discard warning",async()=>{
+ m.save.mockResolvedValue({success:true});
+ const props={previewStoreId:"s",accountKind:"coach" as const,staff:[staff],maxStaff:10,templates:[{id:"y",name:"吉他"}],customers:[],canManage:true,music:true,permissionGroups:[]};
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,props)));
+ await click("編輯");await click("授課設定");
+ await inputValue(document.body.querySelector('[aria-label="教師拆帳比例"]') as HTMLInputElement,"55");
+ await click("儲存");
+ expect(m.save).toHaveBeenCalledTimes(1);
+ expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+ expect(m.read).toHaveBeenCalledTimes(1);
+ expect(host.textContent).toContain("教師資料已儲存");
+ await click("編輯");await click("授課設定");await click("關閉");
+ expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+ expect(document.body.textContent).not.toContain("放棄未儲存的修改");
+ expect(m.refresh).not.toHaveBeenCalled();
+});
 it("music hides LINE permissions until a customer is selected without changing saved member access",async()=>{
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{previewStoreId:"s",staff:[staff],maxStaff:10,templates:[],customers:[],canManage:true,music:true,permissionGroups:[]})));
  await click("編輯");await click("LINE 與權限");

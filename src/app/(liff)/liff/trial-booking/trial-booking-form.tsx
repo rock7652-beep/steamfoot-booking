@@ -23,7 +23,7 @@
  *   - 不寫 inline 中文（一律從 liffMessages.trialBooking.* / liffMessages.error.*）
  */
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";

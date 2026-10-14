@@ -24,6 +24,10 @@
       "schedule": "30 10 * * *"
     },
     {
+      "path": "/api/cron/course-schedule-series",
+      "schedule": "20 17 * * *"
+    },
+    {
       "path": "/api/cron/human-support-reminders",
       "schedule": "*/5 * * * *"
     },
@@ -46,6 +50,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/full-site-navigation-stability-20261014": false,
       "fix/course-people-unified-20261011": false,
       "feat/teacher-own-income-20261011": false,
       "feat/store-notification-center-20261011": false,

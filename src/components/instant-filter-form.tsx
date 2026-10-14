@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 
 /** GET filters only. Collect the entire draft so rapid changes cannot lose fields. */
 export function InstantFilterForm({children,className}:{children:ReactNode;className?:string}) {
@@ -19,6 +20,8 @@ export function InstantFilterForm({children,className}:{children:ReactNode;class
       if(!form.checkValidity())return;
       setError("");
       data.forEach((value,key)=>{if(typeof value==="string"&&value.trim()&&key!=="page")params.append(key,value.trim());});
+      const nextUrl = `${pathname}${params.size?`?${params}`:""}`;
+      if (nextUrl === window.location.pathname + window.location.search) return;
       start(()=>router.replace(`${pathname}${params.size?`?${params}`:""}`,{scroll:false}));
     },delay);
   }

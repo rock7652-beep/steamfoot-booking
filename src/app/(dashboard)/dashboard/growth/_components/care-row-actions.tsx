@@ -1,6 +1,6 @@
 "use client";
 import { useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { createCustomerFollowUpAction } from "@/server/actions/customer-follow-up";
 import { CUSTOMER_FOLLOW_UP_RESULT_OPTIONS } from "@/lib/customer-follow-up";

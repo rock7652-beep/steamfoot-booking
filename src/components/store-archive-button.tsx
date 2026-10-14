@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { setStoreArchivedAction } from "@/server/actions/store-archive";
 
 export function StoreArchiveButton({ storeId, name, archived }: { storeId: string; name: string; archived: boolean }) {

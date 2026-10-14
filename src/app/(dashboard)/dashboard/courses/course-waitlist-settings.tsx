@@ -9,10 +9,10 @@ import { useState } from "react";
 export function CourseWaitlistSettings({
   initial,
   storeId,
-  onSaved,
+  onSaved,onCancel,
   canEdit,
 }: {
-  storeId:string;
+  storeId:string;onCancel?:()=>void;
   onSaved:(values:SavedWaitlistSettings)=>void;
   initial: { enabled: boolean; defaultLimit: number; autoPromoteStopMinutes: number };
   canEdit: boolean;
@@ -24,6 +24,7 @@ export function CourseWaitlistSettings({
   const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/waitlist`,storeId,waitlistValues);
   const pending=request.pending;
   const [saved,setSaved]=useState(initial);
+  const [discard,setDiscard]=useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const dirty = enabled !== saved.enabled || defaultLimit !== saved.defaultLimit || stopMinutes !== saved.autoPromoteStopMinutes;
@@ -93,6 +94,8 @@ export function CourseWaitlistSettings({
           {pending ? "儲存中…" : request.uncertain ? "重試確認儲存結果" : "儲存"}
         </button>
       )}
+      {onCancel&&<button type="button" className="min-h-11 rounded border px-3" disabled={pending||request.uncertain} onClick={()=>dirty?setDiscard(true):onCancel()}>取消</button>}
+      {discard&&<div role="alert" className="sm:col-span-4"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><button type="button" className="min-h-11 px-3" onClick={()=>setDiscard(false)}>繼續編輯</button><button type="button" className="min-h-11 px-3" onClick={()=>{setEnabled(saved.enabled);setDefaultLimit(saved.defaultLimit);setStopMinutes(saved.autoPromoteStopMinutes);setDiscard(false);onCancel?.();}}>捨棄本區修改</button></div>}
       {error && <p role="alert" className="sm:col-span-4 text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="sm:col-span-4 text-sm text-primary-700">{message}</p>}
     </div>

@@ -31,7 +31,8 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { Fragment, useState, useTransition, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { CustomerPanelAdvanced } from "../customers/_components/customer-panel-advanced";
@@ -68,6 +69,7 @@ export function CourseMemberWorkspace({
   previewStoreId,
   displayOrder,
   subjects=[],
+  eligibleTeachers=[],
   profitEnabled=true,
   canDelete=false,
   termSessions=[],
@@ -97,6 +99,7 @@ export function CourseMemberWorkspace({
   previewStoreId?: string;
   displayOrder?:CourseOrderSnapshot;
   subjects?:{id:string;name:string;category:string;isActive:boolean}[];
+  eligibleTeachers?:{id:string;name:string}[];
   profitEnabled?:boolean;
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
@@ -201,7 +204,7 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   useCourseDraftGuard(!!panel&&(dirty || supportGuard.dirty),!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
-  function finishDraftForm(row?:Plan){if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
+  function finishDraftForm(row?:Plan){toast.success(panel === "plan" ? (music ? (plan ? "班型與學費已更新" : "已新增班型與學費") : (plan ? "方案已更新" : "已新增方案")) : person ? "顧客資料已更新" : "已新增顧客");if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}setFormUncertain(false);if(panel==="plan"&&music)setNotice("班型與學費已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null);
   function switchPersonTab(value: typeof personTab) {
@@ -514,7 +517,7 @@ export function CourseMemberWorkspace({
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(courseTemplateLabel).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
             {panel === "plan" && !planReadOnly && (
 
-              <CoursePlanDraftForm storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
+              <CoursePlanDraftForm storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} teachers={eligibleTeachers} subjects={subjects} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && (

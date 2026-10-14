@@ -1,3 +1,4 @@
+import { QueryForm } from "@/components/query-form";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -43,14 +44,14 @@ export default async function CentralUserMergesPage({
         <SummaryCard label="近期驗收通過" value={`${receipts.filter((item) => item.status === "PASS").length} 筆`} tone="green" />
       </div>
 
-      <form method="GET" className="rounded-lg border border-earth-200 bg-white p-4">
+      <QueryForm method="GET" className="rounded-lg border border-earth-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-earth-900">Dry Run</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-earth-700">來源 User ID<input name="source" defaultValue={sourceId} required className="mt-1 block w-full rounded-md border border-earth-300 px-3 py-2 font-mono text-xs" /></label>
           <label className="text-xs text-earth-700">主要 User ID<input name="target" defaultValue={targetId} required className="mt-1 block w-full rounded-md border border-earth-300 px-3 py-2 font-mono text-xs" /></label>
         </div>
         <button className="mt-3 rounded-md bg-primary-700 px-4 py-2 text-sm font-medium text-white">產生合併預覽</button>
-      </form>
+      </QueryForm>
 
       {preview ? (
         <div className="space-y-4 rounded-lg border border-earth-200 bg-white p-4">

@@ -4,7 +4,7 @@ import styles from "@/components/admin/profile-plan-layout.module.css";
 
 import { useActionState } from "react";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { updateCustomer } from "@/server/actions/customer";
 import { normalizePhone, normalizeEmail } from "@/lib/normalize";
@@ -95,7 +95,7 @@ export function EditCustomerForm({
         draft.clear();
         toast.success("已儲存");
         if (onSuccess) onSuccess();
-        else { router.push(returnUrl ?? `/dashboard/customers/${customer.id}`); router.refresh(); }
+        else { router.push(returnUrl ?? `/dashboard/customers/${customer.id}`); }
         return { error: null, existingCustomerId: null };
       }
       if (!onSuccess) router.refresh();

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   DUTY_ROLE_LABELS,

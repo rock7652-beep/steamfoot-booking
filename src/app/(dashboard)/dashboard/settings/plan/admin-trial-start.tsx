@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "@/components/use-stable-router";
 import { useState } from "react";
 import { adminStartTrial } from "@/server/actions/upgrade-request";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function AdminTrialStart({ storeId, storeName }: Props) {
+  const router = useRouter();
   const [selected, setSelected] = useState<PricingPlan>("EXPERIENCE");
   const [days, setDays] = useState(30);
   const [reason, setReason] = useState("");
@@ -38,7 +40,7 @@ export function AdminTrialStart({ storeId, storeName }: Props) {
       if (result.success) {
         toast.success("試用已開通");
         setReason("");
-        setTimeout(() => window.location.reload(), 1000);
+        router.refresh();
       } else {
         toast.error(result.error ?? "操作失敗");
       }

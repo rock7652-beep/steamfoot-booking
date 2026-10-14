@@ -14,7 +14,7 @@ async function render(scope:string) {await act(async()=>root.render(React.create
 it("restores once for the same account/store and full list URL",async()=>{
  const key=operationStateKey("a", "position:/dashboard/customers?search=test");sessionStorage.setItem(key,JSON.stringify({at:Date.now(),value:430}));
  await render("a");await act(async()=>{await vi.advanceTimersByTimeAsync(20);});
- expect(window.scrollTo).toHaveBeenCalledWith({top:430,behavior:"instant"});expect(m.refresh).toHaveBeenCalledOnce();expect(sessionStorage.getItem(key)).toBeNull();
+ expect(window.scrollTo).toHaveBeenCalledWith({top:430,behavior:"instant"});expect(m.refresh).not.toHaveBeenCalled();expect(sessionStorage.getItem(key)).toBeNull();
 });
 it("does not restore another store's position",async()=>{
  sessionStorage.setItem(operationStateKey("a","position:/dashboard/customers?search=test"),JSON.stringify({at:Date.now(),value:430}));

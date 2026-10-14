@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useId,useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
@@ -11,20 +12,25 @@ export function SettingsPanel({
   sourceHref,
   width = ADMIN_SETTINGS_PANEL.width,
   children,
+  navigateLocal, closeTarget, onSaved,
 }: {
   title: string;
   sourceHref: string;
   width?: number;
   children: ReactNode;
+  navigateLocal?: (href:string)=>void; closeTarget?:string; onSaved?:()=>void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
   const searchString = search.toString();
   const [states, setStates] = useState<Record<string, SettingsPanelState>>({});
-  const [destination, setDestination] = useState<string | null>(null);
+  const [destination, setDestination] = useState<string | (()=>void) | null>(null);
   const [navigating, startNavigation] = useTransition();
   const root = useRef<HTMLDivElement>(null);
+  const currentHref=useRef("");
+  const trapId=useId(),backTarget=useRef<string|null>(null),backSteps=useRef(0),allowPop=useRef(false);
+  useEffect(()=>{currentHref.current=window.location.href;},[searchString]);
 
   const dirty = Object.values(states).some(state => state.dirty);
   const pending = Object.values(states).some(state => state.pending);
@@ -40,20 +46,25 @@ export function SettingsPanel({
   }, []);
 
   const closeHref = useMemo(() => {
+    if(closeTarget)return closeTarget;
     const params = new URLSearchParams(searchString);
     params.delete("panel");
     params.delete("panelQuery");
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
-  }, [pathname, searchString]);
+  }, [pathname, searchString, closeTarget]);
 
-  const go = useCallback((href: string) => {
+  const go = useCallback((href: string|(()=>void)) => {
     setDestination(null);
-    startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router]);
+    if(typeof href==="function"){backTarget.current=null;href();return;}
+    if(backTarget.current===href&&backSteps.current){backTarget.current=null;allowPop.current=true;window.history.go(backSteps.current);return;}
+    backTarget.current=null;
+    if(navigateLocal)navigateLocal(href);
+    else startNavigation(() => router.replace(href, { scroll: false }));
+  }, [router,navigateLocal]);
 
-  const request = useCallback((href: string) => {
-    if (dirty || pending) setDestination(href);
+  const request = useCallback((href: string|(()=>void)) => {
+    if (dirty || pending) setDestination(()=>href);
     else go(href);
   }, [dirty, pending, go]);
 
@@ -77,6 +88,18 @@ export function SettingsPanel({
     request(url.href);
   }, [closeHref, pathname, request, searchString, sourceHref]);
 
+  useEffect(()=>{
+    if(!navigateLocal)return;
+    if(dirty||pending){
+      if(window.history.state?.__settingsDraftTrap!==trapId){
+        currentHref.current=window.location.href;
+        window.history.pushState({...window.history.state,__settingsDraftTrap:trapId},"",window.location.href);
+      }
+    }else if(window.history.state?.__settingsDraftTrap===trapId){
+      allowPop.current=true;window.history.back();
+    }
+  },[dirty,pending,navigateLocal,trapId]);
+
   useEffect(() => {
     const unload = (event: BeforeUnloadEvent) => {
       if (dirty || pending) {
@@ -91,15 +114,29 @@ export function SettingsPanel({
       if (destination) setDestination(null);
       else request(closeHref);
     };
+    const pop=(event:PopStateEvent)=>{
+      if(allowPop.current){allowPop.current=false;return;}
+      if(!navigateLocal||(!dirty&&!pending))return;
+      // The same-URL entry keeps Next from unmounting the editor before this listener runs.
+      const previous=window.history.state?.__settingsPreviousHref;
+      const target=typeof previous==="string"?previous:closeHref;
+      backSteps.current=typeof previous==="string"?-2:0;
+      event.stopImmediatePropagation();
+      window.history.pushState({...window.history.state,__settingsDraftTrap:trapId},"",currentHref.current);
+      backTarget.current=target;
+      setDestination(target);
+    };
+    window.addEventListener("popstate",pop,true);
     window.addEventListener("beforeunload", unload);
     document.addEventListener("keydown", escape);
     return () => {
+      window.removeEventListener("popstate",pop,true);
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("keydown", escape);
     };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [dirty, pending, request, closeHref, destination,navigateLocal,trapId]);
 
-  const context = useMemo(() => ({ report, navigate }), [report, navigate]);
+  const context = useMemo(() => ({ report, navigate: navigateLocal ? request : navigate, saved:onSaved,discard:request,local:!!navigateLocal }), [report, navigate, navigateLocal, request, onSaved]);
 
   return (
     <div ref={root} data-settings-panel>
@@ -128,7 +165,7 @@ export function SettingsPanel({
           <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
             <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
             <div className="mt-2 flex flex-wrap gap-3">
-              <button autoFocus className="min-h-11 rounded border px-3 text-sm" onClick={() => setDestination(null)}>繼續編輯</button>
+              <button autoFocus className="min-h-11 rounded border px-3 text-sm" onClick={() => {backTarget.current=null;setDestination(null);}}>繼續編輯</button>
               {!pending ? (
                 <button className="min-h-11 rounded bg-primary-700 px-3 text-sm text-white" onClick={() => go(destination)}>
                   {destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}
@@ -149,7 +186,7 @@ export function SettingsPanel({
             if (rawHref?.startsWith("#")) return;
             event.preventDefault();
             event.stopPropagation();
-            navigate(link.href);
+            if(navigateLocal)request(link.href);else navigate(link.href);
           }}
           onSubmitCapture={event => {
             const form = event.target;
@@ -160,7 +197,7 @@ export function SettingsPanel({
             new FormData(form).forEach((value, key) => {
               if (typeof value === "string") params.set(key, value);
             });
-            navigate(sourceHref + "?" + params);
+            if(navigateLocal)request(sourceHref+"?"+params);else navigate(sourceHref + "?" + params);
           }}
         >
           {navigating ? (

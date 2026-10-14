@@ -1,3 +1,4 @@
+import { QueryForm } from "@/components/query-form";
 // @ts-nocheck — MVP 隱藏頁面，redirect 後全為 dead code
 import { getCurrentUser } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
@@ -67,7 +68,10 @@ export default async function UpgradeRequestsPage({ searchParams }: PageProps) {
   /* MVP: 升級申請管理暫時隱藏 */
   redirect("/dashboard");
 
-  // eslint-disable-next-line @typescript-eslint/no-unreachable -- MVP 隱藏，保留原始邏輯
+  return renderUpgradeRequests({ searchParams });
+}
+
+async function renderUpgradeRequests({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "ADMIN") notFound();
@@ -96,7 +100,7 @@ export default async function UpgradeRequestsPage({ searchParams }: PageProps) {
       </div>
 
       {/* Filter Form */}
-      <form method="GET" className="flex flex-wrap gap-2">
+      <QueryForm method="GET" className="flex flex-wrap gap-2">
         <select
           name="status"
           defaultValue={params.status ?? "PENDING"}
@@ -121,7 +125,7 @@ export default async function UpgradeRequestsPage({ searchParams }: PageProps) {
         >
           搜尋
         </button>
-      </form>
+      </QueryForm>
 
       {/* Active Filters */}
       {hasActiveFilters && (

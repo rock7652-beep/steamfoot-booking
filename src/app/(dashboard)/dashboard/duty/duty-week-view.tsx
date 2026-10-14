@@ -1,11 +1,9 @@
 "use client";
 
 import { courseDutyIntervals } from "@/lib/course-duty";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { useState, useCallback } from "react";
-import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PARTICIPATION_TYPE_SHORT } from "@/lib/duty-constants";
-import type { ParticipationType } from "@prisma/client";
 import type { DutyWeekItem } from "@/server/queries/duty";
 
 type Assignment = DutyWeekItem;
@@ -96,7 +94,7 @@ function getSlotsForDay(
 
 export function DutyWeekView({ weekStart, assignments, businessHours, specialDays, canManage, course = false }: Props) {
   const router = useRouter();
-  const [navStart, setNavStart] = useState<number | null>(null);
+  const [, setNavStart] = useState<number | null>(null);
 
   const navigateWeek = useCallback((week: string) => {
     setNavStart(performance.now());

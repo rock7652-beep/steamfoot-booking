@@ -131,6 +131,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
             storeId,
             cancelledAt: null,
             template: {isActive:true,visibility:"PUBLIC"},
+            enrollmentMode: "OPEN",
             startsAt: { gte: range.start, lte: range.end },
           },
           include: sessionInclude,
@@ -192,7 +193,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
       : [],
     coursePrisma.courseTemplate.findMany({
       where: { storeId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, musicSubjectId:true, musicTrialMode:true },
     }),
     memberEnabled && healthEnabled
       ? prisma.customerHealthRecord.findMany({
@@ -341,7 +342,7 @@ export async function loadCoursePortal(requestedMonth?: string, preview?: Fronte
     })),
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
     plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
-    templates,
+    templates:templates.map(template=>({id:template.id,name:template.name,...(template.musicSubjectId?{musicSubjectId:template.musicSubjectId,musicTrialMode:template.musicTrialMode}:{})})),
     hours,
     special: special.map((s) => ({
       date: s.date.toISOString().slice(0, 10),

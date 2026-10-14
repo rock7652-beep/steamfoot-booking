@@ -12,7 +12,7 @@ import {CourseSetupStepBadge} from "@/components/admin/course-setup-step-badge";
 import {courseSetupSteps} from "@/lib/course-setup-progress";
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
-beforeEach(()=>{host=document.createElement("div");document.body.append(host);root=createRoot(host);m.pathname="/hq/dashboard/courses";m.search="view=rooms&action=create&setupStep=room";});
+beforeEach(()=>{host=document.createElement("div");document.body.append(host);root=createRoot(host);m.refresh.mockReset();m.pathname="/hq/dashboard/courses";m.search="view=rooms&action=create&setupStep=room";});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 const counts={openDays:1,rooms:0,subjects:0,templates:0,plans:0,coaches:0,qualifiedCoaches:0,sessions:0};
 it("shows the step inside matching forms and ignores stale route markers",async()=>{
@@ -32,7 +32,7 @@ it("keeps a guide step visible after save and continues to the next form",async(
  const link=host.querySelector<HTMLAnchorElement>('a[href*="view=catalog"]')!;
  expect(link.textContent).toContain("繼續下一步");expect(link.href).toContain("action=create&setupStep=course");
  m.search="view=catalog&action=create&setupStep=course";await render(1);
- expect(host.textContent).toContain("第 3/6 步 · 建立教學項目");
+ expect(host.textContent).toContain("第 3/6 步 · 建立教學項目");expect(m.refresh).not.toHaveBeenCalled();
  m.search="view=plans";await render(1);expect(host.querySelector('[aria-label="開始設定"]')).toBeNull();
 });
 it("completion hides details by default and offers the actual session roster",async()=>{

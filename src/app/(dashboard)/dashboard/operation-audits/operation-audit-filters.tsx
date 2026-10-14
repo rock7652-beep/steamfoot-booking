@@ -1,7 +1,9 @@
 "use client";
+import { QueryForm } from "@/components/query-form";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveDashboardHref } from "@/components/dashboard-link";
 
@@ -86,7 +88,7 @@ export function OperationAuditFilters({
   }, []);
 
   return (
-    <form
+    <QueryForm
       className="flex min-w-0 flex-wrap items-center gap-2 text-sm"
       method="get"
       onSubmit={(event) => {
@@ -150,6 +152,6 @@ export function OperationAuditFilters({
       </label>
         </div>
       </details>
-    </form>
+    </QueryForm>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { upsertStoreSubscription } from "@/server/actions/store-subscription";
@@ -103,7 +103,6 @@ export function SubscriptionForm({
       if (result.success) {
         toast.success(isEdit ? "訂閱已更新" : "訂閱已建立");
         router.push("/hq/dashboard/stores/subscriptions");
-        router.refresh();
       } else {
         toast.error(result.error);
       }

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname, useSearchParams } from "next/navigation";
 
 export function FrontendPreviewSelector({ stores, storeId, role, query, people, personId, allowWork, previewHref, locked = false }: {
   stores: { id: string; name: string }[]; storeId: string; role: string; query: string;

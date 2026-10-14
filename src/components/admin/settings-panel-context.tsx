@@ -5,6 +5,9 @@ export type SettingsPanelState = { dirty: boolean; pending: boolean };
 export const SettingsPanelContext = createContext<{
   report: (id: string, state: SettingsPanelState | null) => void;
   navigate: (href: string) => void;
+  saved?:()=>void;
+  local?:boolean;
+  discard?:(operation:()=>void)=>void;
 } | null>(null);
 
 /** Optional: standalone pages retain their original behavior. */
@@ -18,3 +21,7 @@ export function useSettingsPanelGuard(dirty: boolean, pending: boolean) {
 export function useSettingsPanelNavigation() {
   return useContext(SettingsPanelContext)?.navigate;
 }
+
+export function useSettingsPanelSaved(){return useContext(SettingsPanelContext)?.saved;}
+
+export function useSettingsPanelDiscard(){return useContext(SettingsPanelContext)?.discard;}

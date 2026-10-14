@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import { resetStaffPasswordAction } from "@/server/actions/staff";
 

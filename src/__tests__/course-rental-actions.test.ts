@@ -1,17 +1,17 @@
 import {beforeEach,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),read:vi.fn(),transaction:vi.fn(),feature:vi.fn(),customer:vi.fn(),raw:vi.fn(),execute:vi.fn(),audit:vi.fn(),limits:vi.fn(),hours:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),read:vi.fn(),transaction:vi.fn(),feature:vi.fn(),customer:vi.fn(),raw:vi.fn(),execute:vi.fn(),audit:vi.fn(),limits:vi.fn(),hours:vi.fn(),music:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseManagerRead:m.read,courseTransaction:m.transaction}));
 vi.mock("@/lib/feature-gate",()=>({hasStoreFeature:m.feature,getStoreLimitsByStoreId:m.limits}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
-vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customer},$transaction:vi.fn()}}));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.music},customer:{findMany:m.customer},$transaction:vi.fn()}}));
 vi.mock("@/server/services/course-business-hours",()=>({assertCourseSessionsFitHours:m.hours}));
 import {saveRentalPayment,saveCourseRental,cancelCourseRental,searchRentalCustomers} from "@/server/actions/course-rental";
 const key="f34a8337-9380-4bc4-b218-c450bb3c7aca";
 let rental:Record<string,unknown>,receipt:Record<string,unknown>|null,tx:ReturnType<typeof makeTx>;
-function makeTx(){return {$queryRaw:m.raw,$executeRaw:m.execute,courseSession:{findFirst:vi.fn(async():Promise<Record<string,unknown>|null>=>null)},courseRoom:{findFirst:vi.fn(async()=>({id:"room",rentalHourlyRate:600,rentalBufferMinutes:10}))},courseRental:{findUnique:vi.fn(async():Promise<Record<string,unknown>|null>=>null),findFirst:vi.fn(async args=>args.where.occupiedStartsAt?null:rental),update:vi.fn(async()=>rental),create:vi.fn(async args=>({id:"r",...args.data}))},courseRentalPayment:{findUnique:vi.fn(async()=>receipt),update:vi.fn(),create:vi.fn(async args=>{receipt={id:"p",...args.data};return receipt;})}};}
+function makeTx(){return {$queryRaw:m.raw,$executeRaw:m.execute,courseScheduleSeries:{findMany:vi.fn().mockResolvedValue([])},courseSession:{findFirst:vi.fn(async(_args?:{where:{startsAt:{lt:Date}}}):Promise<Record<string,unknown>|null>=>{void _args;return null;})},courseRoom:{findFirst:vi.fn(async()=>({id:"room",rentalHourlyRate:600,rentalBufferMinutes:10}))},courseRental:{count:vi.fn().mockResolvedValue(0),findUnique:vi.fn(async():Promise<Record<string,unknown>|null>=>null),findFirst:vi.fn(async args=>args.where.occupiedStartsAt?null:rental),update:vi.fn(async()=>rental),create:vi.fn(async args=>({id:"r",...args.data}))},courseRentalPayment:{findUnique:vi.fn(async()=>receipt),update:vi.fn(),create:vi.fn(async args=>{receipt={id:"p",...args.data};return receipt;})}};}
 beforeEach(()=>{
- vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"s",user:{id:"u",staffId:"staff"}});m.read.mockResolvedValue({storeId:"s"});m.feature.mockResolvedValue(true);m.raw.mockResolvedValue([]);
+ vi.resetAllMocks();m.music.mockResolvedValue({});m.manager.mockResolvedValue({storeId:"s",user:{id:"u",staffId:"staff"}});m.read.mockResolvedValue({storeId:"s"});m.feature.mockResolvedValue(true);m.raw.mockResolvedValue([]);
  rental={id:"r",storeId:"s",roomId:"room",revision:1,customerId:"customer",customerName:"學員",customerPhone:"0900000000",startsAt:new Date("2026-10-02T02:00:00Z"),endsAt:new Date("2026-10-02T03:00:00Z"),amount:600,cancelledAt:null,payments:[]};receipt=null;
  tx=makeTx();
  m.transaction.mockImplementation(async(_store,work)=>work(tx));
@@ -83,4 +83,15 @@ it("rolls back the new rental and receipt when the cash ledger rejects collectio
  m.raw.mockResolvedValue([{status:"CLOSED"}]);
  expect((await saveCourseRental({...rentalInput(),payment:{amount:600,paymentMethod:"CASH"}})).success).toBe(false);
  expect(committed).toHaveLength(0);expect(m.execute.mock.calls.filter(c=>c[0].join("").includes('"CashbookEntry"'))).toHaveLength(0);
+});
+
+it("reports every conflicting weekly rental date before any creation",async()=>{
+ tx.courseSession.findFirst.mockImplementation(async args=>args && args.where.startsAt.lt>=new Date("2099-10-08T10:00:00Z")?{id:"occupied"}:null);
+ const result=await saveCourseRental({requestKey:key,roomId:"room",customerId:null,customerName:"租借人",customerPhone:"0900000000",date:"2099-10-01",time:"18:00",durationMinutes:60,amount:600,repeatWeeks:3});
+ expect(result).toMatchObject({success:false});if(!result.success){expect(result.error).toContain("2099-10-08");expect(result.error).toContain("2099-10-15");}expect(tx.courseRental.create).not.toHaveBeenCalled();
+});
+it("creates all weekly rental dates inside the same store transaction",async()=>{
+ const result=await saveCourseRental({requestKey:key,roomId:"room",customerId:null,customerName:"租借人",customerPhone:"0900000000",date:"2099-10-01",time:"18:00",durationMinutes:60,amount:600,repeatWeeks:3});
+ expect(result.success).toBe(true);expect(m.transaction).toHaveBeenCalledTimes(1);expect(tx.courseRental.create).toHaveBeenCalledTimes(3);
+ expect(tx.courseRental.create.mock.calls.map(([args])=>args.data.startsAt.toISOString())).toEqual(["2099-10-01T10:00:00.000Z","2099-10-08T10:00:00.000Z","2099-10-15T10:00:00.000Z"]);
 });

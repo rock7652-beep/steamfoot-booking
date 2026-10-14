@@ -3,7 +3,8 @@ import styles from "@/components/admin/profile-plan-layout.module.css";
 
 import { useSettingsSave } from "@/components/admin/use-settings-save";
 import { savedSteamPlan } from "@/lib/steam-plan-save";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-draft";
 import { toast } from "sonner";

@@ -65,3 +65,9 @@ export function slotDecision(
   }
   return "available" as const;
 }
+
+/** A partial new booking replaces the entire old shadow; only live occupancy counts. */
+export function showMoveShadow(session: {id:string;rescheduleShadowHidden?:boolean;rescheduledFromStartsAt?:string|null;rescheduledFromEndsAt?:string|null;rescheduledFromRoomId?:string|null;rescheduledFromCoachId?:string|null},occupied:{id:string;startsAt:string;endsAt:string;roomId:string;coachId:string;previewFaded?:string}[]) {
+  if(session.rescheduleShadowHidden||!session.rescheduledFromStartsAt||!session.rescheduledFromEndsAt)return false;
+  return !occupied.some(row=>!row.previewFaded&&row.id!==session.id&&(row.roomId===session.rescheduledFromRoomId||row.coachId===session.rescheduledFromCoachId)&&Date.parse(row.startsAt)<Date.parse(session.rescheduledFromEndsAt!)&&Date.parse(row.endsAt)>Date.parse(session.rescheduledFromStartsAt!));
+}

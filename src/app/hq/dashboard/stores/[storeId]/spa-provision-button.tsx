@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { provisionSpaStoreAction } from "@/server/actions/spa-provisioning";
 
 export function SpaProvisionButton({ storeId }: { storeId: string }) {

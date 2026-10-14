@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 
 export function StaffScheduleDatePicker({
   storeSlug,

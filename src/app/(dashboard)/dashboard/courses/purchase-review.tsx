@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { confirmCoursePurchase } from "@/server/actions/course-portal";
 export function CoursePurchaseReview({
   orders,

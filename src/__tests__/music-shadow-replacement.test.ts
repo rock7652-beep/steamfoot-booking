@@ -1,0 +1,10 @@
+import {readFileSync} from "node:fs";
+import {PGlite} from "@electric-sql/pglite";
+import {expect,it} from "vitest";
+import {showMoveShadow,scheduleTotals} from "@/lib/music-schedule-audit";
+const old={id:"moved",rescheduledFromStartsAt:"2026-10-14T02:00:00Z",rescheduledFromEndsAt:"2026-10-14T03:00:00Z",rescheduledFromRoomId:"r1",rescheduledFromCoachId:"c1"};
+const half={id:"new",startsAt:"2026-10-14T02:00:00Z",endsAt:"2026-10-14T02:30:00Z",roomId:"r1",coachId:"c2",bookings:[]};
+it("a partial replacement hides the entire old card without occupying the released slot",()=>{expect(showMoveShadow(old,[])).toBe(true);expect(showMoveShadow(old,[half])).toBe(false);expect(showMoveShadow({...old,rescheduleShadowHidden:true},[])).toBe(false);expect(showMoveShadow(old,[{...half,roomId:"other"}])).toBe(true);expect(scheduleTotals([{...half,id:"old",previewFaded:"已調課"},half])).toMatchObject({classes:1,people:0});});
+it("persists replacement after the new class is cancelled, without deleting the movement history",async()=>{
+ const db=new PGlite();try{await db.exec('CREATE TABLE "CourseSession" (id text primary key,"storeId" text,"startsAt" timestamptz,"endsAt" timestamptz,"roomId" text,"coachId" text,"cancelledAt" timestamptz,"releasedAt" timestamptz,"rescheduledFromStartsAt" timestamptz,"rescheduledFromEndsAt" timestamptz,"rescheduledFromRoomId" text,"rescheduledFromCoachId" text);');await db.exec(`INSERT INTO "CourseSession" VALUES ('moved','store','2026-10-14 03:00Z','2026-10-14 04:00Z','r2','c1',null,null,'2026-10-14 02:00Z','2026-10-14 03:00Z','r1','c1'),('new','store','2026-10-14 02:00Z','2026-10-14 02:30Z','r1','c2',null,null,null,null,null,null);`);await db.exec(readFileSync("supabase/migrations/20261014001850_music_move_shadow.sql","utf8"));await db.exec(`UPDATE "CourseSession" SET "cancelledAt"=NOW() WHERE id='new';`);expect((await db.query<{rescheduleShadowHidden:boolean;rescheduledFromRoomId:string}>(`SELECT "rescheduleShadowHidden","rescheduledFromRoomId" FROM "CourseSession" WHERE id='moved'`)).rows[0]).toEqual({rescheduleShadowHidden:true,rescheduledFromRoomId:"r1"});}finally{await db.close();}
+});

@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "@/components/use-stable-router";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { readBookingMonth } from "@/lib/booking-month-read";
@@ -16,6 +17,7 @@ const valid = (year: number, month: number) => Number.isInteger(year) && year >=
 
 /** Scope is keyed by the server's authorized account/store/read-only boundary. */
 export function BookingMonthWorkspace(props: BookingsManagerProps) {
+  const router = useRouter();
   const [cache] = useState(() => {
     const result = createBookingMonthCache<Snapshot>();
     result.put(keyOf(props.year, props.month), { monthData: props.monthData, monthSchedule: props.monthSchedule, customerLabels:props.customerLabels });
@@ -68,7 +70,7 @@ export function BookingMonthWorkspace(props: BookingsManagerProps) {
         return;
       }
       const params = new URLSearchParams(window.location.search);
-      if (params.has("bookingId")) { window.location.reload(); return; }
+      if (params.has("bookingId")) { router.refresh(); return; }
       const date = params.get("date");
       const year = Number(params.get("year") ?? date?.slice(0, 4) ?? props.year);
       const month = Number(params.get("month") ?? date?.slice(5, 7) ?? props.month);
@@ -76,7 +78,7 @@ export function BookingMonthWorkspace(props: BookingsManagerProps) {
     };
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
-  }, [navigate, props.year, props.month]);
+  }, [navigate, props.year, props.month, router]);
 
   const hasSnapshot = view.snapshot !== null;
   // Current month renders before any speculative request; at most two sequential

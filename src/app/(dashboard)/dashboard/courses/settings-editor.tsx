@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { saveCourseSettings } from "@/server/actions/course-settings";
 export function CourseSettingsEditor({
   name,

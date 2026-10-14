@@ -1,8 +1,10 @@
 "use client";
+import {saveSettingsReceipt} from "@/components/settings/save-settings-receipt";
+import {useSettingsPanelSaved,useSettingsPanelDiscard} from "@/components/admin/settings-panel-context";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect,useRef,useState, useTransition } from "react";
+import { useRouter } from "@/components/use-stable-router";
 import { toast } from "sonner";
 import {
   isDigitalButlerDraftDirty,
@@ -44,11 +46,11 @@ const starterDefinition = {
 };
 
 export function DigitalButlerFlowEditor({
-  flows,
+  flows,storeId,
   leadCollectionUpgrade,
   courseMode = false,
 }: {
-  flows: Flow[];
+  flows: Flow[];storeId?:string;
   courseMode?: boolean;
   leadCollectionUpgrade: { storeName: string; storeSlug: string } | null;
 }) {
@@ -68,9 +70,15 @@ export function DigitalButlerFlowEditor({
   } | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const panelSaved=useSettingsPanelSaved();
+  const discard=useSettingsPanelDiscard();
+  const saving=useRef(false);
+  const alive=useRef(false);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   useSettingsPanelGuard(name !== persistedName || definition !== persistedDefinition, pending);
 
   function select(flow: Flow) {
+    const apply=()=>{
     setSelectedId(flow.id);
     setName(flow.name);
     const nextDefinition = JSON.stringify(flow.draftDefinition ?? defaultDefinition, null, 2);
@@ -78,6 +86,8 @@ export function DigitalButlerFlowEditor({
     setPersistedName(flow.name);
     setPersistedDefinition(nextDefinition);
     setJustPublished(null);
+    };
+    if(discard&&(name!==persistedName||definition!==persistedDefinition))discard(apply);else apply();
   }
 
   function parsed(): unknown | null {
@@ -89,16 +99,21 @@ export function DigitalButlerFlowEditor({
     }
   }
 
-  function run(operation: () => Promise<{ success: boolean; error?: string }>, success: string) {
+  function run(operation: () => Promise<{ success: boolean; error?: string;data?:unknown }>, success: string) {
+    const execute=()=>{if(saving.current||pending)return;saving.current=true;
     startTransition(async () => {
+      try{
       const result = await operation();
       if (!result.success) {
         toast.error(result.error ?? "操作失敗");
         return;
       }
+      if(!alive.current)return;
       toast.success(success);
-      router.refresh();
-    });
+      if(panelSaved)panelSaved();else router.refresh();
+      }catch{toast.error("操作失敗，草稿已保留。");}finally{saving.current=false;}
+    });};
+    if(discard&&(name!==persistedName||definition!==persistedDefinition))discard(execute);else execute();
   }
 
   const isDraftDirty = isDigitalButlerDraftDirty({ name, persistedName, definition, persistedDefinition });
@@ -112,34 +127,47 @@ export function DigitalButlerFlowEditor({
 
   function saveDraft() {
     const value = parsed();
-    if (!value || !selected) return;
+    if (!value || !selected || saving.current || pending) return;
+    saving.current=true;
     startTransition(async () => {
-      const result = await saveDigitalButlerFlowAction({ flowId: selected.id, name, definition: value });
+      try{
+      const input={flowId:selected.id,name,definition:value};
+      const result=panelSaved&&storeId?await saveSettingsReceipt<{name:string;definition:unknown}>("BUTLER_DRAFT",storeId,input):await saveDigitalButlerFlowAction(input);
       if (!result.success) {
         toast.error(result.error ?? "操作失敗");
         return;
       }
-      setPersistedName(name);
-      setPersistedDefinition(definition);
+      if(!alive.current)return;
+      const canonical=JSON.stringify(result.data.definition,null,2);
+      setName(result.data.name);setDefinition(canonical);
+      setPersistedName(result.data.name);
+      setPersistedDefinition(canonical);
       toast.success("草稿已儲存");
-      router.refresh();
+      if(panelSaved)panelSaved();else router.refresh();
+      }catch{toast.error("連線失敗，草稿已保留。");}finally{saving.current=false;}
     });
   }
 
   function publishDraft() {
+    if(saving.current||pending)return;
     if (!selected || isDraftDirty) {
       toast.error("請先儲存草稿");
       return;
     }
+    saving.current=true;
     startTransition(async () => {
-      const result = await publishDigitalButlerFlowAction(selected.id);
+      try{
+      const receipt=panelSaved&&storeId?await saveSettingsReceipt<{id:string;version:number;publishedAt:string|null;menuLabels:string[]}>("BUTLER_PUBLISH",storeId,{flowId:selected.id}):null;
+      const result=receipt?(receipt.success?{success:true as const,publishedVersion:receipt.data}:receipt):await publishDigitalButlerFlowAction(selected.id);
       if (!result.success) {
         toast.error(result.error ?? "操作失敗");
         return;
       }
+      if(!alive.current)return;
       setJustPublished(result.publishedVersion);
       toast.success(`已發布版本 v${result.publishedVersion.version}`);
-      router.refresh();
+      if(panelSaved)panelSaved();else router.refresh();
+      }catch{toast.error("發布失敗，請重新核對已發布版本。");}finally{saving.current=false;}
     });
   }
 
@@ -154,7 +182,7 @@ export function DigitalButlerFlowEditor({
             type="button"
             disabled={pending}
             onClick={() => run(
-              () => createDigitalButlerFlowAction({ name: "新流程", definition: defaultDefinition }),
+              () => panelSaved&&storeId?saveSettingsReceipt("BUTLER_CREATE",storeId,{name:"新流程",definition:defaultDefinition}):createDigitalButlerFlowAction({ name: "新流程", definition: defaultDefinition }),
               "已建立草稿",
             )}
             className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
@@ -229,7 +257,7 @@ export function DigitalButlerFlowEditor({
                   type="button"
                   disabled={pending}
                   onClick={() => run(
-                    () => setDigitalButlerFlowEnabledAction(selected.id, !selected.enabled),
+                    () => panelSaved&&storeId?saveSettingsReceipt("BUTLER_ENABLED",storeId,{flowId:selected.id,enabled:!selected.enabled}):setDigitalButlerFlowEnabledAction(selected.id, !selected.enabled),
                     selected.enabled ? "流程已暫停" : "流程已恢復",
                   )}
                   className="rounded-lg border border-earth-300 px-4 py-2 text-sm disabled:opacity-50"

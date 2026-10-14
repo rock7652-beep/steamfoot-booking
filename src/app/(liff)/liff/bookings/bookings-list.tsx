@@ -39,7 +39,7 @@
 
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import Link from "next/link";
 import {
   initLiff,

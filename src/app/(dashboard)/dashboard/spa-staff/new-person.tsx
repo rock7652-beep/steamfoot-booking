@@ -4,7 +4,7 @@ import styles from "@/components/admin/management-layout.module.css";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   createSpaPersonFromMember,

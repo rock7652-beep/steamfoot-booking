@@ -1,5 +1,6 @@
 "use client";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "@/components/use-stable-router";
+import { usePathname } from "next/navigation";
 import { CustomerInlineDetail, type CustomerPanelContextData } from "./customer-inline-detail";
 export function CustomerStandaloneDetail({customerId,initialData}:{customerId:string;initialData:CustomerPanelContextData}) {
   const router=useRouter(),pathname=usePathname();
