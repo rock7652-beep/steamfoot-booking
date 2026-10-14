@@ -15,9 +15,15 @@
 
 ## 驗證
 
-- 9 個測試檔、146 項測試通過：模組登錄／授權、退休網址、蒸足／音樂／運動建店、官網路由／SEO、舊 SPA 工作入口。
+- 14 個測試檔、219 項測試通過：模組登錄／授權、退休網址、蒸足／音樂／運動建店、官網路由／SEO、舊 SPA 工作入口。
 - TypeScript `tsc --noEmit` 通過；本次變更的應用程式檔案 ESLint 與 `git diff --check` 通過。
 - 官網卡片與 HQ 開店表單以無資料庫 fixture 驗證：390×844、768×1024、1024×768、1366×900、1920×1080，10 組結果皆通過，無整頁水平溢出、無瀏覽器執行錯誤；HQ 三種模組可依序選取。
 - 瀏覽器腳本：`scripts/qa/spa-retirement-browser.mjs`。使用外部 Playwright 時，以 `QA_PLAYWRIGHT_MODULE` 指定套件位置；`QA_CHROMIUM_EXECUTABLE` 指定 Chromium。
 - 預覽涵蓋真實元件及 CSS，Server Action 明確替換為禁止提交的 fixture。未登入真實 HQ、未呼叫正式 API／資料庫，未進行完整業務或 Safari／實體 iPad 驗收。
 - 尚未合併或部署正式站。
+
+## 發布前狀態
+
+- 草稿 PR：#1333（codex/remove-spa-module-20261014），已同步 main 的 #1332 更新。
+- 首輪遠端 CI 的 ESLint 與 Typecheck 通過；測試中的網站地圖數量、SPA 歷史入口／依賴清單與申請表選項預期已修正，並加入 targeted CI。
+- Vercel 自動 Preview 在 `ci-migrate.mjs` 的既有分支隔離檢查中停止：`Sports shared-card checkout requires its exact authorized Preview branch and repository metadata.` 尚未產生可驗收的線上 Preview，需先完成此分支的隔離 Preview 配置；未修改這項發布保護。
