@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-opening-preview-scope.mjs";
 import type { Prisma } from "../../../generated/course-client";
 export const PILOT_EVIDENCE_HASH="5f32220ea9ea9a2f4b5841f01e3fc43bd2d48004fd62d43ae3d7073edfdfcfe7";
-export const PILOT_EVIDENCE_ID="yjy-operational-evidence:20261014";
+export const PILOT_EVIDENCE_ID="5f32220e-a9ea-9a2f-4b58-41f01e3fc43b";
 export const PILOT_RECEIPT_ID="yjy-operational-import:20261014";
 function fail(message:string):never {throw new AppError("VALIDATION",message);}
 export async function isMusicPilotCard(tx:Prisma.TransactionClient,storeId:string,card:{id:string;requestKey?:string}|null|undefined){

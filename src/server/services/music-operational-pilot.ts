@@ -32,9 +32,9 @@ async function authorize() {
   return actor;
 }
 async function evidence(tx:Prisma.TransactionClient,storeId:string):Promise<Payload>{
-  const rows=await tx.$queryRaw<Array<{afterJson:{payload:unknown;contentHash:string}}>>`SELECT "afterJson" FROM "AuditLog" WHERE id=${PILOT_EVIDENCE_ID} AND "storeId"=${storeId} AND action='SOURCE_OPERATIONS_VERIFIED'`;
-  if(rows.length!==1||rows[0].afterJson.contentHash!==PILOT_EVIDENCE_HASH||musicOpeningMakeupHash(rows[0].afterJson.payload)!==PILOT_EVIDENCE_HASH)fail("尚未取得本次已核對的來源證據");
-  return payloadSchema.parse(rows[0].afterJson.payload);
+  const rows=await tx.$queryRaw<Array<{payload:unknown;contentHash:string}>>`SELECT payload,"contentHash" FROM "MusicSourceImportBatch" WHERE id=${PILOT_EVIDENCE_ID} AND "storeId"=${storeId}`;
+  if(rows.length!==1||rows[0].contentHash!==PILOT_EVIDENCE_HASH||musicOpeningMakeupHash(rows[0].payload)!==PILOT_EVIDENCE_HASH)fail("尚未取得本次已核對的來源證據");
+  return payloadSchema.parse(rows[0].payload);
 }
 async function sideEffects(tx:Prisma.TransactionClient,storeId:string){
   return tx.$queryRaw<Array<{kind:string;n:number}>>`

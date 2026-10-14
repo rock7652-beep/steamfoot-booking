@@ -20,7 +20,7 @@ export default async function SourcePilotPage(){
   const money=(n:number)=>new Intl.NumberFormat("zh-TW").format(n);
   return <PageShell className="w-full min-w-0">
     <PageHeader title="音教雲十人樣本核對" subtitle="來源核對日 2026/10/14・舊付款與簽到保留原日期" actions={<DashboardLink href="/dashboard/courses">返回課表</DashboardLink>}/>
-    <div className="flex flex-wrap gap-3 text-sm"><span className="rounded border p-3">10 位學生・14 筆學費</span><span className="rounded border p-3">來源實收 NT$ 33,320・欠款 NT$ 0</span><span className="rounded border p-3">普通餘堂 63・待補課 1・待體驗 1</span><span className="rounded border p-3">{data.imported?"已銜接可操作資料":"來源已核對，待銜接"}</span></div>
+    <div className="flex flex-wrap gap-3 text-sm"><span className="rounded border p-3">10 位學生・14 筆學費</span><span className="rounded border p-3">來源實收 NT$ 33,320・欠款 NT$ 0</span><span className="rounded border p-3">來源普通餘堂 63・待補課 1・待體驗 1</span><span className="rounded border p-3">{data.imported?"已銜接可操作資料":"來源已核對，待銜接"}</span></div>
     <p className="text-sm text-gray-600">請假扣堂另給補課，曠課扣堂；補課沿用原期限。團班首次上課起算 70 天；個別課四期共用 2027/2/25。來源歷史不重複扣堂，也不加入今日收款。教師授課費仍待核對。</p>
     <PilotCommit imported={data.imported}/>
     <div className="max-w-full overflow-x-auto rounded border"><table className="w-full min-w-[850px] text-left text-sm"><thead className="bg-gray-50"><tr>{["學生","普通剩餘／體驗","已排普通課","補課","應收／實收","期限","操作"].map(t=><th key={t} className="p-3 font-medium">{t}</th>)}</tr></thead><tbody>
@@ -37,7 +37,7 @@ export default async function SourcePilotPage(){
     {data.payload.students.map(s=>{
       const history=data.payload.histories.find(h=>h.studentId===s.id)!.fees as FeeHistory;
       return <details key={s.customerId} className="rounded border"><summary className="cursor-pointer p-3 text-sm font-medium">{s.name}｜查看來源紀錄</summary><div className="space-y-3 p-3 text-sm">
-        {history.groups.flatMap(g=>g.periods).map((p,i)=><div key={i} className="rounded bg-gray-50 p-3"><p className="font-medium">{p.fee[2]}・第 {p.fee[0]} 期・原顯示期限 {p.fee[1].trim()}</p><p>應收 {p.fee[3]}・实收 {p.fee[5]}・欠款 {p.fee[6]}</p><p className="mt-2 font-medium">付款紀錄</p>{p.payments[0].tables[0].slice(1).length?p.payments[0].tables[0].slice(1).map((r,j)=><p key={j}>{r.slice(0,5).map(c=>c.text).join("｜")}</p>):<p>無付款紀錄（來源應收為 0）</p>}<p className="mt-2 font-medium">簽到／請假</p>{p.lessons[0].tables[1].slice(1).length?p.lessons[0].tables[1].slice(1).map((r,j)=><p key={j}>{r.slice(0,3).map(c=>c.text).filter(Boolean).join("｜")}</p>):<p>尚無簽到或請假</p>}</div>)}
+        {history.groups.flatMap(g=>g.periods).map((p,i)=><div key={i} className="rounded bg-gray-50 p-3"><p className="font-medium">{p.fee[2]}・第 {p.fee[0]} 期・原顯示期限 {p.fee[1].trim()}</p><p>應收 {p.fee[3]}・實收 {p.fee[5]}・欠款 {p.fee[6]}</p><p className="mt-2 font-medium">付款紀錄</p>{p.payments[0].tables[0].slice(1).length?p.payments[0].tables[0].slice(1).map((r,j)=><p key={j}>{r.slice(0,5).map(c=>c.text).join("｜")}</p>):<p>無付款紀錄（來源應收為 0）</p>}<p className="mt-2 font-medium">簽到／請假</p>{p.lessons[0].tables[1].slice(1).length?p.lessons[0].tables[1].slice(1).map((r,j)=><p key={j}>{r.slice(0,3).map(c=>c.text).filter(Boolean).join("｜")}</p>):<p>尚無簽到或請假</p>}</div>)}
       </div></details>;
     })}
   </PageShell>;
