@@ -533,7 +533,9 @@ export async function cancelCourseSession(input: unknown) {
       if (!session) throw new AppError("NOT_FOUND", "找不到課程");
       if (session.cancelledAt) return;
       const bookings = await tx.courseBooking.findMany({
-        where: { storeId, sessionId: session.id, OR: [{status: {not: "CANCELLED"}}, {bookingKind: "OPENING_MAKEUP"}, {musicOpeningMakeupEntitlementId: {not: null}}] },
+        // A released makeup keeps its audit row, but no longer occupies this class.
+        // Active makeup still requires the dedicated entitlement workflow below.
+        where: { storeId, sessionId: session.id, status: {not: "CANCELLED"} },
       });
       if (bookings.some(isMusicOpeningMakeupBooking)) throw new AppError("VALIDATION", MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
       if (bookings.length !== data.expectedBookings)
