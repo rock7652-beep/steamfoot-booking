@@ -75,10 +75,11 @@ function remainingTermOrdinals(booking: RosterBooking) {
 }
 
 function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof getCourseRoster>>[number] }) {
-  if (!booking.termPayment && !booking.nextTerm && !booking.openingTuition) return null;
+  if (!booking.termPayment && !booking.nextTerm && !booking.openingTuition && !booking.sourceTuition) return null;
   const payment = (record: NonNullable<typeof booking.termPayment>) =>
     `${record.date ? toLocalDateStr(new Date(record.date)) : "已收款"} · NT$ ${record.amount.toLocaleString()} · ${COURSE_PAYMENT_LABELS[record.method ?? ""] ?? record.method ?? "付款方式未記錄"}`;
   return <div className="space-y-1 border-t border-earth-100 pt-2">
+    {booking.sourceTuition && <div><p>音教雲已收 NT$ {booking.sourceTuition.paid.toLocaleString()}・欠款 NT$ {booking.sourceTuition.receivable.toLocaleString()}（來源紀錄）</p>{booking.sourceTuition.payments.map((p,i)=><p key={i}>{p.date}・{p.method}・NT$ {p.amount.toLocaleString()}</p>)}</div>}
     {booking.openingTuition && <p>期初已收 NT$ {booking.openingTuition.paid.toLocaleString()} · 期初應收 NT$ {booking.openingTuition.receivable.toLocaleString()}（非本期收款）</p>}
     {booking.termPayment && <p>本期付款：{payment(booking.termPayment)}</p>}
     {booking.nextTerm && <div>
@@ -542,6 +543,7 @@ export function CourseRoster({
   const activeFilterLabels = [normalizedRosterQuery && `搜尋：${memberQuery.trim()}`, statusFilter !== "all" && `點名：${({pending:"待點名",attended:"已出席",deducted:"缺席・扣堂",leave:"缺席・不扣堂"} as Record<string,string>)[statusFilter]}`, paymentFilter !== "all" && `收款：${paymentFilter === "unpaid" ? "體驗未收款" : "體驗已收款"}`, kindFilter !== "all" && `類型：${({CARD:"一般",TRIAL:"體驗",TEACHER_MAKEUP:"免費券"} as Record<string,string>)[kindFilter]}`, !musicLayout && assignedFilter !== "all" && `所屬店長：${assignedFilter === "none" ? "未指定" : coachOptions.find(([id]) => id === assignedFilter)?.[1] ?? "所選店長"}`].filter((label): label is string => Boolean(label));
   const trialBadge = (booking: typeof roster[number]) => {
     if (booking.bookingKind !== "TRIAL") return null;
+    if (booking.trialPrice === 0 && !booking.trialPayments.some(payment=>payment.status==="SUCCESS")) return <span data-course-trial-badge className="whitespace-nowrap text-sm text-earth-600">免費體驗</span>;
     const paid = booking.trialPayments.find(payment => payment.status === "SUCCESS");
     return <span data-course-trial-badge className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-normal"><span className="text-amber-700">體驗 ·</span>{paid ? <><span>已收 ${paid.amount}</span>{allowTrialActions && trial?.canCorrect && <button type="button" className="min-h-11 min-w-11 rounded text-earth-600" aria-label={`更正 ${booking.customerName} 收款`} onClick={() => setPaymentMenu(booking.id)}>✎</button>}</> : allowTrialActions && trial?.canCollect && booking.status !== "CANCELLED" ? <button type="button" className="min-h-11 rounded px-1 font-medium text-amber-800" disabled={pending} onClick={() => {setRequestKey(crypto.randomUUID());setCorrectPayment(false);setPaymentBooking(booking.id);}}>待收 ${booking.trialPrice}</button> : <span className="text-amber-800">待收 ${booking.trialPrice}</span>}</span>;
   };
@@ -577,6 +579,7 @@ export function CourseRoster({
   const unpaidTrialCount = activeRows.filter(
     (booking) =>
       booking.bookingKind === "TRIAL" &&
+      booking.trialPrice !== 0 &&
       !booking.trialPayments.some((payment) => payment.status === "SUCCESS"),
   ).length;
 

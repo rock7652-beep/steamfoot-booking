@@ -6,7 +6,8 @@ import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
-import { isMusicPilotCard } from "@/server/services/music-pilot-policy";
+import { isMusicPilotCard, readMusicPilotTuition } from "@/server/services/music-pilot-policy";
+import { musicSourceDisplayNote } from "@/lib/music-source-import";
 
 export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
   const cards = await coursePrisma.coursePointCard.findMany({
@@ -108,6 +109,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
+  const sourceTuition=pilotCards.size ? await readMusicPilotTuition(coursePrisma,storeId) : [];
   const canCreateShared = bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     && await getCourseSharedCardState(storeId) === "ENABLED";
   const groupSession = bookings[0]?.session;
@@ -246,10 +248,11 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
     absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind ?? "") ? "請假" : "曠課"})),
-    serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
+    serviceNote: [musicSourceDisplayNote(customers.find((c) => c.id === b.customerId)?.serviceNote), customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
     openingIssue: openingIssue ?? openingOperationWarning,
     openingImported: openingMakeup || opening.kind !== "NATIVE",
     ...(pilotCards.has(b.cardId??"")?{leaveDeductsWithMakeup:true}:{}),
+    ...(pilotCards.has(b.cardId??"")?{sourceTuition:sourceTuition.find(t=>t.customerId===b.customerId)}:{}),
     ...(openingMakeup ? { openingMakeup: true } : {}),
     openingTuition: opening.kind === "OPENING" ? {paid:opening.record.tuition.paidBeforeCutoff,receivable:opening.record.tuition.receivableAtCutoff} : null,
     termClosedBeforeCutoff: openingLesson.kind === "OPENING" ? openingLesson.closedBeforeCutoff : 0,

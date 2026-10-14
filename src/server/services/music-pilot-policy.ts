@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { AppError } from "@/lib/errors";
 import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-opening-preview-scope.mjs";
 import type { Prisma } from "../../../generated/course-client";
+import { z } from "zod";
+import { musicOpeningMakeupHash } from "@/lib/music-opening-makeup";
 export const PILOT_EVIDENCE_HASH="5f32220ea9ea9a2f4b5841f01e3fc43bd2d48004fd62d43ae3d7073edfdfcfe7";
 export const PILOT_EVIDENCE_ID="5f32220e-a9ea-9a2f-4b58-41f01e3fc43b";
 export const PILOT_RECEIPT_ID="yjy-operational-import:20261014";
@@ -40,4 +42,17 @@ export async function closeUnusedMusicPilotMakeup(tx:Prisma.TransactionClient,st
   const used=await tx.courseBooking.count({where:{storeId,cardId:card.id,status:{not:"CANCELLED"}}});
   if(used||card.remaining!==1)fail("這次請假的補課已預約或核銷，請先取消或更正補課再恢復原堂");
   await tx.coursePointCard.update({where:{id:card.id},data:{remaining:0,closedAt:new Date()}});
+}
+export async function readMusicPilotTuition(tx:Prisma.TransactionClient,storeId:string){
+  const rows=await tx.$queryRaw<Array<{payload:unknown;contentHash:string}>>`SELECT payload,"contentHash" FROM "MusicSourceImportBatch" WHERE id=${PILOT_EVIDENCE_ID} AND "storeId"=${storeId}`;
+  if(rows.length!==1||rows[0].contentHash!==PILOT_EVIDENCE_HASH||musicOpeningMakeupHash(rows[0].payload)!==PILOT_EVIDENCE_HASH)fail("來源學費核對碼不一致");
+  const schema=z.object({students:z.array(z.object({id:z.string(),customerId:z.string()})),histories:z.array(z.object({studentId:z.string(),fees:z.object({groups:z.array(z.object({periods:z.array(z.object({fee:z.array(z.string()),payments:z.array(z.object({tables:z.array(z.array(z.array(z.object({text:z.string()}))))}))}))}))})}))});
+  const data=schema.parse(rows[0].payload);
+  return data.histories.map(h=>{
+    const periods=h.fees.groups.flatMap(g=>g.periods),amount=(s:string)=>Number(s.replaceAll(",",""));
+    const paid=periods.reduce((n,p)=>n+amount(p.fee[5]),0),receivable=periods.reduce((n,p)=>n+amount(p.fee[6]),0);
+    const payments=periods.flatMap(p=>p.payments[0].tables[0].slice(1).map(r=>({date:r[0].text,amount:amount(r[1].text),method:r[2].text})));
+    if(!Number.isSafeInteger(paid)||!Number.isSafeInteger(receivable)||paid<0||receivable<0||payments.reduce((n,p)=>n+p.amount,0)!==paid)fail("來源付款明細與實收不一致");
+    return {customerId:data.students.find(s=>s.id===h.studentId)!.customerId,paid,receivable,payments};
+  });
 }

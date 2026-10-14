@@ -27,6 +27,10 @@ export type MusicSourceImport = z.infer<typeof musicSourceImportSchema>;
 export type SourceCustomer = { id: string; name: string; phone: string; serviceNote: string | null; mergedIntoCustomerId: string | null };
 export const SOURCE_TENANT = "www.injiaoyun.com:store-lubymusic";
 export function sourceStudentMarker(id: string) { return `SOURCE_REPLICA|YINJIAOYUN|${SOURCE_TENANT}|STUDENT|${id}`; }
+/** The persisted discriminator is for matching, never a customer-facing note. */
+export function musicSourceDisplayNote(value: string | null | undefined) {
+  return value?.startsWith(`SOURCE_REPLICA|YINJIAOYUN|${SOURCE_TENANT}|STUDENT|`) ? "" : value;
+}
 export function sourceCustomerId(id: string) { return `yjy-lubymusic-student-${id}`; }
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
