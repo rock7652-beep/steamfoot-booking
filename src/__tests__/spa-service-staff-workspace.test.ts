@@ -5,16 +5,13 @@ describe("SPA service staff workspace", () => {
   const auth = readFileSync("src/lib/auth.ts", "utf8");
   const page = readFileSync("src/app/(service-workspace)/staff-schedule/page.tsx", "utf8");
   const datePicker = readFileSync("src/app/(service-workspace)/staff-schedule/staff-schedule-date-picker.tsx", "utf8");
-  const proxy = readFileSync("src/proxy.ts", "utf8");
   const createAction = readFileSync("src/server/actions/staff.ts", "utf8");
   const createUi = readFileSync("src/app/(dashboard)/dashboard/staff/staff-workspace.tsx", "utf8");
 
-  it("uses a separate phone login restricted to active Demo providers", () => {
-    expect(auth).toContain('id: "service-staff-phone"');
-    expect(auth).toContain('role: "PARTNER"');
-    expect(auth).toContain('store: { slug: storeSlug, id: "demo-store" }');
-    expect(proxy).toContain('subPath === "/staff/login"');
-    expect(proxy).toContain('subPath === "/staff/my-bookings"');
+  it("removes the retired provider login without removing supported staff login", () => {
+    expect(auth).not.toContain('id: "service-staff-phone"');
+    expect(auth).toContain('id: "credentials"');
+    expect(auth).toContain('id: "customer-phone"');
   });
 
   it("pins booking reads to the current session staff and store", () => {

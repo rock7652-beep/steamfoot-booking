@@ -50,10 +50,6 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/app/(liff)/liff/manager-preview/page.tsx",
   "src/app/(liff)/liff/staff-preview/page.tsx",
   "src/app/(service-workspace)/staff-schedule/page.tsx",
-  // HQ has one reviewed SPA boundary: its delivery screen renders the
-  // SPA-only provisioning control. The action itself retains HQ permission
-  // checks and does not route through legacy booking data.
-  "src/app/hq/dashboard/stores/[storeId]/page.tsx",
   "src/lib/digital-butler-entitlement.ts",
   "src/lib/feature-gate.ts",
   "src/lib/permissions.ts",
@@ -68,7 +64,6 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/server/services/staff-save-snapshot.ts",
   "src/server/services/service-hours-save.ts",
   "src/server/services/service-hours-read.ts",
-  "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",
   // Reviewed 2026-09-23: the shared finance adapter first resolves the
   // authoritative store industry, then reads only that store's SPA receipts,

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { handleActionError } from "@/lib/errors";
 import { requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
+import { requireSpaStore } from "@/lib/industry-module-server";
 import { spaPrisma } from "@/lib/spa-db";
 import type { ActionResult } from "@/types";
 
@@ -20,6 +21,7 @@ export async function provisionSpaStoreAction(storeId: string): Promise<ActionRe
   await requireAdminSession();
   await requirePermission("staff.manage");
   try {
+    await requireSpaStore(storeId);
     const store = await prisma.store.findUnique({
       where: { id: storeId },
       include: { moduleInstallation: true, staff: { where: { status: "ACTIVE" }, select: { id: true } } },

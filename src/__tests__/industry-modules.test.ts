@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getIndustryModule,
+  toPersistedIndustryModule,
   getIndustryService,
   resolveIndustryModuleId,
   SPA_INDUSTRY_MODULE,
@@ -18,9 +19,13 @@ describe("industry modules", () => {
     });
   });
 
-  it("provides SPA terminology without enabling the health assessment", () => {
+  it("preserves legacy SPA identifiers but refuses runtime access", () => {
     expect(resolveIndustryModuleId("spa")).toBe("spa");
-    expect(getIndustryModule("spa")).toBe(SPA_INDUSTRY_MODULE);
+    expect(() => getIndustryModule("spa")).toThrow("SPA 模組已移除");
+    expect(() => toPersistedIndustryModule("spa")).toThrow("SPA 模組已移除");
+    expect(getIndustryModule("course").id).toBe("course");
+    expect(toPersistedIndustryModule("steamfoot")).toBe("STEAMFOOT");
+    expect(toPersistedIndustryModule("course")).toBe("COURSE");
     expect(SPA_INDUSTRY_MODULE.customer).toMatchObject({
       summaryTitle: "療程摘要",
       sessionUnit: "次",

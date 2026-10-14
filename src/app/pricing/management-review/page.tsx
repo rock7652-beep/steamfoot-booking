@@ -10,7 +10,7 @@ export const metadata = {title: "人員與分析 RWD 驗收", robots: {index: fa
 export default async function ManagementReviewPage({searchParams}: {searchParams: Promise<{frame?: string; width?: string; variant?: string}>}) {
   if (process.env.VERCEL_ENV !== "preview" && process.env.NODE_ENV !== "development") notFound();
   const query = await searchParams;
-  const variants = ["steamfoot", "spa", "fitness", "music", "analysis"];
+  const variants = ["steamfoot", "fitness", "music", "analysis"];
   const variant = variants.includes(query.variant ?? "") ? query.variant! : "steamfoot";
   const width = [360, 390, 768, 1024, 1366, 1920].find(value => String(value) === query.width) ?? 390;
   if (query.frame === "1") return <DashboardShell industryModule={variant === "spa" ? "spa" : variant === "fitness" || variant === "music" ? "course" : "steamfoot"} isOwner operationGuidePreview permissions={["staff.view", "report.read"]} pricingPlan="EXPERIENCE" userName="RWD 驗收使用者" roleLabel="系統管理者" logoutButton={null} storeName="虛擬驗收店家">

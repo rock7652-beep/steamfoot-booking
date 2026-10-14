@@ -1,4 +1,5 @@
-import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
+import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -483,12 +484,6 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
     return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
-  // SPA Demo has its own direct Preview entries. Do not let the generic
-  // legacy fallback send these routes through the default Steamfoot store.
-  if (pathname === "/spa-preview" || pathname.startsWith("/spa-preview/")) {
-    return withDomainCookie(routePassThrough(req), domainStoreId);
-  }
-
   // /pricing → keep as-is (public)
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
     return withDomainCookie(routePassThrough(req), domainStoreId);
@@ -651,6 +646,9 @@ function hqRewrite(
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  if (isRetiredModuleRoute(req.nextUrl.pathname, req.nextUrl.searchParams)) {
+    return new NextResponse("此模組已移除", { status: 410, headers: { "X-Robots-Tag": "noindex", "Cache-Control": "no-store" } });
+  }
   if (req.nextUrl.pathname === "/preview-review" || req.nextUrl.pathname.startsWith("/preview-review/")) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
     if (req.nextUrl.pathname !== "/preview-review" || !customerReviewConfig()) {
@@ -670,13 +668,32 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   if (req.nextUrl.pathname === "/hq-usage-preview" && !isHqUsageUiPreview()) {
     return new NextResponse("Not found", { status: 404 });
   }
+  if (req.nextUrl.pathname === "/spa-retirement-preview" && !isSpaRetirementUiPreview()) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   if (isGuideUiPreview()) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
     if (req.method !== "GET" && req.method !== "HEAD")
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
+    if (isSpaRetirementUiPreview()) {
+      if (!isSpaRetirementPreviewPath(path))
+        return new NextResponse("Not available in module review", { status: 404, headers });
+      // Rewrite destinations may pass through Proxy again; serve the exact
+      // destination rather than redirecting it back to the canonical alias.
+      if (["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"].includes(path))
+        return NextResponse.next({ headers });
+      const marketing = marketingRoute(path);
+      if (!marketing) return NextResponse.next({ headers });
+      if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
+      const url = req.nextUrl.clone();
+      url.pathname = marketing.destination;
+      const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
+      Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+      return response;
+    }
     if (isMarketingStickyUiPreview()) {
-      const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/services", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
+      const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);
       const asset = path.startsWith("/_next/static/") || /^\/pricing\/(?:brand|images|business-assets)\/[a-zA-Z0-9/_-]+\.(?:png|jpg|jpeg|webp|svg)$/.test(path);
       if (!pages.includes(path) && !publicArticle && !asset)

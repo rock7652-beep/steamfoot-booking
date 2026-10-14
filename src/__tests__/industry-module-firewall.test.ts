@@ -45,6 +45,13 @@ describe("store industry module firewall", () => {
     });
   });
 
+  it("rejects the retired SPA module even for its own store", async () => {
+    queryRaw.mockResolvedValue([{ industryModule: "SPA" }]);
+    const { getStoreIndustryModule, requireSpaStore } = await import("@/lib/industry-module-server");
+    await expect(getStoreIndustryModule("archived-spa")).rejects.toMatchObject({ code: "FORBIDDEN", message: "SPA 模組已移除" });
+    await expect(requireSpaStore("archived-spa")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("fails closed when the store does not exist", async () => {
     queryRaw.mockResolvedValue([]);
     const { getStoreIndustryModule } = await import("@/lib/industry-module-server");

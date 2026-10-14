@@ -70,7 +70,7 @@ describe("store needs form interactions", () => {
     r.fill("courseFormat", "兩者都有");
     r.fill("industry", "運動教室／健身／瑜伽");
     expect(course.value).toBe("兩者都有");
-    r.fill("industry", "美容／美體／SPA");
+    r.fill("industry", "時段預約／蒸足");
     expect(course.disabled).toBe(true);
     expect(course.value).toBe("");
     expect(r.doc.getElementById("courseFormatField")!.hidden).toBe(true);

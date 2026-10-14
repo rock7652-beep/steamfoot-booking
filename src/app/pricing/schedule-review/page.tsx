@@ -36,7 +36,7 @@ export default async function ScheduleReviewPage({ searchParams }: { searchParam
   return <main className="p-4">
     <h1 className="text-xl font-bold">課表 RWD 驗收 · {reviewModule}</h1>
     <p>真實共用元件搭配虛擬資料；登入、資料庫與名單業務驗收另列。</p>
-    <nav className="my-3 flex flex-wrap gap-3">{["fitness","music","spa","steamfoot"].map(value => <a key={value} href={`?width=${width}&module=${value}`}>{value}</a>)}</nav>
+    <nav className="my-3 flex flex-wrap gap-3">{["fitness","music","steamfoot"].map(value => <a key={value} href={`?width=${width}&module=${value}`}>{value}</a>)}</nav>
     <ReviewViewport src={`?frame=1&${params}`} initialWidth={width} />
   </main>;
 }

@@ -528,7 +528,11 @@ describe("public editorial guides", () => {
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
     expect(PUBLISHED_GUIDE_PATHS).toHaveLength(17);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(30);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(29);
+    expect(xml).not.toContain("/pricing/features/services");
+    for (const modulePath of ["slots", "music", "fitness"]) {
+      expect(xml).toContain(`<loc>https://www.steamfoot.com/pricing/features/${modulePath}</loc>`);
+    }
     for (const path of PUBLISHED_GUIDE_PATHS) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com${path}</loc>`);
       expect(rules).toContain(`Allow: ${path}$\n`);
