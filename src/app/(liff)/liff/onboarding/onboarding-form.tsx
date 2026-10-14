@@ -37,7 +37,7 @@ type FormState =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
-  | { kind: "identity_review_required" }
+  | { kind: "identity_review_required"; referenceId?: string }
   | { kind: "service_unavailable" }
   | { kind: "ready"; idToken: string; defaultName: string; pictureUrl: string | null }
   | { kind: "submitting"; idToken: string; defaultName: string; pictureUrl: string | null }
@@ -99,7 +99,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
           return;
         }
         if (session.status !== "need_onboarding") {
-          setState({ kind: session.status });
+          setState({ kind: session.status, ...(session.status === "identity_review_required" ? { referenceId: session.referenceId } : {}) });
           return;
         }
         let defaultName = "";
@@ -167,7 +167,9 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         setState({ kind: "completing" });
         const session = await refreshLiffSession({ idToken, storeSlug });
         if (session.status !== "session_created") {
-          setState({ kind: session.status === "identity_review_required" ? "identity_review_required" : session.status === "expired" ? "expired" : "service_unavailable" });
+          setState(session.status === "identity_review_required"
+            ? { kind: "identity_review_required", referenceId: session.referenceId }
+            : { kind: session.status === "expired" ? "expired" : "service_unavailable" });
           return;
         }
         router.replace(`/s/${storeSlug}/liff`);
@@ -234,7 +236,8 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       {state.kind === "identity_review_required" && (
         <InfoBlock
           tone="red"
-          body={liffMessages.error.identityReview}
+          body={`${liffMessages.error.identityReview}${state.referenceId ? ` 查核編號：${state.referenceId}` : ""}`}
+          showRetry
           showContactStore
           contactUrl={contactUrl}
         />
