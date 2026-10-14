@@ -475,7 +475,13 @@ export function CourseStaffWorkspace({
                       r.data.rows.forEach(row=>readTeaching.invalidate(row.id));
                       setNotice(r.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":music?(accountKind==="coach"?(person?"教師資料已儲存":"教師已新增"):(person?"人員資料已儲存":"人員已新增")):"");
                       const saved=r.data.rows.find(row=>row.id===(person?.id??r.data.rows[0]?.id));
-                      if(saved){const password=submittedForm.querySelector<HTMLInputElement>('input[name="password"]');if(password)password.value="";setPerson(saved);setKey(crypto.randomUUID());setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setQualificationsTouched(false);setFeesReady(false);setError("");setConflicts([]);}
+                      if(saved){const password=submittedForm.querySelector<HTMLInputElement>('input[name="password"]');if(password)password.value="";setPerson(saved);setKey(crypto.randomUUID());setDirty(false);setTeachingDirty(false);setDefaultFeeDirty(false);setQualificationsTouched(false);setFeesReady(false);setError("");setConflicts([]);
+                        setConfirmDiscard(false);
+                        setAvailabilityGuard({dirty:false,pending:false});
+                        // Existing-person edits are complete only after a confirmed receipt.
+                        // New people keep the editor for the remaining setup steps.
+                        if(person)setOpen(false);
+                      }
                     }
                   } catch {
                     setError("儲存失敗，請重試");
