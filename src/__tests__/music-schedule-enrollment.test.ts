@@ -47,3 +47,9 @@ it("continues an ongoing lesson as unpaid after its personal plan has been close
  await reserveScheduledMusicLearner(db(),actor,input,null);
  expect(reserve.mock.calls[0][2]).toMatchObject({cardId:null,deferredPayment:true});
 });
+
+it("extends a paid group's reserved dates only within the same teaching series",async()=>{
+ tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"teaching:guitar",requestKey:"series",startsAt:new Date("2099-10-08T10:00:00Z")}).mockResolvedValueOnce({id:"first-paid-date"});
+ tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),templateIds:["teaching:guitar"],termSessionIds:["first-paid-date"]});
+ await reserveScheduledMusicLearner(db(),actor,input,null);expect(tx.coursePointCard.update).toHaveBeenCalledWith({where:{id:"card"},data:{termSessionIds:["first-paid-date","lesson"]}});expect(reserve.mock.calls[0][2]).toMatchObject({cardId:"card",deferredPayment:false});
+});

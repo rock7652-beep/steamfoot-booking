@@ -1,9 +1,9 @@
 import {beforeEach,expect,it,vi} from "vitest";
 vi.mock("server-only",()=>({}));
 import {assertCourseResources,assertNoCourseResourceUse,handleCourseActionError} from "@/server/services/course-resources";
-const tx={courseRoom:{findFirst:vi.fn()},courseTemplate:{findFirst:vi.fn()},courseSession:{findMany:vi.fn()},$queryRaw:vi.fn()};
+const tx={courseRoom:{findFirst:vi.fn()},courseTemplate:{findFirst:vi.fn(),findMany:vi.fn()},courseSession:{findMany:vi.fn()},$queryRaw:vi.fn()};
 const input={templateId:"t",roomId:"r",coachId:"c",capacity:5};
-beforeEach(()=>{vi.resetAllMocks();tx.courseRoom.findFirst.mockResolvedValue({capacity:5});tx.courseTemplate.findFirst.mockResolvedValue({isActive:true,visibility:"PUBLIC"});tx.$queryRaw.mockResolvedValue([{courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["t"]}]);});
+beforeEach(()=>{vi.resetAllMocks();tx.courseTemplate.findMany.mockResolvedValue([{id:"t"}]);tx.courseRoom.findFirst.mockResolvedValue({capacity:5});tx.courseTemplate.findFirst.mockResolvedValue({isActive:true,visibility:"PUBLIC"});tx.$queryRaw.mockResolvedValue([{courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["t"]}]);});
 it("new scheduling requires explicit qualification, while unchanged old resource edits tolerate pending qualification",async()=>{
  tx.$queryRaw.mockResolvedValue([{courseCoachEnabled:true,courseQualificationsConfirmed:false,courseQualifiedTemplateIds:[]}]);
  await expect(assertCourseResources(tx as never,"s",input)).rejects.toThrow("授課資格");

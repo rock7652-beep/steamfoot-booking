@@ -8,6 +8,8 @@ import { courseMonthlyBookingWhere } from "@/lib/course-usage";
 import { toLocalDateStr,dayRange } from "@/lib/date-utils";
 import {musicCourseExpiry} from "@/lib/music-course-products";
 import "server-only";
+import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
+import {cardCoversTeachingItem} from "./music-teaching-item";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
 import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
@@ -263,7 +265,7 @@ export async function reserveCourseInTransaction(
   }
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
-  if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  if (card?.templateIds?.length && !await cardCoversTeachingItem(tx,storeId,session.templateId,card.templateIds)) return fail("此方案不適用本堂課");
   if(card?.musicJoinSessionId) {
     const first=await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId},select:{startsAt:true}});
     if(!first || session.startsAt<first.startsAt)return fail("此插班方案尚未到首次上課日期");
@@ -412,7 +414,7 @@ export async function settleCourseBooking(
       SELECT "featureKey" FROM "StoreFeatureEntitlement"
       WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`
     ).some(item => item.featureKey === "business.music") &&
-    (await tx.courseTemplate.findFirst({where:{id:booking.session.templateId,storeId:actor.storeId},select:{classType:true}}))?.classType === "GROUP";
+    (await tx.courseTemplate.findFirst({where:{storeId:actor.storeId,...(musicTeachingSubjectId(booking.session.templateId)&&booking.card?.templateIds.length?{id:{in:booking.card.templateIds},musicSubjectId:musicTeachingSubjectId(booking.session.templateId)}:{id:booking.session.templateId})},select:{classType:true}}))?.classType === "GROUP";
   const shouldDebit =
     target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave;
   if (shouldDebit) {

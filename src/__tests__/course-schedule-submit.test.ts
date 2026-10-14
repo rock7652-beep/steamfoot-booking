@@ -6,6 +6,7 @@ import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 
 const { createSchedule, refresh } = vi.hoisted(() => ({ createSchedule: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/dashboard/courses", useSearchParams: () => new URLSearchParams("action=schedule") }));
+vi.mock("@/server/actions/music-schedule-rooms",()=>({getMusicScheduleRooms:vi.fn().mockResolvedValue({success:true,roomIds:["room"]})}));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
 vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:vi.fn().mockResolvedValue({success:true,issues:[]})}));
 vi.mock("@/server/actions/course", () => ({ createCourseSchedule: createSchedule }));

@@ -64,11 +64,12 @@ it("hides generated course codes while keeping same-name course selection indepe
  const props={templates:[{id:"original",name:"吉他 · 個別課 4堂",musicSubjectId:"guitar"},{id:"version",name:"吉他 · 個別課 4堂 · a91caf",musicSubjectId:"guitar"},{id:"manual",name:"自訂課程 · a91caf"}],qualificationIds:[] as string[],fees:{},settings:{defaultRatio:null,subjectRules:{},revision:1},onSettings:vi.fn(),onFees:vi.fn(),onQualification};
  try {
   await act(async()=>root.render(createElement(MusicTeacherFeeEditor,props)));
-  const labels=Array.from(host.querySelectorAll("label"));
-  expect(labels.slice(0,2).map(l=>l.textContent)).toEqual(["吉他 · 個別課 4堂","吉他 · 個別課 4堂"]);
-  expect(labels[2].textContent).toBe("自訂課程 · a91caf");
-  await act(async()=>labels[1].querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
-  expect(onQualification).toHaveBeenLastCalledWith("version",true);
+  const group=host.querySelector('[aria-label="可教授教學項目"]')!;
+  expect(group.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+  expect(host.textContent).not.toContain("455fd5");
+  await act(async()=>group.querySelector<HTMLInputElement>('input')!.click());
+  expect(onQualification).toHaveBeenCalledWith("version",true);
+  expect(onQualification).toHaveBeenCalledWith("original",true);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it("keeps selected historical qualifications and limits batch selection to the visible current list",async()=>{

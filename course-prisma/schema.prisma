@@ -111,6 +111,7 @@ model CourseSession {
   requestIndex   Int
   createdById    String
   createdAt      DateTime @default(now())
+  rescheduleShadowHidden Boolean @default(false)
   rescheduledFromStartsAt DateTime? @db.Timestamptz(3)
   rescheduledFromEndsAt   DateTime? @db.Timestamptz(3)
   rescheduledFromRoomId   String?

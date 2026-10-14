@@ -54,6 +54,8 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
     prisma.courseStaffPersonLink.findMany({where:{storeId},select:{managerStaffId:true,instructorStaffId:true}}),
   ]);
+  const teachingSubjects=musicEntitlement?await coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,isActive:true}}):[];
+  for(const subject of teachingSubjects)if(!templates.some(t=>t.id===`teaching:${subject.id}`))templates.push({id:`teaching:${subject.id}`,name:subject.name,isActive:subject.isActive,musicTrialMode:null,musicSubjectId:subject.id,musicTeacherShare:null,musicPricePerLesson:null,musicSubject:{name:subject.name}});
   const teachingPlans=await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}});
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read");
   const presentedTemplates=presentCourseTemplates(templates.map(t=>({...t,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null})),teachingPlans,!!musicEntitlement);

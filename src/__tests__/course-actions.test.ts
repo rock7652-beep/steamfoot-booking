@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   catalogUpdate: vi.fn(),
   revalidate: vi.fn(),
 }));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:vi.fn().mockResolvedValue({storeId:"store-a"})},customer:{findMany:vi.fn().mockResolvedValue([])},errorLog:{create:vi.fn().mockResolvedValue({})}}}));
 vi.mock("@/server/services/course-access", () => ({
   courseTransaction: async (_storeId: string, work: (tx: unknown) => Promise<unknown>) => {
     const {coursePrisma} = await import("@/lib/course-db");

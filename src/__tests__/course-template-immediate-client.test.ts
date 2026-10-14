@@ -7,6 +7,7 @@ import { courseTemplateInput } from "@/lib/course-scheduling";
 import { courseTemplateRevision } from "@/lib/course-template-save";
 const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=catalog&action=create") }));
+vi.mock("@/server/actions/music-schedule-rooms",()=>({getMusicScheduleRooms:vi.fn().mockResolvedValue({success:true,roomIds:["room"]})}));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
 vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:vi.fn().mockResolvedValue({success:true,issues:[]})}));
 vi.mock("@/server/actions/course", () => ({}));

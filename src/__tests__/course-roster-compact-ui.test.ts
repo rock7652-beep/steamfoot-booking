@@ -31,15 +31,15 @@ it("shows each group learner's own term, dates and distinct leave/no-show counts
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group-term",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
-  const rows=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
-  expect(rows().map(row=>row.textContent?.match(/本期第 \d+\/\d+ 堂/)?.[0])).toEqual(["本期第 5/8 堂","本期第 3/6 堂","本期第 4/7 堂"]);
-  expect(rows()[2].textContent).toContain("此方案請假 1・曠課 1");
-  await act(async()=>[...rows()[2].querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
-  expect(rows()[2].textContent).toContain("2026-09-15 請假");
-  expect(rows()[2].textContent).toContain("2026-09-22 曠課");
-  await act(async()=>[...rows()[1].querySelectorAll("button")].find(button=>button.textContent?.includes("查看日期"))!.click());
-  expect(rows()[1].querySelector("[id^='lesson-history-']")).toBeTruthy();
-  expect(rows()[2].querySelector("[id^='lesson-history-']")).toBeNull();
+  const rows=()=>[...host.querySelectorAll("[aria-label='學員名單捲動區'] li")];
+  expect(rows()).toHaveLength(3);
+  await act(async()=>rows()[2].querySelector<HTMLButtonElement>('button[aria-label="丙 預約詳情"]')!.click());
+  let detail=document.querySelector('[aria-labelledby="course-roster-info-title"]')!;
+  expect(detail.textContent).toContain("本期第 4/7 堂");expect(detail.textContent).toContain("此方案請假 1・曠課 1");expect(detail.textContent).toContain("2026-09-15 請假");expect(detail.textContent).toContain("2026-09-22 曠課");
+  await act(async()=>[...detail.querySelectorAll('button')].find(button=>button.textContent==="關閉")!.click());
+  await act(async()=>rows()[1].querySelector<HTMLButtonElement>('button[aria-label="乙 預約詳情"]')!.click());
+  detail=document.querySelector('[aria-labelledby="course-roster-info-title"]')!;
+  expect(detail.textContent).toContain("本期第 3/6 堂");expect(detail.textContent).not.toContain("此方案請假 1・曠課 1");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
@@ -51,14 +51,16 @@ it("shows private makeup and renewal without combining leave with paid lessons",
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"private-term",capacity:1,canCreate:false,canEdit:true,musicLayout:true,classType:"PRIVATE",teacherName:"老師"})));
-  expect(host.textContent).toContain("本期第 4/4 堂");
-  expect(host.textContent).toContain("下期已繳 8 堂");
-  await act(async()=>[...host.querySelectorAll("summary")].find(summary=>summary.textContent?.includes("查看本期上課日期"))!.click());
-  expect(host.textContent).toContain("2026-09-08 請假・不扣堂");
-  expect(host.textContent).toContain("4. 2026-09-29");
-  expect(host.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
-  expect(host.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
-  expect(host.textContent).toContain("1. 2026-10-06 待上課");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員 預約詳情"]')!.click());
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("本期第 4/4 堂");
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("下期已繳 8 堂");
+
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("2026-09-08 請假・不扣堂");
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("4. 2026-09-29");
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("本期付款：2026-09-01 · NT$ 3,200 · 現金");
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("1. 2026-10-06 待上課");
+  await act(async()=>[...document.querySelectorAll('[aria-labelledby="course-roster-info-title"] button')].find(button=>button.textContent==="關閉")!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員 更多操作"]')!.click());
   await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button=>button.textContent==="預約紀錄")!.click());
   const history=document.querySelector('[aria-labelledby="course-roster-history-title"]')!;
@@ -69,7 +71,8 @@ it("shows private makeup and renewal without combining leave with paid lessons",
   expect(history.textContent).not.toContain("編輯本次備註");
   await act(async()=>[...history.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="關閉")!.click());
   expect(document.querySelector('[aria-labelledby="course-roster-history-title"]')).toBeNull();
-  expect(host.textContent).toContain("下期已繳 8 堂");
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員 預約詳情"]')!.click());
+  expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')!.textContent).toContain("下期已繳 8 堂");
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it("signs in music learners as attended in one batch and gives no makeup coupon for absence",async()=>{
@@ -121,7 +124,7 @@ it("keeps other music learners interactive while one restoration is saving", asy
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"group",capacity:15,canCreate:false,canEdit:true,musicLayout:true,classType:"GROUP",teacherName:"老師"})));
-  const items=()=>[...host.querySelectorAll("section[aria-label='學員'] li")];
+  const items=()=>[...host.querySelectorAll("[aria-label='學員名單捲動區'] li")];
   await act(async()=>items()[0].querySelector<HTMLButtonElement>('button[aria-label="學員1 更多操作"]')!.click());
   act(()=>{[...document.querySelectorAll("button")].find(button=>button.textContent==="恢復待點名")!.click();});
   expect(items()[0].textContent).toContain("儲存中");

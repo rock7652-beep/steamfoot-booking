@@ -9,6 +9,9 @@ import { getMusicSlotMatches, type MusicSlotMatch } from "@/server/actions/cours
 import { inspectCourseSchedule } from "@/server/actions/course-schedule-check";
 import { createCourseSchedule } from "@/server/actions/course";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
+import {getMusicScheduleRooms} from "@/server/actions/music-schedule-rooms";
+import {MusicTrialLearners} from "@/components/admin/music-trial-learners";
+import {musicTeachingKey} from "@/lib/music-teaching-item";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { isMusicTrialTemplate } from "@/lib/music-trial-template";
 
@@ -22,8 +25,8 @@ function schedulingLabel(template:Template) {
 }
 const field="mt-1 min-h-11 w-full max-w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 text-base";
 
-export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange,initialScheduleKind,onArrangementChange,onCancel,active=true}:{
-  active?:boolean;templates:Template[];rooms:{id:string;name:string}[];coaches:{id:string;displayName:string}[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
+export function MusicScheduleWizard({autoRoom=false,subjects,templates,rooms,coaches,initialDate,seed,requestKey,sourceSessionId,initialTemplateId,onCreated,onGuard,onRefresh,isTrial=false,canCreateCustomer=false,onPositionChange,initialScheduleKind,onArrangementChange,onCancel,active=true}:{
+  autoRoom?:boolean;subjects?:{id:string;name:string;isActive:boolean;category?:string}[];active?:boolean;templates:Template[];rooms:{id:string;name:string}[];coaches:{id:string;displayName:string}[];initialDate:string;requestKey:string;sourceSessionId?:string;initialTemplateId?:string;
   seed?:Partial<Position>;onCreated:(sessionId:string,date:string,sessions:unknown[])=>void;onGuard?:(dirty:boolean,pending:boolean)=>void;
   onPositionChange?:(position:Position)=>void;onRefresh?:()=>void;isTrial?:boolean;canCreateCustomer?:boolean;initialScheduleKind?:"FIXED"|"SINGLE";
   onArrangementChange?:(kind:Arrangement)=>void;onCancel?:()=>void;
@@ -44,9 +47,13 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const templateId=isTrial?trialTemplateId:regularTemplateId;
   const setTemplateId=isTrial?setTrialTemplateId:setRegularTemplateId;
   const [regularLearners,setRegularLearners]=useState<ScheduleLearner[]>([]);
-  const [trialLearners,setTrialLearners]=useState<ScheduleLearner[]>([]);
+  const [trialLearners,setTrialLearners]=useState<ScheduleLearner[]>([{customerId:`trial-draft:${crypto.randomUUID()}`,cardId:"",name:"",participantPhone:""}]);
   const learners=isTrial?trialLearners:regularLearners;
   const setLearners=isTrial?setTrialLearners:setRegularLearners;
+  const roomEdited=useRef(false);
+  const [roomMessage,setRoomMessage]=useState<{key:string;message:string}|null>(null);
+  const roomReader=usePanelReader("music-available-rooms",getMusicScheduleRooms,"",0);
+  useEffect(()=>{if(!autoRoom||roomEdited.current||!parseTaipeiDateTime(date,time))return;let current=true;const key=`${date}:${time}:${duration}`;roomReader.read({date,time,durationMinutes:duration}).then(result=>{if(!current||roomEdited.current)return;if(result.success){setRoomId(old=>result.roomIds.includes(old)?old:result.roomIds[0]??"");setRoomMessage({key,message:result.roomIds.length?"":"此時段沒有可用教室，請調整時間"});}else setRoomMessage({key,message:result.error??"可用教室讀取失敗"});}).catch(()=>{if(current)setRoomMessage({key,message:"可用教室讀取失敗，請手動選擇後確認衝突"});});return()=>{current=false;};},[autoRoom,date,time,duration,roomReader]);
   const [capacity,setCapacity]=useState(1);
   const [frequency,setFrequency]=useState<"WEEKLY"|"BIWEEKLY">("WEEKLY");
   const [singleWeeks,setSingleWeeks]=useState(1);
@@ -66,7 +73,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const [scheduleKind,setScheduleKind]=useState<"FIXED"|"SINGLE">(initialScheduleKind??"SINGLE");
   useEffect(()=>{if(initialScheduleKind)setScheduleKind(initialScheduleKind);},[initialScheduleKind]);
   const repeat=!isTrial&&scheduleKind==="FIXED";
-  const eligibleTemplates=templates.filter(t=>t.isActive!==false&&t.visibility!=="OFF"&&!!t.musicSubjectId&&t.musicSubject?.isActive===true&&(isTrial?isMusicTrialTemplate(t):!isMusicTrialTemplate(t)));
+  const eligibleTemplates=subjects?subjects.filter(subject=>subject.isActive).map(subject=>({id:musicTeachingKey(subject.id,isTrial),name:subject.name,durationMinutes:60,capacity:500,defaultRoomId:null,musicSubjectId:subject.id,musicSubject:subject})):templates.filter(t=>t.isActive!==false&&t.visibility!=="OFF"&&!!t.musicSubjectId&&t.musicSubject?.isActive===true&&(isTrial?isMusicTrialTemplate(t):!isMusicTrialTemplate(t)));
   const template=eligibleTemplates.find(t=>t.id===templateId);
   const hasTemplate=!!template;
   const effectiveCapacity=enrollmentMode==="ASSIGNED"?Math.max(1,learners.length):capacity;
@@ -80,8 +87,8 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
   const endLabel=endsAt?`${formatTWDateTime(endsAt).slice(11)}${toLocalDateStr(endsAt)!==date?"（隔日）":""}`:"";
   const weekday=startsAt?new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",weekday:"long"}).format(startsAt):"";
   const positionReady=!!parseTaipeiDateTime(date,time)&&!!roomId;
-  const canChooseCourse=positionReady&&(enrollmentMode==="OPEN"||learners.length>0);
-  const dirty=date!==originalPosition.date||time!==originalPosition.time||roomId!==originalPosition.roomId||coachId!==originalPosition.coachId||duration!==originalPosition.durationMinutes||regularTemplateId!==(initialTemplateId??"")||!!trialTemplateId||regularLearners.length>0||trialLearners.length>0||enrollmentDirty||enrollmentMode!=="ASSIGNED"||capacity!==1||frequency!=="WEEKLY"||singleWeeks!==1;
+  const canChooseCourse=positionReady&&(isTrial||enrollmentMode==="OPEN"||learners.length>0);
+  const dirty=date!==originalPosition.date||time!==originalPosition.time||roomId!==originalPosition.roomId||coachId!==originalPosition.coachId||duration!==originalPosition.durationMinutes||regularTemplateId!==(initialTemplateId??"")||!!trialTemplateId||regularLearners.length>0||trialLearners.some(row=>!!row.name||!!row.participantPhone)||enrollmentDirty||enrollmentMode!=="ASSIGNED"||capacity!==1||frequency!=="WEEKLY"||singleWeeks!==1;
   useCourseDraftGuard(active&&dirty,active&&(pending||enrollmentPending));
   useEffect(()=>{onGuard?.(dirty,pending||enrollmentPending);return()=>onGuard?.(false,false);},[dirty,pending,enrollmentPending,onGuard]);
   useEffect(()=>{if(active)onPositionChange?.({date,time,roomId:roomId||undefined,coachId:coachId||undefined,durationMinutes:duration});},[active,date,time,roomId,coachId,duration,onPositionChange]);
@@ -124,11 +131,7 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
     setError("");
     startTransition(async()=>{
       try{
-        const input={templateId,sourceSessionId:templateId===initialTemplateId?sourceSessionId:undefined,scheduleType:isTrial?"TRIAL":repeat?"FIXED":"SINGLE",scheduleFrequency:repeat?frequency:"NONE",enrollmentMode,roomId,coachId:selectedCoachId,date:dates[0],additionalDates:dates.slice(1),time,durationMinutes:duration,capacity:effectiveCapacity,requestKey,isTrial,learners:submittedLearners.map(({customerId,cardId,trialPrice,name})=>({customerId:customerId.startsWith("trial-draft:")?null:customerId,...(customerId.startsWith("trial-draft:")?{participantKey:customerId.slice(12),customerName:name}:{}),cardId:cardId||null,...(trialPrice!==undefined?{trialPrice}:{})}))};
-        const check=await inspectCourseSchedule(input);
-        if(!check.success){setError(check.error??"衝突檢查失敗");return;}
-        setConflicts(check.issues);
-        if(check.issues.length){setError("請調整衝突日期，尚未新增任何課程");return;}
+        const input={templateId,sourceSessionId:templateId===initialTemplateId?sourceSessionId:undefined,scheduleType:isTrial?"TRIAL":repeat?"FIXED":"SINGLE",scheduleFrequency:repeat?frequency:"NONE",enrollmentMode,roomId,coachId:selectedCoachId,date:dates[0],additionalDates:dates.slice(1),time,durationMinutes:duration,capacity:effectiveCapacity,requestKey,isTrial,learners:submittedLearners.map(({customerId,cardId,trialPrice,name,participantPhone})=>({customerId:customerId.startsWith("trial-draft:")?null:customerId,...(customerId.startsWith("trial-draft:")?{participantKey:customerId.slice(12),customerName:name,customerPhone:participantPhone}:{}),cardId:cardId||null,...(trialPrice!==undefined?{trialPrice}:{})}))};
         const result=await createCourseSchedule(input);
         if(!result.success){setError(result.error??"排課失敗");return;}
         if(!result.data.sessionId){setError("請重新整理確認排課結果");return;}
@@ -143,14 +146,16 @@ export function MusicScheduleWizard({templates,rooms,coaches,initialDate,seed,re
       <section aria-label="時間與教室" className="grid min-w-0 grid-cols-2 gap-3 [&>label]:min-w-0">
         <label>日期<input aria-label="排課日期" type="date" value={date} className={field} onChange={e=>setDate(e.target.value)}/></label>
         <label>時間<input aria-label="排課時間" type="time" step={1800} value={time} className={field} onChange={e=>setTime(e.target.value)}/></label>
-        <label>教室<select aria-label="排課教室" value={roomId} className={field} onChange={e=>setRoomId(e.target.value)}><option value="">請選擇教室</option>{rooms.map(room=><option key={room.id} value={room.id}>{room.name}</option>)}</select></label>
+        <label>教室<select aria-label="排課教室" value={roomId} className={field} onChange={e=>{roomEdited.current=true;setRoomId(e.target.value);}}><option value="">請選擇教室</option>{rooms.map(room=><option key={room.id} value={room.id}>{room.name}</option>)}</select></label>
         <label>時長<select aria-label="時長" className={field} value={duration} onChange={e=>setDuration(Number(e.target.value))}>{[30,60,90,120].map(n=><option key={n} value={n}>{n} 分鐘</option>)}</select></label>
       </section>
+      {roomMessage?.key===`${date}:${time}:${duration}`&&roomMessage.message&&!roomId&&<p role="status" className="text-amber-800">{roomMessage.message}</p>}
       {onArrangementChange&&<label className={`block rounded-lg border-l-4 p-3 ${accent}`}>排課類型<select aria-label="安排類型" value={type} className={field} onChange={e=>onArrangementChange(e.target.value as Arrangement)}><option value="fixed">固定課</option><option value="single">單次課</option><option value="trial">體驗課</option><option value="rental">空間租借</option></select></label>}
       {repeat&&<section aria-label="固定課程設定" className="space-y-2"><label>頻率<select aria-label="固定課程頻率" className={field} value={frequency} onChange={e=>setFrequency(e.target.value as "WEEKLY"|"BIWEEKLY")}><option value="WEEKLY">每週</option><option value="BIWEEKLY">隔週</option></select></label><p className="text-earth-600">從 {date} 開始持續保留時段，直到取消後續。</p></section>}
       {!repeat&&!isTrial&&<label className="block">安排週數<input aria-label="單次課安排週數" type="number" min={1} max={53} value={singleWeeks} className={field} onChange={e=>setSingleWeeks(Number(e.target.value))}/></label>}
       {positionReady&&<section aria-label="學員安排方式" className="space-y-2"><strong>這堂課要怎麼安排學員？</strong><div className="flex flex-wrap gap-3">{([["ASSIGNED","指定學員"],["OPEN","開放報名"]] as const).map(([mode,label])=><label key={mode} className="flex min-h-11 items-center gap-2"><input type="radio" name={`enrollment-${requestKey}`} checked={enrollmentMode===mode} onChange={()=>setEnrollmentMode(mode)}/>{label}</label>)}</div></section>}
-      {positionReady&&<div className={enrollmentMode==="ASSIGNED"?"":"hidden"}><CourseScheduleLearners templateId={templateId} scheduleDate={date} pointCost={1} capacity={500} showCapacity={false} useConfiguredTrialPrice allowDeferred={!isTrial} occurrenceCount={repeat?1:dates.length} canCreateCustomer={canCreateCustomer} trialMode={isTrial} value={learners} onChange={setLearners} onValidityChange={setLearnersValid} onDraftChange={setEnrollmentDirty} onPendingChange={setEnrollmentPending} disabled={pending}/></div>}
+      {positionReady&&isTrial&&enrollmentMode==="ASSIGNED"&&<MusicTrialLearners templateId={templateId} value={learners} onChange={setLearners} onValidityChange={setLearnersValid} disabled={pending}/>}
+      {positionReady&&!isTrial&&<div className={enrollmentMode==="ASSIGNED"?"":"hidden"}><CourseScheduleLearners templateId={templateId} scheduleDate={date} pointCost={1} capacity={500} showCapacity={false} useConfiguredTrialPrice allowDeferred={!isTrial} occurrenceCount={repeat?1:dates.length} canCreateCustomer={canCreateCustomer} trialMode={isTrial} value={learners} onChange={setLearners} onValidityChange={setLearnersValid} onDraftChange={setEnrollmentDirty} onPendingChange={setEnrollmentPending} disabled={pending}/></div>}
       {canChooseCourse&&<label className="block">課程<select aria-label="課程" className={field} value={templateId} onChange={e=>{setTemplateId(e.target.value);const next=eligibleTemplates.find(item=>item.id===e.target.value);if(isTrial&&next)setDuration(next.durationMinutes);}}><option value="">請選擇課程</option>{eligibleTemplates.map(item=><option key={item.id} value={item.id}>{schedulingLabel(item)}</option>)}</select>{!eligibleTemplates.length&&<span className="block py-2">{isTrial?"尚無可安排的體驗課，請確認課程已啟用體驗與上架。":"尚無可安排的課程，請確認教學項目已啟用、課程已上架。"}<a className="inline-flex min-h-11 items-center underline" href="/dashboard/courses?view=catalog" target="_blank" rel="noopener noreferrer">開啟課程與教學項目設定</a></span>}</label>}
       {canChooseCourse&&template&&<section aria-label="合格老師與可用教室"><label>可教這門課的老師<select aria-label="授課老師" className={field} value={selectedCoachId} onChange={e=>setCoachId(e.target.value)}><option value="">請選擇老師</option>{coachId&&!teacherIds.includes(coachId)&&<option value={coachId} disabled>{coaches.find(c=>c.id===coachId)?.displayName??"原選老師"}（此時段不可安排）</option>}{teacherIds.map(id=><option key={id} value={id}>{coaches.find(c=>c.id===id)?.displayName??"老師"}</option>)}</select></label>{!slots&&!slotError&&<p role="status" className="py-2 text-earth-600">正在確認可授課老師，其他欄位仍可操作…</p>}{slots&&!teacherIds.length&&<p role="status" className="py-2 text-amber-800">{date} · {unavailableReason||"此課程在所選時段與教室沒有可授課老師，請調整時間、教室或課程。"}{fixTarget==="teacher"&&<a className="flex min-h-11 items-center underline" href="/dashboard/teachers" target="_blank" rel="noopener noreferrer">設定老師授課資格與可授課時間</a>}</p>}</section>}
       {canChooseCourse&&template&&isTrial&&<p role="status" className="text-earth-600">體驗費用依所選課程設定；每位學員個別計費。</p>}

@@ -322,9 +322,12 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     });
     if (!booking) throw new AppError("NOT_FOUND", "找不到本店學員");
     const { checkPermission } = await import("@/lib/permissions");
+    const {musicTeachingSubjectId}=await import("@/lib/music-teaching-item");
+    const subjectId=musicTeachingSubjectId(booking.session.templateId);
+    const relatedIds=subjectId?(await coursePrisma.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId,musicTrialMode:null},select:{id:true}})).map(row=>row.id):[booking.session.templateId];
     const [plans, customer, canDiscount] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
-        where: { storeId, isActive: true, unit: "SESSION", templateIds: { has: booking.session.templateId } },
+        where: { storeId, isActive: true, unit: "SESSION", templateIds: { hasSome: relatedIds } },
         select: { id: true, name: true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),
@@ -1040,7 +1043,7 @@ export async function loadMusicJoinOptions(planId:string) {
     if(!plan || plan.musicTerms!==1 || plan.templateIds.length!==1)return {success:true as const,options:[]};
     const template=await coursePrisma.courseTemplate.findFirst({where:{id:plan.templateIds[0],storeId,classType:"GROUP"}});
     if(!template?.musicTermLessons)return {success:true as const,options:[]};
-    const sessions=await coursePrisma.courseSession.findMany({where:{storeId,templateId:template.id,cancelledAt:null,startsAt:{gte:new Date()}},orderBy:{startsAt:"asc"},take:200,select:{id:true,startsAt:true,requestIndex:true,requestKey:true}});
+    const sessions=await coursePrisma.courseSession.findMany({where:{storeId,templateId:template.musicSubjectId?{in:[template.id,`teaching:${template.musicSubjectId}`]}:template.id,cancelledAt:null,releasedAt:null,startsAt:{gte:new Date()}},orderBy:{startsAt:"asc"},take:200,select:{id:true,startsAt:true,requestIndex:true,requestKey:true}});
     const size=template.musicTermLessons;
     const options=sessions.filter(first=>{
       const end=(Math.floor(first.requestIndex/size)+1)*size;

@@ -3,6 +3,7 @@ import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({slots:vi.fn(),check:vi.fn(),create:vi.fn(),options:vi.fn()}));
+vi.mock("@/server/actions/music-schedule-rooms",()=>({getMusicScheduleRooms:vi.fn().mockResolvedValue({success:true,roomIds:["room"]})}));
 vi.mock("@/server/actions/course-slot-matches",()=>({getMusicSlotMatches:m.slots}));
 vi.mock("@/server/actions/course-schedule-check",()=>({inspectCourseSchedule:m.check}));
 vi.mock("@/server/actions/course",()=>({createCourseSchedule:m.create}));
@@ -17,7 +18,7 @@ async function mount(extra:Partial<Parameters<typeof MusicScheduleWizard>[0]>={}
 async function input(label:string,value:string){const el=host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;expect(el).toBeTruthy();await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(el,value);el.dispatchEvent(new Event("input",{bubbles:true}));});}
 async function select(label:string,value:string){const el=host.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!;expect(el).toBeTruthy();await act(async()=>{el.value=value;el.dispatchEvent(new Event("change",{bubbles:true}));});}
 async function mode(label:string){await act(async()=>[...host.querySelectorAll("label")].find(el=>el.textContent===label)!.querySelector<HTMLInputElement>("input")!.click());}
-async function add(name:string){await input("搜尋排課學員",name);await act(async()=>[...host.querySelectorAll("button")].find(el=>el.textContent?.startsWith(name)&&el.textContent?.endsWith("＋"))!.click());}
+async function add(name:string){if(host.querySelector('[aria-label="體驗者 1 姓名"]')){await input("體驗者 1 姓名",name);await input("體驗者 1 手機","0912345678");return;}await input("搜尋排課學員",name);await act(async()=>[...host.querySelectorAll("button")].find(el=>el.textContent?.startsWith(name)&&el.textContent?.endsWith("＋"))!.click());}
 async function finishCheck(){await act(async()=>{await new Promise(resolve=>setTimeout(resolve,150));});}
 async function save(){await finishCheck();const button=[...host.querySelectorAll<HTMLButtonElement>("footer button")].find(el=>el.textContent==="新增")!;expect(button.disabled).toBe(false);await act(async()=>button.click());}
 it("requires assigned learners before course selection and submits each unpaid learner without a capacity input",async()=>{
@@ -41,7 +42,7 @@ it("keeps the assigned draft when switching paths but never sends it with open r
 it("keeps regular and trial learner drafts separately across type changes",async()=>{
  await mount();await add("小安");await select("課程","guitar");await mount({isTrial:true});await add("小明");await select("課程","trial");await mount({isTrial:false});
  expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小安");expect(host.querySelector('[aria-label="排課學員"]')!.textContent).not.toContain("小明");
- await mount({isTrial:true});expect(host.querySelector('[aria-label="排課學員"]')!.textContent).toContain("小明");
+ await mount({isTrial:true});expect(host.querySelector<HTMLInputElement>('[aria-label="體驗者 1 姓名"]')!.value).toBe("小明");
 });
 it("uses the clicked teacher and requires a change when that teacher is unavailable",async()=>{
  await mount({seed:{time:"18:00",roomId:"room",coachId:"other"}});await mode("開放報名");await select("課程","guitar");
@@ -68,7 +69,7 @@ it("does not throw when the date or week count is cleared",async()=>{await mount
 it("updates each trial learner to the selected course's configured fee",async()=>{
  m.options.mockImplementation(async(templateId:string)=>({success:true,cards:[],customers:[{id:"a",name:"小安",phone:"0911111111"}],trialSettings:{enabled:true,price:templateId==="trial"?650:300}}));
  await mount({isTrial:true});await add("小安");await select("課程","trial");await save();
- expect(m.create).toHaveBeenCalledWith(expect.objectContaining({isTrial:true,learners:[{customerId:"a",cardId:null,trialPrice:650}]}));
+ expect(m.create).toHaveBeenCalledWith(expect.objectContaining({isTrial:true,learners:[expect.objectContaining({customerId:null,customerName:"小安",customerPhone:"0912345678",cardId:null,trialPrice:650})]}));
 });
 
 
@@ -85,7 +86,7 @@ it("does not use a plan expiring before the selected class date",async()=>{
  await mount();await add("小安");await select("課程","guitar");expect(host.querySelector<HTMLSelectElement>('[aria-label="小安的方案"]')!.value).toBe("");await save();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({learners:[{customerId:"a",cardId:null}]}));
 });
 it("explains an empty trial catalog and provides a settings link without losing the learner",async()=>{
- await mount({isTrial:true,templates:props.templates.filter(t=>t.id!=="trial")});await add("小安");expect(host.textContent).toContain("尚無可安排的體驗課");expect(host.querySelector<HTMLAnchorElement>('a[href="/dashboard/courses?view=catalog"]')!.target).toBe("_blank");expect(host.textContent).toContain("小安");
+ await mount({isTrial:true,templates:props.templates.filter(t=>t.id!=="trial")});await add("小安");expect(host.textContent).toContain("尚無可安排的體驗課");expect(host.querySelector<HTMLAnchorElement>('a[href="/dashboard/courses?view=catalog"]')!.target).toBe("_blank");expect(host.querySelector<HTMLInputElement>('[aria-label="體驗者 1 姓名"]')!.value).toBe("小安");
 });
 it("summarizes repeat dates and identifies a class ending on the following day",async()=>{
  m.slots.mockResolvedValue({success:true,data:[{time:"23:30",roomId:"room",coachIds:["teacher"]}]});await mount({seed:{time:"23:30",roomId:"room"}});await mode("開放報名");await select("課程","guitar");await input("單次課安排週數","3");
@@ -108,4 +109,11 @@ it("uses the existing display label without repeating the subject or exposing an
 it("provides a qualification settings path when no teachers qualify, keeping the draft",async()=>{
  m.slots.mockResolvedValue({success:true,data:[],unavailable:[{time:"18:00",reason:"沒有符合這門課資格的老師",fixTarget:"teacher"}]});await mount();await add("小安");await select("課程","guitar");
  const link=host.querySelector<HTMLAnchorElement>('a[href="/dashboard/teachers"]')!;expect(link.target).toBe("_blank");expect(host.textContent).toContain("小安");expect(host.querySelector('footer')!.textContent).toContain("沒有符合這門課資格的老師");expect(host.querySelector<HTMLButtonElement>('footer button')!.disabled).toBe(true);expect(m.create).not.toHaveBeenCalled();
+});
+
+it("lists teaching subjects once even when they have multiple tuition versions or no tuition plan",async()=>{
+ await mount({subjects:[{id:"guitar",name:"吉他",isActive:true},{id:"piano",name:"鋼琴",isActive:true}],templates:[...props.templates,{...props.templates[0],id:"second-tuition",name:"個別課 $800 4堂"}]});await mode("開放報名");const choices=Array.from(host.querySelector<HTMLSelectElement>('[aria-label="課程"]')!.options).map(row=>[row.value,row.textContent]);expect(choices).toEqual([["","請選擇課程"],["teaching:guitar","吉他"],["teaching:piano","鋼琴"]]);await select("課程","teaching:piano");await save();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({templateId:"teaching:piano",learners:[]}));
+});
+it("directly enters a new trial participant and sends contact data together with the class",async()=>{
+ await mount({isTrial:true,subjects:[{id:"guitar",name:"吉他",isActive:true}]});expect(host.textContent).not.toContain("建立新學員");expect(host.querySelector('[aria-label="搜尋排課學員"]')).toBeNull();await input("體驗者 1 姓名","新體驗者");await input("體驗者 1 手機","0912345678");await select("課程","teaching-trial:guitar");await save();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({learners:[expect.objectContaining({customerId:null,customerName:"新體驗者",customerPhone:"0912345678",trialPrice:300})]}));
 });

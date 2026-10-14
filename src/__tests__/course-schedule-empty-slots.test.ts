@@ -59,14 +59,14 @@ it("day statistics use visible ownership matches but capacity and hidden slot co
  } finally {await act(async()=>root.unmount());host.remove();}
 });
 
-it("music shares readable white cards, class dots and attendance progress",async()=>{
+it("music fills cards by schedule type while keeping attendance progress",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   const item={...session,endsAt:"2026-10-01T03:30:00Z",isFixed:true,isBiweekly:true,bookings:[{customerId:"learner",customerName:"小安",status:"ATTENDED",bookingKind:"PLAN"}]};
   await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile:"MUSIC",initialResourceView:"room",mode:"week",sessions:[item],onOpenEmpty:vi.fn()})));
   const card=host.querySelector<HTMLButtonElement>('button[data-schedule-card="tracking"]')!;
-  expect(card.className).toContain("bg-white");
+  expect(card.className).toContain("bg-violet-100");
   expect(card.className).not.toContain("border-l-4");
   expect(card.querySelector('[aria-hidden="true"]')?.className).toContain("bg-violet-600");
   expect(card.textContent).toContain("10:00–11:30");

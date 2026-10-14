@@ -3,7 +3,7 @@ import {useEffect,useRef,useState,useTransition} from "react";
 import {loadCourseScheduleEnrollmentOptions,createScheduleCustomer} from "@/server/actions/course-schedule-enrollment";
 import {toLocalDateStr} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPrice?:number};
+export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPrice?:number;participantPhone?:string};
 type Card=Extract<Awaited<ReturnType<typeof loadCourseScheduleEnrollmentOptions>>,{success:true}>["cards"][number];
 export function CourseScheduleLearners({templateId,pointCost,capacity,value,onChange,disabled=false,scope="",occurrenceCount=1,onValidityChange,trialMode=false,canCreateCustomer=false,onPendingChange,onDraftChange,allowDeferred=false,showCapacity=true,useConfiguredTrialPrice=false,scheduleDate}:{scheduleDate?:string;useConfiguredTrialPrice?:boolean;allowDeferred?:boolean;showCapacity?:boolean;onDraftChange?:(dirty:boolean)=>void;onPendingChange?:(pending:boolean)=>void;trialMode?:boolean;canCreateCustomer?:boolean;templateId:string;pointCost:number;capacity:number;value:ScheduleLearner[];onChange:(value:ScheduleLearner[])=>void;disabled?:boolean;scope?:string;occurrenceCount?:number;onValidityChange?:(valid:boolean)=>void}) {
   const resolvedTemplate=useRef<string|null>(null);

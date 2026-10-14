@@ -1,5 +1,7 @@
 "use server";
 
+import {readMusicTeachingItem,musicTeachingQualifications} from "@/server/services/music-teaching-item";
+import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
 import { z } from "zod";
 import { courseManager } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
@@ -36,10 +38,12 @@ export async function getMusicSlotMatches(input: unknown) {
       return { success: false as const, error: "找不到要調整的課，請重新整理" };
     if (source && Math.round((source.endsAt.getTime() - source.startsAt.getTime()) / 60000) !== data.durationMinutes)
       return { success: false as const, error: "課程時長已變更，請重新剪下" };
-    const template = await coursePrisma.courseTemplate.findFirst({ where: { id: data.templateId, storeId }, include:{musicSubject:{select:{isActive:true}}} });
+    const template = musicTeachingSubjectId(data.templateId)?await readMusicTeachingItem(coursePrisma,storeId,data.templateId):await coursePrisma.courseTemplate.findFirst({ where: { id: data.templateId, storeId }, include:{musicSubject:{select:{isActive:true}}} });
     if (!template || (!source && (!template.isActive || template.visibility === "OFF" || template.musicSubject?.isActive===false)))
       return { success: false as const, error: "課程目前不可新增排課" };
 
+    const qualificationIds=template.musicSubjectId?await musicTeachingQualifications(coursePrisma,storeId,template):[data.templateId];
+    const qualifiedFor=(coach:{courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[]})=>coach.courseQualificationsConfirmed&&qualificationIds.some(id=>coach.courseQualifiedTemplateIds.includes(id));
     const series = source && data.scope !== "SINGLE"
       ? await coursePrisma.courseSession.findMany({
           where: { storeId, requestKey: source.requestKey, startsAt: { gte: source.startsAt }, cancelledAt: null },
@@ -128,7 +132,7 @@ export async function getMusicSlotMatches(input: unknown) {
           if (!template.musicSubject && room.capacity !== null && room.capacity < (source?.capacity ?? template.capacity)) continue;
           const coachIds = staff.filter(coach => {
             const unchanged = source?.coachId === coach.id && source.templateId === data.templateId;
-            if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(data.templateId))) return false;
+            if ((!unchanged || coach.courseQualificationsConfirmed) && !qualifiedFor(coach)) return false;
             return validPair(time, room.id, coach.id);
           }).map(coach => coach.id);
           if (coachIds.length) slots.push({ time, roomId: room.id, coachIds, fixedOriginCoachIds:coachIds.filter(coachId=>keepsFixed(room.id,coachId,time)) });
@@ -139,7 +143,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const closing=store.periods.map(p=>minuteOfDay(p.closeTime));
     const firstMinute=Math.min(9*60,...opening);
     const lastMinute=Math.max(22*60,...closing);
-    const qualified=staff.filter(coach=>coach.courseQualificationsConfirmed&&coach.courseQualifiedTemplateIds.includes(data.templateId));
+    const qualified=staff.filter(qualifiedFor);
     const suitableRooms=rooms.filter(room=>!!template.musicSubject||room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
     for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){

@@ -1,4 +1,5 @@
 "use client";
+import {musicScheduleColors} from "@/lib/music-schedule-colors";
 import { courseDisplayText } from "@/lib/course-display-text";
 import styles from "./schedule-layout.module.css";
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
@@ -18,7 +19,7 @@ import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib
 import { getMusicSlotMatches, type MusicSlotMatch } from "@/server/actions/course-slot-matches";
 import { courseAttendanceState } from "@/lib/course-attendance-visual";
 import { scheduleRosterBookings } from "@/lib/course-schedule-counts";
-import { scheduleOnDate, scheduleTotals } from "@/lib/music-schedule-audit";
+import { scheduleOnDate, scheduleTotals, showMoveShadow } from "@/lib/music-schedule-audit";
 
 export type CourseScheduleMode = "month" | "week" | "day";
 
@@ -46,6 +47,7 @@ type Session = {
   scheduleType?: "FIXED" | "SINGLE" | "TRIAL" | "LEGACY";
   isFixed?: boolean;
   isBiweekly?: boolean;
+  rescheduleShadowHidden?:boolean;
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;
@@ -223,7 +225,7 @@ function adaptiveCopy(
   const coach =
     coaches.find((item) => item.id === session.coachId)?.displayName ?? (businessProfile === "MUSIC" ? "未指定老師" : courseDisplayText("未指定教練", businessProfile));
   const room = rooms.find((item) => item.id === session.roomId)?.name ?? "未指定教室";
-  const privateClass = template?.classType === "PRIVATE";
+  const privateClass = template?.classType === "PRIVATE" || businessProfile==="MUSIC"&&session.previewKind!=="RENTAL"&&session.bookings.filter(row=>row.status!=="CANCELLED").length===1;
   const groupClass = template?.classType === "GROUP";
   const customer = firstCustomer(session) || session.previewStudentNames?.join("、") || "";
 
@@ -275,10 +277,12 @@ function SessionCard({
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = session.isTrial || Boolean(templates.find(item=>item.id===session.templateId)?.musicTrialMode);
   const rental = session.previewKind === "RENTAL";
+  const singleMove=moved&&session.rescheduleKind==="SINGLE"&&!session.previewFaded;
+  const cardTone=musicScheduleColors({...session,isFixed:fixed,isTrial:trialClass}).fill;
   const presentation = businessProfile === "MUSIC"
     ? rental ? {label:"空間租借",dot:"bg-pink-500"}
       : trialClass ? {label:"體驗",dot:"bg-orange-500"}
-      : fixed ? {label:session.isBiweekly?"隔週固定":"固定課程",dot:session.isBiweekly?"bg-violet-600":"bg-blue-600"}
+      : fixed&&!singleMove ? {label:session.isBiweekly?"隔週固定":"固定課程",dot:session.isBiweekly?"bg-violet-600":"bg-blue-600"}
       : {label:"單次課程",dot:"bg-emerald-600"}
     : courseClassPresentation(templates.find(item=>item.id===session.templateId)?.classType, trialClass, rental);
   const changed = session.previewKind === "CHANGED";
@@ -306,13 +310,13 @@ function SessionCard({
     ? copy.primary : copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
   const resourceLabel = rental || resourceView === "coach" ? (/教室/.test(copy.room) ? copy.room : `教室 ${copy.room}`) : copy.coach;
-  const musicContext = businessProfile === "MUSIC" ? [teacherState, substitute ? `代課${originalCoach ? ` · 原老師 ${originalCoach}` : ""}` : moved ? "調課" : changed ? "異動" : "", fixed && session.isBiweekly ? "隔週" : fixed && session.previewFrequencyUnknown ? "固定" : "", destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : ""].filter(Boolean).join(" · ") : teacherState;
+  const musicContext = businessProfile === "MUSIC" ? [teacherState, substitute ? `代課${originalCoach ? ` · 原老師 ${originalCoach}` : ""}` : moved ? "調課" : changed ? "異動" : "", fixed && session.isBiweekly ? "隔週" : fixed && session.previewFrequencyUnknown ? "固定" : "", session.previewFaded?"已調":""].filter(Boolean).join(" · ") : teacherState;
   return (
     <button
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-1 focus:ring-primary-300 border-earth-300 bg-white ${session.previewFaded ? "border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-1 focus:ring-primary-300 ${businessProfile==="MUSIC"?cardTone:"border-earth-300 bg-white"} ${session.previewFaded ? "border-dashed opacity-60 [filter:saturate(.35)]" : ""}`}
       data-schedule-card={dense && !brief ? "tracking" : undefined}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${rental ? copy.room : copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
@@ -580,7 +584,8 @@ export function CourseScheduleBoard({
                   })}</div>
                   {shadows.map((session) => {
                     const original = originalPlace(session);
-                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * 96 / 60 - 4) }}>
+                    return original&&showMoveShadow(session,occupiedSessions??sessions) && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * 96 / 60 + 2, height: Math.max(44, sessionDurationMinutes(original) * 96 / 60 - 4) }}>
+                      <div aria-hidden="true" className="absolute inset-0 -z-10 rounded-lg bg-white" />
                       <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
                     </div>;
                   })}
@@ -887,7 +892,7 @@ export function CourseScheduleBoard({
                         : session.coachId === resource.id),
                   );
                    const movedShadows = sessions.filter((session) => {
-                     if (!session.rescheduledFromStartsAt) return false;
+                     if (!session.rescheduledFromStartsAt||!showMoveShadow(session,occupiedSessions??sessions)) return false;
                      if (toLocalDateStr(new Date(session.rescheduledFromStartsAt)) !== selectedDate) return false;
                      if (hhmm(session.rescheduledFromStartsAt).slice(0,2) !== time.slice(0,2)) return false;
                      return resourceView === "room"
@@ -971,8 +976,9 @@ export function CourseScheduleBoard({
                       )}
                       {timelineDense && movedShadows.map((session) => {
                         const original = originalPlace(session);
-                        return original && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(21, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
-                          <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} businessProfile={businessProfile} fixed={session.isFixed} dense resourceView={resourceView} onOpen={() => {}} readOnly />
+                        return original&&showMoveShadow(session,occupiedSessions??sessions) && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: minuteOfDay(hhmm(original.startsAt)) % 60 * hourHeight / 60 + 2, height: Math.max(21, sessionDurationMinutes(original) * hourHeight / 60 - 4) }}>
+                          <div aria-hidden="true" className="absolute inset-0 -z-10 rounded-lg bg-white" />
+                      <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} businessProfile={businessProfile} fixed={session.isFixed} dense resourceView={resourceView} onOpen={() => {}} readOnly />
                         </div>;
                       })}
 

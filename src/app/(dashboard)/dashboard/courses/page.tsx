@@ -110,6 +110,7 @@ export default async function CoursesPage({
     const writable = user.role === "ADMIN" || user.storeId === storeId;
     return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
+  const musicSubjects=businessProfile==="MUSIC"?await coursePrisma.musicSubject.findMany({where:{storeId,isActive:true},select:{id:true,name:true,isActive:true,category:true},orderBy:{name:"asc"}}):[];
   const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
@@ -367,6 +368,7 @@ export default async function CoursesPage({
           ...room,
           uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
         }))}
+        musicSubjects={musicSubjects}
         templates={presentCourseTemplates(templates,await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}),businessProfile==="MUSIC").map(t=>({...t,hasSessions:t._count.sessions>0}))}
         coaches={coaches}
         canCreate={writable}

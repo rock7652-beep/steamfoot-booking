@@ -1,4 +1,5 @@
 "use client";
+import {cardMatchesTeachingItem} from "@/lib/music-teaching-item";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { COURSE_SELF_BOOKING_DISABLED_MESSAGE } from "@/lib/course-self-booking";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
@@ -516,7 +517,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
           !c.expired && !c.closed &&
           c.expiresAt >= s.startsAt &&
           (!c.termSessionIds?.length || c.termSessionIds.includes(s.id)) &&
-          (!c.templateIds.length || c.templateIds.includes(s.templateId)),
+          cardMatchesTeachingItem(c.templateIds,s.templateId,p.templates),
       )
       .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
   const amount = (s: Session, c: CoursePortalData["cards"][number]) =>
@@ -903,8 +904,7 @@ export function CoursePortalClient(serverData: CoursePortalData & { sharedCardSt
   const shop = p.plans.filter(
     (plan) =>
       !session ||
-      !plan.templateIds.length ||
-      plan.templateIds.includes(session.templateId),
+      cardMatchesTeachingItem(plan.templateIds,session.templateId,p.templates),
   );
   const storeInfo = (<>
               <section className="cp-card cp-pad cp-store-info">

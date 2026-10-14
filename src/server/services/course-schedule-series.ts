@@ -107,6 +107,7 @@ export async function materializeCourseScheduleSeries() {
           await reserveScheduledMusicLearner(tx,{storeId:series.storeId,userId:series.createdById,name:"固定課延續"},{sessionId:session.id,customerId:learner.customerId,cardId:learner.cardId??null,requestKey:`schedule:${series.requestKey}:${session.id}:${learner.customerId}`},limits.maxMonthlyBookings);
         }
       }
+      if(series.templateId.startsWith("teaching:")){const created=await tx.courseSession.findMany({where:{storeId:series.storeId,requestKey:series.requestKey,requestIndex:{gte:startIndex}},select:{id:true}});const {captureTeachingTuitionFees}=await import("./music-teaching-item");await captureTeachingTuitionFees(tx,series.storeId,series.requestKey,created.map(row=>row.id));}
       await tx.courseScheduleSeries.update({
         where: { id: series.id },
         data: { generatedThrough: new Date(`${toLocalDateStr(ranges[ranges.length - 1].startsAt)}T00:00:00.000Z`), generationError: null },

@@ -148,9 +148,7 @@ export async function updateCourseRoom(input: unknown) {
       const result = await tx.courseRoom.updateMany({where:{id,storeId},data:fields});
       if (!result.count) throw new AppError("NOT_FOUND","找不到本店教室");
     });
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
-    revalidatePath("/hq/dashboard/courses");
+    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/hq/dashboard/courses");
     revalidatePath("/book");
     return { success: true as const };
   } catch (error) {
@@ -281,6 +279,7 @@ export async function updateCourseSession(input: unknown) {
         if (!session || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與授課人員");
         await assertCourseResources(tx,storeId,{...data,templateId:data.templateId ?? session.templateId},session);
+        if(data.templateId&&data.templateId!==session.templateId){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,data.templateId);}
         const bookings = await tx.courseBooking.findMany({
           where: {
             storeId,
@@ -418,6 +417,7 @@ export async function saveCourseTemplateSettings(input: unknown) {
     const {id, expectedStoreId, requestKey, expectedRevision, ...fields} = courseTemplateSaveInput.parse(input);
     const {storeId} = await writableStore(id ? "booking.update" : "booking.create");
     if (storeId !== expectedStoreId) throw new AppError("CONFLICT", "目前門市已切換，請重新開啟課程設定。");
+    if(id?.startsWith("teaching"))throw new AppError("VALIDATION","教學項目請從教學項目設定修改，不能當作學費方案編輯");
     const rowId = id ?? `template_${createHash("sha256").update(JSON.stringify([storeId,requestKey])).digest("hex")}`;
     const include = {musicSubject:{select:{id:true,name:true,isActive:true}},_count:{select:{sessions:true}}} as const;
     const saved = await courseTransaction(storeId, async tx => {
@@ -452,7 +452,7 @@ export async function createCourseSchedule(input: unknown) {
   try {
     const { user, storeId } = await writableStore();
     const data = courseScheduleInput
-      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
+      .extend({ sourceSessionId: z.string().min(1).optional(), learners:z.array(z.object({customerId:z.string().min(1).max(100).nullable(),participantKey:z.string().uuid().optional(),customerName:z.string().trim().min(1).max(80).optional(),customerPhone:z.string().regex(/^09\d{8}$/).optional(),cardId:z.string().min(1).max(100).nullable(),trialPrice:z.number().int().min(0).max(1000000).optional()})).max(500).default([]) })
       .parse(input);
     const musicScheduling = data.enrollmentMode !== undefined;
     if (musicScheduling) {
@@ -473,19 +473,22 @@ export async function createCourseSchedule(input: unknown) {
       const cards=data.learners.flatMap(row=>row.cardId?[row.cardId]:[]);
       if(new Set(cards).size!==cards.length)throw new AppError("VALIDATION","音樂團體班每位學員須使用自己的方案");
     }
+    const newTrialLearners=data.learners.filter(row=>!row.customerId&&row.customerPhone);
+    if(newTrialLearners.length){await courseManager("customer.create");await courseManager("customer.read");if(!data.isTrial)throw new AppError("VALIDATION","新體驗者請使用體驗課");if(new Set(newTrialLearners.map(row=>row.customerPhone)).size!==newTrialLearners.length)throw new AppError("VALIDATION","同一手機不可重複加入體驗名單");}
     let trialPricing: Awaited<ReturnType<typeof import("@/lib/shop-config").getTrialSettings>> | undefined;
-    if(data.learners.some(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined))){
+    if(data.isTrial||data.learners.some(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined))){
       await courseManager("trial.create");
       const {getTrialSettings}=await import("@/lib/shop-config");
       trialPricing=await getTrialSettings(storeId);
       if(!trialPricing.trialEnabled)throw new AppError("FORBIDDEN","店家體驗功能已關閉");
-      const trialTemplate=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateId,storeId},select:{musicTrialMode:true,musicPricePerLesson:true}});
-      data.learners=data.learners.map(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined)?{...learner,trialPrice:courseTrialPrice(learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
+      const {readTeachingTrialPrice}=await import("@/server/services/music-teaching-item");
+      const trialTemplate=await readTeachingTrialPrice(coursePrisma,storeId,data.templateId);
+      data.learners=data.learners.map(learner=>learner.cardId===null && (!musicScheduling || data.isTrial || learner.trialPrice!==undefined)?{...learner,trialPrice:courseTrialPrice(musicScheduling&&data.isTrial?undefined:learner.trialPrice,trialPricing!,trialTemplate??undefined)}:learner);
     }
     if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
     if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
     if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
-    const enrollmentFingerprint=musicScheduling?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
+    const enrollmentFingerprint=musicScheduling?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice,customerName:row.customerName,customerPhone:row.customerPhone})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
     const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
     let occurrences: ReturnType<typeof buildCourseOccurrences>;
     try {
@@ -506,6 +509,7 @@ export async function createCourseSchedule(input: unknown) {
       `;
         if (!stores.length)
           throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
+        if(musicScheduling){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,data.templateId,trialPricing?.trialDefaultPrice??0);}
         const existing = await tx.courseSession.findMany({
           where: { storeId, requestKey: data.requestKey },
           orderBy: { requestIndex: "asc" },
@@ -663,6 +667,7 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
+        if(musicScheduling)await tx.courseSession.updateMany({where:{storeId,rescheduleShadowHidden:false,rescheduledFromStartsAt:{not:null},OR:occurrences.map(range=>({rescheduledFromStartsAt:{lt:range.endsAt},rescheduledFromEndsAt:{gt:range.startsAt},OR:[{rescheduledFromRoomId:data.roomId},{rescheduledFromCoachId:data.coachId}]}))},data:{rescheduleShadowHidden:true}});
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
@@ -709,6 +714,18 @@ export async function createCourseSchedule(input: unknown) {
           const created=await tx.courseSession.findMany({where:{storeId,requestKey:data.requestKey,cancelledAt:null},orderBy:{requestIndex:"asc"},select:{id:true}});
           if(created.length!==occurrences.length)throw new AppError("CONFLICT","排課結果未完整確認，請重試");
           const {reserveCourseInTransaction}=await import("@/server/services/course-booking");
+          const trialCustomerIds=new Map<string,string>();
+          for(const learner of newTrialLearners){
+            const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
+            const visibility=getManagerCustomerWhere(user.role,user.staffId,storeId);
+            const existing=await tx.$queryRaw<Array<{id:string;assignedStaffId:string|null}>>`SELECT id,"assignedStaffId" FROM "Customer" WHERE "storeId"=${storeId} AND phone=${learner.customerPhone!} AND "mergedIntoCustomerId" IS NULL`;
+            if(existing.length){if(visibility.assignedStaffId&&existing[0].assignedStaffId!==visibility.assignedStaffId)throw new AppError("FORBIDDEN","此手機已有學員，請由有權限人員核對");trialCustomerIds.set(learner.participantKey!,existing[0].id);continue;}
+            if(limits!.maxCustomers!==null){const counts=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "Customer" WHERE "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;if(Number(counts[0].count)>=limits!.maxCustomers)throw new AppError("FORBIDDEN","已達顧客額度上限");}
+            const customerId=`trial:${learner.participantKey}`;
+            await tx.$executeRaw`INSERT INTO "Customer" (id,"storeId",name,phone,"assignedStaffId","updatedAt") VALUES (${customerId},${storeId},${learner.customerName!},${learner.customerPhone!},${typeof visibility.assignedStaffId==="string"?visibility.assignedStaffId:null},NOW())`;
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","storeId",module,summary,"targetType","targetId",action,"afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},${storeId},'COURSE','體驗排課新增學員','Customer',${customerId},'CREATE_CUSTOMER',${JSON.stringify({storeId,name:learner.customerName,phone:learner.customerPhone})}::jsonb,NOW())`;
+            trialCustomerIds.set(learner.participantKey!,customerId);
+          }
           for(const [index,session] of created.entries())for(const learner of data.learners){
             const deferredRegular=musicScheduling&&!data.isTrial&&learner.trialPrice===undefined;
             if(index>0&&learner.cardId===null&&!deferredRegular)continue;
@@ -717,16 +734,16 @@ export async function createCourseSchedule(input: unknown) {
               await reserveScheduledMusicLearner(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId!,cardId:learner.cardId,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId}`},limits!.maxMonthlyBookings);
               continue;
             }
-            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId,customerName:learner.customerName,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId??learner.participantKey}`},limits!.maxMonthlyBookings);
+            await reserveCourseInTransaction(tx,{storeId,userId:user.id,name:user.name??"店長"},{sessionId:session.id,customerId:learner.customerId??trialCustomerIds.get(learner.participantKey!)??null,customerName:learner.customerName,cardId:learner.cardId,trialPrice:learner.cardId===null?learner.trialPrice:undefined,requestKey:`schedule:${data.requestKey}:${session.id}:${learner.customerId??learner.participantKey}`},limits!.maxMonthlyBookings);
           }
         }
+        if(data.templateId.startsWith("teaching:")){const {captureTeachingTuitionFees}=await import("@/server/services/music-teaching-item");await captureTeachingTuitionFees(tx,storeId,data.requestKey);}
         return { count: occurrences.length };
       },
       { timeout: 15000 },
     );
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
-    revalidatePath("/hq/dashboard/courses");
+    kickCoachNotifications(storeId);
+    if(!musicScheduling){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");revalidatePath("/hq/dashboard/courses");}
     const firstSession = await coursePrisma.courseSession.findFirst({
       where: { storeId, requestKey: data.requestKey, cancelledAt: null },
       orderBy: { requestIndex: "asc" },
@@ -776,6 +793,7 @@ export async function moveCourseSessions(input: unknown) {
     const targetStart = parseTaipeiDateTime(d.date, d.time);
     if (!targetStart) throw new AppError("VALIDATION", "請選擇有效時間");
 
+    const musicStore=!!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
     const result = await courseTransaction(storeId, async (tx) => {
       const source = await tx.courseSession.findFirst({
         where: { id: d.id, storeId, cancelledAt: null },
@@ -922,6 +940,7 @@ export async function moveCourseSessions(input: unknown) {
             roomId: d.roomId,
             coachId: d.coachId,
             cancelledAt: null,
+            rescheduleShadowHidden: temporary&&change.session.rescheduledFromStartsAt?change.session.rescheduleShadowHidden:false,
             rescheduledFromStartsAt: temporary
               ? change.session.rescheduledFromStartsAt ?? change.session.startsAt
               : null,
@@ -965,11 +984,12 @@ export async function moveCourseSessions(input: unknown) {
         const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
         if(students.length)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${change.session.id}`,kind:"MOVE",customerName:change.session.nameSnapshot,courseName:change.session.nameSnapshot,coachId:d.coachId,previousCoachId:change.session.coachId,startsAt:change.startsAt,previousStartsAt:change.session.startsAt,affectedCount:students.length,details:{students:students.map(s=>s.customerName)}});
       }
-      return { count: changes.length };
+      if(source.templateId.startsWith("teaching:")){const {captureTeachingTuitionFees}=await import("@/server/services/music-teaching-item");await captureTeachingTuitionFees(tx,storeId,source.requestKey,selectedIds);}
+      const updated=await tx.courseSession.findMany({where:{storeId,id:{in:selectedIds},cancelledAt:null},include:{bookings:true}});
+      return { count: changes.length, sessions:updated.map(session=>({...session,startsAt:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),rescheduledFromStartsAt:session.rescheduledFromStartsAt?.toISOString()??null,rescheduledFromEndsAt:session.rescheduledFromEndsAt?.toISOString()??null,rescheduledAt:session.rescheduledAt?.toISOString()??null,isFixed:session.scheduleType==="FIXED",isBiweekly:session.scheduleFrequency==="BIWEEKLY",bookings:session.bookings.map(booking=>({id:booking.id,customerId:booking.customerId,customerName:booking.customerName,status:booking.status,bookingKind:booking.bookingKind,checkedInAt:booking.checkedInAt?.toISOString()??null}))})) };
     });
 
-    kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
-    revalidatePath("/dashboard");
+    kickCoachNotifications(storeId);if(!musicStore){revalidatePath("/dashboard/courses");revalidatePath("/dashboard");}
     revalidatePath("/book");
     return { success: true as const, data: result };
   } catch (error) {
@@ -1157,6 +1177,7 @@ export async function updateCourseSeries(input: unknown) {
           s.startsAt.getTime() + shift + d.durationMinutes * 60000,
         ),
       }));
+      if(d.templateId&&d.templateId!==source.templateId){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,d.templateId);}
       for (const change of changes) {
         await assertCourseResources(tx,storeId,{...d,templateId:d.templateId ?? change.session.templateId},change.session);
         if (change.session.bookings.some((b) => b.status === "ATTENDED"))
